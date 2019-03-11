@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Wed Nov  7 13:19:15 2018
+!   @Last revision date: Mon Mar 11 19:20:11 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
+!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
 !
 !//////////////////////////////////////////////////////
 !
@@ -780,7 +780,7 @@ contains
 !     Cast MPI faces
 !     --------------
 !
-      call ConstructMPIFaces
+      call ConstructMPIFaces( self % MPIfaces )
       call self % UpdateFacesWithPartition(mpi_partition, &
                                            numberOfAllElements, &
                                            globalToLocalElementID)

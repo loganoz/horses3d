@@ -18,6 +18,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderFAS \
+            ./NavierStokes/CylinderAnisFAS \
             ./NavierStokes/CylinderBR2 \
             ./NavierStokes/CylinderIP \
             ./NavierStokes/CylinderIP_BDF2 \

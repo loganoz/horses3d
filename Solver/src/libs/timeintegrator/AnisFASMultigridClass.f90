@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Fri Jan 25 10:49:02 2019
+!   @Last revision date: Mon Mar 11 19:20:15 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b33ea40370650cafae713e3449326f7245515e5e
+!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
 !
 !//////////////////////////////////////////////////////
 !
@@ -24,6 +24,7 @@ module AnisFASMultigridClass
    use MultigridTypes
    use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep
    use FTValueDictionaryClass , only: FTValueDictionary
+   use MPI_Process_Info       , only: MPI_Process
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -71,6 +72,7 @@ module AnisFASMultigridClass
    integer        :: NMIN           ! Minimum polynomial order allowed
    integer        :: deltaN         !                                         ! TODO: deltaN(3)
    integer        :: nelem          ! Number of elements (this is a p-multigrid implementation)
+   integer        :: num_of_allElems
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
    integer        :: SweepNumPost   ! Number of sweeps post-smoothing
    integer        :: SweepNumCoarse ! Number of sweeps on coarsest level
@@ -181,9 +183,9 @@ module AnisFASMultigridClass
          case('RK3')  ; SmoothIt => TakeRK3Step
          case('SIRK')
             !! SmoothIt => TakeSIRKStep
-            error stop ':: SIRK smoother not implemented yet'
+            error stop ':: AnisFASMultigrid: SIRK smoother not implemented yet'
          case default 
-            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
+            if (MPI_Process %isRoot) write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
             SmoothIt => TakeRK3Step
       end select
       
@@ -248,8 +250,10 @@ module AnisFASMultigridClass
       MGlevels(2)  = MIN(MaxN(2) - NMIN + 1,UserMGlvls)
       MGlevels(3)  = MIN(MaxN(3) - NMIN + 1,UserMGlvls)
       
-      write(STD_OUT,*) 'Constructing anisotropic FAS Multigrid'
-      write(STD_OUT,*) 'Number of levels:', MGlevels
+      if (MPI_Process %isRoot) then
+         write(STD_OUT,*) 'Constructing anisotropic FAS Multigrid'
+         write(STD_OUT,*) 'Number of levels:', MGlevels
+      end if
       
       MGOutput       = controlVariables % logicalValueForKey("multigrid output")
       plotInterval   = controlVariables % integerValueForKey("output interval")
@@ -260,6 +264,7 @@ module AnisFASMultigridClass
       this % MGStorage(3) % p_sem => sem
       
       nelem = SIZE(sem % mesh % elements)  ! Same for all levels (only p-multigrid)
+      num_of_allElems = sem % mesh % no_of_allElements
 !
 !     -----------------------------
 !     Construct linked solvers list
@@ -322,6 +327,8 @@ module AnisFASMultigridClass
       integer, dimension(:), pointer :: N1
       integer, dimension(nelem,3)    :: N2                     !   Order of approximation for every element in child solver
       integer, dimension(3,nelem)    :: N2trans
+      integer, dimension(num_of_allElems) :: N2xAll,N2yAll,N2zAll   !   Order of approximation for every element in child solver
+      integer                        :: globID
       integer                        :: i,j,k, iEl             !   Counter
       logical                        :: success                ! Did the creation of sem succeed?
       type(DGSem)             , pointer :: p_sem
@@ -419,29 +426,41 @@ module AnisFASMultigridClass
 !
          allocate (Child_p % MGStorage(Dir) % p_sem)
          
-!<New
-         ! Copy the sem
-         Child_p % MGStorage(Dir) % p_sem = Solver % MGStorage(Dir) % p_sem
+!~!<New
+!~         ! Copy the sem
+!~         Child_p % MGStorage(Dir) % p_sem = Solver % MGStorage(Dir) % p_sem
          
-         ! Mark the mesh as a child mesh
-         Child_p % MGStorage(Dir) % p_sem % mesh % child = .TRUE. 
+!~         ! Mark the mesh as a child mesh
+!~         Child_p % MGStorage(Dir) % p_sem % mesh % child = .TRUE. 
          
-         ! Adapt the mesh to the new polynomial orders
-         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
-         N2trans = transpose(N2)
-         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
-         call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
-!New>
+!~         ! Adapt the mesh to the new polynomial orders
+!~         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+!~         N2trans = transpose(N2)
+!~         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
+!~         call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
+!~!New>
 
 !<old
-!~         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
-!~         call Child_p % MGStorage(Dir) % p_sem % construct &
-!~                                          (controlVariables  = controlVariables,                                         &
-!~                                           Nx_ = N2(:,1),    Ny_ = N2(:,2),    Nz_ = N2(:,3),                            &
-!~                                           success = success,                                                            &
-!~                                           ChildSem = .TRUE. )
+         N2xAll = 0
+         N2yAll = 0
+         N2zAll = 0
          
-!~         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         N2trans = transpose(N2)
+         do k=1, nelem
+            globID = Solver % MGStorage(Dir) % p_sem % mesh % elements(k) % globID
+            N2xAll( globID ) = N2trans(1,k)
+            N2yAll( globID ) = N2trans(2,k)
+            N2zAll( globID ) = N2trans(3,k)
+         end do
+         
+         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+         call Child_p % MGStorage(Dir) % p_sem % construct &
+                                          (controlVariables  = controlVariables,                                         &
+                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
+                                           success = success,                                                            &
+                                           ChildSem = .TRUE. )
+         
+         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
 !old>
          
          if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .FALSE.
@@ -463,11 +482,12 @@ module AnisFASMultigridClass
       real(kind=RP)                    , intent(in)    :: t          !<  Current simulation time
       procedure(ComputeTimeDerivative_f)                       :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f), optional             :: ComputeTimeDerivativeIsolated
-      type(TruncationError_t), optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
+      type(TruncationError_t), target, optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
       !-------------------------------------------------
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
+      type(TruncationError_t), pointer        :: TE_p(:) => null()
       !-------------------------------------------------
       
 !
@@ -477,6 +497,7 @@ module AnisFASMultigridClass
 !
       if (PRESENT(TE)) then
          EstimateTE = .TRUE.
+         TE_p => TE
          if (present(TEType)) then
             call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          else ! using NON_ISOLATED_TE by default
@@ -495,7 +516,7 @@ module AnisFASMultigridClass
 !     ---------------------------------------------------------
 !
       do Dir = 1, 3
-         call FASVCycle(this,t,MGlevels(Dir),Dir,TE, ComputeTimeDerivative)
+         call FASVCycle(this,t,MGlevels(Dir),Dir,TE_p, ComputeTimeDerivative)
       end do
       
       !! Finish up
