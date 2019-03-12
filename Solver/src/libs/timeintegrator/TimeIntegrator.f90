@@ -33,6 +33,7 @@
       use ProblemFileFunctions            , only: UserDefinedPeriodicOperation_f
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_UNSTEADY_TIME
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
+      use MultiTauEstimationClass         , only: MultiTauEstim_t
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -45,6 +46,7 @@
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
          type(pAdaptation_t)                    :: pAdaptator
+         type(MultiTauEstim_t)                  :: TauEstimator
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========         
@@ -82,11 +84,12 @@
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE constructTimeIntegrator(self,controlVariables, initial_iter, initial_time)
+      SUBROUTINE constructTimeIntegrator(self,controlVariables, sem, initial_iter, initial_time)
       
          IMPLICIT NONE
          CLASS(TimeIntegrator_t)     :: self
          TYPE(FTValueDictionary)     :: controlVariables
+         type(DGSem)                 :: sem
          integer                     :: initial_iter
          real(kind=RP)               :: initial_time
 !
@@ -157,6 +160,9 @@
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
          
+         
+         call self % TauEstimator % construct(controlVariables, sem)
+         
       END SUBROUTINE constructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
@@ -168,6 +174,8 @@
          self % dt           = 0.0_RP
          
          if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
+         
+         call self % TauEstimator % destruct
       END SUBROUTINE destructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
@@ -465,6 +473,7 @@
          IF( self % pAdaptator % hasToAdapt(k+1) ) then
             call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
+         call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !        Autosave
 !        --------         

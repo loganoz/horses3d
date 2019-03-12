@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Tue Oct 30 18:24:03 2018
+!   @Last revision date: Tue Mar 12 15:43:40 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
+!   @Last revision commit: 321880e2a7ff1c1a96d33bc8e5d9cc0ccdb4ef05
 !
 !//////////////////////////////////////////////////////
 !
@@ -105,10 +105,10 @@ module TruncationErrorClass
 !  ----------------------------------------------------------------------
 !  Subroutine that destructs the variable that stores tau in one element
 !  ----------------------------------------------------------------------
-   subroutine DestructTruncationError(TE)
+   elemental subroutine DestructTruncationError(TE)
       implicit none
       !------------------------------------------
-      class(TruncationError_t) :: TE     !<> Variable that stores the truncation error
+      class(TruncationError_t), intent(inout) :: TE     !<> Variable that stores the truncation error
       !------------------------------------------
       
       deallocate (TE % Dir(1) % maxTE)
