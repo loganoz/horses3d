@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Feb 12 10:22:12 2019
+!   @Last revision date: Tue Mar 19 19:41:28 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
+!   @Last revision commit: 20a593ec2924ad87238d7e1f2dc7e0daf72d758c
 !
 !//////////////////////////////////////////////////////
 !
@@ -69,6 +69,7 @@ module StorageClass
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
+      real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
 !
 !     Pointers to face Jacobians
@@ -792,6 +793,9 @@ module StorageClass
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
+         
+         ! TODO: if implicit...
+         allocate( self % dF_dgradQ( NNS, NNS, NDIM, NDIM, 0:Nx, 0:Ny, 0:Nz ) )
 !
 !        Point to NS by default
 !        ----------------------
@@ -959,6 +963,7 @@ module StorageClass
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)
          safedeallocate(self % mu_art)
+         safedeallocate(self % dF_dgradQ)
          
          nullify ( self % dfdq_fr )
          nullify ( self % dfdq_ba )

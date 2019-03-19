@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Thu Feb 14 16:16:40 2019
+!   @Last revision date: Tue Mar 19 19:41:31 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
+!   @Last revision commit: 20a593ec2924ad87238d7e1f2dc7e0daf72d758c
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,9 @@ module AnalyticalJacobian
    use ElementConnectivityDefinitions  , only: axisMap, normalAxis
    use BoundaryConditions              , only: BCs
    use FaceClass                       , only: Face
+#if defined(NAVIERSTOKES)
+   use VariableConversion              , only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
+#endif
    implicit none
    
    private
@@ -137,6 +140,13 @@ contains
       call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
+!
+!     ******************************************************************
+!     If the physics has an elliptic component, compute the DG gradients
+!     -> This routine also projects the appropriate grads to the faces
+!     ******************************************************************
+!
+      if (flowIsNavierStokes) call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
 !
 !     **************************************************
 !     Compute the Jacobian of the Numerical Flux (FStar)
@@ -323,7 +333,6 @@ contains
       !--------------------------------------------
       
       call mesh % ProlongSolutionToFaces(NCONS)
-      if (flowIsNavierStokes) call mesh % ProlongGradientsToFaces(NGRAD)
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
@@ -525,7 +534,6 @@ contains
       !-------------------------------------------
       real(kind=RP) :: MatEntry
       real(kind=RP) :: dFdQ      (NCONS,NCONS,     0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3),NDIM)
-      real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
       integer :: i, j             ! Matrix indices
       integer :: r                ! Additional index for counting
       integer :: i1, j1, k1, eq1  ! variable counters
@@ -534,8 +542,9 @@ contains
       integer :: EtaSpa, ZetaSpa  ! Spacing for these two coordinate directions
       real(kind=RP) :: di, dj, dk ! Kronecker deltas
       integer :: Deltas           ! A variable to know if enough deltas are zero, in which case this is a zero entry of the matrix..
-      real(kind=RP), dimension(:,:,:,:)    , pointer :: dfdq_fr, dfdq_ba, dfdq_bo, dfdq_to, dfdq_le, dfdq_ri
-      real(kind=RP), dimension(:,:,:,:,:,:), pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
+      real(kind=RP), dimension(:,:,:,:)      , pointer :: dfdq_fr, dfdq_ba, dfdq_bo, dfdq_to, dfdq_le, dfdq_ri
+      real(kind=RP), dimension(:,:,:,:,:,:)  , pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
+      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer :: dF_dgradQ
       real(kind=RP) :: nF( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for FRONT  face
       real(kind=RP) :: nB( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for BACK   face
       real(kind=RP) :: nO( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Normal vecs for BOTTOM face
@@ -559,6 +568,8 @@ contains
       
       a_plus  = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
       a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+      
+      dF_dgradQ => e % storage % dF_dgradQ
       
 !     Get normal vectors in element indexing
 !     --------------------------------------      
@@ -856,6 +867,8 @@ contains
          nullify (dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le )
       end if
       
+      nullify(dF_dgradQ)
+      
    end subroutine Local_SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -874,12 +887,13 @@ contains
       type(Face), target, intent(in)    :: f       !<  Face connecting elements
       type(Element)     , intent(in)    :: e_plus  !<  The off-diagonal block is the contribution to this element's equations
       type(Element)     , intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
-      integer           , intent(in)    :: side    !<  side of face where element (1) is
+      integer           , intent(in)    :: side    !<  side of face where e_plus is
       class(Matrix_t)   , intent(inout) :: Matrix  !<> Jacobian matrix
       !-local-variables----------------------------------------------------------------
       integer :: i, j                     ! Matrix indexes
       integer :: i1, j1, k1, eq1          ! variable counters
       integer :: i2, j2, k2, eq2          ! variable counters
+      integer :: r                        ! Additional index for counting in the normal direction (only needed for viscous fluxes)
       integer :: nXi1, nEta1              ! Number of nodes in every direction
       integer :: EtaSpa1, ZetaSpa1        ! Spacing for these two coordinate directions
       integer :: nXi2, nEta2              ! Number of nodes in every direction
@@ -903,7 +917,10 @@ contains
       integer :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
       integer :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       integer :: Deltas                   ! Number of Kronecker deltas /= 0
-      real(kind=RP) :: MatrixEntry        ! Value of the matrix entry
+      integer :: elInd_plus_norm(3)       ! Element indexes on e⁺, but the index in the normal direction has been replaced by a specified value "r"
+      integer :: elInd_plus_tan1(3)       ! Element indexes on e⁺, but the index in the first tangent direction has been replaced by the index on e⁻ (in the reference frame of e⁺)
+      integer :: elInd_plus_tan2(3)       ! Element indexes on e⁺, but the index in the second tangent direction has been replaced by the index on e⁻ (in the reference frame of e⁺)
+      real(kind=RP) :: MatEntry           ! Value of the matrix entry
       type(NodalStorage_t), target  :: spA_plus (3)      ! Nodal storage in the different directions for e_plus  - local copy
       type(NodalStorage_t), target  :: spA_minus(3)      ! Nodal storage in the different directions for e_minus - local copy
       type(NodalStorage_t), pointer :: spAnorm_plus      ! Nodal storage in the direction that is normal to the face for e⁺
@@ -913,7 +930,14 @@ contains
       type(NodalStorage_t), pointer :: spAtan1_minus     ! Nodal storage in the tangent direction "1" to the face for e⁻ (only needed for viscous fluxes)
       type(NodalStorage_t), pointer :: spAtan2_minus     ! Nodal storage in the tangent direction "2" to the face for e⁻ (only needed for viscous fluxes)
       real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
-      real(kind=RP)       , pointer :: dfdGradQ(:,:,:,:,:,:)
+      real(kind=RP)       , pointer :: df_dGradQ_f(:,:,:,:,:,:)   ! Pointer to the Jacobian with respect to gradQ on face
+      real(kind=RP)       , pointer :: df_dGradQ_e(:,:,:,:,:,:,:) ! Pointer to the Jacobian with respect to gradQ on face
+      real(kind=RP) :: a_minus
+      real(kind=RP) :: normAux
+      real(kind=RP) :: Gvec_norm(3)       ! Auxiliar vector containing values of dFv_dgradQ in the direction normal to the face
+      real(kind=RP) :: Gvec_tan1(3)       ! Auxiliar vector containing values of dFv_dgradQ in the first tangent direction to the face
+      real(kind=RP) :: Gvec_tan2(3)       ! Auxiliar vector containing values of dFv_dgradQ in the second tangent direction to the face
+      real(kind=RP), allocatable :: nHat(:,:,:)
       !--------------------------------------------------------------------------------
       
 !
@@ -921,6 +945,8 @@ contains
 !     Definitions
 !     ***********
 !
+      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+      
       ! Entry spacing for element e⁺
       nXi1     = e_plus % Nxyz(1) + 1
       nEta1    = e_plus % Nxyz(2) + 1
@@ -972,6 +998,11 @@ contains
       NxyFace_plus  = e_plus  % Nxyz ( tanAx_plus  )
       NxyFace_minus = e_minus % Nxyz ( tanAx_minus )
       
+!     Get normal vectors in right element indexing (e⁻)
+!     -------------------------------------------------
+      allocate ( nHat(3,0:NxyFace_minus(1),0:NxyFace_minus(2)) )
+      call AnJac_GetNormalVec(f, other(side), nHat)
+      
 !
 !     *********************
 !     Inviscid contribution
@@ -1000,12 +1031,12 @@ contains
             i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
             j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
             
-            MatrixEntry = -   dfdq(eq1,eq2,faceInd_plus(1),faceInd_plus(2)) &
+            MatEntry = -   dfdq(eq1,eq2,faceInd_plus(1),faceInd_plus(2)) &
                             * spAnorm_plus  % b(elInd_plus ( normAx_plus  ), normAxSide_plus ) &
                             * spAnorm_minus % v(elInd_minus( normAx_minus ), normAxSide_minus )  & 
                             * e_plus % geom % invJacobian(i1,j1,k1)
             
-            call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+            call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntry)
          end do                ; end do                ; end do                ; end do
       end do                ; end do                ; end do                ; end do
       nullify(dfdq)
@@ -1018,8 +1049,8 @@ contains
 !
 !        Pointers to the flux Jacobians with respect to grad(q) on the faces
 !        -------------------------------------------
-         dfdGradQ(1:,1:,1:,1:,0:,0:) => f % Storage(side) % dFv_dGradQEl (1:,1:,1:,1:,0:,0:, other(side) )
-         
+         df_dGradQ_f(1:,1:,1:,1:,0:,0:)    => f % Storage(side) % dFv_dGradQEl (1:,1:,1:,1:,0:,0:, other(side) )
+         df_dGradQ_e(1:,1:,1:,1:,0:,0:,0:) => e_plus % storage  % dF_dGradQ    (1:,1:,1:,1:,0:,0:,0:)
          do k2 = 0, e_minus % Nxyz(3) ; do j2 = 0, e_minus % Nxyz(2) ; do i2 = 0, e_minus % Nxyz(1) ; do eq2 = 1, NCONS 
             do k1 = 0, e_plus % Nxyz(3) ; do j1 = 0, e_plus % Nxyz(2) ; do i1 = 0, e_plus % Nxyz(1) ; do eq1 = 1, NCONS 
                
@@ -1031,6 +1062,12 @@ contains
                
                call indexesOnOtherFace(faceInd_plus (1),faceInd_plus (2), NxyFace_plus (1),NxyFace_plus (2), f % rotation, side       , faceInd_plus2minus(1),faceInd_plus2minus(2))
                call indexesOnOtherFace(faceInd_minus(1),faceInd_minus(2), NxyFace_minus(1),NxyFace_minus(2), f % rotation, other(side), faceInd_minus2plus(1),faceInd_minus2plus(2))
+               
+               elInd_plus_tan1 = elInd_plus
+               elInd_plus_tan1(tanAx_plus(1)) = faceInd_minus2plus(1)
+               
+               elInd_plus_tan2 = elInd_plus
+               elInd_plus_tan2(tanAx_plus(2)) = faceInd_minus2plus(2)
                
 !              Delta computation on "plus" side (used for delta cycling)
 !              ---------------------------------------------------------
@@ -1070,50 +1107,84 @@ contains
                i = eq1 + i1*NCONS + j1*EtaSpa1 + k1*ZetaSpa1 ! row index (1-based)
                j = eq2 + i2*NCONS + j2*EtaSpa2 + k2*ZetaSpa2 ! column index (1-based)
                
-               MatrixEntry = &
-!~!
-!~!              Faces contribution (surface integrals from the inner equation)
-!~!              ***********************************************|**************
-!~!                                                      _______|
-!~!                                                      |
-!~                 +(-   dfdGradQ(eq1,eq2,tanAx_plus(1) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-!~                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
-!~                     * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))              &
-!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2         & ! Tangent direction 1
+!              Get NORMAL auxiliar term
+!              ------------------------
+               normAux = 0._RP
+               if (dtan1*dtan2 > 0.5_RP) then
+                  do r=0, e_plus  % Nxyz ( normAx_plus  )
                      
-!~                   -   dfdGradQ(eq1,eq2, normAx_plus  ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus )  &
-!~                     * spAnorm_plus  % bd  (elInd_plus ( normAx_plus  ), normAxSide_plus  ) * dtan1 * dtan2 & ! Normal direction
-                   
-!~                   -   dfdGradQ(eq1,eq2,tanAx_plus(2) ,1,faceInd_minus2plus(1),faceInd_minus2plus(2))        &
-!~                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )  &
-!~                     * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))              &
-!~                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1         & ! Tangent direction 2
+                     elInd_plus_norm = elInd_plus
+                     elInd_plus_norm(normAx_plus) = r
+                     
+                     Gvec_norm = [df_dGradQ_e(eq1,eq2,1,normAx_plus,elInd_plus_norm(1),elInd_plus_norm(2),elInd_plus_norm(3)), &
+                                  df_dGradQ_e(eq1,eq2,2,normAx_plus,elInd_plus_norm(1),elInd_plus_norm(2),elInd_plus_norm(3)), &
+                                  df_dGradQ_e(eq1,eq2,3,normAx_plus,elInd_plus_norm(1),elInd_plus_norm(2),elInd_plus_norm(3))  ]
+                     
+                     normAux  = normAux  + &
+                                e_plus % geom % invJacobian(elInd_plus_norm(1),elInd_plus_norm(2),elInd_plus_norm(3)) &
+                              * spAnorm_plus  % hatD(elInd_plus ( normAx_plus  ),r) &
+                              * spAnorm_plus  % b(r,normAxSide_plus ) &
+                              * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus) &
+                              * dot_product( Gvec_norm , nHat(:,faceInd_minus(1),faceInd_minus(2)) )
+                  end do
+                  normAux = normAux * a_minus
+               end if
+               
+               Gvec_tan1 = [df_dGradQ_e(eq1,eq2,1,tanAx_plus(1),elInd_plus_tan1(1),elInd_plus_tan1(2),elInd_plus_tan1(3)), &
+                            df_dGradQ_e(eq1,eq2,2,tanAx_plus(1),elInd_plus_tan1(1),elInd_plus_tan1(2),elInd_plus_tan1(3)), &
+                            df_dGradQ_e(eq1,eq2,3,tanAx_plus(1),elInd_plus_tan1(1),elInd_plus_tan1(2),elInd_plus_tan1(3))  ]
+               Gvec_tan2 = [df_dGradQ_e(eq1,eq2,1,tanAx_plus(2),elInd_plus_tan2(1),elInd_plus_tan2(2),elInd_plus_tan2(3)), &
+                            df_dGradQ_e(eq1,eq2,2,tanAx_plus(2),elInd_plus_tan2(1),elInd_plus_tan2(2),elInd_plus_tan2(3)), &
+                            df_dGradQ_e(eq1,eq2,3,tanAx_plus(2),elInd_plus_tan2(1),elInd_plus_tan2(2),elInd_plus_tan2(3))  ]
+               
+               MatEntry = 0._RP
 !
+!              Volumetric contribution (inner fluxes)
+!              **************************************
+!                    Normal direction:
+               MatEntry = MatEntry + dtan1 * dtan2 * normAux
+!~!                    Tangent direction 1:
+               MatEntry = MatEntry + dtan2 * a_minus                                                           &
+                     * e_plus % geom % invJacobian(elInd_plus_tan1(1),elInd_plus_tan1(2),elInd_plus_tan1(3))   &
+                     * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))                             &
+                     * spAnorm_plus  % b(elInd_plus ( normAx_plus  ),normAxSide_plus )                         &
+                     * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
+                     * dot_product( Gvec_tan1 , nHat(:,faceInd_minus(1),faceInd_minus(2)) ) 
+!                    Tangent direction 2:
+               MatEntry = MatEntry + dtan1 * a_minus                                                           &
+                     * e_plus % geom % invJacobian(elInd_plus_tan2(1),elInd_plus_tan2(2),elInd_plus_tan2(3))   &
+                     * spAtan2_plus  % hatD(faceInd_plus(2),faceInd_minus2plus(2))                             &
+                     * spAnorm_plus  % b(elInd_plus ( normAx_plus  ),normAxSide_plus )                         &
+                     * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
+                     * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
+!~!
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
 !                 The tangent directions here are taken in the|reference frame of e⁻
 !              ***********************************************|*********************
-!                                                      _______|
-!                                                      |
-                 +(+   dfdGradQ(eq1,eq2,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
-                     * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1)) &
-                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2_minus                  &  ! Tangent direction 1
+!                                                         ____|
+!                                                         |
+               MatEntry = MatEntry &
+                   +   df_dGradQ_f(eq1,eq2,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2))                               &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
+                     * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1))                                     &
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2_minus               & ! Tangent direction 1
                      
-                   +   dfdGradQ(eq1,eq2, normAx_minus ,2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
-                     * spAnorm_minus % vd  (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus * dtan2_minus    & ! Normal direction
+                   +   df_dGradQ_f(eq1,eq2, normAx_minus ,2,faceInd_plus(1),faceInd_plus(2))                               &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
+                     * spAnorm_minus % vd  (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus * dtan2_minus & ! Normal direction
                      
-                   +   dfdGradQ(eq1,eq2,tanAx_minus(2),2,faceInd_plus(1),faceInd_plus(2)) &
-                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  ) &
-                     * spAtan2_minus % D   (faceInd_plus2minus(2),faceInd_minus(2)) &
-                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus                  & ! Tangent direction 2
-                                                                                    ) * e_plus % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
-                   
-               call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatrixEntry)
+                   +   df_dGradQ_f(eq1,eq2,tanAx_minus(2),2,faceInd_plus(1),faceInd_plus(2))                               &
+                     * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
+                     * spAtan2_minus % D   (faceInd_plus2minus(2),faceInd_minus(2))                                     &
+                     * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus                 ! Tangent direction 2 
+               
+               MatEntry = MatEntry * e_plus % geom % invJacobian(i1,j1,k1) ! Scale with Jacobian from mass matrix
+               
+               call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntry)
             end do                ; end do                ; end do                ; end do
          end do                ; end do                ; end do                ; end do
-         nullify(dfdGradQ)
+         nullify(df_dGradQ_f)
+         nullify(df_dGradQ_e)
       end if
 !
 !     *********

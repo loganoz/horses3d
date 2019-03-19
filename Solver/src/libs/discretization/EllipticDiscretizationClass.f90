@@ -183,7 +183,7 @@ module EllipticDiscretizationClass
 !     -> Jacobian with respect to ∇q: a 4th order tensor of the form
 !        df_dgradq (:,:,:,:,i,j,k)
 !                   |_| | | |_|_| 
-!                    |  | |  |    flux direction: f(1), g(2), h(3)
+!                    |  | |  |
 !                    |  | |  |____Coordinate indexes in element 
 !                    |  | |_______dim: flux direction: f(1), g(2), h(3) [first  index of \tilde{G} matrix]
 !                    |  |_________∇q component: 1, 2, 3                 [second index of \tilde{G} matrix]
@@ -215,8 +215,7 @@ module EllipticDiscretizationClass
          integer :: i,j,k     ! Coordinate counters
          integer :: i1, i2    ! Index of G_xx
          !--------------------------------------------
-!~         call e % ComputeLocalGradient(NCONS, NGRAD, NSGradientValuesForQ_3D)
-            
+         
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             
             call ViscousJacobian ( Q   = e % storage % Q  (:,i,j,k), &
