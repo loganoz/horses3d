@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Fri Jan 25 10:49:03 2019
+!   @Last revision date: Mon Mar 25 10:51:20 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b33ea40370650cafae713e3449326f7245515e5e
+!   @Last revision commit: 0832a8c34faff5d5b70fb77eac7ecb84ef0f30b9
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,7 +30,7 @@ module pAdaptationClass
    use ElementClass
    use ElementConnectivityDefinitions  , only: axisMap
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
-   use TruncationErrorClass
+   use TruncationErrorClass            , only: NMINest, TruncationError_t, ISOLATED_TE, NON_ISOLATED_TE, GenerateExactTEmap
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
    use FileReadingUtilities            , only: RemovePath, getFileName, getIntArrayFromString, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
@@ -42,17 +42,18 @@ module pAdaptationClass
    use ReadMeshFile                    , only: NumOfElemsFromMeshFile
    use ExplicitMethods                 , only: TakeRK3Step
    use InterpolationMatrices           , only: Interp3DArrays
+   use MultiTauEstimationClass         , only: MultiTauEstim_t
    implicit none
    
 #include "Includes.h"
    private
    public GetMeshPolynomialOrders, ReadOrderFile
-   public pAdaptation_t, ADAPT_UNSTEADY_TIME
+   public pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
    
    
-   integer, parameter :: ADAPT_STEADY = 0
-   integer, parameter :: ADAPT_UNSTEADY_ITER = 1
-   integer, parameter :: ADAPT_UNSTEADY_TIME = 2
+   integer, parameter :: ADAPT_STATIC = 0
+   integer, parameter :: ADAPT_DYNAMIC_ITER = 1
+   integer, parameter :: ADAPT_DYNAMIC_TIME = 2
    integer, parameter :: NO_ADAPTATION = 3
    integer, parameter :: MAX_STEPS_SMOOTHING = 1000
    
@@ -86,13 +87,18 @@ module pAdaptationClass
    type :: pAdaptation_t
       character(len=LINE_LENGTH)        :: solutionFileName                ! Name of file for plotting adaptation information
       real(kind=RP)                     :: reqTE                           ! Requested truncation error
-      logical                           :: RegressionFiles = .FALSE.       ! Write regression files?
+      real(kind=RP)                     :: reqTEc                          ! Requested truncation error for coarsening
+      logical                           :: TEFiles = .FALSE.               ! Write truncation error files?
       logical                           :: saveGradients                   ! Save gradients in pre-adapt and p-adapted solution files?
       logical                           :: Adapt                           ! Is the adaptator going to be used??
       logical                           :: increasing      = .FALSE.       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
       logical                           :: restartFiles    = .FALSE.
       logical                           :: UnSteady
+      logical                           :: ErrorEstimFromFiles = .FALSE.   ! Read error estimation from files?
+      character(len=LINE_LENGTH)        :: EstimFilesName
+      integer                           :: EstimFilesNumber(2)
+      type(MultiTauEstim_t)             :: MultiTauEstim
       integer                           :: NxyzMax(3)                      ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType                  ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
       integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
@@ -140,7 +146,6 @@ module pAdaptationClass
 !  ----------------
 !
    integer    :: NMIN(NDIM) = 1
-   integer    :: NMINest    = 1     ! Minimum polynomil order used for estimation 
    integer    :: NInc_0     = 4
 !!    integer               :: dN_Inc = 3 
    integer    :: fN_Inc = 2
@@ -469,9 +474,9 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod
-      logical      , allocatable     :: R_increasing, regressionFiles, reorganize_z, R_restart
-      real(kind=RP), allocatable     :: TruncError, R_pSmoothing
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
+      logical      , allocatable     :: R_increasing, R_TEFiles, reorganize_z, R_restart
+      real(kind=RP), allocatable     :: TruncError, R_pSmoothing, R_cTruncError
       ! Extra vars
       integer                        :: i      ! Element counter
       integer                        :: no_of_overen_boxes
@@ -486,7 +491,7 @@ readloop:do
          return
       end if
       
-      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
+      nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )  ! THIS DOES NOT WORK IN PARALLEL!!!
 !
 !     **************************************************
 !     * p-adaptation is defined - Proceed to construct *     
@@ -502,7 +507,8 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "conforming boundaries"  , confBoundaries     , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "increasing"             , R_increasing       , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "truncation error"       , TruncError         , in_label , "# end" )
-      call readValueInRegion ( trim ( paramFile )  , "regression files"       , regressionFiles    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "coarse truncation error", R_cTruncError      , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "write error files"      , R_TEFiles          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "adjust nz"              , reorganize_z       , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin             , in_label , "# end" )
@@ -514,6 +520,8 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "restart files"          , R_restart          , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "post smoothing residual", R_pSmoothing       , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "post smoothing method"  , R_pSmoothingMethod , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "estimation files"       , R_EstimFiles       , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "estimation files number", R_EstimFilesNum    , in_label , "# end" )
       
 !     Conforming boundaries?
 !     ----------------------
@@ -537,11 +545,19 @@ readloop:do
       else
          ERROR STOP 'A truncation error must be specified for p-adapt'
       end if
+
+!     Truncation error threshold for coarsening
+!     -----------------------------------------
+      if ( allocated(R_cTruncError) ) then
+         this % reqTEc = R_cTruncError
+      else
+         this % reqTEc = this % reqTE
+      end if
       
-!     Regression files?
-!     -----------------
-      if ( allocated(regressionFiles) ) then
-         this % RegressionFiles = regressionFiles
+!     Write truncation error files?
+!     -----------------------------
+      if ( allocated(R_TEFiles) ) then
+         this % TEFiles = R_TEFiles
       end if
       
 !     Adjust Nz?
@@ -597,19 +613,19 @@ readloop:do
 !     Adaptation mode: Steady(default) or unsteady
 !     --------------------------------------------
       
-      if ( R_mode == "" ) R_mode = "steady"
+      if ( R_mode == "" ) R_mode = "static"
       select case ( trim(R_mode) )
          case ("time")
-            this % adaptation_mode = ADAPT_UNSTEADY_TIME
+            this % adaptation_mode = ADAPT_DYNAMIC_TIME
             this % time_interval   = GetRealValue(R_interval)
             this % iter_interval   = huge(this % iter_interval)
             this % nextAdaptationTime = t0   ! + this % time_interval
          case ("iteration")
-            this % adaptation_mode = ADAPT_UNSTEADY_ITER
+            this % adaptation_mode = ADAPT_DYNAMIC_ITER
             this % time_interval   = huge(this % time_interval)
             this % iter_interval   = GetIntValue(R_interval)
-         case ("steady")
-            this % adaptation_mode = ADAPT_STEADY
+         case ("static")
+            this % adaptation_mode = ADAPT_STATIC
             this % time_interval   = huge(this % time_interval)
             this % iter_interval   = huge(this % iter_interval)
          case default
@@ -665,6 +681,21 @@ readloop:do
          end if
       end if
       
+!     Truncation error estimation in files
+!     ------------------------------------
+      if ( R_EstimFiles /= "" ) then
+         this % ErrorEstimFromFiles = .TRUE.
+         this % EstimFilesName = trim (R_EstimFiles)
+         
+         if ( R_EstimFilesNum == "" ) then
+            ERROR stop 'pAdaptation :: The user must provide the file numbers to read the tau-estimation'
+         end if
+         
+         this % EstimFilesNumber = getIntArrayFromString(R_EstimFilesNum)
+         
+         call this % MultiTauEstim % constructForPAdaptator ( this % TruncErrorType, this % NxyzMax, nelem, this % EstimFilesName )
+      end if
+      
 !     Check replaceable control variables
 !     -----------------------------------
       call ReplacedVariables % initWithSize(16)
@@ -688,7 +719,7 @@ readloop:do
       
       allocate (this % TE(nelem))
       do i = 1, nelem
-         call this % TE(i) % construct(NMINest,this % NxyzMax)
+         call this % TE(i) % construct(this % NxyzMax)
       end do
       
       
@@ -717,17 +748,17 @@ readloop:do
       
       select case (this % adaptation_mode)
          
-         case (ADAPT_STEADY)
+         case (ADAPT_STATIC)
             hasToAdapt = .FALSE.
             
-         case (ADAPT_UNSTEADY_ITER)
+         case (ADAPT_DYNAMIC_ITER)
             if ( (mod(iter, this % iter_interval) == 0) .or. (iter == 1) ) then
                hasToAdapt = .TRUE.
             else
                hasToAdapt = .FALSE.
             end if
             
-         case (ADAPT_UNSTEADY_TIME)
+         case (ADAPT_DYNAMIC_TIME)
             hasToAdapt = this % performPAdaptationT
             
          case default
@@ -826,6 +857,8 @@ readloop:do
       
       safedeallocate  (this % conformingBoundaries)
       safedeallocate  (this % overenriching)
+      
+      call this % MultiTauEstim % destruct
    end subroutine pAdaptation_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -834,12 +867,12 @@ readloop:do
 !  Main routine for adapting the polynomial order in all elements based on 
 !  the truncation error estimation
 !  ------------------------------------------------------------------------
-   subroutine pAdaptation_pAdaptTE(pAdapt,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   subroutine pAdaptation_pAdaptTE(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
       use StopwatchClass
       implicit none
       !--------------------------------------
-      class(pAdaptation_t)       :: pAdapt            !<> Adaptation class
+      class(pAdaptation_t)       :: this              !<> Adaptation class
       type(DGSem)                :: sem               !<> sem
       integer                    :: itera             !<  iteration
       real(kind=RP)              :: t                 !< time!!
@@ -847,7 +880,7 @@ readloop:do
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
       !--------------------------------------
-      integer                    :: iEl               !   Element counter
+      integer                    :: eID               !   Element counter
       integer                    :: iEQ               !   Equation counter
       integer                    :: Dir               !   Direction
       integer                    :: NMax              !   Max polynomial order
@@ -858,6 +891,7 @@ readloop:do
       logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
+      character(len=LINE_LENGTH) :: RegfileName
       !--------------------------------------
       ! For new adaptation algorithm
       integer                    :: Pxyz(3)           !   Polynomial order the estimation was performed with
@@ -872,17 +906,19 @@ readloop:do
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
       !--------------------------------------
+      integer  :: multiStage, multiStages(2)
+      !--------------------------------------
 #if defined(NAVIERSTOKES)
       
       write(STD_OUT,*)
       write(STD_OUT,*)
-      select case (pAdapt % TruncErrorType)
+      select case (this % TruncErrorType)
          case (ISOLATED_TE)
-            write(STD_OUT,*) '****     Performing p-Adaptation with isolated truncation error estimates      ****'
+            write(STD_OUT,'(A)') '****     Performing p-Adaptation with isolated truncation error estimates      ****'
          case (NON_ISOLATED_TE)
-            write(STD_OUT,*) '****     Performing p-Adaptation with non-isolated truncation error estimates      ****'
+            write(STD_OUT,'(A)') '****     Performing p-Adaptation with non-isolated truncation error estimates      ****'
          case default
-            error stop ':: Non-defined truncation error type.'
+            error stop ':: Truncation error type was not defined'
       end select
       write(STD_OUT,*)
       
@@ -896,8 +932,8 @@ readloop:do
 !     -------------------------------------------
 !
       if ( controlVariables % containsKey("get exact temap elem") ) then
-         iEl = controlVariables % integerValueForKey("get exact temap elem")
-         call GenerateExactTEmap(sem, NMIN, pAdapt % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, pAdapt % TruncErrorType)
+         eID = controlVariables % integerValueForKey("get exact temap elem")
+         call GenerateExactTEmap(sem, NMIN, this % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, eID, this % TruncErrorType)
       end if
       
 !
@@ -905,40 +941,53 @@ readloop:do
 !     Write pre-adaptation mesh and solution
 !     --------------------------------------
 !
-      if (pAdapt % restartFiles) then
-         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
+      if (this % restartFiles) then
+         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
          call sem % mesh % Export(AdaptedMeshFile)         
-         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
       end if
+      
 !
-!     -------------------------------------------------------------
-!     Estimate the truncation error using the anisotropic multigrid
-!     -------------------------------------------------------------
+!     -------------------------------------------------------------------------
+!     Estimate the truncation error using the anisotropic multigrid (if needed)
+!     -------------------------------------------------------------------------
 !
-      CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
-      CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,pAdapt % TE, pAdapt % TruncErrorType)
-      CALL AnisFASpAdaptSolver % destruct
+      if (.not. this % ErrorEstimFromFiles) then
+
+         CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
+         CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,this % TE, this % TruncErrorType)
+         CALL AnisFASpAdaptSolver % destruct
+         
+         ! Write truncation error files if specified
+         if (this % TEFiles) then
+            do eID = 1, nelem
+               write(RegfileName,'(A,I8.8,A)') 'TauEstimation/Elem_',eID,'.dat'
+               call this % TE(eID) % ExportToFile(RegfileName)
+            end do
+         end if
+         
+      end if
 !
 !     ------------------------
 !     Post-smoothing procedure
 !     ------------------------
 !
-      if ( pAdapt % postSmoothing) then
-         call pAdapt % StoreQdot(sem, t, ComputeTimeDerivative)
+      if ( this % postSmoothing) then
+         call this % StoreQdot(sem, t, ComputeTimeDerivative)
       end if
 !
 !     -------------------------------------------------------------
 !     Find the polynomial order that fulfills the error requirement
 !     -------------------------------------------------------------
 !
-      ! Allocate the TEmap with the maximum number of N compinations and initialize it
-      allocate(TEmap(NMIN(1):pAdapt % NxyzMax(1),NMIN(2):pAdapt % NxyzMax(2),NMIN(3):pAdapt % NxyzMax(3)))
+      ! Allocate the TEmap with the maximum number of N combinations
+      allocate(TEmap(NMINest:this % NxyzMax(1),NMINest:this % NxyzMax(2),NMINest:this % NxyzMax(3)))
       
       ! Loop over all elements
 !!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
-      do iEl = 1, nelem
+      do eID = 1, nelem
          
-         Pxyz = sem % mesh % elements(iEl) % Nxyz
+         Pxyz = sem % mesh % elements(eID) % Nxyz
          P_1  = Pxyz - 1
          
          do dir=1, NDIM
@@ -947,36 +996,51 @@ readloop:do
          
          TEmap = 0._RP
          
-         NNew(:,iEl) = -1 ! Initialized to negative value
+         NNew(:,eID) = -1 ! Initialized to negative value
+!
+!        --------------------------------------------------------------------------------
+!        If ErrorEstimFromFiles, get complete TEmap, otherwise compute the inner map only
+!        --------------------------------------------------------------------------------
+!
+         if (this % ErrorEstimFromFiles) then
+            call this % MultiTauEstim % GetTEmap(this % EstimFilesNumber, sem % mesh % elements(eID) % globID,this % NxyzMax,P_1,TEmap)
+         else
+            do k = NMINest, P_1(3) ; do j = NMINest, P_1(2) ; do i = NMINest, P_1(1) 
+                     ! 1. Generate a TEmap entry
+                     TEmap(i,j,k) = this % TE(eID) % Dir(1) % maxTE(i) + &  !xi   contribution
+                                    this % TE(eID) % Dir(2) % maxTE(j) + &  !eta  contribution
+                                    this % TE(eID) % Dir(3) % maxTE(k)      !zeta contribution
+            end do                 ; end do                 ; end do
+         end if
          
 !
 !        -----------------------------------------------------------------------
 !        Check if the desired TE can be obtained using the "inner" map (N_i<P_i)
-!           Accomplished in 3 merged steps:
-!              1. Generate inner TE map
-!              2. Check every entry of the map 
-!              3. select the one that
+!           Accomplished in 1 merged steps:
+!              1. Check every entry of the map 
+!              2. select the one that
 !                 fulfills the requirement with the lowest DOFs
 !        ----------------------------------------------------------------------
 !
          NewDOFs = (P_1(1) + 1) * (P_1(2) + 1) * (P_1(3) + 1) ! Initialized with maximum number of DOFs (for N<P)
-         
+         TE_L = huge(1._RP)
          do k = NMIN(3), P_1(3)
             do j = NMIN(2), P_1(2)
-               do i = NMIN(1), P_1(1) 
-                  ! 1. Generate a TEmap entry
-                  TEmap(i,j,k) = pAdapt % TE(iEl) % Dir(1) % maxTE(i) + &  !xi   contribution
-                                 pAdapt % TE(iEl) % Dir(2) % maxTE(j) + &  !eta  contribution
-                                 pAdapt % TE(iEl) % Dir(3) % maxTE(k)      !zeta contribution
+               do i = NMIN(1), P_1(1)
                   
                   ! 2. Check if it fulfills the requirement
-                  if (TEmap(i,j,k) < pAdapt % reqTE) then
+                  if (TEmap(i,j,k) < this % reqTEc) then
                      DOFs = (i+1) * (j+1) * (k+1)
                      
                      !  3. Select the entry if it minimizes the DOFs
-                     if (DOFs <= NewDOFs) then
-                        NNew(:,iEl) = [i,j,k]
+                     if (DOFs < NewDOFs) then
+                        NNew(:,eID) = [i,j,k]
                         NewDOFs = DOFs
+                        TE_L    = TEmap(i,j,k)
+                     elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
+                        NNew(:,eID) = [i,j,k]
+                        NewDOFs = DOFs
+                        TE_L    = TEmap(i,j,k)
                      end if
                   end if
                end do
@@ -998,11 +1062,7 @@ readloop:do
                end if
             end do
             
-            TE_L= pAdapt % TE(iEl) % Dir(1) % maxTE(L(1)) + &  !xi   contribution
-                  pAdapt % TE(iEl) % Dir(2) % maxTE(L(2)) + &  !eta  contribution
-                  pAdapt % TE(iEl) % Dir(3) % maxTE(L(3))      !zeta contribution
-            
-            if (TE_L < pAdapt % reqTE) NNew(:,iEl) = NMIN
+            if (TEmap(L(1),L(2),L(3)) < this % reqTEc) NNew(:,eID) = NMIN
          end if
                
 !
@@ -1016,47 +1076,66 @@ readloop:do
 !              4. Select the N>P that fulfills the requirement with lowest DOFs
 !        -----------------------------------------------------------------------
 !
-         if (any(NNew(:,iEl)<NMIN)) then
+         if (any(NNew(:,eID)<NMIN)) then
             
-            ! 1. Regression analysis
-            do Dir = 1, 3
-               call RegressionIn1Dir(Adaptator = pAdapt               , &
-                                     P_1   = P_1(Dir)             , & 
-                                     NMax  = pAdapt % NxyzMax(Dir), &
-                                     Stage = Stage                , &
-                                     iEl   = iEl                  , &
-                                     Dir   = Dir                  , &
-                                     notenough = notenough(Dir)   , &
-                                     error     = Error(Dir,iEl)   )
-            end do
+            if (.not. this % ErrorEstimFromFiles) then
+!
+!              1. Regression analysis
+!              ----------------------
+               do Dir = 1, 3
+                  call this % TE(eID) % ExtrapolateInOneDir(  &
+                                        P_1   = P_1(Dir)             , & 
+                                        NMax  = this % NxyzMax(Dir), &
+                                        Dir   = Dir                  , &
+                                        notenough = notenough(Dir)   , &
+                                        error     = Error(Dir,eID)   )
+               end do
+            end if
             
-            ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N
-            if (all(error(:,iEl) < 1)) then
-               
-               ! 2-3. Obtain extended TE map and search
-               
-               NewDOFs = (pAdapt % NxyzMax(1) + 1) * (pAdapt % NxyzMax(2) + 1) * (pAdapt % NxyzMax(3) + 1) ! Initialized as maximum DOFs possible
-               do k = NMIN(3), pAdapt % NxyzMax(3)
-                  do j = NMIN(2), pAdapt % NxyzMax(2)
-                     do i = NMIN(1), pAdapt % NxyzMax(1)
+            ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N. TODO: Change? extrapolation can still be done in some directions...
+            if (all(error(:,eID) < 1)) then
+!
+!              2. Generate outer map
+!                 -> ">=" Pxyz(dir) can be changed by ">" to avoid enriching 2
+!              ---------------------------------------------------------------
+               if (.not. this % ErrorEstimFromFiles) then
+                  do k = NMIN(3), this % NxyzMax(3) ; do j = NMIN(2), this % NxyzMax(2) ; do i = NMIN(1), this % NxyzMax(1)
+                           ! cycle if it is not necessary/possible to compute the TEmap
+                           if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already computed)
+                           if ( (notenough(1) .AND. i >= Pxyz(1)) .or. & ! The regression was not possible in xi   (too few points), hence only checking with known values
+                                (notenough(2) .AND. j >= Pxyz(2)) .or. & ! The regression was not possible in eta  (too few points), hence only checking with known values
+                                (notenough(3) .AND. k >= Pxyz(3)) ) then ! The regression was not possible in zeta (too few points), hence only checking with known values
+                              TEmap(i,j,k) = huge(1._RP)
+                           else
+                              TEmap(i,j,k) = this % TE(eID) % Dir(1) % maxTE(i) + &  !x contribution
+                                             this % TE(eID) % Dir(2) % maxTE(j) + &  !y contribution
+                                             this % TE(eID) % Dir(3) % maxTE(k)      !z contribution
+                           end if
+                  end do                            ; end do                              ; end do
+               end if
+!
+!              3. Check the outer map
+!              ----------------------
+               NewDOFs = (this % NxyzMax(1) + 1) * (this % NxyzMax(2) + 1) * (this % NxyzMax(3) + 1) ! Initialized as maximum DOFs possible
+               TE_L = huge(1._RP)
+               do k = NMIN(3), this % NxyzMax(3)
+                  do j = NMIN(2), this % NxyzMax(2)
+                     do i = NMIN(1), this % NxyzMax(1)
                         ! cycle if it is not necessary/possible to compute the TEmap
                         if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already checked)
-                        if (notenough(1) .AND. i > Pxyz(1)) cycle ! The regression was not possible in xi   (too few points), hence only checking with known values
-                        if (notenough(2) .AND. j > Pxyz(2)) cycle ! The regression was not possible in eta  (too few points), hence only checking with known values
-                        if (notenough(3) .AND. k > Pxyz(3)) cycle ! The regression was not possible in zeta (too few points), hence only checking with known values
                         
-                        ! 2. Generate a TEmap entry
-                        TEmap(i,j,k) = pAdapt % TE(iEl) % Dir(1) % maxTE(i) + &  !x contribution
-                                       pAdapt % TE(iEl) % Dir(2) % maxTE(j) + &  !y contribution
-                                       pAdapt % TE(iEl) % Dir(3) % maxTE(k)      !z contribution
-                        
-                        ! 3. Check if TE was achieved
-                        if (TEmap(i,j,k) < pAdapt % reqTE) then
+                        ! Check if TE was achieved
+                        if (TEmap(i,j,k) < this % reqTE) then
                            DOFs = (i+1) * (j+1) * (k+1)
                            ! 4. Select the entry if it minimizes the DOFs
-                           if (DOFs <= NewDOFs) then
-                              NNew(:,iEl) = [i,j,k]
+                           if (DOFs < NewDOFs) then
+                              NNew(:,eID) = [i,j,k]
                               NewDOFs = DOFs
+                              TE_L    = TEmap(i,j,k)
+                           elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
+                              NNew(:,eID) = [i,j,k]
+                              NewDOFs = DOFs
+                              TE_L    = TEmap(i,j,k)
                            end if
                         end if
                         
@@ -1064,37 +1143,36 @@ readloop:do
                   end do
                end do
             else
-               write(STD_OUT,*) 'p-Adaptation ERROR: Unexpected behavior of truncation error in element',iEl, '. Direction (1,2,3)', error(:,iEl)
-               write(STD_OUT,*) '                    Using maximum polynomial order, N=', pAdapt % NxyzMax
-               NNew(:,iEl) = pAdapt % NxyzMax
+               write(STD_OUT,*) 'p-Adaptation ERROR: Unexpected behavior of truncation error in element',eID, '. Direction (1,2,3)', error(:,eID)
+               write(STD_OUT,*) '                    Using maximum polynomial order, N=', this % NxyzMax
+               NNew(:,eID) = this % NxyzMax
             end if
          end if
          
-!~         if (iEl==1) call PrintTEmap(NMIN,TEmap,1,pAdapt % solutionFileName)
+!~         if (eID==1) call PrintTEmap(NMIN,TEmap,1,this % solutionFileName)
 !
 !        ---------------------------------------------------------------------------
 !        If the maximum polynomial order was not found, select the maximum available
 !        ---------------------------------------------------------------------------
 !
-         if (any(NNew(:,iEl)<NMIN)) then
-            write(STD_OUT,*) 'p-Adaptation WARNING: Desired truncation error not achieved within specified limits in element', iEl
-            write(STD_OUT,*) '                      Using max polynomial order instead, N=', pAdapt % NxyzMax
-            Warning(iEl) = 1
-            NNew(:,iEl) = pAdapt % NxyzMax
+         if (any(NNew(:,eID)<NMIN)) then
+            write(STD_OUT,*) 'p-Adaptation WARNING: Desired truncation error not achieved within specified limits in element', eID
+            write(STD_OUT,*) '                      Using max polynomial order instead, N=', this % NxyzMax
+            Warning(eID) = 1
+            NNew(:,eID) = this % NxyzMax
          end if
          
       end do
 !!!!$OMP END PARALLEL DO
       
-      deallocate(TEmap)
-      
+      deallocate(TEmap)  
 !
 !     ----------------------------------------------------------------------------
 !     In case of increasing adaptator, modify polynomial orders according to stage
 !      And decide if it is necessary to continue adapting
 !     ----------------------------------------------------------------------------
 !
-      if (pAdapt % increasing) then
+      if (this % increasing) then
 !!          Stage = Stage + 1
 !!          NInc = NInc + dN_Inc
          NInc = NInc * fN_Inc
@@ -1102,11 +1180,11 @@ readloop:do
          if (MAXVAL(NNew) > NInc) then
             where(NNew > NInc) NNew = NInc
          else
-            pAdapt % Adapt = .FALSE.
+            this % Adapt = .FALSE.
          end if
          
       else ! Only adapt once
-         pAdapt % Adapt = .FALSE.
+         this % Adapt = .FALSE.
       end if
       
 !
@@ -1114,18 +1192,18 @@ readloop:do
 !     Overenrich specified regions
 !     ----------------------------
 !
-      call OverEnrichRegions(pAdapt % overenriching,sem % mesh,NNew, pAdapt % NxyzMax)
+      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax)
 !
 !     ---------------------------------------------------
 !     Restrict polynomial order decrease in every element
 !     ---------------------------------------------------
 !
-      if ( allocated(pAdapt % maxNdecrease) ) then
-         do iEl=1, nelem
-            associate (e => sem % mesh % elements(iEl) )
+      if ( allocated(this % maxNdecrease) ) then
+         do eID=1, nelem
+            associate (e => sem % mesh % elements(eID) )
             do dir=1, NDIM
                
-               if ( NNew(dir,iEl) < (e % Nxyz(dir) - pAdapt % maxNdecrease) ) NNew(dir,iEl) = e % Nxyz(dir) - pAdapt % maxNdecrease
+               if ( NNew(dir,eID) < (e % Nxyz(dir) - this % maxNdecrease) ) NNew(dir,eID) = e % Nxyz(dir) - this % maxNdecrease
                
             end do
             end associate
@@ -1139,7 +1217,7 @@ readloop:do
       last = .FALSE.
       do while (.not. last)
          last = .TRUE.
-         call pAdapt % makeBoundariesPConforming(sem % mesh,NNew,last)
+         call this % makeBoundariesPConforming(sem % mesh,NNew,last)
          call ReorganizePolOrders(sem % mesh % faces,NNew,last)
       end do
 !
@@ -1147,7 +1225,7 @@ readloop:do
 !     Plot files if requested
 !     -----------------------
 !
-!~      if (pAdapt % PlotInfo) call pAdapt % plot(sem,TE,Stage,NNew,Error,Warning)
+!~      if (this % PlotInfo) call this % plot(sem,TE,Stage,NNew,Error,Warning)
 !
 !     ----------------------------------
 !     Adapt sem to new polynomial orders
@@ -1171,24 +1249,24 @@ readloop:do
 !     Perform the post p-adaptation smoothing (if requested)
 !     ------------------------------------------------------
 !
-      if ( pAdapt % postSmoothing ) then
-         call pAdapt % postSmooth(sem, t, ComputeTimeDerivative, controlVariables)
+      if ( this % postSmoothing ) then
+         call this % postSmooth(sem, t, ComputeTimeDerivative, controlVariables)
       end if
 !
 !     ---------------------------------------------------
 !     Write post-adaptation mesh, solution and order file
 !     ---------------------------------------------------
 !
-      if ( pAdapt % UnSteady) then
-         write(AdaptedMeshFile,'(A,A,I10.10,A)')  trim( pAdapt % solutionFileName ), '_', itera+1, '.hsol'
+      if ( this % UnSteady) then
+         write(AdaptedMeshFile,'(A,A,I10.10,A)')  trim( this % solutionFileName ), '_', itera+1, '.hsol'
       else
-         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( pAdapt % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
+         write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
       end if
       
       call sem % mesh % Export(AdaptedMeshFile)
       call sem % mesh % ExportOrders(AdaptedMeshFile)
       
-      if (pAdapt % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),pAdapt % saveGradients)
+      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
       
 !
 !     ------------------------------------------------
@@ -1582,114 +1660,6 @@ readloop:do
       end if 
        
    end function 
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  -----------------------------------------------------------------------
-!  Subroutine that extrapolates the behavior of the directional components
-!  of the truncation error.
-!  -----------------------------------------------------------------------
-   subroutine RegressionIn1Dir(Adaptator,P_1,NMax,Dir,notenough,error,Stage,iEl)
-      use Utilities, only: AlmostEqual
-      implicit none
-      !---------------------------------------
-      type(pAdaptation_t)        :: Adaptator
-      integer                    :: P_1               !<  P-1 (max polynomial order with tau estimation for regression)
-      integer                    :: NMax
-      integer                    :: Dir
-      logical                    :: notenough         !>  .TRUE. if there are not enough points in every direction for regression 
-      integer                    :: error             !>  error=1 if line behavior is not as expected
-      ! Additional arguments for IO
-      integer                    :: Stage
-      integer                    :: iEl
-      !---------------------------------------
-      
-      real(kind=RP)              :: x   (P_1-NMINest+1)
-      real(kind=RP)              :: y   (P_1-NMINest+1)
-      integer                    :: N
-      integer                    :: i
-      real(kind=RP)              :: C,eta,r             ! Regression variables
-      character(len=LINE_LENGTH) :: RegfileName
-      integer                    :: fd
-      !---------------------------------------
-      
-      ! Initializations
-      error     = 0
-      notenough = .FALSE.
-      
-      ! Check if there are enough points for regression
-      if (P_1 < NMINest + 1) then
-         notenough = .TRUE.
-         return
-      end if
-      
-      ! Check if last point is NMIN=2
-      if ( AlmostEqual(Adaptator % TE(iEl) % Dir(Dir) % maxTE (P_1),0._RP) ) then
-         return ! nothing to do here
-      end if
-      
-      ! Perform regression analysis   
-      N = P_1 - NMINest + 1
-      y = LOG10(Adaptator % TE(iEl) % Dir(Dir) % maxTE (NMINest:P_1))
-      x = (/ (real(i,RP), i=NMINest,P_1) /)
-      call C_and_eta_estimation(N,x,y,C,eta,r)
-      
-      ! Extrapolate the TE
-      do i = P_1+1, NMax
-         Adaptator % TE(iEl) % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
-      end do
-      
-      ! Write regression files
-      if (Adaptator % RegressionFiles) then
-         write(RegfileName,'(A,I2.2,3A,I7.7,A,I1,A)') 'RegressionFiles/Stage_',Stage,'/',trim(removePath(Adaptator % solutionFileName)),'_Elem_',iEl,'_Dir_',Dir,'.dat'
-      
-         open(newunit = fd, file=RegfileName, action='WRITE')
-            WRITE(fd,*) x
-            WRITE(fd,*) y
-            WRITE(fd,*) C, eta
-            WRITE(fd,*) NMax
-            WRITE(fd,*) iEl, Dir
-         close(fd)
-      end if
-      
-      ! Check if there is an unexpected behavior
-      if (eta >= 0) then
-         Error = 1 
-         return
-      end if
-      
-   end subroutine RegressionIn1Dir
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  -----------------------------------------------------------------------
-!  Subroutine for performing least square regression and giving up the coefficients
-!  -----------------------------------------------------------------------
-   pure subroutine C_and_eta_estimation(N,x,y,C,eta,r)
-      implicit none
-      !--------------------------------------
-      integer      , intent(in)  :: N        !< Number of points
-      real(kind=RP), intent(in)  :: x(N) 
-      real(kind=RP), intent(in)  :: y(N)
-      real(kind=RP), intent(out) :: C
-      real(kind=RP), intent(out) :: eta
-      real(kind=RP), intent(out) :: r
-      !--------------------------------------
-      real(kind=RP)              :: sumx,sumy,sumsqx,sumxy,deno,sumsqy
-      !--------------------------------------
-      
-      sumx = sum(x)
-      sumy = sum(y)
-      sumsqx = sum(x*x)
-      sumsqy = sum(y*y)
-      sumxy  = sum(x*y)
-      
-      deno=n*sumsqx-sumx*sumx
-      
-      eta = (n*sumxy-sumx*sumy)/deno
-      C   = (sumsqx*sumy-sumx*sumxy)/deno
-      r   = (  sumxy-sumx*sumy/n) / sqrt((sumsqx - sumx*sumx/n) * (sumsqy - sumy*sumy/n))
-      
-   end subroutine C_and_eta_estimation
+
    
 end module pAdaptationClass

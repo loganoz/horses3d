@@ -35,6 +35,7 @@ module Utilities
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor
    public   toLower, Qsort
    public   logarithmicMean
+   public   LeastSquaresLinRegression
 
 
    contains
@@ -237,6 +238,38 @@ module Utilities
       lnMean = 0.5_RP * (aL + aR) / FF
          
    end subroutine logarithmicMean
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine for performing least square regression and giving up the coefficients
+!  -----------------------------------------------------------------------
+   pure subroutine LeastSquaresLinRegression(N,x,y,C,eta,r)
+      implicit none
+      !--------------------------------------
+      integer      , intent(in)  :: N        !< Number of points
+      real(kind=RP), intent(in)  :: x(N) 
+      real(kind=RP), intent(in)  :: y(N)
+      real(kind=RP), intent(out) :: C
+      real(kind=RP), intent(out) :: eta
+      real(kind=RP), intent(out) :: r
+      !--------------------------------------
+      real(kind=RP)              :: sumx,sumy,sumsqx,sumxy,deno,sumsqy
+      !--------------------------------------
+      
+      sumx = sum(x)
+      sumy = sum(y)
+      sumsqx = sum(x*x)
+      sumsqy = sum(y*y)
+      sumxy  = sum(x*y)
+      
+      deno=n*sumsqx-sumx*sumx
+      
+      eta = (n*sumxy-sumx*sumy)/deno
+      C   = (sumsqx*sumy-sumx*sumxy)/deno
+      r   = (  sumxy-sumx*sumy/n) / sqrt((sumsqx - sumx*sumx/n) * (sumsqy - sumy*sumy/n))
+      
+   end subroutine LeastSquaresLinRegression
 !
 !////////////////////////////////////////////////////////////////////////
 !

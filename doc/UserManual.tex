@@ -206,6 +206,43 @@ get discretization error of & \textit{CHARACTER}: Path to solution file. This ca
 \label{tab:restartkey}
 \end{table}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Physics related keyword}
+
+\section{Compressible flow}
+
+\begin{table}[htbp]
+\caption{Keywords for compressible flow (Euler / Navier-Stokes).}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+Mach number					& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
+
+Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword}
+ \\ \hline
+
+Prandtl number				& \textit{REAL}:  & 0.72 \\ \hline
+
+Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
+
+LES model					& \textit{CHARACTER(*)}: Options are: 
+\begin{itemize}
+\item Smagorinsky
+\item None
+\end{itemize}
+ & None \\ \hline
+
+Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
+
+\end{tabular}
+\label{tab:compressibleFlowkey}
+\end{table}
+
+\section{Incompressible Navier-Stokes}
+
+\section{Cahn-Hilliard}
 
 \chapter{Implicit Solvers}
 \section{General Keywords}
@@ -287,16 +324,18 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
 #define p-adaptation
    Truncation error type = isolated
    truncation error      = 1.d-2
+   truncation error      = 1.d-4
    Nmax                  = [10,10,10]
    Nmin                  = [2 ,2 ,2 ]
    Conforming boundaries = [InnerCylinder,sphere]
    order across faces    = N*2/3   
    increasing            = .FALSE.
-   regression files      = .FALSE.
+   write error files     = .FALSE.
    adjust nz             = .FALSE.
    mode                  = time
    interval              = 1.d0   
    restart files         = .TRUE.
+   max N decrease        = 1
    padapted mg sweeps pre      = 10
    padapted mg sweeps post     = 12
    padapted mg sweeps coarsest = 20
@@ -318,6 +357,8 @@ truncation error type & \textit{CHARACTER}: Can be either "isolated" or "non-iso
 
 truncation error & \textit{REAL}: Target truncation error for the p-adaptation algorithm. & \textbf{Mandatory keyword} \\ \hline
 
+coarse truncation error & \textit{REAL}: Truncation error used for coarsening. & same as truncation error \\ \hline
+
 Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. & 
 					\textbf{Mandatory keyword} \\ \hline
 
@@ -334,8 +375,8 @@ order across faces &
 increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. & 
 					.FALSE. \\ \hline
 
-regression files &
-			\textit{LOGICAL}: If .TRUE., the program writes files containing the information about the lin-log regression procedure that is performed for the $\tau$-estimation extrapolation. The files are stored in the folder \textit{./RegressionFiles/Stage\_XX/}, where \textit{XX} is the adaptation stage number. & 
+write error files &
+			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. & 
 			 		.FALSE. \\ \hline
 
 adjust nz & 
@@ -343,11 +384,11 @@ adjust nz &
 					.FALSE. \\ \hline
 
 mode & 
-			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{steady}, \textit{time} or \textit{iteration}. Steady p-adaptation is performed once at the beginning of a simulation. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
-					\textit{steady} \\ \hline
+			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
+					\textit{static} \\ \hline
 
 interval & 
-			\textit{INTEGER/REAL}: In unsteady p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
+			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
 					\textit{huge number} \\ \hline
 
 restart files & 
@@ -358,11 +399,39 @@ max N decrease &
 			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
 					$N-N_{\textit{min}}$ \\ \hline
 
+post smoothing residual & 
+			\textit{REAL}: Specifies the maximum allowable deviation of $\partial_t q$ after the p-adaptation procedure. &
+					-- \\ \hline
+					
+post smoothing method & 
+			\textit{CHARACTER}: Either RK3 or FAS. &
+					RK3, if the last keyword is activated \\ \hline
+
+estimation files & 
+			\textit{CHARACTER}: Name of the folder that contains the error estimations obtained with the multi tau-estimation (section \ref{sec:MultiTau}). &
+					-- \\ \hline
+					
+estimation files number & 
+			\textit{INTEGER(2)}: First and last estimation stages to be used for p-adaptation. &
+					Mandatory if last keyword is used. \\ \hline
+
 padapted $\ll \textit{keyword} \gg$ &
 			\textit{MULTIPLE}: Specifies control file keywords that should be replaced after the adaptation procedure. Currently, only 'mg sweeps         ', 'mg sweeps pre', 'mg sweeps post', and 'mg sweeps coarsest' are supported. &
 					-- \\ \hline
 
 \end{longtable}
+
+\section{Multiple truncation error estimations} \label{sec:MultiTau}
+A static p-adaptation procedure can be driven by a set of error estimations, which have to be performed beforehand in a simulation with the following block:
+
+\begin{lstlisting}
+#define multi tau-estimation
+   truncation error type = isolated
+   interval              = 10
+   folder                = MultiTau
+#end
+\end{lstlisting}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -630,15 +699,15 @@ For postprocessing the Simulation Results
 HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. Usage:
 
 \begin{lstlisting}[language=bash]
-	$ horses2plt <<SolutionFile.hsol>> <<MeshFile.hsol>> <<Options>>
+	$ horses2plt SolutionFile.hsol MeshFile.hmesh <<Options>>
 \end{lstlisting}
 
 The options comprise following flags:
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
-\caption{Keywords for volume monitors.} \label{tab:Postprocessing} \\
+\caption{Flags for \textit{horses2plt}.} \label{tab:Postprocessing} \\
 \hline
-\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endfirsthead
 
 \caption{Additional flags for postprocessing with \textit{horses2plt}} \\
@@ -748,6 +817,8 @@ Statistics files generate following variables by default:
 
 \section{Extract geometry}
 Under construction.
+
+\section{Merge statistics tool}
 
 \bibliography{../LaTeX/9_backmatter/library}
 

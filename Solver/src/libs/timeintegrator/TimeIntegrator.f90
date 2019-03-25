@@ -31,7 +31,7 @@
       use Utilities                       , only: ToLower, AlmostEqual
       use FileReadingUtilities            , only: getFileName
       use ProblemFileFunctions            , only: UserDefinedPeriodicOperation_f
-      use pAdaptationClass                , only: pAdaptation_t, ADAPT_UNSTEADY_TIME
+      use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       IMPLICIT NONE 
@@ -200,7 +200,6 @@
 !     Internal variables
 !     ---------
 !
-      integer              :: PA_Stage  ! P-adaptation stage
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
       REAL(KIND=RP)        :: maxResidual(NTOTALVARS)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
@@ -238,17 +237,21 @@
          call FMGSolver % destruct
       end if
       
-!     Perform p-adaptation stage(s) if requested
-!     ------------------------------------------
-      if (self % integratorType == STEADY_STATE .and. self % pAdaptator % Adapt) then
+!     Perform static p-adaptation stage(s) if requested
+!     -------------------------------------------------
+      if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
          
-         PA_Stage = 0
          do while (self % pAdaptator % Adapt)
-            PA_Stage = PA_Stage + 1
             
-            call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)  ! The residual is hard-coded to 0.1 * truncation error threshold (see Kompenhans, Moritz, et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.)
-            call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)  ! Time is hardcoded to 0._RP (not important since it's only for STEADY_STATE)
+            if (self % integratorType == STEADY_STATE) then
+!
+!              Lower the residual to 0.1 * truncation error threshold 
+!              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
+!              ------------------------------------------------------
+               call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
+            end if
             
+            call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
             
          end do
@@ -355,7 +358,7 @@
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
       
-      if (self % pAdaptator % adaptation_mode    == ADAPT_UNSTEADY_TIME .and. &
+      if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
          call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
@@ -670,7 +673,7 @@
             
          case (DONT_KNOW)
             
-            if (  self % pAdaptator % adaptation_mode == ADAPT_UNSTEADY_TIME .or. &
+            if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
                   self % autosave % mode       == AUTOSAVE_BY_TIME) then
                
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)

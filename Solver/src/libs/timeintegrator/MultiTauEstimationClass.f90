@@ -4,9 +4,9 @@
 !   @File:    MultiTauEstimationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Mar 12 15:43:41 2019
-!   @Last revision date: Tue Mar 12 15:50:37 2019
+!   @Last revision date: Mon Mar 25 10:51:17 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e91212aadaa211fa6b91bd7bc18009c1e482533d
+!   @Last revision commit: 0832a8c34faff5d5b70fb77eac7ecb84ef0f30b9
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@
 #include "Includes.h"
 module MultiTauEstimationClass
    use SMConstants
-   use TruncationErrorClass   , only: TruncationError_t, NON_ISOLATED_TE, ISOLATED_TE
+   use TruncationErrorClass   , only: TruncationError_t, NON_ISOLATED_TE, ISOLATED_TE, NMINest
    use AnisFASMultigridClass  , only: AnisFASMultigrid_t
    use FTValueDictionaryClass , only: FTValueDictionary
    use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
@@ -45,15 +45,14 @@ module MultiTauEstimationClass
       type(AnisFASMultigrid_t)            :: AnisFAS
       
       contains
-         procedure :: construct  => MultiTau_Construct
-         procedure :: destruct   => MultiTau_Destruct
-         procedure :: describe   => MultiTau_Describe
-         procedure :: estimate   => MultiTau_Estimate
+         procedure :: construct              => MultiTau_Construct
+         procedure :: constructForPAdaptator => MultiTau_ConstructForPAdaptator
+         procedure :: destruct               => MultiTau_Destruct
+         procedure :: describe               => MultiTau_Describe
+         procedure :: estimate               => MultiTau_Estimate
+         procedure :: GetTEmap               => MultiTau_GetTEmap
    end type MultiTauEstim_t
 !
-!  Parameters
-!  ----------
-   integer, parameter :: NMINest = 1
 !  ========
    contains
 !  ========
@@ -122,7 +121,10 @@ module MultiTauEstimationClass
          this % num_of_elements = sem % mesh % no_of_elements
          allocate (this % TE(this % num_of_elements))
          do eID = 1, this % num_of_elements
-            call this % TE(eID) % construct(NMINest,sem % mesh % elements(eID) % Nxyz-1)
+            call this % TE(eID) % construct(sem % mesh % elements(eID) % Nxyz-1)
+            this % TE(eID) % Dir(1) % P = sem % mesh % elements(eID) % Nxyz(1) - 1
+            this % TE(eID) % Dir(2) % P = sem % mesh % elements(eID) % Nxyz(2) - 1
+            this % TE(eID) % Dir(3) % P = sem % mesh % elements(eID) % Nxyz(3) - 1
          end do
          this % stage = 0
 !
@@ -137,6 +139,41 @@ module MultiTauEstimationClass
          call this % describe
          
       end subroutine MultiTau_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine MultiTau_ConstructForPAdaptator(this, TruncErrorType, NxyzMax, num_of_elements, Folder)
+         implicit none
+         !-arguments----------------------------------------------------
+         class(MultiTauEstim_t)  , intent(inout)   :: this
+         integer                 , intent(in)      :: TruncErrorType
+         integer                 , intent(in)      :: NxyzMax(NDIM)
+         integer                 , intent(in)      :: num_of_elements
+         character(LINE_LENGTH)  , intent(in)      :: Folder
+         !-local-variables----------------------------------------------
+         integer :: eID
+         !--------------------------------------------------------------
+!
+!        Initialize
+!        **********
+         this % Active = .FALSE.
+         
+!        Truncation error type
+!        ---------------------
+         this % TruncErrorType = TruncErrorType
+         
+!        Output folder
+!        -------------
+         this % FolderName = Folder
+!
+!        Allocate memory to store the truncation error
+!        *********************************************
+         this % num_of_elements = num_of_elements
+         this % stage = 0
+         
+!~          call this % describe
+         
+      end subroutine MultiTau_ConstructForPAdaptator
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -193,8 +230,7 @@ module MultiTauEstimationClass
          procedure(ComputeTimeDerivative_f)        :: ComputeTimeDerivative
          procedure(ComputeTimeDerivative_f)        :: ComputeTimeDerivativeIsolated
          !-local-variables----------------------------------------------
-         integer :: eID, fd
-         character(len=LINE_LENGTH) :: CurrentFolder
+         integer :: eID
          character(len=LINE_LENGTH) :: fName
          !--------------------------------------------------------------
          
@@ -211,42 +247,10 @@ module MultiTauEstimationClass
 !
 !        Write the estimation to files
 !        *****************************
-!        Create new folder
-!        -----------------
-         write(CurrentFolder,'(A,A,I5.5)') trim(this % FolderName), "/", this % stage
-         call execute_command_line('mkdir -p '// CurrentFolder)
-
-!        Write general info file
-!        -----------------------
-         if (MPI_Process % isRoot) then
-            open (newunit=fd, file = trim(CurrentFolder) // "/info")
-            
-            write(fd,'(A24,ES24.16)') 'Time ='                 , t
-            write(fd,'(A24,I24)')     'Iteration ='            , iter
-            select case (this % TruncErrorType)
-               case (ISOLATED_TE)     ; write(fd,'(A24,A24)')     'Truncation error type =', 'isolated'
-               case (NON_ISOLATED_TE) ; write(fd,'(A24,A24)')     'Truncation error type =', 'non-isolated'
-            end select
-            write(fd,'(A24,I24)')     'NMIN      ='            , NMINest
-            
-            close (fd)
-         end if
-         
-!        Write truncation error
-!        ----------------------
-         
          do eID = 1, this % num_of_elements
-            write(fName,'(A,A,I8.8,A)') trim(CurrentFolder), "/Elem", sem % mesh % elements(eID) % globID, ".dat"
-            open (newunit=fd, file = trim(fName)) 
-            
-            write(fd,*) sem % mesh % elements(eID) % Nxyz
-            write(fd,*) this % TE(eID) % Dir(1) % maxTE
-            write(fd,*) this % TE(eID) % Dir(2) % maxTE
-            write(fd,*) this % TE(eID) % Dir(3) % maxTE
-            
-            close (fd)
+            write(fName,'(A,A,I8.8,A)') trim(this % FolderName), "/Elem", sem % mesh % elements(eID) % globID, ".dat"
+            call this % TE(eID) % ExportToFile(fName)
          end do
-         
 !
 !        Reset the truncation error
 !        **************************
@@ -259,6 +263,57 @@ module MultiTauEstimationClass
          end do
          
       end subroutine MultiTau_Estimate
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ----------------------------------------------
+!     Get maximum values for the TEmap of an element
+!     ----------------------------------------------
+      subroutine MultiTau_GetTEmap(this,stages,glob_eID,Nmax,P_1,TEmap)
+         implicit none
+         !-arguments----------------------------------------------------
+         class(MultiTauEstim_t)  , intent(inout)   :: this
+         integer                 , intent(in)      :: stages(2) ! Initial and final estimation stage
+         integer                 , intent(in)      :: glob_eID
+         integer                 , intent(in)      :: Nmax(NDIM)
+         integer                 , intent(in)      :: P_1 (NDIM)
+         real(kind=RP)           , intent(out)     :: TEmap(NMINest:Nmax(1),NMINest:Nmax(2),NMINest:Nmax(3))
+         !-local-variables----------------------------------------------
+         integer        :: stage, fd
+         integer        :: i, j, k, dir, error
+         logical        :: notenough
+         real(kind=RP)  :: TEmap_temp(NMINest:Nmax(1),NMINest:Nmax(2),NMINest:Nmax(3))
+         character(len=LINE_LENGTH) :: fName
+         type(TruncationError_t)    :: TE
+         !--------------------------------------------------------------
+         
+         write(fName,'(A,A,I8.8,A)') trim(this % FolderName), "/Elem", glob_eID, ".dat"
+         open (newunit=fd, file = trim(fName)) 
+         
+         call TE % construct( Nmax )
+         
+         TEmap = 0._RP
+         TEmap_temp = 0._RP
+         do stage=stages(1), stages(2)
+            call TE % reset
+            call TE % ReadFromFile(fd_in = fd)
+            
+            do dir=1, 3
+               call TE % ExtrapolateInOneDir (P_1(dir),NMax(dir),Dir,notenough,error)
+               if (notenough .or. error==1) TE % Dir(dir) % maxTE(P_1(dir)+1:Nmax(dir)) = huge(1._RP) / 4 ! Divide by 4 to prevent overflow
+            end do
+            
+            call TE % GenerateTEmap(Nmax,TEmap_temp)
+         
+            do k = NMINest, Nmax(3) ; do j = NMINest, Nmax(2)  ; do i = NMINest, Nmax(1)
+               if (TEmap_temp(i,j,k) > TEmap(i,j,k)) TEmap(i,j,k) = TEmap_temp(i,j,k)
+            end do                  ; end do                   ; end do
+         end do
+         
+         call TE % destruct
+         close (fd)
+         
+      end subroutine MultiTau_GetTEmap
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
