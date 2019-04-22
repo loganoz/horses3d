@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Mar 19 19:41:31 2019
+!   @Last revision date: Mon Apr 22 18:37:39 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 20a593ec2924ad87238d7e1f2dc7e0daf72d758c
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,7 +35,10 @@ module AnalyticalJacobian
    use BoundaryConditions              , only: BCs
    use FaceClass                       , only: Face
 #if defined(NAVIERSTOKES)
+   use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
+   use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
+   use FluidData_NS, only: dimensionless
 #endif
    implicit none
    
@@ -197,16 +200,15 @@ contains
       class(Matrix_t)          , intent(inout) :: Matrix
       !--------------------------------------------
       integer :: eID, fID
+      type(Element), pointer :: e   
       !--------------------------------------------
 !
 !     Project flux Jacobian to corresponding element
 !     ----------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         associate (f => mesh % faces(fID)) 
-         call f % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
-         if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
-         end associate
+         call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
+         if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
       end do
 !$omp end do
 !
@@ -215,19 +217,17 @@ contains
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
-            associate (f => mesh % faces(fID)) 
-            call f % ProjectGradJacobianToElements(LEFT, LEFT)   ! dF/dQL to the left element 
-            if (.not. (f % faceType == HMESH_BOUNDARY)) call f % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
-            end associate
+            call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT, LEFT)   ! dF/dQL to the left element 
+            if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
          end do
 !$omp end do
       end if
 !
 !     Compute each element's diagonal block
 !     -------------------------------------
-!$omp do schedule(runtime)
+!$omp do schedule(runtime) private(e)
       do eID = 1, size(mesh % elements)
-         associate (e=> mesh % elements(eID))
+         e => mesh % elements(eID)
          call Local_SetDiagonalBlock( e, &
                                       mesh % faces( e % faceIDs(EFRONT ) ), &
                                       mesh % faces( e % faceIDs(EBACK  ) ), &
@@ -236,10 +236,9 @@ contains
                                       mesh % faces( e % faceIDs(ETOP   ) ), &
                                       mesh % faces( e % faceIDs(ELEFT  ) ), &
                                       Matrix )
-         end associate
       end do
 !$omp end do
-      
+      nullify (e)
    end subroutine AnalyticalJacobian_DiagonalBlocks   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,12 +265,10 @@ contains
 !     ---------------------------------------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         associate (f => mesh % faces(fID)) 
-         if (f % faceType == HMESH_INTERIOR) then
-            call f % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
-            call f % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
+         if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+            call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
+            call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
          end if
-         end associate
       end do
 !$omp end do
 
@@ -281,12 +278,10 @@ contains
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
-            associate (f => mesh % faces(fID)) 
-            if (f % faceType == HMESH_INTERIOR) then
-               call f % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
-               call f % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
+            if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+               call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
+               call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
             end if
-            end associate
          end do
 !$omp end do
       end if
@@ -322,7 +317,6 @@ contains
 !  
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeNumericalFluxJacobian(mesh,nEqn,time)
-      use RiemannSolvers_NS
       implicit none
       !--------------------------------------------
       type(HexMesh), intent(inout)    :: mesh
@@ -336,14 +330,12 @@ contains
       
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         associate (f => mesh % faces(fID) )
-         select case (f % faceType)
+         select case (mesh % faces(fID) % faceType)
             case (HMESH_INTERIOR)
-               call ComputeInterfaceFluxJacobian(f)
+               call ComputeInterfaceFluxJacobian(mesh % faces(fID))
             case (HMESH_BOUNDARY)
-               call ComputeBoundaryFluxJacobian(f,time)
+               call ComputeBoundaryFluxJacobian(mesh % faces(fID),time)
          end select
-         end associate
       end do
 !$omp end do
    
@@ -360,15 +352,15 @@ contains
 !                                                                    -: external state
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeBoundaryFluxJacobian(f,time)
-      use RiemannSolvers_NS
       implicit none
       !--------------------------------------------
       type(Face), intent(inout) :: f
       real(kind=RP), intent(in) :: time
       !--------------------------------------------
-      integer :: i,j
+      integer :: i,j, n, m
       real(kind=RP) :: BCjac(NCONS,NCONS)
-      real(kind=RP), dimension(NCONS,NCONS) :: dFStar_dqL, dFStar_dqR
+      real(kind=RP) :: dF_dQ     (NCONS,NCONS)
+      real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM)
       !--------------------------------------------
       
 !
@@ -376,18 +368,17 @@ contains
 !     Inviscid contribution
 !     *********************
 !
-      
       do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
 !
 !        Get external state
 !        ------------------
          
-         f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+         f % storage(RIGHT) % Q(:,i,j) = f % storage(LEFT) % Q(:,i,j)
          CALL BCs(f % zone) % bc % StateForEqn( NCONS, &
                                       f % geom % x(:,i,j), &
                                       time, &
                                       f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j))
+                                      f % storage(RIGHT) % Q(:,i,j))
 !
 !        Get numerical flux jacobian on the face point (i,j)
 !        ---------------------------------------------------
@@ -397,6 +388,7 @@ contains
                                  nHat = f % geom % normal (:,i,j)    , &
                                  dfdq_num = f % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
                                  side = LEFT)
+         
          call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
                                  qr   = f % storage(RIGHT) % Q(:,i,j), &
                                  nHat = f % geom % normal (:,i,j)    , &
@@ -405,23 +397,11 @@ contains
 !
 !        Scale with the mapping Jacobian
 !        -------------------------------
-         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
-         f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
-
-      end do             ; end do
-!
-!     ********************
-!     Viscous contribution
-!     ********************
-!
-      if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)  ! TODO: Check if external gradient has to be taken into account
-!
-!     **************************************************************
-!     Correct dFstar/dQL with the Jacobian of the boundary condition
-!     **************************************************************
-!
-      do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
+         f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          
+!        Correct dFstar/dQL with the Jacobian of the boundary condition
+!        --------------------------------------------------------------
          call ExternalStateJacobian( f % geom % x(:,i,j), &
                                      time, &
                                      f % geom % normal(:,i,j), &
@@ -430,9 +410,52 @@ contains
                                      f % zone, &
                                      BCjac )
          
-         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) &
-                                            + matmul(f % storage(RIGHT ) % dFStar_dqF (:,:,i,j),BCjac)
+         f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) &
+                                            + matmul(f % storage(RIGHT) % dFStar_dqF (:,:,i,j),BCjac)
       end do             ; end do
+      
+!
+!     ********************
+!     Viscous contribution - Temporarily done fully numerically. TODO: This can be improved
+!     ********************
+!
+      if (flowIsNavierStokes) then
+      
+         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
+            
+            call ViscousExternalStateJacobian(f, &
+                                              f % geom % x(:,i,j), &
+                                              time, &
+                                              f % geom % normal(:,i,j), &
+                                              f % geom % dWall(i,j),&
+                                              f % geom % t1(:,i,j), &
+                                              f % geom % t2(:,i,j), &
+                                              f % storage(1) % Q(:,i,j),&
+                                              f % storage(1) % U_x(:,i,j),&
+                                              f % storage(1) % U_y(:,i,j),&
+                                              f % storage(1) % U_z(:,i,j),&
+                                              f % zone, &
+                                              dF_dQ, &
+                                              dF_dgradQ )
+                                        
+            f % storage(LEFT ) % dFStar_dqF (:,:,i,j)     = f % storage(LEFT ) % dFStar_dqF (:,:,i,j)  + dF_dQ     * f % geom % jacobian(i,j)
+            
+            associate ( dF_dGradQ_out => f % storage(LEFT ) % dFv_dGradQF(:,:,:,2,i,j), &
+                        nHat => f % geom % normal(:,i,j))
+         
+            dF_dGradQ_out = 0._RP
+            do n = 1, NDIM
+               dF_dGradQ_out(:,:,1) = dF_dGradQ_out(:,:,1) + dF_dgradQ(:,:,n) * f % geom % GradXi  (n,i,j)
+               dF_dGradQ_out(:,:,2) = dF_dGradQ_out(:,:,2) + dF_dgradQ(:,:,n) * f % geom % GradEta (n,i,j)
+               dF_dGradQ_out(:,:,3) = dF_dGradQ_out(:,:,3) + dF_dgradQ(:,:,n) * f % geom % GradZeta(n,i,j)
+            end do
+            
+            dF_dGradQ_out = dF_dGradQ_out * f % geom % jacobian(i,j)
+            
+            end associate
+            
+         end do             ; end do
+      end if
       
    end subroutine ComputeBoundaryFluxJacobian
 !
@@ -445,7 +468,6 @@ contains
 !                          dQ⁺                                  dQ⁻         
 !  -----------------------------------------------------------------------------------------------
    subroutine ComputeInterfaceFluxJacobian(f)
-      use RiemannSolvers_NS
       implicit none
       !--------------------------------------------
       type(Face), intent(inout) :: f
@@ -457,7 +479,7 @@ contains
 !
 !        Get numerical flux jacobian on the face point (i,j)
 !        ---------------------------------------------------
-
+         
          call RiemannSolver_dFdQ(ql   = f % storage(LEFT)  % Q(:,i,j), &
                                  qr   = f % storage(RIGHT) % Q(:,i,j), &
                                  nHat = f % geom % normal (:,i,j)    , &
@@ -517,6 +539,291 @@ contains
       end do
       
    end subroutine ExternalStateJacobian
+!~!
+!~!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!~!
+!~!  -----------------------------------------------------------------------------------------------
+!~!  This routine obtains the Jacobian of the Neumann boundary condition numerically.
+!~!  This can be optimized introducing the analytical Jacobian of every single implemented BC...
+!~!  -----------------------------------------------------------------------------------------------
+!~   subroutine ExternalGradientJacobian(x,time,nHat,Qin,Qex,zone,BCjac)
+!~      implicit none
+!~      !--------------------------------------------
+!~      real(kind=RP), intent(in)       :: x(3)
+!~      real(kind=RP), intent(in)       :: time
+!~      real(kind=RP), intent(in)       :: nHat(3)
+!~      real(kind=RP), intent(in)       :: Qin(NCONS)
+!~      real(kind=RP), intent(in)       :: Qex(NCONS)
+!~      integer,       intent(in)       :: zone
+!~      real(kind=RP), intent(out)      :: BCjac(NCONS,NCONS)
+!~      !--------------------------------------------
+!~      real(kind=RP) :: newQext (NCONS)
+!~      real(kind=RP) :: q(NCONS), buffer
+!~      real(kind=RP),parameter :: eps = 1.e-8_RP
+!~      integer :: i
+!~      !--------------------------------------------
+      
+!~      q = Qin
+!~      !! THIS IS NOT FINISHED YET!
+      
+!~      do dir=1, NDIM
+!~         do i = 1, NCONS
+            
+!~            gradQR(:,1) = Q_xL
+!~            gradQR(:,2) = Q_yL
+!~            gradQR(:,3) = Q_zL
+            
+!~            gradQR(i,dir) = gradQR(i,dir) + eps
+            
+!~            CALL BCs(f % zone) % bc % FlowNeumann(&
+!~                                              x, &
+!~                                              time, &
+!~                                              nHat, &
+!~                                              qr, &
+!~                                              gradQR(:,1), &
+!~                                              gradQR(:,2), &
+!~                                              gradQR(:,3) )
+            
+            
+            
+            
+!~            call ViscousDiscretization % RiemannSolver ( NCONS, &
+!~                                                         NCONS, &
+!~                                                         f, &
+!~                                                         q , qr , &
+!~                                                         Q_xL , Q_yL , Q_zL , &
+!~                                                         gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
+!~                                                         mu, beta, kappa, &
+!~                                                         nHat , dWall, newFlux )
+            
+!~            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps
+            
+!~         end do
+!~      end do
+      
+!~   end subroutine ExternalGradientJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------
+!  This routine obtains the Jacobian of the boundary viscous flux numerically.
+!  -----------------------------------------------------------------------------------------------
+   subroutine ViscousExternalStateJacobian(f, x,time,nHat, dWall, t1, t2,QL, Q_xL, Q_yL, Q_zL ,zone,dF_dQ,dF_dgradQ)
+      implicit none
+      !--------------------------------------------
+      type(Face)   , intent(in)       :: f
+      real(kind=RP), intent(in)       :: x(3)
+      real(kind=RP), intent(in)       :: time
+      real(kind=RP), intent(in)       :: nHat(3)
+      real(kind=RP), intent(in)       :: dWall
+      real(kind=RP), intent(in)       :: t1(3)
+      real(kind=RP), intent(in)       :: t2(3)
+      real(kind=RP), intent(in)       :: QL(NCONS)
+      real(kind=RP), intent(in)       :: Q_xL(NCONS)
+      real(kind=RP), intent(in)       :: Q_yL(NCONS)
+      real(kind=RP), intent(in)       :: Q_zL(NCONS)
+      integer,       intent(in)       :: zone
+      real(kind=RP), intent(out)      :: dF_dQ(NCONS,NCONS)
+      real(kind=RP), intent(out)      :: dF_dgradQ(NCONS,NCONS,NDIM)
+      !--------------------------------------------
+      real(kind=RP) :: newFlux (NCONS), flux(NCONS)
+      real(kind=RP) :: q(NCONS), buffer, qr(NCONS)
+      real(kind=RP) :: mu, beta, kappa
+      real(kind=RP) :: gradQR(NCONS,NDIM)
+      real(kind=RP),parameter :: eps = 1.e-8_RP
+      integer :: i, dir
+      !--------------------------------------------
+      
+      dF_dQ     = 0._RP
+      dF_dgradQ = 0._RP
+      
+      mu    = dimensionless % mu !+ f % storage(1) % mu_art(1,i,j)
+      beta  = 0._RP !f % storage(1) % mu_art(2,i,j)
+      kappa = dimensionless % kappa !+ f % storage(1) % mu_art(3,i,j)
+      
+      q = QL
+!
+!
+!     Get base flux
+!     -------------
+      qr=q
+      CALL BCs(zone) % bc % StateForEqn( NCONS, &
+                                      x, &
+                                      time, &
+                                      nHat, &
+                                      qr)
+                                      
+      gradQR(:,1) = Q_xL
+      gradQR(:,2) = Q_yL
+      gradQR(:,3) = Q_zL
+      
+      CALL BCs(f % zone) % bc % FlowNeumann(&
+                                        x, &
+                                        time, &
+                                        nHat, &
+                                        qr, &
+                                        gradQR(:,1), &
+                                        gradQR(:,2), &
+                                        gradQR(:,3) )
+      
+      
+      
+      
+      call ViscousDiscretization % RiemannSolver ( NCONS, &
+                                                   NCONS, &
+                                                   f, &
+                                                   q , qr , &
+                                                   Q_xL , Q_yL , Q_zL , &
+                                                   gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
+                                                   mu, beta, kappa, &
+                                                   nHat , dWall, flux )
+         
+!
+!     Get contribution to dF_dq
+!     -------------------------
+      do i = 1, NCONS
+         buffer = q(i)
+         q(i) = q(i) + eps
+         
+         qr = q
+         CALL BCs(zone) % bc % StateForEqn( NCONS, &
+                                      x, &
+                                      time, &
+                                      nHat, &
+                                      qr)
+         gradQR(:,1) = Q_xL
+         gradQR(:,2) = Q_yL
+         gradQR(:,3) = Q_zL
+         
+         CALL BCs(f % zone) % bc % FlowNeumann(&
+                                           x, &
+                                           time, &
+                                           nHat, &
+                                           qr, &
+                                           gradQR(:,1), &
+                                           gradQR(:,2), &
+                                           gradQR(:,3) )
+         
+         
+         
+         
+         call ViscousDiscretization % RiemannSolver ( NCONS, &
+                                                      NCONS, &
+                                                      f, &
+                                                      q , qr , &
+                                                      Q_xL , Q_yL , Q_zL , &
+                                                      gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
+                                                      mu, beta, kappa, &
+                                                      nHat , dWall, newFlux )
+         
+         dF_dQ(:,i) =  dF_dQ(:,i) - (newFlux-flux)/eps
+         
+         q(i) = buffer
+      end do
+         
+!
+!     Get contribution to dF_dgradQ
+!     -----------------------------
+      qr = q
+      CALL BCs(zone) % bc % StateForEqn( NCONS, &
+                                   x, &
+                                   time, &
+                                   nHat, &
+                                   qr)
+      
+      do dir=1, NDIM
+         do i = 1, NCONS
+            
+            gradQR(:,1) = Q_xL
+            gradQR(:,2) = Q_yL
+            gradQR(:,3) = Q_zL
+            
+            gradQR(i,dir) = gradQR(i,dir) + eps
+            
+            CALL BCs(f % zone) % bc % FlowNeumann(&
+                                              x, &
+                                              time, &
+                                              nHat, &
+                                              qr, &
+                                              gradQR(:,1), &
+                                              gradQR(:,2), &
+                                              gradQR(:,3) )
+            
+            
+            
+            
+            call ViscousDiscretization % RiemannSolver ( NCONS, &
+                                                         NCONS, &
+                                                         f, &
+                                                         q , qr , &
+                                                         Q_xL , Q_yL , Q_zL , &
+                                                         gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
+                                                         mu, beta, kappa, &
+                                                         nHat , dWall, newFlux )
+            
+            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps
+            
+         end do
+      end do
+         
+   end subroutine ViscousExternalStateJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------
+!  RiemannSolverJacobian:
+!     This routine obtains the Jacobian of any Riemann Solver numerically.
+!     Currently not used, but can be activated if one wants to use a Riemann Solver that has no
+!     analytical Jacobian implemented
+!  -----------------------------------------------------------------------------------------------
+   subroutine RiemannSolverJacobian(QLeft, QRight, nHat, t1, t2, side, BCjac)
+      implicit none
+      !--------------------------------------------
+      real(kind=RP), intent(in)       :: QLeft (NCONS)
+      real(kind=RP), intent(in)       :: QRight(NCONS)
+      real(kind=RP), intent(in)       :: nHat(3)
+      real(kind=RP), intent(in)       :: t1(3)
+      real(kind=RP), intent(in)       :: t2(3)
+      integer      , intent(in)       :: side
+      real(kind=RP), intent(out)      :: BCjac(NCONS,NCONS)
+      !--------------------------------------------
+      real(kind=RP) :: flux (NCONS)
+      real(kind=RP) :: newQext (NCONS)
+      real(kind=RP) :: q(NCONS), buffer
+      real(kind=RP),parameter :: eps = 1.e-8_RP
+      integer :: i
+      !--------------------------------------------
+      
+      call RiemannSolver (Qleft, QRight, nHat, t1, t2, flux)
+      
+      select case (side)
+      case(LEFT)
+         q = QLeft
+         do i = 1, NCONS
+            buffer = q(i)
+            q(i) = q(i) + eps
+            
+            call RiemannSolver (q, QRight, nHat, t1, t2, newQext)
+            
+            BCjac(:,i) = (newQext-flux)/eps
+            
+            q(i) = buffer
+         end do
+         
+      case(RIGHT)
+         q = QRight
+         do i = 1, NCONS
+            buffer = q(i)
+            q(i) = q(i) + eps
+            
+            call RiemannSolver (QLeft, q, nHat, t1, t2, newQext)
+            
+            BCjac(:,i) = (newQext-flux)/eps
+            
+            q(i) = buffer
+         end do
+      end select
+   end subroutine RiemannSolverJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -525,7 +832,6 @@ contains
 !     Subroutine to set a diagonal block in the Jacobian
 !  -----------------------------------------------------
    subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix)
-      use HyperbolicDiscretizations
       implicit none
       !-------------------------------------------
       type(Element)  , intent(inout) :: e
@@ -1143,7 +1449,7 @@ contains
 !              **************************************
 !                    Normal direction:
                MatEntry = MatEntry + dtan1 * dtan2 * normAux
-!~!                    Tangent direction 1:
+!                    Tangent direction 1:
                MatEntry = MatEntry + dtan2 * a_minus                                                           &
                      * e_plus % geom % invJacobian(elInd_plus_tan1(1),elInd_plus_tan1(2),elInd_plus_tan1(3))   &
                      * spAtan1_plus  % hatD(faceInd_plus(1),faceInd_minus2plus(1))                             &
@@ -1157,7 +1463,7 @@ contains
                      * spAnorm_plus  % b(elInd_plus ( normAx_plus  ),normAxSide_plus )                         &
                      * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
                      * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
-!~!
+!
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
 !                 The tangent directions here are taken in the|reference frame of e⁻
 !              ***********************************************|*********************

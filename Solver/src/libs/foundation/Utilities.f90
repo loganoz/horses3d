@@ -32,7 +32,7 @@ module Utilities
    implicit none
 
    private
-   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
    public   toLower, Qsort
    public   logarithmicMean
 
@@ -73,6 +73,26 @@ module Utilities
          
          c = b1
       end function GreatestCommonDivisor
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      pure function outer_product(A,B) result(C)
+         implicit none
+         !-arguments----------------------------------------------
+         real(kind=RP), intent(in) :: A(:)
+         real(kind=RP), intent(in) :: B(:)
+         real(kind=RP)             :: C(size(A),size(B))
+         !-local-variables----------------------------------------
+         real(kind=RP) :: Amat(size(A),size(B))
+         real(kind=RP) :: Bmat(size(A),size(B))
+         !--------------------------------------------------------
+         
+         Amat = spread( A, dim = 2, ncopies = size(B) )
+         Bmat = spread( B, dim = 1, ncopies = size(A) )
+         
+         C = Amat * Bmat
+         
+      end function outer_product
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

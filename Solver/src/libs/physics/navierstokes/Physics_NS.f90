@@ -4,9 +4,9 @@
 !   @File:    Physics_NS.f90
 !   @Author:  David Kopriva
 !   @Created: Tue Jul 20 18:27:46 2011
-!   @Last revision date: Tue Feb 12 17:30:21 2019
+!   @Last revision date: Mon Apr 22 18:37:36 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f40482abccd2e182470ba7250ab71115914426a4
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,7 @@
       use PhysicsStorage_NS
       use VariableConversion_NS
       use FluidData_NS
+      use Utilities, only: outer_product
       implicit none
 
       private
@@ -574,6 +575,8 @@
          real(kind=RP)            :: gamma_Pr
          real(kind=RP)            :: rho_DivV, V_gradRho
          real(kind=RP)            :: invRho, invRho2, uDivRho(NDIM), U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         real(kind=RP)            :: F(NCONS,NDIM)
+         real(kind=RP)            :: dMu_dQ(NCONS)
          real(kind=RP), parameter :: lambda = 1._RP/3._RP
          real(kind=RP), parameter :: f4_3 = 4._RP/3._RP
          real(kind=RP), parameter :: f2_3 = 2._RP/3._RP
@@ -714,9 +717,9 @@
          vv_y = 2._RP * Q(IRHO) * ( u * U_y(IX) + v * U_y(IY) + w * U_y(IZ) )
          vv_z = 2._RP * Q(IRHO) * ( u * U_z(IX) + v * U_z(IY) + w * U_z(IZ) )
          
-         gradE(1) = Q_x(IRHOE) * invRho
-         gradE(2) = Q_y(IRHOE) * invRho
-         gradE(3) = Q_z(IRHOE) * invRho
+         gradE(1) = Q_x(IRHOE) * invRho - E * invRho * Q_x(IRHO)
+         gradE(2) = Q_y(IRHOE) * invRho - E * invRho * Q_y(IRHO)
+         gradE(3) = Q_z(IRHOE) * invRho - E * invRho * Q_z(IRHO)
          
 !        Jacobian entries
 !        ----------------
@@ -727,7 +730,7 @@
                            u * Q_y(IRHO) + v * Q_x(IRHO) - Q(IRHO) * ( U_y(IX) + U_x(IY)) , &
                            u * Q_z(IRHO) + w * Q_x(IRHO) - Q(IRHO) * ( U_z(IX) + U_x(IZ)) , &
                            (1._RP - gamma_Pr) * ( Vel2*Q_x(IRHO) - vv_x ) + lambda * u * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradU + gamma_Pr * ( E * Q_x(IRHO) + Q(IRHO) * gradE(1) ) /)
+                                - 2 * Q(IRHO) * V_gradU + gamma_Pr * ( E * Q_x(IRHO) - Q(IRHO) * gradE(1) ) /)
          
          df_dq(:,2,1) = (/ 0._RP , -4._RP*lambda*Q_x(IRHO) , -Q_y(IRHO) , -Q_z(IRHO) , -u * (lambda - gamma_Pr) * Q_x(IRHO) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_x(IX) - V_gradRho - 2._RP * lambda * rho_DivV /)
          df_dq(:,3,1) = (/ 0._RP ,  2._RP*lambda*Q_y(IRHO) , -Q_x(IRHO) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_x(IY) - v * Q_x(IRHO)) + Q(IRHO) * U_y(IX) + 2._RP * lambda * u * Q_y(IRHO) /)
@@ -740,7 +743,7 @@
                            2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( v * Q_y(IRHO) - Q(IRHO) * U_y(IY) ), &
                            v * Q_z(IRHO) + w * Q_y(IRHO) - Q(IRHO) * ( U_z(IY) + U_y(IZ)) , &
                            (1._RP - gamma_Pr) * ( Vel2*Q_y(IRHO) - vv_y ) + lambda * v * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradV + gamma_Pr * ( E * Q_y(IRHO) + Q(IRHO) * gradE(2) ) /)
+                                - 2 * Q(IRHO) * V_gradV + gamma_Pr * ( E * Q_y(IRHO) - Q(IRHO) * gradE(2) ) /)
          
          df_dq(:,2,2) = (/ 0._RP , -Q_y(IRHO) ,  2._RP*lambda*Q_x(IRHO) , 0._RP       , (1._RP - gamma_Pr) * (Q(IRHO) * U_y(IX) - u * Q_y(IRHO)) + Q(IRHO) * U_x(IY) + 2._RP * lambda * v * Q_x(IRHO) /)
          df_dq(:,3,2) = (/ 0._RP , -Q_x(IRHO) , -4._RP*lambda*Q_y(IRHO) , -Q_z(IRHO) , -v * (lambda - gamma_Pr) * Q_y(IRHO) + Q(IRHO) * ( 2._RP - gamma_Pr) * U_y(IY) - V_gradRho - 2._RP * lambda * rho_DivV /)
@@ -753,7 +756,7 @@
                            w * Q_y(IRHO) + v * Q_z(IRHO) - Q(IRHO) * ( U_y(IZ) + U_z(IY)) , &
                            2._RP * lambda * (rho_DivV - V_gradRho) + 2._RP * ( w * Q_z(IRHO) - Q(IRHO) * U_z(IZ) ), &
                            (1._RP - gamma_Pr) * ( Vel2*Q_z(IRHO) - vv_z ) + lambda * w * (4._RP*rho_DivV + V_gradRho) &
-                                - 2 * Q(IRHO) * V_gradW + gamma_Pr * ( E * Q_z(IRHO) + Q(IRHO) * gradE(3) ) /)
+                                - 2 * Q(IRHO) * V_gradW + gamma_Pr * ( E * Q_z(IRHO) - Q(IRHO) * gradE(3) ) /)
          
          df_dq(:,2,3) = (/ 0._RP , -Q_z(IRHO) , 0._RP       ,  2._RP*lambda*Q_x(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IX) - u * Q_z(IRHO)) + Q(IRHO) * U_x(IZ) + 2._RP * lambda * w * Q_x(IRHO) /)
          df_dq(:,3,3) = (/ 0._RP , 0._RP       , -Q_z(IRHO) ,  2._RP*lambda*Q_y(IRHO) , (1._RP - gamma_Pr) * (Q(IRHO) * U_z(IY) - v * Q_z(IRHO)) + Q(IRHO) * U_y(IZ) + 2._RP * lambda * w * Q_y(IRHO) /)
@@ -765,6 +768,18 @@
 !        --------------------------------------------
          
          df_dq = df_dq * sutherLaw / ( Q(IRHO)**2 * Re ) 
+         
+!
+!        Correct with the derivative of the Sutherland's law
+!        --------------------------------------------------
+         dMu_dQ    = SutherlandsLawDeriv(Q,T)
+         
+         call ViscousFlux0D(NCONS, NCONS, Q, Q_x, Q_y, Q_z, dimensionless % mu, 0._RP, dimensionless % kappa, F)
+         F = F / sutherLaw
+         
+         df_dq(:,:,1) = df_dq(:,:,1) + outer_product(F(:,1),dMu_dQ)
+         df_dq(:,:,2) = df_dq(:,:,2) + outer_product(F(:,2),dMu_dQ)
+         df_dq(:,:,3) = df_dq(:,:,3) + outer_product(F(:,3),dMu_dQ)
          
          end associate
       end subroutine ViscousJacobian
@@ -1013,7 +1028,23 @@
 
 
       END FUNCTION SutherlandsLaw
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      pure function SutherlandsLawDeriv(Q,T) result(dMu_dQ)
+         implicit none
+         !-arguments--------------------------------
+         real(kind=RP), intent(in) :: Q(NCONS)
+         real(kind=RP), intent(in) :: T
+         real(kind=RP)             :: dMu_dQ(NCONS)
+         !------------------------------------------
+         
+         dMu_dQ = (1._RP + tRatio)/(T + tRatio) * sqrt(T) * (1.5_RP - T/(T + tRatio)) * TemperatureDeriv(Q)
+         
+      end function SutherlandsLawDeriv
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
          implicit none
          real(kind=RP), intent(in)      :: Q   (1:NCONS         )

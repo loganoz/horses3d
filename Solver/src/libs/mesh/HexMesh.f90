@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Feb 12 17:06:51 2019
+!   @Last revision date: Mon Apr 22 18:37:36 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -1694,6 +1694,8 @@ slavecoord:             DO l = 1, 4
 !              ---------------------------------
                NelL = eL % Nxyz(axisMap(:, f % elementSide(1)))
                NelR = NelL
+               
+               ! Default NumberOfConnections = 0
                end associate
 
             case (HMESH_MPI)
@@ -1705,6 +1707,8 @@ slavecoord:             DO l = 1, 4
                associate(e => self % elements(maxval(f % elementIDs)))
                NelL = e % Nxyz(axisMap(:,maxval(f % elementSide)))
                NelR = NelL
+               
+               !TODO: Store connection information for MPI
                end associate
 
             end select

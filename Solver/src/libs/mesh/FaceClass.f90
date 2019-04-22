@@ -612,10 +612,9 @@
 !     Local variables
 !     ---------------
 !
-      ! real(kind=RP), intent(in)  :: flux(1:nEqn,1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
       integer                :: i, j, ii, jj, l, m, side
       real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
-      real(kind=RP)     :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
       
       fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
       

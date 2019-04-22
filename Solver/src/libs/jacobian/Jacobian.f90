@@ -33,8 +33,7 @@ IMPLICIT NONE
 !
 !     -----------------------------------------------------------------------------
 !     This subroutine finds the neighbours of all elements (conforming meshes only)
-!        current implementation only finds neighbour 3D elements, but not faces 
-!        (modify commented part to perform this)
+!        current implementation only finds neighbour 3D elements, but not faces
 !     -----------------------------------------------------------------------------
 !
 !
