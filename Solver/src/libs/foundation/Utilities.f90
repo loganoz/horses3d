@@ -34,9 +34,11 @@ module Utilities
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
    public   toLower, Qsort
-   public   logarithmicMean
-
-
+   public   logarithmicMean, dot_product
+   
+   interface dot_product
+      module procedure dot_product_3Tensor_Vec
+   end interface
    contains
    
 !
@@ -93,6 +95,28 @@ module Utilities
          C = Amat * Bmat
          
       end function outer_product
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------
+!     dot_product_3Tensor_Vec:
+!        Inner product of a third-order tensor with a vector
+!     ------------------------------------------------------
+      pure function dot_product_3Tensor_Vec(X,Y) result(Z)
+         implicit none
+         !-arguments----------------------------------------------
+         real(kind=RP), intent(in) :: X(:,:,:)
+         real(kind=RP), intent(in) :: Y(size(X,3))
+         real(kind=RP)             :: Z(size(X,1),size(X,2))
+         !-local-variables----------------------------------------
+         integer :: i
+         !--------------------------------------------------------
+         
+         Z = 0._RP
+         do i=1, size(Y)
+            Z = Z + X(:,:,i) * Y(i)
+         end do
+      end function dot_product_3Tensor_Vec
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

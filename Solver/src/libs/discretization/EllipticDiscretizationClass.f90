@@ -208,7 +208,7 @@ module EllipticDiscretizationClass
          class(EllipticDiscretization_t), intent(in)    :: self
          type(Element)         , intent(inout) :: e                                                                                          !<  This element
          real(kind=RP)         , intent(out)   :: df_dgradq( NCONS, NCONS, NDIM, NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) )         !>  Contravariant Jacobian with respect to ∇q
-         real(kind=RP)         , intent(inout) :: dFdQ     ( NCONS, NCONS            , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )   !<> Contravariant Jacobian with respect to q
+         real(kind=RP)         , intent(inout) :: dFdQ     ( NCONS, NCONS, NDIM      , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) )   !<> Contravariant Jacobian with respect to q
          !--------------------------------------------
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM,NDIM) :: df_dgradq_cart ! Cartesian Jacobian tensor with respect to ∇q
          real(kind=RP), DIMENSION(NCONS,NCONS,NDIM)      :: dfdq_cart      ! Cartesian Jacobian tensor with respect to q
@@ -258,15 +258,15 @@ module EllipticDiscretizationClass
 !           *********************************
 !
             
-            dFdQ(:,:,i,j,k,IX) = dFdQ(:,:,i,j,k,IX) - (  e % geom % jGradXi  (1,i,j,k) * dfdq_cart(:,:,1) + &
+            dFdQ(:,:,IX,i,j,k) = dFdQ(:,:,IX,i,j,k) - (  e % geom % jGradXi  (1,i,j,k) * dfdq_cart(:,:,1) + &
                                                          e % geom % jGradXi  (2,i,j,k) * dfdq_cart(:,:,2) + &
                                                          e % geom % jGradXi  (3,i,j,k) * dfdq_cart(:,:,3) )
 
-            dFdQ(:,:,i,j,k,IY) = dFdQ(:,:,i,j,k,IY) - (  e % geom % jGradEta (1,i,j,k) * dfdq_cart(:,:,1) + &
+            dFdQ(:,:,IY,i,j,k) = dFdQ(:,:,IY,i,j,k) - (  e % geom % jGradEta (1,i,j,k) * dfdq_cart(:,:,1) + &
                                                          e % geom % jGradEta (2,i,j,k) * dfdq_cart(:,:,2) + &
                                                          e % geom % jGradEta (3,i,j,k) * dfdq_cart(:,:,3) )
 
-            dFdQ(:,:,i,j,k,IZ) = dFdQ(:,:,i,j,k,IZ) - (  e % geom % jGradZeta(1,i,j,k) * dfdq_cart(:,:,1) + &
+            dFdQ(:,:,IZ,i,j,k) = dFdQ(:,:,IZ,i,j,k) - (  e % geom % jGradZeta(1,i,j,k) * dfdq_cart(:,:,1) + &
                                                          e % geom % jGradZeta(2,i,j,k) * dfdq_cart(:,:,2) + &
                                                          e % geom % jGradZeta(3,i,j,k) * dfdq_cart(:,:,3) )
             

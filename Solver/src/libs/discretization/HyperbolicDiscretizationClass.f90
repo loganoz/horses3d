@@ -4,9 +4,9 @@
 !   @File:    HyperbolicDiscretizationClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Sat Jun 23 10:20:24 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: fce351220409e80ce5df1949249c2b870dd847aa
+!   @Last revision date: Tue Apr 23 10:31:08 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 7822258ddb4f7e8e08607845bc7881e1f71837c8
 !
 !//////////////////////////////////////////////////////
 !
@@ -232,7 +232,7 @@ module HyperbolicDiscretizationClass
          !--------------------------------------------
          class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element)          , intent(in)  :: e
-         real(kind=RP)          , intent(out) :: dFdQ( NNS, NNS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM )
+         real(kind=RP)          , intent(out) :: dFdQ( NNS, NNS, NDIM , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          !--------------------------------------------
          real(kind=RP), DIMENSION(NNS,NNS)  :: dfdq_,dgdq_,dhdq_
          integer                                :: i,j,k
@@ -243,15 +243,15 @@ module HyperbolicDiscretizationClass
             call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
             
             
-            dFdQ(:,:,i,j,k,IX) = e % geom % jGradXi  (1,i,j,k) * dfdq_ + &
+            dFdQ(:,:,IX,i,j,k) = e % geom % jGradXi  (1,i,j,k) * dfdq_ + &
                                  e % geom % jGradXi  (2,i,j,k) * dgdq_ + &
                                  e % geom % jGradXi  (3,i,j,k) * dhdq_ 
 
-            dFdQ(:,:,i,j,k,IY) = e % geom % jGradEta (1,i,j,k) * dfdq_ + &
+            dFdQ(:,:,IY,i,j,k) = e % geom % jGradEta (1,i,j,k) * dfdq_ + &
                                  e % geom % jGradEta (2,i,j,k) * dgdq_ + &
                                  e % geom % jGradEta (3,i,j,k) * dhdq_ 
 
-            dFdQ(:,:,i,j,k,IZ) = e % geom % jGradZeta(1,i,j,k) * dfdq_ + &
+            dFdQ(:,:,IZ,i,j,k) = e % geom % jGradZeta(1,i,j,k) * dfdq_ + &
                                  e % geom % jGradZeta(2,i,j,k) * dgdq_ + &
                                  e % geom % jGradZeta(3,i,j,k) * dhdq_ 
          end do                ; end do                ; end do
