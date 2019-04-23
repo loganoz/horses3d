@@ -20,7 +20,7 @@ IMPLICIT NONE
    public Look_for_neighbour, ijk2local, local2ijk
    public JACEPS
    
-   real(kind=RP), parameter :: JACEPS = 1.e-8_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
+   real(kind=RP), parameter :: JACEPS = 1.e-9_RP ! Minimum value of a Jacobian entry (smaller values are considered as 0._RP)
    
 !========
  CONTAINS

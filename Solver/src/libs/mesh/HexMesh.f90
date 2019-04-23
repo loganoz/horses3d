@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Mon Apr 22 18:37:36 2019
+!   @Last revision date: Tue Apr 23 17:08:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -2733,7 +2733,7 @@ slavecoord:             DO l = 1, 4
             end do
             
             call auxMesh % PrepareForIO
-            call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.,.FALSE.)
+            call auxMesh % AllocateStorage (NDOF, controlVariables,computeGradients,.FALSE.)
             call auxMesh % storage % pointStorage
             do eID = 1, auxMesh % no_of_elements
                auxMesh % elements(eID) % storage => auxMesh % storage % elements(eID)
@@ -2980,7 +2980,7 @@ slavecoord:             DO l = 1, 4
       end do
       
       call refMesh % PrepareForIO
-      call refMesh % AllocateStorage (NDOF, controlVariables,.FALSE.,.FALSE.)
+      call refMesh % AllocateStorage (NDOF, controlVariables,.FALSE.)
       
 !     Read the solution in the auxiliar mesh and interpolate to current mesh
 !     ----------------------------------------------------------------------
@@ -3308,26 +3308,20 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
-   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_pointers,Face_Storage)
+   subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_Storage)
       implicit none
       !-----------------------------------------------------------
       class(HexMesh), target                 :: self
       integer                 , intent(in)   :: NDOF
       class(FTValueDictionary), intent(in)   :: controlVariables
       logical                 , intent(in)   :: computeGradients
-      logical, optional       , intent(in)   :: Face_pointers
       logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
       integer :: bdf_order, eID, fID
-      logical :: Face_pt, Face_St
+      logical :: Face_St
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
       
-      if ( present(Face_pointers) ) then
-         Face_pt = Face_pointers
-      else
-         Face_pt = .TRUE.
-      end if
       if ( present(Face_Storage) ) then
          Face_St = Face_Storage
       else
@@ -3367,27 +3361,6 @@ slavecoord:             DO l = 1, 4
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
          e % storage => self % storage % elements(eID)
-!
-!        Point face Jacobians
-!        --------------------
-#if defined(NAVIERSTOKES)
-         if (Face_pt) then
-            e % Storage % dfdq_fr(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFStar_dqEl
-            e % Storage % dfdq_ba(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFStar_dqEl
-            e % Storage % dfdq_bo(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFStar_dqEl
-            e % Storage % dfdq_to(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFStar_dqEl
-            e % Storage % dfdq_ri(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFStar_dqEl
-            e % Storage % dfdq_le(1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFStar_dqEl
-            
-            e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EFRONT )) % storage(e %faceSide(EFRONT )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBACK  )) % storage(e %faceSide(EBACK  )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(EBOTTOM)) % storage(e %faceSide(EBOTTOM)) % dFv_dGradQEl
-            e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ETOP   )) % storage(e %faceSide(ETOP   )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ERIGHT )) % storage(e %faceSide(ERIGHT )) % dFv_dGradQEl
-            e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:,1:) => self % faces(e % faceIDs(ELEFT  )) % storage(e %faceSide(ELEFT  )) % dFv_dGradQEl
-         end if
-         
-#endif
          end associate
       END DO
 

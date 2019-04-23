@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Mon Apr 22 18:37:31 2019
+!   @Last revision date: Tue Apr 23 17:08:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -748,9 +748,9 @@ module EllipticIP
                           U_x           => f % storage(side) % U_x(:,i,j)                , &
                           U_y           => f % storage(side) % U_y(:,i,j)                , &
                           U_z           => f % storage(side) % U_z(:,i,j)                , &
-                          nHat          => f % geom % normal(:,i,j)                    , &
-                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)     , &
-                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
+                          nHat          => f % geom % normal(:,i,j)                      , &
+                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)       , &
+                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
                
                call ViscousJacobian(Q, U_x, U_y, U_z, df_dgradq, dfdq_)
                

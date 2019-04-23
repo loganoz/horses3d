@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Apr 23 16:16:44 2019
+!   @Last revision date: Tue Apr 23 17:08:54 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8f120175b6f0af0ad36810623818804d17c489f2
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -441,7 +441,7 @@ contains
                                         
             f % storage(LEFT ) % dFStar_dqF (:,:,i,j)     = f % storage(LEFT ) % dFStar_dqF (:,:,i,j)  + dF_dQ     * f % geom % jacobian(i,j)
             
-            associate ( dF_dGradQ_out => f % storage(LEFT ) % dFv_dGradQF(:,:,:,2,i,j), &
+            associate ( dF_dGradQ_out => f % storage(LEFT ) % dFv_dGradQF(:,:,:,i,j), &
                         nHat => f % geom % normal(:,i,j))
          
             dF_dGradQ_out = 0._RP
@@ -835,9 +835,9 @@ contains
    subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix)
       implicit none
       !-------------------------------------------
-      type(Element)  , intent(inout) :: e
-      type(Face)     , intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
-      class(Matrix_t), intent(inout) :: Matrix
+      type(Element)     , intent(inout) :: e
+      type(Face), target, intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
+      class(Matrix_t)   , intent(inout) :: Matrix
       !-------------------------------------------
       real(kind=RP) :: MatEntries(NCONS,NCONS)
       real(kind=RP) :: dFdQ      (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
@@ -850,8 +850,14 @@ contains
       integer :: nXi, nEta        ! Number of nodes in every direction
       integer :: EtaSpa, ZetaSpa  ! Spacing for these two coordinate directions
       integer :: Deltas           ! A variable to know if enough deltas are zero, in which case this is a zero entry of the matrix..
+      integer :: sideF
+      integer :: sideB
+      integer :: sideO
+      integer :: sideR
+      integer :: sideT
+      integer :: sideL
       real(kind=RP), dimension(:,:,:,:)      , pointer :: dfdq_fr, dfdq_ba, dfdq_bo, dfdq_to, dfdq_le, dfdq_ri
-      real(kind=RP), dimension(:,:,:,:,:,:)  , pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
+      real(kind=RP), dimension(:,:,:,:,:)    , pointer :: dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le
       real(kind=RP), dimension(:,:,:,:,:,:,:), pointer :: dF_dgradQ
       real(kind=RP) :: nF( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for FRONT  face
       real(kind=RP) :: nB( NDIM, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Normal vecs for BACK   face
@@ -880,14 +886,21 @@ contains
       
       dF_dgradQ => e % storage % dF_dgradQ
       
+      sideF = e % faceSide(EFRONT )
+      sideB = e % faceSide(EBACK  )
+      sideO = e % faceSide(EBOTTOM)
+      sideR = e % faceSide(ERIGHT )
+      sideT = e % faceSide(ETOP   )
+      sideL = e % faceSide(ELEFT  )
+      
 !     Get normal vectors in element indexing
 !     --------------------------------------      
-      call AnJac_GetNormalVec(fF, e % faceSide(EFRONT ), nF)
-      call AnJac_GetNormalVec(fB, e % faceSide(EBACK  ), nB)
-      call AnJac_GetNormalVec(fO, e % faceSide(EBOTTOM), nO)
-      call AnJac_GetNormalVec(fR, e % faceSide(ERIGHT ), nR)
-      call AnJac_GetNormalVec(fT, e % faceSide(ETOP   ), nT)
-      call AnJac_GetNormalVec(fL, e % faceSide(ELEFT  ), nL)
+      call AnJac_GetNormalVec(fF, sideF, nF)
+      call AnJac_GetNormalVec(fB, sideB, nB)
+      call AnJac_GetNormalVec(fO, sideO, nO)
+      call AnJac_GetNormalVec(fR, sideR, nR)
+      call AnJac_GetNormalVec(fT, sideT, nT)
+      call AnJac_GetNormalVec(fL, sideL, nL)
       
 !
 !     *********************
@@ -900,12 +913,12 @@ contains
 !
 !     Pointers to the flux Jacobians with respect to q on the faces
 !     -------------------------------------------------------------
-      dfdq_fr(1:,1:,0:,0:) => e % Storage % dfdq_fr(1:,1:,0:,0:,e %faceSide(EFRONT ))
-      dfdq_ba(1:,1:,0:,0:) => e % Storage % dfdq_ba(1:,1:,0:,0:,e %faceSide(EBACK  ))
-      dfdq_bo(1:,1:,0:,0:) => e % Storage % dfdq_bo(1:,1:,0:,0:,e %faceSide(EBOTTOM))
-      dfdq_to(1:,1:,0:,0:) => e % Storage % dfdq_to(1:,1:,0:,0:,e %faceSide(ETOP   ))
-      dfdq_ri(1:,1:,0:,0:) => e % Storage % dfdq_ri(1:,1:,0:,0:,e %faceSide(ERIGHT ))
-      dfdq_le(1:,1:,0:,0:) => e % Storage % dfdq_le(1:,1:,0:,0:,e %faceSide(ELEFT  ))
+      dfdq_fr(1:,1:,0:,0:) => fF % storage(sideF) % dFStar_dqEl(1:,1:,0:,0:,sideF)
+      dfdq_ba(1:,1:,0:,0:) => fB % storage(sideB) % dFStar_dqEl(1:,1:,0:,0:,sideB)
+      dfdq_bo(1:,1:,0:,0:) => fO % storage(sideO) % dFStar_dqEl(1:,1:,0:,0:,sideO)
+      dfdq_to(1:,1:,0:,0:) => fT % storage(sideT) % dFStar_dqEl(1:,1:,0:,0:,sideT)
+      dfdq_ri(1:,1:,0:,0:) => fR % storage(sideR) % dFStar_dqEl(1:,1:,0:,0:,sideR)
+      dfdq_le(1:,1:,0:,0:) => fL % storage(sideL) % dFStar_dqEl(1:,1:,0:,0:,sideL)
       
 !     Xi contribution (dj*dk)
 !     -----------------------
@@ -991,13 +1004,13 @@ contains
       if (flowIsNavierStokes) then
 !
 !        Pointers to the flux Jacobians with respect to grad(q) on the faces
-!        -------------------------------------------
-         dfdGradQ_fr(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_fr(1:,1:,1:,1:,0:,0:,e %faceSide(EFRONT  ))
-         dfdGradQ_ba(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_ba(1:,1:,1:,1:,0:,0:,e %faceSide(EBACK   ))
-         dfdGradQ_bo(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_bo(1:,1:,1:,1:,0:,0:,e %faceSide(EBOTTOM ))
-         dfdGradQ_to(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_to(1:,1:,1:,1:,0:,0:,e %faceSide(ETOP    ))
-         dfdGradQ_ri(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_ri(1:,1:,1:,1:,0:,0:,e %faceSide(ERIGHT  ))
-         dfdGradQ_le(1:,1:,1:,1:,0:,0:) => e % Storage % dfdGradQ_le(1:,1:,1:,1:,0:,0:,e %faceSide(ELEFT   ))
+!        -------------------------------------------------------------------
+         dfdGradQ_fr(1:,1:,1:,0:,0:) => fF % Storage(sideF) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideF)
+         dfdGradQ_ba(1:,1:,1:,0:,0:) => fB % Storage(sideB) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideB)
+         dfdGradQ_bo(1:,1:,1:,0:,0:) => fO % Storage(sideO) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideO)
+         dfdGradQ_to(1:,1:,1:,0:,0:) => fT % Storage(sideT) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideT)
+         dfdGradQ_ri(1:,1:,1:,0:,0:) => fR % Storage(sideR) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideR)
+         dfdGradQ_le(1:,1:,1:,0:,0:) => fL % Storage(sideL) % dFv_dGradQEl(1:,1:,1:,0:,0:,sideL)
 
 !
 !        (dj*dk) contribution
@@ -1028,14 +1041,15 @@ contains
 !           -----------------------------------------------------
             MatEntries =  MatEntries &
                   +  dot_product(xiAux  (:,:,1:3), e % geom % jGradXi  (:,i2,j12,k12) ) - xiAux(:,:,4)        & ! Volumetric contribution: xi-gradient to xi-component of the flux
-                  +   dfdGradQ_ri(:,:,1,2,j12,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % vd(i2,RIGHT ) & ! Right face contribution (outer surface integral)
-                  +   dfdGradQ_le(:,:,1,2,j12,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % vd(i2,LEFT  )   ! Left face contribution  (outer surface integral)
+                  +   dfdGradQ_ri(:,:,1,j12,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % vd(i2,RIGHT ) & ! Right face contribution (outer surface integral)
+                  +   dfdGradQ_le(:,:,1,j12,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % vd(i2,LEFT  )   ! Left face contribution  (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i1,j12,k12) ! Scale with Jacobian from mass matrix
             
             baseRow = i1*NCONS + j12*EtaSpa + k12*ZetaSpa
             baseCol = i2*NCONS + j12*EtaSpa + k12*ZetaSpa
             
+            !-------------------------------------
             do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
@@ -1043,6 +1057,7 @@ contains
                call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
+            !-------------------------------------
          end do                  ; end do                  ; end do                 ; end do
 !
 !        (di*dk) contribution
@@ -1072,13 +1087,15 @@ contains
 !           ------------------------------------------------------
             MatEntries =  MatEntries &
                   + dot_product(etaAux (:,:,1:3), e % geom % jGradEta (:,i12,j2,k12) ) - etaAux(:,:,4)        & ! Volumetric contribution: eta-gradient to eta-component of the flux
-                  +   dfdGradQ_fr(:,:,2,2,i12,k12) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % vd(j2,FRONT ) & ! Front face contribution (outer surface integral)
-                  +   dfdGradQ_ba(:,:,2,2,i12,k12) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % vd(j2,BACK  )   ! Back face contribution (outer surface integral)
+                  +   dfdGradQ_fr(:,:,2,i12,k12) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % vd(j2,FRONT ) & ! Front face contribution (outer surface integral)
+                  +   dfdGradQ_ba(:,:,2,i12,k12) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % vd(j2,BACK  )   ! Back face contribution (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i12,j1,k12) ! Scale with Jacobian from mass matrix
             
             baseRow = i12*NCONS + j1*EtaSpa + k12*ZetaSpa
             baseCol = i12*NCONS + j2*EtaSpa + k12*ZetaSpa
+            
+            !-------------------------------------
             do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
@@ -1086,6 +1103,7 @@ contains
                call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
+            !-------------------------------------
          end do                  ; end do                  ; end do                 ; end do
 !
 !        (di*dj) contribution
@@ -1115,14 +1133,15 @@ contains
 !           -------------------------------------------------------
             MatEntries = MatEntries &
                   + dot_product(zetaAux(:,:,1:3), e % geom % jGradZeta(:,i12,j12,k2) ) - zetaAux(:,:,4)       & ! Volumetric contribution: zeta-gradient to zeta-component of the flux
-                  +   dfdGradQ_bo(:,:,3,2,i12,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % vd(k2,BOTTOM) & ! Bottom face contribution (outer surface integral) 
-                  +   dfdGradQ_to(:,:,3,2,i12,j12) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % vd(k2,TOP   )   ! Top  face contribution (outer surface integral)
+                  +   dfdGradQ_bo(:,:,3,i12,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % vd(k2,BOTTOM) & ! Bottom face contribution (outer surface integral) 
+                  +   dfdGradQ_to(:,:,3,i12,j12) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % vd(k2,TOP   )   ! Top  face contribution (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i12,j12,k1) ! Scale with Jacobian from mass matrix
             
             baseRow = i12*NCONS + j12*EtaSpa + k1*ZetaSpa
             baseCol = i12*NCONS + j12*EtaSpa + k2*ZetaSpa
             
+            !-------------------------------------
             do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
@@ -1130,6 +1149,7 @@ contains
                call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
+            !-------------------------------------
          end do                  ; end do                   ; end do                   ; end do
 !
 !        (di) contribution
@@ -1156,8 +1176,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_bo(:,:,2,2,i12,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
-                        +   dfdGradQ_to(:,:,2,2,i12,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
+                        +   dfdGradQ_bo(:,:,2,i12,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
+                        +   dfdGradQ_to(:,:,2,i12,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
 !
 !                 Contributions to the Zeta-component of the flux
 !                 ***********************************************
@@ -1172,8 +1192,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_fr(:,:,3,2,i12,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
-                        +   dfdGradQ_ba(:,:,3,2,i12,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  )   ! Back face outer surface integral
+                        +   dfdGradQ_fr(:,:,3,i12,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
+                        +   dfdGradQ_ba(:,:,3,i12,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  )   ! Back face outer surface integral
                
                
                   MatEntries = MatEntries * e % geom % invJacobian(i12,j1,k1) ! Scale with Jacobian from mass matrix
@@ -1181,6 +1201,7 @@ contains
                   baseRow = i12*NCONS + j1*EtaSpa + k1*ZetaSpa
                   baseCol = i12*NCONS + j2*EtaSpa + k2*ZetaSpa
                   
+                  !-------------------------------------
                   do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
@@ -1188,7 +1209,7 @@ contains
                      call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
-                  
+                  !-------------------------------------
                end do
             end do                 ; end do
          end do                 ; end do
@@ -1217,8 +1238,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_bo(:,:,1,2,i1,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
-                        +   dfdGradQ_to(:,:,1,2,i1,j12) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
+                        +   dfdGradQ_bo(:,:,1,i1,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
+                        +   dfdGradQ_to(:,:,1,i1,j12) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
 !
 !                 Contributions to the Zeta-component of the flux
 !                 ***********************************************
@@ -1233,8 +1254,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_ri(:,:,3,2,j12,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
-                        +   dfdGradQ_le(:,:,3,2,j12,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  )   ! Left  face outer surface integral
+                        +   dfdGradQ_ri(:,:,3,j12,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
+                        +   dfdGradQ_le(:,:,3,j12,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  )   ! Left  face outer surface integral
                
                
                   MatEntries = MatEntries * e % geom % invJacobian(i1,j12,k1) ! Scale with Jacobian from mass matrix
@@ -1278,8 +1299,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                            
-                        +   dfdGradQ_fr(:,:,1,2,i1,k12) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
-                        +   dfdGradQ_ba(:,:,1,2,i1,k12) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  )   ! Back  face outer surface integral
+                        +   dfdGradQ_fr(:,:,1,i1,k12) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
+                        +   dfdGradQ_ba(:,:,1,i1,k12) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  )   ! Back  face outer surface integral
 !
 !                 Contributions to the Eta-component of the flux
 !                 **********************************************
@@ -1294,8 +1315,8 @@ contains
                                        )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_ri(:,:,2,2,j1,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
-                        +   dfdGradQ_le(:,:,2,2,j1,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  )   ! Left face outer surface integral
+                        +   dfdGradQ_ri(:,:,2,j1,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
+                        +   dfdGradQ_le(:,:,2,j1,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  )   ! Left face outer surface integral
                
                   MatEntries = MatEntries * e % geom % invJacobian(i1,j1,k12) ! Scale with Jacobian from mass matrix
                   
@@ -1382,7 +1403,7 @@ contains
       type(NodalStorage_t), pointer :: spAtan1_minus     ! Nodal storage in the tangent direction "1" to the face for e⁻ (only needed for viscous fluxes)
       type(NodalStorage_t), pointer :: spAtan2_minus     ! Nodal storage in the tangent direction "2" to the face for e⁻ (only needed for viscous fluxes)
       real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
-      real(kind=RP)       , pointer :: df_dGradQ_f(:,:,:,:,:,:)   ! Pointer to the Jacobian with respect to gradQ on face
+      real(kind=RP)       , pointer :: df_dGradQ_f(:,:,:,:,:)     ! Pointer to the Jacobian with respect to gradQ on face
       real(kind=RP)       , pointer :: df_dGradQ_e(:,:,:,:,:,:,:) ! Pointer to the Jacobian with respect to gradQ on face
       real(kind=RP) :: a_minus
       real(kind=RP) :: normAux(NCONS,NCONS)
@@ -1507,7 +1528,7 @@ contains
 !
 !        Pointers to the flux Jacobians with respect to grad(q) on the faces
 !        -------------------------------------------
-         df_dGradQ_f(1:,1:,1:,1:,0:,0:)    => f % Storage(side) % dFv_dGradQEl (1:,1:,1:,1:,0:,0:, other(side) )
+         df_dGradQ_f(1:,1:,1:,0:,0:)    => f % Storage(side) % dFv_dGradQEl (1:,1:,1:,0:,0:, other(side) )
          df_dGradQ_e(1:,1:,1:,1:,0:,0:,0:) => e_plus % storage  % dF_dGradQ    (1:,1:,1:,1:,0:,0:,0:)
          do k2 = 0, e_minus % Nxyz(3) ; do j2 = 0, e_minus % Nxyz(2) ; do i2 = 0, e_minus % Nxyz(1)
             do k1 = 0, e_plus % Nxyz(3) ; do j1 = 0, e_plus % Nxyz(2) ; do i1 = 0, e_plus % Nxyz(1)
@@ -1608,21 +1629,21 @@ contains
                      * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
 !
 !              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
-!                 The tangent directions here are taken in the|reference frame of e⁻
-!              ***********************************************|*********************
-!                                                         ____|
-!                                                         |
+!                 The tangent directions here are taken in the reference frame of e⁻
+!              *********************************************************************
+!
+!
                MatEntries = MatEntries &
-                   +   df_dGradQ_f(:,:,tanAx_minus(1),2,faceInd_plus(1),faceInd_plus(2))                               &
+                   +   df_dGradQ_f(:,:,tanAx_minus(1),faceInd_plus(1),faceInd_plus(2))                               &
                      * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
                      * spAtan1_minus % D   (faceInd_plus2minus(1),faceInd_minus(1))                                     &
                      * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan2_minus               & ! Tangent direction 1
                      
-                   +   df_dGradQ_f(:,:, normAx_minus ,2,faceInd_plus(1),faceInd_plus(2))                               &
+                   +   df_dGradQ_f(:,:, normAx_minus ,faceInd_plus(1),faceInd_plus(2))                               &
                      * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
                      * spAnorm_minus % vd  (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus * dtan2_minus & ! Normal direction
                      
-                   +   df_dGradQ_f(:,:,tanAx_minus(2),2,faceInd_plus(1),faceInd_plus(2))                               &
+                   +   df_dGradQ_f(:,:,tanAx_minus(2),faceInd_plus(1),faceInd_plus(2))                               &
                      * spAnorm_plus  % b   (elInd_plus ( normAx_plus  ), normAxSide_plus  )                             &
                      * spAtan2_minus % D   (faceInd_plus2minus(2),faceInd_minus(2))                                     &
                      * spAnorm_minus % v   (elInd_minus( normAx_minus ), normAxSide_minus ) * dtan1_minus                 ! Tangent direction 2 
