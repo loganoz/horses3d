@@ -4,9 +4,9 @@
 !   @File:    RiemannSolvers_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date: Wed Apr 18 20:19:11 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
+!   @Last revision date: Mon Apr 22 18:37:37 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -1219,7 +1219,7 @@ module RiemannSolvers_NS
             case(RIGHT)
                call InviscidJacobian(qr,dfdq,dgdq,dhdq)
                
-               if (lambdaR .ge. lambdaL) then
+               if (lambdaR .gt. lambdaL) then
                   
                   dvn_dq = (/ -velR * srhoR, nHat(1) * srhoR, nHat(2) * srhoR, nHat(3) * srhoR, 0._RP /)
                   da_dq  = (/ ( rhoV2R - qr(IRHOE) )*srhoR**2 , -ur * srhoR , -vr * srhoR , -wr * srhoR , srhoR /) * &

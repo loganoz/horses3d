@@ -32,6 +32,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: Preallocate
          procedure :: Reset
          procedure :: SetColumn
+         procedure :: AddToColumn         => Dense_AddToColumn
          procedure :: SetDiagonalBlock
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
@@ -168,6 +169,53 @@ contains
       end associate
       
    end subroutine SetColumn
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Dense_AddToColumn(this,nvalues, irow, icol, values )
+      implicit none
+      !---------------------------------------------
+      class(DenseBlockDiagMatrix_t), intent(inout) :: this
+      integer                      , intent(in)    :: nvalues
+      integer, dimension(:)        , intent(in)    :: irow
+      integer                      , intent(in)    :: icol
+      real(kind=RP), dimension(:)  , intent(in)    :: values
+      !---------------------------------------------
+      integer :: thisblock, thiscol, thisrow, firstIdx, lastIdx
+      integer :: i
+!~      integer, pointer :: indexes(:)
+      !---------------------------------------------
+      
+      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
+      
+      ! Search the corresponding block (they are ordered)
+      do thisblock=1, this % num_of_Blocks
+         if (icol <= this % BlockIdx(thisblock+1) -1) exit
+      end do
+      
+      associate (indexes => this % Blocks(thisblock) % Indexes)
+      firstIdx = this % BlockIdx(thisblock)
+      lastIdx  = this % BlockIdx(thisblock+1) - 1
+      
+      ! Get relative position of column
+      do thiscol=1, this % BlockSizes(thisblock)
+         if (icol == indexes(thiscol)) exit
+      end do
+      
+      ! Fill the column info
+      do i=1, nvalues
+         if ( irow(i) < firstIdx .or. irow(i) > lastIdx ) cycle
+         ! Get relative row
+         do thisrow=1, this % BlockSizes(thisblock)
+            if (irow(i) == indexes(thisrow)) exit
+         end do
+         this % Blocks(thisblock) % Matrix(thisrow,thiscol) = this % Blocks(thisblock) % Matrix(thisrow,thiscol) + values(i)
+      
+      end do
+      
+      end associate
+      
+   end subroutine Dense_AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Fri Feb  1 17:24:59 2019
+!   @Last revision date: Mon Apr 22 18:37:34 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -19,7 +19,7 @@ module NumericalJacobian
    use MatrixClass
    use ColorsClass            , only: Colors_t
    use HexMeshClass           , only: HexMesh, Neighbor_t, NUM_OF_NEIGHBORS
-   use DGSEMClass
+   use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
    use ElementClass
    use Jacobian               , only: JACEPS, local2ijk, Look_for_neighbour
    use PhysicsStorage
@@ -100,7 +100,7 @@ contains
          num_of_neighbor_levels = 2
 #elif defined(NAVIERSTOKES)
          if (flowIsNavierStokes) then
-            num_of_neighbor_levels = 2
+            num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
          else
             num_of_neighbor_levels = 1
          end if
@@ -208,7 +208,7 @@ contains
       else
          call sem % mesh % storage % local2GlobalQ (sem % NDOF)
          associate (Q => sem % mesh % storage % Q)
-         eps = SQRT(EPSILON(eps))*(NORM2(Q)+1._RP)
+         eps = sqrt(EPSILON(eps))*(NORM2(Q)+1._RP) ! 1.e-8_RP: Sometimes gives better results
          end associate
       end if
 !
@@ -230,6 +230,7 @@ contains
       end select
       
       call Matrix % Reset(ForceDiagonal = .TRUE.)
+      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 #if defined(CAHNHILLIARD)
       CALL ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_ONLY_CH_LIN )
@@ -311,7 +312,6 @@ contains
       ENDDO
       
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
-      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       IF (PRESENT(PINFO)) THEN
@@ -337,7 +337,7 @@ contains
       integer                        , intent(in)    :: depth   !<  Amount of neighbors to visit
       !-local-variables---------------------------------
       integer :: elmnbr                    ! Neighbor element index
-      integer :: i                         ! Counter
+      integer :: i,j                       ! Counter
       integer :: ndof                      ! Number of degrees of freedom of element
       integer :: icol                      ! Current column
       real(kind=RP), pointer :: pbuffer(:) ! Buffer to point to an element's Qdot
@@ -357,7 +357,12 @@ contains
             irow = irow_0 + firstIdx(elmnbr)                      !generates the row indices vector
             where ( abs(pbuffer(1:ndof)) .LT. JACEPS) irow = -1   !MatSetvalues will ignore entries with irow=-1
             icol = firstIdx(eID) + thisdof - 1  
-            call Matrix % AddToColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
+            
+!~            call Matrix % AddToColumn(ndof, irow(1:ndof), icol, pbuffer(1:ndof) )
+            
+            do j=1, ndofelm(elmnbr)
+               call Matrix % AddToBlockEntry (elmnbr, eID, j, thisdof, pbuffer(j) )
+            end do
             
             used(usedctr) = elmnbr
             usedctr = usedctr + 1

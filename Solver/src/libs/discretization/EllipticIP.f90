@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue Feb 12 16:16:24 2019
+!   @Last revision date: Tue Apr 23 17:08:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -748,28 +748,11 @@ module EllipticIP
                           U_x           => f % storage(side) % U_x(:,i,j)                , &
                           U_y           => f % storage(side) % U_y(:,i,j)                , &
                           U_z           => f % storage(side) % U_z(:,i,j)                , &
-                          nHat          => f % geom % normal(:,i,j)                    , &
-                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)     , &
-                          dF_dGradQ_in  => f % storage(side) % dFv_dGradQF(:,:,:,1,i,j), & 
-                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,2,i,j) )
+                          nHat          => f % geom % normal(:,i,j)                      , &
+                          dFStar_dq     => f % storage(side) % dFStar_dqF(:,:,i,j)       , &
+                          dF_dGradQ_out => f % storage(side) % dFv_dGradQF(:,:,:,i,j) )
                
                call ViscousJacobian(Q, U_x, U_y, U_z, df_dgradq, dfdq_)
-!
-!            For the inner surface integral
-!            ******************************
-               
-!              Construct face point Jacobians
-!              ------------------------------
-               dF_dGradQ_in = 0._RP
-               do n = 1, NDIM ; do m = 1, NDIM
-                  dF_dGradQ_in(:,:,1) = dF_dGradQ_in(:,:,1) + df_dgradq(:,:,m,n) * f % geom % GradXi  (n,i,j) * nHat(m)
-                  dF_dGradQ_in(:,:,2) = dF_dGradQ_in(:,:,2) + df_dgradq(:,:,m,n) * f % geom % GradEta (n,i,j) * nHat(m)
-                  dF_dGradQ_in(:,:,3) = dF_dGradQ_in(:,:,3) + df_dgradq(:,:,m,n) * f % geom % GradZeta(n,i,j) * nHat(m)
-               end do          ; end do
-               
-!              Scale according to scheme and multipĺy by the jacobian (surface integral) 
-!              -------------------------------------------------------------------------
-               dF_dGradQ_in = dF_dGradQ_in * (0.5_RP) * f % geom % jacobian(i,j) ! TODO: Should the constant be -0.5???
                
 !               
 !            For the outer surface integral
@@ -787,6 +770,7 @@ module EllipticIP
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
 !              ---------------------------------------------------------------
                dF_dGradQ_out = dF_dGradQ_out * 0.5_RP * f % geom % jacobian(i,j)
+               dFStar_dq   = dFStar_dq + 0.5_RP * f % geom % jacobian(i,j) * ( dfdq_(:,:,1) * nHat(1) + dfdq_(:,:,2) * nHat(2) + dfdq_(:,:,3) * nHat(3) )
                
 !
 !           *********************************************
@@ -800,7 +784,6 @@ module EllipticIP
                do n = 1, NCONS
                   dFStar_dq(n,n) = dFStar_dq(n,n) + SideSign(side) * sigma * f % geom % jacobian(i,j)
                end do
-               
                end associate
                
             end do              ; end do
