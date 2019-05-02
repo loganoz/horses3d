@@ -336,8 +336,11 @@ module SurfaceMonitorClass
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
-
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
+            if (flowIsNavierStokes) then
+               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
+            else
+               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
+            end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 

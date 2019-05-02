@@ -358,15 +358,15 @@
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: final_time = 8.9356168296414684E-002_RP
-            real(kind=RP), parameter :: res(NCONS) = [ 2.5997831708748022E-003_RP, &
-                                                       8.9158610485304424E-003_RP, &
+            real(kind=RP), parameter :: final_time = 8.9356631108400600E-002_RP
+            real(kind=RP), parameter :: res(NCONS) = [ 7.5562643059618037E-004_RP, &
+                                                       7.0131047667415028E-003_RP, &
                                                        8.2577456104454747E-013_RP, &
-                                                       1.2519007949496471E-002_RP, &
-                                                       6.3787312202691696E-002_RP ]
-            real(kind=RP), parameter :: wake_u = -9.7717376605189407E-003_RP
-            real(kind=RP), parameter :: cd = -0.39353871342046692_RP
-            real(kind=RP), parameter :: p_aver = 7.3937753502864973_RP
+                                                       1.0463412436767145E-002_RP, &
+                                                       1.7942414864704437E-002_RP ]
+            real(kind=RP), parameter :: wake_u = -9.7956966481995561E-003_RP
+            real(kind=RP), parameter :: cd = 37.179086773140007_RP
+            real(kind=RP), parameter :: p_aver = 7.3940194428249431_RP
 
             
             call ReadOrderFile('MESH/PolOrdersAfterAdaptation.omesh', Nx, Ny, Nz)
@@ -417,7 +417,7 @@
                                msg           = "energy residual")
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, & 
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 

@@ -4,9 +4,9 @@
 !   @File:    LESModels.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Fri Mar  1 18:05:50 2019
+!   @Last revision date: Thu May  2 09:41:43 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d13e4e998f78b047822d2d35ecb53921b9406402
+!   @Last revision commit: 67c9993eab2425db318bd6a45ef48d4abba673b7
 !
 !//////////////////////////////////////////////////////
 !
@@ -148,13 +148,6 @@ module LESModels
 !        --------
          call model % Describe
          
-         select case (model % WallModel)
-            case(LINEAR_WALLMODEL)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "linear"
-            case(NO_WALLMODEL)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "none"
-         end select
-
       end subroutine InitializeLESModel
 !
 !/////////////////////////////////////////////////////////////////////////////////////////
@@ -549,7 +542,14 @@ module LESModels
          call SubSection_Header("LES Model")
          write(STD_OUT,'(30X,A,A30,A)') "->","LES model: ","Smagorinsky"
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","LES model intensity: ", self % CS
-
+         
+         select case (self % WallModel)
+            case(LINEAR_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "linear"
+            case(NO_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "none"
+         end select
+         
       end subroutine Smagorinsky_Describe
 
 end module LESModels
