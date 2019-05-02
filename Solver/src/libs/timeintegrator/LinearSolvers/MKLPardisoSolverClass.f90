@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri Feb  1 17:25:06 2019
+!   @Last revision date: Mon Apr 22 18:37:39 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -103,7 +103,7 @@ MODULE MKLPardisoSolverClass
 !
 !  -----------------------
 !  MKL pardiso constructor
-!  -----------------------º
+!  -----------------------
    subroutine ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-----------------------------------------------------------
@@ -287,6 +287,8 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
+      use DenseMatUtilities, only: Mat2File ! debug
+      use DenseBlockDiagonalMatrixClass
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout) :: this
@@ -296,6 +298,7 @@ MODULE MKLPardisoSolverClass
       integer,       intent(in)                :: nGradEqn
       procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
       !-----------------------------------------------------------
+      type(csrMat_t) :: B, Cmat !debug
       
       if (this % AIsPetsc) then
          call this % ComputeJacobian(this % PETScA,time,nEqn,nGradEqn,ComputeTimeDerivative)
@@ -306,6 +309,35 @@ MODULE MKLPardisoSolverClass
          call this % PETScA % destruct
       else
          call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         
+!~         !<debug
+         
+!~         call this % A % Visualize('AnJac_visu.dat')
+         
+!~         !------------
+!~         this % JacobianComputation = NUMERICAL_JACOBIAN
+!~         call B % construct(num_of_Rows = this % DimPrb, withMPI = .false.)
+         
+         
+!~         call this % ComputeJacobian(B,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         
+!~         call B % Visualize('NumJac_visu.dat')
+         
+!~         !------------
+!~         Cmat = CSR_MatAdd(this % A,B,-1._RP)
+         
+!~         print*, 'Error(L2)  = ',  norm2( (Cmat % Values) )
+!~         print*, 'Error(inf) = ',  maxval( abs(Cmat % Values) )
+!~         print*, '       pos = ',  maxloc( abs(Cmat % Values) ), Cmat % Cols(maxloc( abs(Cmat % Values) ))
+         
+!~         call Cmat % Visualize('C_visu.dat')
+         
+!~         stop
+         
+         
+!~         !debug>
+         
+         
          call this % SetOperatorDt(dt)
       end if
       

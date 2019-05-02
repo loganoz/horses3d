@@ -4,9 +4,9 @@
 !   @File:    TruncationErrorClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Mon Mar 25 10:51:19 2019
+!   @Last revision date: Tue Apr 23 17:08:55 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0832a8c34faff5d5b70fb77eac7ecb84ef0f30b9
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -661,7 +661,7 @@ module TruncationErrorClass
       end do
       
       call auxMesh % PrepareForIO
-      call auxMesh % AllocateStorage (NDOF, controlVariables,.FALSE.,.FALSE.)
+      call auxMesh % AllocateStorage (NDOF, controlVariables,.FALSE.)
       
       ! 2. Save the error there
       do eID = 1, sem % mesh % no_of_elements

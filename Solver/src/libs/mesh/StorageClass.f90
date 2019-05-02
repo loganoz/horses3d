@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Feb 12 10:22:12 2019
+!   @Last revision date: Tue Apr 23 17:08:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
+!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
 !
 !//////////////////////////////////////////////////////
 !
@@ -69,23 +69,8 @@ module StorageClass
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
+      real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
-!
-!     Pointers to face Jacobians
-!     --------------------------
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_fr  ! FRONT
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_ba  ! BACK
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_bo  ! BOTTOM
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_to  ! TOP
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_ri  ! RIGHT
-      real(kind=RP), dimension(:,:,:,:,:), pointer      :: dfdq_le  ! LEFT
-      
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_fr  ! FRONT
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_ba  ! BACK
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_bo  ! BOTTOM
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_to  ! TOP
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_ri  ! RIGHT
-      real(kind=RP), dimension(:,:,:,:,:,:,:), pointer    :: dfdGradQ_le  ! LEFT
 #endif
 #if defined(CAHNHILLIARD)
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -193,26 +178,25 @@ module StorageClass
 !     Viscous Jacobians
 !     -----------------
 !     * On the face (mortar points):
-      real(kind=RP), allocatable :: dFv_dGradQF(:,:,:,:,:,:)
-!                   storage(side) % dFv_dGradQF(:,:,:,:,i,j)
-!                           |                   |_| | | |_|
-!                           |                    |  | |  | 
-!                           |                    |  | |  |__Coordinate indexes in face 
-!                           |                    |  | |_____1 for inner term, 2 for outer term
-!                           |                    |  |_______∇q component: 1, 2, 3
-!                           |                    |__________Jacobian for this component
-!                           |_______________________________1 for dFv*/d∇qL and 2 for dFv*/d∇qR
+      real(kind=RP), allocatable :: dFv_dGradQF(:,:,:,:,:)
+!                   storage(side) % dFv_dGradQF(:,:,:,i,j)
+!                           |                   |_| | |_|
+!                           |                    |  |  | 
+!                           |                    |  |  |__Coordinate indexes in face 
+!                           |                    |  | ____1 for inner term, 2 for outer term
+!                           |                    |  |_____∇q component: 1, 2, 3
+!                           |                    |________Jacobian for this component
+!                           |_____________________________1 for dFv*/d∇qL and 2 for dFv*/d∇qR
 !
 !     * On the coordinates that match the element's (face-element points):      
-      real(kind=RP), allocatable :: dFv_dGradQEl(:,:,:,:,:,:,:)
-!                   storage(side) % dFv_dGradQEl(:,:,:,:,i,j,:)
-!                           |                    |_| | | |_| |
-!                           |                     |  | |  |  |_1 for dFv*/d∇qL and 2 for dFv*/d∇qR
-!                           |                     |  | |  |____Coordinate indexes in face 
-!                           |                     |  | |_______1 for inner term, 2 for outer term
-!                           |                     |  |_________∇q component: 1, 2, 3
-!                           |                     |____________Jacobian for this component
-!                           |__________________________________1 for element on the left, 2 for element on the right
+      real(kind=RP), allocatable :: dFv_dGradQEl(:,:,:,:,:,:)
+!                   storage(side) % dFv_dGradQEl(:,:,:,i,j,:)
+!                           |                    |_| | |_| |
+!                           |                     |  |  |  |_1 for dFv*/d∇qL and 2 for dFv*/d∇qR
+!                           |                     |  |  |____Coordinate indexes in face 
+!                           |                     |  |_______∇q component: 1, 2, 3
+!                           |                     |__________Jacobian for this component
+!                           |________________________________1 for element on the left, 2 for element on the right
 !
 #endif
 #if defined(CAHNHILLIARD)
@@ -792,6 +776,9 @@ module StorageClass
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
+         
+         ! TODO: if implicit...
+         allocate( self % dF_dgradQ( NNS, NNS, NDIM, NDIM, 0:Nx, 0:Ny, 0:Nz ) )
 !
 !        Point to NS by default
 !        ----------------------
@@ -959,20 +946,8 @@ module StorageClass
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)
          safedeallocate(self % mu_art)
+         safedeallocate(self % dF_dgradQ)
          
-         nullify ( self % dfdq_fr )
-         nullify ( self % dfdq_ba )
-         nullify ( self % dfdq_bo )
-         nullify ( self % dfdq_to )
-         nullify ( self % dfdq_ri )
-         nullify ( self % dfdq_le )
-         
-         nullify ( self % dfdGradQ_fr )
-         nullify ( self % dfdGradQ_ba )
-         nullify ( self % dfdGradQ_bo )
-         nullify ( self % dfdGradQ_to )
-         nullify ( self % dfdGradQ_ri )
-         nullify ( self % dfdGradQ_le )
 #endif
 #if defined(CAHNHILLIARD)
          safedeallocate(self % c)
@@ -1188,8 +1163,8 @@ module StorageClass
          allocate( self % dFStar_dqF (NNS,NNS, 0: Nf(1), 0: Nf(2)) )
          allocate( self % dFStar_dqEl(NNS,NNS, 0:Nel(1), 0:Nel(2),2) )
          
-         allocate( self % dFv_dGradQF (NNS,NNS,NDIM,2,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,2,0:Nel(1),0:Nel(2),2) )
+         allocate( self % dFv_dGradQF (NNS,NNS,NDIM,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,0:Nel(1),0:Nel(2),2) )
          
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif

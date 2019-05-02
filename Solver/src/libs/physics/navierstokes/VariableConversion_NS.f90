@@ -4,9 +4,9 @@
 !   @File:    VariableConversion_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Tue Feb 26 18:17:39 2019
+!   @Last revision date: Mon Apr 22 18:37:38 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 2bf19fe8b635bd13e65827bd1023dd656a765b42
+!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ module VariableConversion_NS
    implicit none
 
    private
-   public   Pressure, Temperature, NSGradientValuesForQ
+   public   Pressure, Temperature, TemperatureDeriv, NSGradientValuesForQ
    public   NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
@@ -89,6 +89,27 @@ module VariableConversion_NS
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       end function Temperature
+      
+      pure function TemperatureDeriv (Q) result (dTdQ)
+         implicit none
+         !-arguments--------------------------------
+         real(kind=RP), intent(in) :: Q(NCONS)
+         real(kind=RP)             :: dTdQ(NCONS)
+         !-local-variables--------------------------
+         real(kind=RP) :: sRho
+         !------------------------------------------
+         
+         sRho = 1._RP / Q(IRHO)
+         
+         dTdQ = [sRho * (-Q(IRHOE) + sRho * ( Q(IRHOU)**2 + Q(IRHOV)**2 + Q(IRHOW)**2) ), &
+                 -Q(IRHOU) * sRho, &
+                 -Q(IRHOV) * sRho, &
+                 -Q(IRHOW) * sRho, &
+                 1._RP]
+         
+         dTdQ = dTdQ * thermodynamics % gammaMinus1 * dimensionless % gammaM2 * sRho
+         
+      end function TemperatureDeriv
       
       pure subroutine GetNSViscosity(phi, mu)
          implicit none
