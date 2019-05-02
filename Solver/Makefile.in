@@ -180,7 +180,7 @@ HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretizat
 HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_NSCH=-L$(HOME_DIR)/lib -ltimeintegrator_nsch -ljacobian_nsch -ldiscretization_nsch -lmonitors_nsch -lparticles_nsch -lmesh_nsch -lphysics_nsch -lphysicsch -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_iNSCH=-L$(HOME_DIR)/lib -ltimeintegrator_insch -ljacobian_insch -ldiscretization_insch -lmonitors_insch -lparticles_insch -lmesh_insch -lphysics_insch -lphysicsch -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject
-ADDONS=horses2tecplot extractgeometry
+ADDONS=horses2tecplot extractgeometry mergeStatistics
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
 

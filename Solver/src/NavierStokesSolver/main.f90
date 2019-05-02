@@ -128,7 +128,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-      CALL timeIntegrator % construct (controlVariables, initial_iteration, initial_time)
+      CALL timeIntegrator % construct (controlVariables, sem, initial_iteration, initial_time)
 !
 !     -----------------
 !     Integrate in time

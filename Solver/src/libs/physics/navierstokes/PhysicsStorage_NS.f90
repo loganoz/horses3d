@@ -4,9 +4,9 @@
 !   @File:    PhysicsStorage_NS.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Wed Dec 12 23:20:41 2018
+!   @Last revision date: Fri Mar  1 17:09:55 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
+!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,18 +14,19 @@
       Module Physics_NSKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY           = "mach number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY       = "reynolds number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY        = "prandtl number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY         = "froude number"  
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY     = "gravity direction"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY        = "flow equations"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY              = "les model"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY              = "mach number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY          = "reynolds number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY           = "prandtl number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: TURBULENT_PRANDTL_NUMBER_KEY = "turbulent prandtl number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY            = "froude number"  
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY        = "gravity direction"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                = "aoa theta"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                  = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY           = "flow equations"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY      = "riemann solver"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY     = "lambda stabilization"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                 = "les model"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY        = "compute gradients"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
@@ -158,7 +159,7 @@
 !
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
-                                    287.15_RP * 5.0_RP / 9.0_RP, & ! R
+                                    287.15_RP * 5.0_RP / 9.0_RP, & ! R                 ! J / (kg * °R) ... Why not Kelvin?
                                                          1.4_RP, & ! gamma
                                                    sqrt(1.4_RP), & ! sqrtGamma
                                                 1.4_RP - 1.0_RP, & ! gammaMinus1         
@@ -237,6 +238,11 @@
          dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
       else
          dimensionless_ % Pr = 0.72_RP
+      end if
+      if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
+         dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
+      else
+         dimensionless_ % Prt = dimensionless_ % Pr
       end if
 !
 !     *********************
@@ -585,14 +591,15 @@
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Mach number: " , dimensionless % Mach
+         write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Mach number: " , dimensionless % Mach
          if ( flowIsNavierStokes ) then
-            write(STD_OUT,'(30X,A,A20,ES10.3)') "->" , "Reynolds number: " , dimensionless % Re
-            write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
+            write(STD_OUT,'(30X,A,A27,ES10.3)') "->" , "Reynolds number: " , dimensionless % Re
+            write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Prandtl number: " , dimensionless % Pr
+            write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Turbulent Prandtl number: " , dimensionless % Prt
          end if
 
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr
-         write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Gravity direction: ","[", &
+         write(STD_OUT,'(30X,A,A27,F10.3)') "->" , "Froude number: " , dimensionless % Fr
+         write(STD_OUT,'(30X,A,A27,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Gravity direction: ","[", &
                                                    dimensionless % gravity_dir(1), ", ", &
                                                    dimensionless % gravity_dir(2), ", ", &
                                                    dimensionless % gravity_dir(3), "]"

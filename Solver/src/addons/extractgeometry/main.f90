@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Nov  1 19:56:54 2017
-!   @Last revision date: Sun May 13 11:22:01 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 664796b96ada01ab3f21660a398ffe36d0c767ef
+!   @Last revision date: Mon Feb 25 16:07:49 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
 !
 !////////////////////////////////////////////////////
 !
@@ -44,6 +44,7 @@ program ExtractGeometry
 !  ---------------------------------
    call ConstructMeshAndSpectralBasis( controlVariables % StringValueForKey(meshFileKey, LINE_LENGTH), &
                                        controlVariables % StringValueForKey(solutionFileKey, LINE_LENGTH), &
+                                       controlVariables % StringValueForKey(ControlFileKey, LINE_LENGTH), &
                                        mesh, controlVariables)
 !
 !  Create geometry

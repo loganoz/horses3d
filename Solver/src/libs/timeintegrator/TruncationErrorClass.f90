@@ -23,11 +23,12 @@ module TruncationErrorClass
 #endif
    use NodalStorageClass         , only: NodalStorage
    use FileReadingUtilities      , only: RemovePath
+   use Utilities                 , only: AlmostEqual, LeastSquaresLinRegression
    implicit none
    
    private
    public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, PrintTEmap, AssignTimeDerivative, GenerateExactTEmap, EstimateAndPlotTruncationError
-   public NON_ISOLATED_TE, ISOLATED_TE
+   public NON_ISOLATED_TE, ISOLATED_TE, NMINest
    
    !---------------------------------------------------------------------------------------------------------
    ! Type for storing the truncation error for one element in one direction according to the polynomial order
@@ -46,8 +47,13 @@ module TruncationErrorClass
       type(TruncErrorPol_t)       :: Dir(3)
       integer                     :: TruncErrorType
       contains
-         procedure :: construct => ConstructTruncationError
-         procedure :: destruct  => DestructTruncationError
+         procedure :: construct           => TruncationError_Construct
+         procedure :: destruct            => TruncationError_Destruct
+         procedure :: GenerateTEmap       => TruncationError_GenerateTEmap
+         procedure :: ExportToFile        => TruncationError_ExportToFile
+         procedure :: ReadFromFile        => TruncationError_ReadFromFile
+         procedure :: ExtrapolateInOneDir => TruncationError_ExtrapolateInOneDir
+         procedure :: reset               => TruncationError_reset
    end type TruncationError_t
 !
 !  ----------------
@@ -59,6 +65,7 @@ module TruncationErrorClass
    !! Parameters
    integer, parameter :: ISOLATED_TE = 0
    integer, parameter :: NON_ISOLATED_TE = 1
+   integer, parameter :: NMINest    = 1      ! Minimum polynomial order used for estimation 
    
 !========
  contains
@@ -73,55 +80,216 @@ module TruncationErrorClass
 !  ----------------------------------------------------------------------
 !  Subroutine that constructs the variable that stores tau in one element
 !  ----------------------------------------------------------------------
-   subroutine ConstructTruncationError(TE,Nmin,Nmax)
+   subroutine TruncationError_Construct(TE,Nmax)
       implicit none
       !------------------------------------------
       class(TruncationError_t), intent(inout) :: TE         !<> Variable that stores the truncation error
-      integer                 , intent(in)    :: Nmin       !<  Minimum polynomial order for estimation
       integer                 , intent(in)    :: Nmax(3)    !<  Maximum polynomial order for estimation
       !------------------------------------------
       
       !------------------------------------------
       
       ! Allocate maxTE
-      allocate (TE % Dir(1) % maxTE(NMin:Nmax(1)))
-      allocate (TE % Dir(2) % maxTE(NMin:Nmax(2)))
-      allocate (TE % Dir(3) % maxTE(NMin:Nmax(3)))
+      allocate (TE % Dir(1) % maxTE(NMINest:Nmax(1)))
+      allocate (TE % Dir(2) % maxTE(NMINest:Nmax(2)))
+      allocate (TE % Dir(3) % maxTE(NMINest:Nmax(3)))
 !
 !     --------------------------
 !     Initialize maxTE to zero 
 !        Remarks:
 !           a. This value will be overwritten when the TE is estimated.
-!           b. If the polynomial order specified by the user is NMin, no TE estimation can be done and therefore the value TE = 0 is assumed.
+!           b. If the polynomial order specified by the user is NMINest, no TE estimation can be done and therefore the value TE = 0 is assumed.
 !     --------------------------
 !
       TE % Dir(1) % maxTE = 0._RP
       TE % Dir(2) % maxTE = 0._RP
       TE % Dir(3) % maxTE = 0._RP
-   end subroutine ConstructTruncationError
+   end subroutine TruncationError_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------------------------------------------
 !  Subroutine that destructs the variable that stores tau in one element
 !  ----------------------------------------------------------------------
-   subroutine DestructTruncationError(TE)
+   elemental subroutine TruncationError_Destruct(TE)
       implicit none
       !------------------------------------------
-      class(TruncationError_t) :: TE     !<> Variable that stores the truncation error
+      class(TruncationError_t), intent(inout) :: TE     !<> Variable that stores the truncation error
       !------------------------------------------
       
       deallocate (TE % Dir(1) % maxTE)
       deallocate (TE % Dir(2) % maxTE)
       deallocate (TE % Dir(3) % maxTE)
       
-   end subroutine DestructTruncationError
+   end subroutine TruncationError_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ----------------------------------------------------------------------
+!  -------------------------------
+!  Export truncation error to file
+!  -------------------------------
+   subroutine TruncationError_ExportToFile(this, fName)
+      implicit none
+      !-arguments-------------------------------------------------
+      class(TruncationError_t)   , intent(in) :: this
+      character(len=LINE_LENGTH) , intent(in) :: fName
+      !-local-variables-------------------------------------------
+      integer :: fd
+      !-----------------------------------------------------------
+      
+      open (newunit=fd, file = trim(fName), position='append') 
+            
+      write(fd,*) this % Dir(1) % P, this % Dir(2) % P, this % Dir(3) % P
+      write(fd,*) this % Dir(1) % maxTE
+      write(fd,*) this % Dir(2) % maxTE
+      write(fd,*) this % Dir(3) % maxTE
+      
+      close(fd)
+      
+   end subroutine TruncationError_ExportToFile
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------
+!  Read truncation error from file
+!  -------------------------------
+   subroutine TruncationError_ReadFromFile(this, fName, fd_in)
+      implicit none
+      !-arguments-------------------------------------------------
+      class(TruncationError_t)            , intent(inout)   :: this
+      character(len=LINE_LENGTH), optional, intent(in)      :: fName
+      integer                   , optional, intent(in)      :: fd_in 
+      !-local-variables-------------------------------------------
+      integer :: fd, Pxyz(3)
+      !-----------------------------------------------------------
+      
+      if (present(fName) ) then
+         open (newunit=fd, file = trim(fName)) 
+      elseif (present(fd_in) ) then
+         fd = fd_in
+      else
+         ERROR stop 'TruncationError_ReadFromFile: fName of fd_in must be provided'
+      end if
+      
+      read(fd,*) Pxyz
+      read(fd,*) this % Dir(1) % maxTE(NMINest:Pxyz(1)-1)
+      read(fd,*) this % Dir(2) % maxTE(NMINest:Pxyz(2)-1)
+      read(fd,*) this % Dir(3) % maxTE(NMINest:Pxyz(3)-1)
+      
+      if (present(fName) ) then
+         close(fd)
+      end if
+      
+      this % Dir(1) % P = Pxyz(1)
+      this % Dir(2) % P = Pxyz(2)
+      this % Dir(3) % P = Pxyz(3)
+      
+   end subroutine TruncationError_ReadFromFile
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine that extrapolates the behavior of the directional components
+!  of the truncation error.
+!  -----------------------------------------------------------------------
+   subroutine TruncationError_ExtrapolateInOneDir(this,P_1,NMax,Dir,notenough,error)
+      implicit none
+      !---------------------------------------
+      class(TruncationError_t), intent(inout)   :: this
+      integer                    :: P_1               !<  P-1 (max polynomial order with tau estimation for regression)
+      integer                    :: NMax
+      integer                    :: Dir
+      logical                    :: notenough         !>  .TRUE. if there are not enough points in every direction for regression 
+      integer                    :: error             !>  error=1 if line behavior is not as expected
+      !---------------------------------------
+      
+      real(kind=RP)              :: x   (P_1-NMINest+1)
+      real(kind=RP)              :: y   (P_1-NMINest+1)
+      integer                    :: N
+      integer                    :: i
+      real(kind=RP)              :: C,eta,r             ! Regression variables
+      integer                    :: fd
+      !---------------------------------------
+      
+      ! Initializations
+      error     = 0
+      notenough = .FALSE.
+      
+      ! Check if there are enough points for regression
+      if (P_1 < NMINest + 1) then
+         notenough = .TRUE.
+         return
+      end if
+      
+      ! Check if last point is NMIN=2
+      if ( AlmostEqual(this % Dir(Dir) % maxTE (P_1),0._RP) ) then
+         return ! nothing to do here
+      end if
+      
+      ! Perform regression analysis   
+      N = P_1 - NMINest + 1
+      y = LOG10(this % Dir(Dir) % maxTE (NMINest:P_1))
+      x = (/ (real(i,RP), i=NMINest,P_1) /)
+      call LeastSquaresLinRegression(N,x,y,C,eta,r)
+      
+      ! Extrapolate the TE
+      do i = P_1+1, NMax
+         this % Dir(Dir) % maxTE(i) = 10**(C + eta*i)
+      end do
+      
+      ! Check if there is an unexpected behavior
+      if (eta >= 0) then
+         Error = 1 
+         return
+      end if
+      
+   end subroutine TruncationError_ExtrapolateInOneDir
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  TruncationError_GenerateTEmap:
+!  Routine to generate TEmap out of directional components
+!  -----------------------------------------------------------------------
+   subroutine TruncationError_GenerateTEmap(this,Nmax,TEmap)
+      implicit none
+      !-arguments-------------------------------------------------
+      class(TruncationError_t), intent(in)    :: this
+      integer                 , intent(in)    :: Nmax(NDIM)
+      real(kind=RP)           , intent(inout) :: TEmap(NMINest:Nmax(1),NMINest:Nmax(2),NMINest:Nmax(3))
+      !-local-variables-------------------------------------------
+      integer :: i,j,k
+      !-----------------------------------------------------------
+      
+      do k = NMINest, Nmax(3) ; do j = NMINest, Nmax(2)  ; do i = NMINest, Nmax(1)
+         TEmap(i,j,k) = this % Dir(1) % maxTE(i) + &  !xi   contribution
+                        this % Dir(2) % maxTE(j) + &  !eta  contribution
+                        this % Dir(3) % maxTE(k)      !zeta contribution
+      end do                  ; end do                   ; end do
+      
+   end subroutine TruncationError_GenerateTEmap
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------
+!  Reset values of the truncation error
+!  ------------------------------------
+   subroutine TruncationError_reset(this)
+      implicit none
+      !-arguments-------------------------------------------------
+      class(TruncationError_t), intent(inout)  :: this
+      !-----------------------------------------------------------
+      
+      this % dir(1) % maxTE = 0._RP
+      this % dir(2) % maxTE = 0._RP
+      this % dir(3) % maxTE = 0._RP
+   end subroutine TruncationError_reset
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
 !  Subroutine that sets P for all elements in TE
-!  ----------------------------------------------------------------------
+!  ---------------------------------------------
    subroutine InitializeForTauEstimation(TE,sem,TruncErrorType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       implicit none
       !------------------------------------------

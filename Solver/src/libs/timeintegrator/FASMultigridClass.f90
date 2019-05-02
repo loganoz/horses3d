@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Oct 17 17:36:20 2018
+!   @Last revision date: Mon Mar 11 19:20:17 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 19a83eade9cd57a659850205eb1a09e6a2df9113
+!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,7 @@ module FASMultigridClass
    use LinearSolverClass
    use BDFTimeIntegrator
    use FileReadingUtilities      , only: getFileName
+   use MPI_Process_Info          , only: MPI_Process
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -78,6 +79,7 @@ module FASMultigridClass
    integer        :: MGlevels       ! Total number of multigrid levels
    integer        :: deltaN         ! 
    integer        :: nelem          ! Number of elements
+   integer        :: num_of_allElems
    integer        :: Smoother       ! Current smoother being used
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
    integer        :: SweepNumPost   ! Number of sweeps post-smoothing
@@ -175,7 +177,7 @@ module FASMultigridClass
             !! SmoothIt => TakeSIRKStep
             error stop ':: SIRK smoother not implemented yet'
          case default 
-            write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
+            if (MPI_Process % isRoot) write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
             Smoother = RK3_SMOOTHER
       end select
       
@@ -280,12 +282,15 @@ module FASMultigridClass
       MaxN           = MAX(MAXVAL(sem % mesh % Nx),MAXVAL(sem % mesh % Ny),MAXVAL(sem % mesh % Nz))
       MGlevels       = MIN (MGlevels,MaxN - NMIN + 1)
       
-      write(STD_OUT,*) 'Constructing FAS Multigrid'
-      write(STD_OUT,*) 'Number of levels:', MGlevels
+      if (MPI_Process % isRoot) then
+         write(STD_OUT,*) 'Constructing FAS Multigrid'
+         write(STD_OUT,*) 'Number of levels:', MGlevels
+      end if
       
       this % p_sem => sem
       
       nelem = SIZE(sem % mesh % elements)
+      num_of_allElems = sem % mesh % no_of_allElements
 !
 !     --------------------------
 !     Create linked solvers list
@@ -311,11 +316,12 @@ module FASMultigridClass
       integer                       :: lvl              !<  Current multigrid level
       type(FTValueDictionary)       :: controlVariables !< Control variables (for the construction of coarse sems
       !----------------------------------------------
-      integer, dimension(nelem)     :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
-      integer                       :: i,j,k, iEl             !   Counter
-      logical                       :: success                ! Did the creation of sem succeed?
-      type(FASMultigrid_t), pointer :: Child_p                ! Pointer to Child
-      integer                       :: Q1,Q2,Q3,Q4            ! Sizes of vector Q (conserved solution) used for allocation. In this version the argument MOLD of ALLOCATE is not used since several versions of gfortran don't support it yet...
+      integer, dimension(nelem)           :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
+      integer, dimension(num_of_allElems) :: N2xAll,N2yAll,N2zAll   !   Order of approximation for every element in child solver
+      integer                             :: i,j,k, iEl             !   Counter
+      logical                             :: success                ! Did the creation of sem succeed?
+      type(FASMultigrid_t), pointer       :: Child_p                ! Pointer to Child
+      integer                             :: Q1,Q2,Q3,Q4            ! Sizes of vector Q (conserved solution) used for allocation. In this version the argument MOLD of ALLOCATE is not used since several versions of gfortran don't support it yet...
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
@@ -411,12 +417,39 @@ module FASMultigridClass
          ! Create DGSEM class for child
          ALLOCATE (Child_p % p_sem)
          
+         !<old
+         ! Get the polynomial orders for constructing the child sem
+         N2xAll = 0
+         N2yAll = 0
+         N2zAll = 0
+         do k=1, nelem
+            N2xAll( Solver % p_sem % mesh % elements(k) % globID ) = N2x(k)
+            N2yAll( Solver % p_sem % mesh % elements(k) % globID ) = N2y(k)
+            N2zAll( Solver % p_sem % mesh % elements(k) % globID ) = N2z(k)
+         end do
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
-                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,                                        &
+                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         !old>
          
+!~!<New
+!~         N2(:,1) = N2x
+!~         N2(:,2) = N2y
+!~         N2(:,3) = N2z
+         
+!~         ! Copy the sem
+!~         Child_p % p_sem = Solver % p_sem
+         
+!~         ! Mark the mesh as a child mesh
+!~         Child_p % p_sem % mesh % child = .TRUE. 
+         
+!~         ! Adapt the mesh to the new polynomial orders
+!~         N2trans = transpose(N2)
+!~         call Child_p % p_sem % mesh % pAdapt (N2trans, controlVariables)
+!~         call Child_p % p_sem % mesh % storage % PointStorage
+!New>
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       end if
       

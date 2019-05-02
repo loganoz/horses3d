@@ -27,6 +27,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/ExplicitMethods.o \
 		./build_ns/AnisFASMultigridClass.o \
 		./build_ns/FASMultigridClass.o \
+		./build_ns/MultiTauEstimationClass.o \
 		./build_ns/pAdaptationClass.o \
 		./build_ns/TimeIntegrator.o 
 
@@ -49,6 +50,7 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/ExplicitMethods.o \
 		./build_ins/AnisFASMultigridClass.o \
 		./build_ins/FASMultigridClass.o \
+		./build_ins/MultiTauEstimationClass.o \
 		./build_ins/pAdaptationClass.o \
 		./build_ins/TimeIntegrator.o 
 
@@ -72,6 +74,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/ExplicitMethods.o \
 		./build_ch/AnisFASMultigridClass.o \
 		./build_ch/FASMultigridClass.o \
+		./build_ch/MultiTauEstimationClass.o \
 		./build_ch/pAdaptationClass.o \
 		./build_ch/TimeIntegrator.o 
 
@@ -94,6 +97,7 @@ LIBOBJS_NSCH =  ./build_nsch/TimeIntegratorDefinitions.o \
 		./build_nsch/ExplicitMethods.o \
 		./build_nsch/AnisFASMultigridClass.o \
 		./build_nsch/FASMultigridClass.o \
+		./build_nsch/MultiTauEstimationClass.o \
 		./build_nsch/pAdaptationClass.o \
 		./build_nsch/TimeIntegrator.o 
 
@@ -116,6 +120,7 @@ LIBOBJS_iNSCH = ./build_insch/TimeIntegratorDefinitions.o \
 		./build_insch/ExplicitMethods.o \
 		./build_insch/AnisFASMultigridClass.o \
 		./build_insch/FASMultigridClass.o \
+		./build_insch/MultiTauEstimationClass.o \
 		./build_insch/pAdaptationClass.o \
 		./build_insch/TimeIntegrator.o 
 

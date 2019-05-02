@@ -4,6 +4,7 @@ module MultigridTypes
    use InterpolationMatrices     , only: Tset
    use TimeIntegratorDefinitions
    use DGSEMClass                , only: ComputeMaxResiduals
+   use MPI_Process_Info          , only: MPI_Process
    implicit none
    
    public 
@@ -138,14 +139,16 @@ module MultigridTypes
       
       if( (MOD( ThisTimeStep+1, plotInterval) == 0) .or. (ThisTimeStep .eq. 0) ) then
          maxResiduals = ComputeMaxResiduals(mesh)
+         
+         if (MPI_Process % isRoot) then
+            write(STD_OUT,'(A,A,I3,X,A,X,A,I8)',advance="no") color1,'FAS lvl', lvl ,"|","it",sweeps
 
-         write(STD_OUT,'(A,A,I3,X,A,X,A,I8)',advance="no") color1,'FAS lvl', lvl ,"|","it",sweeps
-
-         do eqn = 1, NTOTALVARS
-            write(STD_OUT ,'(X,A,X,ES10.3)',advance="no") "|", maxResiduals(eqn)
-         end do
+            do eqn = 1, NTOTALVARS
+               write(STD_OUT ,'(X,A,X,ES10.3)',advance="no") "|", maxResiduals(eqn)
+            end do
    
-         write(STD_OUT,'(A)') color2
+            write(STD_OUT,'(A)') color2
+         end if
       end if
       
    end subroutine PlotResiduals

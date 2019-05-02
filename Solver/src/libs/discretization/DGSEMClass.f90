@@ -231,34 +231,37 @@ Module DGSEMClass
 !
 !     Initialization
 !     --------------
-      call Initialize_MPI_Partitions ( trim(controlVariables % stringValueForKey('partitioning', requestedLength = LINE_LENGTH)) )
+      if (.not. self % mesh % child) then
+         call Initialize_MPI_Partitions ( trim(controlVariables % stringValueForKey('partitioning', requestedLength = LINE_LENGTH)) )
 !
-!     Prepare the processes to receive the partitions
-!     -----------------------------------------------
-      if ( MPI_Process % doMPIAction ) then
-         call RecvPartitionMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
-      end if
+!        Prepare the processes to receive the partitions
+!        -----------------------------------------------
+         if ( MPI_Process % doMPIAction ) then
+            call RecvPartitionMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
+         end if
 !
-!     Read the mesh by the root rank to perform the partitioning
-!     ----------------------------------------------------------
-      if ( MPI_Process % doMPIRootAction ) then
+!        Read the mesh by the root rank to perform the partitioning
+!        ----------------------------------------------------------
+         if ( MPI_Process % doMPIRootAction ) then
 !
-!        Construct the full mesh
-!        -----------------------
-         call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+!           Construct the "full" mesh
+!           -------------------------
+            call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
 !
-!        Perform the partitioning
-!        ------------------------
-         call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions)
+!           Perform the partitioning
+!           ------------------------
+            call PerformMeshPartitioning  (self % mesh, MPI_Process % nProcs, mpi_allPartitions)
 !
-!        Send the partitions
-!        -------------------
-         call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
+!           Send the partitions
+!           -------------------
+            call SendPartitionsMPI( MeshFileType(self % mesh % meshFileName) == HOPRMESH )
 !
-!        Destruct the full mesh
-!        ----------------------
-         call self % mesh % Destruct()
+!           Destruct the full mesh
+!           ----------------------
+            call self % mesh % Destruct()
 
+         end if
+      
       end if
 !
 !     **********************************************************

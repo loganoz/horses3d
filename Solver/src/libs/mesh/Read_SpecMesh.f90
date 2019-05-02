@@ -865,7 +865,7 @@ MODULE Read_SpecMesh
 !        Cast MPI faces
 !        --------------
 !
-         call ConstructMPIFaces
+         call ConstructMPIFaces( self % MPIfaces )
          call self % UpdateFacesWithPartition(mpi_partition, &
                                               numberOfAllElements, &
                                               globalToLocalElementID)

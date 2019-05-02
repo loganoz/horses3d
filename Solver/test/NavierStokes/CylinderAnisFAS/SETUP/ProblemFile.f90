@@ -1,4 +1,16 @@
 !
+!//////////////////////////////////////////////////////
+!
+!   @File:    ProblemFile.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Mon Mar 11 19:20:19 2019
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
@@ -21,37 +33,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-   module ProblemFileRoutines
-      implicit none
-      contains
-         subroutine ReadOrderFile(filename, Nx, Ny, Nz)
-            implicit none
-   !
-   !        ----------------------------------------------------------------------
-   !        Subroutine that reads input file containing polynomial orders for mesh
-   !        ----------------------------------------------------------------------
-   !
-            character(len=*), intent(in) :: filename          !<  Name of file containing polynomial orders to initialize
-            integer, allocatable         :: Nx(:),Ny(:),Nz(:) !>  Polynomial orders for each element
-            !------------------------------------------
-            integer                      :: fd       ! File unit
-            integer                      :: nelem    ! Number of elements
-            integer                      :: i        ! counter
-            !------------------------------------------
-            
-            open(newunit = fd, FILE = filename )   
-               READ(fd,*) nelem
-               
-               allocate(Nx(nelem),Ny(nelem),Nz(nelem))
-               
-               do i = 1, nelem
-                  READ(fd,*) Nx(i), Ny(i), Nz(i)
-               ENDDO
-            close(UNIT=fd)
-            
-         end subroutine ReadOrderFile
-   end module
-   
          SUBROUTINE UserDefinedStartup
 !
 !        --------------------------------
@@ -79,8 +60,8 @@
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
-            use SMConstants
             USE HexMeshClass
+            use PhysicsStorage
             use FluidData
             IMPLICIT NONE
             class(HexMesh)                      :: mesh
@@ -108,17 +89,17 @@
                                         )
 !
 !           ------------------------------------------------
-!           Called to set the initial condition for the flow
-!              - By default it sets an uniform initial
+!           called to set the initial condition for the flow
+!              - by default it sets an uniform initial
 !                 condition.
 !           ------------------------------------------------
 !
             use smconstants
             use physicsstorage
             use hexmeshclass
-            use FluidData
+            use fluiddata
             implicit none
-            class(HexMesh)                        :: mesh
+            class(hexmesh)                      :: mesh
 #if defined(NAVIERSTOKES)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
@@ -132,13 +113,11 @@
 !           Local variables
 !           ---------------
 !
+#if defined(NAVIERSTOKES)
             integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
-#if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
-#endif
 
-#if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
             theta = refValues_ % AOATheta*(PI/180.0_RP)
@@ -168,26 +147,6 @@
 
             end associate
 #endif
-!
-!           ---------------------------------------
-!           Cahn-Hilliard default initial condition
-!           ---------------------------------------
-!
-#if defined(CAHNHILLIARD)
-            call random_seed()
-         
-            do eid = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eid) % Nxyz(1), &
-                          Ny => mesh % elements(eid) % Nxyz(2), &
-                          Nz => mesh % elements(eid) % Nxyz(3) )
-               associate(e => mesh % elements(eID) % storage)
-               call random_number(e % c) 
-               e % c = 2.0_RP * (e % c - 0.5_RP)
-               end associate
-               end associate
-            end do
-#endif
-
          end subroutine UserDefinedInitialCondition
 #if defined(NAVIERSTOKES)
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
@@ -217,6 +176,7 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
@@ -271,9 +231,15 @@
             real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(out) :: S(NCONS)
-            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-            type(Dimensionless_t),     intent(in)  :: dimensionless_
-            type(RefValues_t),         intent(in)  :: refValues_
+            type(Thermodynamics_t), intent(in)  :: thermodynamics_
+            type(Dimensionless_t),  intent(in)  :: dimensionless_
+            type(RefValues_t),      intent(in)  :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer  :: i, j, k, eID
 !
 !           Usage example
 !           -------------
@@ -281,6 +247,36 @@
    
          end subroutine UserDefinedSourceTermNS
 #endif
+#if defined(CAHNHILLIARD)
+         subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
+!
+!           --------------------------------------------
+!           Called to apply source terms to the equation
+!           --------------------------------------------
+!
+            use SMConstants
+            USE HexMeshClass
+            use PhysicsStorage
+            use FluidData
+            IMPLICIT NONE
+            real(kind=RP),             intent(in)  :: x(NDIM)
+            real(kind=RP),             intent(in)  :: time
+            real(kind=RP),             intent(out) :: S(NCOMP)
+            type(Multiphase_t),      intent(in)    :: multiphase_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            integer  :: i, j, k, eID
+!
+!           Usage example
+!           -------------
+!           S(:) = x(1) + x(2) + x(3) + time
+   
+         end subroutine UserDefinedSourceTermCH
+#endif
+
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -302,13 +298,12 @@
 !           error tests to be performed
 !           --------------------------------------------------------
 !
-            use ProblemFileRoutines
             use SMConstants
-            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             use MonitorsClass
+            use FTAssertions
             IMPLICIT NONE
             class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -330,12 +325,11 @@
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Euler p-adapted Cylinder"
+            CHARACTER(LEN=29)                  :: testName           = "Re 45 Cylinder (FAS)"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
-            INTEGER                            :: i, j, k
-            INTEGER, allocatable               :: Nx(:), Ny(:), Nz(:)
+            INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 !
@@ -358,89 +352,43 @@
 !           ------------------------------------------------
 !
 #if defined(NAVIERSTOKES)
-            real(kind=RP), parameter :: final_time = 8.9356631108400600E-002_RP
-            real(kind=RP), parameter :: res(NCONS) = [ 7.5562643059618037E-004_RP, &
-                                                       7.0131047667415028E-003_RP, &
-                                                       8.2577456104454747E-013_RP, &
-                                                       1.0463412436767145E-002_RP, &
-                                                       1.7942414864704437E-002_RP ]
-            real(kind=RP), parameter :: wake_u = -9.7956966481995561E-003_RP
-            real(kind=RP), parameter :: cd = 37.179086773140007_RP
-            real(kind=RP), parameter :: p_aver = 7.3940194428249431_RP
+            INTEGER                            :: iterations(3:7) = [3, 0, 0, 0, 0]
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [20.114372045399346_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+                                                               0E-011_RP, 0E-011_RP, &
+                                                               0E-011_RP]
+            real(kind=RP), parameter           :: cd =  2.1770421358010541_RP
+            real(kind=RP), parameter           :: cl =  -2.4818985710162167E-005_RP
+!
+            N = mesh % elements(1) % Nxyz(1)
 
-            
-            call ReadOrderFile('MESH/PolOrdersAfterAdaptation.omesh', Nx, Ny, Nz)
-            
-            success = .TRUE.
-            do eID = 1, mesh % no_of_elements
-               associate (e => mesh % elements(eID))
-               if ( Nx(eID) /= e % Nxyz(1) .or. &
-                    Ny(eID) /= e % Nxyz(2) .or. &
-                    Nz(eID) /= e % Nxyz(3) ) then
-                  success = .FALSE.
-                  exit
-               end if
-               end associate
-            end do
-            
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = final_time, &
-                               actualValue   = time, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "Final time")
+            CALL FTAssertEqual(expectedValue = iterations(N), &
+                               actualValue   = iter, &
+                               msg           = "Number of time steps to tolerance")
 
-            CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "continuity residual")
-
-            CALL FTAssertEqual(expectedValue = res(2) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "x-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(3) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "y-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(4) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "z-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(5) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
-                               msg           = "energy residual")
-
-            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(N), &
+                               actualValue   = maxResidual, &
                                tol           = 1.d-11, &
-                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
+                               msg           = "Final maximum residual")
 
             CALL FTAssertEqual(expectedValue = cd, &
                                actualValue   = monitors % surfaceMonitors(1) % values(1), &
-                               tol           = 1.d-10, &
+                               tol           = 1.d-11, &
                                msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = p_aver, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1), &
+            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1._RP, &
                                tol           = 1.d-11, &
-                               msg           = "Pressure average over the cylinder")
-            
-            CALL FTAssertEqual(expectedValue = .TRUE. , &
-                               actualValue   = success, &
-                               msg           = "Polynomial orders 'MESH/PolOrdersAfterAdaptation.omesh'")
+                               msg           = "Lift coefficient")
 
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 27 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 5 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
@@ -452,6 +400,7 @@
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
+
 
          END SUBROUTINE UserDefinedFinalize
 !

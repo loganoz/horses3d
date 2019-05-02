@@ -197,6 +197,8 @@ module SpatialDiscretization
          implicit none
          IF ( ALLOCATED(HyperbolicDiscretization) ) DEALLOCATE( HyperbolicDiscretization )
          IF ( ALLOCATED(LESModel) )       DEALLOCATE( LESModel )
+         
+         call SVV % destruct()
       end subroutine Finalize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////

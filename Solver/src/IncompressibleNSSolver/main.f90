@@ -4,9 +4,9 @@
 !   @File:    main.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Tue Feb 12 16:38:57 2019
+!   @Last revision date: Tue Mar 12 15:43:34 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
+!   @Last revision commit: 321880e2a7ff1c1a96d33bc8e5d9cc0ccdb4ef05
 !
 !//////////////////////////////////////////////////////
 !
@@ -133,7 +133,7 @@
 !     Construct the time integrator
 !     -----------------------------
 !
-      CALL timeIntegrator % construct (controlVariables, initial_iteration, initial_time)
+      CALL timeIntegrator % construct (controlVariables, sem, initial_iteration, initial_time)
 !
 !     -----------------
 !     Integrate in time

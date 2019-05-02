@@ -4,9 +4,9 @@
 !   @File:    NoSlipWallBC.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Wed Dec 12 15:08:54 2018
+!   @Last revision date: Mon Feb 25 16:07:51 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 12716678fe8fc16a93ed6c03c0de16440e134aba
+!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
 !
 !//////////////////////////////////////////////////////
 !
@@ -237,7 +237,7 @@ module NoSlipWallBCClass
 
          else
             write(STD_OUT,'(30X,A,A28,A)') "->", ' Thermal type: ', "Isothermal"
-            write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall temperature: ', self % Twall * refValues % T
+            write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall temperature: ', self % Twall
          end if
 #endif
 #if defined(CAHNHILLIARD)

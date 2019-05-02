@@ -67,6 +67,7 @@ MODULE HexMeshClass
          type(Node)   , dimension(:), allocatable  :: nodes
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
+         type(MPI_FacesSet_t)                      :: MPIfaces
          class(Zone_t), dimension(:), allocatable  :: zones
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
@@ -100,6 +101,7 @@ MODULE HexMeshClass
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
             procedure :: WriteCoordFile
+            procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
@@ -748,10 +750,10 @@ slavecoord:             DO l = 1, 4
 !
 !     Update MPI face IDs
 !     -------------------
-      if ( (MPI_Process % doMPIAction) .and. MPI_Faces_Constructed ) then
+      if ( (MPI_Process % doMPIAction) .and. self % MPIfaces % Constructed ) then
          do domain = 1, MPI_Process % nProcs
-            do iFace = 1, mpi_faces(domain) % no_of_faces
-               mpi_faces(domain) % faceIDs(iFace) = newFaceID(mpi_faces(domain) % faceIDs(iFace))
+            do iFace = 1, self % MPIfaces % faces(domain) % no_of_faces
+               self % MPIfaces % faces(domain) % faceIDs(iFace) = newFaceID(self % MPIfaces % faces(domain) % faceIDs(iFace))
             end do
          end do
       end if
@@ -820,6 +822,69 @@ slavecoord:             DO l = 1, 4
          
       end subroutine HexMesh_ProlongGradientsToFaces
 ! 
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+!     ------------------------------------------------------------------------------------
+!     HexMesh_UpdateMPIFacesPolynomial:
+!        Send the face polynomial orders to the duplicate faces in the neighbor partitions
+!     ------------------------------------------------------------------------------------
+      subroutine HexMesh_UpdateMPIFacesPolynomial(self)
+         use MPI_Face_Class
+         implicit none
+         !-arguments----------------------------------------------------------
+         class(HexMesh)         :: self
+#ifdef _HAS_MPI_
+         !-local-variables----------------------------------------------------
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         !--------------------------------------------------------------------
+         
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvN(domain)
+         end do
+!
+!        *************
+!        Send solution
+!        *************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate( f => self % faces(fID))
+               associate( e => self % elements(maxval(f % elementIDs)) )
+               
+               
+               self % MPIfaces % faces(domain) % Nsend(counter:counter+1) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+               counter = counter + 2
+               
+               end associate
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendN(domain)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesPolynomial
+! 
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       subroutine HexMesh_UpdateMPIFacesSolution(self, nEqn)
@@ -844,7 +909,7 @@ slavecoord:             DO l = 1, 4
 !        ***************************
 !
          do domain = 1, MPI_Process % nProcs
-            call mpi_faces(domain) % RecvQ(domain, nEqn)
+            call self % MPIfaces % faces(domain) % RecvQ(domain, nEqn)
          end do
 !
 !        *************
@@ -858,14 +923,14 @@ slavecoord:             DO l = 1, 4
 !           ---------------
 !
             counter = 1
-            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
 
-            do mpifID = 1, mpi_faces(domain) % no_of_faces
-               fID = mpi_faces(domain) % faceIDs(mpifID)
-               thisSide = mpi_faces(domain) % elementSide(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Q(:,i,j)
+                  self % MPIfaces % faces(domain) % Qsend(counter:counter+nEqn-1) = f % storage(thisSide) % Q(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -875,7 +940,7 @@ slavecoord:             DO l = 1, 4
 !           Send solution
 !           -------------
 !
-            call mpi_faces(domain) % SendQ(domain, nEqn)
+            call self % MPIfaces % faces(domain) % SendQ(domain, nEqn)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesSolution
@@ -902,7 +967,7 @@ slavecoord:             DO l = 1, 4
 !        ***************************
 !
          do domain = 1, MPI_Process % nProcs
-            call mpi_faces(domain) % RecvU_xyz(domain, nEqn)
+            call self % MPIfaces % faces(domain) % RecvU_xyz(domain, nEqn)
          end do
 !
 !        ***************
@@ -910,32 +975,32 @@ slavecoord:             DO l = 1, 4
 !        ***************
 !
          do domain = 1, MPI_Process % nProcs
-            if ( mpi_faces(domain) % no_of_faces .eq. 0 ) cycle
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
 
             counter = 1
 
-            do mpifID = 1, mpi_faces(domain) % no_of_faces
-               fID = mpi_faces(domain) % faceIDs(mpifID)
-               thisSide = mpi_faces(domain) % elementSide(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(:,i,j)
+                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_x(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_y(:,i,j)
+                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_y(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  mpi_faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_z(:,i,j)
+                  self % MPIfaces % faces(domain) % U_xyzsend(counter:counter+nEqn-1) = f % storage(thisSide) % U_z(:,i,j)
                   counter = counter + nEqn
                end do               ; end do
                end associate
             end do
 
-            call mpi_faces(domain) % SendU_xyz(domain, nEqn)
+            call self % MPIfaces % faces(domain) % SendU_xyz(domain, nEqn)
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
@@ -966,15 +1031,15 @@ slavecoord:             DO l = 1, 4
 !           Wait until messages have been received
 !           **************************************
 !
-            call mpi_faces(domain) % WaitForSolution
+            call self % MPIfaces % faces(domain) % WaitForSolution
 
             counter = 1
-            do mpifID = 1, mpi_faces(domain) % no_of_faces
-               fID = mpi_faces(domain) % faceIDs(mpifID)
-               thisSide = mpi_faces(domain) % elementSide(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % Q(:,i,j) = mpi_faces(domain) % Qrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % Q(:,i,j) = self % MPIfaces % faces(domain) % Qrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1010,25 +1075,25 @@ slavecoord:             DO l = 1, 4
 !           Wait until messages have been received
 !           **************************************
 !
-            call mpi_faces(domain) % WaitForGradients
+            call self % MPIfaces % faces(domain) % WaitForGradients
 
             counter = 1
-            do mpifID = 1, mpi_faces(domain) % no_of_faces
-               fID = mpi_faces(domain) % faceIDs(mpifID)
-               thisSide = mpi_faces(domain) % elementSide(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
                associate(f => self % faces(fID))
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_x(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_y(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
 
                do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = mpi_faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
+                  f % storage(otherSide(thisSide)) % U_z(:,i,j) = self % MPIfaces % faces(domain) % U_xyzrecv(counter:counter+nEqn-1)
                   counter = counter + nEqn
                end do               ; end do
                end associate
@@ -1630,26 +1695,38 @@ slavecoord:             DO l = 1, 4
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine HexMesh_SetConnectivitiesAndLinkFaces(self,nodes,facesList)
+         use PartitionedMeshClass
          implicit none
+         !-arguments----------------------------------------------------
          class(HexMesh), target, intent(inout) :: self
          integer               , intent(in)    :: nodes
          integer, optional     , intent(in)    :: facesList(:)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: fID, SideL, SideR
-         integer  :: NelL(2), NelR(2), k ! Polynomial orders on left and right of a face
+         !-local-variables----------------------------------------------
+         integer  :: fID, SideL, SideR, side, counter
+         integer  :: NelL(2), NelR(2)    ! Polynomial orders on left and right of a face
+         integer  :: Nel(2,2)            ! Polynomial orders on left and right of a face - for MPI
          integer  :: domain, MPI_NDOFS(MPI_Process % nProcs), mpifID
          integer  :: num_of_Faces, ii
+         integer, parameter :: other(2) = [2, 1]
+         !--------------------------------------------------------------
          
          if ( present(facesList) ) then
             num_of_Faces = size(facesList)
          else
             num_of_Faces = size(self % faces)
          end if
-
+!
+!        ---------------------------------------------------------------------------
+!        Send polynomial orders across MPI faces
+!           -> Currently doing for all MPI faces (not taking into account facesList)
+!        ---------------------------------------------------------------------------
+!         
+         if (mpi_partition % Constructed) call self % UpdateMPIFacesPolynomial
+!
+!        ------------------------
+!        Link faces with elements
+!        ------------------------
+!
          do ii = 1, num_of_Faces
             
             if ( present(facesList) ) then
@@ -1686,6 +1763,8 @@ slavecoord:             DO l = 1, 4
                call eR % Connection(SideR) % Construct(1)
                eR % Connection( SideR ) % ElementIDs(1) = eL % eID
                end associate
+               
+               call f % LinkWithElements(NelL, NelR, nodes)
 
             case (HMESH_BOUNDARY)
                associate(eL => self % elements(f % elementIDs(1)))
@@ -1697,26 +1776,52 @@ slavecoord:             DO l = 1, 4
                
                ! Default NumberOfConnections = 0
                end associate
-
-            case (HMESH_MPI)
-!
-!              ****************************************************
-!              TODO anisMPI account for different orders accross both sides
-!              ****************************************************
-!
-               associate(e => self % elements(maxval(f % elementIDs)))
-               NelL = e % Nxyz(axisMap(:,maxval(f % elementSide)))
-               NelR = NelL
                
+               call f % LinkWithElements(NelL, NelR, nodes)
+
+!           case (HMESH_MPI): Do nothing. MPI faces are constructed in the next step.
                !TODO: Store connection information for MPI
-               end associate
 
             end select
          
-            call f % LinkWithElements(NelL, NelR, nodes)
+            
             end associate
          end do
-         
+!
+!        -----------------------------------------------
+!        Gather faces polynomial and link MPI faces
+!        -> All, not only the faces included in faceList
+!        -----------------------------------------------
+!
+#ifdef _HAS_MPI_         
+         if ( MPI_Process % doMPIAction .and. mpi_partition % Constructed  )  then
+            
+            do domain = 1, MPI_Process % nProcs
+!
+!              Wait until messages have been received
+!              --------------------------------------
+!
+               call self % MPIfaces % faces(domain) % WaitForN
+
+               counter = 1
+               do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+                  fID  = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+                  side = self % MPIfaces % faces(domain) % elementSide(mpifID)
+                  associate( f => self % faces(fID) )
+                  associate( e => self % elements(maxval(f % elementIDs)) )
+                  
+                  Nel(:,      side ) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+                  Nel(:,other(side)) = self % MPIfaces % faces(domain) % Nrecv(counter:counter+1)
+                  counter = counter + 2
+                  
+                  call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes)
+                  
+                  end associate
+                  end associate
+               end do
+            end do
+         end if
+#endif
 !
 !        --------------------------
 !        Allocate MPI Faces storage
@@ -1724,13 +1829,13 @@ slavecoord:             DO l = 1, 4
 !        --------------------------
 !
          if ( MPI_Process % doMPIAction ) then
-            if ( .not. allocated(mpi_faces) ) return
+            if ( .not. allocated(self % MPIfaces % faces) ) return
 #if _HAS_MPI_
             MPI_NDOFS = 0
 
             do domain = 1, MPI_Process % nProcs
-               do mpifID = 1, mpi_faces(domain) % no_of_faces
-                  fID = mpi_faces(domain) % faceIDs(mpifID)
+               do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+                  fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
                   associate( fc => self % faces(fID) ) 
                   MPI_NDOFS(domain) = MPI_NDOFS(domain) + product(fc % Nf + 1)
                   end associate
@@ -1738,11 +1843,11 @@ slavecoord:             DO l = 1, 4
             end do
 
 #if defined(NAVIERSTOKES)
-            call ConstructMPIFacesStorage(NCONS, NGRAD, MPI_NDOFS)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
 #elif defined(INCNS)
-            call ConstructMPIFacesStorage(NINC, NINC, MPI_NDOFS)
+            call ConstructMPIFacesStorage(self % MPIfaces, NINC, NINC, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
-            call ConstructMPIFacesStorage(NCOMP, NCOMP, MPI_NDOFS)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
 #endif
 
 #endif
@@ -1796,7 +1901,7 @@ slavecoord:             DO l = 1, 4
 !
          do domain = 1, MPI_Process % nProcs
             if ( no_of_mpifaces(domain) .ne. 0 ) then
-               call mpi_faces(domain) % Construct(no_of_mpifaces(domain))
+               call self % MPIfaces % faces(domain) % Construct(no_of_mpifaces(domain))
             end if
          end do
 !
@@ -1834,8 +1939,8 @@ slavecoord:             DO l = 1, 4
 !           ---------------
             domain = partition % mpiface_sharedDomain(bFace)
             no_of_mpifaces(domain) = no_of_mpifaces(domain) + 1
-            mpi_faces(domain) % faceIDs(no_of_mpifaces(domain)) = fID
-            mpi_faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
+            self % MPIfaces % faces(domain) % faceIDs(no_of_mpifaces(domain)) = fID
+            self % MPIfaces % faces(domain) % elementSide(no_of_mpifaces(domain)) = eSide
 
          end do
 
@@ -2248,13 +2353,13 @@ slavecoord:             DO l = 1, 4
          integer  :: sendSt(MPI_STATUS_SIZE, MPI_Process % nProcs)
          integer  :: recvSt(MPI_STATUS_SIZE, MPI_Process % nProcs)
 
-         if ( .not. MPI_Faces_Constructed ) return
+         if ( .not. self % MPIfaces % Constructed ) return
 !
 !        Get the maximum number of faces
 !        -------------------------------
          no_of_max_faces = 0
          do i = 1, MPI_Process % nProcs
-            no_of_max_faces = max(no_of_max_faces, mpi_faces(i) % no_of_faces)
+            no_of_max_faces = max(no_of_max_faces, self % MPIfaces % faces(i) % no_of_faces)
          end do
 !
 !        Allocate an array to store the distances
@@ -2265,13 +2370,13 @@ slavecoord:             DO l = 1, 4
 !        Perform the receive calls
 !        -------------------------
          do i = 1, MPI_Process % nProcs
-            if ( mpi_faces(i) % no_of_faces .le. 0 ) then
+            if ( self % MPIfaces % faces(i) % no_of_faces .le. 0 ) then
                recvReq(i) = MPI_REQUEST_NULL
                cycle
 
             end if
 
-            call mpi_irecv(hrecv(:,i), mpi_faces(i) % no_of_faces, MPI_DOUBLE, i-1, MPI_ANY_TAG, &
+            call mpi_irecv(hrecv(:,i), self % MPIfaces % faces(i) % no_of_faces, MPI_DOUBLE, i-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, recvReq(i), ierr)
 
          end do
@@ -2280,10 +2385,10 @@ slavecoord:             DO l = 1, 4
 !        Gather the distances to send
 !        ------------------------------
          do i = 1, MPI_Process % nProcs
-            if ( mpi_faces(i) % no_of_faces .le. 0 ) cycle
+            if ( self % MPIfaces % faces(i) % no_of_faces .le. 0 ) cycle
 
-            do mpifID = 1, mpi_faces(i) % no_of_faces
-               fID = mpi_faces(i) % faceIDs(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(i) % no_of_faces
+               fID = self % MPIfaces % faces(i) % faceIDs(mpifID)
                hsend(mpifID,i) = self % faces(fID) % geom % h
             end do
          end do
@@ -2291,13 +2396,13 @@ slavecoord:             DO l = 1, 4
 !        Send the distances
 !        ------------------
          do i = 1, MPI_Process % nProcs
-            if ( mpi_faces(i) % no_of_faces .le. 0 ) then
+            if ( self % MPIfaces % faces(i) % no_of_faces .le. 0 ) then
                sendReq(i) = MPI_REQUEST_NULL
                cycle
 
             end if
 
-            call mpi_isend(hsend(:,i), mpi_faces(i) % no_of_faces, MPI_DOUBLE, i-1, DEFAULT_TAG, &
+            call mpi_isend(hsend(:,i), self % MPIfaces % faces(i) % no_of_faces, MPI_DOUBLE, i-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, sendReq(i), ierr)
 
          end do
@@ -2307,10 +2412,10 @@ slavecoord:             DO l = 1, 4
 !        Collect the distances
 !        ---------------------      
          do i = 1, MPI_Process % nProcs
-            if ( mpi_faces(i) % no_of_faces .le. 0 ) cycle
+            if ( self % MPIfaces % faces(i) % no_of_faces .le. 0 ) cycle
 
-            do mpifID = 1, mpi_faces(i) % no_of_faces
-               fID = mpi_faces(i) % faceIDs(mpifID)
+            do mpifID = 1, self % MPIfaces % faces(i) % no_of_faces
+               fID = self % MPIfaces % faces(i) % faceIDs(mpifID)
                self % faces(fID) % geom % h = min(self % faces(fID) % geom % h, hrecv(mpifID,i))
             end do
          end do
@@ -3751,6 +3856,8 @@ slavecoord:             DO l = 1, 4
       safedeallocate (to % elements)
       allocate ( to % elements ( size(from % elements) ) )
       to % elements = from % elements
+      
+      to % MPIfaces = from % MPIfaces
       
       safedeallocate (to % zones)
       allocate ( to % zones ( size(from % zones) ) )
