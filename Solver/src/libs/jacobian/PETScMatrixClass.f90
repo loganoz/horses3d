@@ -4,13 +4,14 @@
 !   @File:    PETScMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Mon Feb  4 16:17:39 2019
+!   @Last revision date: Sun May  5 21:27:46 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
 !      Class for sparse csr matrices in PETSc context
+!        -> TODO: MPI implementation is not ready yet!
 !
 !////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
@@ -34,6 +35,8 @@ module PETScMatrixClass
       Mat         :: A        ! Matrix in PETSc context 
       PetscScalar :: Ashift   ! Stores the current shift to the matrix
       PetscBool   :: withMPI
+      Vec         :: rowvec   ! Auxiliar vector with size = num_of_Rows
+      Vec         :: colvec   ! Auxiliar vector with size = num_of_Cols
 #endif
       
       contains
@@ -53,6 +56,10 @@ module PETScMatrixClass
          procedure :: SpecifyBlockInfo => PETSCMat_SpecifyBlockInfo
          procedure :: AddToBlockEntry  => PETScMat_AddToBlockEntry
          procedure :: SetBlockEntry    => PETScMat_SetBlockEntry
+         procedure :: MatMatMul        => PETScMat_MatMatMul
+         procedure :: MatVecMul        => PETScMat_MatVecMul
+         procedure :: MatAdd           => PETScMat_MatAdd
+         procedure :: ConstructFromDiagBlocks   => PETScMat_ConstructFromDiagBlocks
    end type PETSCMatrix_t
    
 !
@@ -72,19 +79,28 @@ module PETScMatrixClass
       implicit none
       !---------------------------------------------
       class(PETSCMatrix_t)  :: this
-      integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
 #ifdef HAS_PETSC
       PetscInt, optional, intent(in) :: num_of_Rows
+      PetscInt, optional, intent(in) :: num_of_Cols
       PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
       PetscBool :: hasMPI
       !---------------------------------------------
+!
+!     Initialize PETSc environment... If it was already done by the solver, it's alright
+!     ----------------------------------------------------------------------------------
+      call PetscInitialize(PETSC_NULL_character,ierr)
       
       if ( .not. present(num_of_Rows) ) then
          ERROR stop 'PETSCMatrix_t needs num_of_Rows'
       end if
       
+      if ( present(num_of_Cols) ) then
+         this % num_of_Cols = num_of_Cols
+      else
+         this % num_of_Cols = num_of_Rows
+      end if
       if ( present(withMPI) ) then
          hasMPI = withMPI
       else
@@ -98,14 +114,14 @@ module PETScMatrixClass
       CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
       
       if (hasMPI) then
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,num_of_Rows,ierr)
+         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,this % num_of_Cols,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATMPIAIJ, ierr)                       
          CALL CheckPetscErr(ierr,'error in MatSetType')
          CALL MatSetFromOptions(this%A,ierr)                                  
          CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
       else
-         CALL MatSetSizes(this%A,num_of_Rows,num_of_Rows,num_of_Rows,num_of_Rows,ierr)
+         CALL MatSetSizes(this%A,num_of_Rows,this % num_of_Cols,num_of_Rows,this % num_of_Cols,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATSEQAIJ, ierr)
          CALL CheckPetscErr(ierr,'error in MatSetType')
@@ -115,8 +131,20 @@ module PETScMatrixClass
 !~         CALL MatSetOption(this%A,MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE,ierr)                 
 !~         CALL CheckPetscErr(ierr,'error in MatSetOption')
       end if
+      
+!     Construct auxiliar vectors
+!     --------------------------
+      call VecCreate(PETSC_COMM_WORLD,this % rowvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
+      call VecSetSizes(this % rowvec,PETSC_DECIDE,this % num_of_Rows,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetFromOptions(this % rowvec,ierr)                              ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      
+      call VecCreate(PETSC_COMM_WORLD,this % colvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
+      call VecSetSizes(this % colvec,PETSC_DECIDE,this % num_of_Cols,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetFromOptions(this % colvec,ierr)                              ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      
 #else
       integer, optional, intent(in) :: num_of_Rows
+      integer, optional, intent(in) :: num_of_Cols
       logical, optional, intent(in)    :: WithMPI
       STOP ':: PETSc is not linked correctly'
 #endif
@@ -465,6 +493,120 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  --------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  --------------------------------------------------------------
+   subroutine PETScMat_MatMatMul(A,B,Cmat,trans)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(PETSCMatrix_t) , intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t)      , intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t)      , intent(inout)   :: Cmat    !< Structure holding matrix
+      logical, optional    , intent(in)      :: trans   !< A matrix is transposed?
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+#ifdef HAS_PETSC
+!
+!     Since the arguments must be class(Matrix_t), an extra check is needed
+!     ---------------------------------------------------------------------
+      select type(B) ; class is(PETSCMatrix_t) ; select type (Cmat) ; class is (PETSCMatrix_t)
+!
+!     Perform MatMatMul
+!     -----------------
+      if ( present(trans) ) then
+         if (trans) stop 'PETScMat_MatMatMul :: ERROR: trans not implemented'
+      end if 
+      call MatMatMult( A % A, B % A,MAT_INITIAL_MATRIX,PETSC_DEFAULT_REAL, Cmat % A, ierr)
+      call CheckPetscErr(ierr,"PETScMat_MatMatMul: Problem doing MatMatMult")
+!
+!     Finish extra check
+!     ------------------
+      class default
+         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+      end select ; end select
+#endif
+   end subroutine PETScMat_MatMatMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  MatVecMul:
+!  Matrix vector product (v = Au) being A a CSR matrix
+!  -> v needs to be allocated beforehand
+!  ----------------------------------------------------
+   function PETScMat_MatVecMul( A,u, trans) result(v)
+      !-arguments--------------------------------------------------------------------
+      class(PETSCMatrix_t) , intent(inout)  :: A  !< Structure holding matrix
+      logical, optional    , intent(in)     :: trans   !< A matrix is transposed?
+#ifdef HAS_PETSC
+      PetscScalar          , intent(in)     :: u(A % num_of_Cols)  !< Vector to be multiplied
+      PetscScalar                           :: v(A % num_of_Rows)  !> Result vector 
+      !------------------------------------------------------------------------------
+      PetscInt :: i
+      !------------------------------------------------------------------------------
+      
+      call VecSetValues    (A % colvec, A % num_of_Cols, [(i, i=0, A % num_of_Cols-1)] , u, INSERT_VALUES, ierr)
+      call CheckPetscErr(ierr,"PETScMat_MatVecMul: VecSetValues A % colvec in PETSc Begin")      
+      
+      call VecAssemblyBegin(A % colvec, ierr)   ;  call CheckPetscErr(ierr,"PETScMat_MatVecMul: Assembly this % colvec in PETSc Begin")      
+      call VecAssemblyEnd  (A % colvec, ierr)   ;  call CheckPetscErr(ierr,"PETScMat_MatVecMul: Assembly this % colvec in PETSc End")  
+      
+      call MatMult(A % A, A % colvec, A % rowvec, ierr)
+      call CheckPetscErr(ierr,"PETScMat_MatVecMul: Doing MatMult")
+      
+      call VecGetValues(A % rowvec, A % num_of_Rows ,[(i, i=0, A % num_of_Rows-1)],v, ierr)
+      call CheckPetscErr(ierr, 'PETScMat_MatVecMul: error in VecGetValue v')
+      
+#else
+      real(kind=RP)    , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
+      real(kind=RP)                  :: v(A % num_of_Rows)  !> Result vector 
+#endif
+   end function PETScMat_MatVecMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------
+!  MatAdd:
+!  Matrix addition: Cmat = A + Factor*B
+!  ----------------------
+   subroutine PETScMat_MatAdd(A,B,Cmat,Factor)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(PETSCMatrix_t) , intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t)      , intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t)      , intent(inout)   :: Cmat    !< Structure holding matrix
+#ifdef HAS_PETSC
+      PetscScalar          , intent(in)      :: Factor  !< Factor for addition
+      !------------------------------------------------------------------------------
+!
+!     Since the arguments must be class(Matrix_t), an extra check is needed
+!     ---------------------------------------------------------------------
+      select type(B) ; class is(PETSCMatrix_t) ; select type (Cmat) ; class is (PETSCMatrix_t)
+!
+!     Perform MatAdd
+!     --------------
+      
+      ! Copy matrix A in Cmat
+      call MatDuplicate(A % A,MAT_COPY_VALUES,Cmat % A, ierr)
+      call CheckPetscErr(ierr,"PETScMat_MatAdd: Problem copying A in Cmat")
+      
+      ! Perform operation
+      call MatAXPY(Cmat % A, Factor, B % A, DIFFERENT_NONZERO_PATTERN, ierr)
+      call CheckPetscErr(ierr,"PETScMat_MatAdd: Problem Adding matrices")
+!
+!     Finish extra check
+!     ------------------
+      class default
+         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+      end select ; end select
+#else
+      real(kind=RP)  , intent(in)  :: Factor  !< Factor for addition
+#endif
+   end subroutine PETScMat_MatAdd
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  -----------------------------------------------------------------------
 !  Subroutine to add a value to the entries of a block with relative index
 !  -----------------------------------------------------------------------
@@ -494,6 +636,48 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ------------------------------------------------------
+!  Construct a general sparse matrix from diagonal blocks
+!  ------------------------------------------------------
+   subroutine PETScMat_ConstructFromDiagBlocks(this, num_of_Blocks, Blocks, BlockIdx, BlockSizes)
+      implicit none
+      !-arguments-----------------------------------
+      class(PETSCMatrix_t) , intent(inout) :: this
+      integer              , intent(in)    :: num_of_Blocks
+      type(DenseBlock_t)   , intent(in)    :: Blocks(num_of_Blocks)
+      integer              , intent(in)    :: BlockIdx(num_of_Blocks+1)
+      integer              , intent(in)    :: BlockSizes(num_of_Blocks)
+      !-local-variables-----------------------------
+      integer :: bID, j, i, j_offset
+      !---------------------------------------------
+      
+!     Construct matrix
+!     ----------------
+      call this % construct (num_of_Rows = sum(BlockSizes))
+      call this % PreAllocate( nnz = maxval(BlockSizes) )
+      call this % reset
+      call this % SpecifyBlockInfo (BlockIdx, BlockSizes)
+      
+!     Fill it with the right entries
+!     ------------------------------
+      
+      j_offset = 0
+      do bID=1, num_of_Blocks
+         do j=1, BlockSizes(bID)
+            
+            do i=1, BlockSizes(bID)
+               call this % SetBlockEntry (bID, bID, i, j, Blocks(bID) % Matrix(i,j) )
+            end do
+            
+         end do
+      end do
+      
+      call this % assembly
+      
+   end subroutine PETScMat_ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine destruct(this)
       implicit none
       !---------------------------------------------
@@ -505,6 +689,9 @@ module PETScMatrixClass
 #ifdef HAS_PETSC
       CALL MatDestroy(this%A,ierr)
       CALL CheckPetscErr(ierr," A destruction")  
+      
+      call VecDestroy(this % rowvec,ierr) ; call CheckPetscErr(ierr,"Problem destructung vector")  
+      call VecDestroy(this % colvec,ierr) ; call CheckPetscErr(ierr,"Problem destructung vector")  
 #endif
    end subroutine destruct
 !

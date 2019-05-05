@@ -4,15 +4,15 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Tue Feb 12 16:38:59 2019
+!   @Last revision date: Sun May  5 21:27:43 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
 MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
-   use GenericMatrixClass              
+   use GenericMatrixClass   , only: Matrix_t, DenseBlock_t
    use LinkedListMatrixClass, only: LinkedListMatrix_t
    use Jacobian             , only: JACEPS
 #include "Includes.h"
@@ -24,8 +24,6 @@ MODULE CSRMatrixClass
       integer      ,  allocatable :: Cols(:)    ! Column indices that correspond to each value
       integer      ,  allocatable :: Rows(:)    ! Row indices (index of first value of each row)
       integer      ,  allocatable :: Diag(:)    ! Array containing position of the diagonal entry (handy for some calculations)
-      
-      integer                     :: num_of_Cols               ! Number of colunms of matrix
       
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
@@ -51,6 +49,10 @@ MODULE CSRMatrixClass
       procedure :: SpecifyBlockInfo    => CSR_SpecifyBlockInfo
       procedure :: AddToBlockEntry     => CSR_AddToBlockEntry
       procedure :: SetBlockEntry       => CSR_SetBlockEntry
+      procedure :: ConstructFromDiagBlocks   => CSR_ConstructFromDiagBlocks
+      procedure :: MatMatMul                 => CSR_MatMatMul
+      procedure :: MatVecMul                 => CSR_MatVecMul
+      procedure :: MatAdd                    => CSR_MatAdd
 !      procedure                           :: SetFirstIdx => CSR_SetFirstIdx
       procedure :: PreAllocateWithStructure => CSR_PreAllocateWithStructure
    END TYPE
@@ -332,7 +334,6 @@ MODULE CSRMatrixClass
       integer         :: i, j       !   Counters
       !-----------------------------------
       do i=1, A % num_of_Rows
-         
          do j=A % Rows (i), A % Rows (i+1) -1
             if (A % Cols(j) == i) then
                A % Diag(i) = j
@@ -602,23 +603,29 @@ MODULE CSRMatrixClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------
-!  CSR Matrix addition:
-!     Cmat = A + Factor*B
+!  CSR_MatAdd:
+!  Matrix addition: Cmat = A + Factor*B
 !  ----------------------
-   function CSR_MatAdd(A,B,Factor) result(Cmat)
+   subroutine CSR_MatAdd(A,B,Cmat,Factor)
       implicit none
       !-arguments--------------------------------------------------------------------
-      type(csrMat_t), intent(in)  :: A    !< Structure holding matrix
-      type(csrMat_t), intent(in)  :: B    !< Structure holding matrix
-      real(kind=RP) , intent(in)  :: Factor  !< 
-      type(csrMat_t)              :: Cmat !< Structure holding matrix
+      class(csrMat_t), intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t), intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t), intent(inout)   :: Cmat    !< Structure holding matrix
+      real(kind=RP)  , intent(in)      :: Factor  !< Factor for addition
       !-local-variables--------------------------------------------------------------
       real(kind=RP), allocatable :: c(:)
       integer,       allocatable :: ic(:), jc(:)
       integer                    :: info
       !------------------------------------------------------------------------------
 #ifdef HAS_MKL
-      
+!
+!     Since the arguments must be class(Matrix_t), an extra check is needed
+!     ---------------------------------------------------------------------
+      select type(B) ; class is(csrMat_t) ; select type (Cmat) ; class is (csrMat_t)
+!
+!     Perform MatAdd
+!     --------------
       allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsradd needs jc and c to be allocated, even with request 1 - 2
       
       call mkl_dcsradd  ('n', 1, 4, A % num_of_Rows, A % num_of_Cols, &
@@ -638,10 +645,16 @@ MODULE CSRMatrixClass
       end if
                               
       call Cmat % constructWithArrays (ic,jc,c, A % num_of_Cols)
+!
+!     Finish extra check
+!     ------------------
+      class default
+         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+      end select ; end select
 #else
       stop ':: CSR_MatAdd needs MKL'
 #endif
-   end function CSR_MatAdd
+   end subroutine CSR_MatAdd
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -649,20 +662,27 @@ MODULE CSRMatrixClass
 !  Matrix-matrix multiplication for CSR matrices
 !     Cmat = A * B
 !  ---------------------------------------------
-   function CSR_MatMatMul(A,B,trans) result(Cmat)
+   subroutine CSR_MatMatMul(A,B,Cmat,trans)
       implicit none
       !-arguments--------------------------------------------------------------------
-      type(csrMat_t)   , intent(in) :: A       !< Structure holding matrix
-      type(csrMat_t)   , intent(in) :: B       !< Structure holding matrix
-      logical, optional, intent(in) :: trans   !< A matrix is transposed?
-      type(csrMat_t)                :: Cmat    !< Structure holding matrix
+      class(csrMat_t)   , intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t)   , intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t)   , intent(inout)   :: Cmat    !< Structure holding matrix
+      logical, optional , intent(in)      :: trans   !< A matrix is transposed?
       !-local-variables--------------------------------------------------------------
       real(kind=RP), allocatable :: c(:)
       integer,       allocatable :: ic(:), jc(:)
       integer                    :: info
       character(len=1)           :: transInfo
       !------------------------------------------------------------------------------
-      
+#ifdef HAS_MKL
+!
+!     Since the arguments must be class(Matrix_t), an extra check is needed
+!     ---------------------------------------------------------------------
+      select type(B) ; class is(csrMat_t) ; select type (Cmat) ; class is (csrMat_t)
+!
+!     Perform MatMatMul
+!     -----------------
       if (A % num_of_Cols /= B % num_Of_Rows) then
          write(STD_OUT,'(A,I0,A,I0,A,I0,A,I0,A)') 'CSR_MatMatMul :: ERROR: Matrix dimensions mismatch: A(', A % num_of_Rows,',', A % num_Of_Cols, ') ; B(', B % num_Of_Rows, ',', B % num_Of_Cols,')'
          stop
@@ -677,8 +697,6 @@ MODULE CSRMatrixClass
       else
          transInfo = 'n'
       end if
-      
-#ifdef HAS_MKL
       
       allocate( ic(A % num_of_Rows+1), jc(A % num_of_Rows+1), c(A % num_of_Rows+1) ) ! For some reason, mkl_dcsrmultcsr needs jc and c to be allocated, even with request 1 - 2
       
@@ -701,20 +719,30 @@ MODULE CSRMatrixClass
       end if
       
       call Cmat % constructWithArrays (ic,jc,c, B % num_of_Cols)
+!
+!     Finish extra check
+!     ------------------
+      class default
+         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+      end select ; end select
 #else
       stop ':: CSR_MatMatMul needs MKL'
 #endif
-   end function CSR_MatMatMul
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   FUNCTION CSR_MatVecMul( A,u, trans) RESULT(v)
-   ! Matrix vector product (v = Au) for a CSR matrix .... v needs to be allocated beforehand
-   !------------------------------------------------------------------------------
-      type(csrMat_t)   , intent(in)  :: A  !< Structure holding matrix
-      real(kind=RP)    , intent(in)  :: u(A % num_of_Cols)  !< Vector to be multiplied
-      logical, optional, intent(in) :: trans   !< A matrix is transposed?
-      real(kind=RP)               :: v(A % num_of_Rows)  !> Result vector 
+   end subroutine CSR_MatMatMul
+   !
+   !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   !
+   !  ----------------------------------------------------
+   !  CSR_MatVecMul:
+   !  Matrix vector product (v = Au) being A a CSR matrix
+   !  -> v needs to be allocated beforehand
+   !  ----------------------------------------------------
+   function CSR_MatVecMul( A,u, trans) result(v)
+      !-arguments--------------------------------------------------------------------
+      class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in)    :: trans   !< A matrix is transposed?
+      real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
       !------------------------------------------------------------------------------
       integer           :: i,j
       REAL(KIND=RP)     :: rsum
@@ -918,4 +946,80 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  CSR_ConstructFromDiagBlocks:
+!     Constructs a CSR matrix from SQUARE diagonal blocks
+   subroutine CSR_ConstructFromDiagBlocks(this, num_of_Blocks, Blocks, BlockIdx, BlockSizes)
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t)   , intent(inout) :: this
+      integer           , intent(in)    :: num_of_Blocks
+      type(DenseBlock_t), intent(in)    :: Blocks(num_of_Blocks)
+      integer           , intent(in)    :: BlockIdx(num_of_Blocks+1)
+      integer           , intent(in)    :: BlockSizes(num_of_Blocks)
+      !-local-variables-----------------------------
+      integer :: num_of_Rows
+      integer :: k, ii, jj, j_offset, i
+      integer :: bID, rowsize
+      integer :: nnz_0  ! Initial estimation of the number of nonzero values
+      integer :: nnz    ! Actual number of nonzero values
+      integer      , allocatable :: Cols(:), Rows(:)
+      real(kind=RP), allocatable :: Vals(:)
+      real(kind=RP), allocatable :: BlockTrans(:,:)
+      logical :: differentBlockSizes
+      !-------------------------------------------------------------
+!
+!     Get general info
+!     ----------------
+      num_of_Rows = sum(BlockSizes)
+      nnz_0 = sum(BlockSizes**2)
+      
+!
+!     Allocations
+!     -----------
+      if ( all( (BlockSizes-BlockSizes(1)) == 0 ) ) then
+         allocate ( BlockTrans ( BlockSizes(1),BlockSizes(1) ) )
+         differentBlockSizes = .FALSE.
+      else
+         differentBlockSizes = .TRUE.
+      end if
+      
+      allocate ( Rows(num_of_Rows+1) )
+      allocate ( Cols(nnz_0), Vals(nnz_0) )
+      
+!
+!     Fill CSR matrix
+!     ---------------
+      Rows(1) = 1
+      
+      i=1
+      k=1
+      j_offset = 0
+      nnz = 0
+      do bID = 1, num_of_Blocks
+         if (differentBlockSizes) allocate ( BlockTrans ( BlockSizes(bID),BlockSizes(bID) ) )
+         BlockTrans = transpose(Blocks(bID) % Matrix)
+         
+         do jj = 1, BlockSizes(bID)
+            rowsize = 0
+            do ii = 1, BlockSizes(bID) 
+               if (abs(BlockTrans(ii,jj)) < JACEPS) cycle
+               
+               Vals(k) = BlockTrans(ii,jj)
+               Cols(k) = ii + j_offset
+               k = k + 1
+               rowsize = rowsize + 1
+               nnz = nnz + 1
+            end do
+            Rows(i+1) = Rows(i) + rowsize
+            i = i + 1
+         end do
+         
+         j_offset = j_offset + BlockSizes(bID)
+         
+         if (differentBlockSizes) deallocate(BlockTrans)
+      end do
+      
+      call this % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      
+   end subroutine CSR_ConstructFromDiagBlocks
 END MODULE CSRMatrixClass

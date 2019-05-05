@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Mon Feb  4 16:17:41 2019
+!   @Last revision date: Sun May  5 21:27:47 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
@@ -22,11 +22,15 @@
 !      |     |       |
 !      +-----+-------+
 !
+!  -> Mii is DenseBlockDiagMatrix_t
+!  -> Mbb, Mib and Mbi can be either csrMat_t or PETSCMatrix_t
+!
 #include "Includes.h"
 module StaticCondensedMatrixClass
    use SMConstants
    use GenericMatrixClass
    use CSRMatrixClass               , only: csrMat_t
+   use PETScMatrixClass             , only: PETSCMatrix_t
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
    use HexMeshClass                 , only: HexMesh
    use ElementClass                 , only: Element
@@ -35,7 +39,7 @@ module StaticCondensedMatrixClass
    implicit none
    
    private
-   public StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
+   public StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF, SC_MATRIX_CSR, SC_MATRIX_PETSC
    
    type ElemInfo_t
       integer, allocatable :: dof_association(:)   ! Whether it is an INNER_DOF or a BOUNDARY_DOF
@@ -44,17 +48,18 @@ module StaticCondensedMatrixClass
    end type ElemInfo_t
    
    type, extends(Matrix_t) :: StaticCondensedMatrix_t
-      type(csrMat_t)                :: Mbb         ! Boundary to boundary matrix
-      type(csrMat_t)                :: Mib         ! Interior to boundary matrix
-      type(csrMat_t)                :: Mbi         ! Boundary to interior matrix
+      class(Matrix_t), allocatable  :: Mbb         ! Boundary to boundary matrix
+      class(Matrix_t), allocatable  :: Mib         ! Interior to boundary matrix
+      class(Matrix_t), allocatable  :: Mbi         ! Boundary to interior matrix
       type(DenseBlockDiagMatrix_t)  :: Mii         ! Interior to interior matirx
       
       type(ElemInfo_t), allocatable :: ElemInfo(:)
       integer, allocatable          :: inner_blockSizes(:)
       
+      integer                       :: MatrixType
       integer                       :: size_b      ! Size of condensed system (size of Mbb)
       integer                       :: size_i      ! Size of inner system (size of Mii)
-      integer                       :: num_of_Cols
+      integer                       :: maxnumCon   ! Maximum number of connections of any element
       
       logical                       :: ignore_boundaries = .FALSE. ! When .TRUE., Mii, does not contain the DOFs on the physical boundaries
       
@@ -68,14 +73,26 @@ module StaticCondensedMatrixClass
          procedure :: AddToBlockEntry              => Static_AddToBlockEntry
          procedure :: Assembly                     => Static_Assembly
          procedure :: shift                        => Static_Shift
+         procedure :: getSchurComplement           => Static_getSchurComplement
          
          procedure :: constructPermutationArrays   => Static_constructPermutationArrays
          procedure :: getCSR                       => Static_getCSR
    end type StaticCondensedMatrix_t
    
+!
+!  **********
+!  Parameters
+!  **********
+!
+!  DOF types
+!  ---------
    integer, parameter :: INNER_DOF = 1
    integer, parameter :: BOUNDARY_DOF = 2
-   
+!
+!  Matrix types
+!  ------------
+   integer, parameter :: SC_MATRIX_CSR   = 1
+   integer, parameter :: SC_MATRIX_PETSC = 2
 contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,8 +135,11 @@ contains
       
       call this % Mii % destruct
       call this % Mbb % destruct
+      deallocate (this % Mbb)
       call this % Mib % destruct
+      deallocate (this % Mib)
       call this % Mbi % destruct
+      deallocate (this % Mbi)
       
       deallocate (this % ElemInfo)
       deallocate (this % inner_blockSizes)
@@ -142,9 +162,22 @@ contains
       integer, optional             , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
       !---------------------------------------------
       
-      call this % Mbb % Preallocate()
-      call this % Mib % Preallocate()
-      call this % Mbi % Preallocate()
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+!
+!           CSR: Preallocate with standard linked-list
+!           ------------------------------------------
+            call this % Mbb % Preallocate()
+            call this % Mib % Preallocate()
+            call this % Mbi % Preallocate()
+         case (SC_MATRIX_PETSC)
+!
+!           PETSc: Preallocate with a (very conservative) estimate of the maximum nnz
+!           -------------------------------------------------------------------------
+            call this % Mbb % Preallocate( nnz = this % maxnumCon * maxval(this % BlockSizes - this % inner_blockSizes) )
+            call this % Mib % Preallocate( nnz = this % maxnumCon * maxval(this % inner_blockSizes) )
+            call this % Mbi % Preallocate( nnz = this % maxnumCon * maxval(this % BlockSizes - this % inner_blockSizes) )
+      end select
       call this % Mii % Preallocate(nnzs = this % inner_blockSizes)
       
    end subroutine Static_Preallocate
@@ -355,12 +388,13 @@ contains
 !  constructPermutationArrays:
 !     Routine to construct the "ElemInfo"
 !  --------------------------------------
-   subroutine Static_constructPermutationArrays(this,mesh,nEqn,ignore_boundaries)
+   subroutine Static_constructPermutationArrays(this,mesh,nEqn,MatrixType,ignore_boundaries)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
       type(HexMesh), target         , intent(in)    :: mesh
       integer                       , intent(in)    :: nEqn
+      integer                       , intent(in)    :: MatrixType
       logical      , optional       , intent(in)    :: ignore_boundaries
       !-local-variables-----------------------------
       integer :: eID
@@ -381,10 +415,13 @@ contains
          this % ignore_boundaries = ignore_boundaries
       end if
       
+      this % MatrixType = MatrixType
+      
       count_i = 0
       count_b = 0
       
       nelem = mesh % no_of_elements
+      this % num_of_Blocks = nelem
       Nx => mesh % Nx
       Ny => mesh % Ny
       Nz => mesh % Nz
@@ -396,6 +433,8 @@ contains
       allocate ( this % ElemInfo(nelem) )
       allocate ( this % inner_blockSizes(nelem) )
       allocate ( this % BlockSizes(nelem) )
+      
+      this % maxnumCon = 0
       
       if (this % ignore_boundaries) then
 !
@@ -411,6 +450,8 @@ contains
             allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
             allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
             this % ElemInfo(eID) % perm_Indexes_i = -1
+            
+            this % maxnumCon = max(this % maxnumCon,sum(e % NumberOfConnections))
             
             count_ii = 0
             count_el = 0
@@ -447,6 +488,8 @@ contains
             allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
             this % ElemInfo(eID) % perm_Indexes_i = -1
             
+            this % maxnumCon = max(this % maxnumCon,sum(e % NumberOfConnections))
+            
             count_ii = 0
             count_el = 0
             do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
@@ -481,7 +524,24 @@ contains
       
       this % size_i        = count_i
       this % size_b        = count_b
-      
+!
+!     Assign matrix types
+!     -------------------
+!
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+            allocate(csrMat_t :: this % Mbb)
+            allocate(csrMat_t :: this % Mbi)
+            allocate(csrMat_t :: this % Mib)
+         case (SC_MATRIX_PETSC)
+            allocate(PETSCMatrix_t :: this % Mbb)
+            allocate(PETSCMatrix_t :: this % Mbi)
+            allocate(PETSCMatrix_t :: this % Mib)
+      end select
+!
+!     Construct matrices
+!     ------------------
+!
       call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
       call this % Mbb % construct (num_of_Rows   = this % size_b)
       call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
@@ -511,7 +571,9 @@ contains
       integer      , allocatable  :: Cols(:), Rows(:)
       !----------------------------------------------------------------
       
-      num_of_entries = size(this % Mbb % Values) + size(this % Mib % Values) + size(this % Mbi % Values) + sum(this % Mii % BlockSizes**2)
+      select type(Mbb => this % Mbb) ; class is(csrMat_t) ; select type(Mbi => this % Mbi) ; class is(csrMat_t) ; select type(Mib => this % Mib) ; class is(csrMat_t)
+      
+      num_of_entries = size(Mbb % Values) + size(Mib % Values) + size(Mbi % Values) + sum(this % Mii % BlockSizes**2)
       
       allocate ( Rows  (this % num_of_Rows + 1) )
       allocate ( Cols  (num_of_entries) )
@@ -527,17 +589,17 @@ contains
          
 !        Mbb contribution
 !        ----------------
-         do kk=this % Mbb % Rows(i), this % Mbb % Rows(i+1)-1
-            Cols(k)   = this % Mbb % Cols  (kk)
-            Values(k) = this % Mbb % Values(kk)
+         do kk=Mbb % Rows(i), Mbb % Rows(i+1)-1
+            Cols(k)   = Mbb % Cols  (kk)
+            Values(k) = Mbb % Values(kk)
             k = k + 1
          end do
          
 !        Mib contribution
 !        ----------------
-         do kk=this % Mib % Rows(i), this % Mib % Rows(i+1)-1
-            Cols(k)   = this % Mib % Cols  (kk) + this % size_b
-            Values(k) = this % Mib % Values(kk)
+         do kk=Mib % Rows(i), Mib % Rows(i+1)-1
+            Cols(k)   = Mib % Cols  (kk) + this % size_b
+            Values(k) = Mib % Values(kk)
             k = k + 1
          end do
       end do
@@ -552,9 +614,9 @@ contains
          
 !        Mbi contribution
 !        ----------------
-         do kk=this % Mbi % Rows(ii), this % Mbi % Rows(ii+1)-1
-            Cols(k)   = this % Mbi % Cols  (kk)
-            Values(k) = this % Mbi % Values(kk)
+         do kk=Mbi % Rows(ii), Mbi % Rows(ii+1)-1
+            Cols(k)   = Mbi % Cols  (kk)
+            Values(k) = Mbi % Values(kk)
             k = k + 1
          end do
          
@@ -588,8 +650,61 @@ contains
 !     ------------------------------
       call Acsr % constructWithArrays(Rows, Cols, Values, this % num_of_Cols)
       
+      class default
+         stop 'ERROR :: Static_getCSR not defined for submatrices /= cstMat_t'
+      end select ; end select ; end select
+      
    end subroutine Static_getCSR
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ----------------------------------------------------------------------
+!  Static_getSchurComplement:
+!  Compute the Schur complement with the inverse of Mii in correct format
+!  ----------------------------------------------------------------------
+   subroutine Static_getSchurComplement(this, Mii_inv, SchurComp)
+      implicit none
+      !-arguments------------------------------------------------------
+      class(StaticCondensedMatrix_t), intent(in)  :: this
+      class(Matrix_t)               , intent(in)  :: Mii_inv
+      class(Matrix_t)               , intent(inout) :: SchurComp
+      !-local-variables------------------------------------------------
+      class(Matrix_t), allocatable :: Mii_inv_Mbi 
+      class(Matrix_t), allocatable :: Mib_Mii_inv_Mbi
+      integer :: BlockIdx(this % num_of_Blocks+1), BlockSizes(this % num_of_Blocks), bID
+      !----------------------------------------------------------------
+      
+      
+!     Construct auxiliar matrices
+!     ---------------------------
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+            allocate (csrMat_t :: Mii_inv_Mbi)
+            allocate (csrMat_t :: Mib_Mii_inv_Mbi)
+         case (SC_MATRIX_PETSC)
+            allocate (PETSCMatrix_t :: Mii_inv_Mbi)
+            allocate (PETSCMatrix_t :: Mib_Mii_inv_Mbi)
+      end select
+      call Mii_inv_Mbi % construct (num_of_Rows = this % size_i, num_of_Cols = this % size_b)
+      call Mib_Mii_inv_Mbi % construct (num_of_Rows = this % size_b, num_of_Cols = this % size_b)
+      
+!     Perform operations
+!     ------------------
+      call Mii_inv % MatMatMul( this % Mbi, Mii_inv_Mbi)
+      call this % Mib % MatMatMul( Mii_inv_Mbi, Mib_Mii_inv_Mbi )
+      call Mii_inv_Mbi % destruct ; deallocate (Mii_inv_Mbi)
+      
+      call this % Mbb % MatAdd (Mib_Mii_inv_Mbi, SchurComp, -1._RP)
+      call Mib_Mii_inv_Mbi % destruct ; deallocate(Mib_Mii_inv_Mbi)
+      
+!     Specify info of matrix
+!     ----------------------
+      BlockSizes = this % BlockSizes - this % inner_blockSizes
+      BlockIdx(1) = 1
+      do bID=1, this % num_of_Blocks
+         BlockIdx(bID+1) = BlockIdx(bID) + BlockSizes(bID)
+      end do
+      call SchurComp % SpecifyBlockInfo(BlockIdx, BlockSizes)
+      
+   end subroutine Static_getSchurComplement
 end module StaticCondensedMatrixClass

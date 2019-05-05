@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Apr 23 17:08:54 2019
+!   @Last revision date: Sun May  5 21:27:48 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
@@ -105,9 +105,8 @@ contains
       firstIdx = 1
       DO eID=1, nelem
          ndofelm(eID)  = nEqn * (sem % mesh % Nx(eID)+1) * (sem % mesh % Ny(eID)+1) * (sem % mesh % Nz(eID)+1)
-         if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
+         firstIdx(eID+1) = firstIdx(eID) + ndofelm(eID)
       END DO
-      firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
       
 !
 !     ***************************

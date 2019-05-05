@@ -4,9 +4,9 @@
 !   @File:    MultiTauEstimationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Mar 12 15:43:41 2019
-!   @Last revision date: Mon Mar 25 10:51:17 2019
+!   @Last revision date: Sun May  5 21:27:54 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0832a8c34faff5d5b70fb77eac7ecb84ef0f30b9
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,7 +35,7 @@ module MultiTauEstimationClass
 !  Main type for multi tau-estimation
 !  ----------------------------------
    type MultiTauEstim_t
-      logical, private                    :: Active
+      logical, private                    :: Active = .FALSE.
       integer                             :: interval
       integer                             :: TruncErrorType
       integer                             :: stage

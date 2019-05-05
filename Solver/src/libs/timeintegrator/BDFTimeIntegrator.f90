@@ -368,9 +368,8 @@ contains
 !     Newton loop
 !     -----------
       DO newtonit = 1, MAX_NEWTON_ITER
-         if (.not. JacByConv) computeA = .TRUE.
          
-         linsolver_tol = norm / ( 2._RP**(newtonit) )   ! Use another expression? 4?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         linsolver_tol = norm * ( 0.5_RP**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
          
          call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
@@ -386,6 +385,13 @@ contains
          call UpdateNewtonSol(sem, linsolver)                    ! Q_r+1 = Q_r + x
          
          norm = linsolver%Getxnorm('infinity')
+         
+!        Sometimes, iterative methods take 0 iterations becasue of a high initial linsolver_tol
+!        -> In such cases, here norm = 0 even though that's not true. As a workaround we take the residual norm
+!        ------------------------------------------------------------------------------------------------------ 
+         if ( AlmostEqual(norm,0._RP) ) then
+            norm = linsolver%Getrnorm()
+         end if
          
          if (norm_old > 0._RP) then
             ConvRate = ConvRate + (LOG10(norm_old/norm)-ConvRate)/newtonit 

@@ -48,6 +48,7 @@ module GenericLinSolverClass
       procedure :: ReSetOperatorDt
       procedure :: AssemblyRHS
       procedure :: ComputeJacobian
+      procedure :: SetJacobian
       !Functions:
       procedure :: Getxnorm    !Get solution norm
       procedure :: Getrnorm    !Get residual norm
@@ -106,6 +107,19 @@ contains
       
       ERROR stop ':: SetRHS not implemented for desired linear solver'
    end subroutine SetRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SetJacobian(this,Matrix)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(GenericLinSolver_t), intent(inout)  :: this
+      class(Matrix_t)          , intent(in)     :: Matrix
+      !---------------------------------------------------------------------
+      
+      ERROR stop ':: SetJacobian not implemented for desired linear solver'
+      
+   end subroutine SetJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

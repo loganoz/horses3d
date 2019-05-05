@@ -11,22 +11,17 @@
 !////////////////////////////////////////////////////////////////////////
 module DenseBlockDiagonalMatrixClass
    use SMConstants
-   use GenericMatrixClass
-   use CSRMatrixClass, only: csrMat_t
-   use Jacobian      , only: JACEPS
+   use GenericMatrixClass, only: Matrix_t, DenseBlock_t
+   use CSRMatrixClass    , only: csrMat_t
+   use Jacobian          , only: JACEPS
 #include "Includes.h"
    implicit none
    
    private
    public DenseBlockDiagMatrix_t, Matrix_t
    
-   type Block_t
-      real(kind=RP), allocatable :: Matrix(:,:)
-      integer      , allocatable :: Indexes(:)
-   end type Block_t
-   
    type, extends(Matrix_t) :: DenseBlockDiagMatrix_t
-      type(Block_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
+      type(DenseBlock_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
       contains
          procedure :: construct
          procedure :: Preallocate

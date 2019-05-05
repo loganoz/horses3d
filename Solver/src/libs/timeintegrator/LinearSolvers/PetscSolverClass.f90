@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Mon Feb  4 16:17:45 2019
+!   @Last revision date: Sun May  5 21:27:52 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
@@ -39,7 +39,6 @@ module PetscSolverClass
       PetscInt                                      :: nz = 0
       PetscScalar                                   :: Ashift                              ! Stores the shift to the Jacobian due to time integration
       PetscBool                                     :: init_context = PETSC_FALSE
-      PetscBool                                     :: setpreco = PETSC_TRUE
       PetscBool                                     :: withMPI = PETSC_FALSE
 #endif
       CONTAINS
@@ -127,10 +126,10 @@ module PetscSolverClass
       call this % A % construct(num_of_Rows = DimPrb, withMPI = this % WithMPI)
 
 !     Petsc vectors x and b (of A x = b)
-      call VecCreate(PETSC_COMM_WORLD,this%x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
-      call VecSetSizes(this%x,PETSC_DECIDE,dimPrb,ierr)     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
-      call VecSetFromOptions(this%x,ierr)                   ; call CheckPetscErr(ierr,'error setting Petsc vector options')
-      call VecDuplicate(this%x,this%b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
+      call VecCreate  (PETSC_COMM_WORLD,this % x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
+      call VecSetSizes(this % x,PETSC_DECIDE,dimPrb,ierr)       ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetFromOptions(this % x,ierr)                     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecDuplicate(this % x,this % b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
 
 !     Petsc ksp solver context      
       call KSPCreate(PETSC_COMM_WORLD,this%ksp,ierr)                    ; call CheckPetscErr(ierr,'error in KSPCreate')
@@ -166,13 +165,13 @@ module PetscSolverClass
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                  :: ierr
       !---------------------------------------------------------------------
-      
-      if (.not. this % setpreco) return
-      
+!      
+!     Set preconditioner settings in KSP (this only has to be done once in theory, but it's needed when the matrix is reconstructed (like in the static-condensation solver)
+!     ----------------------------------
       select case ( trim(this % preconditioner) )
          case ('Block-Jacobi')
-      
-            call MatSetVariableBlockSizes (this % A % A, this % p_sem % mesh % no_of_elements, this % A % BlockSizes(1), ierr)  ; call CheckPetscErr(ierr, 'error in MatSetVariableBlockSizes')     ! PCVPBJACOBI
+            
+            call MatSetVariableBlockSizes (this % A % A, size(this % A % BlockSizes), this % A % BlockSizes(1), ierr)  ; call CheckPetscErr(ierr, 'error in MatSetVariableBlockSizes')     ! PCVPBJACOBI
             call PCSetType(this%pc,PCVPBJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
             
          case ('Jacobi')
@@ -183,8 +182,10 @@ module PetscSolverClass
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
       end select
-         
-      this % setpreco = PETSC_FALSE
+!      
+!     Set operators for KSP
+!     ---------------------
+      call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
       
 !~      call PCSetType(this%pc,PCILU,ierr)       ;call CheckPetscErr(ierr, 'error in PCSetType')
 #else
@@ -217,14 +218,12 @@ module PetscSolverClass
             ComputeA = .FALSE.
             
             call this % SetPreconditioner
-            call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
          end if
       else 
          call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
          
          call this % SetPreconditioner
-         call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -512,13 +511,11 @@ module PetscSolverClass
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4
       !---------------------------------------------------------------------
-      
       call VecDestroy(this%x,ierr1)
       call VecDestroy(this%b,ierr2)
+      
       call this % A % destruct
-      
       call KSPDestroy(this%ksp,ierr3)  ! this % pc is destructed inside
-      
       call PetscFinalize(ierr4)
       
       call CheckPetscErr(ierr1,'error in VecDestroy x')

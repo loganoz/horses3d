@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Mon Apr 22 18:37:39 2019
+!   @Last revision date: Sun May  5 21:27:51 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
+!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
 !
 !//////////////////////////////////////////////////////
 !
@@ -65,6 +65,7 @@ MODULE MKLPardisoSolverClass
       PROCEDURE :: ReSetOperatorDt
       procedure :: ComputeJacobianMKL
       procedure :: FactorizeJacobian            => MKL_FactorizeJacobian
+      procedure :: SetJacobian                  => MKL_SetJacobian
       !Functions:
       PROCEDURE :: Getxnorm                     => MKL_GetXnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
@@ -594,5 +595,22 @@ MODULE MKLPardisoSolverClass
       stop 'MKL not linked correctly'
 #endif
    end subroutine MKL_SolveLUDirect
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MKL_SetJacobian(this,Matrix)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MKLPardisoSolver_t), intent(inout)  :: this
+      class(Matrix_t)          , intent(in)     :: Matrix
+      !---------------------------------------------------------------------
+      
+      select type(Matrix)
+      class is(csrMat_t)
+         this % A = Matrix
+      class default
+         ERROR stop 'MKL_SetJacobian :: Wrong matrix type'
+      end select
+      
+   end subroutine MKL_SetJacobian
 END MODULE MKLPardisoSolverClass
