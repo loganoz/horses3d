@@ -4,9 +4,9 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May  5 21:27:53 2019
+!   @Last revision date: Tue May 14 10:13:07 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -212,7 +212,7 @@ contains
             ! Construct solver
             call this % matSolver % construct (DimPrb = DimPrb - this % A % size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
             
-            ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement()
+            ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
 !~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
             
          case(SSOLVER_MATF_GMRES)

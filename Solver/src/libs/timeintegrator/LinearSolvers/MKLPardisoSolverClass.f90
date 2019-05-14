@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Sun May  5 21:27:51 2019
+!   @Last revision date: Tue May 14 10:13:05 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,7 +20,7 @@
 #endif
 MODULE MKLPardisoSolverClass
    USE GenericLinSolverClass
-   USE CSRMatrixClass
+   USE CSRMatrixClass            , only: csrMat_t
    use PETScMatrixClass
    USE SMConstants
    use DGSEMClass
@@ -288,7 +288,6 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
-      use DenseMatUtilities, only: Mat2File ! debug
       use DenseBlockDiagonalMatrixClass
       implicit none
       !-----------------------------------------------------------
@@ -325,7 +324,7 @@ MODULE MKLPardisoSolverClass
 !~         call B % Visualize('NumJac_visu.dat')
          
 !~         !------------
-!~         Cmat = CSR_MatAdd(this % A,B,-1._RP)
+!~         call  this % A % MatAdd(B, Cmat,-1._RP)
          
 !~         print*, 'Error(L2)  = ',  norm2( (Cmat % Values) )
 !~         print*, 'Error(inf) = ',  maxval( abs(Cmat % Values) )
@@ -480,7 +479,7 @@ MODULE MKLPardisoSolverClass
       real(kind=RP)                            :: residual(this % DimPrb)
       !-----------------------------------------------------------
       
-      residual = this % b - CSR_MatVecMul(this % A, this % x)
+      residual = this % b - this % A % MatVecMul (this % x)
       rnorm = MAXVAL(ABS(residual))
       
       

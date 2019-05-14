@@ -4,9 +4,9 @@
 !   @File:    EllipticIP.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue Apr 23 17:08:49 2019
+!   @Last revision date: Tue May 14 10:13:01 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,7 +25,8 @@ module EllipticIP
    use EllipticDiscretizationClass
    use DGSEMClass
    use FluidData
-   use BoundaryConditions, only: BCs
+   use BoundaryConditions           , only: BCs
+   use Utilities                    , only: toLower, dot_product
    implicit none
 !
 !
@@ -71,7 +72,6 @@ module EllipticIP
 !
       subroutine IP_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
          use FTValueDictionaryClass
-         use Utilities, only: toLower
          use mainKeywordsModule
          use MPI_Process_Info
          use PhysicsStorage
@@ -352,7 +352,7 @@ module EllipticIP
 !        Add the integrals weighted with the Jacobian
 !        --------------------------------------------
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            invjac = self % IPmethod / e % geom % jacobian(i,j,k)
+            invjac = self % IPmethod * e % geom % invJacobian(i,j,k)
             e % storage % U_x(:,i,j,k) = e % storage % U_x(:,i,j,k) + faceInt_x(:,i,j,k) * invjac
             e % storage % U_y(:,i,j,k) = e % storage % U_y(:,i,j,k) + faceInt_y(:,i,j,k) * invjac
             e % storage % U_z(:,i,j,k) = e % storage % U_z(:,i,j,k) + faceInt_z(:,i,j,k) * invjac
@@ -770,7 +770,7 @@ module EllipticIP
 !              Multiply by 1/2 (IP scheme) and the jacobian (surface integral) 
 !              ---------------------------------------------------------------
                dF_dGradQ_out = dF_dGradQ_out * 0.5_RP * f % geom % jacobian(i,j)
-               dFStar_dq   = dFStar_dq + 0.5_RP * f % geom % jacobian(i,j) * ( dfdq_(:,:,1) * nHat(1) + dfdq_(:,:,2) * nHat(2) + dfdq_(:,:,3) * nHat(3) )
+               dFStar_dq   = dFStar_dq - 0.5_RP * f % geom % jacobian(i,j) * dot_product( dfdq_, nHat )
                
 !
 !           *********************************************

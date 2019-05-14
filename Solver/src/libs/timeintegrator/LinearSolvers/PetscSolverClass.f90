@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Sun May  5 21:27:52 2019
+!   @Last revision date: Tue May 14 10:13:06 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -241,6 +241,10 @@ module PetscSolverClass
       
       call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetTolerances')
+      
+      ! Set initial guess to P⁻¹b
+      call KSPSetInitialGuessKnoll(this%ksp,PETSC_TRUE,ierr)
+      call CheckPetscErr(ierr, 'error in KSPSetInitialGuessKnoll')
       
       call KSPSolve(this%ksp,this%b,this%x,ierr)               ; call CheckPetscErr(ierr, 'error in KSPSolve')
       

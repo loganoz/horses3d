@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue Apr 23 17:08:53 2019
+!   @Last revision date: Tue May 14 10:13:04 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -197,6 +197,13 @@ module StorageClass
 !                           |                     |  |_______∇q component: 1, 2, 3
 !                           |                     |__________Jacobian for this component
 !                           |________________________________1 for element on the left, 2 for element on the right
+!
+!     * Jacobian of the boundary condition (only needs to be stored on boundary faces for viscous physics to apply the BC to the grad equation):      
+      real(kind=RP), allocatable :: BCJac(:,:,:,:)
+!                                         |_| |_|
+!                                          |   |
+!                                          |   |__Coordinate indexes in face 
+!                                          |______Jacobian for this component
 !
 #endif
 #if defined(CAHNHILLIARD)
@@ -1151,6 +1158,7 @@ module StorageClass
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
          ALLOCATE( self % QNS   (NNS,0:Nf(1),0:Nf(2)) )
+!        TODO: AMR, if computeGradients
          ALLOCATE( self % U_xNS(NGRADNS,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_yNS(NGRADNS,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_zNS(NGRADNS,0:Nf(1),0:Nf(2)) )
@@ -1165,6 +1173,9 @@ module StorageClass
          
          allocate( self % dFv_dGradQF (NNS,NNS,NDIM,0: Nf(1),0: Nf(2)) )
          allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,0:Nel(1),0:Nel(2),2) )
+         
+!        TODO: AMR, if Boundary
+         allocate( self % BCJac       (NNS,NNS,0:Nel(1),0:Nel(2)) )
          
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif

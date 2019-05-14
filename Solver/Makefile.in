@@ -107,6 +107,22 @@ else ifeq ($(MODE),DEBUG)
      endif
 endif
 
+##########################
+## 	Link MKL 	##
+##########################
+ifeq '$(WITH_MKL)''y'
+	ifeq '$(FC)''gfortran'
+		MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
+  else #ifort
+  	MACROS+= -DHAS_MKL -DHAS_LAPACK
+  	FFLAGS+= -mkl
+  endif
+endif
+
+##########################
+## 	MPI      	##
+##########################
 ifeq ($(COMM),PARALLEL)
     ifeq ($(FC),gfortran)
         FC=mpif90
@@ -117,6 +133,9 @@ ifeq ($(COMM),PARALLEL)
     endif
 endif
 
+##########################
+## 	THREADS  	##
+##########################
 ifeq ($(ENABLE_THREADS),YES)
     FFLAGS+=-fopenmp
 endif
@@ -139,19 +158,6 @@ ifeq ($(WITH_PETSC),YES)
     MACROS+= -DHAS_PETSC
     LIBS += -L$(PETSC_DIR)/lib -lpetsc
     EXTLIB_INC+= -I$(PETSC_DIR)/include
-  endif
-endif
-
-##########################
-## 	Link MKL 	##
-##########################
-ifeq '$(WITH_MKL)''y'
-	ifeq '$(FC)''gfortran'
-		MACROS+= -DHAS_MKL -DHAS_LAPACK
-  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
-  else #ifort
-  	MACROS+= -DHAS_MKL -DHAS_LAPACK
-  	FFLAGS+= -mkl
   endif
 endif
 

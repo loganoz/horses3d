@@ -96,6 +96,7 @@
 #if defined(NAVIERSTOKES)
             procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
+            procedure   :: ProjectBCJacobianToElements   => Face_ProjectBCJacobianToElements
 #endif
       end type Face
 !
@@ -595,10 +596,66 @@
       end do
 
    end subroutine Face_ProjectFluxToElements
+#if defined(NAVIERSTOKES) 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES) 
+!
+!  Face_ProjectBCJacobianToElements:
+!  Routine to project the Jacobian of the boundary condition to the element
+!  --
+   subroutine Face_ProjectBCJacobianToElements(self,nEqn,BCjacF)
+      use MappedGeometryClass
+      use PhysicsStorage
+      implicit none
+      class(Face), target        :: self
+      integer,       intent(in)  :: nEqn
+      real(kind=RP), intent(in)  :: BCjacF(nEqn,nEqn,0:self % Nf(1), 0:self % Nf(2))
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                :: i, j, l, m
+      
+!     Always project to left element (this is only for boundaries)
+!     ------------------------------------------------------------
+      associate(BCJac => self % storage(1) % BCJac)
+      
+      select case ( self % projectionType(1) )
+         case (0)
+            BCJac(1:nEqn,1:nEqn,:,:) = BCJacF
+         case (1)
+            BCJac(1:nEqn,1:nEqn,:,:) = 0._RP
+            do j = 0, self % NelLeft(2)  ; do l = 0, self % Nf(1)   ; do i = 0, self % NelLeft(1)
+               BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
+                                                            + Tset(self % Nf(1), self % NfLeft(1)) % T(i,l) * BCJacF(:,:,l,j)
+            end do                  ; end do                   ; end do
+            
+         case (2)
+            BCJac(1:nEqn,1:nEqn,:,:) = 0._RP
+            do l = 0, self % Nf(2)  ; do j = 0, self % NelLeft(2)   ; do i = 0, self % NelLeft(1)
+               BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
+                                                            + Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) * BCJacF(:,:,i,l)
+            end do                  ; end do                   ; end do
+   
+         case (3)
+            BCJac(1:nEqn,1:nEqn,:,:) = 0._RP
+            do l = 0, self % Nf(2)  ; do j = 0, self % NfLeft(2)   
+               do m = 0, self % Nf(1) ; do i = 0, self % NfLeft(1)
+                  BCJac(1:nEqn,1:nEqn,i,j) = BCJac(1:nEqn,1:nEqn,i,j) &
+                                                           +  Tset(self % Nf(1), self % NfLeft(1)) % T(i,m) &
+                                                            * Tset(self % Nf(2), self % NfLeft(2)) % T(j,l) &
+                                                            * BCJacF(:,:,m,l)
+               end do                 ; end do
+            end do                  ; end do
+      end select
+      
+      end associate
+   end subroutine Face_ProjectBCJacobianToElements
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!            
    subroutine Face_ProjectFluxJacobianToElements(self, nEqn, whichElement,whichderiv)
       use MappedGeometryClass
       use PhysicsStorage

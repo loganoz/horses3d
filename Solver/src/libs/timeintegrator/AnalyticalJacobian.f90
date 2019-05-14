@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun May  5 21:27:48 2019
+!   @Last revision date: Tue May 14 10:13:05 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
 !
 !//////////////////////////////////////////////////////
 !
@@ -51,7 +51,9 @@ module AnalyticalJacobian
    ! Variables to be moved to Jacobian Storage
    integer, allocatable :: ndofelm(:)
    integer, allocatable :: firstIdx(:)
-   
+#if defined(NAVIERSTOKES)
+   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix. TODO: Define only once in the constructor (When this is a class!!)
+#endif
 contains
 
 !
@@ -143,6 +145,7 @@ contains
       call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
+      call sem % mesh % ProlongSolutionToFaces(NCONS)
 !
 !     ******************************************************************
 !     If the physics has an elliptic component, compute the DG gradients
@@ -326,8 +329,6 @@ contains
       integer :: fID
       !--------------------------------------------
       
-      call mesh % ProlongSolutionToFaces(NCONS)
-      
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          select case (mesh % faces(fID) % faceType)
@@ -358,7 +359,7 @@ contains
       real(kind=RP), intent(in) :: time
       !--------------------------------------------
       integer :: i,j, n, m
-      real(kind=RP) :: BCjac(NCONS,NCONS)
+      real(kind=RP) :: BCjac(NCONS,NCONS,0:f % Nf(1),0:f % Nf(2))
       real(kind=RP) :: dF_dQ     (NCONS,NCONS)
       real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM)
       !--------------------------------------------
@@ -408,10 +409,10 @@ contains
                                      f % storage(1) % Q(:,i,j),&
                                      f % storage(2) % Q(:,i,j),&
                                      f % zone, &
-                                     BCjac )
+                                     BCjac(:,:,i,j) )
          
          f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) &
-                                            + matmul(f % storage(RIGHT) % dFStar_dqF (:,:,i,j),BCjac)
+                                            + matmul(f % storage(RIGHT) % dFStar_dqF (:,:,i,j),BCjac(:,:,i,j))
       end do             ; end do
       
 !
@@ -420,6 +421,8 @@ contains
 !     ********************
 !
       if (flowIsNavierStokes) then
+      
+         call f % ProjectBCJacobianToElements(NCONS,BCjac)
       
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
             
@@ -868,7 +871,15 @@ contains
       real(kind=RP) :: etaAux (NCONS,NCONS,4)
       real(kind=RP) :: zetaAux(NCONS,NCONS,4)
       real(kind=RP), pointer :: Gvec_xi(:,:,:), Gvec_eta (:,:,:), Gvec_zeta(:,:,:)
-      real(kind=RP) :: a_plus, a_minus, temp
+      real(kind=RP) :: dqHat_dqp ! Derivative of solution numerical flux, qHat, with respect to q⁺ (viscous method)
+      real(kind=RP) :: dqHat_dqm ! Derivative of solution numerical flux, qHat, with respect to q⁻ (viscous method)
+      real(kind=RP) :: temp
+      real(kind=RP) :: JacF( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Jacobian for FRONT  face
+      real(kind=RP) :: JacB( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Jacobian for BACK   face
+      real(kind=RP) :: JacO( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for BOTTOM face
+      real(kind=RP) :: JacR( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for RIGHT  face
+      real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
+      real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
       !-------------------------------------------
 !
 !     *******************
@@ -880,8 +891,12 @@ contains
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
       
-      a_plus  = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
-      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+!     TODO: Fill this only once in class constructor
+!     ----------------------------------------------
+      Identity = 0._RP
+      do i=1, NCONS
+         Identity(i,i) = 1._RP
+      end do
       
       dF_dgradQ => e % storage % dF_dgradQ
       
@@ -907,7 +922,21 @@ contains
 !     *********************
 !
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      if (flowIsNavierStokes) call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+      
+      if (flowIsNavierStokes) then
+         call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+         ! TODO: Read this from Viscous discretization
+         dqHat_dqp = 0.5_RP
+         dqHat_dqm = 0.5_RP
+         
+         call AnJac_GetFaceJac(fF, sideF, JacF, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fB, sideB, JacB, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fO, sideO, JacO, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fR, sideR, JacR, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fT, sideT, JacT, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fL, sideL, JacL, dqHat_dqp, dqHat_dqm)
+         
+      end if
       
 !
 !     Pointers to the flux Jacobians with respect to q on the faces
@@ -1027,14 +1056,13 @@ contains
                
                Gvec_xi   => dF_dgradQ(:,:,:,1,r,j12,k12)
                
-               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_xi  , nL(:,j12,k12) ) &
-                                                          +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_xi  , nR(:,j12,k12) ) )
+               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_xi  , nL(:,j12,k12) ) , JacL(:,:,j12,k12) ) &
+                                                          +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_xi  , nR(:,j12,k12) ) , JacR(:,:,j12,k12) ) )
                temp = temp * e % spAxi   % hatD(r,i2)
                
                xiAux  (:,:,1:3) = xiAux  (:,:,1:3) + temp * Gvec_xi
             end do
             
-            xiAux(:,:,4) = xiAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Xi-component of the flux
 !           -----------------------------------------------------
@@ -1074,13 +1102,12 @@ contains
                
                Gvec_eta  => dF_dgradQ(:,:,:,2,i12,r,k12)
                
-               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_eta , nF(:,i12,k12) ) &
-                                                         +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_eta , nB(:,i12,k12) ) )
+               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_eta , nF(:,i12,k12) ), JacF(:,:,i12,k12)) &
+                                                         +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_eta , nB(:,i12,k12) ), JacB(:,:,i12,k12)) )
                temp = temp * e % spAEta  % hatD(r,j2)
                
                etaAux (:,:,1:3) = etaAux (:,:,1:3) + temp * Gvec_eta
             end do
-            etaAux(:,:,4) = etaAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Eta-component of the flux
 !           ------------------------------------------------------
@@ -1120,13 +1147,12 @@ contains
                
                Gvec_zeta => dF_dgradQ(:,:,:,3,i12,j12,r)
                
-               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_zeta, nO(:,i12,j12) ) &
-                                                         +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_zeta, nT(:,i12,j12) ) )
+               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_zeta, nO(:,i12,j12) ), JacO(:,:,i12,j12)) &
+                                                         +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_zeta, nT(:,i12,j12) ), JacT(:,:,i12,j12)) )
                temp = temp * e % spAZeta % hatD(r,k2)
                
                zetaAux(:,:,1:3) = zetaAux(:,:,1:3) + temp * Gvec_zeta
             end do
-            zetaAux(:,:,4) = zetaAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Zeta-component of the flux
 !           -------------------------------------------------------
@@ -1170,9 +1196,9 @@ contains
 !                    -------------------------------------------------------------------
                         + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i12,j2,k1) *                                                  &
                            (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_eta , e % geom % jGradZeta(:,i12,j2,k2) )                      &
-                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_eta , nO(:,i12,j2) ) &
-                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_eta , nT(:,i12,j2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul ( dot_product( Gvec_eta , nO(:,i12,j2) ), JacO(:,:,i12,j2) ) &
+                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul ( dot_product( Gvec_eta , nT(:,i12,j2) ), JacT(:,:,i12,j2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_bo(:,:,2,i12,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
@@ -1186,9 +1212,9 @@ contains
 !                    -------------------------------------------------------------------
                         + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i12,j1,k2) *                                                  &
                            (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_zeta, e % geom % jGradEta (:,i12,j2,k2) )                      &
-                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_zeta, nF(:,i12,k2) ) &
-                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_zeta, nB(:,i12,k2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_zeta, nF(:,i12,k2) ), JacF(:,:,i12,k2) ) &
+                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_zeta, nB(:,i12,k2) ), JacB(:,:,i12,k2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_fr(:,:,3,i12,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
@@ -1232,9 +1258,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j12,k1) *                                                  &
                            (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_xi  , e % geom % jGradZeta(:,i2,j12,k2) )                      & 
-                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_xi  , nO(:,i2,j12) ) &
-                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_xi  , nT(:,i2,j12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_xi  , nO(:,i2,j12) ), JacO(:,:,i2,j12) ) &
+                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_xi  , nT(:,i2,j12) ), JacT(:,:,i2,j12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_bo(:,:,1,i1,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
@@ -1248,9 +1274,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i1,j12,k2) *                                                  &
                            (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_zeta, e % geom % jGradXi  (:,i2,j12,k2) )                      &
-                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_zeta, nL(:,j12,k2) ) &
-                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_zeta, nR(:,j12,k2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_zeta, nL(:,j12,k2) ), JacL(:,:,j12,k2) ) &
+                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_zeta, nR(:,j12,k2) ), JacR(:,:,j12,k2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_ri(:,:,3,j12,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
@@ -1293,9 +1319,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j1,k12) *                                                  &
                            (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_xi  , e % geom % jGradEta (:,i2,j2,k12) )                      &
-                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_xi  , nF(:,i2,k12) ) &
-                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_xi  , nB(:,i2,k12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_xi  , nF(:,i2,k12) ), JacF(:,:,i2,k12) ) &
+                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_xi  , nB(:,i2,k12) ), JacB(:,:,i2,k12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                            
                         +   dfdGradQ_fr(:,:,1,i1,k12) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
@@ -1309,9 +1335,9 @@ contains
 !                    -----------------------------------------------------------------
                         + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i1,j2,k12) *                                                  &
                            (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_eta , e % geom % jGradXi  (:,i2,j2,k12) )                      &
-                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_eta , nL(:,j2,k12) ) &
-                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_eta , nR(:,j2,k12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_eta , nL(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_eta , nR(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_ri(:,:,2,j1,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
@@ -1704,7 +1730,45 @@ contains
             end do                        ; end do
       end select
       
-   end subroutine AnJac_GetNormalVec   
+   end subroutine AnJac_GetNormalVec  
+   
+   !
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------------------
+!  AnJac_GetFaceJac: 
+!  Get face Jacobian... This routine is used for the surface integrals of the grad (inner) equation
+!  Perform the matrix operation only on boundaries....
+!  ----------------------------------------------------------------------
+   subroutine AnJac_GetFaceJac(f, faceSide, faceJac, dqHat_dqp, dqHat_dqm)
+      implicit none
+      !-arguments-----------------------------------------------------
+      type(Face)     , intent(in)    :: f
+      integer        , intent(in)    :: faceSide
+      real(kind=RP)  , intent(inout) :: faceJac (:,:,0:,0:)
+      real(kind=RP)  , intent(in)    :: dqHat_dqp, dqHat_dqm
+      !-local-variables-----------------------------------------------
+      integer :: i,j, ii, jj
+      !---------------------------------------------------------------
+      
+      select case (faceSide)
+         case (LEFT)
+            if (f % FaceType == HMESH_BOUNDARY) then
+               do j = 0, f % NelLeft(2)   ; do i = 0, f % NelLeft(1)
+                  faceJac(:,:,i,j) = Identity * dqHat_dqp + dqHat_dqm * f % storage(1) % BCJac(:,:,i,j)
+               end do                        ; end do
+            else
+               do j = 0, f % NelLeft(2)   ; do i = 0, f % NelLeft(1)
+                  faceJac(:,:,i,j) = Identity * dqHat_dqp
+               end do                        ; end do
+            end if
+         case (RIGHT)
+            do j = 0, f % NelRight(2)   ; do i = 0, f % NelRight(1)
+               faceJac(:,:,i,j) = Identity * dqHat_dqp
+            end do                        ; end do
+      end select
+      
+   end subroutine AnJac_GetFaceJac  
    
 #endif
 end module AnalyticalJacobian
