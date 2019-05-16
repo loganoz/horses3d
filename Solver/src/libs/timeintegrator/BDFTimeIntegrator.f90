@@ -21,6 +21,7 @@ MODULE BDFTimeIntegrator
    use StorageClass              , only: SolutionStorage_t
    use StopwatchClass            , only: Stopwatch
    use Utilities                 , only: AlmostEqual
+   use MPI_Process_Info          , only: MPI_Process
    implicit none
    
    PRIVATE                          
@@ -106,7 +107,7 @@ contains
          this % TimeAccurate = .FALSE.
       end if
       
-      PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info")
+      PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info") .and. MPI_Process % isRoot
       if (controlVariables % containsKey("newton tolerance")) then
          this % UserNewtonTol = .TRUE.
          this % NewtonTol = controlVariables % doublePrecisionValueForKey("newton tolerance")

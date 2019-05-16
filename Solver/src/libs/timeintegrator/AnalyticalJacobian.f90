@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue May 14 10:13:05 2019
+!   @Last revision date: Thu May 16 12:17:21 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
+!   @Last revision commit: 1c6f233e1522f8a49c268e8f0ed4a2092dca9927
 !
 !//////////////////////////////////////////////////////
 !
@@ -31,6 +31,7 @@ module AnalyticalJacobian
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
+   use MPI_Process_Info                , only: MPI_Process
    use ElementConnectivityDefinitions  , only: axisMap, normalAxis
    use BoundaryConditions              , only: BCs
    use FaceClass                       , only: Face
@@ -40,6 +41,9 @@ module AnalyticalJacobian
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    use FluidData_NS, only: dimensionless
+#endif
+#ifdef _HAS_MPI_
+   use mpi
 #endif
    implicit none
    
@@ -145,18 +149,39 @@ contains
       call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
+!     ------------------
+!     Prolong Q to faces
+!     ------------------
+!
       call sem % mesh % ProlongSolutionToFaces(NCONS)
+!
+!     ----------------
+!     Update MPI Faces
+!     ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+      call sem % mesh % UpdateMPIFacesSolution(NCONS)
+!$omp end single
+#endif
 !
 !     ******************************************************************
 !     If the physics has an elliptic component, compute the DG gradients
 !     -> This routine also projects the appropriate grads to the faces
 !     ******************************************************************
 !
-      if (flowIsNavierStokes) call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+      if (flowIsNavierStokes) then
+         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+#ifdef _HAS_MPI_
+!$omp single
+         call sem % mesh % UpdateMPIFacesGradients(NGRAD)
+!$omp end single
+#endif
+      end if
 !
-!     **************************************************
-!     Compute the Jacobian of the Numerical Flux (FStar)
-!     **************************************************
+!     ************************************************************
+!     Compute the Jacobian of the Numerical Fluxes f^a and f^{\nu}
+!     ************************************************************
 !
       call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time)
 !
@@ -181,8 +206,9 @@ contains
       
       call Stopwatch % Pause("Analytical Jacobian construction")
       
-      write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
-      
+      if ( MPI_Process % isRoot ) then
+         write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
+      end if
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
@@ -326,9 +352,12 @@ contains
       integer,       intent(in)       :: nEqn
       real(kind=RP), intent(in)       :: time
       !--------------------------------------------
-      integer :: fID
+      integer :: fID, ierr
       !--------------------------------------------
-      
+!
+!     Compute the non-shared faces
+!     ----------------------------
+!
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          select case (mesh % faces(fID) % faceType)
@@ -339,7 +368,38 @@ contains
          end select
       end do
 !$omp end do
-   
+!
+!     Compute the MPI faces
+!     ---------------------
+!
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+!
+!        Wait until the MPI messages have been received
+!        ----------------------------------------------
+!$omp single
+         if ( flowIsNavierStokes ) then 
+            call mesh % GatherMPIFacesGradients(NGRAD)
+         else  
+            call mesh % GatherMPIFacesSolution(NCONS)
+         end if
+!$omp end single
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            select case (mesh % faces(fID) % faceType)
+               case (HMESH_MPI)
+                  call ComputeInterfaceFluxJacobian(mesh % faces(fID))
+            end select
+         end do
+!$omp end do
+!
+!        Add an MPI Barrier
+!        ------------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+      end if
+#endif
    end subroutine ComputeNumericalFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -968,7 +1028,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -993,7 +1053,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1018,7 +1078,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                   ; end do                   ; end do
@@ -1081,7 +1141,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1126,7 +1186,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1171,7 +1231,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1231,7 +1291,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1293,7 +1353,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1353,7 +1413,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1538,7 +1598,7 @@ contains
                i = eq1 + baseRow ! row index (1-based)
                j = eq2 + baseCol ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e_plus % eID, e_minus % eID, i, j, MatEntries(eq1,eq2))
             end do            ; end do
             
          end do                ; end do                ; end do
@@ -1682,7 +1742,7 @@ contains
                   i = eq1 + baseRow ! row index (1-based)
                   j = eq2 + baseCol ! column index (1-based)
                
-                  call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntries(eq1,eq2))
+                  call Matrix % AddToBlockEntry (e_plus % eID, e_minus % eID, i, j, MatEntries(eq1,eq2))
                end do            ; end do
                
             end do                ; end do                ; end do
