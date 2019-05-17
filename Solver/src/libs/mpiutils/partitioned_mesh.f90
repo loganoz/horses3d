@@ -4,9 +4,9 @@
 !   @File:    partitioned_mesh.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Thu Sep  6 15:28:01 2018
+!   @Last revision date: Fri May 17 17:57:25 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: bbb1eccef1b477a3cf37da8b42ada5792b1c1bf3
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,7 +29,9 @@ module PartitionedMeshClass
       integer              :: ID
       integer              :: no_of_nodes
       integer              :: no_of_elements
+      integer              :: no_of_allElements
       integer              :: no_of_mpifaces
+      integer, allocatable :: global2localeID(:)         ! if 0, that element does not belong to the current partition
       integer, allocatable :: nodeIDs(:)
       integer, allocatable :: HOPRnodeIDs(:)
       integer, allocatable :: elementIDs(:)
@@ -39,7 +41,8 @@ module PartitionedMeshClass
       integer, allocatable :: mpiface_elementSide(:)
       integer, allocatable :: mpiface_sharedDomain(:)
       contains
-         procedure   :: Destruct => PartitionedMesh_Destruct
+         procedure   :: Destruct             => PartitionedMesh_Destruct
+         procedure   :: ConstructGeneralInfo => PartitionedMesh_ConstructGeneralInfo
    end type PartitionedMesh_t
 
    type(PartitionedMesh_t), public :: mpi_partition
@@ -48,7 +51,7 @@ module PartitionedMeshClass
    integer, protected, public :: MPI_Partitioning
    integer, parameter, public :: METIS_PARTITIONING = 1
    integer, parameter, public :: SFC_PARTITIONING   = 2
-
+   
 #ifdef _HAS_MPI_
    integer :: recv_req(8)
    integer, allocatable    :: send_req(:,:)
@@ -82,9 +85,10 @@ module PartitionedMeshClass
 !
 !        Initialize the own MPI partition
 !        --------------------------------
+         mpi_partition = PartitionedMesh_t(MPI_Process % rank)
+         
          if ( MPI_Process % doMPIAction ) then
-            mpi_partition = PartitionedMesh_t(MPI_Process % rank)
-            
+!            
 !           Partitioning method
 !           -------------------
             select case (partitioning)
@@ -243,6 +247,7 @@ module PartitionedMeshClass
             sizes(1) = mpi_allPartitions(domain) % no_of_nodes
             sizes(2) = mpi_allPartitions(domain) % no_of_elements
             sizes(3) = mpi_allPartitions(domain) % no_of_mpifaces
+            
             call mpi_isend(sizes, 3, MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,1), ierr)
          end do
@@ -301,15 +306,45 @@ module PartitionedMeshClass
          if (meshIsHOPR) call mpi_waitall(MPI_Process % nProcs - 1, send_reqHOPR(:), array_of_statuses, ierr) 
          
 !
-!        Destruct the partitions
-!        -----------------------
+!        Destruct the array containing all partitions (only local copies remain)
+!        -----------------------------------------------------------------------
          do domain = 1, MPI_Process % nProcs
             call mpi_allPartitions(domain) % Destruct
          end do
 
 #endif
       end subroutine SendPartitionsMPI
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ---------------------------------------------------------------------------------------
+!     PartitionedMesh_ConstructGeneralInfo:
+!     This subroutine constructs the global2localeID that can be useful in certain procedures
+!     -> If MPI is not being used global2localeID(i) = i
+!     ---------------------------------------------------------------------------------------
+      subroutine PartitionedMesh_ConstructGeneralInfo(this, no_of_allElements)
+         implicit none
+         !-arguments---------------------------------------------
+         class(PartitionedMesh_t), intent(inout) :: this
+         integer                 , intent(in)    :: no_of_allElements
+         !-local-variables---------------------------------------
+         integer :: eID
+         !-------------------------------------------------------
+!
+!        Construct global2localeID
+!        -------------------------
+         allocate ( this % global2localeID(no_of_allElements) )
+         this % global2localeID = 0
+         
+         if (MPI_Process % doMPIAction) then
+            do eID = 1, this % no_of_elements
+               this % global2localeID( this % elementIDs(eID) ) = eID
+            end do
+         else
+            this % global2localeID = [(eID, eID=1, no_of_allElements)]
+         end if
+      end subroutine PartitionedMesh_ConstructGeneralInfo
+      
       subroutine PartitionedMesh_Destruct(self)
          implicit none
          class(PartitionedMesh_t) :: self
@@ -328,7 +363,7 @@ module PartitionedMeshClass
          safedeallocate(self % mpiface_rotation    )
          safedeallocate(self % mpiface_elementSide )
          safedeallocate(self % mpiface_sharedDomain)
-         
+         safedeallocate(self % global2localeID     )
 
       end subroutine PartitionedMesh_Destruct
    

@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Tue Dec  4 16:25:56 2018
+!   @Last revision date: Fri May 17 17:57:31 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -113,7 +113,7 @@ MODULE IMEXMethods
          
          ALLOCATE(U_n(0:Dimprb-1))
 
-         CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
+         CALL linsolver%construct(DimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
@@ -218,7 +218,7 @@ MODULE IMEXMethods
          nelm = SIZE(sem%mesh%elements)
          DimPrb = sem % NDOF * NCOMP
          
-         CALL linsolver%construct(DimPrb,controlVariables,sem, IMEXEuler_MatrixShift) 
+         CALL linsolver%construct(DimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          

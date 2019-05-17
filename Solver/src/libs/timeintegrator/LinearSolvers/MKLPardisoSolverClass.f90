@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Tue May 14 10:13:05 2019
+!   @Last revision date: Fri May 17 17:57:34 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,6 +27,7 @@ MODULE MKLPardisoSolverClass
    use TimeIntegratorDefinitions
    use Utilities                 , only: AlmostEqual
    use StopwatchClass            , only: Stopwatch
+   use MPI_Process_Info          , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -105,11 +106,12 @@ MODULE MKLPardisoSolverClass
 !  -----------------------
 !  MKL pardiso constructor
 !  -----------------------
-   subroutine ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   subroutine ConstructMKLContext(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout), TARGET :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , intent(in), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -118,6 +120,13 @@ MODULE MKLPardisoSolverClass
       PetscErrorCode :: ierr
 #endif
       !-----------------------------------------------------------
+      
+      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      
+      if (MPI_Process % doMPIRootAction) then
+         ERROR stop 'MKLPardisoSolver_t cannot be used as a distributed solver'
+         !TODO: Implement cluster_sparse_solver (MKL) or use the actual pardiso solver (http://www.pardiso-project.org/)
+      end if
       
       if ( present(sem) ) then
          this % p_sem => sem
@@ -161,12 +170,6 @@ MODULE MKLPardisoSolverClass
 !     -----------------------------
 !
       if ( present(controlVariables) ) then
-!
-!        Select the kind of Jacobian to be used
-!        --------------------------------------
-         if ( controlVariables % containsKey("jacobian flag") ) then
-            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-         end if
 !
 !        See if the time-step is constant
 !           If it's not, the factorized matrix cannot be stored in the matrix structure
@@ -301,14 +304,14 @@ MODULE MKLPardisoSolverClass
       type(csrMat_t) :: B, Cmat !debug
       
       if (this % AIsPetsc) then
-         call this % ComputeJacobian(this % PETScA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, ComputeTimeDerivative)
          
          call this % PETScA % GetCSRMatrix(this % A)
          call this % SetOperatorDt(dt)
          this % AIsPetsc = .FALSE.
          call this % PETScA % destruct
       else
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          
 !~         !<debug
          
@@ -513,7 +516,7 @@ MODULE MKLPardisoSolverClass
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
       if ( self % AIsPetsc) then
-         call self % ComputeJacobian(self  % PETScA,0._RP,nEqn,nGradEqn,F_J,eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % PETScA, F_J, eps_in = eps)
 !
 !        Transform the Jacobian to CSRMatrix
 !        -----------------------------------
@@ -525,7 +528,7 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % ComputeJacobian(self % A,0._RP,nEqn,nGradEqn,F_J,eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, eps_in = eps)
          call self % SetOperatorDt(dt)
          
          self % A % values = -dt * self % A % values

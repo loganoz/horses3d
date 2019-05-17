@@ -12,8 +12,8 @@ MOD_FLAG?=-J
 
 
 LIBOBJS_NS = 	./build_ns/ColorsClass.o \
-				./build_ns/Jacobian.o \
 					./build_ns/GenericMatrixClass.o \
+				./build_ns/Jacobian.o \
 			    ./build_ns/LinkedListMatrixClass.o \
 			    ./build_ns/CSRMatrixClass.o \
 			    ./build_ns/PETScMatrixClass.o \
@@ -24,8 +24,8 @@ LIBOBJS_NS = 	./build_ns/ColorsClass.o \
 				./build_ns/NumericalJacobian.o
 
 LIBOBJS_iNS = 	./build_ins/ColorsClass.o \
-				./build_ins/Jacobian.o \
 					./build_ins/GenericMatrixClass.o \
+				./build_ins/Jacobian.o \
 			    ./build_ins/LinkedListMatrixClass.o \
 			    ./build_ins/CSRMatrixClass.o \
 			    ./build_ins/PETScMatrixClass.o \
@@ -38,8 +38,8 @@ LIBOBJS_iNS = 	./build_ins/ColorsClass.o \
 
 
 LIBOBJS_CH = 	./build_ch/ColorsClass.o \
-				  ./build_ch/Jacobian.o \
 				  ./build_ch/GenericMatrixClass.o \
+				  ./build_ch/Jacobian.o \
 			    ./build_ch/LinkedListMatrixClass.o \
 			    ./build_ch/CSRMatrixClass.o \
 			    ./build_ch/PETScMatrixClass.o \
@@ -50,8 +50,8 @@ LIBOBJS_CH = 	./build_ch/ColorsClass.o \
 				./build_ch/NumericalJacobian.o
 
 LIBOBJS_NSCH = 	./build_nsch/ColorsClass.o \
-				./build_nsch/Jacobian.o \
 					./build_nsch/GenericMatrixClass.o \
+				./build_nsch/Jacobian.o \
 			    ./build_nsch/LinkedListMatrixClass.o \
 			    ./build_nsch/CSRMatrixClass.o \
 			    ./build_nsch/PETScMatrixClass.o \
@@ -62,8 +62,8 @@ LIBOBJS_NSCH = 	./build_nsch/ColorsClass.o \
 				./build_nsch/NumericalJacobian.o
 
 LIBOBJS_iNSCH =	./build_insch/ColorsClass.o \
-				./build_insch/Jacobian.o \
 					./build_insch/GenericMatrixClass.o \
+				./build_insch/Jacobian.o \
 			    ./build_insch/LinkedListMatrixClass.o \
 			    ./build_insch/CSRMatrixClass.o \
 			    ./build_insch/PETScMatrixClass.o \

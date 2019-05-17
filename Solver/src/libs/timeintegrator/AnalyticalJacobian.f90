@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Thu May 16 12:17:21 2019
+!   @Last revision date: Fri May 17 17:57:29 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1c6f233e1522f8a49c268e8f0ed4a2092dca9927
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,9 +25,9 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian                        , only: JACEPS
+   use Jacobian                        , only: JACEPS, Jacobian_t
    use MatrixClass
-   use DGSEMClass
+   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
@@ -48,48 +48,76 @@ module AnalyticalJacobian
    implicit none
    
    private
-   public AnalyticalJacobian_Compute
+   public AnJacobian_t
    
    integer, parameter :: other(2) = [2, 1]
    
-   ! Variables to be moved to Jacobian Storage
-   integer, allocatable :: ndofelm(:)
-   integer, allocatable :: firstIdx(:)
+!
+!  **************************************************
+!  Main type for the analytical Jacobian computations
+!  **************************************************
+   type, extends(Jacobian_t) :: AnJacobian_t
+      
+      contains
+         procedure :: Construct => AnJacobian_Construct
+         procedure :: Compute   => AnJacobian_Compute
+   end type AnJacobian_t
+   
+   
 #if defined(NAVIERSTOKES)
    real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix. TODO: Define only once in the constructor (When this is a class!!)
 #endif
 contains
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------
+!  AnJacobian_Construct:
+!  Main class constructor
+!  -------------------------------------------------------
+   subroutine AnJacobian_Construct(this, mesh, nEqn)
+      implicit none
+      !-arguments-----------------------------------------
+      class(AnJacobian_t)  , intent(inout) :: this
+      type(HexMesh)        , intent(in)    :: mesh
+      integer              , intent(in)    :: nEqn
+      !---------------------------------------------------
+      
+!
+!     Construct parent
+!     ----------------
+      call this % Jacobian_t % construct (mesh, nEqn)
+      
+      call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
+      
+      !TODO: Add conformity check
+      
+   end subroutine AnJacobian_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,nEqn, time,Matrix,BlockDiagonalized)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized)
       implicit none
-      !--------------------------------------------
-      type(DGSem)              , intent(inout) :: sem
-      integer,                   intent(in)    :: nEqn
-      real(kind=RP)            , intent(in)    :: time
-      class(Matrix_t)          , intent(inout) :: Matrix
-      logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
+      !-arguments----------------------------------
+      class(AnJacobian_t)      , intent(inout)     :: this
+      type(DGSem)              , intent(inout)     :: sem
+      integer,                   intent(in)        :: nEqn
+      real(kind=RP)            , intent(in)        :: time
+      class(Matrix_t)          , intent(inout)     :: Matrix
+      procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+      real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
+      logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
 #if defined(NAVIERSTOKES)
       !--------------------------------------------
       integer :: eID, fID  ! Element and face counters
       integer :: nnz
       integer :: nelem
       logical :: BlockDiagonal
-      logical, save :: IsFirst = .TRUE.
       !--------------------------------------------
       
-      if (IsFirst) then
-         call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
-         IsFirst = .FALSE.
-         
-         ! TODO: Add conformity check!
-         
-      end if
       
       call Stopwatch % Start("Analytical Jacobian construction")
 !
@@ -102,18 +130,8 @@ contains
       end if
       
       nelem = size(sem % mesh % elements)
-!
-!     Get block sizes and position in matrix. This can be moved elsewhere since it's needed by both the numerical and analytical Jacobians
-!     ---------------------------------------
-      safedeallocate(ndofelm)  ; allocate (ndofelm(nelem))
-      safedeallocate(firstIdx) ; allocate (firstIdx(nelem+1))
-      
-      firstIdx = 1
-      DO eID=1, nelem
-         ndofelm(eID)  = nEqn * (sem % mesh % Nx(eID)+1) * (sem % mesh % Ny(eID)+1) * (sem % mesh % Nz(eID)+1)
-         firstIdx(eID+1) = firstIdx(eID) + ndofelm(eID)
-      END DO
-      
+
+      !TODO: Check if there was p-adaptation and reconstruct if necessary
 !
 !     ***************************
 !     Preallocate Jacobian matrix
@@ -124,9 +142,9 @@ contains
 !        If block-diagonal matrix, construct with size of blocks
 !        -------------------------------------------------------
          type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
+            call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
          type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
+            call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
             
 !
 !        If matrix is CSR, standard preallocate with LinkedListMatrix
@@ -138,15 +156,15 @@ contains
 !        ----------------------------------------------
          class default 
             if (BlockDiagonal) then
-               nnz = maxval(ndofelm)
+               nnz = maxval(this % ndofelm_l)
             else
-               nnz = 7*maxval(ndofelm) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
+               nnz = 7*maxval(this % ndofelm_l) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
             end if
             call Matrix_p % Preallocate(nnz)
       end select
       
       call Matrix % Reset (ForceDiagonal = .TRUE.)
-      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
+      call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
       
 !$omp parallel
 !     ------------------
@@ -179,9 +197,9 @@ contains
 #endif
       end if
 !
-!     ************************************************************
-!     Compute the Jacobian of the Numerical Fluxes f^a and f^{\nu}
-!     ************************************************************
+!     ************************************************************************
+!     Compute the Jacobian of the Numerical Fluxes \hat{f}^a and \hat{f}^{\nu}
+!     ************************************************************************
 !
       call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time)
 !
@@ -212,7 +230,7 @@ contains
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
-   end subroutine AnalyticalJacobian_Compute
+   end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1028,7 +1046,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1053,7 +1071,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1078,7 +1096,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
             
          end do            ; end do
       end do                  ; end do                   ; end do                   ; end do
@@ -1141,7 +1159,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1186,7 +1204,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1231,7 +1249,7 @@ contains
                i = eq1 + baseRow  ! row index (1-based)
                j = eq2 + baseCol  ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                
             end do            ; end do
             !-------------------------------------
@@ -1291,7 +1309,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1353,7 +1371,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1413,7 +1431,7 @@ contains
                      i = eq1 + baseRow  ! row index (1-based)
                      j = eq2 + baseCol  ! column index (1-based)
                      
-                     call Matrix % AddToBlockEntry (e % eID, e % eID, i, j, MatEntries(eq1,eq2))
+                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
                      
                   end do            ; end do
                   !-------------------------------------
@@ -1472,8 +1490,6 @@ contains
       integer :: NxyFace_minus(2)         ! Polynomial orders of face on element e⁻ (only needed for viscous fluxes)
       integer :: faceInd_plus2minus(2)    ! Face indexes on e⁺ passed to the reference frame of e⁻
       integer :: faceInd_minus2plus(2)    ! Face indexes on e⁻ passed to the reference frame of e⁺ (only needed for viscous fluxes)
-      integer :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
-      integer :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       integer :: Deltas                   ! Number of Kronecker deltas /= 0
       integer :: elInd_plus_norm(3)       ! Element indexes on e⁺, but the index in the normal direction has been replaced by a specified value "r"
       integer :: elInd_plus_tan1(3)       ! Element indexes on e⁺, but the index in the first tangent direction has been replaced by the index on e⁻ (in the reference frame of e⁺)
@@ -1490,6 +1506,8 @@ contains
       real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
       real(kind=RP)       , pointer :: df_dGradQ_f(:,:,:,:,:)     ! Pointer to the Jacobian with respect to gradQ on face
       real(kind=RP)       , pointer :: df_dGradQ_e(:,:,:,:,:,:,:) ! Pointer to the Jacobian with respect to gradQ on face
+      real(kind=RP) :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
+      real(kind=RP) :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       real(kind=RP) :: a_minus
       real(kind=RP) :: normAux(NCONS,NCONS)
       real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the direction normal to the face

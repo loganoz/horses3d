@@ -72,11 +72,12 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   SUBROUTINE construct(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(IterativeSolver_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
+      integer,       intent(in)                :: nEqn
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -88,13 +89,9 @@ CONTAINS
       INTEGER :: NCONS                                       
       !-----------------------------------------------------------
       
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
+      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
-!     Jacobian computation to be used
-!     *******************************
-      if ( controlVariables % containsKey("jacobian flag") ) then
-         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-      end if
+      IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       
       MatrixShift => MatrixShiftFunc
       
@@ -193,12 +190,12 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt) ! Block preco computed inside
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt) ! Block preco computed inside
       end if
       

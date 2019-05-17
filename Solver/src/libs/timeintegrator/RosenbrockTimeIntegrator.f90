@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Tue Dec  4 16:26:00 2018
+!   @Last revision date: Fri May 17 17:57:39 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -105,7 +105,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,controlVariables,sem,Rosenbrock_MatrixShift)
+      call this % linsolver % construct (DimPrb,NTOTALVARS,controlVariables,sem,Rosenbrock_MatrixShift)
       
       
    end subroutine construct

@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Mar 11 19:20:17 2019
+!   @Last revision date: Fri May 17 17:57:30 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -394,7 +394,7 @@ module FASMultigridClass
 !
 !        Solver construction
 !        ---------------------
-         call Solver % linsolver % construct(Solver % p_sem % NDOF, controlVariables, Solver % p_sem, BDF_MatrixShift)
+         call Solver % linsolver % construct(Solver % p_sem % NDOF*NTOTALVARS, NTOTALVARS, controlVariables, Solver % p_sem, BDF_MatrixShift)
          Solver % computeA = .TRUE.
       end if
       

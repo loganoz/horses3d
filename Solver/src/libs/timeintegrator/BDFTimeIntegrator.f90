@@ -142,7 +142,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
+      call this % linsolver % construct (DimPrb,NTOTALVARS,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
       
 !
 !     Setup BDF methods

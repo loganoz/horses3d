@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Tue May 14 10:13:06 2019
+!   @Last revision date: Fri May 17 17:57:37 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -97,10 +97,11 @@ module PetscSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine PETSc_construct(this, DimPrb,controlVariables,sem,MatrixShiftFunc)
+   subroutine PETSc_construct(this, DimPrb, nEqn, controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), intent(inout), TARGET :: this
+      integer                      , intent(in)            :: nEqn
       type(FTValueDictionary)      , intent(in), optional  :: controlVariables
       type(DGSem), TARGET                      , optional  :: sem
       procedure(MatrixShift_FCN)                           :: MatrixShiftFunc
@@ -110,14 +111,10 @@ module PetscSolverClass
       PetscErrorCode                                       :: ierr
       !---------------------------------------------------------------------
       
+      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      
       MatrixShift => MatrixShiftFunc
       this % p_sem => sem
-      
-      if ( present(controlVariables) ) then
-         if ( controlVariables % containsKey("jacobian flag") ) then
-            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-         end if
-      end if
       
       !Initialisation of the PETSc variables
       call PetscInitialize(PETSC_NULL_character,ierr)
@@ -213,14 +210,14 @@ module PetscSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt)
             ComputeA = .FALSE.
             
             call this % SetPreconditioner
          end if
       else 
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
          
          call this % SetPreconditioner

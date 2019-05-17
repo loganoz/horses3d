@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeSmootherClass.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Mon Feb  4 16:17:44 2019
+!   @Last revision date: Fri May 17 17:57:36 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
 !
 !//////////////////////////////////////////////////////
 !
@@ -85,11 +85,12 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   SUBROUTINE construct(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MatFreeSmooth_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
+      integer                , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -100,15 +101,14 @@ CONTAINS
       INTEGER :: k          ! Counter                     
       !-----------------------------------------------------------
       
+      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       
       MatrixShift => MatrixShiftFunc
       
       this % DimPrb = DimPrb
       this % Smoother = controlVariables % StringValueForKey("smoother",LINE_LENGTH)
-      if ( controlVariables % containsKey("jacobian flag") ) then
-         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-      end if
       
       ALLOCATE(this % x   (DimPrb))
       ALLOCATE(this % b   (DimPrb))
@@ -209,13 +209,13 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt) ! the matrix is factorized inside
             
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt) ! the matrix is factorized inside
       end if
       
