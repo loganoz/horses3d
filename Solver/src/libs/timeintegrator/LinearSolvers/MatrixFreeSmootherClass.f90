@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    MatrixFreeSmootherClass.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Fri May 17 17:57:36 2019
+!   @Last revision date: Sun May 19 16:54:14 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -85,11 +85,12 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+   SUBROUTINE construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MatFreeSmooth_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
+      INTEGER                  , INTENT(IN)            :: globalDimPrb
       integer                , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
@@ -101,7 +102,7 @@ CONTAINS
       INTEGER :: k          ! Counter                     
       !-----------------------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       

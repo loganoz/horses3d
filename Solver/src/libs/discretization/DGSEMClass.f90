@@ -50,7 +50,8 @@ Module DGSEMClass
       REAL(KIND=RP)                                           :: maxResidual
       integer                                                 :: nodes                 ! Either GAUSS or GAUSLOBATTO
       INTEGER                                                 :: numberOfTimeSteps
-      INTEGER                                                 :: NDOF                         ! Number of degrees of freedom
+      INTEGER                                                 :: NDOF                        ! Number of degrees of freedom in this partition
+      integer                                                 :: totalNDOF                   ! Number of degrees of freedom in the whole domain
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
@@ -177,6 +178,8 @@ Module DGSEMClass
       ELSE
          ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
+      
+      self % totalNDOF = sum((Nx+1)*(Ny+1)*(Nz+1))
       
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
       

@@ -92,7 +92,7 @@ contains
       type(FTValueDictionary), intent(in)    :: controlVariables
       type(DGSem)            , intent(in)    :: sem
       !--------------------------------------------------------
-      integer :: DimPrb
+      integer :: DimPrb, globalDimPrb
       !--------------------------------------------------------
       
 !
@@ -121,6 +121,7 @@ contains
 !     Setup linear solver
 !     -------------------
       DimPrb = sem % NDOF * NTOTALVARS
+      globalDimPrb = sem % totalNDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -142,7 +143,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,NTOTALVARS,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
+      call this % linsolver % construct (DimPrb,globalDimPrb,NTOTALVARS,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
       
 !
 !     Setup BDF methods

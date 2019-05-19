@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri May 17 17:57:37 2019
+!   @Last revision date: Sun May 19 16:54:15 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -97,7 +97,7 @@ module PetscSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine PETSc_construct(this, DimPrb, nEqn, controlVariables,sem,MatrixShiftFunc)
+   subroutine PETSc_construct(this, DimPrb, globalDimPrb, nEqn, controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), intent(inout), TARGET :: this
@@ -107,11 +107,12 @@ module PetscSolverClass
       procedure(MatrixShift_FCN)                           :: MatrixShiftFunc
 #ifdef HAS_PETSC
       PetscInt, intent(in)                                 :: DimPrb
+      PetscInt, intent(in)                                 :: globalDimPrb
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                       :: ierr
       !---------------------------------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       MatrixShift => MatrixShiftFunc
       this % p_sem => sem
@@ -120,17 +121,17 @@ module PetscSolverClass
       call PetscInitialize(PETSC_NULL_character,ierr)
 
 !     PETSc matrix A 
-      call this % A % construct(num_of_Rows = DimPrb, withMPI = this % WithMPI)
+      call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
 
 !     Petsc vectors x and b (of A x = b)
       call VecCreate  (PETSC_COMM_WORLD,this % x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
-      call VecSetSizes(this % x,PETSC_DECIDE,dimPrb,ierr)       ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetSizes(this % x,dimPrb,globalDimPrb,ierr)       ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       call VecSetFromOptions(this % x,ierr)                     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       call VecDuplicate(this % x,this % b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
 
 !     Petsc ksp solver context      
       call KSPCreate(PETSC_COMM_WORLD,this%ksp,ierr)                    ; call CheckPetscErr(ierr,'error in KSPCreate')
-      
+      call KSPSetFromOptions(this%ksp,ierr) ! debug
 !     Petsc preconditioner 
       call KSPGetPC(this%ksp,this%pc,ierr)                              ; call CheckPetscErr(ierr,'error in KSPGetPC')
       

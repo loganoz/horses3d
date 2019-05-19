@@ -4,14 +4,13 @@
 !   @File:    PETScMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Sun May  5 21:27:46 2019
+!   @Last revision date: Sun May 19 16:54:04 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
 !      Class for sparse csr matrices in PETSc context
-!        -> TODO: MPI implementation is not ready yet!
 !
 !////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
@@ -23,6 +22,7 @@ module PETScMatrixClass
    use GenericMatrixClass
    use CSRMatrixClass
    use Jacobian            , only: JACEPS
+   use MPI_Process_Info    , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -37,6 +37,7 @@ module PETScMatrixClass
       PetscBool   :: withMPI
       Vec         :: rowvec   ! Auxiliar vector with size = num_of_Rows
       Vec         :: colvec   ! Auxiliar vector with size = num_of_Cols
+      PetscInt    :: num_of_totalRows
 #endif
       
       contains
@@ -75,7 +76,7 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,withMPI)
       implicit none
       !---------------------------------------------
       class(PETSCMatrix_t)  :: this
@@ -83,6 +84,7 @@ module PETScMatrixClass
 #ifdef HAS_PETSC
       PetscInt, optional, intent(in) :: num_of_Rows
       PetscInt, optional, intent(in) :: num_of_Cols
+      PetscInt, optional, intent(in) :: num_of_TotalRows
       PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
       PetscBool :: hasMPI
@@ -101,25 +103,32 @@ module PETScMatrixClass
       else
          this % num_of_Cols = num_of_Rows
       end if
-      if ( present(withMPI) ) then
-         hasMPI = withMPI
-      else
-         hasMPI = PETSC_FALSE
-      end if
+!~      if ( present(withMPI) ) then
+!~         hasMPI = withMPI
+!~      else
+!~         hasMPI = PETSC_FALSE
+!~      end if
       
       this % num_of_Rows = num_of_Rows
-      this % withMPI = hasMPI
+      
+      if ( MPI_Process % doMPIAction .and. present(num_of_totalRows) ) then
+         this % withMPI = PETSC_TRUE
+         this % num_of_totalRows = num_of_totalRows
+      else
+         this % withMPI = PETSC_FALSE
+         this % num_of_totalRows = num_of_Rows
+      end if
       
       !     PETSc matrix A 
       CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
       
-      if (hasMPI) then
-         CALL MatSetSizes(this%A,PETSC_DECIDE,PETSC_DECIDE,num_of_Rows,this % num_of_Cols,ierr)
+      if (this % withMPI) then
+         CALL MatSetSizes(this%A,num_of_Rows,PETSC_DECIDE,num_of_totalRows,num_of_totalRows,ierr) ! At the moment only for square matrices...
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATMPIAIJ, ierr)                       
          CALL CheckPetscErr(ierr,'error in MatSetType')
-         CALL MatSetFromOptions(this%A,ierr)                                  
-         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
+!~         CALL MatSetFromOptions(this%A,ierr)                                  
+!~         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
       else
          CALL MatSetSizes(this%A,num_of_Rows,this % num_of_Cols,num_of_Rows,this % num_of_Cols,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
@@ -135,7 +144,7 @@ module PETScMatrixClass
 !     Construct auxiliar vectors
 !     --------------------------
       call VecCreate(PETSC_COMM_WORLD,this % rowvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
-      call VecSetSizes(this % rowvec,PETSC_DECIDE,this % num_of_Rows,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetSizes(this % rowvec,this % num_of_Rows,this % num_of_totalRows,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       call VecSetFromOptions(this % rowvec,ierr)                              ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       
       call VecCreate(PETSC_COMM_WORLD,this % colvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
@@ -145,6 +154,7 @@ module PETScMatrixClass
 #else
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
+      integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in)    :: WithMPI
       STOP ':: PETSc is not linked correctly'
 #endif
@@ -164,7 +174,7 @@ module PETScMatrixClass
       if (.not. present(nnz)) ERROR stop ':: PETSc matrix needs nnz'
       
       IF(this%withMPI) THEN
-         CALL MatMPIAIJSetPreallocation(this%A, nnz/25, PETSC_NULL_INTEGER,24 * nnz/25, PETSC_NULL_INTEGER,ierr)
+         CALL MatMPIAIJSetPreallocation(this%A, nnz/7, PETSC_NULL_INTEGER, nnz*6/7, PETSC_NULL_INTEGER,ierr) ! hard-coded: 6 neighbors... Changhe!
          CALL CheckPetscErr(ierr, 'error in MatMPIAIJSetPreallocation')
       ELSE
          CALL MatSeqAIJSetPreallocation(this%A, nnz, PETSC_NULL_INTEGER,ierr)
@@ -201,9 +211,19 @@ module PETScMatrixClass
       
       if (mustForceDiagonal) then
 !$omp critical
-         do i = 1, this % num_of_Rows
-            CALL MatSetValues(this%A, 1 ,i-1,1,i-1,0._RP,ADD_VALUES,ierr)
-         end do
+         if (this % withMPI) then
+            call VecZeroEntries(this % rowvec, ierr)
+            
+            call VecAssemblyBegin(this % rowvec, ierr);  call CheckPetscErr(ierr," Assembly B in PETSc Begin")      
+            call VecAssemblyEnd  (this % rowvec, ierr)  ;  call CheckPetscErr(ierr," Assembly B in PETSc End")  
+            
+            call MatDiagonalSet(this % A, this % rowvec, ADD_VALUES, ierr)
+            ! This is failing: SOLVE!!
+         else
+            do i = 1, this % num_of_Rows
+               CALL MatSetValues(this%A, 1 ,i-1,1,i-1,0._RP,ADD_VALUES,ierr)
+            end do
+         end if
 !$omp end critical
       end if
       

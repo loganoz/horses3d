@@ -4,16 +4,14 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Fri May 17 17:57:38 2019
+!   @Last revision date: Sun May 19 16:54:16 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
 !  StaticCondensationSolverClass:
 !     Routines for solving Gauss-Lobatto DGSEM representations using static-condensation/substructuring
-!
-!     -> Only valid for hp-conforming representations (a middle ground can be found -partial condensation)
 !
 module StaticCondensationSolverClass
    use SMConstants
@@ -103,11 +101,12 @@ contains
 !  -----------
 !  Constructor
 !  -----------
-   subroutine SCS_construct(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+   subroutine SCS_construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(StaticCondSolver_t), intent(inout), target :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb
       integer                  , intent(in)            :: nEqn
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
@@ -118,7 +117,7 @@ contains
       integer :: MatrixType
       !---------------------------------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
 !
 !     **********************
 !     Check needed arguments
@@ -205,7 +204,11 @@ contains
 !           **************
 
             ! Construct solver
-            call this % matSolver % construct (DimPrb = DimPrb - this % A % size_i, nEqn = nEqn, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
+            call this % matSolver % construct(DimPrb = DimPrb - this % A % size_i, &
+                                              globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
+                                              nEqn = nEqn, &
+                                              MatrixShiftFunc = MatrixShiftFunc, &
+                                              controlVariables = controlVariables)
             
             ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
 !~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
@@ -220,7 +223,11 @@ contains
             call this % Mii_LU % PreAllocate(nnzs = this % A % inner_blockSizes)
             
             ! Construct solver
-            call this % gmresSolver % construct  (DimPrb = DimPrb - this % A % size_i, nEqn = nEqn, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
+            call this % gmresSolver % construct (DimPrb = DimPrb - this % A % size_i, &
+                                                 globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
+                                                 nEqn = nEqn, &
+                                                 MatrixShiftFunc = MatrixShiftFunc, &
+                                                 controlVariables = controlVariables)
             call this % gmresSolver % SetMatrixAction (MatrixAction)
             
       end select

@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Tue Apr 23 17:08:53 2019
+!   @Last revision date: Sun May 19 16:54:07 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,6 +34,7 @@ MODULE HexMeshClass
       use SolutionFile
       use BoundaryConditions,               only: BCs
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
+      use PartitionedMeshClass            , only: mpi_partition
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -827,6 +828,15 @@ slavecoord:             DO l = 1, 4
 !     ------------------------------------------------------------------------------------
 !     HexMesh_UpdateMPIFacesPolynomial:
 !        Send the face polynomial orders to the duplicate faces in the neighbor partitions
+!        The information sent per face is:
+!              [fNxi, fNeta, eNxi, eNeta, eNzeta, eGlobID],
+!        where:
+!           fNxi:    Polynomial order 1 for neighbor face
+!           fNeta:   Polynomial order 2 for neighbor face
+!           eNxi:    Polynomial order 1 for neighbor element
+!           eNeta:   Polynomial order 2 for neighbor element
+!           eNzeta:  Polynomial order 3 for neighbor element
+!           eGlobID: Global ID of neighbor element
 !     ------------------------------------------------------------------------------------
       subroutine HexMesh_UpdateMPIFacesPolynomial(self)
          use MPI_Face_Class
@@ -869,8 +879,11 @@ slavecoord:             DO l = 1, 4
                associate( e => self % elements(maxval(f % elementIDs)) )
                
                
-               self % MPIfaces % faces(domain) % Nsend(counter:counter+1) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
-               counter = counter + 2
+               self % MPIfaces % faces(domain) % Nsend(counter:counter+1  ) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+               self % MPIfaces % faces(domain) % Nsend(counter+2:counter+4) = e % Nxyz
+               self % MPIfaces % faces(domain) % Nsend(counter+5)           = e % globID
+               
+               counter = counter + 6
                
                end associate
                end associate
@@ -1695,7 +1708,6 @@ slavecoord:             DO l = 1, 4
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine HexMesh_SetConnectivitiesAndLinkFaces(self,nodes,facesList)
-         use PartitionedMeshClass
          implicit none
          !-arguments----------------------------------------------------
          class(HexMesh), target, intent(inout) :: self
@@ -1705,6 +1717,8 @@ slavecoord:             DO l = 1, 4
          integer  :: fID, SideL, SideR, side, counter
          integer  :: NelL(2), NelR(2)    ! Polynomial orders on left and right of a face
          integer  :: Nel(2,2)            ! Polynomial orders on left and right of a face - for MPI
+         integer  :: globID
+         integer  :: Nxyz(NDIM)
          integer  :: domain, MPI_NDOFS(MPI_Process % nProcs), mpifID
          integer  :: num_of_Faces, ii
          integer, parameter :: other(2) = [2, 1]
@@ -1754,14 +1768,10 @@ slavecoord:             DO l = 1, 4
 !              Construct connectivity
 !              ----------------------
                eL % NumberOfConnections(SideL) = 1
-               call eL % Connection(SideL) % Destruct
-               call eL % Connection(SideL) % Construct(1)
-               eL % Connection( SideL ) % ElementIDs(1) = eR % eID
+               call eL % Connection(SideL) % Construct(eR % GlobID, eR % Nxyz)
 
                eR % NumberOfConnections(SideR) = 1
-               call eR % Connection(SideR) % Destruct
-               call eR % Connection(SideR) % Construct(1)
-               eR % Connection( SideR ) % ElementIDs(1) = eL % eID
+               call eR % Connection(SideR) % Construct(eL % GlobID, eL % Nxyz)
                end associate
                
                call f % LinkWithElements(NelL, NelR, nodes)
@@ -1780,7 +1790,6 @@ slavecoord:             DO l = 1, 4
                call f % LinkWithElements(NelL, NelR, nodes)
 
 !           case (HMESH_MPI): Do nothing. MPI faces are constructed in the next step.
-               !TODO: Store connection information for MPI
 
             end select
          
@@ -1806,15 +1815,24 @@ slavecoord:             DO l = 1, 4
                counter = 1
                do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                   fID  = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-                  side = self % MPIfaces % faces(domain) % elementSide(mpifID)
+                  side = self % MPIfaces % faces(domain) % elementSide(mpifID) ! face side 1/2
+                  
                   associate( f => self % faces(fID) )
                   associate( e => self % elements(maxval(f % elementIDs)) )
                   
-                  Nel(:,      side ) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+                  sideL = maxval(f % elementSide)                              ! element side 1/2/3/4/5/6
+                  
+                  Nel(:,      side ) = e % Nxyz(axisMap(:,sideL))
                   Nel(:,other(side)) = self % MPIfaces % faces(domain) % Nrecv(counter:counter+1)
-                  counter = counter + 2
                   
                   call f % LinkWithElements(Nel(:,1), Nel(:,2), nodes)
+                  
+                  Nxyz   = self % MPIfaces % faces(domain) % Nrecv(counter+2:counter+4)
+                  globID = self % MPIfaces % faces(domain) % Nrecv(counter+5)
+                  
+                  call e % Connection(sideL) % construct (globID,Nxyz)
+                  
+                  counter = counter + 6
                   
                   end associate
                   end associate
@@ -3186,6 +3204,11 @@ slavecoord:             DO l = 1, 4
 ! 
 !////////////////////////////////////////////////////////////////////////
 !
+!     ---------------------------------------------------------------------------------------------------------
+!     HexMesh_FindPointWithCoordsInNeighbors:
+!     This subroutine looks for a point (defined by coordinates) in the neighbor elements of a specific element
+!     Note: For MPI, this routine ONLY checks in neighbors that are in the same partition...
+!     ---------------------------------------------------------------------------------------------------------
       logical recursive function HexMesh_FindPointWithCoordsInNeighbors(self, x, xi, eID, depth)
          implicit none
          !-arguments--------------------------------------------------
@@ -3206,16 +3229,17 @@ slavecoord:             DO l = 1, 4
          end if
          
          if (depth > 1) then
-            do fID=1, FACES_PER_ELEMENT ; do nID=1, self % elements(eID) % NumberOfConnections(fID)
+            do fID=1, FACES_PER_ELEMENT
                
-               new_eID = self % elements(eID) % Connection(fID) % ElementIDs(nID)
+               new_eID = mpi_partition % global2localeID (self % elements(eID) % Connection(fID) % globID)
+               if (new_eID == 0) cycle
                success = self % FindPointWithCoordsInNeighbors(x, xi, new_eID, depth-1)
                if ( success ) then
                   HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
                   return
                end if
                
-            end do                      ; end do
+            end do
          end if
          
       end function HexMesh_FindPointWithCoordsInNeighbors 
@@ -3697,7 +3721,7 @@ slavecoord:             DO l = 1, 4
             do fID=1, 6
                call facesList   % add (e % faceIDs(fID))
                if (self % faces(e % faceIDs(fID)) % FaceType  /= HMESH_BOUNDARY) then
-                  call elementList % add (e % Connection(fID) % ElementIDs(1))
+                  call elementList % add ( mpi_partition % global2localeID (e % Connection(fID) % globID) )
                end if
             end do
 !$omp end critical

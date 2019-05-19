@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Sun May  5 21:27:43 2019
+!   @Last revision date: Sun May 19 16:54:00 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -83,12 +83,13 @@ MODULE CSRMatrixClass
 !  -----------------------------------
 !  Common constructor for CSR matrices
 !  -----------------------------------
-   subroutine CSR_Construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,WithMPI)
+   subroutine CSR_Construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,WithMPI)
       !-arguments-----------------------------------
       class(csrMat_t)               :: this             !<> Matrix to be Created
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in) :: WithMPI
       !-local-variables-----------------------------
       integer             :: istat

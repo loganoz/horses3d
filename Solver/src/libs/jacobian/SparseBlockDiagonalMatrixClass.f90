@@ -73,13 +73,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks, num_of_TotalRows,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(SparseBlockDiagMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in)  :: num_of_Rows
       integer, optional, intent(in)  :: num_of_Cols
       integer, optional, intent(in)  :: num_of_Blocks
+      integer, optional, intent(in)  :: num_of_TotalRows
       logical, optional, intent(in)  :: WithMPI
       !-local-variables-----------------------------
       integer :: iBL

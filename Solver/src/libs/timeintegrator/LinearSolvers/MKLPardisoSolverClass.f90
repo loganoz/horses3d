@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri May 17 17:57:34 2019
+!   @Last revision date: Sun May 19 16:54:12 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -106,11 +106,12 @@ MODULE MKLPardisoSolverClass
 !  -----------------------
 !  MKL pardiso constructor
 !  -----------------------
-   subroutine ConstructMKLContext(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+   subroutine ConstructMKLContext(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout), TARGET :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb
       integer                  , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , intent(in), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
@@ -121,7 +122,7 @@ MODULE MKLPardisoSolverClass
 #endif
       !-----------------------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       if (MPI_Process % doMPIRootAction) then
          ERROR stop 'MKLPardisoSolver_t cannot be used as a distributed solver'

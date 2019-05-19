@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Fri May 17 17:57:35 2019
+!   @Last revision date: Sun May 19 16:54:13 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -126,11 +126,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine GMRES_Construct(this,DimPrb, nEqn,controlVariables, sem,MatrixShiftFunc)
+      recursive subroutine GMRES_Construct(this,DimPrb, globalDimPrb, nEqn,controlVariables, sem,MatrixShiftFunc)
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
          integer                , intent(in)            :: DimPrb
+         integer                , intent(in)            :: globalDimPrb
          integer                , intent(in)            :: nEqn
          TYPE(FTValueDictionary), intent(in), optional  :: controlVariables
          TYPE(DGSem), target                , optional  :: sem
@@ -142,7 +143,7 @@ contains
          integer, allocatable                       :: ndofelm(:)
          !------------------------------------------------
          
-         call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+         call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
          
          if ( present(sem) ) this % p_sem => sem
          
@@ -175,7 +176,7 @@ contains
                   allocate(this%Z(this%DimPrb,this%m+1))
                   ! Construct inner GMRES solver
                   allocate (this % PCsolver)
-                  call this % PCsolver % Construct(dimprb, nEqn,sem = sem, MatrixShiftFunc = MatrixShiftFunc)
+                  call this % PCsolver % Construct(dimprb, globalDimPrb, nEqn,sem = sem, MatrixShiftFunc = MatrixShiftFunc)
                   call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
                   call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
                   ! Change this solver's definitions

@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May  5 21:27:47 2019
+!   @Last revision date: Sun May 19 16:54:06 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -97,13 +97,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
+   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,withMPI)
       implicit none
       !-arguments-----------------------------------
       class(StaticCondensedMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in)  :: num_of_Rows
       integer, optional, intent(in)  :: num_of_Cols
       integer, optional, intent(in)  :: num_of_Blocks
+      integer, optional, intent(in)  :: num_of_TotalRows
       logical, optional, intent(in)  :: WithMPI
       !---------------------------------------------
       

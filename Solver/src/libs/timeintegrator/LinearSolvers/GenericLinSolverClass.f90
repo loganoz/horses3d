@@ -32,7 +32,8 @@ module GenericLinSolverClass
    type :: GenericLinSolver_t
       class(Jacobian_t), allocatable   :: Jacobian
       logical                          :: converged = .FALSE.   ! The solution converged?
-      integer                          :: DimPrb                ! Dimension of the problem
+      integer                          :: DimPrb                ! Dimension of the (local) problem
+      integer                          :: globalDimPrb          ! Dimension of the (global) problem
       integer                          :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
       integer                          :: JacobianComputation = NUMERICAL_JACOBIAN
       type(DGSem), pointer             :: p_sem => null()
@@ -87,11 +88,12 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Construct(this, DimPrb, nEqn, controlVariables, sem, MatrixShiftFunc)
+   subroutine Construct(this, DimPrb, globalDimPrb, nEqn, controlVariables, sem, MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(GenericLinSolver_t), intent(inout), target :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb        
       integer                  , intent(in)            :: nEqn
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem

@@ -72,11 +72,12 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+   SUBROUTINE construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(IterativeSolver_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
+      INTEGER                  , INTENT(IN)            :: globalDimPrb
       integer,       intent(in)                :: nEqn
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
@@ -89,7 +90,7 @@ CONTAINS
       INTEGER :: NCONS                                       
       !-----------------------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
       

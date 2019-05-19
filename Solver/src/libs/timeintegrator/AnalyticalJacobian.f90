@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Fri May 17 17:57:29 2019
+!   @Last revision date: Sun May 19 16:54:08 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,6 +36,7 @@ module AnalyticalJacobian
    use BoundaryConditions              , only: BCs
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
+   use ConnectivityClass               , only: Connectivity
 #if defined(NAVIERSTOKES)
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
@@ -112,9 +113,8 @@ contains
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
 #if defined(NAVIERSTOKES)
       !--------------------------------------------
-      integer :: eID, fID  ! Element and face counters
       integer :: nnz
-      integer :: nelem
+      integer :: nelem, ierr
       logical :: BlockDiagonal
       !--------------------------------------------
       
@@ -215,13 +215,23 @@ contains
 !
       if (.not. BlockDiagonal) call AnalyticalJacobian_OffDiagonalBlocks(sem % mesh,Matrix)
 !$omp end parallel
-      
 !
+!     ************************
 !     Finish assembling matrix
-!     ------------------------
+!     ************************
+!
+!     Add an MPI Barrier
+!     ------------------
+      if (MPI_Process % doMPIAction) then
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+      end if
       
       call Matrix % Assembly()
-      
+!
+!     *********
+!     Finish up
+!     *********
+!
       call Stopwatch % Pause("Analytical Jacobian construction")
       
       if ( MPI_Process % isRoot ) then
@@ -303,7 +313,6 @@ contains
       !--------------------------------------------
       integer :: eID, fID, elSide, side
       type(Element), pointer :: e_plus
-      type(Element), pointer :: e_minus
       type(Face)   , pointer :: f
       !--------------------------------------------
       
@@ -336,7 +345,7 @@ contains
 !
 !     Compute the off-diagonal blocks for each element's equations
 !     ------------------------------------------------------------
-!$omp do schedule(runtime) private(e_plus,elSide,fID,side,f,e_minus)
+!$omp do schedule(runtime) private(e_plus,elSide,fID,side,f)
       do eID = 1, mesh % no_of_elements
          e_plus => mesh % elements(eID)
 !
@@ -349,13 +358,12 @@ contains
             side = e_plus % faceSide(elSide)
             
             f => mesh % faces(fID)
-            e_minus => mesh % elements(f % elementIDs( other(side) ))
             
-            call Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
+            call Local_GetOffDiagonalBlock(f,e_plus,e_plus % Connection(elSide),side,Matrix)
          end do
       end do
 !$omp end do
-      nullify (f, e_plus, e_minus)
+      nullify (f, e_plus)
    end subroutine AnalyticalJacobian_OffDiagonalBlocks
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1461,7 +1469,7 @@ contains
       !-arguments----------------------------------------------------------------------
       type(Face), target, intent(in)    :: f       !<  Face connecting elements
       type(Element)     , intent(in)    :: e_plus  !<  The off-diagonal block is the contribution to this element's equations
-      type(Element)     , intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
+      type(Connectivity), intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
       integer           , intent(in)    :: side    !<  side of face where e_plus is
       class(Matrix_t)   , intent(inout) :: Matrix  !<> Jacobian matrix
       !-local-variables----------------------------------------------------------------
@@ -1616,7 +1624,7 @@ contains
                i = eq1 + baseRow ! row index (1-based)
                j = eq2 + baseCol ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e_plus % eID, e_minus % eID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e_plus % globID, e_minus % globID, i, j, MatEntries(eq1,eq2))
             end do            ; end do
             
          end do                ; end do                ; end do
@@ -1760,7 +1768,7 @@ contains
                   i = eq1 + baseRow ! row index (1-based)
                   j = eq2 + baseCol ! column index (1-based)
                
-                  call Matrix % AddToBlockEntry (e_plus % eID, e_minus % eID, i, j, MatEntries(eq1,eq2))
+                  call Matrix % AddToBlockEntry (e_plus % globID, e_minus % globID, i, j, MatEntries(eq1,eq2))
                end do            ; end do
                
             end do                ; end do                ; end do
@@ -1785,7 +1793,7 @@ contains
 !  Get normal vector for element indexing and scale with surface Jacobian
 !     (Only for p-conforming meshes)
 !  ----------------------------------------------------------------------
-   subroutine AnJac_GetNormalVec(f, faceSide, nEl) 
+   subroutine AnJac_GetNormalVec(f, faceSide, nEl)
       implicit none
       !-arguments-----------------------------------------------------
       type(Face)     , intent(in)    :: f

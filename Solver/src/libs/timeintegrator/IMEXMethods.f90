@@ -4,9 +4,9 @@
 !   @File:    IMEXMethods.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Fri May 17 17:57:31 2019
+!   @Last revision date: Sun May 19 16:54:10 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -78,7 +78,7 @@ MODULE IMEXMethods
 !     ---------------
 !
       type(MKLPardisoSolver_t), save           :: linsolver
-      INTEGER                                  :: nelm, DimPrb
+      INTEGER                                  :: nelm, DimPrb, globalDimPrb
       LOGICAL, save                            :: isfirst = .TRUE.
       REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
       LOGICAL                                  :: TimeAccurate = .true.
@@ -109,11 +109,12 @@ MODULE IMEXMethods
          stop
 #else
          DimPrb = sem % NDOF * NCOMP
+         globalDimPrb = sem % totalNDOF * NCOMP
 #endif
          
          ALLOCATE(U_n(0:Dimprb-1))
 
-         CALL linsolver%construct(DimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
+         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          
@@ -191,7 +192,7 @@ MODULE IMEXMethods
 !     ---------------
 !
       type(MKLPardisoSolver_t), save           :: linsolver
-      INTEGER                                  :: nelm, DimPrb
+      INTEGER                                  :: nelm, DimPrb, globalDimPrb
       LOGICAL, save                            :: isfirst = .TRUE.
       LOGICAL                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
@@ -217,8 +218,9 @@ MODULE IMEXMethods
          isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
          DimPrb = sem % NDOF * NCOMP
+         globalDimPrb = sem % totalNDOF * NCOMP
          
-         CALL linsolver%construct(DimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
+         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
          

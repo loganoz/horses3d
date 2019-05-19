@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Fri May 17 17:57:39 2019
+!   @Last revision date: Sun May 19 16:54:17 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -73,7 +73,7 @@ contains
       type(FTValueDictionary), intent(in) :: controlVariables
       type(DGSem)            , intent(in) :: sem
       !---------------------------------------------------------------
-      integer :: DimPrb
+      integer :: DimPrb, globalDimPrb
       !---------------------------------------------------------------
       
 !
@@ -86,6 +86,7 @@ contains
 !     Setup linear solver
 !     -------------------
       DimPrb = sem % NDOF * NTOTALVARS
+      globalDimPrb = sem % totalNDOF * NTOTALVARS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -105,7 +106,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,NTOTALVARS,controlVariables,sem,Rosenbrock_MatrixShift)
+      call this % linsolver % construct (DimPrb,globalDimPrb,NTOTALVARS,controlVariables,sem,Rosenbrock_MatrixShift)
       
       
    end subroutine construct
