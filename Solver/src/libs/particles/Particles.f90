@@ -147,7 +147,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     ! enddo 
     
     vel  = (/0.d0, 0.d0, 0.d0/)
-    temp = 1.d0  
+    temp = 5.d0  
     open(UNIT=10, FILE='RandomParticles.txt')
     read(10,*)
     do i = 1, self % no_of_particles 
@@ -210,6 +210,8 @@ gt3 = 0.d0
         !------------------------------------------------------
         if (debug) call cpu_time(t1)
             call self % particle(i) % setGlobalPos( mesh )
+            ! call self % particle(i) % show() 
+            ! read(*,*)
         if (debug) call cpu_time(t2)
         if (debug2) gt1 = gt1 + (t2 - t1)
         !    
@@ -237,7 +239,7 @@ gt3 = 0.d0
         !------------------------------------------------------           
 !                 call self % particle(i) % show()  
         endif 
-
+!        call self % particle(i) % show()  
         ! if (debug) then 
         !     print*, "Particle number", i,"/",self % no_of_particles
         !     print*, "Set Global Position", t2 - t1, "seconds"
@@ -307,8 +309,10 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
             Source(5, i, j, k)   = Source(5, i, j, k)   * d % phim / (3 * self % no_of_particles) * d % Nu &
                                         / ( thermodynamics_ % gammaminus1 * dimensionless_ % Pr * &
                                         dimensionless_ % Mach ** 2 * d % St )
-            !   Add source term to Qdot
-            e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source(:,i,j,k)
+            ! Add to NS source term
+            e % storage % S_NS(:,i,j,k) = Source(:,i,j,k)
+            !   Add source term to Qdot                           
+            !e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source(:,i,j,k)
         end do                  ; end do                ; end do
         deallocate(Source)
         end associate 

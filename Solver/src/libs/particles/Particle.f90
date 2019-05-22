@@ -35,9 +35,13 @@ public  Particle_t
 !  ******************************
 !  
 type Particle_t
+    type(HexMesh), pointer :: mesh 
     real(KIND=RP)   :: pos(3)
+    real(KIND=RP)   :: pos_old(3)    
     real(KIND=RP)   :: vel(3)
+    real(KIND=RP)   :: vel_old(3)
     real(KIND=RP)   :: temp
+    real(KIND=RP)   :: temp_old
     real(KIND=RP)   :: fluidVel(3)
     real(KIND=RP)   :: fluidTemp
     ! Physical properties of the particles (independent)
@@ -46,6 +50,10 @@ type Particle_t
     real(KIND=RP)  :: h            !Convective heat transfer coefficient (2 x k / D_p) (Assuming Nu = 2) 
     real(KIND=RP)  :: cv           !Particle specific heat        
 
+    ! Impact parameters 
+    real(KIND=RP)  :: rcoeff    ! Restitution coefficient
+    real(KIND=RP)  :: delta     ! Roughness angle (sommerfeld model)
+
     ! Physical properties of the particles (dependent)
     real(KIND=RP)  :: m            !Particle mass ( rho_p x PI x D_p^3 / 6 )
     real(KIND=RP)  :: tau          !Aerodynamic response time ( rho_p x D_p^2 / 18 mu )
@@ -53,9 +61,12 @@ type Particle_t
     integer                         :: rank
     integer                         :: ID
     integer                         :: eID
+    integer                         :: eID_old
     real(kind=RP)                   :: x(3)
     real(kind=RP)                   :: xi(3)
+    real(kind=RP)                   :: xi_old(3)
     real(kind=RP), allocatable      :: lxi(:) , leta(:), lzeta(:)
+    logical                         :: lost 
 !    real(kind=RP)                   :: values(BUFFER_SIZE)    
 !    character(len=STR_LEN_MONITORS) :: fileName
 !    character(len=STR_LEN_MONITORS) :: monitorName
@@ -73,6 +84,8 @@ type Particle_t
         procedure   :: updateVelRK3        => particle_updateVelRK3
         procedure   :: updateTempRK3       => particle_updateTempRK3        
 end type Particle_t
+
+real(kind=RP)  :: DEG2RAD                 = PI/180._RP
 !
 !  ========
 contains
@@ -96,6 +109,7 @@ subroutine particle_init(self)
     self % h           = 1.0_RP
     self % cv          = 1.0_RP
     self % m           = self % rho * PI * POW3(self % D) / 6
+    self % lost        = .false. 
     !self % tau         = self % rho * POW2(self % D) / (18 * mu) 
     ! DEPENDS ON THE FLUID VISCOSITY. IT SHOULD BE UPDATED ACCORDINGLY
 end subroutine particle_init
@@ -166,7 +180,9 @@ subroutine particle_setGlobalPos ( self, mesh )
     integer                 :: i ,j, k 
     integer, dimension(1)   :: elementwas 
     
-    elementwas(1) = self % eID
+    elementwas(1)  = self % eID
+    self % eID_old = self % eID 
+    self % xi_old  = self % xi 
     !
     ! Find the requested point in the mesh
     ! ------------------------------------
@@ -326,6 +342,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     real(KIND=RP) :: gamma
     real(KIND=RP) :: Pr
 
+    self % lost = .false. 
 
     if ( .not. self % active ) return 
 
@@ -348,6 +365,10 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
 !en ese punto (self % fluidVel).
 !   Al hacerlo de esta forma, el código es más eficiente. Habría que cuantificar el error cometido.
 
+    self % vel_old  = self % vel 
+    self % pos_old  = self % pos 
+    self % temp_old = self % temp 
+
     ! VELOCITY
     self % vel = self % updateVelRK3 ( dt, mu, St, invFr2, gravity  ) 
     ! POSITION
@@ -355,9 +376,275 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     ! TEMPERATURE
     self % temp = self % updateTempRK3 ( dt, gamma, cvpdivcv, St, Pr, I0, Nu ) 
 
-    print*,  self % pos, "//", self % vel, "//", self % temp 
+    !print*,  self % pos, "//", self % vel, "//", self % temp 
 #endif
 end subroutine 
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+subroutine compute_bounce_parameters(p, bounce)
+    class(particle_t)   , intent(inout)      :: p
+    
+    real(kind=RP)        :: GEOM_TOL = 1e-5_RP
+    integer              :: i, j, k, fdir, face, eID, faceID 
+    integer, parameter   :: ploc(3)=[4,2,5] ! Face elemente mapping
+    integer, parameter   :: nloc(3)=[6,1,3]
+    integer, parameter   :: fdirmap(6) = [2,2,3,1,3,1]
+    real(kind=RP)        :: pos(3), pos_out(3), pos_in(3), xi_init(3), xi(3)
+    real(kind=RP)        :: normal(3),v_in(3), d_in(3), d_out(3), f_xi(2)
+    real(kind=RP)        :: dt_after_collision, normal_rough(3)
+    real(kind=RP)        :: CollisionPlaneNormal(3), ImpactAngle,RoughAngle
+    logical              :: inside, bounce, fine_search
+    integer, parameter   :: max_iter = 50
+    integer              :: Nxyz(3), neighbours(6)
+    real(kind=RP),allocatable  :: lxi(:), leta(:), lzeta(:)
+
+
+    eID         = p%eID_old
+    pos_out     = p%pos
+    xi_init     = p%xi_old
+    bounce      = .false.
+    fine_search = .false.
+    
+    ! Search the face intersected by the trace
+    ! -----
+    
+    !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
+    fdir = maxloc (abs(xi_init), dim=1)
+
+    if (xi_init(fdir) > 0._RP) then
+       face = ploc(fdir)
+    else
+       face = nloc(fdir)
+    end if
+    
+    ! Check face boundary type
+    if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
+        & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
+       bounce = .true.
+       fine_search = .false.
+    else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
+       ! Particle is closer to an interior face than a boundary, 
+       ! Collision may occur in other element
+       bounce = .true.
+       fine_search = .true.
+
+    else
+       ! The particle has reached a permeable boundary
+       bounce = .false.
+    end if
+   
+
+    if (.not. bounce) return
+
+
+    ! Compute intersection between particle trace and face
+    ! ----
+    
+    ! The fast way
+    if (.not. fine_search) then
+
+       pos_in   = p%pos_old
+       pos_out  = p%pos
+       xi_init  = 0._RP
+       
+       ! Try locationg the collision pont using a bisection method
+       do i = 1, max_iter
+          pos = 0.5_RP * (pos_in + pos_out)
+          !inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi, xi_init)
+          inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+       
+          if (inside) then
+             ! Check tolerance in the face direction
+             if (abs(abs(xi(fdir))-1._RP) < GEOM_TOL) then
+                exit
+             else
+                pos_in = pos
+                xi_init = xi
+             end if
+          else
+             pos_out = pos
+          end if
+       end do
+       ! If collision point has not been found, activate the fine search 
+       if (i >= max_iter)  fine_search = .true.
+    end if
+
+
+    
+    ! Try to find the collision point using a more expensive method in case
+    ! the fast method fails
+
+    if (fine_search) then
+       
+       pos_in   = p%pos_old
+       pos_out  = p%pos
+       xi_init  = p%xi_old
+       
+       ! Find the neighbours of the element in which the particle was
+
+       neighbours = -1
+       do j = 1, 6
+          if (p%mesh%elements(eID)%NumberOfConnections(j) > 0) then
+                neighbours(j) = p%mesh%elements(eID)%Connection(j)%ElementIDs(1) 
+          else 
+                neighbours(j) = -1
+          end if
+       end do
+
+       iter_loop:do i = 1, max_iter
+          
+          pos = 0.5_RP * (pos_in + pos_out)
+          
+          ! Include neigbours when searching the point coordinates
+          call FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
+          
+          if (inside) then
+
+             if  (any( abs(xi) > 1._RP - GEOM_TOL) ) then
+                exit iter_loop
+             end if
+             
+
+             pos_in = pos
+          else
+             pos_out = pos
+          end if
+          
+          if ((i >= max_iter))  then
+             bounce = .false.
+             !Write (*,*) "Warning, particle lost"
+             p%lost = .true.
+             return
+          end if
+       end do iter_loop
+
+    
+       ! Re check the collision face
+       fdir = maxloc (abs(xi), dim=1)
+       if (xi(fdir) > 0._RP) then
+          face = ploc(fdir)
+       else
+          face = nloc(fdir)
+       end if
+       
+       if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
+        & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
+          bounce = .true.
+       
+       else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
+          ! Particle has left the domain through an intertal face, the
+          !  particle is lost
+          bounce = .false.
+          !Write (*,*) "Warning, particle lost after crossing internal face"
+          p%lost = .true.
+          return
+       
+       else
+          ! The particle has reached a permeable boundary
+          bounce = .false.
+          return
+       end if
+    
+    end if
+
+    
+    ! Get face normal at collision point
+    ! -----
+    
+    faceID = p%mesh%elements(eID)%faceIDs(face)
+    
+    Nxyz        = p % mesh % elements(eID) % Nxyz
+    allocate(lxi(0:Nxyz(1)))
+    allocate(leta(0:Nxyz(2)))
+    allocate(lzeta(0:Nxyz(3)))
+    lxi(0:)     = p % mesh % elements(eID) % spAxi % lj   (xi(1))
+    leta(0:)     = p % mesh % elements(eID) % spAeta % lj  (xi(2))
+    lzeta(0:)   = p % mesh % elements(eID) % spAzeta % lj (xi(3))
+    
+    normal = 0.0_RP
+       select case (face)
+          case (1,2)
+             do k = 0,Nxyz(3)  ; do i = 0, Nxyz(1)
+                normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,k)  * lxi(i) * lzeta(k)
+             end do            ; end do
+             f_xi = [xi(1),xi(3)]
+          case (3,5)
+             do j = 0,Nxyz(2)  ; do i = 0, Nxyz(1)
+                normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,j) * lxi(i) * leta(j)
+             end do            ; end do
+             f_xi = [xi(1),xi(2)]
+          case (4,6)
+             do j = 0,Nxyz(2)  ; do k = 0, Nxyz(3)
+                normal = normal + p%mesh%faces(faceID)%geom%normal(:,j,k) * leta(j) * lzeta(k)
+             end do            ; end do
+             f_xi = [xi(2),xi(3)]
+       end select
+    
+    normal = - normal
+    
+
+    ! Compute velocity and position after collsion
+    ! -----
+
+    ! Out direction
+    
+    
+    d_in  = -p%vel/norm2(p%vel)
+    normal = normal/norm2(normal)
+
+    CollisionPlaneNormal = cross(normal,d_in)
+    CollisionPlaneNormal = CollisionPlaneNormal / norm2(CollisionPlaneNormal)
+    
+
+    
+    ! Modify Colision plane using Gaussian Noise
+    RoughAngle = GaussianNoise() * p%delta
+    CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
+    
+    ! Modify Normal using Surface Rough Angle
+    RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
+    normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
+   
+    ! Specular rebound with modified normal
+    d_out = 2._RP * dot_product(normal_rough,d_in)*normal_rough - d_in
+   
+    ImpactAngle = PI/2._RP - acos(dot_product(normal_rough,d_in))
+
+    ! Velocity vector
+    ! -----
+    v_in = p%vel
+    p%vel = norm2(v_in) * d_out/norm2(d_out) * p%rcoeff
+    
+    ! New position
+    ! -----
+    dt_after_collision = norm2(p%pos-p%pos_old)/norm2(p%vel)
+
+    p%pos = pos + p%vel * dt_after_collision
+    
+    ! Set element and particle as active  
+    ! -----
+
+    p%active = .true.
+    p%eID = eID
+
+    ! store collision parameters
+    ! -----
+    ! if (size(p%collisions,dim=1) == p%ncollisions ) then
+    !    call p%increase_collisions_size
+    ! end if
+    
+    ! p%ncollisions = p%ncollisions + 1
+    ! p%collisions(p%ncollisions)%pos           = pos
+    ! p%collisions(p%ncollisions)%normal        = normal
+    ! p%collisions(p%ncollisions)%vel_in        = v_in * refValues%V
+    ! p%collisions(p%ncollisions)%vel_out       = p%vel * refValues%V
+    ! p%collisions(p%ncollisions)%eID           = eID
+    ! p%collisions(p%ncollisions)%faceID        = faceID
+    ! p%collisions(p%ncollisions)%ImpactAngle   = ImpactAngle * 180._RP / PI
+    ! p%collisions(p%ncollisions)%xi            = f_xi
+
+ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -445,44 +732,153 @@ subroutine particle_source ( self, e, source )
 !        ---------------
 !
     integer         :: i ,j, k                     
-    real(kind=RP)   :: delta 
+    real(kind=RP)   :: delta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) 
+    real(kind=RP)   :: x(3) 
+    real(kind=RP)   :: val 
+    real(kind=RP)   :: dx 
 
     if ( .not. self % active ) return 
 
+    !**************************************
+    ! COMPUTE SCALING OF THE ELEMENT (dx) 
+    !**************************************
+    val = 0.0_RP
     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-        !Compute value of approximation of delta Diract (exp)
-        delta = deltaDirac( e % spAxi % x(i)      - self % xi(1), &
-                            e % spAeta % x(j)     - self % xi(2), &
-                            e % spAzeta % x(k)    - self % xi(3) )
-
-        !Compute source term                    
-        source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta   
-        source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta
-        source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta
-        source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta 
+      val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+    end do            ; end do           ; end do
+    dx = val ** (1.0_RP/3.0_RP)
+    !*********************************
+    ! CONSTRUCT DISCRETE DIRAC DELTA
+    !*********************************
+    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+      x = e % geom % x(:,i,j,k)
+      !Compute value of approximation of delta Diract (exp)
+      delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
+                          x(2) - self % x(2), &
+                          x(3) - self % x(3), &
+                          dx )
+    enddo ; enddo ; enddo    
+    !*********************************************************************************
+    ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
+    !*********************************************************************************
+    val = 0.0_RP
+    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+      val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
+    end do            ; end do           ; end do
+    delta = delta / val 
+    !*****************************
+    ! COMPUTATION OF SOURCE TERM 
+    !*****************************
+    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
+      source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta(i,j,k)   
+      source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta(i,j,k)
+      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta(i,j,k)
+      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta(i,j,k) 
     enddo ; enddo ; enddo     
 #endif     
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-function deltaDirac(x,y,z)
+function deltaDirac(x,y,z,dx)
     !This function creates an approximation of a delta Dirac
     !   centered at x,y,z. 
-    !   c -> 0 == delta dirac
-    !   The value of the parameter c should be adapted depending 
-    !   on the polynomial order used in the approximation. 
-    !TDG: this constant c should depend on the pol order or the diameter of the particle.
     implicit none 
     real(kind=RP)            :: deltaDirac
     real(kind=RP)            :: x,y,z
-    real(kind=RP), parameter :: c = 0.02_RP
+    real(kind=RP)            :: dx
 
-    deltaDirac = exp( - (POW2(x) + POW2(y) + POW2(z)) / c )
+    real(kind=RP)            :: sigma 
+
+    !sigma = 1.5 * D
+    sigma = dx / 10 
+    ! This value has been taken from Maxey, Patel, Chang and Wang 1997
+    ! According to them, sigma > 1.5 grid spacing AND sigma > 1.3 D for stability
+    ! They use a value of sigma ~ D 
+
+    ! This approximation has the same triple integral as the exact 
+    ! Dirac delta
+
+    deltaDirac = ( 2 * pi * POW2( sigma ) ) ** ( -3.0_RP / 2.0_RP ) * &
+        exp( - ( POW2(x) + POW2(y) + POW2(z) ) / ( 2 * POW2( sigma ) ) )
 
 end function 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !    
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+function WallRoughnessAngleFast(alpha1, delta)
+    real(kind=RP), intent(in)  :: alpha1
+    real(kind=RP), intent(in)  :: delta
+
+    real(kind=RP)  :: WallRoughnessAngleFast
+
+    real(kind=RP)  :: g, rnd(2), rnd_normal
+    integer        :: i
+
+    
+
+    do i = 1, 100 ! 
+       call random_number(rnd)
+       rnd_normal = sqrt(-2._RP * log(rnd(1))) * cos(2._RP * PI * rnd(2)) !Miller-Box formula
+       g = rnd_normal* delta
+       if ((alpha1 + g) > 1e-3_RP )  then
+          WallRoughnessAngleFast = g
+          return
+       end if
+    end do
+
+    ! Just in case...
+    WallRoughnessAngleFast = 0._RP
+
+ end function
+!--
+!--
+ function GaussianNoise()
+    real(kind=RP)  :: GaussianNoise 
+    real(kind=RP)  :: rnd(2)
+    call random_number(rnd)
+    GaussianNoise = sqrt(-2._RP * log(rnd(1))) * cos(2._RP * PI * rnd(2)) !Miller-Box formula
+
+ end function 
+!--
+!--
+ function cross(a,b) result(c)
+    real(kind=RP), dimension(3), intent(in)  :: a,b
+    real(kind=RP), dimension(3)               :: c
+       c(1) = a(2) * b(3) - a(3) * b(2)
+       c(2) = a(3) * b(1) - a(1) * b(3)
+       c(3) = a(1) * b(2) - a(2) * b(1)
+ end function cross
+!--
+!--
+ function rotate_vector(vector, rotation_vector, angle)
+    real(kind=RP), dimension(3), intent(in)   :: vector,rotation_vector
+    real(kind=RP)              , intent(in)   :: angle       
+    real(kind=RP), dimension(3)               :: rotate_vector
+
+    real(kind=RP)  :: c, s, onemc,  u, v, w, rmat(3,3), rot_norm
+    
+    c = cos(angle*DEG2RAD)
+    s = sin(angle*DEG2RAD)
+    onemc = 1._RP - c
+
+    ! Normalize rotation vector
+    rot_norm = norm2(rotation_vector)
+    u = rotation_vector(1)/rot_norm
+    v = rotation_vector(2)/rot_norm
+    w = rotation_vector(3)/rot_norm
+
+    ! Rotation matrix
+    rmat(1,:) = [c+u*u*onemc  , u*v*onemc-w*s, u*w*onemc+v*s]
+    rmat(2,:) = [u*v*onemc+w*s, c+v*v*onemc  , v*w*onemc-u*s]
+    rmat(3,:) = [u*w*onemc-v*s, v*w*onemc+u*s, c+w*w*onemc  ]
+
+    rotate_vector = matmul(rmat,vector)
+
+
+ end function
 end module 
 #endif
