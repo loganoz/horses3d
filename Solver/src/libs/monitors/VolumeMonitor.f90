@@ -11,7 +11,7 @@ module VolumeMonitorClass
 !~   public VOLUME
 #if defined(NAVIERSTOKES)
 !~   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
-!~   public ENTROPY, ENTROPY_RATE
+!~   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY
 #elif defined(CAHNHILLIARD)
 !~   public FREE_ENERGY
 #endif
@@ -111,6 +111,7 @@ module VolumeMonitorClass
          case ("enstrophy")
          case ("entropy")
          case ("entropy rate")
+         case ("internal energy")
          case ("mean velocity")
          case ("velocity") ; self % num_of_vars = 3
          case ("momentum") ; self % num_of_vars = 3
@@ -127,6 +128,7 @@ module VolumeMonitorClass
                print*, "   * Enstrophy"
                print*, "   * Entropy"
                print*, "   * Entropy rate"
+               print*, "   * Internal energy"
                print*, "   * Mean velocity"
                print*, "   * Velocity"
                print*, "   * Momentum"
@@ -220,6 +222,9 @@ module VolumeMonitorClass
 
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("internal energy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, INTERNAL_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)            
 
          case ("mean velocity")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
