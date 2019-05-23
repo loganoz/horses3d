@@ -93,10 +93,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_init(self)
-    implicit none
-    class(particle_t)  :: self
+subroutine particle_init(self, mesh)
+   class(particle_t)       :: self
+   type(HexMesh), target   :: mesh
 
+    self % mesh        => mesh
     self % pos(:)      = 0.0_RP
     self % vel(:)      = 0.0_RP
     self % temp        = 0.0_RP
@@ -110,6 +111,8 @@ subroutine particle_init(self)
     self % cv          = 1.0_RP
     self % m           = self % rho * PI * POW3(self % D) / 6
     self % lost        = .false. 
+    self % rcoeff      = 1.0_RP
+    self % delta       = 0.0_RP
     !self % tau         = self % rho * POW2(self % D) / (18 * mu) 
     ! DEPENDS ON THE FLUID VISCOSITY. IT SHOULD BE UPDATED ACCORDINGLY
 end subroutine particle_init
@@ -262,8 +265,6 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
                            0:mesh % elements(self % eID) % Nxyz(2),&
                            0:mesh % elements(self % eID) % Nxyz(3)  )
 
-    if ( .not. self % active ) return 
-
     ! if ( MPI_Process % rank .eq. self % rank ) then
 !
 !           Update the probe
@@ -341,10 +342,13 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0 )
     real(KIND=RP) :: gamma
     real(KIND=RP) :: Pr
     real(KIND=RP) :: gravity(3) 
+    logical       :: bounce 
 
     self % lost = .false. 
 
-    if ( .not. self % active ) return 
+    if ( .not. self % active ) then 
+      call compute_bounce_parameters(self, bounce)
+    endif 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
     invFr2          = dimensionless  % invFr2             ! Fluid non dimensional number
@@ -409,7 +413,7 @@ subroutine compute_bounce_parameters(p, bounce)
     
     ! Search the face intersected by the trace
     ! -----
-    
+
     !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
     fdir = maxloc (abs(xi_init), dim=1)
 
@@ -418,7 +422,7 @@ subroutine compute_bounce_parameters(p, bounce)
     else
        face = nloc(fdir)
     end if
-    
+
     ! Check face boundary type
     if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
         & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
@@ -434,7 +438,6 @@ subroutine compute_bounce_parameters(p, bounce)
        ! The particle has reached a permeable boundary
        bounce = .false.
     end if
-   
 
     if (.not. bounce) return
 
@@ -548,7 +551,6 @@ subroutine compute_bounce_parameters(p, bounce)
        end if
     
     end if
-
     
     ! Get face normal at collision point
     ! -----
@@ -588,9 +590,11 @@ subroutine compute_bounce_parameters(p, bounce)
     ! Compute velocity and position after collsion
     ! -----
 
-    ! Out direction
-    
-    
+!     ! Out direction
+!     print*, 595
+! !    print*, ImpactAngle
+!     print*, p%delta 
+!     read(*,*)
     d_in  = -p%vel/norm2(p%vel)
     normal = normal/norm2(normal)
 
@@ -598,15 +602,17 @@ subroutine compute_bounce_parameters(p, bounce)
     CollisionPlaneNormal = CollisionPlaneNormal / norm2(CollisionPlaneNormal)
     
 
+   !  ! Modify Colision plane using Gaussian Noise
+   !  RoughAngle = GaussianNoise() * p%delta
+   !  CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
     
-    ! Modify Colision plane using Gaussian Noise
-    RoughAngle = GaussianNoise() * p%delta
-    CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
-    
-    ! Modify Normal using Surface Rough Angle
-    RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
-    normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
-   
+   !  ! Modify Normal using Surface Rough Angle
+   !  print*, ImpactAngle
+   !  print*, p%delta 
+   !  read(*,*)
+   !  RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
+   !  normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
+    normal_rough = normal    
     ! Specular rebound with modified normal
     d_out = 2._RP * dot_product(normal_rough,d_in)*normal_rough - d_in
    
@@ -646,6 +652,37 @@ subroutine compute_bounce_parameters(p, bounce)
     ! p%collisions(p%ncollisions)%xi            = f_xi
 
  end subroutine
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+ subroutine  FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
+   class(Particle_t), intent(in)      :: p
+   real(kind=RP)  , intent(in)      :: pos(3)
+   integer        , intent(inout)   :: eID
+   integer        , intent(in)      :: neighbours(6)
+   real(kind=RP)  , intent(out)     :: xi(3)
+   logical        , intent(out)     :: inside
+
+   integer  :: i
+   
+   inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+   if (inside) return
+
+   ! Else check if the point resides iniside a neigbour
+
+   do i = 1, 6
+      if (neighbours(i) <= 0) cycle
+      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
+      if (inside) then
+         eID = neighbours(i)
+         return
+      end if
+   end do
+
+   inside = .false.
+
+
+end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !

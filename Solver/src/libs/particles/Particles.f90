@@ -93,7 +93,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     allocate( self % particle( self % no_of_particles) ) 
 
     do i = 1, self % no_of_particles 
-        call self%particle(i)%init()
+        call self%particle(i)%init(mesh)
     enddo 
 
     self % dimensionless % St       = controlVariables % doublePrecisionValueForKey(STOKES_NUMBER_PART_KEY)    
@@ -214,7 +214,9 @@ gt3 = 0.d0
         ! Get fluid velocity and temperature at that position
         !------------------------------------------------------   
         if (debug) call cpu_time(t3)
+        if ( self % particle(i) % active ) then 
             call self % particle(i) % getFluidVelandTemp( mesh )
+        endif 
         if (debug) call cpu_time(t4)
         if (debug2) gt2 = gt2 + (t4 - t3)        
         !        
