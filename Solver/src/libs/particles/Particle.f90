@@ -317,7 +317,7 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity ) 
+subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0 ) 
 #if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
     use FluidData, only : dimensionless, thermodynamics
@@ -330,7 +330,6 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     real(KIND=RP), intent(in) :: phim       ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: cvpdivcv   ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: I0         ! Particle non dimensional number (radiation intensity)
-    real(KIND=RP), intent(in) :: gravity(3) ! Particle non dimensional vector (gravity)
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
@@ -341,13 +340,15 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     real(KIND=RP) :: invFr2
     real(KIND=RP) :: gamma
     real(KIND=RP) :: Pr
+    real(KIND=RP) :: gravity(3) 
 
     self % lost = .false. 
 
     if ( .not. self % active ) return 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
-    invFr2 = dimensionless  % invFr2    ! Fluid non dimensional number
+    invFr2          = dimensionless  % invFr2             ! Fluid non dimensional number
+    gravity         = dimensionless  % gravity_dir        ! Direction of gravity vector (normalised)    
     gamma           = thermodynamics % gamma              ! Fluid non dimensional number
     Pr              = dimensionless  % Pr                 ! Fluid non dimensional number
 
@@ -673,7 +674,7 @@ function particle_updateVelRK3 (self, dt, mu, St, invFr2, gravity) result(Q)
     G = 0.0_RP
     Q = self % vel
     DO k = 1,3
-        Qdot = mu / St * ( self % fluidVel - self % vel) - invFr2 * gravity
+        Qdot = mu / St * ( self % fluidVel - self % vel) + invFr2 * gravity
         G = a(k) * G  + Qdot
         Q = Q         + c(k) * dt * G
     END DO

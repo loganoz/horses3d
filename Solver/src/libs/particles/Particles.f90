@@ -34,7 +34,6 @@ type DimensionlessParticles_t
     real(kind=RP) :: phim
     real(kind=RP) :: cvpdivcv
     real(kind=RP) :: I0
-    real(kind=RP) :: g(3)
 end type DimensionlessParticles_t
 
 type Particles_t
@@ -102,9 +101,6 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     self % dimensionless % cvpdivcv = controlVariables % doublePrecisionValueForKey(GAMMA_PART_KEY) 
     self % dimensionless % Nu       = 2.0_RP !Stokeian flow
     self % dimensionless % I0       = controlVariables % doublePrecisionValueForKey(I0_PART_KEY) 
-    self % dimensionless % g(1)     = controlVariables % doublePrecisionValueForKey(gx_PART_KEY)
-    self % dimensionless % g(2)     = controlVariables % doublePrecisionValueForKey(gy_PART_KEY)
-    self % dimensionless % g(3)     = controlVariables % doublePrecisionValueForKey(gz_PART_KEY)
 ! print*, " self % dimensionless % St ",  self % dimensionless % St !, STOKES_NUMBER_PART_KEY
 ! print*, " self % dimensionless % phim ",  self % dimensionless % phim !, STOKES_NUMBER_PART_KEY
 ! print*, " self % dimensionless % cvpdivcv ",  self % dimensionless % cvpdivcv !, STOKES_NUMBER_PART_KEY
@@ -147,7 +143,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     ! enddo 
     
     vel  = (/0.d0, 0.d0, 0.d0/)
-    temp = 5.d0  
+    temp = 1.d0  
     open(UNIT=10, FILE='RandomParticles.txt')
     read(10,*)
     do i = 1, self % no_of_particles 
@@ -230,8 +226,7 @@ gt3 = 0.d0
                                                     self % dimensionless % Nu, &
                                                     self % dimensionless % phim, &
                                                     self % dimensionless % cvpdivcv, &
-                                                    self % dimensionless % I0, &
-                                                    self % dimensionless % g   )
+                                                    self % dimensionless % I0 ) 
         if (debug) call cpu_time(t6)
         if (debug2) gt3 = gt3 + (t6 - t5)
         !    
