@@ -46,6 +46,9 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box" 
       END MODULE Physics_NSKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -351,6 +354,7 @@
       end if
 
       if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
+         allocate(array(1:3))
          array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                              KEYWORD_LENGTH))
          dimensionless_ % gravity_dir = array(1:3)
