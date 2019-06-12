@@ -17,6 +17,7 @@ module ParticlesClass
    use FluidData
    use PhysicsStorage
    use HexMeshClass
+   use FileReadingUtilities      , only: getRealArrayFromString, getIntArrayFromString
    implicit none
 !
 #include "Includes.h"
@@ -36,11 +37,21 @@ type DimensionlessParticles_t
     real(kind=RP) :: I0
 end type DimensionlessParticles_t
 
+! The implementation of particles is limited to boxes right now. It should be easy
+! to couple this with the boundary conditions of the solver. I do not have the time
+! to do it properly right now. 
+type pMesh_t 
+    real(kind=RP)  :: min(3) ! minimum dimension of box
+    real(kind=RP)  :: max(3) ! maximum dimension of box
+    integer  :: bc(3)  ! boundary condition (inflow/outflow [0], wall [1], periodic [2])
+end type pMesh_t
+
 type Particles_t
     integer                             :: no_of_particles
     type(Particle_t),       allocatable :: particle(:)
     type(dimensionlessParticles_t)      :: dimensionless
     logical                             :: active 
+    type(pMesh_t)                       :: pMesh
     contains
         procedure   :: Construct      => ConstructParticles    
         procedure   :: Integrate      => IntegrateParticles
@@ -101,6 +112,15 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     self % dimensionless % cvpdivcv = controlVariables % doublePrecisionValueForKey(GAMMA_PART_KEY) 
     self % dimensionless % Nu       = 2.0_RP !Stokeian flow
     self % dimensionless % I0       = controlVariables % doublePrecisionValueForKey(I0_PART_KEY) 
+
+    self % pMesh % min = getRealArrayFromString( controlVariables % StringValueForKey(key = MIN_BOX_KEY,&
+    requestedLength = 132))
+    self % pMesh % max = getRealArrayFromString( controlVariables % StringValueForKey(key = MAX_BOX_KEY,&
+    requestedLength = 132))
+    self % pMesh % bc  = getIntArrayFromString( controlVariables % StringValueForKey(key = BC_BOX_KEY,&
+    requestedLength = 132))
+
+
 ! print*, " self % dimensionless % St ",  self % dimensionless % St !, STOKES_NUMBER_PART_KEY
 ! print*, " self % dimensionless % phim ",  self % dimensionless % phim !, STOKES_NUMBER_PART_KEY
 ! print*, " self % dimensionless % cvpdivcv ",  self % dimensionless % cvpdivcv !, STOKES_NUMBER_PART_KEY
@@ -142,15 +162,24 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     !     call self % particle(i) % set_temp( temp )        
     ! enddo 
     
-    vel  = (/0.d0, 0.d0, 0.d0/)
-    temp = 1.d0  
+    ! vel  = (/0.d0, 0.d0, 0.0d0/)
+    ! temp = 1.d0  
     open(UNIT=10, FILE='RandomParticles.txt')
     read(10,*)
     do i = 1, self % no_of_particles 
+        ! Read position of the particles from RandomParticles.txt
         read(10,*) pos(1), pos(2), pos(3)
         call self % particle(i) % set_pos ( pos )
-        call self % particle(i) % set_vel ( vel )
-        call self % particle(i) % set_temp ( temp )
+
+        ! Position the particle in the computational mesh (get element)
+        call self % particle(i) % setGlobalPos( mesh )
+
+        ! Get Fluid velocity and temperature for the random positions of each particle
+        call self % particle(i) % getFluidVelandTemp( mesh )
+        
+        ! Initialise particle velocity and temperature with the fluid values
+        call self % particle(i) % set_vel  ( self % particle(i) % fluidVel  )
+        call self % particle(i) % set_temp ( self % particle(i) % fluidTemp )
     enddo 
     close(10)
 
@@ -228,7 +257,10 @@ gt3 = 0.d0
                                                     self % dimensionless % Nu, &
                                                     self % dimensionless % phim, &
                                                     self % dimensionless % cvpdivcv, &
-                                                    self % dimensionless % I0 ) 
+                                                    self % dimensionless % I0, &
+                                                    self % pMesh % min, & 
+                                                    self % pMesh % max, &
+                                                    self % pMesh % bc ) 
         if (debug) call cpu_time(t6)
         if (debug2) gt3 = gt3 + (t6 - t5)
         !    
@@ -353,25 +385,35 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine ExportToVTKParticles( self )
+subroutine ExportToVTKParticles( self, iter, solution_file )
     implicit none
     class(Particles_t)      , intent(in)  :: self
+    character(len=LINE_LENGTH)            :: solution_file
+    integer                               :: iter 
 #if defined(NAVIERSTOKES)
+
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
+    character(len=LINE_LENGTH)   :: filename 
     integer     :: i
     integer     :: no_of_particles
 
+    
     no_of_particles = size( self % particle )
 
-    open(FILE = "RESULTS/particles.vtk", UNIT=10)
+    write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.parts.',iter,'.csv'
 
-    write(10,*) "i", " ", "x", " ", "y", " ", "z", " ",  "u", " ", "v", " ", "w", " ", "T"
+    open(FILE = fileName, UNIT=10)
+
+    write(10,*) "i", ",", "x coord", ",", "y coord", ",", "z coord", ",", "u", ",", "v", ",", "w", ",", "T"
     do i = 1, no_of_particles
-        write( 10, * ) i, self % particle (i) % pos,  self % particle (i) % vel, self % particle (i) % temp
+        write( 10, '(i10,7(A,E12.6))' ) i, ",", &
+          self % particle (i) % pos(1), ",", self % particle (i) % pos(2), ",", self % particle (i) % pos(3), ",",&
+          self % particle (i) % vel(1), ",", self % particle (i) % vel(2), ",", self % particle (i) % vel(3),",", &
+          self % particle (i) % temp
     enddo 
 
     close(10)

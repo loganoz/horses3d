@@ -318,7 +318,7 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0 ) 
+subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, minbox, maxbox , bcbox ) 
 #if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
     use FluidData, only : dimensionless, thermodynamics
@@ -331,6 +331,10 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0 )
     real(KIND=RP), intent(in) :: phim       ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: cvpdivcv   ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: I0         ! Particle non dimensional number (radiation intensity)
+    real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
+    real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
+    integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic]      
+
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
@@ -347,7 +351,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0 )
     self % lost = .false. 
 
     if ( .not. self % active ) then 
-      call compute_bounce_parameters(self, bounce)
+      call compute_bounce_parameters(self, minbox, maxbox, bcbox, bounce)
     endif 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
@@ -387,53 +391,63 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine compute_bounce_parameters(p, bounce)
-    class(particle_t)   , intent(inout)      :: p
-    
-    real(kind=RP)        :: GEOM_TOL = 1e-5_RP
-    integer              :: i, j, k, fdir, face, eID, faceID 
-    integer, parameter   :: ploc(3)=[4,2,5] ! Face elemente mapping
-    integer, parameter   :: nloc(3)=[6,1,3]
-    integer, parameter   :: fdirmap(6) = [2,2,3,1,3,1]
-    real(kind=RP)        :: pos(3), pos_out(3), pos_in(3), xi_init(3), xi(3)
-    real(kind=RP)        :: normal(3),v_in(3), d_in(3), d_out(3), f_xi(2)
-    real(kind=RP)        :: dt_after_collision, normal_rough(3)
-    real(kind=RP)        :: CollisionPlaneNormal(3), ImpactAngle,RoughAngle
-    logical              :: inside, bounce, fine_search
-    integer, parameter   :: max_iter = 50
-    integer              :: Nxyz(3), neighbours(6)
-    real(kind=RP),allocatable  :: lxi(:), leta(:), lzeta(:)
+subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
+   class(particle_t)   , intent(inout)      :: p
+
+   real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
+   real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
+   integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic] 
+
+   real(kind=RP)        :: GEOM_TOL = 1e-10_RP
+   integer              :: i, j, k, fdir, face, eID, faceID 
+   integer, parameter   :: ploc(3)=[4,2,5] ! Face elemente mapping
+   integer, parameter   :: nloc(3)=[6,1,3]
+   integer, parameter   :: fdirmap(6) = [2,2,3,1,3,1]
+   real(kind=RP)        :: pos(3), pos_out(3), pos_in(3), xi_init(3), xi(3)
+   real(kind=RP)        :: normal(3),v_in(3), d_in(3), d_out(3), f_xi(2)
+   real(kind=RP)        :: dt_after_collision, normal_rough(3)
+   real(kind=RP)        :: CollisionPlaneNormal(3), ImpactAngle,RoughAngle
+   logical              :: inside, bounce, fine_search
+   integer, parameter   :: max_iter = 50
+   integer              :: Nxyz(3), neighbours(6)
+   real(kind=RP),allocatable  :: lxi(:), leta(:), lzeta(:)
+
+   logical              :: exitFace(3,2)
 
 
-    eID         = p%eID_old
-    pos_out     = p%pos
-    xi_init     = p%xi_old
-    bounce      = .false.
-    fine_search = .false.
-    
-    ! Search the face intersected by the trace
-    ! -----
+   eID         = p%eID_old
+   pos_out     = p%pos
+   xi_init     = p%xi_old
+   bounce      = .false.
+   fine_search = .false.
+   
+   !  IMPORTANT!
+   !  With the modifications included with the box definition, this is only valid
+   ! for boxes. A different implementation is required for any geometry.
+   ! The general version can be found in a previous commit without this message. 
 
-    !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
-    fdir = maxloc (abs(xi_init), dim=1)
+   ! Search the face intersected by the trace
+   ! -----
+   
+   !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
+   fdir = maxloc (abs(xi_init), dim=1)
 
-    if (xi_init(fdir) > 0._RP) then
-       face = ploc(fdir)
-    else
-       face = nloc(fdir)
-    end if
+   if (xi_init(fdir) > 0._RP) then
+      face = ploc(fdir)
+   else
+      face = nloc(fdir)
+   end if
 
-    ! Check face boundary type
-    if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
-        & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
-       bounce = .true.
-       fine_search = .false.
-    else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
+   ! Check face boundary type
+   if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
+       & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
+      bounce = .true.
+      fine_search = .false.
+   else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
        ! Particle is closer to an interior face than a boundary, 
        ! Collision may occur in other element
        bounce = .true.
        fine_search = .true.
-
     else
        ! The particle has reached a permeable boundary
        bounce = .false.
@@ -535,13 +549,25 @@ subroutine compute_bounce_parameters(p, bounce)
        if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
         & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
           bounce = .true.
-       
        else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
-          ! Particle has left the domain through an intertal face, the
+      ! Check exit face of the box [i+-,j+-,k+-]
+
+         ! Particle has left the domain through a periodic face.
+         if ( p % pos(1) < minbox(1) ) p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+         if ( p % pos(2) < minbox(2) ) p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+         if ( p % pos(3) < minbox(3) ) p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+         if ( p % pos(1) > maxbox(1) ) p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+         if ( p % pos(2) > maxbox(2) ) p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) ) 
+         if ( p % pos(3) > maxbox(3) ) p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+
+         p % eID = p%eID_old 
+         call p % setGlobalPos ( p % mesh )
+
+         ! Particle has left the domain through an intertal face, the
           !  particle is lost
           bounce = .false.
           !Write (*,*) "Warning, particle lost after crossing internal face"
-          p%lost = .true.
+          !p%lost = .true.
           return
        
        else
