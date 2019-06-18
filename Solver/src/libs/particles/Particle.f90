@@ -412,8 +412,14 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
    integer              :: Nxyz(3), neighbours(6)
    real(kind=RP),allocatable  :: lxi(:), leta(:), lzeta(:)
 
+   real(KIND=RP)        :: v(3), T 
+
    logical              :: exitFace(3,2)
 
+   v(1) = 0.0_RP
+   v(2) = 1.0_RP
+   v(3) = 0.0_RP
+   T    = 1.0_RP 
 
    eID         = p%eID_old
    pos_out     = p%pos
@@ -552,13 +558,92 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
        else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
       ! Check exit face of the box [i+-,j+-,k+-]
 
-         ! Particle has left the domain through a periodic face.
-         if ( p % pos(1) < minbox(1) ) p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
-         if ( p % pos(2) < minbox(2) ) p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
-         if ( p % pos(3) < minbox(3) ) p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
-         if ( p % pos(1) > maxbox(1) ) p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
-         if ( p % pos(2) > maxbox(2) ) p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) ) 
-         if ( p % pos(3) > maxbox(3) ) p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+         ! bcbox[yz,xz,xy] 0 is inflow/outflow, 1 is wall, 2 is periodic  
+         if ( p % pos(1) < minbox(1) ) then 
+            if     ( bcbox(1) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+            elseif ( bcbox(1) == 1 ) then 
+               print*, "Warning. Particle lost through wall."
+            elseif ( bcbox(1) == 2 ) then  
+               p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+            endif
+         endif 
+
+         if ( p % pos(2) < minbox(2) ) then 
+            if     ( bcbox(2) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+            elseif ( bcbox(2) == 1 ) then 
+               print*, "Warning. Particle lost through wall."   
+            elseif ( bcbox(2) == 2 ) then  
+               p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+            endif
+         endif 
+
+         if ( p % pos(3) < minbox(3) ) then 
+            if     ( bcbox(3) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+            elseif ( bcbox(3) == 1 ) then 
+               print*, "Warning. Particle lost through wall."
+               print*, p % pos(3)
+            elseif ( bcbox(3) == 2 ) then  
+               p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+            endif
+         endif 
+
+         if ( p % pos(1) > maxbox(1) ) then 
+            if     ( bcbox(1) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+            elseif ( bcbox(1) == 1 ) then 
+               print*, "Warning. Particle lost through wall."
+            elseif ( bcbox(1) == 2 ) then  
+               p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+            endif
+         endif 
+
+         if ( p % pos(2) > maxbox(2) ) then 
+            if     ( bcbox(2) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) )
+            elseif ( bcbox(2) == 1 ) then 
+               print*, "Warning. Particle lost through wall."
+            elseif ( bcbox(2) == 2 ) then  
+               p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) ) 
+            endif
+         endif 
+
+         if ( p % pos(3) > maxbox(3) ) then 
+            if     ( bcbox(3) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               call p % set_vel  ( v )
+               call p % set_temp ( T )
+               p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+            elseif ( bcbox(3) == 1 ) then 
+               print*, "Warning. Particle lost through wall."
+               print*, p % pos(3)               
+            elseif ( bcbox(3) == 2 ) then  
+               p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+            endif
+         endif 
 
          p % eID = p%eID_old 
          call p % setGlobalPos ( p % mesh )
@@ -798,7 +883,7 @@ subroutine particle_source ( self, e, source )
     integer         :: i ,j, k                     
     real(kind=RP)   :: delta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) 
     real(kind=RP)   :: x(3) 
-    real(kind=RP)   :: val 
+    real(kind=RP)   :: val, vol  
     real(kind=RP)   :: dx 
 
     if ( .not. self % active ) return 
@@ -806,11 +891,11 @@ subroutine particle_source ( self, e, source )
     !**************************************
     ! COMPUTE SCALING OF THE ELEMENT (dx) 
     !**************************************
-    val = 0.0_RP
+    vol = 0.0_RP
     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-      val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+      vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
     end do            ; end do           ; end do
-    dx = val ** (1.0_RP/3.0_RP)
+    dx = vol ** (1.0_RP/3.0_RP)
     !*********************************
     ! CONSTRUCT DISCRETE DIRAC DELTA
     !*********************************
@@ -829,7 +914,10 @@ subroutine particle_source ( self, e, source )
     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
       val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
     end do            ; end do           ; end do
-    delta = delta / val 
+    !print*, "val", val, "vol", vol 
+    !delta = delta * vol / val 
+   delta = delta / val 
+    !print*,"val", maxval(delta), maxval(delta * val)     
     !*****************************
     ! COMPUTATION OF SOURCE TERM 
     !*****************************

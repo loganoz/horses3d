@@ -477,6 +477,7 @@ module SpatialDiscretization
 !           ********************
 !           Add Particles source
 !           ********************
+            e % storage % S_NS = 0.0_RP
             if ( particles % active ) then            
                if (.not. mesh % child) then             
 !$omp do schedule(runtime)
