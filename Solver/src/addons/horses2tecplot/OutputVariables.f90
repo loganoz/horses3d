@@ -320,8 +320,8 @@ module OutputVariables
    
                case(T_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP) * refs(GAMMA_REF) * POW2(refs(MACH_REF)) * (Q(IRHOE,i,j,k) - 0.5_RP*&
-                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /POW2(Q(IRHO,i,j,k))) 
+                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP) * refs(GAMMA_REF) * POW2(refs(MACH_REF)) / Q(IRHO,i,j,k) * (Q(IRHOE,i,j,k) - 0.5_RP*&
+                                       ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k)) 
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(T_REF) * output(var,:,:,:)
    
