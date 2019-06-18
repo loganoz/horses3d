@@ -453,7 +453,14 @@
 !        ------------------------
          if ( sem % particles % active ) then 
             call sem % particles % Integrate(sem % mesh, dt)
+            if ( sem % particles % injection % active ) then 
+               if ( (MOD(k+1, sem % particles % injection % period) == 0 ) .or. (k .eq. self % initial_iter) ) then 
+                  call sem % particles % inject( sem % mesh )
+               endif 
+            endif 
          endif 
+
+
 #endif
 !
 !        Print monitors
@@ -470,7 +477,11 @@
 !        --------         
          if ( self % autosave % Autosave(k+1) ) then
             call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
-   
+#if defined(NAVIERSTOKES)            
+            if ( sem % particles % active ) then 
+               call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
+            end if 
+#endif 
          end if
 
 !        Flush monitors
