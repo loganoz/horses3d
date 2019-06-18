@@ -375,7 +375,8 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
                                         / ( thermodynamics_ % gammaminus1 * dimensionless_ % Pr * &
                                         dimensionless_ % Mach ** 2 * d % St )
             ! Add to NS source term
-            e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) + Source(:,i,j,k)
+            !e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) + Source(:,i,j,k)
+            e % storage % S_NS(:,i,j,k) = Source(:,i,j,k)
             !   Add source term to Qdot                           
             !e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source(:,i,j,k)
         end do                  ; end do                ; end do

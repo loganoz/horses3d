@@ -477,7 +477,13 @@ module SpatialDiscretization
 !           ********************
 !           Add Particles source
 !           ********************
-            e % storage % S_NS = 0.0_RP
+!$omp do schedule(runtime)            
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )            
+                  e % storage % S_NS = 0.0_RP
+               end associate
+            enddo 
+!$omp end do             
             if ( particles % active ) then            
                if (.not. mesh % child) then             
 !$omp do schedule(runtime)
