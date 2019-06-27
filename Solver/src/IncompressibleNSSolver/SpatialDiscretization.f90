@@ -462,7 +462,7 @@ module SpatialDiscretization
                if ( particles % active ) then             
 !$omp do schedule(runtime)
                   do eID = 1, size(mesh % elements)
-                     call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+                  !   call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
                   end do
 !$omp end do
                endif 
