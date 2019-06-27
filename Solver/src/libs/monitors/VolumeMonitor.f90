@@ -116,6 +116,7 @@ module VolumeMonitorClass
          case ("velocity") ; self % num_of_vars = 3
          case ("momentum") ; self % num_of_vars = 3
          case ("source")   ; self % num_of_vars = NTOTALVARS
+         case ("particles source")   ; self % num_of_vars = NTOTALVARS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -133,6 +134,7 @@ module VolumeMonitorClass
                print*, "   * Velocity"
                print*, "   * Momentum"
                print*, "   * source"
+               print*, "   * particles source"
                stop "Stopped."
 
             end if
@@ -180,6 +182,8 @@ module VolumeMonitorClass
                   write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-rhou', 'mean-rhov', 'mean-rhow'
                case("source")
                   write( fID , '(A10,2X,A24,5(2X,A24))') "#Iteration" , "Time" , 'S1', 'S2', 'S3', 'S4', 'S5'
+               case("particles source")
+                  write( fID , '(A10,2X,A24,5(2X,A24))') "#Iteration" , "Time" , 'pS1', 'pS2', 'pS3', 'pS4', 'pS5'
                case default
                   write( fID , '(A10,2X,A24,2X,A24)'   ) "#Iteration" , "Time" , trim(self % variable)
             end select
@@ -238,6 +242,9 @@ module VolumeMonitorClass
          case ("source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
 
+         case ("particles source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
 #elif defined(CAHNHILLIARD)
          case ("free energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, FREE_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
@@ -266,6 +273,8 @@ module VolumeMonitorClass
                write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-rhou', 'mean-rhov', 'mean-rhow'
             case("source")
                write(STD_OUT , '(5(3X,A10))' , advance = "no") 'S1', 'S2', 'S3', 'S4', 'S5'
+            case("particles source")
+               write(STD_OUT , '(5(3X,A10))' , advance = "no") 'pS1', 'pS2', 'pS3', 'pS4', 'pS5'
             case default
                write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
          end select

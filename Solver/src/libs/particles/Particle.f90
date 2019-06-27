@@ -563,9 +563,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(1) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
             elseif ( bcbox(1) == 1 ) then 
                print*, "Warning. Particle lost through wall."
             elseif ( bcbox(1) == 2 ) then  
@@ -577,9 +577,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(2) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
             elseif ( bcbox(2) == 1 ) then 
                print*, "Warning. Particle lost through wall."   
             elseif ( bcbox(2) == 2 ) then  
@@ -591,9 +591,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(3) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
             elseif ( bcbox(3) == 1 ) then 
                print*, "Warning. Particle lost through wall."
                print*, p % pos(3)
@@ -606,9 +606,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(1) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
             elseif ( bcbox(1) == 1 ) then 
                print*, "Warning. Particle lost through wall."
             elseif ( bcbox(1) == 2 ) then  
@@ -620,9 +620,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(2) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) )
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) )
             elseif ( bcbox(2) == 1 ) then 
                print*, "Warning. Particle lost through wall."
             elseif ( bcbox(2) == 2 ) then  
@@ -634,9 +634,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
             if     ( bcbox(3) == 0 ) then 
                ! Particle abandoned the domain through inflow or outflow
                ! Reinject at outflow or inflow
-               call p % set_vel  ( v )
-               call p % set_temp ( T )
-               p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
             elseif ( bcbox(3) == 1 ) then 
                print*, "Warning. Particle lost through wall."
                print*, p % pos(3)               
@@ -891,33 +891,45 @@ subroutine particle_source ( self, e, source )
     !**************************************
     ! COMPUTE SCALING OF THE ELEMENT (dx) 
     !**************************************
+
+    ! only once! 
     vol = 0.0_RP
     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
       vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
     end do            ; end do           ; end do
     dx = vol ** (1.0_RP/3.0_RP)
-    !*********************************
-    ! CONSTRUCT DISCRETE DIRAC DELTA
-    !*********************************
-    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-      x = e % geom % x(:,i,j,k)
-      !Compute value of approximation of delta Diract (exp)
-      delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
-                          x(2) - self % x(2), &
-                          x(3) - self % x(3), &
-                          dx )
-    enddo ; enddo ; enddo    
-    !*********************************************************************************
-    ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
-    !*********************************************************************************
-    val = 0.0_RP
-    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-      val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
-    end do            ; end do           ; end do
-    !print*, "val", val, "vol", vol 
-    !delta = delta * vol / val 
-   delta = delta / val 
-    !print*,"val", maxval(delta), maxval(delta * val)     
+
+    delta = 1.0_RP / vol 
+
+
+   !  !*********************************
+   !  ! CONSTRUCT DISCRETE DIRAC DELTA
+   !  !*********************************
+   !  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+   !    x = e % geom % x(:,i,j,k)
+   !    !Compute value of approximation of delta Diract (exp)
+   !    delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
+   !                        x(2) - self % x(2), &
+   !                        x(3) - self % x(3), &
+   !                        dx )
+   !  enddo ; enddo ; enddo
+
+
+    
+   !  !*********************************************************************************
+   !  ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
+   !  !*********************************************************************************
+   !  val = 0.0_RP
+   !  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+   !    val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
+   !  end do            ; end do           ; end do
+   !  !print*, "delta", maxval(delta), minval(delta)
+   !  !print*, "val", val, "vol", vol 
+   !  !delta = delta * vol / val 
+   !  ! CON ESTO DESACTIVADO PIERDO ENERGÍA. TENGO QUE EXTENDER ESTA IDEA A LOS VECINOS. 
+   !  ! HACER SOLO UNA VEZ POR PARTICULA
+   !  delta = delta / val !!!!!!!!!!!!!!!!
+   !  !print*,"val", maxval(delta), maxval(delta * val)     
     !*****************************
     ! COMPUTATION OF SOURCE TERM 
     !*****************************
@@ -943,7 +955,7 @@ function deltaDirac(x,y,z,dx)
     real(kind=RP)            :: sigma 
 
     !sigma = 1.5 * D
-    sigma = dx / 10 
+    sigma = 1.5 * dx
     ! This value has been taken from Maxey, Patel, Chang and Wang 1997
     ! According to them, sigma > 1.5 grid spacing AND sigma > 1.3 D for stability
     ! They use a value of sigma ~ D 

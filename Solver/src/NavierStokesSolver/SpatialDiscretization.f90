@@ -433,22 +433,23 @@ module SpatialDiscretization
          end if
 #endif
 
-!
-!        ***********
-!        Add gravity
-!        ***********
-!
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
-            associate(e => mesh % elements(eID))
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + &
-                                                   e % storage % Q(IRHO,i,j,k) * &
-                                 dimensionless % invFr2 * dimensionless % gravity_dir
-            end do                ; end do                ; end do
-            end associate
-         end do
-!$omp end do
+! May be in the future
+! !
+! !        ***********
+! !        Add gravity
+! !        ***********
+! !
+! !$omp do schedule(runtime) private(i,j,k)
+!          do eID = 1, mesh % no_of_elements
+!             associate(e => mesh % elements(eID))
+!             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!                e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + &
+!                                                    e % storage % Q(IRHO,i,j,k) * &
+!                                  dimensionless % invFr2 * dimensionless % gravity_dir
+!             end do                ; end do                ; end do
+!             end associate
+!          end do
+! !$omp end do
 !
 !           ***************
 !           Add source term
@@ -480,16 +481,30 @@ module SpatialDiscretization
 !$omp do schedule(runtime)            
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )            
-                  e % storage % S_NS = 0.0_RP
+                  e % storage % S_NSP = 0.0_RP
                end associate
             enddo 
 !$omp end do             
             if ( particles % active ) then            
                if (.not. mesh % child) then             
-!$omp do schedule(runtime)
-                     do eID = 1, size(mesh % elements)
-                        call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
-                     end do
+!$omp do schedule(runtime) private(j)
+                  do i = 1, particles % injection % injected + 1
+                     if (particles % particle(i) % active) then 
+                        associate ( eID => particles % particle(i) % eID )
+                        call particles % AddSource(i, mesh % elements( eID ), &
+                           t, thermodynamics, dimensionless, refValues)
+                        !do j = 1, 6
+                        !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then  
+                        !      call particles % AddSource(i, &
+                        !      mesh % elements( particles % particle(i) % mesh%elements( eID )%Connection(j)%ElementIDs(1)  ), &
+                        !      t, thermodynamics, dimensionless, refValues)
+                        !   else 
+                        !      !
+                        !   end if
+                        !end do   
+                        end associate   
+                     endif 
+                  end do
 !$omp end do
                end if
 
@@ -497,7 +512,7 @@ module SpatialDiscretization
                do eID = 1, mesh % no_of_elements
                   associate ( e => mesh % elements(eID) )
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NSP(:,i,j,k)
                   end do                  ; end do                ; end do
                   end associate
                end do

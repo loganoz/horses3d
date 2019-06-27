@@ -68,6 +68,7 @@ module StorageClass
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
+      real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term      
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
       type(Statistics_t)                   :: stats                ! NSE statistics
 !
@@ -787,6 +788,7 @@ module StorageClass
 
          ALLOCATE( self % G_NS   (NNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S_NSP  (NNS,0:Nx,0:Ny,0:Nz) )
          
          ALLOCATE( self % U_xNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )

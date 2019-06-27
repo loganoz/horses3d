@@ -16,7 +16,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -31,7 +31,7 @@ module VolumeIntegrals
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
-      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -406,6 +406,12 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
+
+            case ( PSOURCE )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do               
 #endif
             case default
                

@@ -324,6 +324,7 @@
 !           Usage example
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
+            S    = 0.0_RP
    
          end subroutine UserDefinedSourceTermNS
 #endif

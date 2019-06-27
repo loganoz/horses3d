@@ -52,6 +52,8 @@ type injection_t
     integer  :: number   ! particles injected per step
     integer  :: period   ! period of iterations between injections 
     integer  :: injected ! number of particles injected
+    real(KIND=RP) :: v(3) ! Injection velocity
+    real(KIND=RP) :: T    ! Injection temperature
 end type injection_t
 
 type Particles_t
@@ -140,10 +142,15 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     requestedLength = 132))
         self % injection % number = controlVariables % integerValueForKey(key = PART_NUMB_PER_STEP_KEY)
         self % injection % period = controlVariables % integerValueForKey(key = PART_PERIOD_KEY)
+        self % injection % v      = getRealArrayFromString( controlVariables % StringValueForKey(key = INJ_VEL_KEY,&
+        requestedLength = 132))
+        self % injection % T      = controlVariables % doublePrecisionValueForKey(INJ_TEMP_KEY)        
     else 
         self % injection % axis   = [0,0,0]
         self % injection % number = 0
         self % injection % period = 0
+        self % injection % v      = 0.0_RP
+        self % injection % T      = 0.0_RP
     endif 
 
     write(STD_OUT,'(30X,A,A28,A30)') "->" , "Initialization file: " , partFile
@@ -331,7 +338,7 @@ end subroutine IntegrateParticles
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, refValues_ )
+subroutine AddSourceParticles( self, iP, e, time, thermodynamics_, dimensionless_, refValues_ )
     USE ElementClass
 #if defined(NAVIERSTOKES)
     use Physics,            only : sutherlandsLaw
@@ -339,6 +346,7 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
 #endif
     IMPLICIT NONE
     class(Particles_t)      , intent(in)    :: self
+    integer                 , intent(in)    :: iP 
     CLASS(element)          , intent(inout) :: e
     REAL(KIND=RP)           , intent(in)    :: time
     type(Thermodynamics_t)  , intent(in)    :: thermodynamics_
@@ -351,40 +359,44 @@ subroutine AddSourceParticles( self, e, time, thermodynamics_, dimensionless_, r
 !        ---------------
 !
     integer                     :: i, j, k, eID
-    real(KIND=RP), allocatable  :: Source(:,:,:,:)
+    real(KIND=RP)               :: Source( NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) )
 
     real :: t1,t2
 
 !    call cpu_time(t1)
-    if ( self % no_of_particles > 0 ) then
+!    if ( self % no_of_particles > 0 ) then
         associate ( d => self % dimensionless )
-        allocate( Source( NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) )  
-        call self % computeSourceTerm( e, Source )                          
-        do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+        !allocate( Source( NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) )  
+        call self % computeSourceTerm( e, iP, Source )                          
+        !do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
             !   Compute source term in coordinate i, j, k
             !   Contributions of all the particles are taken into account
             !   TDG: these numbers that are going to be used a lot of times. Store them somewhere
 
-            Source(1, i, j, k ) = 0.0_RP
+            Source(1, :, :, : ) = 0.0_RP
 
-            Source(2:4, i, j, k) = Source(2:4, i, j, k) * d % phim / ( self % no_of_particles * d % St) * &
+            Source(2:4, :, :, :) = Source(2:4, :, :, :) * d % phim / ( self % no_of_particles * d % St) * &
                 SutherlandsLaw( Temperature( e % storage % Q(:,i,j,k) ) ) 
 
-            Source(5, i, j, k)   = Source(5, i, j, k)   * d % phim / (3 * self % no_of_particles) * d % Nu &
+            Source(5, :, :, :)   = Source(5, :, :, :)   * d % phim / (3 * self % no_of_particles) * d % Nu &
                                         / ( thermodynamics_ % gammaminus1 * dimensionless_ % Pr * &
                                         dimensionless_ % Mach ** 2 * d % St )
+        !end do                  ; end do                ; end do
+
             ! Add to NS source term
             !e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) + Source(:,i,j,k)
-            e % storage % S_NS(:,i,j,k) = Source(:,i,j,k)
+!$omp critical
+        e % storage % S_NSP = e % storage % S_NSP + Source
+!$omp end critical
             !   Add source term to Qdot                           
             !e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source(:,i,j,k)
-        end do                  ; end do                ; end do
-        deallocate(Source)
+
+        !deallocate(Source)
         end associate 
-    else 
+!    else 
         !Nothing
-    endif 
+!    endif 
 !    call cpu_time(t2)
 
 !    print*, "Compute and add source", t2-t1, "seconds"
@@ -393,19 +405,19 @@ end subroutine AddSourceParticles
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine ComputeSourceTermParticles(self, e, Source)
+subroutine ComputeSourceTermParticles(self, e, iP, Source)
     USE ElementClass    
     IMPLICIT NONE
     class(Particles_t)      , intent(in)    :: self
     class(element)          , intent(in)    :: e     
+    integer                 , intent(in)    :: iP 
     real(KIND=RP)           , intent(out)   :: Source(:,0:,0:,0:)
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
 !        Local variables
 !        ---------------
-!
-    integer       :: iP  
+! 
     integer       :: neighbours(6),j 
 
     ! Find the neighbours of the element in which the particle is
@@ -419,11 +431,11 @@ subroutine ComputeSourceTermParticles(self, e, Source)
     ! end do     
 
     Source = 0.0_RP
-    do iP = 1, self % injection % injected + 1
-        if (self % particle(iP) % active ) then
-            if (self % particle(iP) % eID == e % eID) then 
+!    do iP = 1, self % injection % injected + 1
+!        if (self % particle(iP) % active ) then
+            !if (self % particle(iP) % eID == e % eID) then 
                 call self % particle(iP) % Source( e, Source )
-            else
+            !else
                 ! do j = 1,6
                 !     if ( neighbours(j) == e % eID ) then 
                 !         call self % particle(iP) % Source( e, Source )    
@@ -433,13 +445,13 @@ subroutine ComputeSourceTermParticles(self, e, Source)
                 ! the element 
            
 
-            endif 
+            !endif 
             ! print*, "e % eID", e % eID
             ! print*, "neighbours", neighbours
             ! read(*,*)
             !Source = Source + self % particle(iP) % Source()
-        endif 
-    enddo 
+ !       endif 
+!    enddo 
 #endif
 end subroutine 
 !
@@ -510,11 +522,9 @@ subroutine InjectParticles( self, mesh  )
     endif 
 
     ! Injection velocity
-    v(1) = 0.0_RP
-    v(2) = 1.0_RP
-    v(3) = 0.0_RP
+    v = self % injection % v 
     ! Injection temperature
-    T    = 1.0_RP
+    T = self % injection % T
     
 !$omp do schedule(runtime) private(k, pos)
     do i = self % injection % injected, self % injection % injected + self % injection % number
