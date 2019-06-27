@@ -422,140 +422,141 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
    T    = 1.0_RP 
 
    eID         = p%eID_old
+   pos_in      = p%pos_old
    pos_out     = p%pos
    xi_init     = p%xi_old
    bounce      = .false.
    fine_search = .false.
    
-   !  IMPORTANT!
-   !  With the modifications included with the box definition, this is only valid
-   ! for boxes. A different implementation is required for any geometry.
-   ! The general version can be found in a previous commit without this message. 
+   ! !  IMPORTANT!
+   ! !  With the modifications included with the box definition, this is only valid
+   ! ! for boxes. A different implementation is required for any geometry.
+   ! ! The general version can be found in a previous commit without this message. 
 
-   ! Search the face intersected by the trace
-   ! -----
+   ! ! Search the face intersected by the trace
+   ! ! -----
    
-   !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
-   fdir = maxloc (abs(xi_init), dim=1)
+   ! !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
+   ! fdir = maxloc (abs(xi_init), dim=1)
 
-   if (xi_init(fdir) > 0._RP) then
-      face = ploc(fdir)
-   else
-      face = nloc(fdir)
-   end if
+   ! if (xi_init(fdir) > 0._RP) then
+   !    face = ploc(fdir)
+   ! else
+   !    face = nloc(fdir)
+   ! end if
 
-   ! Check face boundary type
-   if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
-       & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
-      bounce = .true.
-      fine_search = .false.
-   else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
-       ! Particle is closer to an interior face than a boundary, 
-       ! Collision may occur in other element
-       bounce = .true.
-       fine_search = .true.
-    else
-       ! The particle has reached a permeable boundary
-       bounce = .false.
-    end if
+   ! ! Check face boundary type
+   ! if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
+   !     & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
+   !    bounce = .true.
+   !    fine_search = .false.
+   ! else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
+   !     ! Particle is closer to an interior face than a boundary, 
+   !     ! Collision may occur in other element
+   !     bounce = .true.
+   !     fine_search = .true.
+   !  else
+   !     ! The particle has reached a permeable boundary
+   !     bounce = .false.
+   !  end if
 
-    if (.not. bounce) return
+   !  if (.not. bounce) return
 
 
-    ! Compute intersection between particle trace and face
-    ! ----
+   !  ! Compute intersection between particle trace and face
+   !  ! ----
     
-    ! The fast way
-    if (.not. fine_search) then
+   !  ! The fast way
+   !  if (.not. fine_search) then
 
-       pos_in   = p%pos_old
-       pos_out  = p%pos
-       xi_init  = 0._RP
+   !     pos_in   = p%pos_old
+   !     pos_out  = p%pos
+   !     xi_init  = 0._RP
        
-       ! Try locationg the collision pont using a bisection method
-       do i = 1, max_iter
-          pos = 0.5_RP * (pos_in + pos_out)
-          !inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi, xi_init)
-          inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+   !     ! Try locationg the collision pont using a bisection method
+   !     do i = 1, max_iter
+   !        pos = 0.5_RP * (pos_in + pos_out)
+   !        !inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi, xi_init)
+   !        inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
        
-          if (inside) then
-             ! Check tolerance in the face direction
-             if (abs(abs(xi(fdir))-1._RP) < GEOM_TOL) then
-                exit
-             else
-                pos_in = pos
-                xi_init = xi
-             end if
-          else
-             pos_out = pos
-          end if
-       end do
-       ! If collision point has not been found, activate the fine search 
-       if (i >= max_iter)  fine_search = .true.
-    end if
+   !        if (inside) then
+   !           ! Check tolerance in the face direction
+   !           if (abs(abs(xi(fdir))-1._RP) < GEOM_TOL) then
+   !              exit
+   !           else
+   !              pos_in = pos
+   !              xi_init = xi
+   !           end if
+   !        else
+   !           pos_out = pos
+   !        end if
+   !     end do
+   !     ! If collision point has not been found, activate the fine search 
+   !     if (i >= max_iter)  fine_search = .true.
+   !  end if
 
 
     
-    ! Try to find the collision point using a more expensive method in case
-    ! the fast method fails
+   !  ! Try to find the collision point using a more expensive method in case
+   !  ! the fast method fails
 
-    if (fine_search) then
+   !  if (fine_search) then
        
-       pos_in   = p%pos_old
-       pos_out  = p%pos
-       xi_init  = p%xi_old
+   !     pos_in   = p%pos_old
+   !     pos_out  = p%pos
+   !     xi_init  = p%xi_old
        
-       ! Find the neighbours of the element in which the particle was
+   !     ! Find the neighbours of the element in which the particle was
 
-       neighbours = -1
-       do j = 1, 6
-          if (p%mesh%elements(eID)%NumberOfConnections(j) > 0) then
-                neighbours(j) = p%mesh%elements(eID)%Connection(j)%ElementIDs(1) 
-          else 
-                neighbours(j) = -1
-          end if
-       end do
+   !     neighbours = -1
+   !     do j = 1, 6
+   !        if (p%mesh%elements(eID)%NumberOfConnections(j) > 0) then
+   !              neighbours(j) = p%mesh%elements(eID)%Connection(j)%ElementIDs(1) 
+   !        else 
+   !              neighbours(j) = -1
+   !        end if
+   !     end do
 
-       iter_loop:do i = 1, max_iter
+   !     iter_loop:do i = 1, max_iter
           
-          pos = 0.5_RP * (pos_in + pos_out)
+   !        pos = 0.5_RP * (pos_in + pos_out)
           
-          ! Include neigbours when searching the point coordinates
-          call FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
+   !        ! Include neigbours when searching the point coordinates
+   !        call FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
           
-          if (inside) then
+   !        if (inside) then
 
-             if  (any( abs(xi) > 1._RP - GEOM_TOL) ) then
-                exit iter_loop
-             end if
+   !           if  (any( abs(xi) > 1._RP - GEOM_TOL) ) then
+   !              exit iter_loop
+   !           end if
              
 
-             pos_in = pos
-          else
-             pos_out = pos
-          end if
+   !           pos_in = pos
+   !        else
+   !           pos_out = pos
+   !        end if
           
-          if ((i >= max_iter))  then
-             bounce = .false.
-             !Write (*,*) "Warning, particle lost"
-             p%lost = .true.
-             return
-          end if
-       end do iter_loop
+   !        if ((i >= max_iter))  then
+   !           bounce = .false.
+   !           !Write (*,*) "Warning, particle lost"
+   !           p%lost = .true.
+   !           return
+   !        end if
+   !     end do iter_loop
 
     
-       ! Re check the collision face
-       fdir = maxloc (abs(xi), dim=1)
-       if (xi(fdir) > 0._RP) then
-          face = ploc(fdir)
-       else
-          face = nloc(fdir)
-       end if
+   !     ! Re check the collision face
+   !     fdir = maxloc (abs(xi), dim=1)
+   !     if (xi(fdir) > 0._RP) then
+   !        face = ploc(fdir)
+   !     else
+   !        face = nloc(fdir)
+   !     end if
        
-       if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
-        & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
-          bounce = .true.
-       else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
+   !     if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
+   !      & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
+   !        bounce = .true.
+   !     else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
       ! Check exit face of the box [i+-,j+-,k+-]
 
          ! bcbox[yz,xz,xy] 0 is inflow/outflow, 1 is wall, 2 is periodic  
@@ -567,7 +568,10 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
             elseif ( bcbox(1) == 1 ) then 
-               print*, "Warning. Particle lost through wall."
+               !print*, "Warning. Particle lost through wall."
+               !pos_in(1) 
+               p % pos(1) = minbox(1) - ( pos_out(1) - minbox(1) )  
+               p % vel(1)   = - p % vel(1)
             elseif ( bcbox(1) == 2 ) then  
                p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
             endif
@@ -581,7 +585,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
             elseif ( bcbox(2) == 1 ) then 
-               print*, "Warning. Particle lost through wall."   
+               !print*, "Warning. Particle lost through wall."   
+               p % pos(2) = minbox(2) - ( pos_out(2) - minbox(2) )  
+               p % vel(2)   = - p % vel(2)
             elseif ( bcbox(2) == 2 ) then  
                p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
             endif
@@ -595,8 +601,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
             elseif ( bcbox(3) == 1 ) then 
-               print*, "Warning. Particle lost through wall."
-               print*, p % pos(3)
+               !print*, "Warning. Particle lost through wall."
+               p % pos(3) = minbox(3) - ( pos_out(3) - minbox(3) )  
+               p % vel(3)   = - p % vel(3)
             elseif ( bcbox(3) == 2 ) then  
                p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
             endif
@@ -610,7 +617,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
             elseif ( bcbox(1) == 1 ) then 
-               print*, "Warning. Particle lost through wall."
+               !print*, "Warning. Particle lost through wall."
+               p % pos(1) = maxbox(1) - ( pos_out(1) - maxbox(1) )  
+               p % vel(1)   = - p % vel(1)
             elseif ( bcbox(1) == 2 ) then  
                p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
             endif
@@ -624,7 +633,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) )
             elseif ( bcbox(2) == 1 ) then 
-               print*, "Warning. Particle lost through wall."
+               !print*, "Warning. Particle lost through wall."
+               p % pos(2) = maxbox(2) - ( pos_out(2) - maxbox(2) )  
+               p % vel(2)   = - p % vel(2)
             elseif ( bcbox(2) == 2 ) then  
                p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) ) 
             endif
@@ -638,8 +649,9 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
                ! call p % set_temp ( T )
                ! p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
             elseif ( bcbox(3) == 1 ) then 
-               print*, "Warning. Particle lost through wall."
-               print*, p % pos(3)               
+               !print*, "Warning. Particle lost through wall."
+               p % pos(3) = maxbox(3) - ( pos_out(3) - maxbox(3) )  
+               p % vel(3)   = - p % vel(3)        
             elseif ( bcbox(3) == 2 ) then  
                p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
             endif
@@ -648,119 +660,119 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
          p % eID = p%eID_old 
          call p % setGlobalPos ( p % mesh )
 
-         ! Particle has left the domain through an intertal face, the
-          !  particle is lost
-          bounce = .false.
-          !Write (*,*) "Warning, particle lost after crossing internal face"
-          !p%lost = .true.
-          return
+!          ! Particle has left the domain through an intertal face, the
+!           !  particle is lost
+!           bounce = .false.
+!           !Write (*,*) "Warning, particle lost after crossing internal face"
+!           !p%lost = .true.
+!           return
        
-       else
-          ! The particle has reached a permeable boundary
-          bounce = .false.
-          return
-       end if
+!        else
+!           ! The particle has reached a permeable boundary
+!           bounce = .false.
+!           return
+!        end if
     
-    end if
+!     end if
     
-    ! Get face normal at collision point
-    ! -----
+!     ! Get face normal at collision point
+!     ! -----
     
-    faceID = p%mesh%elements(eID)%faceIDs(face)
+!     faceID = p%mesh%elements(eID)%faceIDs(face)
     
-    Nxyz        = p % mesh % elements(eID) % Nxyz
-    allocate(lxi(0:Nxyz(1)))
-    allocate(leta(0:Nxyz(2)))
-    allocate(lzeta(0:Nxyz(3)))
-    lxi(0:)     = p % mesh % elements(eID) % spAxi % lj   (xi(1))
-    leta(0:)     = p % mesh % elements(eID) % spAeta % lj  (xi(2))
-    lzeta(0:)   = p % mesh % elements(eID) % spAzeta % lj (xi(3))
+!     Nxyz        = p % mesh % elements(eID) % Nxyz
+!     allocate(lxi(0:Nxyz(1)))
+!     allocate(leta(0:Nxyz(2)))
+!     allocate(lzeta(0:Nxyz(3)))
+!     lxi(0:)     = p % mesh % elements(eID) % spAxi % lj   (xi(1))
+!     leta(0:)     = p % mesh % elements(eID) % spAeta % lj  (xi(2))
+!     lzeta(0:)   = p % mesh % elements(eID) % spAzeta % lj (xi(3))
     
-    normal = 0.0_RP
-       select case (face)
-          case (1,2)
-             do k = 0,Nxyz(3)  ; do i = 0, Nxyz(1)
-                normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,k)  * lxi(i) * lzeta(k)
-             end do            ; end do
-             f_xi = [xi(1),xi(3)]
-          case (3,5)
-             do j = 0,Nxyz(2)  ; do i = 0, Nxyz(1)
-                normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,j) * lxi(i) * leta(j)
-             end do            ; end do
-             f_xi = [xi(1),xi(2)]
-          case (4,6)
-             do j = 0,Nxyz(2)  ; do k = 0, Nxyz(3)
-                normal = normal + p%mesh%faces(faceID)%geom%normal(:,j,k) * leta(j) * lzeta(k)
-             end do            ; end do
-             f_xi = [xi(2),xi(3)]
-       end select
+!     normal = 0.0_RP
+!        select case (face)
+!           case (1,2)
+!              do k = 0,Nxyz(3)  ; do i = 0, Nxyz(1)
+!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,k)  * lxi(i) * lzeta(k)
+!              end do            ; end do
+!              f_xi = [xi(1),xi(3)]
+!           case (3,5)
+!              do j = 0,Nxyz(2)  ; do i = 0, Nxyz(1)
+!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,j) * lxi(i) * leta(j)
+!              end do            ; end do
+!              f_xi = [xi(1),xi(2)]
+!           case (4,6)
+!              do j = 0,Nxyz(2)  ; do k = 0, Nxyz(3)
+!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,j,k) * leta(j) * lzeta(k)
+!              end do            ; end do
+!              f_xi = [xi(2),xi(3)]
+!        end select
     
-    normal = - normal
-    
-
-    ! Compute velocity and position after collsion
-    ! -----
-
-!     ! Out direction
-!     print*, 595
-! !    print*, ImpactAngle
-!     print*, p%delta 
-!     read(*,*)
-    d_in  = -p%vel/norm2(p%vel)
-    normal = normal/norm2(normal)
-
-    CollisionPlaneNormal = cross(normal,d_in)
-    CollisionPlaneNormal = CollisionPlaneNormal / norm2(CollisionPlaneNormal)
+!     normal = - normal
     
 
-   !  ! Modify Colision plane using Gaussian Noise
-   !  RoughAngle = GaussianNoise() * p%delta
-   !  CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
+!     ! Compute velocity and position after collsion
+!     ! -----
+
+! !     ! Out direction
+! !     print*, 595
+! ! !    print*, ImpactAngle
+! !     print*, p%delta 
+! !     read(*,*)
+!     d_in  = -p%vel/norm2(p%vel)
+!     normal = normal/norm2(normal)
+
+!     CollisionPlaneNormal = cross(normal,d_in)
+!     CollisionPlaneNormal = CollisionPlaneNormal / norm2(CollisionPlaneNormal)
     
-   !  ! Modify Normal using Surface Rough Angle
-   !  print*, ImpactAngle
-   !  print*, p%delta 
-   !  read(*,*)
-   !  RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
-   !  normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
-    normal_rough = normal    
-    ! Specular rebound with modified normal
-    d_out = 2._RP * dot_product(normal_rough,d_in)*normal_rough - d_in
+
+!    !  ! Modify Colision plane using Gaussian Noise
+!    !  RoughAngle = GaussianNoise() * p%delta
+!    !  CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
+    
+!    !  ! Modify Normal using Surface Rough Angle
+!    !  print*, ImpactAngle
+!    !  print*, p%delta 
+!    !  read(*,*)
+!    !  RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
+!    !  normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
+!     normal_rough = normal    
+!     ! Specular rebound with modified normal
+!     d_out = 2._RP * dot_product(normal_rough,d_in)*normal_rough - d_in
    
-    ImpactAngle = PI/2._RP - acos(dot_product(normal_rough,d_in))
+!     ImpactAngle = PI/2._RP - acos(dot_product(normal_rough,d_in))
 
-    ! Velocity vector
-    ! -----
-    v_in = p%vel
-    p%vel = norm2(v_in) * d_out/norm2(d_out) * p%rcoeff
+!     ! Velocity vector
+!     ! -----
+!     v_in = p%vel
+!     p%vel = norm2(v_in) * d_out/norm2(d_out) * p%rcoeff
     
-    ! New position
-    ! -----
-    dt_after_collision = norm2(p%pos-p%pos_old)/norm2(p%vel)
+!     ! New position
+!     ! -----
+!     dt_after_collision = norm2(p%pos-p%pos_old)/norm2(p%vel)
 
-    p%pos = pos + p%vel * dt_after_collision
+!     p%pos = pos + p%vel * dt_after_collision
     
-    ! Set element and particle as active  
-    ! -----
+!     ! Set element and particle as active  
+!     ! -----
 
-    p%active = .true.
-    p%eID = eID
+!     p%active = .true.
+!     p%eID = eID
 
-    ! store collision parameters
-    ! -----
-    ! if (size(p%collisions,dim=1) == p%ncollisions ) then
-    !    call p%increase_collisions_size
-    ! end if
+!     ! store collision parameters
+!     ! -----
+!     ! if (size(p%collisions,dim=1) == p%ncollisions ) then
+!     !    call p%increase_collisions_size
+!     ! end if
     
-    ! p%ncollisions = p%ncollisions + 1
-    ! p%collisions(p%ncollisions)%pos           = pos
-    ! p%collisions(p%ncollisions)%normal        = normal
-    ! p%collisions(p%ncollisions)%vel_in        = v_in * refValues%V
-    ! p%collisions(p%ncollisions)%vel_out       = p%vel * refValues%V
-    ! p%collisions(p%ncollisions)%eID           = eID
-    ! p%collisions(p%ncollisions)%faceID        = faceID
-    ! p%collisions(p%ncollisions)%ImpactAngle   = ImpactAngle * 180._RP / PI
-    ! p%collisions(p%ncollisions)%xi            = f_xi
+!     ! p%ncollisions = p%ncollisions + 1
+!     ! p%collisions(p%ncollisions)%pos           = pos
+!     ! p%collisions(p%ncollisions)%normal        = normal
+!     ! p%collisions(p%ncollisions)%vel_in        = v_in * refValues%V
+!     ! p%collisions(p%ncollisions)%vel_out       = p%vel * refValues%V
+!     ! p%collisions(p%ncollisions)%eID           = eID
+!     ! p%collisions(p%ncollisions)%faceID        = faceID
+!     ! p%collisions(p%ncollisions)%ImpactAngle   = ImpactAngle * 180._RP / PI
+!     ! p%collisions(p%ncollisions)%xi            = f_xi
 
  end subroutine
 !
