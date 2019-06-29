@@ -832,6 +832,7 @@ module StorageClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          self % G_NS   = 0.0_RP
          self % S_NS   = 0.0_RP
+         self % S_NSP  = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          self % mu_art = 0.0_RP
@@ -879,6 +880,7 @@ module StorageClass
          to % QDotNS = from % QDotNS
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
+         to % S_NSP  = from % S_NSP
          
          to % mu_art    = from % mu_art
          to % stats     = from % stats
@@ -957,6 +959,7 @@ module StorageClass
          
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
+         safedeallocate(self % S_NSP)
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)
