@@ -12,17 +12,10 @@
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module ParticleClass
-use SMConstants
-! use NodalStorageClass
+ use SMConstants
  use HexMeshClass
  use ElementClass
  use PhysicsStorage
-! use MonitorDefinitions
-! use ResidualsMonitorClass
-! use StatisticsMonitor
-! use ProbeClass
-! use SurfaceMonitorClass
-! use VolumeMonitorClass
 implicit none
 !
 #include "Includes.h"
@@ -44,33 +37,15 @@ type Particle_t
     real(KIND=RP)   :: temp_old
     real(KIND=RP)   :: fluidVel(3)
     real(KIND=RP)   :: fluidTemp
-    ! Physical properties of the particles (independent)
-    real(KIND=RP)  :: D            !Particle diameter
-    real(KIND=RP)  :: rho          !Particle density   
-    real(KIND=RP)  :: h            !Convective heat transfer coefficient (2 x k / D_p) (Assuming Nu = 2) 
-    real(KIND=RP)  :: cv           !Particle specific heat        
 
-    ! Impact parameters 
-    real(KIND=RP)  :: rcoeff    ! Restitution coefficient
-    real(KIND=RP)  :: delta     ! Roughness angle (sommerfeld model)
-
-    ! Physical properties of the particles (dependent)
-    real(KIND=RP)  :: m            !Particle mass ( rho_p x PI x D_p^3 / 6 )
-    real(KIND=RP)  :: tau          !Aerodynamic response time ( rho_p x D_p^2 / 18 mu )
-    logical                         :: active
-    integer                         :: rank
-    integer                         :: ID
+    logical         :: active
     integer                         :: eID
     integer                         :: eID_old
     real(kind=RP)                   :: x(3)
     real(kind=RP)                   :: xi(3)
     real(kind=RP)                   :: xi_old(3)
-    real(kind=RP), allocatable      :: lxi(:) , leta(:), lzeta(:)
-    logical                         :: lost 
-!    real(kind=RP)                   :: values(BUFFER_SIZE)    
-!    character(len=STR_LEN_MONITORS) :: fileName
-!    character(len=STR_LEN_MONITORS) :: monitorName
-!    character(len=STR_LEN_MONITORS) :: variable
+    real(kind=RP), allocatable      :: lxi(:), leta(:), lzeta(:)
+
     contains
         procedure   :: init                => particle_init
         procedure   :: set_pos             => particle_set_pos
@@ -84,8 +59,6 @@ type Particle_t
         procedure   :: updateVelRK3        => particle_updateVelRK3
         procedure   :: updateTempRK3       => particle_updateTempRK3        
 end type Particle_t
-
-real(kind=RP)  :: DEG2RAD                 = PI/180._RP
 !
 !  ========
 contains
@@ -105,17 +78,8 @@ subroutine particle_init(self, mesh)
     self % fluidTemp   = 0.0_RP    
     self % active      = .true.
     self % eID         = -1
-    self % D           = 1.0_RP
-    self % rho         = 1.0_RP
-    self % h           = 1.0_RP
-    self % cv          = 1.0_RP
-    self % m           = self % rho * PI * POW3(self % D) / 6
-    self % lost        = .false. 
-    self % rcoeff      = 1.0_RP
-    self % delta       = 0.0_RP
-    !self % tau         = self % rho * POW2(self % D) / (18 * mu) 
-    ! DEPENDS ON THE FLUID VISCOSITY. IT SHOULD BE UPDATED ACCORDINGLY
-end subroutine particle_init
+
+   end subroutine particle_init
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -291,7 +255,8 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
         self % fluidTemp = 0.0_RP
         do k = 0, e % Nxyz(3)    ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
             self % fluidTemp = self % fluidTemp + temp(i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
-        end do               ; end do             ; end do            
+        end do               ; end do             ; end do        
+
        end associate
        end associate
 ! #ifdef _HAS_MPI_            
@@ -318,10 +283,10 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, minbox, maxbox , bcbox ) 
+subroutine particle_integrate ( self, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStPr, minbox, maxbox , bcbox ) 
 #if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
-    use FluidData, only : dimensionless, thermodynamics
+    use FluidData, only : dimensionless
 #endif
     implicit none
     class(Particle_t)               , intent(inout)  :: self   
@@ -329,8 +294,8 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, minbox, ma
     real(KIND=RP), intent(in) :: St         ! Particle non dimensional number
     real(KIND=RP), intent(in) :: Nu         ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: phim       ! Particle non dimensional number 
-    real(KIND=RP), intent(in) :: cvpdivcv   ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: I0         ! Particle non dimensional number (radiation intensity)
+    real(KIND=RP), intent(in) :: gammaDiv3cvpdivcvStPr ! Particle and fluid comb of properties to increase performance
     real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
     real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
     integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic]      
@@ -343,27 +308,15 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, minbox, ma
 !
     real(KIND=RP) :: mu
     real(KIND=RP) :: invFr2
-    real(KIND=RP) :: gamma
-    real(KIND=RP) :: Pr
     real(KIND=RP) :: gravity(3) 
-    logical       :: bounce 
-
-    self % lost = .false. 
 
     if ( .not. self % active ) then 
-      call compute_bounce_parameters(self, minbox, maxbox, bcbox, bounce)
+      call compute_bounce_parameters(self, minbox, maxbox, bcbox)
     endif 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
     invFr2          = dimensionless  % invFr2             ! Fluid non dimensional number
     gravity         = dimensionless  % gravity_dir        ! Direction of gravity vector (normalised)    
-    gamma           = thermodynamics % gamma              ! Fluid non dimensional number
-    Pr              = dimensionless  % Pr                 ! Fluid non dimensional number
-
-    ! St              = dimensionlessParticles % St        ! Particle non dimensional number
-    ! Nu              = dimensionlessParticles % Nu        ! Particle non dimensional number 
-    ! phim            = dimensionlessParticles % phim      ! Particle non dimensional number     
-    ! cvpdivcv        = dimensionlessParticles % cvpdivcv  ! Particle non dimensional number
 
 !
 ! RK3 method for now
@@ -383,180 +336,28 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, minbox, ma
     ! POSITION
     self % pos = self % pos + dt * self % vel
     ! TEMPERATURE
-    self % temp = self % updateTempRK3 ( dt, gamma, cvpdivcv, St, Pr, I0, Nu ) 
+    self % temp = self % updateTempRK3 ( dt, I0, Nu, gammaDiv3cvpdivcvStPr ) 
 
-    !print*,  self % pos, "//", self % vel, "//", self % temp 
 #endif
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
+subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
    class(particle_t)   , intent(inout)      :: p
 
    real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
    real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
    integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic] 
 
-   real(kind=RP)        :: GEOM_TOL = 1e-10_RP
-   integer              :: i, j, k, fdir, face, eID, faceID 
-   integer, parameter   :: ploc(3)=[4,2,5] ! Face elemente mapping
-   integer, parameter   :: nloc(3)=[6,1,3]
-   integer, parameter   :: fdirmap(6) = [2,2,3,1,3,1]
-   real(kind=RP)        :: pos(3), pos_out(3), pos_in(3), xi_init(3), xi(3)
-   real(kind=RP)        :: normal(3),v_in(3), d_in(3), d_out(3), f_xi(2)
-   real(kind=RP)        :: dt_after_collision, normal_rough(3)
-   real(kind=RP)        :: CollisionPlaneNormal(3), ImpactAngle,RoughAngle
-   logical              :: inside, bounce, fine_search
-   integer, parameter   :: max_iter = 50
-   integer              :: Nxyz(3), neighbours(6)
-   real(kind=RP),allocatable  :: lxi(:), leta(:), lzeta(:)
 
-   real(KIND=RP)        :: v(3), T 
-
-   logical              :: exitFace(3,2)
-
-   v(1) = 0.0_RP
-   v(2) = 1.0_RP
-   v(3) = 0.0_RP
-   T    = 1.0_RP 
+   integer              :: eID
+   real(kind=RP)        :: pos_out(3), pos_in(3)
 
    eID         = p%eID_old
    pos_in      = p%pos_old
    pos_out     = p%pos
-   xi_init     = p%xi_old
-   bounce      = .false.
-   fine_search = .false.
    
-   ! !  IMPORTANT!
-   ! !  With the modifications included with the box definition, this is only valid
-   ! ! for boxes. A different implementation is required for any geometry.
-   ! ! The general version can be found in a previous commit without this message. 
-
-   ! ! Search the face intersected by the trace
-   ! ! -----
-   
-   ! !inside = p%mesh%elements(eID)%FindPointWithCoords(pos_out, xi, xi_init)
-   ! fdir = maxloc (abs(xi_init), dim=1)
-
-   ! if (xi_init(fdir) > 0._RP) then
-   !    face = ploc(fdir)
-   ! else
-   !    face = nloc(fdir)
-   ! end if
-
-   ! ! Check face boundary type
-   ! if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
-   !     & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
-   !    bounce = .true.
-   !    fine_search = .false.
-   ! else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
-   !     ! Particle is closer to an interior face than a boundary, 
-   !     ! Collision may occur in other element
-   !     bounce = .true.
-   !     fine_search = .true.
-   !  else
-   !     ! The particle has reached a permeable boundary
-   !     bounce = .false.
-   !  end if
-
-   !  if (.not. bounce) return
-
-
-   !  ! Compute intersection between particle trace and face
-   !  ! ----
-    
-   !  ! The fast way
-   !  if (.not. fine_search) then
-
-   !     pos_in   = p%pos_old
-   !     pos_out  = p%pos
-   !     xi_init  = 0._RP
-       
-   !     ! Try locationg the collision pont using a bisection method
-   !     do i = 1, max_iter
-   !        pos = 0.5_RP * (pos_in + pos_out)
-   !        !inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi, xi_init)
-   !        inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
-       
-   !        if (inside) then
-   !           ! Check tolerance in the face direction
-   !           if (abs(abs(xi(fdir))-1._RP) < GEOM_TOL) then
-   !              exit
-   !           else
-   !              pos_in = pos
-   !              xi_init = xi
-   !           end if
-   !        else
-   !           pos_out = pos
-   !        end if
-   !     end do
-   !     ! If collision point has not been found, activate the fine search 
-   !     if (i >= max_iter)  fine_search = .true.
-   !  end if
-
-
-    
-   !  ! Try to find the collision point using a more expensive method in case
-   !  ! the fast method fails
-
-   !  if (fine_search) then
-       
-   !     pos_in   = p%pos_old
-   !     pos_out  = p%pos
-   !     xi_init  = p%xi_old
-       
-   !     ! Find the neighbours of the element in which the particle was
-
-   !     neighbours = -1
-   !     do j = 1, 6
-   !        if (p%mesh%elements(eID)%NumberOfConnections(j) > 0) then
-   !              neighbours(j) = p%mesh%elements(eID)%Connection(j)%ElementIDs(1) 
-   !        else 
-   !              neighbours(j) = -1
-   !        end if
-   !     end do
-
-   !     iter_loop:do i = 1, max_iter
-          
-   !        pos = 0.5_RP * (pos_in + pos_out)
-          
-   !        ! Include neigbours when searching the point coordinates
-   !        call FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
-          
-   !        if (inside) then
-
-   !           if  (any( abs(xi) > 1._RP - GEOM_TOL) ) then
-   !              exit iter_loop
-   !           end if
-             
-
-   !           pos_in = pos
-   !        else
-   !           pos_out = pos
-   !        end if
-          
-   !        if ((i >= max_iter))  then
-   !           bounce = .false.
-   !           !Write (*,*) "Warning, particle lost"
-   !           p%lost = .true.
-   !           return
-   !        end if
-   !     end do iter_loop
-
-    
-   !     ! Re check the collision face
-   !     fdir = maxloc (abs(xi), dim=1)
-   !     if (xi(fdir) > 0._RP) then
-   !        face = ploc(fdir)
-   !     else
-   !        face = nloc(fdir)
-   !     end if
-       
-   !     if ( (trim(p%mesh%elements(eID)%boundaryName(face)) == "wall") .or. &
-   !      & (trim(p%mesh%elements(eID)%boundaryName(face)) == "pipe") ) then
-   !        bounce = .true.
-   !     else if (trim(p%mesh%elements(eID)%boundaryName(face)) == "---") then
       ! Check exit face of the box [i+-,j+-,k+-]
 
          ! bcbox[yz,xz,xy] 0 is inflow/outflow, 1 is wall, 2 is periodic  
@@ -660,120 +461,6 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox, bounce)
          p % eID = p%eID_old 
          call p % setGlobalPos ( p % mesh )
 
-!          ! Particle has left the domain through an intertal face, the
-!           !  particle is lost
-!           bounce = .false.
-!           !Write (*,*) "Warning, particle lost after crossing internal face"
-!           !p%lost = .true.
-!           return
-       
-!        else
-!           ! The particle has reached a permeable boundary
-!           bounce = .false.
-!           return
-!        end if
-    
-!     end if
-    
-!     ! Get face normal at collision point
-!     ! -----
-    
-!     faceID = p%mesh%elements(eID)%faceIDs(face)
-    
-!     Nxyz        = p % mesh % elements(eID) % Nxyz
-!     allocate(lxi(0:Nxyz(1)))
-!     allocate(leta(0:Nxyz(2)))
-!     allocate(lzeta(0:Nxyz(3)))
-!     lxi(0:)     = p % mesh % elements(eID) % spAxi % lj   (xi(1))
-!     leta(0:)     = p % mesh % elements(eID) % spAeta % lj  (xi(2))
-!     lzeta(0:)   = p % mesh % elements(eID) % spAzeta % lj (xi(3))
-    
-!     normal = 0.0_RP
-!        select case (face)
-!           case (1,2)
-!              do k = 0,Nxyz(3)  ; do i = 0, Nxyz(1)
-!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,k)  * lxi(i) * lzeta(k)
-!              end do            ; end do
-!              f_xi = [xi(1),xi(3)]
-!           case (3,5)
-!              do j = 0,Nxyz(2)  ; do i = 0, Nxyz(1)
-!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,i,j) * lxi(i) * leta(j)
-!              end do            ; end do
-!              f_xi = [xi(1),xi(2)]
-!           case (4,6)
-!              do j = 0,Nxyz(2)  ; do k = 0, Nxyz(3)
-!                 normal = normal + p%mesh%faces(faceID)%geom%normal(:,j,k) * leta(j) * lzeta(k)
-!              end do            ; end do
-!              f_xi = [xi(2),xi(3)]
-!        end select
-    
-!     normal = - normal
-    
-
-!     ! Compute velocity and position after collsion
-!     ! -----
-
-! !     ! Out direction
-! !     print*, 595
-! ! !    print*, ImpactAngle
-! !     print*, p%delta 
-! !     read(*,*)
-!     d_in  = -p%vel/norm2(p%vel)
-!     normal = normal/norm2(normal)
-
-!     CollisionPlaneNormal = cross(normal,d_in)
-!     CollisionPlaneNormal = CollisionPlaneNormal / norm2(CollisionPlaneNormal)
-    
-
-!    !  ! Modify Colision plane using Gaussian Noise
-!    !  RoughAngle = GaussianNoise() * p%delta
-!    !  CollisionPlaneNormal = rotate_vector(CollisionPlaneNormal, d_in, RoughAngle)
-    
-!    !  ! Modify Normal using Surface Rough Angle
-!    !  print*, ImpactAngle
-!    !  print*, p%delta 
-!    !  read(*,*)
-!    !  RoughAngle = WallRoughnessAngleFast(ImpactAngle, p%delta)
-!    !  normal_rough = rotate_vector(normal, CollisionPlaneNormal, p%delta)
-!     normal_rough = normal    
-!     ! Specular rebound with modified normal
-!     d_out = 2._RP * dot_product(normal_rough,d_in)*normal_rough - d_in
-   
-!     ImpactAngle = PI/2._RP - acos(dot_product(normal_rough,d_in))
-
-!     ! Velocity vector
-!     ! -----
-!     v_in = p%vel
-!     p%vel = norm2(v_in) * d_out/norm2(d_out) * p%rcoeff
-    
-!     ! New position
-!     ! -----
-!     dt_after_collision = norm2(p%pos-p%pos_old)/norm2(p%vel)
-
-!     p%pos = pos + p%vel * dt_after_collision
-    
-!     ! Set element and particle as active  
-!     ! -----
-
-!     p%active = .true.
-!     p%eID = eID
-
-!     ! store collision parameters
-!     ! -----
-!     ! if (size(p%collisions,dim=1) == p%ncollisions ) then
-!     !    call p%increase_collisions_size
-!     ! end if
-    
-!     ! p%ncollisions = p%ncollisions + 1
-!     ! p%collisions(p%ncollisions)%pos           = pos
-!     ! p%collisions(p%ncollisions)%normal        = normal
-!     ! p%collisions(p%ncollisions)%vel_in        = v_in * refValues%V
-!     ! p%collisions(p%ncollisions)%vel_out       = p%vel * refValues%V
-!     ! p%collisions(p%ncollisions)%eID           = eID
-!     ! p%collisions(p%ncollisions)%faceID        = faceID
-!     ! p%collisions(p%ncollisions)%ImpactAngle   = ImpactAngle * 180._RP / PI
-!     ! p%collisions(p%ncollisions)%xi            = f_xi
-
  end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
@@ -843,17 +530,14 @@ end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) result(Q)
-        implicit none 
+function particle_updateTempRK3 (self, dt, I0, Nu, gammaDiv3cvpdivcvStPr ) result(Q)
+        implicit none
     
         class(Particle_t), intent(in)     :: self 
         real(KIND=RP),     intent(in)     :: dt
-        real(KIND=RP),     intent(in)     :: gamma
-        real(KIND=RP),     intent(in)     :: cvpdivcv
-        real(KIND=RP),     intent(in)     :: St
-        real(KIND=RP),     intent(in)     :: Pr
         real(KIND=RP),     intent(in)     :: I0
         real(KIND=RP),     intent(in)     :: Nu
+        real(KIND=RP),     intent(in)     :: gammaDiv3cvpdivcvStPr
         real(KIND=RP)                     :: Q
 #if defined(NAVIERSTOKES)    
     !
@@ -866,12 +550,11 @@ function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) res
         REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
         REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
         REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)   
-    
-        !TDG: convert gamma / (3 * cvpdivcv * St * Pr) into a variable
+
         G    = 0.0_RP
         Q = self % temp
         DO k = 1,3
-            Qdot = gamma / (3 * cvpdivcv * St * Pr) * &
+            Qdot = gammaDiv3cvpdivcvStPr * &
                 ( I0 - Nu * ( self % temp - self % fluidTemp ) )
             G = a(k) * G  + Qdot
             Q = Q         + c(k) * dt * G
@@ -893,64 +576,105 @@ subroutine particle_source ( self, e, source )
 !        ---------------
 !
     integer         :: i ,j, k                     
-    real(kind=RP)   :: delta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) 
-    real(kind=RP)   :: x(3) 
-    real(kind=RP)   :: val, vol  
-    real(kind=RP)   :: dx 
+    real(kind=RP)   :: vol  
 
     if ( .not. self % active ) return 
 
     !**************************************
-    ! COMPUTE SCALING OF THE ELEMENT (dx) 
+    ! COMPUTE SCALING OF THE ELEMENT (vol) 
     !**************************************
 
-    ! only once! 
-    vol = 0.0_RP
-    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-      vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
-    end do            ; end do           ; end do
-    dx = vol ** (1.0_RP/3.0_RP)
-
-    delta = 1.0_RP / vol 
-
-
-   !  !*********************************
-   !  ! CONSTRUCT DISCRETE DIRAC DELTA
-   !  !*********************************
-   !  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-   !    x = e % geom % x(:,i,j,k)
-   !    !Compute value of approximation of delta Diract (exp)
-   !    delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
-   !                        x(2) - self % x(2), &
-   !                        x(3) - self % x(3), &
-   !                        dx )
-   !  enddo ; enddo ; enddo
-
-
+    ! This information could be stored in the element so it does not have to be recomputed
+    !vol = 0.0_RP
+    !do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+    !  vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+    !end do            ; end do           ; end do
     
-   !  !*********************************************************************************
-   !  ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
-   !  !*********************************************************************************
-   !  val = 0.0_RP
-   !  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-   !    val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
-   !  end do            ; end do           ; end do
-   !  !print*, "delta", maxval(delta), minval(delta)
-   !  !print*, "val", val, "vol", vol 
-   !  !delta = delta * vol / val 
-   !  ! CON ESTO DESACTIVADO PIERDO ENERGÍA. TENGO QUE EXTENDER ESTA IDEA A LOS VECINOS. 
-   !  ! HACER SOLO UNA VEZ POR PARTICULA
-   !  delta = delta / val !!!!!!!!!!!!!!!!
-   !  !print*,"val", maxval(delta), maxval(delta * val)     
+    ! This is the same as the lines commented at top. Update this for particle_source_gaussian if I recover it.
+    vol = e % geom % volume
+
     !*****************************
     ! COMPUTATION OF SOURCE TERM 
     !*****************************
     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
-      source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta(i,j,k)   
-      source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta(i,j,k)
-      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta(i,j,k)
-      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta(i,j,k) 
-    enddo ; enddo ; enddo     
+      source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * 1.0_RP / vol 
+      source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * 1.0_RP / vol 
+      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * 1.0_RP / vol 
+      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * 1.0_RP / vol 
+    enddo ; enddo ; enddo    
+    
+#endif     
+end subroutine 
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+subroutine particle_source_gaussian ( self, e, source )
+   implicit none
+   class(Particle_t)       , intent(in)    :: self    
+   class(element)          , intent(in)    :: e    
+   real(kind=RP)           , intent(inout) :: source(:,0:,0:,0:)    
+   ! This subroutine is not used. It could replace particle_source if I want.
+#if defined(NAVIERSTOKES)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+   integer         :: i ,j, k                     
+   real(kind=RP)   :: delta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) 
+   real(kind=RP)   :: x(3) 
+   real(kind=RP)   :: val, vol  
+   real(kind=RP)   :: dx 
+
+   if ( .not. self % active ) return 
+
+   !**************************************
+   ! COMPUTE SCALING OF THE ELEMENT (dx) 
+   !**************************************
+
+   ! only once! 
+   vol = 0.0_RP
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+   end do            ; end do           ; end do
+   dx = vol ** (1.0_RP/3.0_RP)
+
+   delta = 1.0_RP / vol 
+
+
+   !*********************************
+   ! CONSTRUCT DISCRETE DIRAC DELTA
+   !*********************************
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     x = e % geom % x(:,i,j,k)
+     !Compute value of approximation of delta Diract (exp)
+     delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
+                         x(2) - self % x(2), &
+                         x(3) - self % x(3), &
+                         dx )
+   enddo ; enddo ; enddo
+
+   !*********************************************************************************
+   ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
+   !*********************************************************************************
+   val = 0.0_RP
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
+   end do            ; end do           ; end do
+
+   ! CON ESTO DESACTIVADO PIERDO ENERGÍA. TENGO QUE EXTENDER ESTA IDEA A LOS VECINOS. 
+   ! HACER SOLO UNA VEZ POR PARTICULA
+   delta = delta / val 
+ 
+   !*****************************
+   ! COMPUTATION OF SOURCE TERM 
+   !*****************************
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
+     source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta(i,j,k)   
+     source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta(i,j,k)
+     source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta(i,j,k)
+     source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta(i,j,k) 
+   enddo ; enddo ; enddo     
 #endif     
 end subroutine 
 !
@@ -982,79 +706,6 @@ end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !    
-!
-!///////////////////////////////////////////////////////////////////////////////////////
-!
-function WallRoughnessAngleFast(alpha1, delta)
-    real(kind=RP), intent(in)  :: alpha1
-    real(kind=RP), intent(in)  :: delta
 
-    real(kind=RP)  :: WallRoughnessAngleFast
-
-    real(kind=RP)  :: g, rnd(2), rnd_normal
-    integer        :: i
-
-    
-
-    do i = 1, 100 ! 
-       call random_number(rnd)
-       rnd_normal = sqrt(-2._RP * log(rnd(1))) * cos(2._RP * PI * rnd(2)) !Miller-Box formula
-       g = rnd_normal* delta
-       if ((alpha1 + g) > 1e-3_RP )  then
-          WallRoughnessAngleFast = g
-          return
-       end if
-    end do
-
-    ! Just in case...
-    WallRoughnessAngleFast = 0._RP
-
- end function
-!--
-!--
- function GaussianNoise()
-    real(kind=RP)  :: GaussianNoise 
-    real(kind=RP)  :: rnd(2)
-    call random_number(rnd)
-    GaussianNoise = sqrt(-2._RP * log(rnd(1))) * cos(2._RP * PI * rnd(2)) !Miller-Box formula
-
- end function 
-!--
-!--
- function cross(a,b) result(c)
-    real(kind=RP), dimension(3), intent(in)  :: a,b
-    real(kind=RP), dimension(3)               :: c
-       c(1) = a(2) * b(3) - a(3) * b(2)
-       c(2) = a(3) * b(1) - a(1) * b(3)
-       c(3) = a(1) * b(2) - a(2) * b(1)
- end function cross
-!--
-!--
- function rotate_vector(vector, rotation_vector, angle)
-    real(kind=RP), dimension(3), intent(in)   :: vector,rotation_vector
-    real(kind=RP)              , intent(in)   :: angle       
-    real(kind=RP), dimension(3)               :: rotate_vector
-
-    real(kind=RP)  :: c, s, onemc,  u, v, w, rmat(3,3), rot_norm
-    
-    c = cos(angle*DEG2RAD)
-    s = sin(angle*DEG2RAD)
-    onemc = 1._RP - c
-
-    ! Normalize rotation vector
-    rot_norm = norm2(rotation_vector)
-    u = rotation_vector(1)/rot_norm
-    v = rotation_vector(2)/rot_norm
-    w = rotation_vector(3)/rot_norm
-
-    ! Rotation matrix
-    rmat(1,:) = [c+u*u*onemc  , u*v*onemc-w*s, u*w*onemc+v*s]
-    rmat(2,:) = [u*v*onemc+w*s, c+v*v*onemc  , v*w*onemc-u*s]
-    rmat(3,:) = [u*w*onemc-v*s, v*w*onemc+u*s, c+w*w*onemc  ]
-
-    rotate_vector = matmul(rmat,vector)
-
-
- end function
 end module 
 #endif

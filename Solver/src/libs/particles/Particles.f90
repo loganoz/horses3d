@@ -30,11 +30,15 @@ public  Particles_t
 !  *******************************
 !  
 type DimensionlessParticles_t
-    real(kind=RP) :: St
-    real(kind=RP) :: Nu
-    real(kind=RP) :: phim
-    real(kind=RP) :: cvpdivcv
-    real(kind=RP) :: I0
+    real(kind=RP) :: St          
+    real(kind=RP) :: Nu          
+    real(kind=RP) :: phim        
+    real(kind=RP) :: cvpdivcv    
+    real(kind=RP) :: I0          
+    ! Mixed fluid particles to improve performance
+    real(kind=RP) :: gammaDiv3cvpdivcvStPr
+    real(kind=RP) :: phimDivNo_of_particlesSt
+    real(kind=RP) :: phimDiv3No_of_particlesNuDivgammaminus1PrM2St
 end type DimensionlessParticles_t
 
 ! The implementation of particles is limited to boxes right now. It should be easy
@@ -80,6 +84,7 @@ end type Particles_t
 !
 subroutine ConstructParticles( self, mesh, controlVariables )
     use FTValueDictionaryClass
+    use FluidData, only : dimensionless, thermodynamics 
 #if defined(NAVIERSTOKES)
     use Physics_NSKeywordsModule
 #endif
@@ -89,8 +94,6 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     class(HexMesh)          , intent(in)    :: mesh
     class(FTValueDictionary), intent(in)    :: controlVariables        
 #if defined(NAVIERSTOKES)
-    !TDG: understand difference between class and type    
-    ! http://www.pgroup.com/lit/articles/insider/v3n1a3.htm
 !
 !        ---------------
 !        Local variables
@@ -98,10 +101,14 @@ subroutine ConstructParticles( self, mesh, controlVariables )
 !
     integer            :: i 
     real(KIND=RP)      :: pos(3)
-    real(KIND=RP)      :: vel(3)
-    real(KIND=RP)      :: temp
-    real(kind=RP)      :: dy, dz, y, z, Ly, Lz
+!    real(KIND=RP)      :: vel(3)
+!    real(KIND=RP)      :: temp
+!    real(kind=RP)      :: dy, dz, y, z, Ly, Lz
     character(LEN=132) :: partFile 
+    
+    !    
+    ! Read information related to particles from control file
+    !--------------------------------------------------------
     
     self % no_of_particles = controlVariables % integerValueForKey(numberOfParticlesKey)
     
@@ -126,6 +133,25 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     self % dimensionless % Nu       = 2.0_RP !Stokeian flow
     self % dimensionless % I0       = controlVariables % doublePrecisionValueForKey(I0_PART_KEY) 
 
+    !    
+    ! Collapse variables to improve performance
+    !--------------------------------------------------------
+
+        ! gamma / (3 * cvpdivcv * St * Pr)
+    self % dimensionless % gammaDiv3cvpdivcvStPr = thermodynamics % gamma / &
+        ( 3 * self % dimensionless % cvpdivcv * & 
+        self % dimensionless % St * dimensionless  % Pr)
+
+        ! phim / ( no_of_particles * St)
+    self % dimensionless % phimDivNo_of_particlesSt = self % dimensionless % phim &
+        / (self % no_of_particles * self % dimensionless % St)
+
+        ! phim / (3 * no_of_particles) * Nu / ( gammaminus1 * Pr * Mach ** 2 * St )
+    self % dimensionless % phimDiv3No_of_particlesNuDivgammaminus1PrM2St = &
+        self % dimensionless % phim / (3 * self % no_of_particles) * self % dimensionless % Nu / &
+        ( thermodynamics % gammaminus1 * dimensionless % Pr * dimensionless % Mach ** 2 * self % dimensionless % St )
+
+
     partFile = controlVariables % StringValueForKey(key = PART_FILE_KEY, requestedLength = 132)
 
     self % pMesh % min = getRealArrayFromString( controlVariables % StringValueForKey(key = MIN_BOX_KEY,&
@@ -136,6 +162,10 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     requestedLength = 132))
 
     self % injection % active = controlVariables % logicalValueForKey("injection")
+
+    !    
+    ! Set up injection if required
+    !--------------------------------------------------------
 
     if (self % injection % active) then 
         self % injection % axis   = getIntArrayFromString( controlVariables % StringValueForKey(key = PART_INJ_KEY,&
@@ -153,54 +183,11 @@ subroutine ConstructParticles( self, mesh, controlVariables )
         self % injection % T      = 0.0_RP
     endif 
 
-    write(STD_OUT,'(30X,A,A28,A30)') "->" , "Initialization file: " , partFile
-
-! print*, " self % dimensionless % St ",  self % dimensionless % St !, STOKES_NUMBER_PART_KEY
-! print*, " self % dimensionless % phim ",  self % dimensionless % phim !, STOKES_NUMBER_PART_KEY
-! print*, " self % dimensionless % cvpdivcv ",  self % dimensionless % cvpdivcv !, STOKES_NUMBER_PART_KEY
-! print*, " self % dimensionless % I0 ", self % dimensionless % I0 !, I0_PART_KEY
-! print*, " self % dimensionless % g ",  self % dimensionless % g !, STOKES_NUMBER_PART_KEY
-! print*, "self % no_of_particles", self % no_of_particles
-    !TDG: if particles go out of the domain, they should stop being tracked down and 
-    !       new particles should be created. The implementation performed right now
-    !       makes that the particles that go out of the domain are not tracked down.
-
-
-    ! vel  = (/0.d0, 0.d0, 0.d0/)
-    ! temp = 1.d0  
-
-    ! dy = 3e-2_RP
-    ! dz = 3e-2_RP   
-    ! y = 1e-2_RP
-    ! z = 1e-2_RP  
-    ! Ly = pi
-    ! Lz = 2.0_RP
-    ! pos(1) = 1.e-2_RP !1.e-2_RP
-    ! do i = 1, self % no_of_particles
-    !     y = y + dy
-    !     if ( y < Ly ) then 
-    !         pos(2) = y
-    !         pos(3) = z
-    !     else 
-    !         y = dy
-    !         z = z + dz
-    !     endif
-    !     if ( z > Lz) then 
-    !         write(*,*) "There is no space for so many particles"
-    !         write(*,*) i
-    !         stop
-    !     endif 
-    
-    !     call self % particle(i) % set_pos ( pos )
-    !     call self % particle(i) % set_vel ( vel )
-    !     call self % particle(i) % set_temp( temp )        
-    ! enddo 
-    
-    ! vel  = (/0.d0, 0.d0, 0.0d0/)
-    ! temp = 1.d0
+    !    
+    ! Initialize particles
+    !--------------------------------------------------------
 
     if (self % injection % active) then 
-        !print*, "Particle initialization file missing. No particles in the domain at t=0."
         do i = 1, self % no_of_particles 
             self % particle (i) % active = .false. 
         enddo 
@@ -226,14 +213,48 @@ subroutine ConstructParticles( self, mesh, controlVariables )
         enddo 
         close(10)
     endif 
-    ! pos (1) = 1.d0
-    ! pos (2) = 1.d0
-    ! pos (3) = 1.d0 
-    ! vel  = (/0.d0, 0.d0, 0.d0/)
-    ! temp = 1.d0  
-    ! call self % particle(1) % set_pos ( pos )
-    ! call self % particle(1) % set_vel ( vel )
-    ! call self % particle(1) % set_temp( temp )        
+
+    !    
+    ! Show particles at screen
+    !--------------------------------------------------------
+
+    write(STD_OUT,'(30X,A,A28,L)')   "->" , "Injection active: " , self % injection % active
+    write(STD_OUT,'(30X,A,A28,A30)')   "->" , "Initialization file: " , partFile
+    write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Stokes number: ", self % dimensionless % St
+    write(STD_OUT,'(30X,A,A30,E10.3)') "->", "phim: ", self % dimensionless % phim
+    write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Gamma (cvpdivcv): ", self % dimensionless % cvpdivcv
+    write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Nusselt: ", self % dimensionless % Nu
+    write(STD_OUT,'(30X,A,A30,E10.3)') "->", "I0: ", self % dimensionless % I0
+
+    write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "minimum box: ","[", &
+    self % pMesh % min(1), ", ", &
+    self % pMesh % min(2), ", ", &
+    self % pMesh % min(3), "]"
+
+    write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "maximum box: ","[", &
+    self % pMesh % max(1), ", ", &
+    self % pMesh % max(2), ", ", &
+    self % pMesh % max(3), "]"
+
+    write(STD_OUT,'(30X,A,A20,A,i4.1,A,i4.1,A,i4.1,A, A61)') "->" , "bc box: ","[", &
+    self % pMesh % bc(1), ", ", &
+    self % pMesh % bc(2), ", ", &
+    self % pMesh % bc(3), "]",  "     // [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic"
+
+    if ( self % injection % active ) then 
+        write(STD_OUT,'(30X,A,A40,A,i4.1,A,i4.1,A,i4.1,A)') "->" , "Injection axis: ","[", &
+        self % injection % axis(1), ", ", &
+        self % injection % axis(2), ", ", &
+        self % injection % axis(3), "]"
+        write(STD_OUT,'(30X,A,A40,I7)') "->", "Injection particles per step: ", self % injection % number 
+        write(STD_OUT,'(30X,A,A40,I7)') "->", "Injection iter period: ", self % injection % period     
+        write(STD_OUT,'(30X,A,A40,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Dimensionless Injection velocity: ","[", &
+        self % injection % v (1), ", ", &
+        self % injection % v (2), ", ", &
+        self % injection % v (3), "]"        
+        write(STD_OUT,'(30X,A,A40,E10.3)') "->", "Dimensionless Injection temp: ", self % injection % T   
+    endif    
+
 #endif
 end subroutine ConstructParticles
 !
@@ -245,94 +266,58 @@ subroutine IntegrateParticles( self, mesh, dt )
     class(Particles_t)      , intent(inout)  :: self
     real(KIND=RP)           , intent(in)     :: dt
 #if defined(NAVIERSTOKES)
-    !Debugging variables
-    logical :: debug  = .false.
-    logical :: debug2 = .false. 
-    real    :: t1, t2, t3, t4, t5, t6
-    real    :: gt1, gt2, gt3
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
     integer     :: i
-    !integer     :: no_of_particles
-
-    !no_of_particles = size( self % particle )
 
 
     !GTD: Change to for all particles
     !GTD: Adapt for MPI compatibility
     !GTD: Performance can be improved (a lot)
-    !GTD: OpenMP parallelization
-    !GTD: Stop following particle if it gets out of the domain 
     !GTD: Fix makefile dependencies (now I have to sometimes do make clean)
-gt1 = 0.d0
-gt2 = 0.d0
-gt3 = 0.d0
+
     !$omp parallel do schedule(runtime)       
     do i = 1, self % injection % injected + 1
         if (self % particle(i) % active) then 
         !    
         ! Get particle global position and set up interpolation
         !------------------------------------------------------
-        if (debug) call cpu_time(t1)
             call self % particle(i) % setGlobalPos( mesh )
-            ! call self % particle(i) % show() 
-            ! read(*,*)
-        if (debug) call cpu_time(t2)
-        if (debug2) gt1 = gt1 + (t2 - t1)
+
         !    
         ! Get fluid velocity and temperature at that position
-        !------------------------------------------------------   
-        if (debug) call cpu_time(t3)
-        if ( self % particle(i) % active ) then 
-            call self % particle(i) % getFluidVelandTemp( mesh )
-        endif 
-        if (debug) call cpu_time(t4)
-        if (debug2) gt2 = gt2 + (t4 - t3)        
+        !------------------------------------------------------ 
+            ! PREVENTS TRYING TO GET VEL AND TEMP OUTSIDE DOMAIN  
+            if ( self % particle(i) % active ) then 
+                call self % particle(i) % getFluidVelandTemp( mesh )
+            endif    
         !        
         ! Integrate in time to get new particle velocity and temperature
         !------------------------------------------------------   
-        if (debug) call cpu_time(t5)
             call self % particle(i) % integrate( dt, &
                                                     self % dimensionless % St, &
                                                     self % dimensionless % Nu, &
                                                     self % dimensionless % phim, &
-                                                    self % dimensionless % cvpdivcv, &
                                                     self % dimensionless % I0, &
+                                                    self % dimensionless % gammaDiv3cvpdivcvStPr, &
                                                     self % pMesh % min, & 
                                                     self % pMesh % max, &
                                                     self % pMesh % bc ) 
-        if (debug) call cpu_time(t6)
-        if (debug2) gt3 = gt3 + (t6 - t5)
         !    
         ! Print particle position (only for debugging)
         !------------------------------------------------------           
 !                 call self % particle(i) % show()  
         endif 
-!        call self % particle(i) % show()  
-        ! if (debug) then 
-        !     print*, "Particle number", i,"/",self % no_of_particles
-        !     print*, "Set Global Position", t2 - t1, "seconds"
-        !     print*, "Get fluid v and T  ", t4 - t3, "seconds"
-        !     print*, "Integrate particle ", t6 - t5, "seconds"       
-        !     print*, "Press space bar to continue"     
-        !     read(*,*)       
-        ! endif 
 
     enddo 
     !$omp end parallel do
         !    
         ! Print particle position (only for debugging)
         !------------------------------------------------------           
-                ! call self % particle(1000) % show()  
-if (debug2) then 
-    print*, "overall time", gt1+gt2+gt3, "seconds"
-    print*, "set pos", gt1 / (gt1+gt2+gt3) * 100, "%"
-    print*, "get vel", gt2 / (gt1+gt2+gt3) * 100, "%"
-    print*, "integra", gt3 / (gt1+gt2+gt3) * 100, "%"
-endif 
+  
 #endif
 end subroutine IntegrateParticles
 !
@@ -363,43 +348,28 @@ subroutine AddSourceParticles( self, iP, e, time, thermodynamics_, dimensionless
 
     real :: t1,t2
 
-!    call cpu_time(t1)
-!    if ( self % no_of_particles > 0 ) then
+
         associate ( d => self % dimensionless )
-        !allocate( Source( NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) )  
+
         call self % computeSourceTerm( e, iP, Source )                          
-        !do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
-            !   Compute source term in coordinate i, j, k
-            !   Contributions of all the particles are taken into account
-            !   TDG: these numbers that are going to be used a lot of times. Store them somewhere
+        !   Compute source term in coordinate i, j, k
 
-            Source(1, :, :, : ) = 0.0_RP
+        do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            Source(1, i, j, k ) = 0.0_RP
 
-            Source(2:4, :, :, :) = Source(2:4, :, :, :) * d % phim / ( self % no_of_particles * d % St) * &
-                SutherlandsLaw( Temperature( e % storage % Q(:,i,j,k) ) ) 
+            Source(2:4, i, j, k ) = Source(2:4, i, j, k ) * d % phimDivNo_of_particlesSt * &
+                    SutherlandsLaw( Temperature( e % storage % Q(:,i,j,k) ) ) 
 
-            Source(5, :, :, :)   = Source(5, :, :, :)   * d % phim / (3 * self % no_of_particles) * d % Nu &
-                                        / ( thermodynamics_ % gammaminus1 * dimensionless_ % Pr * &
-                                        dimensionless_ % Mach ** 2 * d % St )
-        !end do                  ; end do                ; end do
-
-            ! Add to NS source term
-            !e % storage % S_NS(:,i,j,k) = e % storage % S_NS(:,i,j,k) + Source(:,i,j,k)
+            Source(5, i, j, k )   = Source(5, i, j, k )   * d % phimDiv3No_of_particlesNuDivgammaminus1PrM2St
+        enddo ; enddo ; enddo 
 !$omp critical
-        e % storage % S_NSP = e % storage % S_NSP + Source
+        do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            e % storage % S_NSP(1:5,i,j,k) = e % storage % S_NSP(1:5,i,j,k) + Source(1:5,i,j,k)
+        enddo ; enddo ; enddo 
 !$omp end critical
-            !   Add source term to Qdot                           
-            !e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source(:,i,j,k)
 
-        !deallocate(Source)
         end associate 
-!    else 
-        !Nothing
-!    endif 
-!    call cpu_time(t2)
-
-!    print*, "Compute and add source", t2-t1, "seconds"
 #endif
 end subroutine AddSourceParticles    
 !
@@ -413,45 +383,10 @@ subroutine ComputeSourceTermParticles(self, e, iP, Source)
     integer                 , intent(in)    :: iP 
     real(KIND=RP)           , intent(out)   :: Source(:,0:,0:,0:)
 #if defined(NAVIERSTOKES)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-! 
-    integer       :: neighbours(6),j 
-
-    ! Find the neighbours of the element in which the particle is
-    ! neighbours = -1
-    ! do j = 1, 6
-    !    if (self % particle(iP) % mesh%elements(e % eID)%NumberOfConnections(j) > 0) then
-    !          neighbours(j) = self % particle(iP) % mesh%elements(e % eID)%Connection(j)%ElementIDs(1) 
-    !    else 
-    !          neighbours(j) = -1
-    !    end if
-    ! end do     
 
     Source = 0.0_RP
-!    do iP = 1, self % injection % injected + 1
-!        if (self % particle(iP) % active ) then
-            !if (self % particle(iP) % eID == e % eID) then 
-                call self % particle(iP) % Source( e, Source )
-            !else
-                ! do j = 1,6
-                !     if ( neighbours(j) == e % eID ) then 
-                !         call self % particle(iP) % Source( e, Source )    
-                !     endif 
-                ! enddo 
-                ! if it is not in the element it does not affect
-                ! the element 
-           
+    call self % particle(iP) % Source( e, Source )
 
-            !endif 
-            ! print*, "e % eID", e % eID
-            ! print*, "neighbours", neighbours
-            ! read(*,*)
-            !Source = Source + self % particle(iP) % Source()
- !       endif 
-!    enddo 
 #endif
 end subroutine 
 !
@@ -510,14 +445,13 @@ subroutine InjectParticles( self, mesh  )
     integer           :: i, k 
     real(KIND=RP)     :: pos(3)
     real(KIND=RP)     :: v(3), T
-!    real(KIND=RP)     :: eps
+    real(KIND=RP)     :: eps
 
-    ! ! This is a harcoded value that makes sure that the particle is inside the domain.
-    ! eps = 1.d-1 
+    ! This is a harcoded value that makes sure that the particle is inside the domain.
+    ! Injection position is Min + (Max - Min) * eps or Max - (Max - Min) * eps depending if it is in positive or negative directions
+    eps = 1.d-2 
 
     if ( self % injection % injected + self % injection % number + 1  > self % no_of_particles ) then 
-        !print*, "Maximum number of particles reached."
-        !print*, "No more particles will be added to this simulation."
         return 
     endif 
 
@@ -538,9 +472,9 @@ subroutine InjectParticles( self, mesh  )
         do k = 1, 3
             if ( self % injection % axis (k) /= 0 ) then 
                 if ( self % injection % axis (k) == 1 ) then 
-                    pos(k) = self % pMesh % min(k) + ( self % pMesh % max(k) - self % pMesh % min(k) ) / 100
+                    pos(k) = self % pMesh % min(k) + ( self % pMesh % max(k) - self % pMesh % min(k) ) * eps
                 elseif ( self % injection % axis (i) == - 1 ) then 
-                    pos(k) = self % pMesh % max(k) - ( self % pMesh % max(k) - self % pMesh % min(k) ) / 100
+                    pos(k) = self % pMesh % max(k) - ( self % pMesh % max(k) - self % pMesh % min(k) ) * eps
                 endif 
             endif 
         enddo      

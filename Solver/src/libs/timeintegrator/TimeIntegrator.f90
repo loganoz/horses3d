@@ -384,8 +384,6 @@
 
       end select
           
-         open(FILE = "RESULTS/Evolution_particle.dat", UNIT=69)
-
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
@@ -454,19 +452,15 @@
 !        Integration of particles
 !        ------------------------
          if ( sem % particles % active ) then 
+
             call sem % particles % Integrate(sem % mesh, dt)
-            ! IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) then 
-            !    call sem % particles % particle(1) % show ()
-                write(69,'(i8,8E15.6)') k, t, sem % particles % particle (1) % pos,  &
-                   sem % particles % particle (1) % vel, &
-                   sem % particles % particle (1) % temp
-            !    call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
-            ! endif 
+
             if ( sem % particles % injection % active ) then 
                if ( (MOD(k+1, sem % particles % injection % period) == 0 ) .or. (k .eq. self % initial_iter) ) then 
                   call sem % particles % inject( sem % mesh )
                endif 
             endif 
+
          endif 
 
 
@@ -499,8 +493,6 @@
          
          sem % numberOfTimeSteps = k + 1
       END DO
-
-close(69)
 
 !
 !     Flush the remaining information in the monitors

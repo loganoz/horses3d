@@ -487,12 +487,17 @@ module SpatialDiscretization
 !$omp end do             
             if ( particles % active ) then            
                if (.not. mesh % child) then             
-!$omp do schedule(runtime) private(j)
+!$omp do schedule(runtime) 
                   do i = 1, particles % injection % injected + 1
                      if (particles % particle(i) % active) then 
+
                         associate ( eID => particles % particle(i) % eID )
+                           
                         call particles % AddSource(i, mesh % elements( eID ), &
                            t, thermodynamics, dimensionless, refValues)
+
+                        ! If this is uncommented, private(j) should be added to openmp.
+                           !this commented section permits the computation of source term in neighbor elements
                         !do j = 1, 6
                         !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then  
                         !      call particles % AddSource(i, &
