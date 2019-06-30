@@ -98,52 +98,76 @@
 #endif
 !
 !           ---------------
-!           Local variables
+!           local variables
 !           ---------------
 !
-            integer        :: eID, i, j, k
+            integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
 #if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
+            real(kind=RP)  :: x(3) 
 
+!
+!           ---------------------------------------
+!           Navier-Stokes default initial condition
+!           ---------------------------------------
+!
 #if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
-            theta = refValues_ % AOATheta*(PI/180.0_RP)
-            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
+            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
+            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
       
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          Ny => mesh % elements(eID) % Nxyz(2), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  qq = 1.0_RP
-                  u  = qq*cos(theta)*COS(phi)
-                  v  = qq*sin(theta)*COS(phi)
-                  w  = qq*SIN(phi)
-      
-                  Q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  Q(2) = Q(1)*u
-                  Q(3) = Q(1)*v
-                  Q(4) = Q(1)*w
-                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
+                  x = mesh % elements(eID) % geom % x(:, i, j, k)
+
+                  call random_number(u)
+                  call random_number(v)
+                  call random_number(w)
+
+                  v = 0.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
+                  !u = 1.0_RP
+                  u = 0.0_RP !( u - 0.5_RP )    !v * (u*2 - 1)*0.3_RP
+                  w = 0.0_RP !( w - 0.5_RP )    !v * (w*2 - 1)*0.3_RP
+      
+                  q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  q(2) = q(1)*u
+                  q(3) = q(1)*v
+                  q(4) = q(1)*w
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
+
+                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
                end do;        end do;        end do
                end associate
-!
-!              -------------------------------------------------
-!              Perturb mean flow in the expectation that it will
-!              relax back to the mean flow
-!              -------------------------------------------------
-!
-               mesh % elements(eID) % storage % Q(1,3,3,3) = 1.05_RP*mesh % elements(eID) % storage % Q(1,3,3,3)
-
             end do
 
             end associate
+#endif
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#if defined(CAHNHILLIARD)
+            call random_seed()
+         
+            do eid = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eid) % Nxyz(1), &
+                          Ny => mesh % elements(eid) % Nxyz(2), &
+                          Nz => mesh % elements(eid) % Nxyz(3) )
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               end associate
+               end associate
+            end do
 #endif
 
          end subroutine UserDefinedInitialCondition
@@ -165,9 +189,63 @@
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+
+!
+!           ---------------
+!           local variables
+!           ---------------
+!
+            integer        :: eid, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+#if defined(NAVIERSTOKES)
+            real(kind=RP)  :: phi, theta
+#endif
+
+!
+!           ---------------------------------------
+!           Navier-Stokes default initial condition
+!           ---------------------------------------
+!
+#if defined(NAVIERSTOKES)
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
+            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
+      
+            ! do eID = 1, mesh % no_of_elements
+            !    associate( Nx => mesh % elements(eID) % Nxyz(1), &
+            !               ny => mesh % elemeNts(eID) % nxyz(2), &
+            !               Nz => mesh % elements(eID) % Nxyz(3) )
+            !    do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+
+            !       x = mesh % elements(eID) % geom % x(:, i, j, k)
+
+                  call random_number(u)
+                  call random_number(v)
+                  call random_number(w)
+
+                  v = 0.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
+                  !u = 1.0_RP
+                  u = 0.0_RP !( u - 0.5_RP )    !v * (u*2 - 1)*0.3_RP
+                  w = 0.0_RP !( w - 0.5_RP )    !v * (w*2 - 1)*0.3_RP
+      
+                  q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  q(2) = q(1)*u
+                  q(3) = q(1)*v
+                  q(4) = q(1)*w
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
+
+            !      mesh % elements(eID) % storage % q(:,i,j,k) = q 
+            !    end do;        end do;        end do
+            !    end associate
+            ! end do
+
+            end associate
+#endif            
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
 !
 !           --------------------------------------------------------
 !           Used to define a Neumann user defined boundary condition
@@ -183,7 +261,7 @@
             real(kind=RP), intent(inout)  :: U_x(NGRAD)
             real(kind=RP), intent(inout)  :: U_y(NGRAD)
             real(kind=RP), intent(inout)  :: U_z(NGRAD)
-         end subroutine UserDefinedNeumann
+         end subroutine UserDefinedNeumann1
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -230,9 +308,9 @@
             real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
             real(kind=RP),             intent(inout) :: S(NCONS)
-            type(Thermodynamics_t), intent(in)  :: thermodynamics_
-            type(Dimensionless_t),  intent(in)  :: dimensionless_
-            type(RefValues_t),      intent(in)  :: refValues_
+            type(Thermodynamics_t),    intent(in)  :: thermodynamics_
+            type(Dimensionless_t),     intent(in)  :: dimensionless_
+            type(RefValues_t),         intent(in)  :: refValues_
 !
 !           ---------------
 !           Local variables
@@ -243,40 +321,20 @@
 !           Usage example
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
-            S    = 0.0_RP
    
+            S(1) = 0.0_RP
+            S(2) = 0.0_RP
+            S(3) = 0.0_RP !0.000355556_RP 
+            S(4) = 0.0_RP
+            S(5) = 0.0_RP !0.000355556_RP * Q(3) / Q(1)
+
+            ! Reynolds centerline U=1 1012.5  -> 0.001975_RP
+            ! Reynolds centerline U=1 3789.47 -> 0.000527778_RP
+            ! Reynolds centerline U=1 5625.0  -> 0.000355556_RP
+            ! Critical Reynolds is 5772. At this value, any perturbation should finish in turbulent flow. 
+            ! at lower values, turbulence should be maintained down to lower values if transition is obtained.
          end subroutine UserDefinedSourceTermNS
 #endif
-#if defined(CAHNHILLIARD)
-         subroutine UserDefinedSourceTermCH(x, time, S, multiphase_)
-!
-!           --------------------------------------------
-!           Called to apply source terms to the equation
-!           --------------------------------------------
-!
-            use SMConstants
-            USE HexMeshClass
-            use PhysicsStorage
-            use FluidData
-            IMPLICIT NONE
-            real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NCOMP)
-            type(Multiphase_t),      intent(in)    :: multiphase_
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            integer  :: i, j, k, eID
-!
-!           Usage example
-!           -------------
-!           S(:) = x(1) + x(2) + x(3) + time
-   
-         end subroutine UserDefinedSourceTermCH
-#endif
-
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
@@ -299,11 +357,11 @@
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             use MonitorsClass
-            use FTAssertions
             IMPLICIT NONE
             class(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time
@@ -325,85 +383,49 @@
 !           Local variables
 !           ---------------
 !
-            INTEGER                            :: numberOfFailures
-            CHARACTER(LEN=29)                  :: testName           = "27 element uniform flow tests"
+            CHARACTER(LEN=38)                  :: testName           = "Rebound and periodicity for particles."
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
-#if defined(NAVIERSTOKES)
-            real(kind=RP)                      :: qq, u, v, w, p, Q(NCONS), theta, phi
-#endif
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-!
-!           -----------------------------------------------------------------------
-!           Expected Values. Note they will change if the run parameters change and
-!           when the eigenvalue computation for the time step is fixed. These 
-!           results are for the Mach 0.5 and rusanov solvers.
-!           -----------------------------------------------------------------------
-!
+            LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
-            INTEGER                            :: expectedIterations = 5
-            REAL(KIND=RP)                      :: expectedResidual   = 1.9298340703244324E-011_RP
-            
+            REAL(KIND=RP)                      :: residuals       = 697.169619289106_RP
+
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
-            
-            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
-            CALL FTAssertEqual(expectedValue= expectedIterations, &
-                               actualValue   =  iter, &
-                               msg           = "Number of time steps to tolerance")
-            CALL FTAssertEqual(expectedValue = expectedResidual, &
+
+            CALL FTAssertEqual(expectedValue = residuals, &
                                actualValue   = maxResidual, &
-                               tol           = 1.d-12, &
+                               tol           = 1.d-11, &
                                msg           = "Final maximum residual")
-            
-            ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))
-            
-            maxError = 0.0_RP
-            associate ( gammaM2 => dimensionless_ % gammaM2, &
-                        gamma => thermodynamics_ % gamma )
-            theta = refValues_ % AOATheta*(PI/180.0_RP)
-            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
-      
-            do eID = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          Ny => mesh % elements(eID) % Nxyz(2), &
-                          Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  qq = 1.0_RP
-                  u  = qq*cos(theta)*COS(phi)
-                  v  = qq*sin(theta)*COS(phi)
-                  w  = qq*SIN(phi)
-      
-                  Q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  Q(2) = Q(1)*u
-                  Q(3) = Q(1)*v
-                  Q(4) = Q(1)*w
-                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  QExpected(:,i,j,k) = Q 
-               end do;        end do;        end do
-               end associate
-               maxError = MAXVAL(ABS(QExpected - mesh % elements(eID) % storage % Q))
-            end do
-            end associate
 
-            CALL FTAssertEqual(expectedValue = 0.0_RP, &
-                               actualValue   = maxError, &
-                               tol           = 1.d-10, &
-                               msg           = "Maximum error")
-            
-            
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
+               WRITE(6,*) "This test case checks the residual after 100 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is fixed."
-               WRITE(6,*) "      When that is done, re-compute the expected values and modify this procedure"
+               WRITE(6,*) "NOTE: Failure is expected if particle model is modified."
+               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."   
+               WRITE(6,*) "If it fails, the particles are supposed to be here:"
+               WRITE(6,*)
+               WRITE(6,*) "i,x coord,y coord,z coord,u,v,w,T,Row ID"
+               WRITE(6,*) " 1,0.311875E-01,0.123328E+00,0.395820E-01,0.187302E+01,0.936578E+01,0.187305E+01,0.187416E+01"
+               WRITE(6,*) " 2,0.181334E-01,0.122079E+00,0.323879E-01,0.187441E+01,0.937228E+01,-.187435E+01,0.187547E+01"
+               WRITE(6,*) " 3,0.469513E-02,0.120846E+00,0.315333E-01,0.187559E+01,0.937872E+01,-.187553E+01,0.187668E+01"
+               WRITE(6,*) " 4,0.308147E-01,0.119623E+00,0.291891E-01,0.187693E+01,0.938493E+01,0.187690E+01,0.187778E+01"
+               WRITE(6,*) " 5,0.142727E-01,0.118410E+00,0.279075E-01,0.187810E+01,0.939118E+01,-.187798E+01,0.187930E+01"
+               WRITE(6,*) " 6,0.749205E-02,0.117196E+00,0.334014E-01,0.187971E+01,0.939744E+01,-.187903E+01,0.188075E+01"
+               WRITE(6,*) " 7,0.141148E-01,0.115983E+00,0.240180E-01,0.188071E+01,0.940393E+01,-.188034E+01,0.188192E+01"
+               WRITE(6,*) " 8,0.726550E-02,0.114771E+00,0.187563E-01,0.188195E+01,0.941013E+01,-.188168E+01,0.188292E+01"
+               WRITE(6,*) " 9,0.775500E-02,0.113568E+00,0.367165E-01,0.188316E+01,0.941634E+01,0.188296E+01,0.188408E+01"
+               WRITE(6,*) "10,0.198051E-01,0.113568E+00,0.349592E-01,0.188321E+01,0.941644E+01,0.188310E+01,0.188396E+01"
+               WRITE(6,*)
+               WRITE(6,*) "Compare with RESULTS/Pouransari0041/Pouransari0041.parts.0000000100.csv"
                STOP 99
             END IF 
             WRITE(6,*)
@@ -411,9 +433,6 @@
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
-
-
-
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 

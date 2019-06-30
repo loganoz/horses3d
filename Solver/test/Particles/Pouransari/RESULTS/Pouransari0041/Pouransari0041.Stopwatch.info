@@ -1,0 +1,5 @@
+#Stopwatch information file
+# Event                                            Elapsed time(s)    CPU-Time (s)
+TotalTime                                              2.61203E+02     2.60885E+02
+Preprocessing                                          1.74400E+00     1.51377E+00
+Solver                                                 2.59317E+02     2.59229E+02
