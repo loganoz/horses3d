@@ -63,7 +63,11 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./CahnHilliard/Bubble \
 	    ./CahnHilliard/Pipe \
             ./iNSCH/RisingBubble \
-            ./iNSCH/TJokisaari"
+            ./iNSCH/TJokisaari \
+		./Particles/FreeFall \
+		./Particles/RadiationHeat \
+		./Particles/Pouransari \
+		./Particles/ParticleBoundaryCond " 
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
