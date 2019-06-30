@@ -143,7 +143,7 @@ module ProblemFileFunctions
          real(kind=RP),             intent(in)  :: x(NDIM)
          real(kind=RP),             intent(in)  :: Q(NNS)
          real(kind=RP),             intent(in)  :: time
-         real(kind=RP),             intent(out) :: S(NNS)
+         real(kind=RP),             intent(inout) :: S(NNS)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
@@ -428,7 +428,7 @@ end module ProblemFileFunctions
             real(kind=RP),             intent(in)  :: x(NDIM)
             real(kind=RP),             intent(in)  :: Q(NNS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(out) :: S(NNS)
+            real(kind=RP),             intent(inout) :: S(NNS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_

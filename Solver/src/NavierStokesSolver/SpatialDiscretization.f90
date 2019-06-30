@@ -434,10 +434,28 @@ module SpatialDiscretization
 !$omp end single
          end if
 #endif
+
+! May be in the future
+! !
+! !        ***********
+! !        Add gravity
+! !        ***********
+! !
+! !$omp do schedule(runtime) private(i,j,k)
+!          do eID = 1, mesh % no_of_elements
+!             associate(e => mesh % elements(eID))
+!             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!                e % storage % QDot(IRHOU:IRHOW,i,j,k) = e % storage % QDot(IRHOU:IRHOW,i,j,k) + &
+!                                                    e % storage % Q(IRHO,i,j,k) * &
+!                                  dimensionless % invFr2 * dimensionless % gravity_dir
+!             end do                ; end do                ; end do
+!             end associate
+!          end do
+! !$omp end do
 !
-!        Add a source term
-!        -----------------
-         if (.not. mesh % child) then
+!           ***************
+!           Add source term
+!           ***************
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
@@ -447,27 +465,66 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-         end if
 
-         if (.not. mesh % child) then
-            if ( particles % active ) then             
-!$omp do schedule(runtime)
-               do eID = 1, size(mesh % elements)
-                  call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+
+!
+!           ********************
+!           Add Particles source
+!           ********************
+!$omp do schedule(runtime)            
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )            
+                  e % storage % S_NSP = 0.0_RP
+               end associate
+            enddo 
+!$omp end do             
+            if ( particles % active ) then            
+               if (.not. mesh % child) then             
+!$omp do schedule(runtime) 
+                  do i = 1, particles % injection % injected + 1
+                     if (particles % particle(i) % active) then 
+
+                        associate ( eID => particles % particle(i) % eID )
+                           
+                        call particles % AddSource(i, mesh % elements( eID ), &
+                           t, thermodynamics, dimensionless, refValues)
+
+                        ! If this is uncommented, private(j) should be added to openmp.
+                           !this commented section permits the computation of source term in neighbor elements
+                        !do j = 1, 6
+                        !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then  
+                        !      call particles % AddSource(i, &
+                        !      mesh % elements( particles % particle(i) % mesh%elements( eID )%Connection(j)%ElementIDs(1)  ), &
+                        !      t, thermodynamics, dimensionless, refValues)
+                        !   else 
+                        !      !
+                        !   end if
+                        !end do   
+                        end associate   
+                     endif 
+                  end do
+!$omp end do
+               end if
+
+!$omp do schedule(runtime) private(i,j,k)
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NSP(:,i,j,k)
+                  end do                  ; end do                ; end do
+                  end associate
                end do
 !$omp end do
             endif 
-         end if
-
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!$omp end do
       end subroutine TimeDerivative_ComputeQDot
 !
 !////////////////////////////////////////////////////////////////////////

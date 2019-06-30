@@ -16,7 +16,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -31,7 +31,7 @@ module VolumeIntegrals
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
-      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -62,7 +62,8 @@ module VolumeIntegrals
 !              * VELOCITY
 !              * ENTROPY
 !              * ENTROPY_RATE
-!              * FREE_ENERGY
+!              * INTERNAL ENERGY
+!              * FREE_ENERGY            
 !        -----------------------------------------------------------
 !
 
@@ -248,6 +249,19 @@ module VolumeIntegrals
                s   =  dtP/p - thermodynamics % gamma * e % storage % QDot(IRHO,i,j,k) / e % storage % Q(IRHO,i,j,k) 
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
             end do            ; end do           ; end do
+         case ( INTERNAL_ENERGY )
+            !
+            !           ***********************************
+            !              Computes the internal energy
+            !              integral:
+            !              \rho e = \int \rho e dV
+            !           ***********************************
+            !
+            
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
+            end do            ; end do           ; end do
+            
 #endif
 #if defined(CAHNHILLIARD)            
          case (FREE_ENERGY)
@@ -392,6 +406,12 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
+
+            case ( PSOURCE )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do               
 #endif
             case default
                

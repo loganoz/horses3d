@@ -68,6 +68,7 @@ module StorageClass
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
+      real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term      
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
@@ -771,6 +772,7 @@ module StorageClass
 
          ALLOCATE( self % G_NS   (NNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S_NSP  (NNS,0:Nx,0:Ny,0:Nz) )
          
          ALLOCATE( self % U_xNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
@@ -817,6 +819,7 @@ module StorageClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          self % G_NS   = 0.0_RP
          self % S_NS   = 0.0_RP
+         self % S_NSP  = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          self % mu_art = 0.0_RP
@@ -864,6 +867,7 @@ module StorageClass
          to % QDotNS = from % QDotNS
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
+         to % S_NSP  = from % S_NSP
          
          to % mu_art    = from % mu_art
          to % stats     = from % stats
@@ -942,6 +946,7 @@ module StorageClass
          
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
+         safedeallocate(self % S_NSP)
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
          safedeallocate(self % U_zNS)

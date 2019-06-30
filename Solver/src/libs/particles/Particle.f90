@@ -12,17 +12,10 @@
 !
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module ParticleClass
-use SMConstants
-! use NodalStorageClass
+ use SMConstants
  use HexMeshClass
  use ElementClass
  use PhysicsStorage
-! use MonitorDefinitions
-! use ResidualsMonitorClass
-! use StatisticsMonitor
-! use ProbeClass
-! use SurfaceMonitorClass
-! use VolumeMonitorClass
 implicit none
 !
 #include "Includes.h"
@@ -35,31 +28,24 @@ public  Particle_t
 !  ******************************
 !  
 type Particle_t
+    type(HexMesh), pointer :: mesh 
     real(KIND=RP)   :: pos(3)
+    real(KIND=RP)   :: pos_old(3)    
     real(KIND=RP)   :: vel(3)
+    real(KIND=RP)   :: vel_old(3)
     real(KIND=RP)   :: temp
+    real(KIND=RP)   :: temp_old
     real(KIND=RP)   :: fluidVel(3)
     real(KIND=RP)   :: fluidTemp
-    ! Physical properties of the particles (independent)
-    real(KIND=RP)  :: D            !Particle diameter
-    real(KIND=RP)  :: rho          !Particle density   
-    real(KIND=RP)  :: h            !Convective heat transfer coefficient (2 x k / D_p) (Assuming Nu = 2) 
-    real(KIND=RP)  :: cv           !Particle specific heat        
 
-    ! Physical properties of the particles (dependent)
-    real(KIND=RP)  :: m            !Particle mass ( rho_p x PI x D_p^3 / 6 )
-    real(KIND=RP)  :: tau          !Aerodynamic response time ( rho_p x D_p^2 / 18 mu )
-    logical                         :: active
-    integer                         :: rank
-    integer                         :: ID
+    logical         :: active
     integer                         :: eID
+    integer                         :: eID_old
     real(kind=RP)                   :: x(3)
     real(kind=RP)                   :: xi(3)
-    real(kind=RP), allocatable      :: lxi(:) , leta(:), lzeta(:)
-!    real(kind=RP)                   :: values(BUFFER_SIZE)    
-!    character(len=STR_LEN_MONITORS) :: fileName
-!    character(len=STR_LEN_MONITORS) :: monitorName
-!    character(len=STR_LEN_MONITORS) :: variable
+    real(kind=RP)                   :: xi_old(3)
+    real(kind=RP), allocatable      :: lxi(:), leta(:), lzeta(:)
+
     contains
         procedure   :: init                => particle_init
         procedure   :: set_pos             => particle_set_pos
@@ -80,10 +66,11 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_init(self)
-    implicit none
-    class(particle_t)  :: self
+subroutine particle_init(self, mesh)
+   class(particle_t)       :: self
+   type(HexMesh), target   :: mesh
 
+    self % mesh        => mesh
     self % pos(:)      = 0.0_RP
     self % vel(:)      = 0.0_RP
     self % temp        = 0.0_RP
@@ -91,14 +78,8 @@ subroutine particle_init(self)
     self % fluidTemp   = 0.0_RP    
     self % active      = .true.
     self % eID         = -1
-    self % D           = 1.0_RP
-    self % rho         = 1.0_RP
-    self % h           = 1.0_RP
-    self % cv          = 1.0_RP
-    self % m           = self % rho * PI * POW3(self % D) / 6
-    !self % tau         = self % rho * POW2(self % D) / (18 * mu) 
-    ! DEPENDS ON THE FLUID VISCOSITY. IT SHOULD BE UPDATED ACCORDINGLY
-end subroutine particle_init
+
+   end subroutine particle_init
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -166,7 +147,9 @@ subroutine particle_setGlobalPos ( self, mesh )
     integer                 :: i ,j, k 
     integer, dimension(1)   :: elementwas 
     
-    elementwas(1) = self % eID
+    elementwas(1)  = self % eID
+    self % eID_old = self % eID 
+    self % xi_old  = self % xi 
     !
     ! Find the requested point in the mesh
     ! ------------------------------------
@@ -246,8 +229,6 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
                            0:mesh % elements(self % eID) % Nxyz(2),&
                            0:mesh % elements(self % eID) % Nxyz(3)  )
 
-    if ( .not. self % active ) return 
-
     ! if ( MPI_Process % rank .eq. self % rank ) then
 !
 !           Update the probe
@@ -274,7 +255,8 @@ subroutine particle_getFluidVelandTemp ( self, mesh )
         self % fluidTemp = 0.0_RP
         do k = 0, e % Nxyz(3)    ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1)
             self % fluidTemp = self % fluidTemp + temp(i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
-        end do               ; end do             ; end do            
+        end do               ; end do             ; end do        
+
        end associate
        end associate
 ! #ifdef _HAS_MPI_            
@@ -301,10 +283,10 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity ) 
+subroutine particle_integrate ( self, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStPr, minbox, maxbox , bcbox ) 
 #if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
-    use FluidData, only : dimensionless, thermodynamics
+    use FluidData, only : dimensionless
 #endif
     implicit none
     class(Particle_t)               , intent(inout)  :: self   
@@ -312,9 +294,12 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
     real(KIND=RP), intent(in) :: St         ! Particle non dimensional number
     real(KIND=RP), intent(in) :: Nu         ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: phim       ! Particle non dimensional number 
-    real(KIND=RP), intent(in) :: cvpdivcv   ! Particle non dimensional number 
     real(KIND=RP), intent(in) :: I0         ! Particle non dimensional number (radiation intensity)
-    real(KIND=RP), intent(in) :: gravity(3) ! Particle non dimensional vector (gravity)
+    real(KIND=RP), intent(in) :: gammaDiv3cvpdivcvStPr ! Particle and fluid comb of properties to increase performance
+    real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
+    real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
+    integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic]      
+
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
@@ -323,21 +308,15 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
 !
     real(KIND=RP) :: mu
     real(KIND=RP) :: invFr2
-    real(KIND=RP) :: gamma
-    real(KIND=RP) :: Pr
+    real(KIND=RP) :: gravity(3) 
 
-
-    if ( .not. self % active ) return 
+    if ( .not. self % active ) then 
+      call compute_bounce_parameters(self, minbox, maxbox, bcbox)
+    endif 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
-    invFr2 = dimensionless  % invFr2    ! Fluid non dimensional number
-    gamma           = thermodynamics % gamma              ! Fluid non dimensional number
-    Pr              = dimensionless  % Pr                 ! Fluid non dimensional number
-
-    ! St              = dimensionlessParticles % St        ! Particle non dimensional number
-    ! Nu              = dimensionlessParticles % Nu        ! Particle non dimensional number 
-    ! phim            = dimensionlessParticles % phim      ! Particle non dimensional number     
-    ! cvpdivcv        = dimensionlessParticles % cvpdivcv  ! Particle non dimensional number
+    invFr2          = dimensionless  % invFr2             ! Fluid non dimensional number
+    gravity         = dimensionless  % gravity_dir        ! Direction of gravity vector (normalised)    
 
 !
 ! RK3 method for now
@@ -348,16 +327,172 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, cvpdivcv, I0, gravity )
 !en ese punto (self % fluidVel).
 !   Al hacerlo de esta forma, el código es más eficiente. Habría que cuantificar el error cometido.
 
+    self % vel_old  = self % vel 
+    self % pos_old  = self % pos 
+    self % temp_old = self % temp 
+
     ! VELOCITY
     self % vel = self % updateVelRK3 ( dt, mu, St, invFr2, gravity  ) 
     ! POSITION
     self % pos = self % pos + dt * self % vel
     ! TEMPERATURE
-    self % temp = self % updateTempRK3 ( dt, gamma, cvpdivcv, St, Pr, I0, Nu ) 
+    self % temp = self % updateTempRK3 ( dt, I0, Nu, gammaDiv3cvpdivcvStPr ) 
 
-    print*,  self % pos, "//", self % vel, "//", self % temp 
 #endif
 end subroutine 
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
+   class(particle_t)   , intent(inout)      :: p
+
+   real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
+   real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
+   integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic] 
+
+
+   integer              :: eID
+   real(kind=RP)        :: pos_out(3), pos_in(3)
+
+   eID         = p%eID_old
+   pos_in      = p%pos_old
+   pos_out     = p%pos
+   
+      ! Check exit face of the box [i+-,j+-,k+-]
+
+         ! bcbox[yz,xz,xy] 0 is inflow/outflow, 1 is wall, 2 is periodic  
+         if ( p % pos(1) < minbox(1) ) then 
+            if     ( bcbox(1) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+            elseif ( bcbox(1) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."
+               !pos_in(1) 
+               p % pos(1) = minbox(1) - ( pos_out(1) - minbox(1) )  
+               p % vel(1)   = - p % vel(1)
+            elseif ( bcbox(1) == 2 ) then  
+               p % pos(1) = p % pos(1) - ( minbox(1) - maxbox(1) )
+            endif
+         endif 
+
+         if ( p % pos(2) < minbox(2) ) then 
+            if     ( bcbox(2) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+            elseif ( bcbox(2) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."   
+               p % pos(2) = minbox(2) - ( pos_out(2) - minbox(2) )  
+               p % vel(2)   = - p % vel(2)
+            elseif ( bcbox(2) == 2 ) then  
+               p % pos(2) = p % pos(2) - ( minbox(2) - maxbox(2) )
+            endif
+         endif 
+
+         if ( p % pos(3) < minbox(3) ) then 
+            if     ( bcbox(3) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+            elseif ( bcbox(3) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."
+               p % pos(3) = minbox(3) - ( pos_out(3) - minbox(3) )  
+               p % vel(3)   = - p % vel(3)
+            elseif ( bcbox(3) == 2 ) then  
+               p % pos(3) = p % pos(3) - ( minbox(3) - maxbox(3) )
+            endif
+         endif 
+
+         if ( p % pos(1) > maxbox(1) ) then 
+            if     ( bcbox(1) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+            elseif ( bcbox(1) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."
+               p % pos(1) = maxbox(1) - ( pos_out(1) - maxbox(1) )  
+               p % vel(1)   = - p % vel(1)
+            elseif ( bcbox(1) == 2 ) then  
+               p % pos(1) = p % pos(1) + ( minbox(1) - maxbox(1) ) 
+            endif
+         endif 
+
+         if ( p % pos(2) > maxbox(2) ) then 
+            if     ( bcbox(2) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) )
+            elseif ( bcbox(2) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."
+               p % pos(2) = maxbox(2) - ( pos_out(2) - maxbox(2) )  
+               p % vel(2)   = - p % vel(2)
+            elseif ( bcbox(2) == 2 ) then  
+               p % pos(2) = p % pos(2) + ( minbox(2) - maxbox(2) ) 
+            endif
+         endif 
+
+         if ( p % pos(3) > maxbox(3) ) then 
+            if     ( bcbox(3) == 0 ) then 
+               ! Particle abandoned the domain through inflow or outflow
+               ! Reinject at outflow or inflow
+               ! call p % set_vel  ( v )
+               ! call p % set_temp ( T )
+               ! p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+            elseif ( bcbox(3) == 1 ) then 
+               !print*, "Warning. Particle lost through wall."
+               p % pos(3) = maxbox(3) - ( pos_out(3) - maxbox(3) )  
+               p % vel(3)   = - p % vel(3)        
+            elseif ( bcbox(3) == 2 ) then  
+               p % pos(3) = p % pos(3) + ( minbox(3) - maxbox(3) )
+            endif
+         endif 
+
+         p % eID = p%eID_old 
+         call p % setGlobalPos ( p % mesh )
+
+ end subroutine
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+ subroutine  FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
+   class(Particle_t), intent(in)      :: p
+   real(kind=RP)  , intent(in)      :: pos(3)
+   integer        , intent(inout)   :: eID
+   integer        , intent(in)      :: neighbours(6)
+   real(kind=RP)  , intent(out)     :: xi(3)
+   logical        , intent(out)     :: inside
+
+   integer  :: i
+   
+   inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+   if (inside) return
+
+   ! Else check if the point resides iniside a neigbour
+
+   do i = 1, 6
+      if (neighbours(i) <= 0) cycle
+      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
+      if (inside) then
+         eID = neighbours(i)
+         return
+      end if
+   end do
+
+   inside = .false.
+
+
+end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
@@ -386,7 +521,7 @@ function particle_updateVelRK3 (self, dt, mu, St, invFr2, gravity) result(Q)
     G = 0.0_RP
     Q = self % vel
     DO k = 1,3
-        Qdot = mu / St * ( self % fluidVel - self % vel) - invFr2 * gravity
+        Qdot = mu / St * ( self % fluidVel - self % vel) + invFr2 * gravity
         G = a(k) * G  + Qdot
         Q = Q         + c(k) * dt * G
     END DO
@@ -395,17 +530,14 @@ end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) result(Q)
-        implicit none 
+function particle_updateTempRK3 (self, dt, I0, Nu, gammaDiv3cvpdivcvStPr ) result(Q)
+        implicit none
     
         class(Particle_t), intent(in)     :: self 
         real(KIND=RP),     intent(in)     :: dt
-        real(KIND=RP),     intent(in)     :: gamma
-        real(KIND=RP),     intent(in)     :: cvpdivcv
-        real(KIND=RP),     intent(in)     :: St
-        real(KIND=RP),     intent(in)     :: Pr
         real(KIND=RP),     intent(in)     :: I0
         real(KIND=RP),     intent(in)     :: Nu
+        real(KIND=RP),     intent(in)     :: gammaDiv3cvpdivcvStPr
         real(KIND=RP)                     :: Q
 #if defined(NAVIERSTOKES)    
     !
@@ -418,12 +550,11 @@ function particle_updateTempRK3 (self, dt, gamma, cvpdivcv, St, Pr, I0, Nu ) res
         REAL(KIND=RP), DIMENSION(3) :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
         REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
         REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)   
-    
-        !TDG: convert gamma / (3 * cvpdivcv * St * Pr) into a variable
+
         G    = 0.0_RP
         Q = self % temp
         DO k = 1,3
-            Qdot = gamma / (3 * cvpdivcv * St * Pr) * &
+            Qdot = gammaDiv3cvpdivcvStPr * &
                 ( I0 - Nu * ( self % temp - self % fluidTemp ) )
             G = a(k) * G  + Qdot
             Q = Q         + c(k) * dt * G
@@ -445,44 +576,136 @@ subroutine particle_source ( self, e, source )
 !        ---------------
 !
     integer         :: i ,j, k                     
-    real(kind=RP)   :: delta 
+    real(kind=RP)   :: vol  
 
     if ( .not. self % active ) return 
 
-    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-        !Compute value of approximation of delta Diract (exp)
-        delta = deltaDirac( e % spAxi % x(i)      - self % xi(1), &
-                            e % spAeta % x(j)     - self % xi(2), &
-                            e % spAzeta % x(k)    - self % xi(3) )
+    !**************************************
+    ! COMPUTE SCALING OF THE ELEMENT (vol) 
+    !**************************************
 
-        !Compute source term                    
-        source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta   
-        source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta
-        source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta
-        source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta 
-    enddo ; enddo ; enddo     
+    ! This information could be stored in the element so it does not have to be recomputed
+    !vol = 0.0_RP
+    !do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+    !  vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+    !end do            ; end do           ; end do
+    
+    ! This is the same as the lines commented at top. Update this for particle_source_gaussian if I recover it.
+    vol = e % geom % volume
+
+    !*****************************
+    ! COMPUTATION OF SOURCE TERM 
+    !*****************************
+    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
+      source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * 1.0_RP / vol 
+      source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * 1.0_RP / vol 
+      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * 1.0_RP / vol 
+      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * 1.0_RP / vol 
+    enddo ; enddo ; enddo    
+    
 #endif     
 end subroutine 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-function deltaDirac(x,y,z)
+subroutine particle_source_gaussian ( self, e, source )
+   implicit none
+   class(Particle_t)       , intent(in)    :: self    
+   class(element)          , intent(in)    :: e    
+   real(kind=RP)           , intent(inout) :: source(:,0:,0:,0:)    
+   ! This subroutine is not used. It could replace particle_source if I want.
+#if defined(NAVIERSTOKES)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+   integer         :: i ,j, k                     
+   real(kind=RP)   :: delta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3) ) 
+   real(kind=RP)   :: x(3) 
+   real(kind=RP)   :: val, vol  
+   real(kind=RP)   :: dx 
+
+   if ( .not. self % active ) return 
+
+   !**************************************
+   ! COMPUTE SCALING OF THE ELEMENT (dx) 
+   !**************************************
+
+   ! only once! 
+   vol = 0.0_RP
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+   end do            ; end do           ; end do
+   dx = vol ** (1.0_RP/3.0_RP)
+
+   delta = 1.0_RP / vol 
+
+
+   !*********************************
+   ! CONSTRUCT DISCRETE DIRAC DELTA
+   !*********************************
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     x = e % geom % x(:,i,j,k)
+     !Compute value of approximation of delta Diract (exp)
+     delta(i,j,k) = deltaDirac( x(1) - self % x(1), &
+                         x(2) - self % x(2), &
+                         x(3) - self % x(3), &
+                         dx )
+   enddo ; enddo ; enddo
+
+   !*********************************************************************************
+   ! DISCRETE NORMALIZATION OF DIRAC DELTA. DISCRETE INTEGRAL IN ELEMENT EQUAL TO 1 
+   !*********************************************************************************
+   val = 0.0_RP
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+     val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
+   end do            ; end do           ; end do
+
+   ! CON ESTO DESACTIVADO PIERDO ENERGÍA. TENGO QUE EXTENDER ESTA IDEA A LOS VECINOS. 
+   ! HACER SOLO UNA VEZ POR PARTICULA
+   delta = delta / val 
+ 
+   !*****************************
+   ! COMPUTATION OF SOURCE TERM 
+   !*****************************
+   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
+     source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * delta(i,j,k)   
+     source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * delta(i,j,k)
+     source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta(i,j,k)
+     source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta(i,j,k) 
+   enddo ; enddo ; enddo     
+#endif     
+end subroutine 
+!
+!///////////////////////////////////////////////////////////////////////////////////////
+!
+function deltaDirac(x,y,z,dx)
     !This function creates an approximation of a delta Dirac
     !   centered at x,y,z. 
-    !   c -> 0 == delta dirac
-    !   The value of the parameter c should be adapted depending 
-    !   on the polynomial order used in the approximation. 
-    !TDG: this constant c should depend on the pol order or the diameter of the particle.
     implicit none 
     real(kind=RP)            :: deltaDirac
     real(kind=RP)            :: x,y,z
-    real(kind=RP), parameter :: c = 0.02_RP
+    real(kind=RP)            :: dx
 
-    deltaDirac = exp( - (POW2(x) + POW2(y) + POW2(z)) / c )
+    real(kind=RP)            :: sigma 
+
+    !sigma = 1.5 * D
+    sigma = 1.5 * dx
+    ! This value has been taken from Maxey, Patel, Chang and Wang 1997
+    ! According to them, sigma > 1.5 grid spacing AND sigma > 1.3 D for stability
+    ! They use a value of sigma ~ D 
+
+    ! This approximation has the same triple integral as the exact 
+    ! Dirac delta
+
+    deltaDirac = ( 2 * pi * POW2( sigma ) ) ** ( -3.0_RP / 2.0_RP ) * &
+        exp( - ( POW2(x) + POW2(y) + POW2(z) ) / ( 2 * POW2( sigma ) ) )
 
 end function 
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !    
+
 end module 
 #endif

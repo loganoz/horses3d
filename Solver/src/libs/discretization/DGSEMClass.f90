@@ -327,18 +327,18 @@ Module DGSEMClass
 !
       call self % monitors % construct (self % mesh, controlVariables)
 
-#if defined(NAVIERSTOKES)
-!
-!     -------------------
-!     Build the particles
-!     -------------------
-!
+! #if defined(NAVIERSTOKES)
+! !
+! !     -------------------
+! !     Build the particles
+! !     -------------------
+! !
 
-      self % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
-      if ( self % particles % active ) then 
-            call self % particles % construct(self % mesh, controlVariables)
-      endif 
-#endif
+!       self % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+!       if ( self % particles % active ) then 
+!             call self % particles % construct(self % mesh, controlVariables)
+!       endif 
+! #endif
       
       NULLIFY(Nx,Ny,Nz)
 !

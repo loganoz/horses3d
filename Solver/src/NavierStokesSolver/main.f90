@@ -123,6 +123,17 @@
 !     -------------------------
 !
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+      !
+      !     -------------------
+      !     Build the particles
+      !     -------------------
+      !
+!#if defined(NAVIERSTOKES) ! Not required as this is the main for NS.
+      sem % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+      if ( sem % particles % active ) then 
+            call sem % particles % construct(sem % mesh, controlVariables)
+      endif
+!#endif
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -135,12 +146,6 @@
 !     -----------------
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-!
-!     ----------------------------------
-!     Export particles to VTK (temporal)
-!     ----------------------------------
-!TODO
-!      call sem % particles % ExportToVTK()
 !
 !     ------------------------------------------
 !     Finish measuring the total simulation time
