@@ -391,8 +391,8 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
-            REAL(KIND=RP)                      :: residuals       = 621.847759506997_RP !It uses random functions so I guess it depends on the compiler. 
-            !The coded value if for Alderaan Intel release. Bender intel 2015 release gives 697.169619289106_RP
+            REAL(KIND=RP)                      :: residuals       = 634.36995380136102_RP !It uses random functions so I guess it depends on the compiler. 
+            !The coded value if for Alderaan gfortran release. Bender intel 2015 release gives 697.169619289106_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -414,20 +414,20 @@
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."   
                WRITE(6,*) "NOTE: Failure is expected if compiler version or architecture changes."
                WRITE(6,*) "      This test case uses random functions for the injection of the particles."
-               WRITE(6,*) "      The coded residual is for Alderaan Intel Release configuration."                 
+               WRITE(6,*) "      The coded residual is for Alderaan gfortran Release configuration."                 
                WRITE(6,*) "If it fails, the particles are supposed to be here:"
                WRITE(6,*)
                WRITE(6,*) "i,x coord,y coord,z coord,u,v,w,T,Row ID"
-               WRITE(6,*) " 1,0.378817E-01,0.122848E+00,0.333146E-01,0.187350E+01,0.936817E+01,-.187351E+01,0.187460E+01"
-               WRITE(6,*) " 2,0.273126E-01,0.121599E+00,0.228846E-01,0.187486E+01,0.937480E+01,-.187483E+01,0.187592E+01"
-               WRITE(6,*) " 3,0.185284E-01,0.120365E+00,0.357924E-01,0.187619E+01,0.938124E+01,-.187608E+01,0.187724E+01"
-               WRITE(6,*) " 4,0.222413E-01,0.119143E+00,0.177665E-01,0.187739E+01,0.938757E+01,-.187730E+01,0.187858E+01"
-               WRITE(6,*) " 5,0.362321E-01,0.117931E+00,0.309296E-01,0.187861E+01,0.939416E+01,-.187875E+01,0.188013E+01"
-               WRITE(6,*) " 6,0.228732E-01,0.116718E+00,0.236805E-01,0.187962E+01,0.940013E+01,-.187954E+01,0.188137E+01"
-               WRITE(6,*) " 7,0.307956E-01,0.115512E+00,0.295983E-01,0.188101E+01,0.940604E+01,-.188106E+01,0.188219E+01"
-               WRITE(6,*) " 8,0.187440E-01,0.114308E+00,0.274227E-01,0.188209E+01,0.941237E+01,-.188185E+01,0.188362E+01"
-               WRITE(6,*) " 9,0.272797E-01,0.113103E+00,0.225712E-01,0.188405E+01,0.941854E+01,-.188370E+01,0.188499E+01"
-               WRITE(6,*) "10,0.211706E-01,0.113104E+00,0.375182E-01,0.188373E+01,0.941872E+01,0.188305E+01,0.188478E+01"
+               WRITE(6,*) " 1,0.346103E-01,0.122647E+00,0.381186E-01,0.187380E+01,0.936915E+01,0.187372E+01,0.187502E+01"
+               WRITE(6,*) " 2,0.327812E-01,0.121402E+00,0.358276E-01,0.187496E+01,0.937635E+01,0.187472E+01,0.187683E+01"
+               WRITE(6,*) " 3,0.621476E-02,0.120164E+00,0.170473E-01,0.187631E+01,0.938221E+01,-.187632E+01,0.187730E+01"
+               WRITE(6,*) " 4,0.124551E-01,0.118942E+00,0.210005E-01,0.187764E+01,0.938864E+01,-.187758E+01,0.187858E+01"
+               WRITE(6,*) " 5,0.374879E-01,0.117730E+00,0.232296E-01,0.187889E+01,0.939485E+01,0.187887E+01,0.187970E+01"
+               WRITE(6,*) " 6,0.348424E-01,0.116525E+00,0.257058E-01,0.188026E+01,0.940102E+01,-.187970E+01,0.188117E+01"
+               WRITE(6,*) " 7,0.272730E-01,0.115334E+00,0.369233E-01,0.188134E+01,0.940743E+01,-.188130E+01,0.188223E+01"
+               WRITE(6,*) " 8,0.345532E-01,0.114155E+00,0.192496E-01,0.188268E+01,0.941348E+01,-.188195E+01,0.188369E+01"
+               WRITE(6,*) " 9,0.208096E-01,0.112977E+00,0.196557E-01,0.188384E+01,0.941972E+01,-.188379E+01,0.188456E+01"
+               WRITE(6,*) "10,0.129646E-01,0.112976E+00,0.281353E-01,0.188398E+01,0.941960E+01,-.188341E+01,0.188476E+01"
                WRITE(6,*)
                WRITE(6,*) "Compare with RESULTS/Pouransari0041/Pouransari0041.parts.0000000100.csv"
                WRITE(6,*) "NOTE: If you run in other machine or with  other compiler these results may change."

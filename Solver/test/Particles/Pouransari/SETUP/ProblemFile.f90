@@ -391,8 +391,8 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
-            REAL(KIND=RP)                      :: residuals       = 1207.37430820209_RP !It uses random functions so I guess it depends on the compiler. 
-!The coded value if for Alderaan Intel release. Bender intel 2015 release gives 1203.01565442056_RP
+            REAL(KIND=RP)                      :: residuals       = 1450.8746131042258_RP !It uses random functions so I guess it depends on the compiler. 
+!The coded value if for Alderaan gfortran release. Bender intel 2015 release gives 1203.01565442056_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -414,7 +414,7 @@
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."
                WRITE(6,*) "NOTE: Failure is expected if compiler version or architecture changes."
                WRITE(6,*) "      This test case uses random functions for the injection of the particles."
-               WRITE(6,*) "      The coded residual is for Alderaan Intel Release configuration."    
+               WRITE(6,*) "      The coded residual is for Alderaan gfortrans Release configuration."    
                WRITE(6,*) " Bender intel 2015 residual 1203.01565442056_RP"       
                STOP 99
             END IF 
