@@ -1,10 +1,37 @@
 #!/bin/bash
-######################################################################
-##	This script configures the test cases:
-##		-> Copies Makefiles with the solver absolute path
-##		-> Generates the required folders.
-##		-> Generates links to the solver.
-######################################################################
+#######################################################################
+###	This script configures the test cases:
+###		-> Copies Makefiles with the solver absolute path
+###		-> Generates the required folders.
+###		-> Generates links to the solver.
+#######################################################################
+
+##################################################
+## 	APPLY A PATCH IF REQUESTED 		##
+##################################################
+for i in "$@"
+do
+case $i in
+    -p=*|--patch=*)
+    MACHINE="${i#*=}"
+    if [ "$MACHINE" = "bender" ]; then
+        echo "Aplying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
+    fi
+    git apply ../utils/patches/$MACHINE.patch
+    shift
+    ;;
+    --remove-patch=*)
+    MACHINE="${i#*=}"
+    git apply -R ../utils/patches/$MACHINE.patch
+    shift
+    ;;
+    *)
+    ;;
+esac
+done
+##################################################
+## 	GENERATE TEST CASES			##
+##################################################
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
@@ -18,6 +45,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderFAS \
+            ./NavierStokes/CylinderAnisFAS \
             ./NavierStokes/CylinderBR2 \
             ./NavierStokes/CylinderIP \
             ./NavierStokes/CylinderIP_BDF2 \
@@ -79,23 +107,4 @@ mkdir -p ./test/Components/Gradients/MESH
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
 rm -f ./test/Components/Gradients/Makefile-e
 
-##################################################
-## 	APPLY A PATCH IF REQUESTED 		##
-##################################################
-for i in "$@"
-do
-case $i in
-    -p=*|--patch=*)
-    MACHINE="${i#*=}"
-    git apply ../utils/patches/$MACHINE.patch
-    shift
-    ;;
-    --remove-patch=*)
-    MACHINE="${i#*=}"
-    git apply -R ../utils/patches/$MACHINE.patch
-    shift
-    ;;
-    *)
-    ;;
-esac
-done
+
