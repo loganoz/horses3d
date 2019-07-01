@@ -135,6 +135,27 @@
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
+
+         if ( controlVariables % ContainsKey("explicit method") ) then
+            select case ((controlVariables % StringValueForKey("explicit method",LINE_LENGTH)))
+            case("Euler")
+               self % RKStep => TakeExplicitEulerStep
+print*, "Method selected: Euler"
+
+            case("RK3")
+               self % RKStep => TakeRK3Step
+print*, "Method selected: RK3"
+
+            case("RK5")
+               self % RKStep => TakeRK5Step
+print*, "Method selected: RK5"
+
+            end select
+         else
+            self % RKStep => TakeRK3Step
+
+         end if
+
 !
 !        ------------------------------------
 !        Integrator-dependent initializarions

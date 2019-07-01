@@ -1,0 +1,1033 @@
+#HORSES_PATH=@HORSES_HOME_DIR
+HORSES_PATH=/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver
+#CASE_PATH=/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Cases/IncompressiblePaper/1_Convergence/
+CASE_PATH=/Users/juanmanzanero/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Cases/IncompressiblePaper/1a_Convergence/
+#HORSES_PATH=/home/j.manzanero/horses3d/Solver
+#CASE_PATH=/home/j.manzanero/horses3d/Cases/IncompressiblePaper/1a_Convergence
+COMM?=SEQUENTIAL
+
+ifeq '$(COMPILER)''gfortran'
+   F90=gfortran
+   FFLAGS=-cpp -DHAS_MKL -DHAS_LAPACK -DINCNS -Wfatal-errors -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 -fbackslash -fopenmp
+   MKLROOT   := /opt/intel/mkl
+   INTEL_LIB := /opt/intel/lib/intel64
+   INC_MKL   := -m64 -I${MKLROOT}/include
+   LIB_MKL   := -Wl,--no-as-needed -L${MKLROOT}/lib/intel64 -lmkl_gf_lp64 -lmkl_core -lmkl_gnu_thread -lpthread -lm -ldl -L${INTEL_LIB} -liomp5
+   INCLUDES  := $(INC_MKL) -I$(HORSES_PATH)/./src/libs -I$(HORSES_PATH)/./src/libs/foundation
+   LIBS      := $(LIB_MKL)
+else
+   F90=ifort
+   FFLAGS=-cpp -DINCNS -O3 -DHAS_MKL -DHAS_LAPACK -D_has_Quad -fp-model precise -qopenmp #-ipo
+   #FFLAGS=-cpp -DINCNS -O0 -D_has_Quad -g -debug -traceback
+   INCLUDES=-I$(HORSES_PATH)/./src/libs -I$(HORSES_PATH)/./src/libs/foundation
+
+   ifeq '$(COMM)''PARALLEL'
+      F90:=mpiifort
+      FFLAGS+=-D_HAS_MPI_ -D_HAS_METIS
+      LIBS+=-L$(METIS_HOME)/lib -lmetis
+   endif
+endif
+
+##########################
+# Object Files for build #
+##########################
+
+FTOBJS = FTOLConstants.o FTObjectClass.o FTDataClass.o FTObjectArrayClass.o FTLinkedListClass.o FTMultiIndexTable.o FTDictionaryClass.o FTValueClass.o FTValueDictionaryClass.o FTStackClass.o Hash.o FTSparseMatrixClass.o Assert.o Comparisons.o TestSuiteManagerClass.o FTObjectLibrary.o
+
+OBJS = \
+autosave.o \
+BoundaryConditions.o \
+ConnectivityClass.o \
+DGIntegrals.o \
+DGSEMClass.o \
+EllipticBR1.o \
+EllipticBR2.o \
+EllipticDiscretizationClass.o \
+EllipticDiscretizations.o \
+EllipticIP.o \
+ExplicitMethods.o \
+FaceClass.o \
+FacePatchClass.o \
+FileReading.o \
+FluidData.o \
+FluidData_iNS.o \
+FreeSlipWallBC.o \
+GenericBoundaryConditionClass.o \
+GradientsStabilization.o \
+Headers.o \
+HexElementClass.o \
+HexElementConnectivityDefinitions.o \
+HexMesh.o \
+HyperbolicDiscretizationClass.o \
+HyperbolicDiscretizations.o \
+HyperbolicSplitForm.o \
+HyperbolicStandard.o \
+InflowBC.o \
+IntegerDataLinkedList.o \
+InterpolationAndDerivatives.o \
+InterpolationMatrices.o \
+LegendreAlgorithms.o \
+main.o \
+MappedGeometry.o \
+MeshPartitioning.o \
+MeshTypes.o \
+METISPartitioning.o \
+MonitorDefinitions.o \
+Monitors.o \
+MPI_Face.o \
+NodalStorageClass.o \
+NodeClass.o \
+NoSlipWallBC.o \
+OutflowBC.o \
+ParamfileRegions.o \
+Particle.o \
+Particles.o \
+partitioned_mesh.o \
+PeriodicBC.o \
+Physics.o \
+Physics_iNS.o \
+PhysicsStorage.o \
+PhysicsStorage_iNS.o \
+Probe.o \
+ProblemFile.o \
+process_info.o \
+Read_HDF5Mesh_HOPR.o \
+Read_SpecMesh.o \
+ReadInputFile.o \
+ReadMeshFile.o \
+RealDataLinkedList.o \
+ResidualsMonitor.o \
+RiemannSolvers_iNS.o \
+Setup.o \
+SharedDictionaries.o \
+SMConstants.o \
+SolutionFile.o \
+SpatialDiscretization.o \
+StatisticsMonitor.o \
+Stopwatch.o \
+StorageClass.o \
+SurfaceIntegrals.o \
+SurfaceMonitor.o \
+SVV.o \
+TimeIntegrator.o \
+TimeIntegratorDefinitions.o \
+TransfiniteMaps3D.o \
+UserDefinedBC.o \
+Utilities.o \
+VariableConversion.o \
+VariableConversion_iNS.o \
+VolumeIntegrals.o \
+VolumeMonitor.o \
+WallDistance.o \
+ZoneClass.o \
+
+horses3d.iNS_paper : $(FTOBJS) $(OBJS)
+	ar cr libftobject.a FTOLConstants.o FTObjectClass.o FTDataClass.o FTObjectArrayClass.o FTLinkedListClass.o FTMultiIndexTable.o FTDictionaryClass.o FTValueClass.o FTValueDictionaryClass.o FTStackClass.o Hash.o FTSparseMatrixClass.o Assert.o Comparisons.o TestSuiteManagerClass.o FTObjectLibrary.o
+	${F90} $(FFLAGS) -o ../$@ $(OBJS) $(LIBS) -L$(HORSES_PATH)/build -lftobject
+	mv ../$@ $(CASE_PATH)
+
+
+
+#######################################
+# Object dependencies and compilation #
+#######################################
+Assert.o : $(HORSES_PATH)/src/libs/ftobject/Assert.f90 \
+Comparisons.o \
+FTOLConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/Assert.f90
+
+autosave.o : $(HORSES_PATH)/src/libs/io/autosave.f90 \
+Utilities.o \
+SMConstants.o \
+FTValueDictionaryClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/autosave.f90
+
+BoundaryConditions.o : $(HORSES_PATH)/src/libs/physics/common/BoundaryConditions.f90 \
+OutflowBC.o \
+UserDefinedBC.o \
+FileReading.o \
+NoSlipWallBC.o \
+InflowBC.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+FreeSlipWallBC.o \
+ReadInputFile.o \
+Utilities.o \
+SMConstants.o \
+PeriodicBC.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/BoundaryConditions.f90
+
+Comparisons.o : $(HORSES_PATH)/src/libs/ftobject/Comparisons.f90 \
+FTOLConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/Comparisons.f90
+
+ConnectivityClass.o : $(HORSES_PATH)/src/libs/mesh/ConnectivityClass.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/ConnectivityClass.f90
+
+DGIntegrals.o : $(HORSES_PATH)/src/libs/discretization/DGIntegrals.f90 \
+Physics.o \
+MeshTypes.o \
+SMConstants.o \
+HexElementClass.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/DGIntegrals.f90
+
+DGSEMClass.o : $(HORSES_PATH)/src/libs/discretization/DGSEMClass.f90 \
+HexElementClass.o \
+FluidData.o \
+Stopwatch.o \
+ProblemFile.o \
+MeshTypes.o \
+NodalStorageClass.o \
+FileReading.o \
+PhysicsStorage.o \
+Particles.o \
+partitioned_mesh.o \
+MeshPartitioning.o \
+Monitors.o \
+Physics.o \
+FTValueDictionaryClass.o \
+process_info.o \
+ReadMeshFile.o \
+VariableConversion.o \
+SMConstants.o \
+Setup.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/DGSEMClass.f90
+
+EllipticBR1.o : $(HORSES_PATH)/src/libs/discretization/EllipticBR1.f90 \
+SMConstants.o \
+process_info.o \
+DGIntegrals.o \
+Headers.o \
+FaceClass.o \
+MPI_Face.o \
+Physics.o \
+EllipticDiscretizationClass.o \
+FluidData.o \
+VariableConversion.o \
+HexElementClass.o \
+MeshTypes.o \
+PhysicsStorage.o \
+BoundaryConditions.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/EllipticBR1.f90
+
+EllipticBR2.o : $(HORSES_PATH)/src/libs/discretization/EllipticBR2.f90 \
+BoundaryConditions.o \
+SMConstants.o \
+FTValueDictionaryClass.o \
+Headers.o \
+Setup.o \
+DGIntegrals.o \
+FaceClass.o \
+MPI_Face.o \
+EllipticDiscretizationClass.o \
+Physics.o \
+FluidData.o \
+process_info.o \
+VariableConversion.o \
+HexElementClass.o \
+MeshTypes.o \
+PhysicsStorage.o 
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/EllipticBR2.f90
+
+EllipticDiscretizationClass.o : $(HORSES_PATH)/src/libs/discretization/EllipticDiscretizationClass.f90 \
+FTValueDictionaryClass.o \
+FaceClass.o \
+Headers.o \
+SMConstants.o \
+MPI_Face.o \
+Physics.o \
+process_info.o \
+VariableConversion.o \
+HexElementClass.o \
+MeshTypes.o \
+PhysicsStorage.o \
+Setup.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/EllipticDiscretizationClass.f90
+
+EllipticDiscretizations.o : $(HORSES_PATH)/src/libs/discretization/EllipticDiscretizations.f90 \
+EllipticBR2.o \
+EllipticBR1.o \
+EllipticIP.o \
+EllipticDiscretizationClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/EllipticDiscretizations.f90
+
+EllipticIP.o : $(HORSES_PATH)/src/libs/discretization/EllipticIP.f90 \
+HexElementClass.o \
+DGSEMClass.o \
+BoundaryConditions.o \
+Headers.o \
+FaceClass.o \
+FTValueDictionaryClass.o \
+Setup.o \
+DGIntegrals.o \
+MPI_Face.o \
+Physics.o \
+EllipticDiscretizationClass.o \
+Utilities.o \
+FluidData.o \
+process_info.o \
+VariableConversion.o \
+MeshTypes.o \
+PhysicsStorage.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/EllipticIP.f90
+
+ExplicitMethods.o : $(HORSES_PATH)/src/libs/timeintegrator/ExplicitMethods.f90 \
+PhysicsStorage.o \
+SMConstants.o \
+TimeIntegratorDefinitions.o \
+DGSEMClass.o \
+Particles.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/timeintegrator/ExplicitMethods.f90
+
+FaceClass.o : $(HORSES_PATH)/src/libs/mesh/FaceClass.f90 \
+PhysicsStorage.o \
+NodalStorageClass.o \
+StorageClass.o \
+MeshTypes.o \
+LegendreAlgorithms.o \
+MappedGeometry.o \
+InterpolationAndDerivatives.o \
+SMConstants.o \
+InterpolationMatrices.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/FaceClass.f90
+
+FacePatchClass.o : $(HORSES_PATH)/src/libs/mesh/FacePatchClass.f90 \
+SMConstants.o \
+InterpolationAndDerivatives.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/FacePatchClass.f90
+
+FileReading.o : $(HORSES_PATH)/src/libs/io/FileReading.f90 \
+IntegerDataLinkedList.o \
+SMConstants.o \
+RealDataLinkedList.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/FileReading.f90
+
+FluidData.o : $(HORSES_PATH)/src/libs/physics/common/FluidData.f90 \
+FluidData_iNS.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/FluidData.f90
+
+FluidData_iNS.o : $(HORSES_PATH)/src/libs/physics/incns/FluidData_iNS.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/incns/FluidData_iNS.f90
+
+FreeSlipWallBC.o : $(HORSES_PATH)/src/libs/physics/common/FreeSlipWallBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+ReadInputFile.o \
+FluidData.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/FreeSlipWallBC.f90
+
+FTDataClass.o : $(HORSES_PATH)/src/libs/ftobject/FTDataClass.f90 \
+FTObjectClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTDataClass.f90
+
+FTDictionaryClass.o : $(HORSES_PATH)/src/libs/ftobject/FTDictionaryClass.f90 \
+FTObjectArrayClass.o \
+FTLinkedListClass.o \
+FTObjectClass.o \
+FTLinkedListClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTDictionaryClass.f90
+
+FTExceptionClass.o : $(HORSES_PATH)/src/libs/ftobject/FTExceptionClass.f90 \
+FTDictionaryClass.o \
+FTValueDictionaryClass.o \
+FTStackClass.o \
+FTLinkedListClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTExceptionClass.f90
+
+FTLinkedListClass.o : $(HORSES_PATH)/src/libs/ftobject/FTLinkedListClass.f90 \
+FTObjectArrayClass.o \
+FTObjectClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTLinkedListClass.f90
+
+FTMultiIndexTable.o : $(HORSES_PATH)/src/libs/ftobject/FTMultiIndexTable.f90 \
+FTObjectClass.o \
+FTLinkedListClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTMultiIndexTable.f90
+
+FTObjectArrayClass.o : $(HORSES_PATH)/src/libs/ftobject/FTObjectArrayClass.f90 \
+FTObjectClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTObjectArrayClass.f90
+
+FTObjectClass.o : $(HORSES_PATH)/src/libs/ftobject/FTObjectClass.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTObjectClass.f90
+
+FTObjectLibrary.o : $(HORSES_PATH)/src/libs/ftobject/FTObjectLibrary.f90 \
+FTValueDictionaryClass.o \
+FTSparseMatrixClass.o \
+FTExceptionClass.o \
+FTObjectArrayClass.o \
+FTObjectClass.o \
+FTStackClass.o \
+TestSuiteManagerClass.o \
+FTLinkedListClass.o \
+Assert.o \
+FTDictionaryClass.o \
+FTLinkedListClass.o \
+FTValueClass.o \
+Comparisons.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTObjectLibrary.f90
+
+FTOLConstants.o : $(HORSES_PATH)/src/libs/ftobject/FTOLConstants.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTOLConstants.f90
+
+FTSparseMatrixClass.o : $(HORSES_PATH)/src/libs/ftobject/FTSparseMatrixClass.f90 \
+FTLinkedListClass.o \
+FTObjectClass.o \
+FTLinkedListClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTSparseMatrixClass.f90
+
+FTStackClass.o : $(HORSES_PATH)/src/libs/ftobject/FTStackClass.f90 \
+FTLinkedListClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTStackClass.f90
+
+FTValueClass.o : $(HORSES_PATH)/src/libs/ftobject/FTValueClass.f90 \
+FTOLConstants.o \
+FTObjectClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTValueClass.f90
+
+FTValueDictionaryClass.o : $(HORSES_PATH)/src/libs/ftobject/FTValueDictionaryClass.f90 \
+FTValueClass.o \
+FTDictionaryClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/FTValueDictionaryClass.f90
+
+GenericBoundaryConditionClass.o : $(HORSES_PATH)/src/libs/physics/common/GenericBoundaryConditionClass.f90 \
+FTValueDictionaryClass.o \
+SMConstants.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/GenericBoundaryConditionClass.f90
+
+GradientsStabilization.o : $(HORSES_PATH)/src/libs/discretization/GradientsStabilization.f90 \
+BoundaryConditions.o \
+PhysicsStorage.o \
+HexElementClass.o \
+DGIntegrals.o \
+FaceClass.o \
+MeshTypes.o \
+VariableConversion.o \
+SMConstants.o \
+Physics.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/GradientsStabilization.f90
+
+Hash.o : $(HORSES_PATH)/src/libs/ftobject/Hash.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/Hash.f90
+
+Headers.o : $(HORSES_PATH)/src/libs/io/Headers.f90 \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/Headers.f90
+
+HexElementClass.o : $(HORSES_PATH)/src/libs/mesh/HexElementClass.f90 \
+NodalStorageClass.o \
+SMConstants.o \
+NodeClass.o \
+TransfiniteMaps3D.o \
+LegendreAlgorithms.o \
+StorageClass.o \
+Physics.o \
+ConnectivityClass.o \
+Utilities.o \
+InterpolationAndDerivatives.o \
+FacePatchClass.o \
+VariableConversion.o \
+MappedGeometry.o \
+FaceClass.o \
+MeshTypes.o \
+PhysicsStorage.o \
+HexElementConnectivityDefinitions.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/HexElementClass.f90
+
+HexElementConnectivityDefinitions.o : $(HORSES_PATH)/src/libs/mesh/HexElementConnectivityDefinitions.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/HexElementConnectivityDefinitions.f90
+
+HexMesh.o : $(HORSES_PATH)/src/libs/mesh/HexMesh.f90 \
+Physics.o \
+FluidData.o \
+HexElementClass.o \
+Setup.o \
+FaceClass.o \
+ReadInputFile.o \
+Utilities.o \
+SharedDictionaries.o \
+MeshTypes.o \
+NodeClass.o \
+NodalStorageClass.o \
+FileReading.o \
+BoundaryConditions.o \
+Headers.o \
+FacePatchClass.o \
+PhysicsStorage.o \
+partitioned_mesh.o \
+FTValueClass.o \
+ZoneClass.o \
+SolutionFile.o \
+StorageClass.o \
+HexElementConnectivityDefinitions.o \
+TransfiniteMaps3D.o \
+process_info.o \
+FTValueDictionaryClass.o \
+MPI_Face.o \
+IntegerDataLinkedList.o \
+WallDistance.o \
+SMConstants.o \
+FTMultiIndexTable.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/HexMesh.f90
+
+HyperbolicDiscretizationClass.o : $(HORSES_PATH)/src/libs/discretization/HyperbolicDiscretizationClass.f90 \
+PhysicsStorage.o \
+Headers.o \
+process_info.o \
+HexElementClass.o \
+Physics.o \
+FTValueDictionaryClass.o \
+Setup.o \
+SMConstants.o \
+RiemannSolvers_iNS.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/HyperbolicDiscretizationClass.f90
+
+HyperbolicDiscretizations.o : $(HORSES_PATH)/src/libs/discretization/HyperbolicDiscretizations.f90 \
+HyperbolicDiscretizationClass.o \
+SMConstants.o \
+HyperbolicStandard.o \
+HyperbolicSplitForm.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/HyperbolicDiscretizations.f90
+
+HyperbolicSplitForm.o : $(HORSES_PATH)/src/libs/discretization/HyperbolicSplitForm.f90 \
+RiemannSolvers_iNS.o \
+Utilities.o \
+Headers.o \
+process_info.o \
+HyperbolicDiscretizationClass.o \
+FTValueDictionaryClass.o \
+PhysicsStorage.o \
+Setup.o \
+HexElementClass.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/HyperbolicSplitForm.f90
+
+HyperbolicStandard.o : $(HORSES_PATH)/src/libs/discretization/HyperbolicStandard.f90 \
+SMConstants.o \
+HyperbolicDiscretizationClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/HyperbolicStandard.f90
+
+InflowBC.o : $(HORSES_PATH)/src/libs/physics/common/InflowBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+ReadInputFile.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/InflowBC.f90
+
+IntegerDataLinkedList.o : $(HORSES_PATH)/src/libs/foundation/IntegerDataLinkedList.f90 \
+Utilities.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/IntegerDataLinkedList.f90
+
+InterpolationAndDerivatives.o : $(HORSES_PATH)/src/libs/spectral/InterpolationAndDerivatives.f90 \
+LegendreAlgorithms.o \
+SMConstants.o \
+Utilities.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/spectral/InterpolationAndDerivatives.f90
+
+InterpolationMatrices.o : $(HORSES_PATH)/src/libs/spectral/InterpolationMatrices.f90 \
+NodalStorageClass.o \
+SMConstants.o \
+InterpolationAndDerivatives.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/spectral/InterpolationMatrices.f90
+
+LegendreAlgorithms.o : $(HORSES_PATH)/src/libs/spectral/LegendreAlgorithms.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/spectral/LegendreAlgorithms.f90
+
+main.o : $(HORSES_PATH)/src/IncompressibleNSSolver/main.f90 \
+FluidData.o \
+Stopwatch.o \
+Utilities.o \
+SharedDictionaries.o \
+ProblemFile.o \
+TimeIntegrator.o \
+FileReading.o \
+InterpolationMatrices.o \
+NodalStorageClass.o \
+DGSEMClass.o \
+Headers.o \
+BoundaryConditions.o \
+PhysicsStorage.o \
+FTValueClass.o \
+FTValueDictionaryClass.o \
+SpatialDiscretization.o \
+process_info.o \
+ReadInputFile.o \
+SMConstants.o \
+Setup.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/IncompressibleNSSolver/main.f90
+
+MappedGeometry.o : $(HORSES_PATH)/src/libs/mesh/MappedGeometry.f90 \
+NodalStorageClass.o \
+MeshTypes.o \
+SMConstants.o \
+TransfiniteMaps3D.o \
+InterpolationMatrices.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/MappedGeometry.f90
+
+MeshPartitioning.o : $(HORSES_PATH)/src/libs/mesh/MeshPartitioning.f90 \
+Utilities.o \
+FileReading.o \
+partitioned_mesh.o \
+IntegerDataLinkedList.o \
+MeshTypes.o \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/MeshPartitioning.f90
+
+MeshTypes.o : $(HORSES_PATH)/src/libs/mesh/MeshTypes.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/MeshTypes.f90
+
+METISPartitioning.o : $(HORSES_PATH)/src/libs/mesh/METISPartitioning.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/METISPartitioning.f90
+
+MonitorDefinitions.o : $(HORSES_PATH)/src/libs/monitors/MonitorDefinitions.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/MonitorDefinitions.f90
+
+Monitors.o : $(HORSES_PATH)/src/libs/monitors/Monitors.f90 \
+FTValueDictionaryClass.o \
+PhysicsStorage.o \
+FileReading.o \
+Stopwatch.o \
+ParamfileRegions.o \
+SurfaceMonitor.o \
+StatisticsMonitor.o \
+MonitorDefinitions.o \
+Probe.o \
+VolumeMonitor.o \
+process_info.o \
+ResidualsMonitor.o \
+Setup.o \
+SMConstants.o \
+NodalStorageClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/Monitors.f90
+
+MPI_Face.o : $(HORSES_PATH)/src/libs/mpiutils/MPI_Face.f90 \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mpiutils/MPI_Face.f90
+
+NodalStorageClass.o : $(HORSES_PATH)/src/libs/spectral/NodalStorageClass.f90 \
+Setup.o \
+LegendreAlgorithms.o \
+SMConstants.o \
+FTValueDictionaryClass.o \
+InterpolationAndDerivatives.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/spectral/NodalStorageClass.f90
+
+NodeClass.o : $(HORSES_PATH)/src/libs/mesh/NodeClass.f90 \
+SMConstants.o \
+MeshTypes.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/NodeClass.f90
+
+NoSlipWallBC.o : $(HORSES_PATH)/src/libs/physics/common/NoSlipWallBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+ReadInputFile.o \
+FluidData.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/NoSlipWallBC.f90
+
+OutflowBC.o : $(HORSES_PATH)/src/libs/physics/common/OutflowBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+ReadInputFile.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/OutflowBC.f90
+
+ParamfileRegions.o : $(HORSES_PATH)/src/libs/io/ParamfileRegions.f90 \
+SMConstants.o \
+Utilities.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/ParamfileRegions.f90
+
+Particle.o : $(HORSES_PATH)/src/libs/particles/Particle.f90 \
+HexElementClass.o \
+process_info.o \
+PhysicsStorage.o \
+FluidData.o \
+VariableConversion.o \
+Physics.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/particles/Particle.f90
+
+Particles.o : $(HORSES_PATH)/src/libs/particles/Particles.f90 \
+Particle.o \
+PhysicsStorage.o \
+HexElementClass.o \
+Physics.o \
+FTValueDictionaryClass.o \
+Headers.o \
+VariableConversion.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/particles/Particles.f90
+
+partitioned_mesh.o : $(HORSES_PATH)/src/libs/mpiutils/partitioned_mesh.f90 \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mpiutils/partitioned_mesh.f90
+
+PeriodicBC.o : $(HORSES_PATH)/src/libs/physics/common/PeriodicBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+ReadInputFile.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/PeriodicBC.f90
+
+Physics.o : $(HORSES_PATH)/src/libs/physics/common/Physics.f90 \
+Physics_iNS.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/Physics.f90
+
+Physics_iNS.o : $(HORSES_PATH)/src/libs/physics/incns/Physics_iNS.f90 \
+PhysicsStorage_iNS.o \
+FluidData_iNS.o \
+VariableConversion_iNS.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/incns/Physics_iNS.f90
+
+PhysicsStorage.o : $(HORSES_PATH)/src/libs/physics/common/PhysicsStorage.f90 \
+PhysicsStorage_iNS.o \
+SMConstants.o \
+FluidData.o \
+FTValueDictionaryClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/PhysicsStorage.f90
+
+PhysicsStorage_iNS.o : $(HORSES_PATH)/src/libs/physics/incns/PhysicsStorage_iNS.f90 \
+Headers.o \
+Utilities.o \
+FluidData_iNS.o \
+FileReading.o \
+FTValueDictionaryClass.o \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/incns/PhysicsStorage_iNS.f90
+
+Probe.o : $(HORSES_PATH)/src/libs/monitors/Probe.f90 \
+process_info.o \
+MonitorDefinitions.o \
+PhysicsStorage.o \
+FileReading.o \
+ParamfileRegions.o \
+Utilities.o \
+Physics.o \
+VariableConversion.o \
+FluidData.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/Probe.f90
+
+ProblemFile.o : FORCE $(CASE_PATH)/SETUP/ProblemFile.f90 \
+SMConstants.o \
+FluidData.o \
+PhysicsStorage.o \
+Monitors.o \
+PhysicsStorage.o \
+FluidData.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(CASE_PATH)/SETUP/ProblemFile.f90
+
+process_info.o : $(HORSES_PATH)/src/libs/mpiutils/process_info.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mpiutils/process_info.f90
+
+Read_HDF5Mesh_HOPR.o : $(HORSES_PATH)/src/libs/mesh/Read_HDF5Mesh_HOPR.f90 \
+NodeClass.o \
+SMConstants.o \
+HexElementClass.o \
+TransfiniteMaps3D.o \
+partitioned_mesh.o \
+SharedDictionaries.o \
+MPI_Face.o \
+Utilities.o \
+FacePatchClass.o \
+process_info.o \
+MappedGeometry.o \
+MeshTypes.o \
+PhysicsStorage.o \
+HexElementConnectivityDefinitions.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/Read_HDF5Mesh_HOPR.f90
+
+Read_SpecMesh.o : $(HORSES_PATH)/src/libs/mesh/Read_SpecMesh.f90 \
+SMConstants.o \
+HexElementClass.o \
+FileReading.o \
+TransfiniteMaps3D.o \
+SharedDictionaries.o \
+partitioned_mesh.o \
+process_info.o \
+MPI_Face.o \
+Physics.o \
+Utilities.o \
+MappedGeometry.o \
+NodeClass.o \
+MeshTypes.o \
+PhysicsStorage.o \
+HexElementConnectivityDefinitions.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/Read_SpecMesh.f90
+
+ReadInputFile.o : $(HORSES_PATH)/src/libs/io/ReadInputFile.f90 \
+Setup.o \
+process_info.o \
+Utilities.o \
+SMConstants.o \
+FTValueDictionaryClass.o \
+SharedDictionaries.o \
+FileReading.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/ReadInputFile.f90
+
+ReadMeshFile.o : $(HORSES_PATH)/src/libs/mesh/ReadMeshFile.f90 \
+MeshTypes.o \
+Read_SpecMesh.o \
+SMConstants.o \
+Read_HDF5Mesh_HOPR.o \
+FileReading.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/ReadMeshFile.f90
+
+RealDataLinkedList.o : $(HORSES_PATH)/src/libs/foundation/RealDataLinkedList.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/RealDataLinkedList.f90
+
+ResidualsMonitor.o : $(HORSES_PATH)/src/libs/monitors/ResidualsMonitor.f90 \
+SMConstants.o \
+MonitorDefinitions.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/ResidualsMonitor.f90
+
+RiemannSolvers_iNS.o : $(HORSES_PATH)/src/libs/physics/incns/RiemannSolvers_iNS.f90 \
+PhysicsStorage_iNS.o \
+FluidData_iNS.o \
+SMConstants.o \
+VariableConversion_iNS.o \
+Physics_iNS.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/incns/RiemannSolvers_iNS.f90
+
+Setup.o : $(HORSES_PATH)/src/libs/foundation/Setup.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/Setup.f90
+
+SharedDictionaries.o : $(HORSES_PATH)/src/libs/foundation/SharedDictionaries.f90 \
+FTValueDictionaryClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/SharedDictionaries.f90
+
+SMConstants.o : $(HORSES_PATH)/src/libs/foundation/SMConstants.f90
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/SMConstants.f90
+
+SolutionFile.o : $(HORSES_PATH)/src/libs/io/SolutionFile.f90 \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/io/SolutionFile.f90
+
+SpatialDiscretization.o : $(HORSES_PATH)/src/IncompressibleNSSolver/SpatialDiscretization.f90 \
+HexElementClass.o \
+FluidData.o \
+FaceClass.o \
+RiemannSolvers_iNS.o \
+HyperbolicDiscretizations.o \
+Utilities.o \
+ProblemFile.o \
+DGIntegrals.o \
+MeshTypes.o \
+DGSEMClass.o \
+BoundaryConditions.o \
+Headers.o \
+EllipticDiscretizationClass.o \
+PhysicsStorage.o \
+Particles.o \
+EllipticDiscretizations.o \
+Physics.o \
+FTValueDictionaryClass.o \
+process_info.o \
+MPI_Face.o \
+VariableConversion.o \
+SMConstants.o \
+Setup.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/IncompressibleNSSolver/SpatialDiscretization.f90
+
+StatisticsMonitor.o : $(HORSES_PATH)/src/libs/monitors/StatisticsMonitor.f90 \
+StorageClass.o \
+ParamfileRegions.o \
+SMConstants.o \
+Utilities.o \
+process_info.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/StatisticsMonitor.f90
+
+Stopwatch.o : $(HORSES_PATH)/src/libs/foundation/Stopwatch.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/Stopwatch.f90
+
+StorageClass.o : $(HORSES_PATH)/src/libs/mesh/StorageClass.f90 \
+NodalStorageClass.o \
+SMConstants.o \
+InterpolationMatrices.o \
+PhysicsStorage.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/StorageClass.f90
+
+SurfaceIntegrals.o : $(HORSES_PATH)/src/libs/monitors/SurfaceIntegrals.f90 \
+PhysicsStorage.o \
+Physics.o \
+FaceClass.o \
+NodalStorageClass.o \
+VariableConversion.o \
+SMConstants.o \
+HexElementClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/SurfaceIntegrals.f90
+
+SurfaceMonitor.o : $(HORSES_PATH)/src/libs/monitors/SurfaceMonitor.f90 \
+process_info.o \
+MonitorDefinitions.o \
+HexMesh.o \
+FileReading.o \
+PhysicsStorage.o \
+ParamfileRegions.o \
+SurfaceIntegrals.o \
+FluidData.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/SurfaceMonitor.f90
+
+SVV.o : $(HORSES_PATH)/src/libs/discretization/SVV.f90 \
+SMConstants.o \
+FTValueDictionaryClass.o \
+Headers.o \
+LegendreAlgorithms.o \
+HexElementClass.o \
+FaceClass.o \
+MPI_Face.o \
+EllipticDiscretizationClass.o \
+Physics.o \
+Utilities.o \
+FluidData.o \
+process_info.o \
+Setup.o \
+MeshTypes.o \
+PhysicsStorage.o \
+NodalStorageClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/discretization/SVV.f90
+
+TestSuiteManagerClass.o : $(HORSES_PATH)/src/libs/ftobject/TestSuiteManagerClass.f90 \
+Assert.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/ftobject/TestSuiteManagerClass.f90
+
+TimeIntegrator.o : $(HORSES_PATH)/src/libs/timeintegrator/TimeIntegrator.f90 \
+Stopwatch.o \
+Utilities.o \
+autosave.o \
+ProblemFile.o \
+FileReading.o \
+DGSEMClass.o \
+InterpolationAndDerivatives.o \
+PhysicsStorage.o \
+ExplicitMethods.o \
+Particles.o \
+Monitors.o \
+Physics.o \
+FTValueDictionaryClass.o \
+process_info.o \
+TimeIntegratorDefinitions.o \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/timeintegrator/TimeIntegrator.f90
+
+TimeIntegratorDefinitions.o : $(HORSES_PATH)/src/libs/timeintegrator/TimeIntegratorDefinitions.f90 \
+SMConstants.o \
+Particles.o \
+DGSEMClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/timeintegrator/TimeIntegratorDefinitions.f90
+
+TransfiniteMaps3D.o : $(HORSES_PATH)/src/libs/mesh/TransfiniteMaps3D.f90 \
+SMConstants.o \
+FacePatchClass.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/TransfiniteMaps3D.f90
+
+UserDefinedBC.o : $(HORSES_PATH)/src/libs/physics/common/UserDefinedBC.f90 \
+PhysicsStorage.o \
+Utilities.o \
+FileReading.o \
+PhysicsStorage_iNS.o \
+GenericBoundaryConditionClass.o \
+FTValueDictionaryClass.o \
+FluidData_iNS.o \
+ReadInputFile.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/UserDefinedBC.f90
+
+Utilities.o : $(HORSES_PATH)/src/libs/foundation/Utilities.f90 \
+SMConstants.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/foundation/Utilities.f90
+
+VariableConversion.o : $(HORSES_PATH)/src/libs/physics/common/VariableConversion.f90 \
+VariableConversion_iNS.o \
+SMConstants.o \
+FluidData.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/common/VariableConversion.f90
+
+VariableConversion_iNS.o : $(HORSES_PATH)/src/libs/physics/incns/VariableConversion_iNS.f90 \
+FluidData_iNS.o \
+SMConstants.o \
+PhysicsStorage_iNS.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/physics/incns/VariableConversion_iNS.f90
+
+VolumeIntegrals.o : $(HORSES_PATH)/src/libs/monitors/VolumeIntegrals.f90 \
+PhysicsStorage.o \
+VariableConversion.o \
+SMConstants.o \
+HexElementClass.o \
+FluidData.o \
+Physics.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/VolumeIntegrals.f90
+
+VolumeMonitor.o : $(HORSES_PATH)/src/libs/monitors/VolumeMonitor.f90 \
+PhysicsStorage.o \
+Utilities.o \
+ParamfileRegions.o \
+MonitorDefinitions.o \
+VolumeIntegrals.o \
+SMConstants.o \
+process_info.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/monitors/VolumeMonitor.f90
+
+WallDistance.o : $(HORSES_PATH)/src/libs/mesh/WallDistance.f90 \
+NodalStorageClass.o \
+SMConstants.o \
+Utilities.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/WallDistance.f90
+
+ZoneClass.o : $(HORSES_PATH)/src/libs/mesh/ZoneClass.f90 \
+Utilities.o \
+FaceClass.o \
+MeshTypes.o \
+SMConstants.o \
+BoundaryConditions.o \
+SharedDictionaries.o \
+IntegerDataLinkedList.o
+	$(F90) -c $(FFLAGS) $(INCLUDES) -o $@ $(HORSES_PATH)/src/libs/mesh/ZoneClass.f90
+
+FORCE:
+

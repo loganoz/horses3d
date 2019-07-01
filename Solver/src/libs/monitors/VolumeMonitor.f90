@@ -140,6 +140,30 @@ module VolumeMonitorClass
             end if
          end select
 
+#elif defined(INCNS)
+         select case ( trim ( self % variable ) )
+         case ("mass")
+         case ("entropy")
+         case ("kinetic energy rate")
+         case ("entropy rate")
+         case default
+
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
+               print*, "Options available are:"
+               print*, "   * Mass"
+               print*, "   * Entropy"
+               print*, "   * Kinetic energy rate"
+               print*, "   * Entropy rate"
+               stop "Stopped."
+
+            end if
+         end select
+
+
+
 #elif defined(CAHNHILLIARD)
          select case ( trim ( self % variable ) )
          case ("free energy")
@@ -244,6 +268,21 @@ module VolumeMonitorClass
 
          case ("particles source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
+#elif defined(INCNS)
+         case ("mass")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, MASS)
+
+         case ("entropy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY)
+
+         case ("kinetic energy rate")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE)
+
+         case ("entropy rate")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE)
+
+
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")

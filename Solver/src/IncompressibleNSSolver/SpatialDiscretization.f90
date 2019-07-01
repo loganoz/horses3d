@@ -192,15 +192,19 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k
+         INTEGER :: k, eID
 !
-!        Apply a limiter to the density
-!        ------------------------------
-         if ( enableDensityLimiter ) then
-            do k = 1, mesh % no_of_elements
-               call DensityLimiter(mesh % elements(k) % Nxyz, mesh % elements(k) % storage % Q)
-            end do
-         end if
+!        *******************************************************************
+!        Construct the auxiliar state for the fluxes with density positivity
+!        *******************************************************************
+!
+!$omp do schedule(runtime)
+         do eID = 1, size(mesh % elements)
+            mesh % elements(eID) % storage % rho = mesh % elements(eID) % storage % Q(INSRHO,:,:,:)
+            mesh % elements(eID) % storage % Q(INSRHO,:,:,:) = min(max(mesh % elements(eID) % storage % Q(INSRHO,:,:,:), thermodynamics % rho_min), &
+                                                                   thermodynamics % rho_max)
+         end do
+!$omp end do nowait
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -240,6 +244,17 @@ module SpatialDiscretization
          call ComputeNSTimeDerivative(mesh = mesh , &
                                          particles = particles, &
                                          t    = time)
+!
+!        ***************************************
+!        Return the density to its default value
+!        ***************************************
+!
+!$omp do schedule(runtime)
+         do eID = 1, size(mesh % elements)
+             mesh % elements(eID) % storage % Q(INSRHO,:,:,:) = mesh % elements(eID) % storage % rho 
+         end do
+!$omp end do
+
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative

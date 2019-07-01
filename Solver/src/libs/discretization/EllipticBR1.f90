@@ -352,6 +352,10 @@ module EllipticBR1
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
 
+#if defined(INCNS)
+         if ( trim(BCs(f % zone) % bc % BCType) /= "freeslipwall" ) then
+#endif
+
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
@@ -377,6 +381,27 @@ module EllipticBR1
             f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
 
          end do ; end do   
+
+#if defined(INCNS)
+         else
+!
+!           *****************************
+!           Set W* = W in free slip walls
+!           *****************************
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+   
+               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+      
+               Uhat = UL * f % geom % jacobian(i,j)
+               
+               f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
+               f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
+               f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
+   
+            end do ; end do   
+         end if 
+#endif
+
          
       end subroutine BR1_ComputeBoundaryFlux
 !

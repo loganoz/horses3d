@@ -62,6 +62,7 @@ module StorageClass
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
 #if defined(NAVIERSTOKES) || defined(INCNS)
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
+      real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
       real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
@@ -762,6 +763,7 @@ module StorageClass
 #if defined(NAVIERSTOKES) || defined(INCNS)
          allocate ( self % QNS   (1:NNS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % QdotNS(1:NNS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
          ! Previous solution
          if ( prevSol_num /= 0 ) then
             allocate ( self % PrevQ(prevSol_num) )
@@ -822,6 +824,7 @@ module StorageClass
          self % S_NSP  = 0.0_RP
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
+         self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
          
          self % U_xNS = 0.0_RP

@@ -76,8 +76,8 @@
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
-     public    STANDARD_SPLIT, SKEWSYMMETRIC_SPLIT
-     public    enableGravity, enableDensityLimiter
+     public    STANDARD_SPLIT, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
+     public    enableGravity
       
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
      public    CheckPhysics_iNSInputIntegrity
@@ -116,7 +116,7 @@
 !    -----------------------------
 !
      enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC_SPLIT
+        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
      end enum
      integer            :: whichAverage               = -1
 !
@@ -126,7 +126,6 @@
 !
      real(kind=RP), protected :: lambdaStab            = 1.0_RP     
      logical, protected       :: enableGravity         = .false.
-     logical, protected       :: enableDensityLimiter = .false.
 !
 !    ========
      contains
@@ -203,7 +202,6 @@
 
       if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
          thermodynamics_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY)
-         enableDensityLimiter = .true.
       else
          thermodynamics_ % rho_max = huge(1.0_RP)
 
@@ -211,11 +209,11 @@
 
       if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
          thermodynamics_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY)
-         enableDensityLimiter = .true.
       else
-         thermodynamics_ % rho_min = 0.0_RP
+         thermodynamics_ % rho_min = -huge(1.0_RP)
 
       end if
+
 !
 !     ********************
 !     Set reference values
@@ -246,6 +244,8 @@
             dimensionless_ % Re    = 0.0_RP
    
          end if
+      else
+         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
       end if
 !
 !     **************************

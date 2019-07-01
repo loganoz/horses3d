@@ -387,33 +387,20 @@ module FreeSlipWallBCClass
 !        ---------------
 !        Local Variables
 !        ---------------
-!
-!
+!   
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!
-!
-!        Remove the normal component of the density gradient
-!        ---------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSRHO) + nHat(2)*U_y(INSRHO)+ nHat(3)*U_z(INSRHO)
-         UTanx = U_x(INSRHO) - gradUNorm*nHat(1)
-         UTany = U_y(INSRHO) - gradUNorm*nHat(2)
-         UTanz = U_z(INSRHO) - gradUNorm*nHat(3)
+         INTEGER       :: k
+!   
+         DO k = 1, NINC
+            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
+            UTanx = U_x(k) - gradUNorm*nHat(1)
+            UTany = U_y(k) - gradUNorm*nHat(2)
+            UTanz = U_z(k) - gradUNorm*nHat(3)
    
-         U_x(INSRHO) = UTanx - gradUNorm*nHat(1)
-         U_y(INSRHO) = UTany - gradUNorm*nHat(2)
-         U_z(INSRHO) = UTanz - gradUNorm*nHat(3)
-!
-!        Remove the normal component of the pressure gradient
-!        ----------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSP) + nHat(2)*U_y(INSP)+ nHat(3)*U_z(INSP)
-         UTanx = U_x(INSP) - gradUNorm*nHat(1)
-         UTany = U_y(INSP) - gradUNorm*nHat(2)
-         UTanz = U_z(INSP) - gradUNorm*nHat(3)
-   
-         U_x(INSP) = UTanx - gradUNorm*nHat(1)
-         U_y(INSP) = UTany - gradUNorm*nHat(2)
-         U_z(INSP) = UTanz - gradUNorm*nHat(3)
-
+            U_x(k) = UTanx - gradUNorm*nHat(1)
+            U_y(k) = UTany - gradUNorm*nHat(2)
+            U_z(k) = UTanz - gradUNorm*nHat(3)
+         END DO
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif

@@ -54,9 +54,11 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: invRho
+         real(kind=RP) :: rho, invRho
 
-         invRho = 1.0_RP / Q(INSRHO)
+         rho = (Q(INSRHO))
+
+         invRho = 1.0_RP / rho
 !
 !        X-Flux
 !        ------         
@@ -93,9 +95,11 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: invRho
+         real(kind=RP) :: rho, invRho
 
-         invRho = 1.0_RP / Q(INSRHO)
+         rho = (Q(INSRHO))
+      
+         invRho = 1.0_RP / rho
 !
 !        X-Flux
 !        ------         
@@ -118,10 +122,11 @@
 !        ---------------
 !
          integer                 :: i, j, k
-         real(kind=RP)           :: invRho
+         real(kind=RP)           :: rho, invRho
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            invRho = 1.0_RP / Q(INSRHO,i,j,k)
+            rho = (Q(INSRHO,i,j,k))
+            invRho = 1.0_RP / rho
 !   
 !           X-Flux
 !           ------         
@@ -170,38 +175,23 @@
          real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP) :: gradV_x(NDIM), gradV_y(NDIM), gradV_z(NDIM), invRho, uDivRho(NDIM)
-
-         invRho = 1.0_RP / Q(INSRHO)
-
-         uDivRho = Q(INSRHOU:INSRHOW) * invRho * invRho
-
-         gradV_x = invRho * U_x(INSRHOU:INSRHOW) - uDivRho * U_x(INSRHO)
-         gradV_y = invRho * U_y(INSRHOU:INSRHOW) - uDivRho * U_y(INSRHO)
-         gradV_z = invRho * U_z(INSRHOU:INSRHOW) - uDivRho * U_z(INSRHO)
-         
 
          F(INSRHO,IX)  = 0.0_RP
-         F(INSRHOU,IX) = mu * gradV_x(IX)
-         F(INSRHOV,IX) = mu * gradV_x(IY)
-         F(INSRHOW,IX) = mu * gradV_x(IZ)
+         F(INSRHOU,IX) = 2.0_RP * mu * U_x(INSRHOU)
+         F(INSRHOV,IX) = mu * (U_x(INSRHOV) + U_y(INSRHOU))
+         F(INSRHOW,IX) = mu * (U_x(INSRHOW) + U_z(INSRHOU))
          F(INSP,IX) = 0.0_RP
 
          F(INSRHO,IY)  = 0.0_RP
-         F(INSRHOU,IY) = mu * gradV_y(IX)
-         F(INSRHOV,IY) = mu * gradV_y(IY)
-         F(INSRHOW,IY) = mu * gradV_y(IZ)
+         F(INSRHOU,IY) = F(INSRHOV,IX)
+         F(INSRHOV,IY) = 2.0_RP * mu * U_y(INSRHOV)
+         F(INSRHOW,IY) = mu * (U_y(INSRHOW) + U_z(INSRHOV))
          F(INSP,IY) = 0.0_RP
 
          F(INSRHO,IZ)  = 0.0_RP
-         F(INSRHOU,IZ) = mu * gradV_z(IX)
-         F(INSRHOV,IZ) = mu * gradV_z(IY)
-         F(INSRHOW,IZ) = mu * gradV_z(IZ)
+         F(INSRHOU,IZ) = F(INSRHOW,IX)
+         F(INSRHOV,IZ) = F(INSRHOW,IY)
+         F(INSRHOW,IZ) = 2.0_RP * mu * U_z(INSRHOW)
          F(INSP,IZ) = 0.0_RP
 
       end subroutine iViscousFlux0D
@@ -225,36 +215,25 @@
 !        ---------------
 !
          integer       :: i , j
-         real(kind=RP) :: gradV_x(NDIM), gradV_y(NDIM), gradV_z(NDIM), invRho, uDivRho(NDIM)
 
          do j = 0, N(2) ; do i = 0, N(1)
-            invRho = 1.0_RP / Q(INSRHO,i,j)
-   
-            uDivRho = Q(INSRHOU:INSRHOW,i,j) * invRho * invRho
-   
-            gradV_x = invRho * U_x(INSRHOU:INSRHOW,i,j) - uDivRho * U_x(INSRHO,i,j)
-            gradV_y = invRho * U_y(INSRHOU:INSRHOW,i,j) - uDivRho * U_y(INSRHO,i,j)
-            gradV_z = invRho * U_z(INSRHOU:INSRHOW,i,j) - uDivRho * U_z(INSRHO,i,j)
-            
-   
             F(INSRHO,IX,i,j)  = 0.0_RP
-            F(INSRHOU,IX,i,j) = mu(i,j) * gradV_x(IX)
-            F(INSRHOV,IX,i,j) = mu(i,j) * gradV_x(IY)
-            F(INSRHOW,IX,i,j) = mu(i,j) * gradV_x(IZ)
+            F(INSRHOU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(INSRHOU,i,j)
+            F(INSRHOV,IX,i,j) = mu(i,j) * (U_x(INSRHOV,i,j) + U_y(INSRHOU,i,j))
+            F(INSRHOW,IX,i,j) = mu(i,j) * (U_x(INSRHOW,i,j) + U_z(INSRHOU,i,j))
             F(INSP,IX,i,j) = 0.0_RP
    
             F(INSRHO,IY,i,j)  = 0.0_RP
-            F(INSRHOU,IY,i,j) = mu(i,j) * gradV_y(IX)
-            F(INSRHOV,IY,i,j) = mu(i,j) * gradV_y(IY)
-            F(INSRHOW,IY,i,j) = mu(i,j) * gradV_y(IZ)
+            F(INSRHOU,IY,i,j) = F(INSRHOV,IX,i,j)
+            F(INSRHOV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(INSRHOV,i,j)
+            F(INSRHOW,IY,i,j) = mu(i,j) * (U_y(INSRHOW,i,j) + U_z(INSRHOV,i,j))
             F(INSP,IY,i,j) = 0.0_RP
    
             F(INSRHO,IZ,i,j)  = 0.0_RP
-            F(INSRHOU,IZ,i,j) = mu(i,j) * gradV_z(IX)
-            F(INSRHOV,IZ,i,j) = mu(i,j) * gradV_z(IY)
-            F(INSRHOW,IZ,i,j) = mu(i,j) * gradV_z(IZ)
+            F(INSRHOU,IZ,i,j) = F(INSRHOW,IX,i,j)
+            F(INSRHOV,IZ,i,j) = F(INSRHOW,IY,i,j)
+            F(INSRHOW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(INSRHOW,i,j)
             F(INSP,IZ,i,j) = 0.0_RP
-   
          end do    ; end do
 
       end subroutine iViscousFlux2D
@@ -278,37 +257,25 @@
 !        ---------------
 !
          integer       :: i , j , k
-         real(kind=RP) :: gradV_x(NDIM), gradV_y(NDIM), gradV_z(NDIM), invRho, uDivRho(NDIM)
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-   
-            invRho = 1.0_RP / Q(INSRHO,i,j,k)
-   
-            uDivRho = Q(INSRHOU:INSRHOW,i,j,k) * invRho * invRho
-   
-            gradV_x = invRho * U_x(INSRHOU:INSRHOW,i,j,k) - uDivRho * U_x(INSRHO,i,j,k)
-            gradV_y = invRho * U_y(INSRHOU:INSRHOW,i,j,k) - uDivRho * U_y(INSRHO,i,j,k)
-            gradV_z = invRho * U_z(INSRHOU:INSRHOW,i,j,k) - uDivRho * U_z(INSRHO,i,j,k)
-            
-   
             F(INSRHO,i,j,k,IX)  = 0.0_RP
-            F(INSRHOU,i,j,k,IX) = mu(i,j,k) * gradV_x(IX)
-            F(INSRHOV,i,j,k,IX) = mu(i,j,k) * gradV_x(IY)
-            F(INSRHOW,i,j,k,IX) = mu(i,j,k) * gradV_x(IZ)
+            F(INSRHOU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(INSRHOU,i,j,k)
+            F(INSRHOV,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOV,i,j,k) + U_y(INSRHOU,i,j,k))
+            F(INSRHOW,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOW,i,j,k) + U_z(INSRHOU,i,j,k))
             F(INSP,i,j,k,IX) = 0.0_RP
    
             F(INSRHO,i,j,k,IY)  = 0.0_RP
-            F(INSRHOU,i,j,k,IY) = mu(i,j,k) * gradV_y(IX)
-            F(INSRHOV,i,j,k,IY) = mu(i,j,k) * gradV_y(IY)
-            F(INSRHOW,i,j,k,IY) = mu(i,j,k) * gradV_y(IZ)
+            F(INSRHOU,i,j,k,IY) = F(INSRHOV,i,j,k,IX)
+            F(INSRHOV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(INSRHOV,i,j,k)
+            F(INSRHOW,i,j,k,IY) = mu(i,j,k) * (U_y(INSRHOW,i,j,k) + U_z(INSRHOV,i,j,k))
             F(INSP,i,j,k,IY) = 0.0_RP
    
             F(INSRHO,i,j,k,IZ)  = 0.0_RP
-            F(INSRHOU,i,j,k,IZ) = mu(i,j,k) * gradV_z(IX)
-            F(INSRHOV,i,j,k,IZ) = mu(i,j,k) * gradV_z(IY)
-            F(INSRHOW,i,j,k,IZ) = mu(i,j,k) * gradV_z(IZ)
+            F(INSRHOU,i,j,k,IZ) = F(INSRHOW,i,j,k,IX)
+            F(INSRHOV,i,j,k,IZ) = F(INSRHOW,i,j,k,IY)
+            F(INSRHOW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(INSRHOW,i,j,k)
             F(INSP,i,j,k,IZ) = 0.0_RP
-   
          end do      ; end do    ; end do
 
       end subroutine iViscousFlux3D
@@ -347,10 +314,10 @@
       u = ABS( Q(INSRHOU)/Q(INSRHO) )
       v = ABS( Q(INSRHOV)/Q(INSRHO) )
       w = ABS( Q(INSRHOW)/Q(INSRHO) )
-      a = sqrt(max(max(u,v),w)**2 + 4.0_RP * thermodynamics % rho0c02/Q(INSRHO))
+      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(INSRHO))
       
-      eigen(1) = u + a
-      eigen(2) = v + a
-      eigen(3) = w + a
+      eigen(1) = 0.5_RP * (u + a)
+      eigen(2) = 0.5_RP * (v + a)
+      eigen(3) = 0.5_RP * (w + a)
       
       END SUBROUTINE ComputeEigenvaluesForState

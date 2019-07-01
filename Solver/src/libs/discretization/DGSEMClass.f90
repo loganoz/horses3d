@@ -545,7 +545,7 @@ Module DGSEMClass
       type(DGSem)                :: self
       real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
       real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) || defined(INCNS)
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
       integer                       :: N(3)                             ! Polynomial order in the three reference directions
@@ -556,11 +556,14 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
-      real(kind=RP)                 :: Q(NCONS)                         ! The solution in a node
+      real(kind=RP)                 :: Q(NNS)                           ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
+#if defined(INCNS)
+      logical :: flowIsNavierStokes = .true.
+#endif
       !--------------------------------------------------------
 !     Initializations
 !     ---------------
@@ -613,7 +616,7 @@ Module DGSEMClass
 !           by the physics.
 !           ------------------------------------------------------------
 !
-            Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
+            Q(1:NNS) = self % mesh % elements(eID) % storage % Q(1:NNS,i,j,k)
             CALL ComputeEigenvaluesForState( Q , eValues )
             
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
@@ -635,7 +638,8 @@ Module DGSEMClass
                            self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
             
             TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
-            
+
+#if defined(NAVIERSTOKES)            
             if (flowIsNavierStokes) then
                T        = Temperature(Q)
                mu       = SutherlandsLaw(T)
@@ -645,6 +649,9 @@ Module DGSEMClass
                
                TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
             end if
+#else
+            TimeStep_Visc = huge(1.0_RP)
+#endif
                   
          end do ; end do ; end do
       end do 
