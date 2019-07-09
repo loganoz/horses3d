@@ -11,7 +11,7 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicStandard
    use SMConstants
    use HyperbolicDiscretizationClass

@@ -10,44 +10,48 @@
 !
 !//////////////////////////////////////////////////////
 !
+#if defined(NAVIERSTOKES)
+#define FLOW
+#elif defined(INCNS)
+#define FLOW
+#elif defined(MULTIPHASE)
+#define FLOW
+#endif
+
 module PhysicsStorage
    use SMConstants, only: RP
-#if (defined(NAVIERSTOKES) || defined(INCNS))
+#ifdef FLOW
    use FluidData, only: refValues, thermodynamics
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
    use FluidData, only: multiphase
 #endif
 #if defined(NAVIERSTOKES)
    use PhysicsStorage_NS
 #elif defined(INCNS)
    use PhysicsStorage_iNS
+#elif defined(MULTIPHASE)
+   use PhysicsStorage_MU
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
    use PhysicsStorage_CH
 #endif
    implicit none
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
    private refValues
 #endif
 
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
    private multiphase
 #endif
 
-#if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
+#if (defined(FLOW) && !defined(CAHNHILLIARD))
    integer, parameter   :: NTOTALVARS = NCONS
    integer, parameter   :: NTOTALGRADS = NGRAD
-#elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
+#elif (defined(FLOW) && defined(CAHNHILLIARD))
    integer, parameter   :: NTOTALVARS = NCONS + NCOMP
    integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
-#elif (defined(INCNS) && !defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS
-   integer, parameter   :: NTOTALGRADS = NCONS
-#elif (defined(INCNS) && defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS + NCOMP
-   integer, parameter   :: NTOTALGRADS = NCONS + NCOMP
 #elif defined(CAHNHILLIARD)
    integer, parameter   :: NTOTALVARS = NCOMP
    integer, parameter   :: NTOTALGRADS = NCOMP
@@ -60,21 +64,16 @@ module PhysicsStorage
 !
    enum, bind(C)
       enumerator :: CTD_IGNORE_MODE
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       enumerator :: CTD_ONLY_NS
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       enumerator :: CTD_NS_AND_CH
 #endif
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       enumerator :: CTD_ONLY_CH, CTD_ONLY_CH_LIN, CTD_ONLY_CH_NONLIN
 #endif
    end enum
-
-#if (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
-   character(len=*), parameter   :: DENSITY_RATIO_KEY   = "density ratio (rho2/rho1)"
-   character(len=*), parameter   :: VISCOSITY_RATIO_KEY = "viscosity ratio (mu2/mu1)"
-#endif
 
    real(kind=RP)     :: Lref
    real(kind=RP)     :: timeref
@@ -96,42 +95,14 @@ module PhysicsStorage
          call ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
 #elif defined(INCNS)
          call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeref, success )
+#elif defined(MULTIPHASE)
+         call ConstructPhysicsStorage_MU( controlVariables, Lref, timeref, success )
 #endif
 !
 !        Construct CHE physics
 !        ---------------------
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          call ConstructPhysicsStorage_CH( controlVariables, Lref, timeref, success )
-#endif
-!
-!        Define density and viscosity ratios
-!        -----------------------------------
-#if (defined(NAVIERSTOKES) && defined(CAHNHILLIARD)) 
-         if ( controlVariables % ContainsKey(DENSITY_RATIO_KEY) ) then
-            call multiphase % SetDensityRatio(controlVariables % DoublePrecisionValueForKey(DENSITY_RATIO_KEY))
-         else
-            call multiphase % SetDensityRatio(1.0_RP)
-         end if
-
-         if ( controlVariables % ContainsKey(VISCOSITY_RATIO_KEY) ) then
-            call multiphase % SetViscosityRatio(controlVariables % DoublePrecisionValueForKey(VISCOSITY_RATIO_KEY))
-         else
-            call multiphase % SetViscosityRatio(1.0_RP)
-         end if
-#endif
-
-#if (defined(INCNS) && defined(CAHNHILLIARD)) 
-         call multiphase % SetDensityRatio(thermodynamics % rho(2) / thermodynamics % rho(1))
-         call multiphase % SetViscosityRatio(thermodynamics % mu(2)  / thermodynamics % mu(1))
-#endif
-
-
-#if (defined(NAVIERSTOKES) || defined(INCNS)) && defined(CAHNHILLIARD)
-!
-!        Compute the capilar number
-!        --------------------------
-         call multiphase % SetCapilarNumber( (2.0_RP * sqrt(2.0_RP) / 3.0_RP) * refValues % V * refValues % mu / multiphase % sigma)
-         
 #endif
 !
 !        ****************
@@ -142,9 +113,11 @@ module PhysicsStorage
          call DescribePhysicsStorage_NS()
 #elif defined(INCNS)
          call DescribePhysicsStorage_iNS()
+#elif defined(MULTIPHASE)
+         call DescribePhysicsStorage_MU()
 #endif
 
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          call DescribePhysicsStorage_CH()
 #endif
 

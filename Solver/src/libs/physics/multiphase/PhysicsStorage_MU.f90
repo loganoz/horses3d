@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    PhysicsStorage_iNS.f90
+!   @File:    PhysicsStorage_MU.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:26 2018
 !   @Last revision date: Fri Aug 17 10:25:40 2018
@@ -11,7 +11,7 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-      Module Physics_iNSKeywordsModule
+      Module Physics_MUKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
@@ -57,16 +57,16 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box"          
-      END MODULE Physics_iNSKeywordsModule
+      END MODULE Physics_MUKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
 !    
 !    ******
-     MODULE PhysicsStorage_iNS
+     MODULE PhysicsStorage_MU
 !    ******
 !
      USE SMConstants
-     use FluidData_iNS
+     use FluidData_MU
      use FileReadingUtilities, only: getRealArrayFromString
      
      IMPLICIT NONE
@@ -79,8 +79,8 @@
      public    STANDARD_SPLIT, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
      public    enableGravity
       
-     public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
-     public    CheckPhysics_iNSInputIntegrity
+     public    ConstructPhysicsStorage_MU, DestructPhysicsStorage_MU, DescribePhysicsStorage_MU
+     public    CheckPhysics_MUInputIntegrity
 !
 !    ----------------------------
 !    Either NavierStokes or Euler
@@ -138,9 +138,9 @@
 !     variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage_iNS( controlVariables, Lref, timeref, success )
+      SUBROUTINE ConstructPhysicsStorage_MU( controlVariables, Lref, timeref, success )
       USE FTValueDictionaryClass
-      USE Physics_iNSKeywordsModule
+      USE Physics_MUKeywordsModule
       use Utilities, only: toLower, almostEqual
 !
 !     ---------
@@ -167,7 +167,7 @@
 !     --------------------
 !
       success = .TRUE.
-      CALL CheckPhysics_iNSInputIntegrity(controlVariables,success)
+      CALL CheckPhysics_MUInputIntegrity(controlVariables,success)
       IF(.NOT. success) RETURN 
 !
 !     **************************************
@@ -375,7 +375,7 @@
       call setDimensionless (dimensionless_ )
       call setRefValues     (refValues_     )
 
-      END SUBROUTINE ConstructPhysicsStorage_iNS
+      END SUBROUTINE ConstructPhysicsStorage_MU
 !
 !     ///////////////////////////////////////////////////////
 !
@@ -383,9 +383,9 @@
 !!    Destructor: Does nothing for this storage
 !     -------------------------------------------------
 !
-      SUBROUTINE DestructPhysicsStorage_iNS
+      SUBROUTINE DestructPhysicsStorage_MU
       
-      END SUBROUTINE DestructPhysicsStorage_iNS
+      END SUBROUTINE DestructPhysicsStorage_MU
 !
 !     //////////////////////////////////////////////////////
 !
@@ -393,7 +393,7 @@
 !!    Descriptor: Shows the gathered data
 !     -----------------------------------------
 !
-      SUBROUTINE DescribePhysicsStorage_iNS()
+      SUBROUTINE DescribePhysicsStorage_MU()
          USE Headers
          use MPI_Process_Info
          IMPLICIT NONE
@@ -437,11 +437,11 @@
                                                    dimensionless % gravity_dir(2), ", ", &
                                                    dimensionless % gravity_dir(3), "]"
 
-      END SUBROUTINE DescribePhysicsStorage_iNS
+      END SUBROUTINE DescribePhysicsStorage_MU
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE CheckPhysics_iNSInputIntegrity( controlVariables, success )  
+      SUBROUTINE CheckPhysics_MUInputIntegrity( controlVariables, success )  
 !
 !        *******************************************************************
 !           In this solver there are not compulsory keywords, but they
@@ -449,7 +449,7 @@
 !        *******************************************************************
 !
          USE FTValueDictionaryClass
-         USE Physics_iNSKeywordsModule
+         USE Physics_MUKeywordsModule
          IMPLICIT NONE
 !
 !        ---------
@@ -468,10 +468,10 @@
          real(kind=RP)            :: array(3)
          success = .TRUE.
          
-!         DO i = 1, SIZE(physics_iNSKeywords)
-!            obj => controlVariables % objectForKey(physics_iNSKeywords(i))
+!         DO i = 1, SIZE(physics_MUKeywords)
+!            obj => controlVariables % objectForKey(physics_MUKeywords(i))
 !            IF ( .NOT. ASSOCIATED(obj) )     THEN
-!               PRINT *, "Input file is missing entry for keyword: ",physics_iNSKeywords(i)
+!               PRINT *, "Input file is missing entry for keyword: ",physics_MUKeywords(i)
 !               success = .FALSE. 
 !            END IF  
 !         END DO  
@@ -566,9 +566,9 @@
          end if
 
          
-      END SUBROUTINE CheckPhysics_iNSInputIntegrity
+      END SUBROUTINE CheckPhysics_MUInputIntegrity
 !
 !    **********       
-     END MODULE PhysicsStorage_iNS
+     END MODULE PhysicsStorage_MU
 !    **********
 

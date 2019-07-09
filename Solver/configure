@@ -93,8 +93,7 @@ for subdir in $TEST_CASES; do
 	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
-	ln -fsv $PWD/bin/horses3d.nsch ./test/$subdir
-	ln -fsv $PWD/bin/horses3d.insch ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
 done
 
 

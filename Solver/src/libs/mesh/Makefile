@@ -63,43 +63,23 @@ LIBOBJS_CH = 	./build_ch/ConnectivityClass.o \
 		./build_ch/Read_SpecMesh.o \
 		./build_ch/ReadMeshFile.o
 
-LIBOBJS_NSCH =  ./build_nsch/ConnectivityClass.o \
-		./build_nsch/MeshTypes.o \
-		./build_nsch/WallDistance.o \
-		./build_nsch/StorageClass.o \
-		./build_nsch/FacePatchClass.o \
-		./build_nsch/TransfiniteMaps3D.o \
-		./build_nsch/MappedGeometry.o \
-		./build_nsch/NodeClass.o \
-		./build_nsch/HexElementConnectivityDefinitions.o \
-		./build_nsch/FaceClass.o \
-		./build_nsch/HexElementClass.o \
-		./build_nsch/ZoneClass.o \
-		./build_nsch/HexMesh.o \
-		./build_nsch/MeshPartitioning.o \
-		./build_nsch/Read_HDF5Mesh_HOPR.o \
-		./build_nsch/Read_SpecMesh.o \
-		./build_nsch/ReadMeshFile.o
-
-LIBOBJS_iNSCH = ./build_insch/ConnectivityClass.o \
-		./build_insch/MeshTypes.o \
-		./build_insch/WallDistance.o \
-		./build_insch/StorageClass.o \
-		./build_insch/FacePatchClass.o \
-		./build_insch/TransfiniteMaps3D.o \
-		./build_insch/MappedGeometry.o \
-		./build_insch/NodeClass.o \
-		./build_insch/HexElementConnectivityDefinitions.o \
-		./build_insch/FaceClass.o \
-		./build_insch/HexElementClass.o \
-		./build_insch/ZoneClass.o \
-		./build_insch/HexMesh.o \
-		./build_insch/MeshPartitioning.o \
-		./build_insch/Read_HDF5Mesh_HOPR.o \
-		./build_insch/Read_SpecMesh.o \
-		./build_insch/ReadMeshFile.o
-
-
+LIBOBJS_MU =  ./build_mu/ConnectivityClass.o \
+		./build_mu/MeshTypes.o \
+		./build_mu/WallDistance.o \
+		./build_mu/StorageClass.o \
+		./build_mu/FacePatchClass.o \
+		./build_mu/TransfiniteMaps3D.o \
+		./build_mu/MappedGeometry.o \
+		./build_mu/NodeClass.o \
+		./build_mu/HexElementConnectivityDefinitions.o \
+		./build_mu/FaceClass.o \
+		./build_mu/HexElementClass.o \
+		./build_mu/ZoneClass.o \
+		./build_mu/HexMesh.o \
+		./build_mu/MeshPartitioning.o \
+		./build_mu/Read_HDF5Mesh_HOPR.o \
+		./build_mu/Read_SpecMesh.o \
+		./build_mu/ReadMeshFile.o
 
 LIB = mesh
 
@@ -108,7 +88,7 @@ LIB = mesh
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_insch.a
+all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 
 ./build_ns/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
 	@echo
@@ -125,15 +105,10 @@ all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_in
 	@echo $<
 	$(FC) -cpp -O2 -ffree-line-length-0 -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
 
-./build_nsch/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
+./build_mu/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
 	@echo
 	@echo $<
-	$(FC) -cpp -O2 -ffree-line-length-0 -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $< -o $@ $(MOD_FLAG) ./include_nsch
-
-./build_insch/METISPartitioning.o: ./METISPartitioning.f90		# METIS calls require this, and only this flags... so it is separated
-	@echo
-	@echo $<
-	$(FC) -cpp -O2 -ffree-line-length-0 -DINSCH -DCAHNHILLIARD -I./include_insch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_insch -c $< -o $@ $(MOD_FLAG) ./include_insch
+	$(FC) -cpp -O2 -ffree-line-length-0 -DNAVIERSTOKES -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -150,15 +125,10 @@ all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_in
 	@echo $<
 	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
 
-./build_nsch/%.o: %.f90
+./build_mu/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $< -o $@ $(MOD_FLAG) ./include_nsch
-
-./build_insch/%.o: %.f90
-	@echo
-	@echo $<
-	$(FC) $(FFLAGS) -DINCNS -DCAHNHILLIARD -I./include_insch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_insch -c $< -o $@ $(MOD_FLAG) ./include_insch
+	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) ./build_ns/METISPartitioning.o
 	@echo
@@ -187,35 +157,24 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH) ./build_ch/METISPartitioning.o
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CH) ./build_ch/METISPartitioning.o
 	@$(RANLIB) $@
 
-lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH) ./build_nsch/METISPartitioning.o
+lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU) ./build_mu/METISPartitioning.o
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
 	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NSCH) ./build_nsch/METISPartitioning.o
-	@$(RANLIB) $@
-
-lib$(LIB)_insch.a: header mkdirs $(LIBOBJS_iNSCH) ./build_insch/METISPartitioning.o
-	@echo
-	@echo "---------------------------------"
-	@echo "| Linking library" $@ "|"
-	@echo "---------------------------------"
-	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS_iNSCH) ./build_insch/METISPartitioning.o
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) ./build_mu/METISPartitioning.o
 	@$(RANLIB) $@
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_insch.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
-	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
-	cp -p ./include_insch/*.mod $(INSTALL_DIR)/include_insch/
+	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
 	@echo
 	@echo
 
@@ -227,16 +186,15 @@ header: FORCE
 	@echo
 	@echo
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_nsch ./include_insch
-	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_nsch ./build_insch
+	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_mu
+	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_mu
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod 
 	$(RM) ./build_ins/*.o ./include_ins/*.mod 
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
-	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
-	$(RM) ./build_insch/*.o ./include_insch/*.mod
+	$(RM) ./build_mu/*.o ./include_mu/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #
