@@ -13,6 +13,14 @@
 !     TODO1: Store FaceStorage in SolutionStorage
 !     TODO2: Remove physics-related pointers... Allocate one storage for each physics 
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
+#define FLOW
+#elif defined(INCNS)
+#define FLOW
+#elif defined(MULTIPHASE)
+#define FLOW
+#endif
+
 module StorageClass
    use, intrinsic :: iso_c_binding
    use SMConstants
@@ -40,10 +48,10 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: c
 #endif
    end type ElementPrevSol_t
@@ -60,7 +68,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_z         !
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
       real(kind=RP), private,  allocatable :: QDotNS(:,:,:,:)      ! NSE State vector time derivative
@@ -74,7 +82,7 @@ module StorageClass
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
       real(kind=RP), dimension(:,:,:,:),   allocatable :: cDot  ! CHE concentration time derivative
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c_x   ! CHE concentration x-gradient
@@ -94,10 +102,10 @@ module StorageClass
          procedure   :: Destruct            => ElementStorage_Destruct
          procedure   :: InterpolateSolution => ElementStorage_InterpolateSolution
          procedure   :: PointStorage        => ElementStorage_PointStorage
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          procedure   :: SetStorageToCH_c  => ElementStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => ElementStorage_SetStorageToCH_mu
 #endif
@@ -118,12 +126,12 @@ module StorageClass
       real(kind=RP),                 pointer     :: Q(:)
       real(kind=RP),                 pointer     :: QDot(:)
       real(kind=RP),                 pointer     :: PrevQ(:,:)
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP), dimension(:)  , allocatable :: QdotNS
       real(kind=RP), dimension(:)  , allocatable :: QNS
       real(kind=RP), dimension(:,:), allocatable :: PrevQNS ! Previous solution(s) in the whole domain
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP), dimension(:)  , allocatable :: cDot
       real(kind=RP), dimension(:)  , allocatable :: c
       real(kind=RP), dimension(:,:), allocatable :: Prevc(:,:)
@@ -152,7 +160,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
@@ -201,7 +209,7 @@ module StorageClass
 !                           |________________________________1 for element on the left, 2 for element on the right
 !
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:),   allocatable :: c
       real(kind=RP), dimension(:,:,:),   allocatable :: c_x
       real(kind=RP), dimension(:,:,:),   allocatable :: c_y
@@ -215,10 +223,10 @@ module StorageClass
       contains
          procedure   :: Construct => FaceStorage_Construct
          procedure   :: Destruct  => FaceStorage_Destruct
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure   :: SetStorageToNS => FaceStorage_SetStorageToNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          procedure   :: SetStorageToCH_c  => FaceStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => FaceStorage_SetStorageToCH_mu
 #endif
@@ -258,31 +266,23 @@ module StorageClass
                self % prevSol_num = prevSol_num
                allocate ( self % prevSol_index(prevSol_num) )
                self % prevSol_index = (/ (k, k=1, prevSol_num) /)
-#if defined(NAVIERSTOKES)
-               allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
-               self % PrevQ    => self % PrevQNS
-#elif defined(INCNS)
+#ifdef FLOW
                allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
                self % PrevQ    => self % PrevQNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                allocate ( self % Prevc  (NCOMP*NDOF, prevSol_num) )
                self % PrevQ    => self % Prevc
 #endif
             end if
             if ( prevSol_num >= 0 ) then
-#if defined(NAVIERSTOKES)
-               allocate ( self % QNS   (NCONS*NDOF) )
-               allocate ( self % QdotNS(NCONS*NDOF) )
-               self % Q    => self % QNS
-               self % Qdot => self % QdotNS
-#elif defined(INCNS)
+#ifdef FLOW
                allocate ( self % QNS   (NCONS*NDOF) )
                allocate ( self % QdotNS(NCONS*NDOF) )
                self % Q    => self % QNS
                self % Qdot => self % QdotNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                allocate ( self % c     (NCOMP*NDOF) )
                allocate ( self % cDot  (NCOMP*NDOF) )
                self % Q    => self % c
@@ -312,15 +312,7 @@ module StorageClass
          
 !        Allocate storage
 !        ****************
-#if defined(NAVIERSTOKES)
-         if (self % AdaptedQ .or. (.not. allocated(self % QNS) ) ) then
-            self % NDOF = NDOF
-            safedeallocate (self % QNS   )
-            allocate ( self % QNS   (NCONS*NDOF) )
-            
-            self % AdaptedQ = .FALSE.
-         end if
-#elif defined(INCNS)
+#ifdef FLOW
          if (self % AdaptedQ .or. (.not. allocated(self % QNS) ) ) then
             self % NDOF = NDOF
             safedeallocate (self % QNS   )
@@ -329,7 +321,7 @@ module StorageClass
             self % AdaptedQ = .FALSE.
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          if (self % AdaptedQ .or. (.not. allocated(self % c) ) ) then
             self % NDOF = NDOF
             safedeallocate (self % c)
@@ -342,14 +334,7 @@ module StorageClass
 !        Load solution
 !        *************
          
-#if defined(NAVIERSTOKES)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
-            self % QNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QNS , (/ self % elements(eID) % NDOF *NCONS /) )
-            firstIdx = lastIdx
-         end do
-#elif defined(INCNS)
+#ifdef FLOW
          firstIdx = 1
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
@@ -357,7 +342,7 @@ module StorageClass
             firstIdx = lastIdx
          end do
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          firstIdx = 1
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
@@ -384,18 +369,13 @@ module StorageClass
          
          self % NDOF = NDOF
          
-#if defined(NAVIERSTOKES)
-         if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
-            safedeallocate (self % QdotNS)
-            allocate ( self % QdotNS(NCONS*NDOF) )
-         end if
-#elif defined(INCNS)
+#ifdef FLOW
          if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
             safedeallocate (self % QdotNS)
             allocate ( self % QdotNS(NCONS*NDOF) )
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          if (self % AdaptedQdot .or. (.not. allocated(self % cDot) ) ) then
             safedeallocate ( self % cDot )
             allocate ( self % cDot(NCOMP*NDOF) )
@@ -407,22 +387,15 @@ module StorageClass
 !        Load solution
 !        *************
          
-#if defined(NAVIERSTOKES)
+#ifdef FLOW
          firstIdx = 1
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
             self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NCONS/) )
             firstIdx = lastIdx
          end do
-#elif defined(INCNS)
-         firstIdx = 1
-         do eID=1, size(self % elements)
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
-            self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NCONS /) )
-            firstIdx = lastIdx
-         end do
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          firstIdx = 1
          do eID=1, size(self % elements)
             lastIdx = firstIdx + self % elements(eID) % NDOF * NCOMP
@@ -450,16 +423,7 @@ module StorageClass
          
 !        Allocate global storage
 !        ***********************
-#if defined(NAVIERSTOKES)
-         if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevQNS) ) ) then
-            safedeallocate (self % PrevQNS)
-            allocate ( self % PrevQNS (NCONS * self % NDOF, self % prevSol_num) )
-            
-            self % AdaptedPrevQ = .FALSE.
-            
-            ! TODO: Adapt previous solutions...
-         end if
-#elif defined(INCNS)
+#ifdef FLOW
          if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevQNS) ) ) then
             safedeallocate (self % PrevQNS)
             allocate ( self % PrevQNS (NCONS * self % NDOF, self % prevSol_num) )
@@ -469,7 +433,7 @@ module StorageClass
             ! TODO: Adapt previous solutions...
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevC) ) ) then
             safedeallocate (self % PrevC)
             allocate ( self % PrevC(NCOMP * self % NDOF, self % prevSol_num) )
@@ -508,13 +472,11 @@ module StorageClass
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
             case (NS)
-#if defined(NAVIERSTOKES)
-               nEqn = NCONS
-#elif defined(INCNS)
+#ifdef FLOW
                nEqn = NCONS
 #endif
             case (C,MU)
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                nEqn = NCOMP
 #endif
          end select
@@ -544,13 +506,11 @@ module StorageClass
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
             case (NS)
-#if defined(NAVIERSTOKES)
-               nEqn = NCONS
-#elif defined(INCNS)
+#ifdef FLOW
                nEqn = NCONS
 #endif
             case (C,MU)
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                nEqn = NCOMP
 #endif
          end select
@@ -591,13 +551,13 @@ module StorageClass
                self % Q     => NULL()
                self % Qdot  => NULL()
                self % PrevQ => NULL()
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             case (NS)
                self % Q     => self % QNS
                self % Qdot  => self % QdotNS
                self % PrevQ => self % PrevQNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             case (C,MU)
                self % Q     => self % c
                self % Qdot  => self % cDot
@@ -625,12 +585,12 @@ module StorageClass
          
          safedeallocate(self % prevSol_index)
          
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          safedeallocate(self % QNS)
          safedeallocate(self % QdotNS)
          safedeallocate(self % PrevQNS)
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          safedeallocate(self % c)
          safedeallocate(self % cDot)
          safedeallocate(self % PrevC)
@@ -675,7 +635,7 @@ module StorageClass
             to % elements = from % elements
          end if
          
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          safedeallocate (to % QdotNS)
          if ( allocated(from % QdotNS) ) then
             allocate ( to % QdotNS ( size(from % QdotNS) ) )
@@ -694,7 +654,7 @@ module StorageClass
             to % PrevQNS      =  from % PrevQNS
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          safedeallocate (to % cDot)
          if ( allocated(from % cDot) ) then
             allocate ( to % cDot ( size(from % cDot) ) )
@@ -736,7 +696,7 @@ module StorageClass
          integer                , intent(in)    :: prevSol_num
          !------------------------------------------------------------
          integer :: k
-         integer :: NNS, NGRADNS
+         integer :: NCONS, NGRAD
          !------------------------------------------------------------
 !
 !        --------------------------------
@@ -750,46 +710,36 @@ module StorageClass
 !        Volume variables
 !        ----------------
 !
-#if defined(NAVIERSTOKES)
-         NNS = NCONS
-         NGRADNS = NGRAD
-
-#elif defined(INCNS)
-         NNS = NCONS
-         NGRADNS = NCONS
-
-#endif 
-
-#if defined(NAVIERSTOKES) || defined(INCNS)
-         allocate ( self % QNS   (1:NNS,0:Nx,0:Ny,0:Nz) )
-         allocate ( self % QdotNS(1:NNS,0:Nx,0:Ny,0:Nz) )
+#ifdef FLOW
+         allocate ( self % QNS   (1:NCONS,0:Nx,0:Ny,0:Nz) )
+         allocate ( self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
          ! Previous solution
          if ( prevSol_num /= 0 ) then
             allocate ( self % PrevQ(prevSol_num) )
             do k=1, prevSol_num
-               allocate ( self % PrevQ(k) % QNS(1:NNS,0:Nx,0:Ny,0:Nz) )
+               allocate ( self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
             end do
          end if
 
-         ALLOCATE( self % G_NS   (NNS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % S_NS   (NNS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % S_NSP  (NNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % S_NSP  (NCONS,0:Nx,0:Ny,0:Nz) )
          
-         ALLOCATE( self % U_xNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_yNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_zNS (NGRADNS,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
          
          ! TODO: if implicit...
-         allocate( self % dF_dgradQ( NNS, NNS, NDIM, NDIM, 0:Nx, 0:Ny, 0:Nz ) )
+         allocate( self % dF_dgradQ( NCONS, NCONS, NDIM, NDIM, 0:Nx, 0:Ny, 0:Nz ) )
 !
 !        Point to NS by default
 !        ----------------------
          call self % SetStorageToNS
 #endif
 
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          allocate ( self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate ( self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) )
          ! Previous solution
@@ -818,7 +768,7 @@ module StorageClass
 !        Initialize memory
 !        -----------------
 !
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          self % G_NS   = 0.0_RP
          self % S_NS   = 0.0_RP
          self % S_NSP  = 0.0_RP
@@ -832,7 +782,7 @@ module StorageClass
          self % U_zNS = 0.0_RP
 #endif
 
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          self % c     = 0.0_RP
          self % c_x   = 0.0_RP
          self % c_y   = 0.0_RP
@@ -862,7 +812,7 @@ module StorageClass
          to % currentlyLoaded = from % currentlyLoaded
          to % NDOF            = from % NDOF
          to % Nxyz            = from % Nxyz
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          to % QNS    = from % QNS
          to % U_xNS  = from % U_xNS
          to % U_yNS  = from % U_yNS
@@ -875,7 +825,7 @@ module StorageClass
          to % mu_art    = from % mu_art
          to % stats     = from % stats
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          to % c    = from % c
          to % c_x  = from % c_x
          to % c_y  = from % c_y
@@ -906,11 +856,11 @@ module StorageClass
                self % U_y  => NULL()
                self % U_z  => NULL()
                self % QDot => NULL()
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             case (NS)
                call self % SetStorageToNS   
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             case (C)
                call self % SetStorageToCH_c
 
@@ -936,7 +886,7 @@ module StorageClass
          self % U_y => NULL()
          self % U_z => NULL()
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          safedeallocate(self % QNS)
          safedeallocate(self % QDotNS)
          
@@ -957,7 +907,7 @@ module StorageClass
          safedeallocate(self % dF_dgradQ)
          
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          safedeallocate(self % c)
          safedeallocate(self % cDot)
          
@@ -981,7 +931,7 @@ module StorageClass
          safedeallocate(self % PrevQ)
 
       end subroutine ElementStorage_Destruct
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       pure subroutine ElementStorage_SetStorageToNS(self)
 !
 !        *****************************************
@@ -1001,7 +951,7 @@ module StorageClass
 
       end subroutine ElementStorage_SetStorageToNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       pure subroutine ElementStorage_SetStorageToCH_c(self)
 !
 !        *********************************************
@@ -1141,42 +1091,39 @@ module StorageClass
 !        ---------------
 !
          integer     :: interfaceFluxMemorySize
-         integer     :: NNS, NGRADNS
+         integer     :: NCONS, NGRAD
 
          self % Nf  = Nf
          self % Nel = Nel
 
          interfaceFluxMemorySize = 0
 
-#if defined(NAVIERSTOKES)
-         NNS = NCONS
-         NGRADNS = NGRAD
-#elif defined(INCNS)
-         NNS = NCONS
-         NGRADNS = NCONS
+#ifdef FLOW
+         NCONS = NCONS
+         NGRAD = NGRAD
 #endif
    
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
-         ALLOCATE( self % QNS   (NNS,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_xNS(NGRADNS,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_yNS(NGRADNS,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_zNS(NGRADNS,0:Nf(1),0:Nf(2)) )
+#ifdef FLOW
+         ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
 !
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
-         interfaceFluxMemorySize = NGRADNS * nDIM * product(Nf + 1)
+         interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 !
 !        TODO: JMT, if (implicit..?)
-         allocate( self % dFStar_dqF (NNS,NNS, 0: Nf(1), 0: Nf(2)) )
-         allocate( self % dFStar_dqEl(NNS,NNS, 0:Nel(1), 0:Nel(2),2) )
+         allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
+         allocate( self % dFStar_dqEl(NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
          
-         allocate( self % dFv_dGradQF (NNS,NNS,NDIM,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(NNS,NNS,NDIM,0:Nel(1),0:Nel(2),2) )
+         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: Nf(1),0: Nf(2)) )
+         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:Nel(1),0:Nel(2),2) )
          
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          allocate(self % c   (NCOMP , 0:Nf(1), 0:Nf(2)))
          allocate(self % c_x (NCOMP , 0:Nf(1), 0:Nf(2)))
          allocate(self % c_y (NCOMP , 0:Nf(1), 0:Nf(2)))
@@ -1196,7 +1143,7 @@ module StorageClass
 !        ---------------------------------------
          allocate(self % genericInterfaceFluxMemory(interfaceFluxMemorySize))
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
 !
 !        Point to NS by default
 !        ----------------------
@@ -1207,7 +1154,7 @@ module StorageClass
 !        Initialize memory
 !        -----------------
 !
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          self % QNS    = 0.0_RP
          
          self % U_xNS = 0.0_RP
@@ -1220,7 +1167,7 @@ module StorageClass
          self % mu_art = 0.0_RP
 #endif
 
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          self % c     = 0.0_RP
          self % c_x   = 0.0_RP
          self % c_y   = 0.0_RP
@@ -1240,7 +1187,7 @@ module StorageClass
    
          self % currentlyLoaded = OFF
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          safedeallocate(self % QNS)
          safedeallocate(self % U_xNS)
          safedeallocate(self % U_yNS)
@@ -1251,7 +1198,7 @@ module StorageClass
          safedeallocate(self % dFv_dGradQEl)
          safedeallocate(self % mu_art)
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          safedeallocate(self % c)
          safedeallocate(self % c_x)
          safedeallocate(self % c_y)
@@ -1270,28 +1217,24 @@ module StorageClass
          self % fStar  => NULL()
 
       end subroutine FaceStorage_Destruct
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       subroutine FaceStorage_SetStorageToNS(self)
          implicit none
          class(FaceStorage_t), target    :: self
-         integer                         :: NNS, NGRADNS
+         integer                         :: NCONS, NGRAD
 
          self % currentlyLoaded = NS
 
-#if defined(NAVIERSTOKES)
-         NNS = NCONS
-         NGRADNS = NGRAD
-
-#elif defined(INCNS)
-         NNS = NCONS
-         NGRADNS = NCONS        
+#ifdef FLOW
+         NCONS = NCONS
+         NGRAD = NGRAD
 
 #endif
 !
 !        Get sizes
 !        ---------
          self % Q   (1:,0:,0:)            => self % QNS
-         self % fStar(1:NNS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         self % fStar(1:NCONS, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
@@ -1299,12 +1242,12 @@ module StorageClass
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
-            self % unStar(1:NGRADNS, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+            self % unStar(1:NGRAD, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
          end if
 
       end subroutine FaceStorage_SetStorageToNS
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       subroutine FaceStorage_SetStorageToCH_c(self)
          implicit none
          class(FaceStorage_t), target  :: self
