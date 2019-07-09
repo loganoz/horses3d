@@ -15,8 +15,8 @@
 #define NNS NCONS
 #define NGRADNS NGRAD
 #elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
+#define NNS NCONS
+#define NGRADNS NCONS
 #endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS)

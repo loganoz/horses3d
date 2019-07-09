@@ -262,7 +262,7 @@ module StorageClass
                allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
                self % PrevQ    => self % PrevQNS
 #elif defined(INCNS)
-               allocate ( self % PrevQNS(NINC*NDOF, prevSol_num) )
+               allocate ( self % PrevQNS(NCONS*NDOF, prevSol_num) )
                self % PrevQ    => self % PrevQNS
 #endif
 #if defined(CAHNHILLIARD)
@@ -277,8 +277,8 @@ module StorageClass
                self % Q    => self % QNS
                self % Qdot => self % QdotNS
 #elif defined(INCNS)
-               allocate ( self % QNS   (NINC*NDOF) )
-               allocate ( self % QdotNS(NINC*NDOF) )
+               allocate ( self % QNS   (NCONS*NDOF) )
+               allocate ( self % QdotNS(NCONS*NDOF) )
                self % Q    => self % QNS
                self % Qdot => self % QdotNS
 #endif
@@ -324,7 +324,7 @@ module StorageClass
          if (self % AdaptedQ .or. (.not. allocated(self % QNS) ) ) then
             self % NDOF = NDOF
             safedeallocate (self % QNS   )
-            allocate ( self % QNS   (NINC*NDOF) )
+            allocate ( self % QNS   (NCONS*NDOF) )
             
             self % AdaptedQ = .FALSE.
          end if
@@ -352,8 +352,8 @@ module StorageClass
 #elif defined(INCNS)
          firstIdx = 1
          do eID=1, size(self % elements)
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
-            self % QNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QNS , (/ self % elements(eID) % NDOF *NINC /) )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % QNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QNS , (/ self % elements(eID) % NDOF *NCONS /) )
             firstIdx = lastIdx
          end do
 #endif
@@ -392,7 +392,7 @@ module StorageClass
 #elif defined(INCNS)
          if (self % AdaptedQdot .or. (.not. allocated(self % QdotNS) ) ) then
             safedeallocate (self % QdotNS)
-            allocate ( self % QdotNS(NINC*NDOF) )
+            allocate ( self % QdotNS(NCONS*NDOF) )
          end if
 #endif
 #if defined(CAHNHILLIARD)
@@ -417,8 +417,8 @@ module StorageClass
 #elif defined(INCNS)
          firstIdx = 1
          do eID=1, size(self % elements)
-            lastIdx = firstIdx + self % elements(eID) % NDOF * NINC
-            self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NINC /) )
+            lastIdx = firstIdx + self % elements(eID) % NDOF * NCONS
+            self % QdotNS (firstIdx : lastIdx - 1) = reshape ( self % elements(eID) % QdotNS , (/ self % elements(eID) % NDOF * NCONS /) )
             firstIdx = lastIdx
          end do
 #endif
@@ -462,7 +462,7 @@ module StorageClass
 #elif defined(INCNS)
          if (self % AdaptedPrevQ .or. (.not. allocated(self % PrevQNS) ) ) then
             safedeallocate (self % PrevQNS)
-            allocate ( self % PrevQNS (NINC * self % NDOF, self % prevSol_num) )
+            allocate ( self % PrevQNS (NCONS * self % NDOF, self % prevSol_num) )
             
             self % AdaptedPrevQ = .FALSE.
             
@@ -511,7 +511,7 @@ module StorageClass
 #if defined(NAVIERSTOKES)
                nEqn = NCONS
 #elif defined(INCNS)
-               nEqn = NINC
+               nEqn = NCONS
 #endif
             case (C,MU)
 #if defined(CAHNHILLIARD)
@@ -547,7 +547,7 @@ module StorageClass
 #if defined(NAVIERSTOKES)
                nEqn = NCONS
 #elif defined(INCNS)
-               nEqn = NINC
+               nEqn = NCONS
 #endif
             case (C,MU)
 #if defined(CAHNHILLIARD)
@@ -755,8 +755,8 @@ module StorageClass
          NGRADNS = NGRAD
 
 #elif defined(INCNS)
-         NNS = NINC
-         NGRADNS = NINC
+         NNS = NCONS
+         NGRADNS = NCONS
 
 #endif 
 
@@ -1152,8 +1152,8 @@ module StorageClass
          NNS = NCONS
          NGRADNS = NGRAD
 #elif defined(INCNS)
-         NNS = NINC
-         NGRADNS = NINC
+         NNS = NCONS
+         NGRADNS = NCONS
 #endif
    
 
@@ -1283,8 +1283,8 @@ module StorageClass
          NGRADNS = NGRAD
 
 #elif defined(INCNS)
-         NNS = NINC
-         NGRADNS = NINC        
+         NNS = NCONS
+         NGRADNS = NCONS        
 
 #endif
 !

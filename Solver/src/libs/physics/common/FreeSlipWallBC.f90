@@ -350,7 +350,7 @@ module FreeSlipWallBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -379,10 +379,10 @@ module FreeSlipWallBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -391,7 +391,7 @@ module FreeSlipWallBCClass
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
          INTEGER       :: k
 !   
-         DO k = 1, NINC
+         DO k = 1, NCONS
             gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
             UTanx = U_x(k) - gradUNorm*nHat(1)
             UTany = U_y(k) - gradUNorm*nHat(2)

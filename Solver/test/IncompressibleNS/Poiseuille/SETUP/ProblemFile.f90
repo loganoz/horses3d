@@ -37,8 +37,8 @@
 #define NNS NCONS
 #define NGRADNS NGRAD
 #elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
+#define NNS NCONS
+#define NGRADNS NCONS
 #endif
          SUBROUTINE UserDefinedStartup
 !
@@ -369,7 +369,7 @@
             CHARACTER(LEN=119)                  :: testName           = "Incompressible Poiseuille flow"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP)  :: res(NINC) = [0.156026923392621_RP, 1510.95301432128_RP, &
+            real(kind=RP)  :: res(NCONS) = [0.156026923392621_RP, 1510.95301432128_RP, &
                                           1.825033248043250E-012_RP, 1046.43551516435_RP, &
                                           15603445.8586930_RP]
 

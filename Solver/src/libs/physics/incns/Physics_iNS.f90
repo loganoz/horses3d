@@ -47,8 +47,8 @@
 !
       pure subroutine iEulerFlux0D(Q, F)
          implicit none
-         real(kind=RP), intent(in)   :: Q(1:NINC)
-         real(kind=RP), intent(out)  :: F(1:NINC, 1:NDIM)
+         real(kind=RP), intent(in)   :: Q(1:NCONS)
+         real(kind=RP), intent(out)  :: F(1:NCONS, 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -88,8 +88,8 @@
 
       pure subroutine iEulerXFlux(Q, F)
          implicit none
-         real(kind=RP), intent(in)   :: Q(1:NINC)
-         real(kind=RP), intent(out)  :: F(1:NINC)
+         real(kind=RP), intent(in)   :: Q(1:NCONS)
+         real(kind=RP), intent(out)  :: F(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -114,8 +114,8 @@
       pure subroutine iEulerFlux3D(N, Q, F)
          implicit none
          integer,       intent(in)  :: N(3)
-         real(kind=RP), intent(in)  :: Q(1:NINC,0:N(1),0:N(2),0:N(3))
-         real(kind=RP), intent(out) :: F(1:NINC,0:N(1),0:N(2),0:N(3),1:NDIM)
+         real(kind=RP), intent(in)  :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(out) :: F(1:NCONS,0:N(1),0:N(2),0:N(3),1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -302,7 +302,7 @@
 !     Arguments
 !     ---------
 !
-      REAL(KIND=Rp), DIMENSION(NINC) :: Q
+      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
       REAL(KIND=Rp), DIMENSION(3)     :: eigen
 !
 !     ---------------

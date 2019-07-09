@@ -303,7 +303,7 @@ module UserDefinedBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -318,7 +318,7 @@ module UserDefinedBCClass
                real(kind=RP)  :: x(NDIM)
                real(kind=RP)  :: t
                real(kind=RP)  :: nHat(NDIM)
-               real(kind=RP)  :: Q(NINC)
+               real(kind=RP)  :: Q(NCONS)
                type(Thermodynamics_t), intent(in)  :: thermodynamics_
                type(Dimensionless_t),  intent(in)  :: dimensionless_
                type(RefValues_t),      intent(in)  :: refValues_
@@ -340,10 +340,10 @@ module UserDefinedBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
          interface
             subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
             use SMConstants
@@ -353,9 +353,9 @@ module UserDefinedBCClass
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NINC)
-            real(kind=RP), intent(inout)  :: U_y(NINC)
-            real(kind=RP), intent(inout)  :: U_z(NINC)
+            real(kind=RP), intent(inout)  :: U_x(NCONS)
+            real(kind=RP), intent(inout)  :: U_y(NCONS)
+            real(kind=RP), intent(inout)  :: U_z(NCONS)
             end subroutine UserDefinedNeumann1
          end interface
 

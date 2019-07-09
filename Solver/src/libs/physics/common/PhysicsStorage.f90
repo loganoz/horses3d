@@ -43,11 +43,11 @@ module PhysicsStorage
    integer, parameter   :: NTOTALVARS = NCONS + NCOMP
    integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
 #elif (defined(INCNS) && !defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NINC
-   integer, parameter   :: NTOTALGRADS = NINC
+   integer, parameter   :: NTOTALVARS = NCONS
+   integer, parameter   :: NTOTALGRADS = NCONS
 #elif (defined(INCNS) && defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NINC + NCOMP
-   integer, parameter   :: NTOTALGRADS = NINC + NCOMP
+   integer, parameter   :: NTOTALVARS = NCONS + NCOMP
+   integer, parameter   :: NTOTALGRADS = NCONS + NCOMP
 #elif defined(CAHNHILLIARD)
    integer, parameter   :: NTOTALVARS = NCOMP
    integer, parameter   :: NTOTALGRADS = NCOMP

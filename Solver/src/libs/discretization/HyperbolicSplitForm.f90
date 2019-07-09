@@ -3,8 +3,8 @@
 #define NNS NCONS
 #define NGRADNS NGRAD
 #elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
+#define NNS NCONS
+#define NGRADNS NCONS
 #endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -843,11 +843,11 @@ module HyperbolicSplitForm
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NINC)
-         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(NINC)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -856,7 +856,7 @@ module HyperbolicSplitForm
          real(kind=RP)     :: rhoL, uL, vL, wL, pL, invRhoL
          real(kind=RP)     :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP)     :: Ja(1:NDIM)
-         real(kind=RP)     :: f(NINC), g(NINC), h(NINC)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
          rhoL    = QL(INSRHO)
          rhoR    = QR(INSRHO)
@@ -901,11 +901,11 @@ module HyperbolicSplitForm
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NINC)
-         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(NINC)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -915,7 +915,7 @@ module HyperbolicSplitForm
          real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP) :: rho, u, v, w, p, rhou, rhov, rhow
          real(kind=RP) :: Ja(1:NDIM)
-         real(kind=RP) :: f(NINC), g(NINC), h(NINC)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
 
          rhoL    = QL(INSRHO)
          rhoR    = QR(INSRHO)
@@ -970,11 +970,11 @@ module HyperbolicSplitForm
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NINC)
-         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(NINC)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -984,7 +984,7 @@ module HyperbolicSplitForm
          real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP) :: rho, u, v, w, p
          real(kind=RP) :: Ja(1:NDIM)
-         real(kind=RP) :: f(NINC), g(NINC), h(NINC)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
 
          rhoL    = QL(INSRHO)       
          rhoR    = QR(INSRHO)

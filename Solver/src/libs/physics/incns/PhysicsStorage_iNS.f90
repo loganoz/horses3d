@@ -72,7 +72,7 @@
      IMPLICIT NONE
 
      private
-     public    NINC
+     public    NCONS
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
@@ -92,7 +92,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NINC = 5
+     INTEGER, PARAMETER :: NCONS = 5
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables

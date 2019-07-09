@@ -25,21 +25,21 @@ module RiemannSolvers_iNS
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
          use SMConstants
          use PhysicsStorage_iNS
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
          real(kind=RP), intent(in)       :: t1(1:NDIM)
          real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NINC)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine RiemannSolverFCN
 
       subroutine AveragedStatesFCN(QLeft, QRight, f, g, h) 
          use SMConstants
          use PhysicsStorage_iNS
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
-         real(kind=RP), intent(out)      :: f(1:NINC), g(1:NINC), h(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
       end subroutine AveragedStatesFCN
    end interface
 
@@ -119,16 +119,16 @@ module RiemannSolvers_iNS
 !
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NINC)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: f(1:NINC), g(1:NINC), h(1:NINC)
+         real(kind=RP) :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
@@ -166,10 +166,10 @@ module RiemannSolvers_iNS
 
       subroutine LxFRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NINC)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -177,8 +177,8 @@ module RiemannSolvers_iNS
 !
          real(kind=RP)  :: rhoL, uL, vL, wL, pL, invRhoL
          real(kind=RP)  :: rhoR, uR, vR, wR, pR, invRhoR
-         real(kind=RP)  :: QLRot(NINC), QRRot(NINC)
-         real(kind=RP)  :: stab(NINC), lambdaMax
+         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
+         real(kind=RP)  :: stab(NCONS), lambdaMax
 !!
 !!        Rotate the variables to the face local frame using normal and tangent vectors
 !!        -----------------------------------------------------------------------------
@@ -224,10 +224,10 @@ stop
 
       subroutine ExactRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NINC)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -236,8 +236,8 @@ stop
          real(kind=RP)  :: rhoL, uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
          real(kind=RP)  :: rhoR, uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar
-         real(kind=RP)  :: QLRot(NINC), QRRot(NINC) 
-         real(kind=RP)  :: stab(NINC), lambdaMax
+         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP)  :: stab(NCONS), lambdaMax
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
@@ -319,15 +319,15 @@ stop
 !
          use Physics_iNS, only: iEulerXFlux
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
-         real(kind=RP), intent(out)      :: f(1:NINC), g(1:NINC), h(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: fL(NINC), fR(NINC)
+         real(kind=RP)  :: fL(NCONS), fR(NCONS)
 !
 !        Compute the flux
 !        ----------------
@@ -357,9 +357,9 @@ stop
 !
          use Physics_iNS, only: iEulerXFlux
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
-         real(kind=RP), intent(out)      :: f(1:NINC), g(1:NINC), h(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
 !
 !        ---------------
 !        Local variables
@@ -389,9 +389,9 @@ stop
 !
          use Physics_iNS, only: iEulerXFlux
          implicit none
-         real(kind=RP), intent(in)       :: QLeft(1:NINC)
-         real(kind=RP), intent(in)       :: QRight(1:NINC)
-         real(kind=RP), intent(out)      :: f(1:NINC), g(1:NINC), h(1:NINC)
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
 !
 !        ---------------
 !        Local variables
