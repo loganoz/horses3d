@@ -41,11 +41,12 @@ module VariableConversion_iNS
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine iNSGradientValuesForQ_0D( nEqn, nGrad, Q, U )
+      pure subroutine iNSGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
          real(kind=RP), intent(out) :: U(nGrad)
+         real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local Variables
@@ -64,11 +65,12 @@ module VariableConversion_iNS
 
       end subroutine iNSGradientValuesForQ_0D
 
-      pure subroutine iNSGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U )
+      pure subroutine iNSGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
          implicit none
          integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
          real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
          real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
 !
 !        ---------------
 !        Local variables

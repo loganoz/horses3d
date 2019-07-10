@@ -73,10 +73,10 @@
 
      private
      public    NCONS, NGRAD
-     public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
-     public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
-     public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
-     public    STANDARD_SPLIT, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
+     public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
+     public    IGMU, IGU, IGV, IGW, IGP
+     public    computeGradients, whichRiemannSolver
+     public    RIEMANN_CENTRAL, RIEMANN_EXACT
      public    enableGravity
       
      public    ConstructPhysicsStorage_MU, DestructPhysicsStorage_MU, DescribePhysicsStorage_MU
@@ -99,7 +99,11 @@
 !    -------------------------------------------
 !
      enum, bind(C) 
-        enumerator :: INSRHO = 1, INSRHOU, INSRHOV, INSRHOW, INSP
+        enumerator :: IMC = 1, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
+     end enum
+
+     enum, bind(C)
+        enumerator :: IGMU = 1, IGU, IGV, IGW, IGP
      end enum
 !
 !    --------------------------
@@ -107,24 +111,10 @@
 !    --------------------------
 !
      enum, bind(C)
-        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_LXF, RIEMANN_EXACT
+        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_EXACT
      end enum
      integer, protected :: whichRiemannSolver = -1
-!
-!    -----------------------------
-!    Available averaging functions
-!    -----------------------------
-!
-     enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
-     end enum
-     integer            :: whichAverage               = -1
-!
-!    -------------------------------------
-!    Lambda stabilization - 1.0 by default
-!    -------------------------------------
-!
-     real(kind=RP), protected :: lambdaStab            = 1.0_RP     
+
      logical, protected       :: enableGravity         = .false.
 !
 !    ========
@@ -273,9 +263,6 @@
          case(CENTRAL_SOLVER_NAME) 
             whichRiemannSolver = RIEMANN_CENTRAL
 
-         case(LAXFRIEDRICHS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_LXF 
-
          case(EXACT_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_EXACT
    
@@ -283,7 +270,6 @@
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
             print*, "Options available are:"
             print*, "   * Central"
-            print*, "   * Lax-Friedrichs"
             print*, "   * Exact"
             errorMessage(STD_OUT)
             stop
@@ -295,27 +281,6 @@
          whichRiemannSolver = RIEMANN_EXACT 
 
       end if
-!
-!     --------------------
-!     Lambda stabilization
-!     --------------------
-!
-      if ( controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
-         lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
-
-      else
-!
-!        By default, lambda is 1 (full upwind stabilization)
-!        ---------------------------------------------------
-         lambdaStab = 1.0_RP
-
-      end if
-!
-!     --------------------------------------------------
-!     If central fluxes are used, set lambdaStab to zero
-!     --------------------------------------------------
-!
-      if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
 !
 !     ***************
 !     Angle of attack

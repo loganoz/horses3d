@@ -22,17 +22,17 @@
       implicit none
 
       private
-      public  iEulerFlux, iViscousFlux, iEulerXFlux
-      public  iViscousFlux0D, iViscousFlux2D, iViscousFlux3D
-      public  iEulerFlux0D, iEulerFlux3D
+      public  mEulerFlux, mViscousFlux, mEulerXFlux
+      public  mViscousFlux0D, mViscousFlux2D, mViscousFlux3D
+      public  mEulerFlux0D, mEulerFlux3D
 
-     interface iEulerFlux
-         module procedure iEulerFlux0D, iEulerFlux3D
-     end interface iEulerFlux
+     interface mEulerFlux
+         module procedure mEulerFlux0D, mEulerFlux3D
+     end interface mEulerFlux
 
-     interface iViscousFlux
-         module procedure iViscousFlux0D, iViscousFlux2D, iViscousFlux3D
-     end interface iViscousFlux
+     interface mViscousFlux
+         module procedure mViscousFlux0D, mViscousFlux2D, mViscousFlux3D
+     end interface mViscousFlux
 !
 !     ========
       CONTAINS 
@@ -45,116 +45,114 @@
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iEulerFlux0D(Q, F)
+      pure subroutine mEulerFlux0D(Q, F, rho_)
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: rho, invRho
+         real(kind=RP) :: invSqrtRho
 
-         rho = (Q(INSRHO))
-
-         invRho = 1.0_RP / rho
+         invSqrtRho = 1.0_RP / sqrt(rho_)
 !
 !        X-Flux
 !        ------         
-         F(INSRHO , IX) = Q(INSRHOU)
-         F(INSRHOU, IX) = invRho*Q(INSRHOU)*Q(INSRHOU) + Q(INSP)
-         F(INSRHOV, IX) = invRho*Q(INSRHOU)*Q(INSRHOV)
-         F(INSRHOW, IX) = invRho*Q(INSRHOU)*Q(INSRHOW)
-         F(INSP   , IX) = thermodynamics % rho0c02 * invRho * Q(INSRHOU)
+         F(IMC     , IX) = Q(IMC)*invSqrtRho*Q(IMSQRHOU)
+         F(IMSQRHOU, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOU) + Q(IMP)
+         F(IMSQRHOV, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOV)
+         F(IMSQRHOW, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOW)
+         F(IMP     , IX) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU)
 !
 !        Y-Flux
 !        ------
-         F(INSRHO , IY) = Q(INSRHOV)
-         F(INSRHOU, IY) = invRho*Q(INSRHOV)*Q(INSRHOU)
-         F(INSRHOV, IY) = invRho*Q(INSRHOV)*Q(INSRHOV) + Q(INSP)
-         F(INSRHOW, IY) = invRho*Q(INSRHOV)*Q(INSRHOW)
-         F(INSP   , IY) = thermodynamics % rho0c02 * invRho * Q(INSRHOV)
+         F(IMC     , IY) = Q(IMC)*invSqrtRho*Q(IMSQRHOV)
+         F(IMSQRHOU, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOU)
+         F(IMSQRHOV, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOV) + Q(IMP)
+         F(IMSQRHOW, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOW)
+         F(IMP     , IY) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOV)
 !
 !        Z-Flux
 !        ------
-         F(INSRHO ,IZ) = Q(INSRHOW)
-         F(INSRHOU,IZ) = invRho*Q(INSRHOW)*Q(INSRHOU)
-         F(INSRHOV,IZ) = invRho*Q(INSRHOW)*Q(INSRHOV)
-         F(INSRHOW,IZ) = invRho*Q(INSRHOW)*Q(INSRHOW) + Q(INSP)
-         F(INSP   ,IZ) = thermodynamics % rho0c02 * invRho * Q(INSRHOW)
+         F(IMC     , IZ) = Q(IMC)*invSqrtRho*Q(IMSQRHOW)
+         F(IMSQRHOU, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOU)
+         F(IMSQRHOV, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOV) 
+         F(IMSQRHOW, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOW) + Q(IMP)
+         F(IMP     , IZ) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOW)
       
-      end subroutine iEulerFlux0D
+      end subroutine mEulerFlux0D
 
-      pure subroutine iEulerXFlux(Q, F)
+      pure subroutine mEulerXFlux(Q, F, rho)
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS)
+         real(kind=RP), intent(in)   :: rho
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: rho, invRho
+         real(kind=RP) :: invSqrtRho
 
-         rho = (Q(INSRHO))
-      
-         invRho = 1.0_RP / rho
+         invSqrtRho = 1.0_RP / sqrt(rho)
 !
 !        X-Flux
 !        ------         
-         F(INSRHO ) = Q(INSRHOU)
-         F(INSRHOU) = invRho*Q(INSRHOU)*Q(INSRHOU) + Q(INSP)
-         F(INSRHOV) = invRho*Q(INSRHOU)*Q(INSRHOV)
-         F(INSRHOW) = invRho*Q(INSRHOU)*Q(INSRHOW)
-         F(INSP   ) = thermodynamics % rho0c02 * invRho * Q(INSRHOU)
+         F(IMC)      = Q(IMC)*invSqrtRho*Q(IMSQRHOU)
+         F(IMSQRHOU) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOU) + Q(IMP)
+         F(IMSQRHOV) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOV)
+         F(IMSQRHOW) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOW)
+         F(IMP)      = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU)
       
-      end subroutine iEulerXFlux
+      end subroutine mEulerXFlux
 
-      pure subroutine iEulerFlux3D(N, Q, F)
+      pure subroutine mEulerFlux3D(N, Q, F, rho_)
          implicit none
          integer,       intent(in)  :: N(3)
          real(kind=RP), intent(in)  :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
          real(kind=RP), intent(out) :: F(1:NCONS,0:N(1),0:N(2),0:N(3),1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                 :: i, j, k
-         real(kind=RP)           :: rho, invRho
+         real(kind=RP)           :: invSqrtRho
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            rho = (Q(INSRHO,i,j,k))
-            invRho = 1.0_RP / rho
+            invSqrtRho = 1.0_RP / sqrt(rho_(i,j,k))
 !   
 !           X-Flux
 !           ------         
-            F(INSRHO ,i,j,k, IX) = Q(INSRHOU,i,j,k)
-            F(INSRHOU,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOU,i,j,k) + Q(INSP,i,j,k)
-            F(INSRHOV,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOW,i,j,k)
-            F(INSP   ,i,j,k, IX) = thermodynamics % rho0c02 * invRho * Q(INSRHOU,i,j,k)
+            F(IMC     ,i,j,k, IX) = Q(IMC,i,j,k)*invSqrtRho*Q(IMSQRHOU,i,j,k)
+            F(IMSQRHOU,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOU,i,j,k) + Q(IMP,i,j,k)
+            F(IMSQRHOV,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOV,i,j,k)
+            F(IMSQRHOW,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOW,i,j,k)
+            F(IMP     ,i,j,k, IX) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU,i,j,k)
 !   
 !           Y-Flux
 !           ------
-            F(INSRHO ,i,j,k, IY) = Q(INSRHOV,i,j,k)
-            F(INSRHOU,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOV,i,j,k) + Q(INSP,i,j,k)
-            F(INSRHOW,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOW,i,j,k)
-            F(INSP   ,i,j,k, IY) = thermodynamics % rho0c02 * invRho * Q(INSRHOV,i,j,k)
+            F(IMC     ,i,j,k, IY) = Q(IMC,i,j,k)*invSqrtRho*Q(IMSQRHOV,i,j,k)
+            F(IMSQRHOU,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOU,i,j,k)
+            F(IMSQRHOV,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOV,i,j,k) + Q(IMP,i,j,k)
+            F(IMSQRHOW,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOW,i,j,k)
+            F(IMP     ,i,j,k, IY) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOV,i,j,k)
 !   
 !           Z-Flux
 !           ------
-            F(INSRHO ,i,j,k, IZ) = Q(INSRHOW,i,j,k)
-            F(INSRHOU,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOW,i,j,k) + Q(INSP,i,j,k)
-            F(INSP   ,i,j,k, IZ) = thermodynamics % rho0c02 * invRho * Q(INSRHOW,i,j,k)
-   
+            F(IMC     ,i,j,k, IZ) = Q(IMC,i,j,k)*invSqrtRho*Q(IMSQRHOW,i,j,k)
+            F(IMSQRHOU,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOU,i,j,k)
+            F(IMSQRHOV,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOV,i,j,k) 
+            F(IMSQRHOW,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOW,i,j,k) + Q(IMP,i,j,k)
+            F(IMP     ,i,j,k, IZ) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOW,i,j,k)
+
          end do   ; end do          ; end do
 
-      end subroutine iEulerFlux3D
+      end subroutine mEulerFlux3D
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -163,7 +161,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine mViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -176,27 +174,27 @@
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 
-         F(INSRHO,IX)  = 0.0_RP
-         F(INSRHOU,IX) = 2.0_RP * mu * U_x(INSRHOU)
-         F(INSRHOV,IX) = mu * (U_x(INSRHOV) + U_y(INSRHOU))
-         F(INSRHOW,IX) = mu * (U_x(INSRHOW) + U_z(INSRHOU))
-         F(INSP,IX) = 0.0_RP
+         F(IGMU,IX)  = 0.0_RP
+         F(IGU,IX) = 2.0_RP * mu * U_x(IGU)
+         F(IGV,IX) = mu * (U_x(IGV) + U_y(IGU))
+         F(IGW,IX) = mu * (U_x(IGW) + U_z(IGU))
+         F(IGP,IX) = 0.0_RP
 
-         F(INSRHO,IY)  = 0.0_RP
-         F(INSRHOU,IY) = F(INSRHOV,IX)
-         F(INSRHOV,IY) = 2.0_RP * mu * U_y(INSRHOV)
-         F(INSRHOW,IY) = mu * (U_y(INSRHOW) + U_z(INSRHOV))
-         F(INSP,IY) = 0.0_RP
+         F(IGMU,IY)  = 0.0_RP
+         F(IGU,IY) = F(IGV,IX)
+         F(IGV,IY) = 2.0_RP * mu * U_y(IGV)
+         F(IGW,IY) = mu * (U_y(IGW) + U_z(IGV))
+         F(IGP,IY) = 0.0_RP
 
-         F(INSRHO,IZ)  = 0.0_RP
-         F(INSRHOU,IZ) = F(INSRHOW,IX)
-         F(INSRHOV,IZ) = F(INSRHOW,IY)
-         F(INSRHOW,IZ) = 2.0_RP * mu * U_z(INSRHOW)
-         F(INSP,IZ) = 0.0_RP
+         F(IGMU,IZ)  = 0.0_RP
+         F(IGU,IZ) = F(IGW,IX)
+         F(IGV,IZ) = F(IGW,IY)
+         F(IGW,IZ) = 2.0_RP * mu * U_z(IGW)
+         F(IGP,IZ) = 0.0_RP
 
-      end subroutine iViscousFlux0D
+      end subroutine mViscousFlux0D
 
-      pure subroutine iViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine mViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -217,28 +215,28 @@
          integer       :: i , j
 
          do j = 0, N(2) ; do i = 0, N(1)
-            F(INSRHO,IX,i,j)  = 0.0_RP
-            F(INSRHOU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(INSRHOU,i,j)
-            F(INSRHOV,IX,i,j) = mu(i,j) * (U_x(INSRHOV,i,j) + U_y(INSRHOU,i,j))
-            F(INSRHOW,IX,i,j) = mu(i,j) * (U_x(INSRHOW,i,j) + U_z(INSRHOU,i,j))
-            F(INSP,IX,i,j) = 0.0_RP
+            F(IGMU,IX,i,j)  = 0.0_RP
+            F(IGU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(IGU,i,j)
+            F(IGV,IX,i,j) = mu(i,j) * (U_x(IGV,i,j) + U_y(IGU,i,j))
+            F(IGW,IX,i,j) = mu(i,j) * (U_x(IGW,i,j) + U_z(IGU,i,j))
+            F(IGP,IX,i,j) = 0.0_RP
    
-            F(INSRHO,IY,i,j)  = 0.0_RP
-            F(INSRHOU,IY,i,j) = F(INSRHOV,IX,i,j)
-            F(INSRHOV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(INSRHOV,i,j)
-            F(INSRHOW,IY,i,j) = mu(i,j) * (U_y(INSRHOW,i,j) + U_z(INSRHOV,i,j))
-            F(INSP,IY,i,j) = 0.0_RP
+            F(IGMU,IY,i,j)  = 0.0_RP
+            F(IGU,IY,i,j) = F(IGV,IX,i,j)
+            F(IGV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(IGV,i,j)
+            F(IGW,IY,i,j) = mu(i,j) * (U_y(IGW,i,j) + U_z(IGV,i,j))
+            F(IGP,IY,i,j) = 0.0_RP
    
-            F(INSRHO,IZ,i,j)  = 0.0_RP
-            F(INSRHOU,IZ,i,j) = F(INSRHOW,IX,i,j)
-            F(INSRHOV,IZ,i,j) = F(INSRHOW,IY,i,j)
-            F(INSRHOW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(INSRHOW,i,j)
-            F(INSP,IZ,i,j) = 0.0_RP
+            F(IGMU,IZ,i,j)  = 0.0_RP
+            F(IGU,IZ,i,j) = F(IGW,IX,i,j)
+            F(IGV,IZ,i,j) = F(IGW,IY,i,j)
+            F(IGW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(IGW,i,j)
+            F(IGP,IZ,i,j) = 0.0_RP
          end do    ; end do
 
-      end subroutine iViscousFlux2D
+      end subroutine mViscousFlux2D
 
-      pure subroutine iViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine mViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -259,26 +257,26 @@
          integer       :: i , j , k
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            F(INSRHO,i,j,k,IX)  = 0.0_RP
-            F(INSRHOU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOV,i,j,k) + U_y(INSRHOU,i,j,k))
-            F(INSRHOW,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOW,i,j,k) + U_z(INSRHOU,i,j,k))
-            F(INSP,i,j,k,IX) = 0.0_RP
+            F(IGMU,i,j,k,IX)  = 0.0_RP
+            F(IGU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(IGU,i,j,k)
+            F(IGV,i,j,k,IX) = mu(i,j,k) * (U_x(IGV,i,j,k) + U_y(IGU,i,j,k))
+            F(IGW,i,j,k,IX) = mu(i,j,k) * (U_x(IGW,i,j,k) + U_z(IGU,i,j,k))
+            F(IGP,i,j,k,IX) = 0.0_RP
    
-            F(INSRHO,i,j,k,IY)  = 0.0_RP
-            F(INSRHOU,i,j,k,IY) = F(INSRHOV,i,j,k,IX)
-            F(INSRHOV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k,IY) = mu(i,j,k) * (U_y(INSRHOW,i,j,k) + U_z(INSRHOV,i,j,k))
-            F(INSP,i,j,k,IY) = 0.0_RP
+            F(IGMU,i,j,k,IY)  = 0.0_RP
+            F(IGU,i,j,k,IY) = F(IGV,i,j,k,IX)
+            F(IGV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(IGV,i,j,k)
+            F(IGW,i,j,k,IY) = mu(i,j,k) * (U_y(IGW,i,j,k) + U_z(IGV,i,j,k))
+            F(IGP,i,j,k,IY) = 0.0_RP
    
-            F(INSRHO,i,j,k,IZ)  = 0.0_RP
-            F(INSRHOU,i,j,k,IZ) = F(INSRHOW,i,j,k,IX)
-            F(INSRHOV,i,j,k,IZ) = F(INSRHOW,i,j,k,IY)
-            F(INSRHOW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(INSRHOW,i,j,k)
-            F(INSP,i,j,k,IZ) = 0.0_RP
+            F(IGMU,i,j,k,IZ)  = 0.0_RP
+            F(IGU,i,j,k,IZ) = F(IGW,i,j,k,IX)
+            F(IGV,i,j,k,IZ) = F(IGW,i,j,k,IY)
+            F(IGW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(IGW,i,j,k)
+            F(IGP,i,j,k,IZ) = 0.0_RP
          end do      ; end do    ; end do
 
-      end subroutine iViscousFlux3D
+      end subroutine mViscousFlux3D
 
    END Module Physics_MU
 !@mark -
@@ -310,14 +308,18 @@
 !     ---------------
 !
       REAL(KIND=Rp) :: u, v, w, p, a
+print*, "Get eigenvalues!!"
+errorMessage(STD_OUT)
+stop
 !      
-      u = ABS( Q(INSRHOU)/Q(INSRHO) )
-      v = ABS( Q(INSRHOV)/Q(INSRHO) )
-      w = ABS( Q(INSRHOW)/Q(INSRHO) )
-      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(INSRHO))
+!      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
+!      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )
+!      w = ABS( Q(IMSQRHOW)/Q(IMSQRHO) )
+!      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(IMSQRHO))
       
-      eigen(1) = 0.5_RP * (u + a)
-      eigen(2) = 0.5_RP * (v + a)
-      eigen(3) = 0.5_RP * (w + a)
+!      eigen(1) = 0.5_RP * (u + a)
+!      eigen(2) = 0.5_RP * (v + a)
+!      eigen(3) = 0.5_RP * (w + a)
+       eigen = 0.0_RP
       
       END SUBROUTINE ComputeEigenvaluesForState

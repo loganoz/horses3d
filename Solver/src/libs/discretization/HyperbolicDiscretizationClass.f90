@@ -11,6 +11,9 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
+#if defined(NAVIERSTOKES) || defined(INCNS)
+#define HAS_SPLIT_FORM
+#endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicDiscretizationClass
@@ -28,7 +31,9 @@ module HyperbolicDiscretizationClass
    public   HyperbolicDiscretization_t, volumetricSharpFlux_FCN
 
    integer,    parameter   :: STANDARD_DG = 1
+#ifdef HAS_SPLIT_FORM
    integer,    parameter   :: SPLIT_DG = 2
+#endif
 
    type HyperbolicDiscretization_t
       procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
@@ -42,12 +47,13 @@ module HyperbolicDiscretizationClass
    end type HyperbolicDiscretization_t
 
    abstract interface
-      pure subroutine HyperbolicFlux0D_f(Q, F)
+      pure subroutine HyperbolicFlux0D_f(Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS     )
-         real(kind=RP), intent(out) :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(in)           :: Q   (1:NCONS     )
+         real(kind=RP), intent(out)          :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_
       end subroutine HyperbolicFlux0D_f
 
       pure subroutine HyperbolicFlux2D_f( N, Q, F)
@@ -105,10 +111,13 @@ module HyperbolicDiscretizationClass
                character(*), intent(in out) :: str
             end subroutine toLower
          end interface
+
+#ifdef HAS_SPLIT_FORM
 !
 !        Set up the Hyperbolic Discretization
 !        ----------------------------------
          splitType = STANDARD_SPLIT
+#endif
 
          call SetRiemannSolver( whichRiemannSolver, splitType )
 !
@@ -168,7 +177,9 @@ module HyperbolicDiscretizationClass
 #endif         
          end select
 
+#if defined(NAVIERSTOKES) || defined(INCNS)
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+#endif
          
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."

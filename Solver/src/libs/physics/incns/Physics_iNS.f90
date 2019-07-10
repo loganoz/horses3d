@@ -45,10 +45,11 @@
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iEulerFlux0D(Q, F)
+      pure subroutine iEulerFlux0D(Q, F, rho_)
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local variables
