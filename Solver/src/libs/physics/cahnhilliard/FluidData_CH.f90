@@ -31,6 +31,7 @@ module FluidData_CH
       real(kind=RP)  :: c_alpha  ! Alpha equilibrium concentration
       real(kind=RP)  :: c_beta   ! Beta equilibrium concentration
       real(kind=RP)  :: eps      ! Coefficient in the dimensionless CH equation
+      real(kind=RP)  :: invEps   ! (Inverse of the) Coefficient in the dimensionless CH equation
       real(kind=RP)  :: w        ! Dimensionless interface width
       real(kind=RP)  :: sigma    ! Interface energy
       real(kind=RP)  :: Pe       ! Peclet number (for CH)
@@ -62,6 +63,7 @@ module FluidData_CH
          ConstructMultiphase % c_alpha      = 0.0_RP
          ConstructMultiphase % c_beta       = 0.0_RP
          ConstructMultiphase % eps          = 0.0_RP
+         ConstructMultiphase % invEps       = 0.0_RP
          ConstructMultiphase % w            = 0.0_RP
          ConstructMultiphase % sigma        = 0.0_RP
          ConstructMultiphase % Pe           = 0.0_RP
@@ -83,6 +85,7 @@ module FluidData_CH
          multiphase % c_alpha = multiphase_ % c_alpha
          multiphase % c_beta  = multiphase_ % c_beta
          multiphase % eps     = multiphase_ % eps
+         multiphase % invEps  = 1.0_RP/multiphase % eps
          multiphase % w       = multiphase_ % w
          multiphase % sigma   = multiphase_ % sigma
          multiphase % Pe      = multiphase_ % Pe

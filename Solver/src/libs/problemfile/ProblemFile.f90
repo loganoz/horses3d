@@ -21,13 +21,6 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
-#define NNS NCONS
-#define NGRADNS NGRAD
-#elif defined(INCNS)
-#define NNS NCONS
-#define NGRADNS NCONS
-#endif
 module ProblemFileFunctions
    implicit none
 
@@ -98,7 +91,7 @@ module ProblemFileFunctions
          real(kind=RP), intent(in)     :: x(NDIM)
          real(kind=RP), intent(in)     :: t
          real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: Q(NNS)
+         real(kind=RP), intent(inout)  :: Q(NCONS)
          type(Thermodynamics_t),    intent(in)  :: thermodynamics_
          type(Dimensionless_t),     intent(in)  :: dimensionless_
          type(RefValues_t),         intent(in)  :: refValues_
@@ -112,9 +105,9 @@ module ProblemFileFunctions
          real(kind=RP), intent(in)     :: x(NDIM)
          real(kind=RP), intent(in)     :: t
          real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: U_x(NGRADNS)
-         real(kind=RP), intent(inout)  :: U_y(NGRADNS)
-         real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+         real(kind=RP), intent(inout)  :: U_x(NGRAD)
+         real(kind=RP), intent(inout)  :: U_y(NGRAD)
+         real(kind=RP), intent(inout)  :: U_z(NGRAD)
       end subroutine UserDefinedNeumann_f
 #endif
 !
@@ -133,7 +126,7 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          USE HexMeshClass
@@ -141,9 +134,9 @@ module ProblemFileFunctions
          use PhysicsStorage
          IMPLICIT NONE
          real(kind=RP),             intent(in)  :: x(NDIM)
-         real(kind=RP),             intent(in)  :: Q(NNS)
+         real(kind=RP),             intent(in)  :: Q(NCONS)
          real(kind=RP),             intent(in)  :: time
-         real(kind=RP),             intent(inout) :: S(NNS)
+         real(kind=RP),             intent(inout) :: S(NCONS)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
@@ -276,7 +269,7 @@ end module ProblemFileFunctions
             integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
 #if defined(NAVIERSTOKES)
-            real(kind=RP)  :: Q(NNS), phi, theta
+            real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
 
 !
@@ -366,7 +359,7 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(NNS)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -385,9 +378,9 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRADNS)
-            real(kind=RP), intent(inout)  :: U_y(NGRADNS)
-            real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -413,7 +406,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
@@ -426,9 +419,9 @@ end module ProblemFileFunctions
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: Q(NNS)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(inout) :: S(NNS)
+            real(kind=RP),             intent(inout) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_

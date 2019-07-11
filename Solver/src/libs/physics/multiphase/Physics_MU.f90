@@ -174,19 +174,19 @@
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 
-         F(IGMU,IX)  = 0.0_RP
+         F(IGMU,IX)  = beta*U_x(IGMU)
          F(IGU,IX) = 2.0_RP * mu * U_x(IGU)
          F(IGV,IX) = mu * (U_x(IGV) + U_y(IGU))
          F(IGW,IX) = mu * (U_x(IGW) + U_z(IGU))
          F(IGP,IX) = 0.0_RP
 
-         F(IGMU,IY)  = 0.0_RP
+         F(IGMU,IY)  = beta*U_y(IGMU)
          F(IGU,IY) = F(IGV,IX)
          F(IGV,IY) = 2.0_RP * mu * U_y(IGV)
          F(IGW,IY) = mu * (U_y(IGW) + U_z(IGV))
          F(IGP,IY) = 0.0_RP
 
-         F(IGMU,IZ)  = 0.0_RP
+         F(IGMU,IZ)  = beta*U_z(IGMU)
          F(IGU,IZ) = F(IGW,IX)
          F(IGV,IZ) = F(IGW,IY)
          F(IGW,IZ) = 2.0_RP * mu * U_z(IGW)
@@ -215,19 +215,19 @@
          integer       :: i , j
 
          do j = 0, N(2) ; do i = 0, N(1)
-            F(IGMU,IX,i,j)  = 0.0_RP
+            F(IGMU,IX,i,j)  = beta(i,j)*U_x(IGMU,i,j)
             F(IGU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(IGU,i,j)
             F(IGV,IX,i,j) = mu(i,j) * (U_x(IGV,i,j) + U_y(IGU,i,j))
             F(IGW,IX,i,j) = mu(i,j) * (U_x(IGW,i,j) + U_z(IGU,i,j))
             F(IGP,IX,i,j) = 0.0_RP
    
-            F(IGMU,IY,i,j)  = 0.0_RP
+            F(IGMU,IY,i,j)  = beta(i,j)*U_y(IGMU,i,j)
             F(IGU,IY,i,j) = F(IGV,IX,i,j)
             F(IGV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(IGV,i,j)
             F(IGW,IY,i,j) = mu(i,j) * (U_y(IGW,i,j) + U_z(IGV,i,j))
             F(IGP,IY,i,j) = 0.0_RP
    
-            F(IGMU,IZ,i,j)  = 0.0_RP
+            F(IGMU,IZ,i,j)  = beta(i,j)*U_z(IGMU,i,j)
             F(IGU,IZ,i,j) = F(IGW,IX,i,j)
             F(IGV,IZ,i,j) = F(IGW,IY,i,j)
             F(IGW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(IGW,i,j)
@@ -257,19 +257,19 @@
          integer       :: i , j , k
 
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            F(IGMU,i,j,k,IX)  = 0.0_RP
+            F(IGMU,i,j,k,IX)  = beta(i,j,k)*U_x(IGMU,i,j,k)
             F(IGU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(IGU,i,j,k)
             F(IGV,i,j,k,IX) = mu(i,j,k) * (U_x(IGV,i,j,k) + U_y(IGU,i,j,k))
             F(IGW,i,j,k,IX) = mu(i,j,k) * (U_x(IGW,i,j,k) + U_z(IGU,i,j,k))
             F(IGP,i,j,k,IX) = 0.0_RP
    
-            F(IGMU,i,j,k,IY)  = 0.0_RP
+            F(IGMU,i,j,k,IY)  = beta(i,j,k)*U_y(IGMU,i,j,k)
             F(IGU,i,j,k,IY) = F(IGV,i,j,k,IX)
             F(IGV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(IGV,i,j,k)
             F(IGW,i,j,k,IY) = mu(i,j,k) * (U_y(IGW,i,j,k) + U_z(IGV,i,j,k))
             F(IGP,i,j,k,IY) = 0.0_RP
    
-            F(IGMU,i,j,k,IZ)  = 0.0_RP
+            F(IGMU,i,j,k,IZ)  = beta(i,j,k)*U_z(IGMU,i,j,k)
             F(IGU,i,j,k,IZ) = F(IGW,i,j,k,IX)
             F(IGV,i,j,k,IZ) = F(IGW,i,j,k,IY)
             F(IGW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(IGW,i,j,k)

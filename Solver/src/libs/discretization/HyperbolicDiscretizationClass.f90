@@ -56,22 +56,24 @@ module HyperbolicDiscretizationClass
          real(kind=RP), intent(in), optional :: rho_
       end subroutine HyperbolicFlux0D_f
 
-      pure subroutine HyperbolicFlux2D_f( N, Q, F)
+      pure subroutine HyperbolicFlux2D_f( N, Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
          integer         , intent(in)  :: N(2)
          real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
          real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2))
       end subroutine HyperbolicFlux2D_f
 
-      pure subroutine HyperbolicFlux3D_f( N, Q, F)
+      pure subroutine HyperbolicFlux3D_f( N, Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
          integer         , intent(in)  :: N(3)
          real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
          real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
       end subroutine HyperbolicFlux3D_f
 
       subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 

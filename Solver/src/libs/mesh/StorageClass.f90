@@ -163,6 +163,7 @@ module StorageClass
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
+      real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
 !
 !     Inviscid Jacobians
@@ -1121,6 +1122,7 @@ module StorageClass
          allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: Nf(1),0: Nf(2)) )
          allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:Nel(1),0:Nel(2),2) )
          
+         allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
 #endif
 #ifdef CAHNHILLIARD
@@ -1164,6 +1166,7 @@ module StorageClass
          self % dFStar_dqF  = 0.0_RP
          self % dFStar_dqEl = 0.0_RP
 
+         self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
 #endif
 

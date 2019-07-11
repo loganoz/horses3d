@@ -206,6 +206,12 @@ module EllipticBR1
 !        Compute gradient variables
 !        --------------------------
          call GetGradients(nEqn, nGradEqn, e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U )
+
+#ifdef MULTIPHASE
+!        The multiphase solver needs the Chemical potential as first entropy variable
+!        ----------------------------------------------------------------------------
+         U(IGMU,:,:,:) = e % storage % mu(1,:,:,:)
+#endif
 !
 !        Perform the weak integral
 !        -------------------------
@@ -284,6 +290,14 @@ module EllipticBR1
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
    
             Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -323,6 +337,14 @@ module EllipticBR1
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
    
             Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -373,6 +395,13 @@ module EllipticBR1
 !   
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
             call GetGradients(nEqn, nGradEqn, bvExt, UR )
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
    
             Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             
@@ -391,6 +420,12 @@ module EllipticBR1
             do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
    
                call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+
+#ifdef MULTIPHASE
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               UL(IGMU) = f % storage(1) % mu(1,i,j)
+#endif
       
                Uhat = UL * f % geom % jacobian(i,j)
                
@@ -402,7 +437,6 @@ module EllipticBR1
          end if 
 #endif
 
-         
       end subroutine BR1_ComputeBoundaryFlux
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -429,8 +463,6 @@ module EllipticBR1
          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-#if (!defined(CAHNHILLIARD))
-
 #if defined(NAVIERSTOKES)
          mu = dimensionless % mu + e % storage % mu_art(1,:,:,:)
          kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
@@ -443,26 +475,15 @@ module EllipticBR1
 
          kappa = 0.0_RP
          beta  = 0.0_RP
-#endif
 
-#else /* !(defined(CAHNHILLIARD) */ 
-
-#if defined(NAVIERSTOKES)
+#elif defined(MULTIPHASE)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
-         end do                ; end do                ; end do
-         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
-                               POW2( dimensionless % Mach) * dimensionless % Pr ) * mu
-
-         beta  = 0.0_RP
-#elif defined(INCNS)
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            call self % GetViscosity(e % storage % c(1,i,j,k), mu(i,j,k))      
+            call self % GetViscosity(e % storage % Q(IMC,i,j,k), mu(i,j,k))      
          end do                ; end do                ; end do
 
          kappa = 0.0_RP
-         beta  = 0.0_RP
-#endif
+         beta  = 0.0_RP    ! TODO: enable chemical potential gradient.
+
 #endif
 
          call self % EllipticFlux3D( nEqn, nGradEqn, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, beta, kappa, cartesianFlux )

@@ -37,21 +37,23 @@ module VariableConversion_CH
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine CHGradientValuesForQ_0D( nEqn, nGrad, Q, U )
+      pure subroutine CHGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
          real(kind=RP), intent(out) :: U(nGrad)
+         real(kind=RP), intent(in), optional :: rho_
 
          U = Q
 
       end subroutine CHGradientValuesForQ_0D
 
-      pure subroutine CHGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U )
+      pure subroutine CHGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
          implicit none
          integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
          real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
          real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
 
          U = Q
 
