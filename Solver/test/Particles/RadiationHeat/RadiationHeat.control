@@ -31,6 +31,7 @@ Froude number         = 0.319275
 lagrangian particles  = .true.
 injection             = .false.
 particles file        = "RandomParticles.txt"
+vel and temp from file= .false.
 minimum box           = [0,0,0]
 maximum box           = [1,1,1]
 bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic 

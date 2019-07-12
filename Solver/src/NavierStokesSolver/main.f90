@@ -128,12 +128,10 @@
       !     Build the particles
       !     -------------------
       !
-!#if defined(NAVIERSTOKES) ! Not required as this is the main for NS.
       sem % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
       if ( sem % particles % active ) then 
-            call sem % particles % construct(sem % mesh, controlVariables)
+            call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
       endif
-!#endif
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -181,6 +179,9 @@
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
+         if ( sem % particles % active ) then 
+            call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
+         end if 
       END IF
       call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
       

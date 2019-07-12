@@ -24,6 +24,7 @@ lagrangian particles  = .true.
 number of particles   = 1
 injection             = .false.
 particles file        = "RandomParticles.txt"
+vel and temp from file = .false.
 bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic
 stokes number         = 0.0468652
 Froude number         = 0.319275
