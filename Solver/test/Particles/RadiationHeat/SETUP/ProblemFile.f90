@@ -314,7 +314,7 @@
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations      = 2634
-            REAL(KIND=RP)                      :: residuals       = 7.44597482253611_RP
+            REAL(KIND=RP)                      :: residuals       = 7.4459747668846799_RP
             real(kind=RP), parameter           :: internal_energy = 206428.97273031820_RP
             real(kind=RP), parameter           :: energy_source   = 7.44218598169772_RP
 

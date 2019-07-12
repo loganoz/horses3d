@@ -82,7 +82,7 @@ end type Particles_t
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine ConstructParticles( self, mesh, controlVariables )
+subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     use FTValueDictionaryClass
     use FluidData, only : dimensionless, thermodynamics 
 #if defined(NAVIERSTOKES)
@@ -90,9 +90,10 @@ subroutine ConstructParticles( self, mesh, controlVariables )
 #endif
     use headers
     implicit none
-    class(Particles_t)      , intent(inout) :: self
-    class(HexMesh)          , intent(in)    :: mesh
-    class(FTValueDictionary), intent(in)    :: controlVariables        
+    class(Particles_t)        , intent(inout) :: self
+    class(HexMesh)            , intent(in)    :: mesh
+    class(FTValueDictionary)  , intent(in)    :: controlVariables     
+    character(len=LINE_LENGTH), intent(in)    :: solution_file   
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
@@ -101,10 +102,13 @@ subroutine ConstructParticles( self, mesh, controlVariables )
 !
     integer            :: i 
     real(KIND=RP)      :: pos(3)
-!    real(KIND=RP)      :: vel(3)
-!    real(KIND=RP)      :: temp
+    real(KIND=RP)      :: vel(3)
+    real(KIND=RP)      :: temp
 !    real(kind=RP)      :: dy, dz, y, z, Ly, Lz
-    character(LEN=132) :: partFile 
+    character(LEN=132) :: partFile  
+    character(LEN=1)   :: trash
+    integer            :: itrash
+    logical            :: velAndTempFromFile
     
     !    
     ! Read information related to particles from control file
@@ -153,6 +157,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
 
 
     partFile = controlVariables % StringValueForKey(key = PART_FILE_KEY, requestedLength = 132)
+    velAndTempFromFile = controlVariables % logicalValueForKey(PART_LOG_FILE_KEY)
 
     self % pMesh % min = getRealArrayFromString( controlVariables % StringValueForKey(key = MIN_BOX_KEY,&
     requestedLength = 132))
@@ -161,7 +166,7 @@ subroutine ConstructParticles( self, mesh, controlVariables )
     self % pMesh % bc  = getIntArrayFromString( controlVariables % StringValueForKey(key = BC_BOX_KEY,&
     requestedLength = 132))
 
-    self % injection % active = controlVariables % logicalValueForKey("injection")
+    self % injection % active = controlVariables % logicalValueForKey(PART_LOG_INJ_KEY)
 
     !    
     ! Set up injection if required
@@ -197,22 +202,33 @@ subroutine ConstructParticles( self, mesh, controlVariables )
         open(UNIT=10, FILE=partFile)
         read(10,*)
         do i = 1, self % no_of_particles 
-            ! Read position of the particles from RandomParticles.txt
-            read(10,*) pos(1), pos(2), pos(3)
+            ! Read position of the particles from file
+            read(10,*) itrash, &
+                       pos(1), pos(2), pos(3), &
+                       vel(1), vel(2), vel(3), temp
+
             call self % particle(i) % set_pos ( pos )
 
-            ! Position the particle in the computational mesh (get element)
-            call self % particle(i) % setGlobalPos( mesh )
+            if (velAndTempFromFile) then 
+                ! Initialise particle velocity and temperature from file
+                call self % particle(i) % set_vel  ( vel  )
+                call self % particle(i) % set_temp ( temp )
+            else 
+                ! Position the particle in the computational mesh (get element)
+                call self % particle(i) % setGlobalPos( mesh )
 
-            ! Get Fluid velocity and temperature for the random positions of each particle
-            call self % particle(i) % getFluidVelandTemp( mesh )
-            
-            ! Initialise particle velocity and temperature with the fluid values
-            call self % particle(i) % set_vel  ( self % particle(i) % fluidVel  )
-            call self % particle(i) % set_temp ( self % particle(i) % fluidTemp )
+                ! Get Fluid velocity and temperature for the random positions of each particle
+                call self % particle(i) % getFluidVelandTemp( mesh )
+                
+                ! Initialise particle velocity and temperature with the fluid values
+                call self % particle(i) % set_vel  ( self % particle(i) % fluidVel  )
+                call self % particle(i) % set_temp ( self % particle(i) % fluidTemp )
+            endif 
         enddo 
         close(10)
     endif 
+
+    call ExportToVTKParticles( self, 0, solution_file )
 
     !    
     ! Show particles at screen
