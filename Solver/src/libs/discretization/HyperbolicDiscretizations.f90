@@ -15,7 +15,7 @@
 #define HAS_SPLIT_FORMS
 #endif
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#ifdef FLOW
 module HyperbolicDiscretizations
    use SMConstants
    use HyperbolicDiscretizationClass

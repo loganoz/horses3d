@@ -13,13 +13,6 @@
 !     TODO1: Store FaceStorage in SolutionStorage
 !     TODO2: Remove physics-related pointers... Allocate one storage for each physics 
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
-#define FLOW
-#elif defined(INCNS)
-#define FLOW
-#elif defined(MULTIPHASE)
-#define FLOW
-#endif
 
 module StorageClass
    use, intrinsic :: iso_c_binding

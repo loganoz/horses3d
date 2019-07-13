@@ -50,23 +50,23 @@ module FreeSlipWallBCClass
 !  ****************
 !
    type, extends(GenericBC_t) ::  FreeSlipWallBC_t
-#if defined(NAVIERSTOKES)
+#ifdef NAVIERSTOKES
       logical           :: isAdiabatic
       real(kind=RP)     :: Twall
       real(kind=RP)     :: ewall       ! Wall internal energy
       real(kind=RP)     :: kWallType
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP)     :: thetaw
 #endif
       contains
          procedure         :: Destruct          => FreeSlipWallBC_Destruct
          procedure         :: Describe          => FreeSlipWallBC_Describe
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure         :: FlowState         => FreeSlipWallBC_FlowState
          procedure         :: FlowNeumann       => FreeSlipWallBC_FlowNeumann
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => FreeSlipWallBC_PhaseFieldState
          procedure         :: PhaseFieldNeumann => FreeSlipWallBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => FreeSlipWallBC_ChemPotState
@@ -179,7 +179,7 @@ module FreeSlipWallBCClass
 !
 !        Analyze the gathered data
 !        -------------------------
-#if defined(NAVIERSTOKES)
+#ifdef NAVIERSTOKES
          if ( bcdict % ContainsKey("wall type (adiabatic/isothermal)") ) then
             keyval = bcdict % StringValueForKey("wall type (adiabatic/isothermal)", LINE_LENGTH)
             call tolower(keyval)
@@ -199,7 +199,7 @@ module FreeSlipWallBCClass
             ConstructFreeSlipWallBC % kWallType = 1.0_RP
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          call GetValueWithDefault(bcdict, "contact angle", 0.0_RP, ConstructFreeSlipWallBC % thetaw)
 #endif
 
@@ -215,7 +215,7 @@ module FreeSlipWallBCClass
          implicit none
          class(FreeSlipWallBC_t),  intent(in)  :: self
          write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "FreeSlipWall"
-#if defined(NAVIERSTOKES) 
+#ifdef NAVIERSTOKES
          if ( self % isAdiabatic ) then
             write(STD_OUT,'(30X,A,A28,A)') "->", ' Thermal type: ', "Adiabatic"
 
@@ -225,7 +225,7 @@ module FreeSlipWallBCClass
             write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall temperature: ', self % Twall * refValues % T
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
 #endif
          
@@ -252,7 +252,7 @@ module FreeSlipWallBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#ifdef NAVIERSTOKES
       subroutine FreeSlipWallBC_FlowState(self, x, t, nHat, Q)
 !
 !        *************************************************************
@@ -333,7 +333,7 @@ module FreeSlipWallBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(INCNS)
+#ifdef INCNS
       subroutine FreeSlipWallBC_FlowState(self, x, t, nHat, Q)
 !
 !        *************************************************************
@@ -370,6 +370,85 @@ module FreeSlipWallBCClass
          Q(INSRHOV) = Q(INSRHOV) - 2.0_RP * vn * nHat(IY)
          Q(INSRHOW) = Q(INSRHOW) - 2.0_RP * vn * nHat(IZ)
          Q(INSP)    = Q(INSP)
+
+      end subroutine FreeSlipWallBC_FlowState
+
+      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!   
+         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
+         INTEGER       :: k
+!   
+         DO k = 1, NCONS
+            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
+            UTanx = U_x(k) - gradUNorm*nHat(1)
+            UTany = U_y(k) - gradUNorm*nHat(2)
+            UTanz = U_z(k) - gradUNorm*nHat(3)
+   
+            U_x(k) = UTanx - gradUNorm*nHat(1)
+            U_y(k) = UTany - gradUNorm*nHat(2)
+            U_z(k) = UTanz - gradUNorm*nHat(3)
+         END DO
+
+      end subroutine FreeSlipWallBC_FlowNeumann
+#endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for multiphase solver
+!        ---------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#ifdef MULTIPHASE
+      subroutine FreeSlipWallBC_FlowState(self, x, t, nHat, Q)
+!
+!        *************************************************************
+!           Compute the state variables for a general wall
+!
+!           · Density is computed from the interior state
+!           · Wall velocity is set to 2v_wall - v_interior
+!           · Pressure is computed from the interior state
+!        *************************************************************
+!
+
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: vn
+!
+!        -----------------------------------------------
+!        Generate the external flow along the face, that
+!        represents a solid wall.
+!        -----------------------------------------------
+!
+         vn = sum(Q(IMSQRHOU:IMSQRHOW)*nHat)
+
+         Q(IMC)      = Q(IMC)
+         Q(IMSQRHOU) = Q(IMSQRHOU) - 2.0_RP * vn * nHat(IX)
+         Q(IMSQRHOV) = Q(IMSQRHOV) - 2.0_RP * vn * nHat(IY)
+         Q(IMSQRHOW) = Q(IMSQRHOW) - 2.0_RP * vn * nHat(IZ)
+         Q(IMP)      = Q(IMP)
 
       end subroutine FreeSlipWallBC_FlowState
 

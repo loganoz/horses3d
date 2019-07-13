@@ -174,58 +174,70 @@ module RiemannSolvers_MU
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
-         real(kind=RP)  :: uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
-         real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar
+         real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
+         real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
+         real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
          real(kind=RP)  :: stab(NCONS), lambdaMax
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
-!         invRhoL = 1.0_RP / rhoL
-!         uL = invRhoL * (QLeft(INSRHOU) * nHat(1) + QLeft(INSRHOV) * nHat(2) + QLeft(INSRHOW) * nHat(3))
-!         vL = invRhoL * (QLeft(INSRHOU) * t1(1)   + QLeft(INSRHOV) * t1(2)   + QLeft(INSRHOW) * t1(3))
-!         wL = invRhoL * (QLeft(INSRHOU) * t2(1)   + QLeft(INSRHOV) * t2(2)   + QLeft(INSRHOW) * t2(3))
-!         pL = QLeft(INSP)
+         invRhoL = 1.0_RP / rhoL
+         cL = QLeft(IMC)
+         uL = invRhoL * (QLeft(IMSQRHOU) * nHat(1) + QLeft(IMSQRHOV) * nHat(2) + QLeft(IMSQRHOW) * nHat(3))
+         vL = invRhoL * (QLeft(IMSQRHOU) * t1(1)   + QLeft(IMSQRHOV) * t1(2)   + QLeft(IMSQRHOW) * t1(3))
+         wL = invRhoL * (QLeft(IMSQRHOU) * t2(1)   + QLeft(IMSQRHOV) * t2(2)   + QLeft(IMSQRHOW) * t2(3))
+         pL = QLeft(IMP)
+
+         invRhoR = 1.0_RP / rhoR
+         cR = QRight(IMC)
+         uR = invRhoR * (QRight(IMSQRHOU) * nHat(1) + QRight(IMSQRHOV) * nHat(2) + QRight(IMSQRHOW) * nHat(3))
+         vR = invRhoR * (QRight(IMSQRHOU) * t1(1)   + QRight(IMSQRHOV) * t1(2)   + QRight(IMSQRHOW) * t1(3))
+         wR = invRhoR * (QRight(IMSQRHOU) * t2(1)   + QRight(IMSQRHOV) * t2(2)   + QRight(IMSQRHOW) * t2(3))
+         pR = QRight(IMP)
 !
-!         invRhoR = 1.0_RP / rhoR
-!         uR = invRhoR * (QRight(INSRHOU) * nHat(1) + QRight(INSRHOV) * nHat(2) + QRight(INSRHOW) * nHat(3))
-!         vR = invRhoR * (QRight(INSRHOU) * t1(1)   + QRight(INSRHOV) * t1(2)   + QRight(INSRHOW) * t1(3))
-!         wR = invRhoR * (QRight(INSRHOU) * t2(1)   + QRight(INSRHOV) * t2(2)   + QRight(INSRHOW) * t2(3))
-!         pR = QRight(INSP)
-!!
-!!        Compute the Star Region
-!!        -----------------------
-!         lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
-!         lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
+!        Compute the Star Region
+!        -----------------------
+         lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
+         lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
+
+         lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
+         lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
+
+         uStar = (pR-pL+rhoR*uR*lambdaMinusR-rhoL*uL*lambdaPlusL)/(rhoR*lambdaMinusR - rhoL*lambdaPlusL)
+         pStar = pR + rhoR*lambdaMinusR*(uR-uStar)
+         rhoStarL = (rhoL*lambdaPlusL)/(uStar-lambdaMinusL)
+         rhoStarR = (rhoR*lambdaMinusR)/(uStar - lambdaPlusR)
+
+         if ( uStar .ge. 0.0_RP ) then
+            rhoStar = rhoStarL
+            vStar   = vL
+            wStar   = wL
+
+         else
+            rhoStar = rhoStarR
+            vStar   = vR
+            wStar   = wR
+
+         end if
+
+         cuStar = 0.5_RP*(cL*uL + cR*uR)
+         halfRhouStar = 0.5_RP*rhoStar*uStar
 !
-!         lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
-!         lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
+!      - Add first the common (conservative) part
+         fL = [cuStar, rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, thermodynamics % rho0c02 * uStar]
+         fR = fL
 !
-!         uStar = (pR-pL+rhoR*uR*lambdaMinusR-rhoL*uL*lambdaPlusL)/(rhoR*lambdaMinusR - rhoL*lambdaPlusL)
-!         pStar = pR + rhoR*lambdaMinusR*(uR-uStar)
-!         rhoStarL = (rhoL*lambdaPlusL)/(uStar-lambdaMinusL)
-!         rhoStarR = (rhoR*lambdaMinusR)/(uStar - lambdaPlusR)
+!      - Add the non--conservative part
+         fL = fL + [0.0_RP, cL*0.5_RP*(muR-muL)-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -thermodynamics % rho0c02*uL]
+         fR = fR + [0.0_RP, cR*0.5_RP*(muL-muR)-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -thermodynamics % rho0c02*uR]
 !
-!         if ( uStar .ge. 0.0_RP ) then
-!            rhoStar = rhoStarL
-!            vStar   = vL
-!            wStar   = wL
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
 !
-!         else
-!            rhoStar = rhoStarR
-!            vStar   = vR
-!            wStar   = wR
-!
-!         end if
-!
-!         flux = [rhoStar*uStar, rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, thermodynamics % rho0c02 * uStar]
-!!
-!!        ************************************************
-!!        Return momentum equations to the cartesian frame
-!!        ************************************************
-!!
-!         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+         fL(2:4) = nHat*fL(2) + t1*fL(3) + t2*fL(4)
+         fR(2:4) = nHat*fR(2) + t1*fR(3) + t2*fR(4)
 
       end subroutine ExactRiemannSolver
 

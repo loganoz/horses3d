@@ -313,7 +313,7 @@ module SurfaceMonitorClass
             self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW)
 
          case ("flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE)
 
          case ("pressure-force")
             F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)

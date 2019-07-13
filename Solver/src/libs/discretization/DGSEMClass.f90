@@ -10,14 +10,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
-#define NNS NCONS
-#define NGRADNS NGRAD
-#elif defined(INCNS)
-#define NNS NCONS
-#define NGRADNS NCONS
-#endif
-
 #include "Includes.h"
 Module DGSEMClass
    use SMConstants
@@ -54,7 +46,7 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       type(Particles_t)                                       :: particles
 #else
       logical                                                 :: particles
@@ -75,7 +67,7 @@ Module DGSEMClass
          use ParticlesClass
          IMPLICIT NONE 
          type(HexMesh), target           :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Particles_t)               :: particles
 #else
          logical                         :: particles
@@ -406,12 +398,6 @@ Module DGSEMClass
             initial_time = 0.0_RP
             initial_iteration = 0
 !
-!           If solving incompressible NS + CahnHilliard, compatibilize density and phase field
-!           ----------------------------------------------------------------------------------
-#if defined(INCNS) && defined(CAHNHILLIARD)
-            call self % mesh % ConvertPhaseFieldToDensity
-#endif
-!
 !           Save the initial condition
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
@@ -482,36 +468,36 @@ Module DGSEMClass
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, c, mesh) default(private)
 !$omp do reduction(max:R1,R2,R3,R4,R5,c)
       DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
          localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
 #endif
       
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          R1 = max(R1,localR1)
          R2 = max(R2,localR2)
          R3 = max(R3,localR3)
          R4 = max(R4,localR4)
          R5 = max(R5,localR5)
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          c    = max(c, localc)
 #endif
       END DO
 !$omp end do
 !$omp end parallel
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
-      maxResidual(1:NNS) = [R1, R2, R3, R4, R5]
+#ifdef FLOW
+      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #endif
       
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       maxResidual(NTOTALVARS) = c
 #endif
 
@@ -545,7 +531,7 @@ Module DGSEMClass
       type(DGSem)                :: self
       real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
       real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
       integer                       :: N(3)                             ! Polynomial order in the three reference directions
@@ -556,12 +542,12 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
-      real(kind=RP)                 :: Q(NNS)                           ! The solution in a node
+      real(kind=RP)                 :: Q(NCONS)                           ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
-#if defined(INCNS)
+#if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
 #endif
       !--------------------------------------------------------
@@ -616,7 +602,7 @@ Module DGSEMClass
 !           by the physics.
 !           ------------------------------------------------------------
 !
-            Q(1:NNS) = self % mesh % elements(eID) % storage % Q(1:NNS,i,j,k)
+            Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
             CALL ComputeEigenvaluesForState( Q , eValues )
             
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)

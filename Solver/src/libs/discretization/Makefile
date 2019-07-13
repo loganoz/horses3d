@@ -16,9 +16,9 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/HyperbolicSplitForm.o \
 		./build_ns/HyperbolicDiscretizations.o \
 		./build_ns/EllipticDiscretizationClass.o \
+		./build_ns/EllipticIP.o \
 		./build_ns/EllipticBR1.o \
 		./build_ns/EllipticBR2.o \
-		./build_ns/EllipticIP.o \
 		./build_ns/EllipticDiscretizations.o \
 		./build_ns/SVV.o 
 
@@ -30,9 +30,9 @@ LIBOBJS_iNS =    ./build_ins/DGSEMClass.o \
 		./build_ins/HyperbolicSplitForm.o \
 		./build_ins/HyperbolicDiscretizations.o \
 		./build_ins/EllipticDiscretizationClass.o \
+		./build_ins/EllipticIP.o \
 		./build_ins/EllipticBR1.o \
 		./build_ins/EllipticBR2.o \
-		./build_ins/EllipticIP.o \
 		./build_ins/EllipticDiscretizations.o \
 		./build_ins/SVV.o 
 
@@ -44,9 +44,9 @@ LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/HyperbolicSplitForm.o \
 		./build_ch/HyperbolicDiscretizations.o \
 		./build_ch/EllipticDiscretizationClass.o \
+		./build_ch/EllipticIP.o \
 		./build_ch/EllipticBR1.o \
 		./build_ch/EllipticBR2.o \
-		./build_ch/EllipticIP.o \
 		./build_ch/EllipticDiscretizations.o \
 		./build_ch/SVV.o 
 
@@ -57,9 +57,9 @@ LIBOBJS_MU =  ./build_mu/DGSEMClass.o \
 		./build_mu/HyperbolicStandard.o \
 		./build_mu/HyperbolicDiscretizations.o \
 		./build_mu/EllipticDiscretizationClass.o \
+		./build_mu/EllipticIP.o \
 		./build_mu/EllipticBR1.o \
 		./build_mu/EllipticBR2.o \
-		./build_mu/EllipticIP.o \
 		./build_mu/EllipticDiscretizations.o \
 		./build_mu/SVV.o 
 

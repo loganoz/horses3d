@@ -368,6 +368,12 @@
 !        **********************
 !
          call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U )
+
+#ifdef MULTIPHASE
+!        The multiphase solver needs the Chemical potential as first entropy variable
+!        ----------------------------------------------------------------------------
+         U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
+#endif
 !
 !        ************
 !        Compute U_xi

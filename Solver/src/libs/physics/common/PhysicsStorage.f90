@@ -10,14 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
-#define FLOW
-#elif defined(INCNS)
-#define FLOW
-#elif defined(MULTIPHASE)
-#define FLOW
-#endif
-
+#include "Includes.h"
 module PhysicsStorage
    use SMConstants, only: RP
 #ifdef FLOW

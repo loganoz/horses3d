@@ -10,6 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module EllipticDiscretizations
    use EllipticDiscretizationClass
    use EllipticBR1
@@ -21,7 +22,7 @@ module EllipticDiscretizations
    public   EllipticFlux0D_f, EllipticFlux3D_f
    public   EllipticDiscretization_t, BassiRebay1_t, BassiRebay2_t, InteriorPenalty_t
    public   SIPG, IIPG, NIPG
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#ifdef FLOW
    public   ViscousDiscretization
 #endif
 #if defined(CAHNHILLIARD)
@@ -29,7 +30,7 @@ module EllipticDiscretizations
 #endif
 
 
-#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#ifdef FLOW
    class(EllipticDiscretization_t), allocatable  :: ViscousDiscretization
 #endif
 #if defined(CAHNHILLIARD)

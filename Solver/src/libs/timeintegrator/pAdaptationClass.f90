@@ -656,7 +656,7 @@ readloop:do
          allocate ( this % Source(nelem) )
       
          if (controlVariables % containsKey("cfl")) then
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             this % Compute_dt = .TRUE.
             this % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
 #if defined(NAVIERSTOKES)
