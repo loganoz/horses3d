@@ -690,7 +690,6 @@ module StorageClass
          integer                , intent(in)    :: prevSol_num
          !------------------------------------------------------------
          integer :: k
-         integer :: NCONS, NGRAD
          !------------------------------------------------------------
 !
 !        --------------------------------
@@ -1085,18 +1084,11 @@ module StorageClass
 !        ---------------
 !
          integer     :: interfaceFluxMemorySize
-         integer     :: NCONS, NGRAD
 
          self % Nf  = Nf
          self % Nel = Nel
 
          interfaceFluxMemorySize = 0
-
-#ifdef FLOW
-         NCONS = NCONS
-         NGRAD = NGRAD
-#endif
-   
 
 #ifdef FLOW
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
@@ -1217,15 +1209,8 @@ module StorageClass
       subroutine FaceStorage_SetStorageToNS(self)
          implicit none
          class(FaceStorage_t), target    :: self
-         integer                         :: NCONS, NGRAD
 
          self % currentlyLoaded = NS
-
-#ifdef FLOW
-         NCONS = NCONS
-         NGRAD = NGRAD
-
-#endif
 !
 !        Get sizes
 !        ---------
