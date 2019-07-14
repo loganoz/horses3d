@@ -15,10 +15,12 @@ module Physics_CH
 !
       USE SMConstants
       USE PhysicsStorage_CH
+      use FluidData_CH, only: multiphase
       IMPLICIT NONE
 
       private
       public  CHDivergenceFlux, AddQuarticDWPDerivative, QuarticDWP
+      public  Multiphase_AddChemFEDerivative
       public  CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, PoiseuilleFlow
 !
 !     ---------
@@ -107,6 +109,15 @@ module Physics_CH
          mu = mu + 4.0_RP * c*(c-1.0_RP)*(c+1.0_RP) 
 
       end subroutine AddQuarticDWPDerivative
+   
+      elemental subroutine Multiphase_AddChemFEDerivative(c, mu)
+         implicit none
+         real(kind=RP), intent(in)    :: c
+         real(kind=RP), intent(inout) :: mu
+         
+         mu = mu + 48.0_RP * multiphase % sigma * multiphase % invEps * c*(c-1.0_RP)*(c-0.5_RP)
+
+      end subroutine Multiphase_AddChemFEDerivative
 
       elemental subroutine QuarticDWP(c, f)
          implicit none

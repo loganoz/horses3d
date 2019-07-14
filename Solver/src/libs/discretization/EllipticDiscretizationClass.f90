@@ -20,6 +20,8 @@ module EllipticDiscretizationClass
       contains
          procedure      :: Construct                => BaseClass_Construct
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
+         procedure      :: ComputeLocalGradients     => BaseClass_ComputeGradient
+         procedure      :: LiftGradients             => BaseClass_LiftGradients
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
 #if defined(NAVIERSTOKES)
@@ -154,6 +156,25 @@ module EllipticDiscretizationClass
 !$omp end do
 
       end subroutine BaseClass_ComputeGradient
+
+      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D)
+!
+!        *****************************************************
+!        Lift gradients: do nothing here
+!        *****************************************************
+!           
+         use HexMeshClass
+         use PhysicsStorage
+         use Physics
+         implicit none
+         class(EllipticDiscretization_t), intent(in) :: self
+         integer,             intent(in)  :: nEqn, nGradEqn
+         class(HexMesh)                   :: mesh
+         real(kind=RP),        intent(in) :: time
+         procedure(GetGradientValues0D_f) :: GetGradients0D
+         procedure(GetGradientValues3D_f) :: GetGradients3D
+
+      end subroutine BaseClass_LiftGradients
 
       subroutine BaseClass_ComputeInnerFluxes( self, nEqn, nGradEqn, e, contravariantFlux )
          use ElementClass

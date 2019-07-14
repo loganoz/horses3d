@@ -100,7 +100,7 @@
 !        ----------------------------------------------------------------------------------
 !
          IF (controlVariables % containsKey("cfl")) THEN
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
 #if defined(NAVIERSTOKES)

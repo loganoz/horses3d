@@ -66,10 +66,11 @@
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine EulerFlux0D(Q, F)
+      pure subroutine EulerFlux0D(Q, F, rho_)
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS , 1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local variables
@@ -112,11 +113,12 @@
 
       end subroutine EulerFlux0D
 
-      pure subroutine EulerFlux3D(N, Q, F)
+      pure subroutine EulerFlux3D(N, Q, F, rho_)
          implicit none
          integer,       intent(in)  :: N(3)
          real(kind=RP), intent(in)  :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
          real(kind=RP), intent(out) :: F(1:NCONS,0:N(1),0:N(2),0:N(3),1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
 !
 !        ---------------
 !        Local variables

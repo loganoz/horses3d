@@ -31,6 +31,8 @@ module EllipticIP
 !
    private
    public   InteriorPenalty_t, SIPG, IIPG, NIPG
+   public   IP_GradientInterfaceSolution, IP_GradientInterfaceSolutionBoundary
+   public   IP_GradientInterfaceSolutionMPI
 
    integer, parameter   :: SIPG = -1
    integer, parameter   :: IIPG = 0
@@ -270,7 +272,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -309,7 +311,7 @@ module EllipticIP
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID))
             if ( .not. e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
+            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
             end associate
          end do
 !$omp end do
@@ -318,14 +320,14 @@ module EllipticIP
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine IP_ComputeGradientFaceIntegrals( self, nGradEqn, e, mesh)
+      subroutine IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
          use ElementClass
          use HexMeshClass
          use PhysicsStorage
          use Physics
          use DGIntegrals
          implicit none
-         class(InteriorPenalty_t),   intent(in) :: self
+         type(InteriorPenalty_t),         intent(in) :: self
          integer,                    intent(in) :: nGradEqn
          class(Element)                         :: e
          class(HexMesh)                         :: mesh
@@ -390,6 +392,14 @@ module EllipticIP
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
 
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
+
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
             Hflux(:,IY,i,j) = Uhat * f % geom % normal(IY,i,j)
@@ -426,6 +436,14 @@ module EllipticIP
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             Hflux(:,IX,i,j) = Uhat * f % geom % normal(IX,i,j)
@@ -456,6 +474,10 @@ module EllipticIP
          real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
 
+#if defined(INCNS) || defined(MULTIPHASE)
+         if ( trim(BCs(f % zone) % bc % BCType) /= "freeslipwall" ) then
+#endif
+
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
             bvExt =  f % storage(1) % Q(:,i,j)
@@ -471,6 +493,14 @@ module EllipticIP
 !   
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
             call GetGradients(nEqn, nGradEqn, bvExt, UR )
+
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            UL(IGMU) = f % storage(1) % mu(1,i,j)
+            UR(IGMU) = f % storage(2) % mu(1,i,j)
+#endif
+
    
             Uhat = 0.5_RP * (UL - UR) * f % geom % jacobian(i,j)
             
@@ -479,6 +509,33 @@ module EllipticIP
             f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
 
          end do ; end do   
+
+#if defined(INCNS) || defined(MULTIPHASE)
+         else
+!
+!           *****************************
+!           Set W* = W in free slip walls
+!           *****************************
+            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+   
+               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+
+#ifdef MULTIPHASE
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               UL(IGMU) = f % storage(1) % mu(1,i,j)
+#endif
+      
+               Uhat = UL * f % geom % jacobian(i,j)
+               
+               f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
+               f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
+               f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
+   
+            end do ; end do   
+         end if 
+#endif
+
          
       end subroutine IP_GradientInterfaceSolutionBoundary
 !

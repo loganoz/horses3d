@@ -21,13 +21,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES)
-#define NNS NCONS
-#define NGRADNS NGRAD
-#elif defined(INCNS)
-#define NNS NCONS
-#define NGRADNS NCONS
-#endif
+#include "Includes.h"
 module ProblemFileFunctions
    implicit none
 
@@ -36,12 +30,12 @@ module ProblemFileFunctions
       end subroutine UserDefinedStartup_f
    
       SUBROUTINE UserDefinedFinalSetup_f(mesh &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                      , thermodynamics_ &
                                      , dimensionless_  &
                                      , refValues_ & 
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                      , multiphase_ &
 #endif
                                      )
@@ -49,23 +43,23 @@ module ProblemFileFunctions
          use FluidData
          IMPLICIT NONE
          CLASS(HexMesh)                      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
       END SUBROUTINE UserDefinedFinalSetup_f
 
       subroutine UserDefinedInitialCondition_f(mesh &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                      , thermodynamics_ &
                                      , dimensionless_  &
                                      , refValues_ & 
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                      , multiphase_ &
 #endif
                                      )
@@ -75,16 +69,16 @@ module ProblemFileFunctions
          use fluiddata
          implicit none
          class(hexmesh)                      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
       end subroutine UserDefinedInitialCondition_f
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -98,7 +92,7 @@ module ProblemFileFunctions
          real(kind=RP), intent(in)     :: x(NDIM)
          real(kind=RP), intent(in)     :: t
          real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: Q(NNS)
+         real(kind=RP), intent(inout)  :: Q(NCONS)
          type(Thermodynamics_t),    intent(in)  :: thermodynamics_
          type(Dimensionless_t),     intent(in)  :: dimensionless_
          type(RefValues_t),         intent(in)  :: refValues_
@@ -112,9 +106,9 @@ module ProblemFileFunctions
          real(kind=RP), intent(in)     :: x(NDIM)
          real(kind=RP), intent(in)     :: t
          real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: U_x(NGRADNS)
-         real(kind=RP), intent(inout)  :: U_y(NGRADNS)
-         real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+         real(kind=RP), intent(inout)  :: U_x(NGRAD)
+         real(kind=RP), intent(inout)  :: U_y(NGRAD)
+         real(kind=RP), intent(inout)  :: U_z(NGRAD)
       end subroutine UserDefinedNeumann_f
 #endif
 !
@@ -133,7 +127,7 @@ module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          USE HexMeshClass
@@ -141,9 +135,9 @@ module ProblemFileFunctions
          use PhysicsStorage
          IMPLICIT NONE
          real(kind=RP),             intent(in)  :: x(NDIM)
-         real(kind=RP),             intent(in)  :: Q(NNS)
+         real(kind=RP),             intent(in)  :: Q(NCONS)
          real(kind=RP),             intent(in)  :: time
-         real(kind=RP),             intent(inout) :: S(NNS)
+         real(kind=RP),             intent(inout) :: S(NCONS)
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
@@ -153,12 +147,12 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE UserDefinedFinalize_f(mesh, time, iter, maxResidual &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                                  , thermodynamics_ &
                                                  , dimensionless_  &
                                                  , refValues_ & 
 #endif   
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                                  , multiphase_ &
 #endif
                                                  , monitors, &
@@ -173,12 +167,12 @@ module ProblemFileFunctions
          REAL(KIND=RP)                         :: time
          integer                               :: iter
          real(kind=RP)                         :: maxResidual
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Thermodynamics_t), intent(in)    :: thermodynamics_
          type(Dimensionless_t),  intent(in)    :: dimensionless_
          type(RefValues_t),      intent(in)    :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          type(Multiphase_t),     intent(in)    :: multiphase_
 #endif
          type(Monitor_t),        intent(in)    :: monitors
@@ -205,12 +199,12 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalSetup(mesh &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                         , thermodynamics_ &
                                         , dimensionless_  &
                                         , refValues_ & 
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                         , multiphase_ &
 #endif
                                         )
@@ -225,12 +219,12 @@ end module ProblemFileFunctions
             use FluidData
             IMPLICIT NONE
             CLASS(HexMesh)                      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
          END SUBROUTINE UserDefinedFinalSetup
@@ -238,12 +232,12 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          subroutine UserDefinedInitialCondition(mesh &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                         , thermodynamics_ &
                                         , dimensionless_  &
                                         , refValues_ & 
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                         , multiphase_ &
 #endif
                                         )
@@ -260,12 +254,12 @@ end module ProblemFileFunctions
             use fluiddata
             implicit none
             class(hexmesh)                      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
 !
@@ -276,7 +270,7 @@ end module ProblemFileFunctions
             integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
 #if defined(NAVIERSTOKES)
-            real(kind=RP)  :: Q(NNS), phi, theta
+            real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
 
 !
@@ -336,7 +330,7 @@ end module ProblemFileFunctions
 !           Cahn-Hilliard default initial condition
 !           ---------------------------------------
 !
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             call random_seed()
          
             do eid = 1, mesh % no_of_elements
@@ -352,7 +346,7 @@ end module ProblemFileFunctions
 #endif
 
          end subroutine UserDefinedInitialCondition
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
 !
 !           -------------------------------------------------
@@ -366,7 +360,7 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: Q(NNS)
+            real(kind=RP), intent(inout)  :: Q(NCONS)
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
@@ -385,9 +379,9 @@ end module ProblemFileFunctions
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRADNS)
-            real(kind=RP), intent(inout)  :: U_y(NGRADNS)
-            real(kind=RP), intent(inout)  :: U_z(NGRADNS)
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -413,7 +407,7 @@ end module ProblemFileFunctions
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
 !
 !           --------------------------------------------
@@ -426,9 +420,9 @@ end module ProblemFileFunctions
             use FluidData
             IMPLICIT NONE
             real(kind=RP),             intent(in)  :: x(NDIM)
-            real(kind=RP),             intent(in)  :: Q(NNS)
+            real(kind=RP),             intent(in)  :: Q(NCONS)
             real(kind=RP),             intent(in)  :: time
-            real(kind=RP),             intent(inout) :: S(NNS)
+            real(kind=RP),             intent(inout) :: S(NCONS)
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
@@ -449,12 +443,12 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
                                                     , thermodynamics_ &
                                                     , dimensionless_  &
                                                     , refValues_ & 
 #endif   
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
                                                     , multiphase_ &
 #endif
                                                     , monitors, &
@@ -476,12 +470,12 @@ end module ProblemFileFunctions
             REAL(KIND=RP)                         :: time
             integer                               :: iter
             real(kind=RP)                         :: maxResidual
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             type(Thermodynamics_t), intent(in)    :: thermodynamics_
             type(Dimensionless_t),  intent(in)    :: dimensionless_
             type(RefValues_t),      intent(in)    :: refValues_
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)    :: multiphase_
 #endif
             type(Monitor_t),        intent(in)    :: monitors

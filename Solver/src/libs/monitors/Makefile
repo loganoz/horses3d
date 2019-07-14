@@ -42,26 +42,15 @@ LIBOBJS_CH = 	./build_ch/MonitorDefinitions.o \
 		./build_ch/VolumeMonitor.o \
 		./build_ch/Monitors.o
 
-LIBOBJS_NSCH = 	./build_nsch/MonitorDefinitions.o \
-		./build_nsch/Probe.o\
-		./build_nsch/StatisticsMonitor.o \
-		./build_nsch/SurfaceIntegrals.o \
-		./build_nsch/VolumeIntegrals.o \
-		./build_nsch/ResidualsMonitor.o \
-		./build_nsch/SurfaceMonitor.o \
-		./build_nsch/VolumeMonitor.o \
-		./build_nsch/Monitors.o
-
-LIBOBJS_iNSCH = ./build_insch/MonitorDefinitions.o \
-		./build_insch/Probe.o\
-		./build_insch/StatisticsMonitor.o \
-		./build_insch/SurfaceIntegrals.o \
-		./build_insch/VolumeIntegrals.o \
-		./build_insch/ResidualsMonitor.o \
-		./build_insch/SurfaceMonitor.o \
-		./build_insch/VolumeMonitor.o \
-		./build_insch/Monitors.o
-
+LIBOBJS_MU = 	./build_mu/MonitorDefinitions.o \
+		./build_mu/Probe.o\
+		./build_mu/StatisticsMonitor.o \
+		./build_mu/SurfaceIntegrals.o \
+		./build_mu/VolumeIntegrals.o \
+		./build_mu/ResidualsMonitor.o \
+		./build_mu/SurfaceMonitor.o \
+		./build_mu/VolumeMonitor.o \
+		./build_mu/Monitors.o
 
 LIB = monitors
 
@@ -70,7 +59,7 @@ LIB = monitors
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_insch.a
+all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 
 ./build_ns/%.o: %.f90
 	@echo
@@ -87,15 +76,10 @@ all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_in
 	@echo $<
 	$(FC) $(FFLAGS) -DCAHNHILLIARD -I./include_ch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ch -c $< -o $@ $(MOD_FLAG) ./include_ch
 
-./build_nsch/%.o: %.f90
+./build_mu/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DCAHNHILLIARD -I./include_nsch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nsch -c $< -o $@ $(MOD_FLAG) ./include_nsch
-
-./build_insch/%.o: %.f90
-	@echo
-	@echo $<
-	$(FC) $(FFLAGS) -DINCNS -DCAHNHILLIARD -I./include_insch $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_insch -c $< -o $@ $(MOD_FLAG) ./include_insch
+	$(FC) $(FFLAGS) -DMULTIPHASE -DCAHNHILLIARD -I./include_mu $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_mu -c $< -o $@ $(MOD_FLAG) ./include_mu
 
 lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS) 
 	@echo
@@ -124,35 +108,24 @@ lib$(LIB)_ch.a: header mkdirs $(LIBOBJS_CH)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_CH) 
 	@$(RANLIB) $@
 
-lib$(LIB)_nsch.a: header mkdirs $(LIBOBJS_NSCH)
+lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking library" $@ "|"
 	@echo "---------------------------------"
 	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NSCH) 
-	@$(RANLIB) $@
-
-lib$(LIB)_insch.a: header mkdirs $(LIBOBJS_iNSCH)
-	@echo
-	@echo "---------------------------------"
-	@echo "| Linking library" $@ "|"
-	@echo "---------------------------------"
-	@$(RM) $@
-	$(AR) $(ARFLAGS) $@ $(LIBOBJS_iNSCH) 
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_MU) 
 	@$(RANLIB) $@
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_nsch.a $(INSTALL_DIR)/lib/
-	cp -p lib$(LIB)_insch.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
-	cp -p ./include_nsch/*.mod $(INSTALL_DIR)/include_nsch/
-	cp -p ./include_insch/*.mod $(INSTALL_DIR)/include_insch/
+	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
 	@echo
 	@echo
 
@@ -165,16 +138,15 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_nsch ./include_insch
-	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_nsch ./build_insch
+	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_mu
+	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_mu
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_nsch.a lib$(LIB)_insch.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
 	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
-	$(RM) ./build_nsch/*.o ./include_nsch/*.mod
-	$(RM) ./build_insch/*.o ./include_insch/*.mod
+	$(RM) ./build_mu/*.o ./include_mu/*.mod
 
 #############################################
 #	Dummy procedure to force a rule     #

@@ -1,3 +1,4 @@
+#include "Includes.h"
 #if defined(NAVIERSTOKES)
 module SurfaceIntegrals
    use SMConstants
@@ -14,7 +15,7 @@ module SurfaceIntegrals
    implicit none
    
    private
-   public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW
+   public   SURFACE, TOTAL_FORCE, PRESSURE_FORCE, VISCOUS_FORCE, MASS_FLOW, FLOW_RATE
    public   ScalarSurfaceIntegral, VectorSurfaceIntegral
 
    integer, parameter   :: SURFACE = 1
@@ -22,7 +23,7 @@ module SurfaceIntegrals
    integer, parameter   :: PRESSURE_FORCE = 3
    integer, parameter   :: VISCOUS_FORCE = 4
    integer, parameter   :: MASS_FLOW = 5
-   integer, parameter   :: FLOW = 6
+   integer, parameter   :: FLOW_RATE = 6
    integer, parameter   :: USER_DEFINED = 99
 !
 !  ========
@@ -169,7 +170,7 @@ module SurfaceIntegrals
 
             end do          ;    end do
 
-         case ( FLOW ) 
+         case ( FLOW_RATE ) 
 !
 !           ***********************************
 !           Computes the flow integral

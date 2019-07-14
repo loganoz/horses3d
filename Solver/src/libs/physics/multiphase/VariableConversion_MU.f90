@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    VariableConversion_iNS.f90
+!   @File:    VariableConversion_MU.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Jun 19 17:39:27 2018
 !   @Last revision date: Mon Jul  2 14:17:29 2018
@@ -17,20 +17,20 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module VariableConversion_iNS
+module VariableConversion_MU
    use SMConstants
-   use PhysicsStorage_iNS
-   use FluidData_iNS
+   use PhysicsStorage_MU
+   use FluidData_MU
    implicit none
 
    private
-   public   iNSGradientValuesForQ
-   public   iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D
-   public   GetiNSTwoFluidsViscosity, GetiNSOneFluidViscosity
+   public   mGradientValuesForQ
+   public   mGradientValuesForQ_0D, mGradientValuesForQ_3D
+   public   GetmTwoFluidsViscosity, GetmOneFluidViscosity
 
-   interface iNSGradientValuesForQ
-       module procedure iNSGradientValuesForQ_0D , iNSGradientValuesForQ_3D
-   end interface iNSGradientValuesForQ
+   interface mGradientValuesForQ
+       module procedure mGradientValuesForQ_0D , mGradientValuesForQ_3D
+   end interface mGradientValuesForQ
 
    contains
 !
@@ -41,31 +41,35 @@ module VariableConversion_iNS
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine iNSGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
+      pure subroutine mGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
+!
+!        --------------------------------------------------------------
+!        Returns all gradient variables EXCEPT the chemical potential,
+!        to be done manually afterwards.
+!        --------------------------------------------------------------
+!
          implicit none
-         integer, intent(in)        :: nEqn, nGrad
-         real(kind=RP), intent(in)  :: Q(nEqn)
-         real(kind=RP), intent(out) :: U(nGrad)
+         integer, intent(in)                 :: nEqn, nGrad
+         real(kind=RP), intent(in)           :: Q(nEqn)
+         real(kind=RP), intent(out)          :: U(nGrad)
          real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !     
-         real(kind=RP)  :: rho, invrho
+         real(kind=RP)  :: invSqrtRho
 
-         rho = Q(INSRHO)
+         invSqrtRho = 1.0_RP / sqrt(rho_)
 
-         invRho = 1.0_RP / rho
-         U(INSRHOU) = Q(INSRHOU) * invRho
-         U(INSRHOV) = Q(INSRHOV) * invRho
-         U(INSRHOW) = Q(INSRHOW) * invRho
-         U(INSP)    = Q(INSP)
-         U(INSRHO)  = -0.5_RP*(U(INSRHOU)*U(INSRHOU) + U(INSRHOV)*U(INSRHOV) + U(INSRHOW)*U(INSRHOW))
+         U(IGU) = Q(IMSQRHOU) * invSqrtRho
+         U(IGV) = Q(IMSQRHOV) * invSqrtRho
+         U(IGW) = Q(IMSQRHOW) * invSqrtRho
+         U(IGP) = Q(IMP)
 
-      end subroutine iNSGradientValuesForQ_0D
+      end subroutine mGradientValuesForQ_0D
 
-      pure subroutine iNSGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
+      pure subroutine mGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
          implicit none
          integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
          real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
@@ -77,22 +81,20 @@ module VariableConversion_iNS
 !        ---------------
 !
          integer  :: i, j, k
-         real(kind=RP) :: rho, invRho
+         real(kind=RP) :: invSqrtRho
 
          do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-            rho = Q(INSRHO,i,j,k)
-            invRho = 1.0_RP / rho
+            invSqrtRho = 1.0_RP / sqrt(rho_(i,j,k))
 !
 !           I made this an entire line just in case the compiler vectorizes it ?
 !           ------------------------------------------------------------------
-            U(INSRHOU:INSP,i,j,k) = [invRho, invRho, invRho, 1.0_RP] * Q(INSRHOU:INSP,i,j,k)
-            U(INSRHO,i,j,k) = -0.5_RP * ( sum(POW2(U(INSRHOU:INSRHOW,i,j,k)) ) )
+            U(IGU:IGP,i,j,k) = [invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q(IMSQRHOU:IMP,i,j,k)
             
          end do       ; end do       ; end do
          
-      end subroutine iNSGradientValuesForQ_3D
+      end subroutine mGradientValuesForQ_3D
 
-      pure subroutine GetiNSOneFluidViscosity(phi, mu)
+      pure subroutine GetmOneFluidViscosity(c, mu)
 !
 !        ***********************************
 !           Here phi is the density, such
@@ -102,7 +104,7 @@ module VariableConversion_iNS
 !        ***********************************
 !
          implicit none
-         real(kind=RP), intent(in)   :: phi
+         real(kind=RP), intent(in)   :: c
          real(kind=RP), intent(out)  :: mu
 !
 !        ---------------
@@ -111,9 +113,9 @@ module VariableConversion_iNS
 !
          mu = dimensionless % mu(1)
 
-      end subroutine GetiNSOneFluidViscosity
+      end subroutine GetmOneFluidViscosity
 
-      pure subroutine GetiNSTwoFluidsViscosity(phi, mu)
+      pure subroutine GetmTwoFluidsViscosity(c, mu)
 !
 !        ***********************************
 !           Here phi is the density, such
@@ -123,25 +125,14 @@ module VariableConversion_iNS
 !        ***********************************
 !
          implicit none
-         real(kind=RP), intent(in)   :: phi
+         real(kind=RP), intent(in)   :: c
          real(kind=RP), intent(out)  :: mu
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)              :: mu2, mu1, rho1, rho2
 
-         mu1 = dimensionless % mu(1)
-         mu2 = dimensionless % mu(2)
+         mu = dimensionless % mu(1) * c + dimensionless % mu(2) * (1.0_RP - c)
 
-         rho1 = dimensionless % rho(1)
-         rho2 = dimensionless % rho(2)
+      end subroutine GetmTwoFluidsViscosity
 
-         mu = mu1 * (phi - rho2)/(rho1-rho2) + mu2 * (phi-rho1)/(rho2-rho1)
-
-      end subroutine GetiNSTwoFluidsViscosity
 !
 ! /////////////////////////////////////////////////////////////////////
 !
-end module VariableConversion_iNS
+end module VariableConversion_MU

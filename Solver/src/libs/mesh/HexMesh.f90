@@ -3486,7 +3486,7 @@ slavecoord:             DO l = 1, 4
       call GetStorageEquations(off, ns, c, mu)
 
       if ( which .eq. ns ) then
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
          self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)

@@ -10,7 +10,8 @@
 !
 !//////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#include "Includes.h"
+#ifdef FLOW
 module ParticleClass
  use SMConstants
  use HexMeshClass

@@ -9,9 +9,13 @@
 
 #define sign2(x) ((x) / ( abs((x)) + epsilon((x)) ) )
 
-#if (defined(NAVIERSTOKES) || defined(INCNS)) && (!defined(CAHNHILLIARD))
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
+#define FLOW
+#endif 
+
+#if (defined(FLOW)) && (!defined(CAHNHILLIARD))
 #define FLUID_DATA_VARS thermodynamics, dimensionless, refValues
-#elif (defined(NAVIERSTOKES) || defined(INCNS)) && (defined(CAHNHILLIARD))
+#elif (defined(FLOW)) && (defined(CAHNHILLIARD))
 #define FLUID_DATA_VARS thermodynamics, dimensionless, refValues, multiphase
 #else 
 #define FLUID_DATA_VARS multiphase

@@ -10,8 +10,9 @@
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module ParticlesClass
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
    use SMConstants
    use ParticleClass
    use FluidData
