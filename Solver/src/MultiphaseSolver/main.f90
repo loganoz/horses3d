@@ -35,7 +35,6 @@
       use StopwatchClass
       use MPI_Process_Info
       use SpatialDiscretization
-      use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
       use FluidData
       use FileReaders               , only: ReadControlFile 
@@ -43,6 +42,7 @@
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
       use ProblemFileFunctions
       use BoundaryConditions        , only: DestructBoundaryConditions
+      use ReadMeshFile
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -57,7 +57,7 @@
       real(kind=RP)                       :: initial_time
       character(len=LINE_LENGTH)          :: solutionFileName
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
-      integer                             :: Nmax
+      integer                             :: Nmax, nelem
       procedure(UserDefinedStartup_f)     :: UserDefinedStartup
       procedure(UserDefinedFinalSetup_f)  :: UserDefinedFinalSetup
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
@@ -109,7 +109,16 @@
       
       ! Initialize manufactured solutions if necessary
       
-      call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
+
+Nmax = 20
+if (controlVariables % containsKey("polynomial order")) then
+nelem = NumOfElemsFromMeshFile( controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) )
+ALLOCATE (Nx(nElem),Ny(nElem),Nz(nElem))
+
+Nx = controlVariables % integerValueForKey("polynomial order")
+Ny = Nx
+Nz = Nx
+end if
       call InitializeNodalStorage(controlVariables, Nmax)
       call Initialize_InterpolationMatrices(Nmax)
       
