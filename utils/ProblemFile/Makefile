@@ -62,25 +62,21 @@ ifeq ($(PLATFORM),MACOSX)
    TARGET_NS=$(TARGET)_ns$(LIBSUFFIX)
    TARGET_iNS=$(TARGET)_ins$(LIBSUFFIX)
    TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
-   TARGET_NSCH=$(TARGET)_nsch$(LIBSUFFIX)
-   TARGET_iNSCH=$(TARGET)_insch$(LIBSUFFIX)
+   TARGET_MU=$(TARGET)_mu$(LIBSUFFIX)
    DYNLIB_FLAG_NS=-fPIC -shared -install_name @rpath/$(TARGET_NS) -o $(TARGET_NS)
    DYNLIB_FLAG_iNS=-fPIC -shared -install_name @rpath/$(TARGET_iNS) -o $(TARGET_iNS)
    DYNLIB_FLAG_CH=-fPIC -shared -install_name @rpath/$(TARGET_CH) -o $(TARGET_CH)
-   DYNLIB_FLAG_NSCH=-fPIC -shared -install_name @rpath/$(TARGET_NSCH) -o $(TARGET_NSCH)
-   DYNLIB_FLAG_iNSCH=-fPIC -shared -install_name @rpath/$(TARGET_iNSCH) -o $(TARGET_iNSCH)
+   DYNLIB_FLAG_MU=-fPIC -shared -install_name @rpath/$(TARGET_MU) -o $(TARGET_MU)
 else ifeq ($(PLATFORM),LINUX)
    LIBSUFFIX=.so
    TARGET_NS=$(TARGET)_ns$(LIBSUFFIX)
    TARGET_iNS=$(TARGET)_ins$(LIBSUFFIX)
    TARGET_CH=$(TARGET)_ch$(LIBSUFFIX)
-   TARGET_NSCH=$(TARGET)_nsch$(LIBSUFFIX)
-   TARGET_iNSCH=$(TARGET)_insch$(LIBSUFFIX)
+   TARGET_MU=$(TARGET)_mu$(LIBSUFFIX)
    DYNLIB_FLAG_NS=-fPIC -shared -o $(TARGET_NS)
    DYNLIB_FLAG_iNS=-fPIC -shared -o $(TARGET_iNS)
    DYNLIB_FLAG_CH=-fPIC -shared -o $(TARGET_CH)
-   DYNLIB_FLAG_NSCH=-fPIC -shared -o $(TARGET_NSCH)
-   DYNLIB_FLAG_iNSCH=-fPIC -shared -o $(TARGET_iNSCH)
+   DYNLIB_FLAG_MU=-fPIC -shared -o $(TARGET_MU)
 endif
 
 
@@ -152,12 +148,11 @@ endif
 HORSES_LIBS_NS=-ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_iNS=-ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_CH=-ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_NSCH=-ltimeintegrator_nsch -ljacobian_nsch -ldiscretization_nsch -lmonitors_nsch -lparticles_nsch -lmesh_nsch -lphysics_nsch -lphysicsch -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_iNSCH=-ltimeintegrator_insch -ljacobian_insch -ldiscretization_insch -lmonitors_insch -lparticles_insch -lmesh_insch -lphysics_insch -lphysicsch -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_MU=-ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject
 
 .DEFAULT_GOAL := all
 
-all: $(TARGET_NS) $(TARGET_iNS) $(TARGET_CH) $(TARGET_NSCH) $(TARGET_iNSCH)
+all: $(TARGET_NS) $(TARGET_iNS) $(TARGET_CH) $(TARGET_MU)
 
 $(TARGET_NS): FORCE ./ProblemFile_NS.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NS) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns ./ProblemFile_NS.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NS)
@@ -168,11 +163,8 @@ $(TARGET_iNS): FORCE ./ProblemFile_iNS.o
 $(TARGET_CH): FORCE ./ProblemFile_CH.o
 	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_CH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch ./ProblemFile_CH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_CH)
 	
-$(TARGET_NSCH): FORCE ./ProblemFile_NSCH.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_NSCH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch ./ProblemFile_NSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_NSCH)
-	
-$(TARGET_iNSCH): FORCE ./ProblemFile_iNSCH.o
-	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_iNSCH) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch ./ProblemFile_iNSCH.o -L$(HOME_DIR)/lib $(HORSES_LIBS_iNSCH)
+$(TARGET_MU): FORCE ./ProblemFile_MU.o
+	$(FC) $(WHOLE_FILE) $(DYNLIB_FLAG_MU) $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu ./ProblemFile_MU.o -L$(HOME_DIR)/lib $(HORSES_LIBS_MU)
 	
 # ---------- Executable macro -------------------
 ./ProblemFile_NS.o: FORCE ./ProblemFile.f90
@@ -184,14 +176,11 @@ $(TARGET_iNSCH): FORCE ./ProblemFile_iNSCH.o
 ./ProblemFile_CH.o: FORCE ./ProblemFile.f90
 	$(FC) -fPIC -shared -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ch -c ./ProblemFile.f90 -o $@
 
-./ProblemFile_NSCH.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DNAVIERSTOKES -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nsch -c ./ProblemFile.f90 -o $@
-
-./ProblemFile_iNSCH.o: FORCE ./ProblemFile.f90
-	$(FC) -fPIC -shared -DINCNS -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_insch -c ./ProblemFile.f90 -o $@
+./ProblemFile_MU.o: FORCE ./ProblemFile.f90
+	$(FC) -fPIC -shared -DMULTIPHASE -DCAHNHILLIARD $(MACROS) $(FFLAGS) $(INCLUDE) $(INCLUDE)_mu -c ./ProblemFile.f90 -o $@
 
 clean: FORCE
-	rm -f ./ProblemFile_NS.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_NSCH.o ./ProblemFile_iNSCH.o ./*.mod
+	rm -f ./ProblemFile_NS.o ./ProblemFile_iNS.o ./ProblemFile_CH.o ./ProblemFile_MU.o ./*.mod
 	rm -f ./*__genmod.f90
 	
 allclean: FORCE clean
@@ -207,11 +196,8 @@ allclean: FORCE clean
 	rm -f ./libproblemfile_ch.so
 	rm -f ./libproblemfile_ch.dylib
 	rm -f ./libproblemfile_ch.dSYM
-	rm -f ./libproblemfile_nsch.so
-	rm -f ./libproblemfile_nsch.dylib
-	rm -f ./libproblemfile_nsch.dSYM
-	rm -f ./libproblemfile_insch.so
-	rm -f ./libproblemfile_insch.dylib
-	rm -f ./libproblemfile_insch.dSYM
+	rm -f ./libproblemfile_mu.so
+	rm -f ./libproblemfile_mu.dylib
+	rm -f ./libproblemfile_mu.dSYM
 
 FORCE:
