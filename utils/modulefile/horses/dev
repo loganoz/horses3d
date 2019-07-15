@@ -7,7 +7,7 @@ proc ModulesHelp { } {
 
 module-whatis " HORSES - A High-Order spectral element solver"
 
-set     topdir /home/juan/OwnCloud/Research/DGSEM/Codes/FORTRAN/HORSES3D/Solver
+set     topdir @HORSES_HOME_DIR
 
 setenv HORSES_DIR $topdir
 

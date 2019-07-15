@@ -106,7 +106,7 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     real(KIND=RP)      :: vel(3)
     real(KIND=RP)      :: temp
 !    real(kind=RP)      :: dy, dz, y, z, Ly, Lz
-    character(LEN=132) :: partFile  
+    character(LEN=LINE_LENGTH) :: partFile  
     character(LEN=1)   :: trash
     integer            :: itrash
     logical            :: velAndTempFromFile
@@ -157,7 +157,7 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
         ( thermodynamics % gammaminus1 * dimensionless % Pr * dimensionless % Mach ** 2 * self % dimensionless % St )
 
 
-    partFile = controlVariables % StringValueForKey(key = PART_FILE_KEY, requestedLength = 132)
+    partFile = controlVariables % StringValueForKey(key = PART_FILE_KEY, requestedLength = LINE_LENGTH)
     velAndTempFromFile = controlVariables % logicalValueForKey(PART_LOG_FILE_KEY)
 
     self % pMesh % min = getRealArrayFromString( controlVariables % StringValueForKey(key = MIN_BOX_KEY,&
@@ -208,15 +208,25 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
                        pos(1), pos(2), pos(3), &
                        vel(1), vel(2), vel(3), temp
 
+            if (itrash .ne. i ) then 
+                write(*,*) "Particles missing in the initialization from file, reducing number of particles."
+                write(*,*) "This functionality is in beta mode. Check code for more details."
+                itrash = itrash + 1
+                self % injection % injected = self % injection % injected - 1
+                ! This has not been tested. 
+                ! Includes this if + the update of line 238 of self % no_of_particles
+            endif 
+
             call self % particle(i) % set_pos ( pos )
+
+            ! Position the particle in the computational mesh (get element)
+            call self % particle(i) % setGlobalPos( mesh )
 
             if (velAndTempFromFile) then 
                 ! Initialise particle velocity and temperature from file
                 call self % particle(i) % set_vel  ( vel  )
                 call self % particle(i) % set_temp ( temp )
             else 
-                ! Position the particle in the computational mesh (get element)
-                call self % particle(i) % setGlobalPos( mesh )
 
                 ! Get Fluid velocity and temperature for the random positions of each particle
                 call self % particle(i) % getFluidVelandTemp( mesh )
@@ -226,6 +236,7 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
                 call self % particle(i) % set_temp ( self % particle(i) % fluidTemp )
             endif 
         enddo 
+        self % no_of_particles      = self % injection % injected + 1
         close(10)
     endif 
 
@@ -236,7 +247,7 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     !--------------------------------------------------------
 
     write(STD_OUT,'(30X,A,A28,L)')   "->" , "Injection active: " , self % injection % active
-    write(STD_OUT,'(30X,A,A28,A30)')   "->" , "Initialization file: " , partFile
+    write(STD_OUT,'(30X,A,A28,A132)')   "->" , "Initialization file: " , partFile
     write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Stokes number: ", self % dimensionless % St
     write(STD_OUT,'(30X,A,A30,E10.3)') "->", "phim: ", self % dimensionless % phim
     write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Gamma (cvpdivcv): ", self % dimensionless % cvpdivcv
@@ -302,8 +313,9 @@ subroutine IntegrateParticles( self, mesh, dt )
         !    
         ! Get particle global position and set up interpolation
         !------------------------------------------------------
+            !call self % particle(i) % show
             call self % particle(i) % setGlobalPos( mesh )
-
+            !call self % particle(i) % show
         !    
         ! Get fluid velocity and temperature at that position
         !------------------------------------------------------ 
