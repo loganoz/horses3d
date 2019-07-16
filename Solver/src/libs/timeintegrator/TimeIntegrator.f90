@@ -204,7 +204,7 @@ print*, "Method selected: RK5"
 !     Internal variables
 !     ---------
 !
-      REAL(KIND=RP)        :: maxResidual(NTOTALVARS)
+      REAL(KIND=RP)        :: maxResidual(NCONS)
       
 !     Initializations
 !     ---------------
@@ -266,7 +266,7 @@ print*, "Method selected: RK5"
 !
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
-      REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
+      REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
       integer                       :: k
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName

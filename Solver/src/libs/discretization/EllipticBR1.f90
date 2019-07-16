@@ -41,7 +41,16 @@ module EllipticBR1
 !        Display the configuration
 !        -------------------------
          if (MPI_Process % isRoot) write(STD_OUT,'(/)')
-         call Subsection_Header("Viscous discretization")
+
+         select case (self % eqName)
+         case (ELLIPTIC_NS,ELLIPTIC_iNS,ELLIPTIC_MU)
+            call Subsection_Header("Viscous discretization")
+      
+         case (ELLIPTIC_CH)
+            call Subsection_Header("Cahn--Hilliard discretization")
+
+         end select
+   
 
          if (.not. MPI_Process % isRoot ) return
 
@@ -88,10 +97,10 @@ module EllipticBR1
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               call BR1_ComputeElementInterfaceAverage(f, nEqn, nGradEqn, GetGradients0D) 
+               call BR1_ComputeElementInterfaceAverage(self, f, nEqn, nGradEqn, GetGradients0D) 
             
             case (HMESH_BOUNDARY) 
-               call BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients0D) 
+               call BR1_ComputeBoundaryFlux(self, f, nEqn, nGradEqn, time, GetGradients0D) 
  
             end select 
             end associate 
@@ -143,7 +152,7 @@ module EllipticBR1
             associate(f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_MPI) 
-               call BR1_ComputeMPIFaceAverage(f, nEqn, nGradEqn, GetGradients0D) 
+               call BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn, GetGradients0D) 
  
             end select 
             end associate 
@@ -371,12 +380,16 @@ module EllipticBR1
 !
 !        Compute gradient variables
 !        --------------------------
-         call GetGradients(nEqn, nGradEqn, e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U )
+         call GetGradients(nEqn, nGradEqn, e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U, rho_ = e % storage % rho)
 
 #ifdef MULTIPHASE
-!        The multiphase solver needs the Chemical potential as first entropy variable
-!        ----------------------------------------------------------------------------
-         U(IGMU,:,:,:) = e % storage % mu(1,:,:,:)
+         select case (self % eqName)
+         case(ELLIPTIC_MU)
+!
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+            U(IGMU,:,:,:) = e % storage % mu(1,:,:,:)
+         end select
 #endif
 !
 !        Perform the weak integral
@@ -428,7 +441,7 @@ module EllipticBR1
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR1_ComputeElementInterfaceAverage(f, nEqn, nGradEqn, GetGradients)
+      subroutine BR1_ComputeElementInterfaceAverage(self, f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -438,6 +451,7 @@ module EllipticBR1
 !        Arguments
 !        ---------
 !
+         class(BassiRebay1_t),   intent(in)  :: self
          type(Face)                       :: f
          integer,    intent(in)           :: nEqn, nGradEqn
          procedure(GetGradientValues0D_f) :: GetGradients
@@ -454,14 +468,18 @@ module EllipticBR1
          integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 
 #ifdef MULTIPHASE
-!           The multiphase solver needs the Chemical potential as first entropy variable
-!           ----------------------------------------------------------------------------
-            UL(IGMU) = f % storage(1) % mu(1,i,j)
-            UR(IGMU) = f % storage(2) % mu(1,i,j)
+            select case (self % eqName)
+            case (ELLIPTIC_MU)
+!
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               UL(IGMU) = f % storage(1) % mu(1,i,j)
+               UR(IGMU) = f % storage(2) % mu(1,i,j)
+            end select
 #endif
 
    
@@ -476,7 +494,7 @@ module EllipticBR1
          
       end subroutine BR1_ComputeElementInterfaceAverage   
 
-      subroutine BR1_ComputeMPIFaceAverage(f, nEqn, nGradEqn, GetGradients)
+      subroutine BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn, GetGradients)
          use Physics  
          use ElementClass
          use FaceClass
@@ -486,6 +504,7 @@ module EllipticBR1
 !        Arguments
 !        ---------
 !
+         class(BassiRebay1_t),   intent(in)  :: self
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
          procedure(GetGradientValues0D_f) :: GetGradients
@@ -501,14 +520,18 @@ module EllipticBR1
          integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
-            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
 
 #ifdef MULTIPHASE
-!           The multiphase solver needs the Chemical potential as first entropy variable
-!           ----------------------------------------------------------------------------
-            UL(IGMU) = f % storage(1) % mu(1,i,j)
-            UR(IGMU) = f % storage(2) % mu(1,i,j)
+            select case (self % eqName)
+            case (ELLIPTIC_MU)
+!
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               UL(IGMU) = f % storage(1) % mu(1,i,j)
+               UR(IGMU) = f % storage(2) % mu(1,i,j)
+            end select
 #endif
 
    
@@ -523,10 +546,11 @@ module EllipticBR1
          
       end subroutine BR1_ComputeMPIFaceAverage   
 
-      subroutine BR1_ComputeBoundaryFlux(f, nEqn, nGradEqn, time, GetGradients)
+      subroutine BR1_ComputeBoundaryFlux(self, f, nEqn, nGradEqn, time, GetGradients)
          use Physics
          use FaceClass
          implicit none
+         class(BassiRebay1_t),   intent(in)  :: self
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
          real(kind=RP), intent(in)        :: time
@@ -558,15 +582,19 @@ module EllipticBR1
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j) )
             call GetGradients(nEqn, nGradEqn, bvExt, UR )
-#ifdef MULTIPHASE
-!           The multiphase solver needs the Chemical potential as first entropy variable
-!           ----------------------------------------------------------------------------
-            UL(IGMU) = f % storage(1) % mu(1,i,j)
-            UR(IGMU) = f % storage(2) % mu(1,i,j)
-#endif
 
+#ifdef MULTIPHASE
+            select case (self % eqName)
+            case (ELLIPTIC_MU)
+!
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+               UL(IGMU) = f % storage(1) % mu(1,i,j)
+               UR(IGMU) = f % storage(2) % mu(1,i,j)
+            end select
+#endif
    
             Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
             
@@ -587,9 +615,13 @@ module EllipticBR1
                call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
 
 #ifdef MULTIPHASE
+            select case (self % eqName)
+            case (ELLIPTIC_MU)
+!
 !              The multiphase solver needs the Chemical potential as first entropy variable
 !              ----------------------------------------------------------------------------
                UL(IGMU) = f % storage(1) % mu(1,i,j)
+            end select
 #endif
       
                Uhat = UL * f % geom % jacobian(i,j)

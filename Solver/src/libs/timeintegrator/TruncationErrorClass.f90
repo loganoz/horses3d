@@ -15,7 +15,7 @@ module TruncationErrorClass
    use MultigridTypes            , only: MGSolStorage_t
    use DGSEMClass                , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass    , only: FTValueDictionary
-   use PhysicsStorage            , only: NTOTALVARS, CTD_IGNORE_MODE
+   use PhysicsStorage            , only: NCONS, CTD_IGNORE_MODE
    use HexMeshClass              , only: HexMesh
 #if defined(NAVIERSTOKES)   || defined(INCNS)
    use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
@@ -339,7 +339,7 @@ module TruncationErrorClass
       real(kind=RP)            :: wx, wy, wz    ! 
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
-      real(kind=RP)            :: S(NTOTALVARS)      !   Source term
+      real(kind=RP)            :: S(NCONS)      !   Source term
 #if defined(NAVIERSTOKES)            
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 #endif
@@ -363,7 +363,7 @@ module TruncationErrorClass
             call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
             
-            do iEQ = 1, NTOTALVARS
+            do iEQ = 1, NCONS
                wx  = NodalStorage(e % Nxyz(1)) % w (i)
                wy  = NodalStorage(e % Nxyz(2)) % w (j)
                wz  = NodalStorage(e % Nxyz(3)) % w (k)
@@ -559,7 +559,7 @@ module TruncationErrorClass
          ! loop over all the degrees of freedom of the element
          do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
             
-            do iEQ = 1, NTOTALVARS
+            do iEQ = 1, NCONS
                wx  = NodalStorage(e % Nxyz(1)) % w (ii)
                wy  = NodalStorage(e % Nxyz(2)) % w (jj)
                wz  = NodalStorage(e % Nxyz(3)) % w (kk)
@@ -611,7 +611,7 @@ module TruncationErrorClass
             wz  = NodalStorage(e % Nxyz(3)) % w (kk)
             Jac = e % geom % jacobian(ii,jj,kk)
             
-            do iEQ = 1, NTOTALVARS
+            do iEQ = 1, NCONS
                Tau(eID) =  MAX(Tau(eID) , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
             end do
          end do          ; end do          ; end do
@@ -634,7 +634,7 @@ module TruncationErrorClass
             wz  = NodalStorage(e % Nxyz(3)) % w (kk)
             Jac = e % geom % jacobian(ii,jj,kk)
             
-            do iEQ = 1, NTOTALVARS
+            do iEQ = 1, NCONS
                IsolTau(eID) =  MAX(IsolTau(eID) , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
             end do
          end do          ; end do          ; end do

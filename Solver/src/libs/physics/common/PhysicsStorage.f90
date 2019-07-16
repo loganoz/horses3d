@@ -38,17 +38,6 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
    private multiphase
 #endif
-
-#if (defined(FLOW) && !defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS
-   integer, parameter   :: NTOTALGRADS = NGRAD
-#elif (defined(FLOW) && defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS + NCOMP
-   integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
-#elif defined(CAHNHILLIARD)
-   integer, parameter   :: NTOTALVARS = NCOMP
-   integer, parameter   :: NTOTALGRADS = NCOMP
-#endif
 !
 !  *****************************************************************************
 !  These are the different modes supported by the ComputeTimeDerivative function

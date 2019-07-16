@@ -241,7 +241,7 @@ module MonitorsClass
 !
 !        Print dashes for residuals
 !        --------------------------
-         do i = 1 , NTOTALVARS
+         do i = 1 , NCONS
             write(STD_OUT , '(3X,A10)' , advance = "no" ) trim(dashes)
          end do
 !
@@ -353,7 +353,7 @@ module MonitorsClass
          class(HexMesh)      :: mesh
          real(kind=RP)       :: t
          integer             :: iter
-         real(kind=RP)       :: maxResiduals(NTOTALVARS)
+         real(kind=RP)       :: maxResiduals(NCONS)
 !
 !        ---------------
 !        Local variables

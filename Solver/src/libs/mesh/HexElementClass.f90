@@ -367,7 +367,7 @@
 !        Get gradient variables
 !        **********************
 !
-         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U )
+         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U, self % storage % rho )
 
 #ifdef MULTIPHASE
 !        The multiphase solver needs the Chemical potential as first entropy variable

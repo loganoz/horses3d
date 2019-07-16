@@ -125,7 +125,7 @@ module MultigridTypes
       type(HexMesh), intent(in)           :: mesh
       logical    , intent(in), optional :: white
       !--------------------------------------------------------
-      real(kind=RP)             :: maxResiduals(NTOTALVARS)
+      real(kind=RP)             :: maxResiduals(NCONS)
       character(len=5)          :: color1
       character(len=5)          :: color2
       integer                   :: eqn
@@ -144,7 +144,7 @@ module MultigridTypes
          if (MPI_Process % isRoot) then
             write(STD_OUT,'(A,A,I3,X,A,X,A,I8)',advance="no") color1,'FAS lvl', lvl ,"|","it",sweeps
 
-            do eqn = 1, NTOTALVARS
+            do eqn = 1, NCONS
                write(STD_OUT ,'(X,A,X,ES10.3)',advance="no") "|", maxResiduals(eqn)
             end do
    
