@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Tue May 14 10:13:04 2019
+!   @Last revision date: Wed Jul 17 16:54:56 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
+!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
 !
 !//////////////////////////////////////////////////////
 !
@@ -1253,6 +1253,7 @@ module StorageClass
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
          safedeallocate(self % mu_art)
+         safedeallocate(self % BCJac )
 #endif
 #if defined(CAHNHILLIARD)
          safedeallocate(self % c)

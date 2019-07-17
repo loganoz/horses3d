@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Wed Jul 17 11:52:58 2019
+!   @Last revision date: Wed Jul 17 16:55:05 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
 !
 !//////////////////////////////////////////////////////
 !
@@ -237,7 +237,7 @@ contains
             this % Preconditioner = PC_NONE
          end if
          
-         if ( present(sem) ) then
+         if ( present(sem) .and. this % Preconditioner == PC_BlockJacobi ) then
             call this % Jacobian % Configure (sem % mesh, nEqn, this % BlockA)
          end if
          
@@ -504,7 +504,7 @@ contains
          
          this%V(:,1) = this%RHS - this%V(:,1)   
          this%g(1) = L2Norm(this%V(:,1))
-         this%V(:,1) = this%V(:,1) / this%g(1)           ! TODO: V1 should be constructed using the preconditioner...
+         this%V(:,1) = this%V(:,1) / this%g(1)
          
          this%H = 0.0_RP
          m = this%m
@@ -659,14 +659,14 @@ contains
          this%CONVERGED = .FALSE.
          
          ! Set initial guess to Knoll: P⁻¹b
-         select case (this % Preconditioner)
-            case (PC_GMRES)
-               call this % PC_GMRES_Ax(this%RHS,this%x0, ComputeTimeDerivative)
-            case (PC_BlockJacobi)
-               call this % PC_BlockJacobi_Ax(this%RHS,this%x0)
-            case default ! PC_NONE
-               this % x0 = 0._RP
-         end select
+!~         select case (this % Preconditioner)
+!~            case (PC_GMRES)
+!~               call this % PC_GMRES_Ax(this%RHS,this%x0, ComputeTimeDerivative)
+!~            case (PC_BlockJacobi)
+!~               call this % PC_BlockJacobi_Ax(this%RHS,this%x0)
+!~            case default ! PC_NONE
+               this % x0 = 0._RP ! The actual "preconditioned" guess would be this%RHS, but 0 is a good initial guess for the Newton linearized system 
+!~         end select
          
          if (this % Preconditioner == PC_GMRES) call this % PCsolver % SetTol(this % tol) ! Set the same tolerance for the first iteration of preconditioner... This is a first approximation and can be changed...
 !

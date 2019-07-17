@@ -265,7 +265,7 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
-\textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit' for the BDF solvers and to 'rosenbrock' for Rosenbrock schemes. & 'explicit' \\ \hline
 
 jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
 
@@ -281,8 +281,9 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
 implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
 newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or for time-accurate simulations and  $MaxResidual \times 10^{-3}$ for steady-state simulations \\ \hline
-    &  &  \\ \hline
-    
+max newton iter    & \textit{INTEGER}: Maximum number of Newton iterationsfor BDF solver.  & 30 \\ \hline
+compute jacobian every & \textit{INTEGER}: Forces the Jacobian to be computed in an interval of iterations that is specified. & Inf \\ \hline
+bdf order             & \textit{INTEGER}: If present, the solver uses a BDF solver of the specified order. BDF1 - BDF5 are available, and BDF2 - BDF5 require constant time steps. & 1 \\ \hline
 \end{longtable}
 
 \section{Jacobian Specifications}

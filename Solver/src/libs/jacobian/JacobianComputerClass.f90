@@ -4,15 +4,13 @@
 !   @File:    JacobianComputerClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Wed Jul 17 16:54:55 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
 !
 !//////////////////////////////////////////////////////
 !
-!
-!//////////////////////////////////////////////////////
-!
+! Base class for the Jacobian computers
 !
 !//////////////////////////////////////////////////////
 !
@@ -218,9 +216,6 @@ module JacobianComputerClass
 !        Preallocate matrix if requested
 !        -------------------------------
          if (this % preAllocate) then
-            call this % GetCSRAllocVectors (mesh, nEqn, rows, cols) 
-            allocate ( vals(size(cols)) )
-            vals = 0._RP
             
             select type(Matrix_p => Matrix)
 !
@@ -231,7 +226,12 @@ module JacobianComputerClass
                type is(SparseBlockDiagMatrix_t)
                   call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
                class default
+                  call this % GetCSRAllocVectors (mesh, nEqn, rows, cols) 
+                  allocate ( vals(size(cols)) )
+                  vals = 0._RP
                   call Matrix_p % constructWithCSRArrays(rows,cols,vals)
+                  
+                  deallocate (rows,cols,vals)
             end select
             
             call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)

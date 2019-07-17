@@ -228,11 +228,9 @@
 !           ---------------
 !
             integer  :: i, j, k, eID
-!
-!           Usage example
-!           -------------
-!           S(:) = x(1) + x(2) + x(3) + time
-   
+            
+            S = 0._RP
+            
          end subroutine UserDefinedSourceTermNS
 #endif
 #if defined(CAHNHILLIARD)

@@ -273,7 +273,7 @@ Module DGSEMClass
 !
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
       
-      call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
+      if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
 !     Compute wall distances
 !     ----------------------

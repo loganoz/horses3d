@@ -239,11 +239,9 @@
 !           ---------------
 !
             integer  :: i, j, k, eID
-!
-!           Usage example
-!           -------------
-!           S(:) = x(1) + x(2) + x(3) + time
-   
+            
+            S = 0._RP
+            
          end subroutine UserDefinedSourceTermNS
 #endif
 #if defined(CAHNHILLIARD)
@@ -343,7 +341,7 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: expectedIterations = 5
-            REAL(KIND=RP)                      :: expectedResidual   = 1.9298340703244324E-011_RP
+            REAL(KIND=RP)                      :: expectedResidual   = 3.1263880373444408E-013_RP
             
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

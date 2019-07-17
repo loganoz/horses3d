@@ -36,6 +36,7 @@ MODULE BDFTimeIntegrator
       class(GenericLinSolver_t), allocatable :: linsolver     !  Linear solver
       integer                                :: StepsForJac   !· Maximum number of steps that should be taken for computing a new Jacobian matrix
       integer                                :: StepsSinceJac !  
+      integer                                :: MaxNewtonIter
       logical                                :: JacByConv     !· .TRUE. if the Jacobian must be computed only when the convergence is bad
       logical                                :: TimeAccurate  !· .TRUE. if this is a time-accurate simulation
       logical                                :: UserNewtonTol !· .TRUE. if the newton tolerance is specified by the user
@@ -105,6 +106,12 @@ contains
          this % TimeAccurate = .TRUE.
       else
          this % TimeAccurate = .FALSE.
+      end if
+      
+      if (controlVariables % containsKey("max newton iter")) then
+         this % MaxNewtonIter = controlVariables % integerValueForKey("max newton iter")
+      else
+         this % MaxNewtonIter = MAX_NEWTON_ITER
       end if
       
       PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info") .and. MPI_Process % isRoot
@@ -236,7 +243,7 @@ contains
                this % StepsSinceJac = 0
             end if
          end if
-         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, &
+         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, this % MaxNewtonIter, &
                           this % JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
 !        Actions if Newton converged
@@ -329,7 +336,7 @@ contains
 !  -> This can be taken out of the BDFTimeIntegrator if needed
 !        (but careful with Adaptive_dt and the Newton vars)
 !  -------------------------------------------------------------
-   subroutine NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
+   subroutine NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, MaxNewtonIter, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------
       type(DGSem),                  intent(inout)           :: sem
@@ -337,6 +344,7 @@ contains
       real(kind=RP),                intent(in)              :: dt              !< Inner dt
       class(GenericLinSolver_t),    intent(inout)           :: linsolver       !Linear operator is calculate outside this subroutine
       real(kind=RP),                intent(in)              :: NEWTON_TOLERANCE
+      integer,                      intent(in)              :: MaxNewtonIter
       logical,                      intent(in)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
       real(kind=RP),                intent(out)             :: ConvRate
       integer,                      intent(out)             :: niter
@@ -369,7 +377,7 @@ contains
 !
 !     Newton loop
 !     -----------
-      DO newtonit = 1, MAX_NEWTON_ITER
+      DO newtonit = 1, MaxNewtonIter
          
          linsolver_tol = norm * ( 0.5_RP**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
          
@@ -409,7 +417,7 @@ contains
                                                       linsolver%niter, Stopwatch % lastElapsedTime("BDF Newton-Solve")
          end if
          
-         if (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MAX_NEWTON_ITER .OR. ISNAN(norm)) then
+         if (ConvRate < NEWTON_MIN_CONVRATE .OR. newtonit == MaxNewtonIter .OR. ISNAN(norm)) then
             if (PRINT_NEWTON_INFO) write(STD_OUT,*) 'ConvRate: ', ConvRate
             converged = .FALSE.
             return

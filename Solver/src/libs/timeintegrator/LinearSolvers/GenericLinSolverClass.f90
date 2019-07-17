@@ -112,10 +112,10 @@ contains
          this % withMPI = .TRUE.
       end if
       
-      this % JacobianComputation = GetJacobianFlag() !controlVariables % integerValueForKey("jacobian flag")
+      this % JacobianComputation = GetJacobianFlag()
       
       select case (this % JacobianComputation)
-         case (NOTDEF_JACOBIAN )
+         case (NOTDEF_JACOBIAN )    ; allocate(this % Jacobian)
          case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: this % Jacobian)
          case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: this % Jacobian)
          case default

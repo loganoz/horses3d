@@ -25,16 +25,21 @@ final time            = 0.4d0
 !-----GMRES implicit---------------
 monitors flush interval = 2
 bdf order               = 2
-jacobian flag           = 2
 time integration        = implicit
 linear solver           = "matrix-free gmres"
-preconditioner          = "BlockJacobi"
+preconditioner          = "Block-Jacobi"
 jacobian by convergence = .TRUE.
 compute jacobian every  = 10
 gmres inner iterations  = 120
 print newton info       = .TRUE.
 newton tolerance        = 1.d-6
 !-------------------------------------------------------------
+#define jacobian
+   type = 2 !analytical
+   print info = .TRUE.
+   preallocate = .TRUE.
+#end
+
 #define boundary InnerCylinder
   type = NoSlipWall
 #end
