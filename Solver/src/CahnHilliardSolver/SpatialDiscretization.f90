@@ -109,7 +109,7 @@ module SpatialDiscretization
 
          end select
 
-         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, "CH")
+         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, ELLIPTIC_CH)
          call CHDiscretization % Describe
 !
 !        Compute wall distances
@@ -329,7 +329,7 @@ stop
 !$omp do schedule(runtime)
          do eID = 1, mesh % no_of_elements
             e => mesh % elements(eID)
-            e % storage % QDot = (1.0_RP / multiphase % Pe) * e % storage % QDot
+            e % storage % QDot = multiphase % M * e % storage % QDot
          end do
 !$omp end do
 !

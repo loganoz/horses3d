@@ -59,6 +59,12 @@ module PhysicsStorage
 
    real(kind=RP)     :: Lref
    real(kind=RP)     :: timeref
+
+#if (!defined(FLOW)) && (defined(CAHNHILLIARD))
+   integer, parameter :: NCONS = NCOMP
+   integer, parameter :: NGRAD = NCOMP
+#endif
+   
    
    contains
       subroutine ConstructPhysicsStorage(controlVariables, success)

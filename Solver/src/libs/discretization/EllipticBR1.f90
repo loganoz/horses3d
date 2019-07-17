@@ -330,7 +330,11 @@ module EllipticBR1
 !
 !        Compute gradient variables
 !        --------------------------
+#ifdef MULTIPHASE
          call GetGradients(nEqn, nGradEqn, e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U, rho_ = e % storage % rho)
+#else
+         call GetGradients(nEqn, nGradEqn, e%Nxyz(1), e%Nxyz(2), e%Nxyz(3), Q = e % storage % Q, U = U)
+#endif
 
 #ifdef MULTIPHASE
          select case (self % eqName)
@@ -418,8 +422,13 @@ module EllipticBR1
          integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
             select case (self % eqName)
@@ -470,8 +479,13 @@ module EllipticBR1
          integer       :: Sidearray(2)
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
             select case (self % eqName)
@@ -532,8 +546,13 @@ module EllipticBR1
 !           u, v, w, T averages
 !           -------------------
 !   
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j) )
+            call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j) )
+#else
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
             call GetGradients(nEqn, nGradEqn, bvExt, UR )
+#endif
 
 #ifdef MULTIPHASE
             select case (self % eqName)

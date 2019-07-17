@@ -394,8 +394,13 @@ module EllipticIP
          integer       :: i,j
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable
@@ -439,8 +444,13 @@ module EllipticIP
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable
@@ -496,8 +506,13 @@ module EllipticIP
 !           u, v, w, T averages
 !           -------------------
 !   
+#ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
             call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+            call GetGradients(nEqn, nGradEqn, bvExt, UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable

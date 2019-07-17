@@ -21,6 +21,7 @@
       use PhysicsStorage
       USE Physics
       USE ExplicitMethods
+      USE IMEXMethods    
       use AutosaveClass                   , only: Autosave_t, AUTOSAVE_BY_TIME
       use StopwatchClass
       use MPI_Process_Info
@@ -30,6 +31,9 @@
       use Utilities                       , only: ToLower, AlmostEqual
       use FileReadingUtilities            , only: getFileName
       use ProblemFileFunctions            , only: UserDefinedPeriodicOperation_f
+      use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
+      use TruncationErrorClass            , only: EstimateAndPlotTruncationError
+      use MultiTauEstimationClass         , only: MultiTauEstim_t
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -41,6 +45,8 @@
          REAL(KIND=RP)                          :: dt, tolerance, cfl, dcfl
          LOGICAL                                :: Compute_dt                    ! Is st computed from an inputted CFL number?
          type(Autosave_t)                       :: autosave
+         type(pAdaptation_t)                    :: pAdaptator
+         type(MultiTauEstim_t)                  :: TauEstimator
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========         
@@ -66,6 +72,11 @@
 
       character(len=*), parameter   :: TIME_INTEGRATION_KEY  = 'time integration'
       character(len=*), parameter   :: EXPLICIT_SOLVER   = 'explicit'
+      character(len=*), parameter   :: IMEX_SOLVER       = 'imex'
+      character(len=*), parameter   :: IMPLICIT_SOLVER   = 'implicit'
+      character(len=*), parameter   :: FAS_SOLVER        = 'fas'
+      character(len=*), parameter   :: ANISFAS_SOLVER    = 'anisfas'
+      character(len=*), parameter   :: ROSENBROCK_SOLVER = 'rosenbrock'
 !
 !     ========      
       CONTAINS 
@@ -168,7 +179,10 @@ print*, "Method selected: RK5"
 !        ----------------
 !
          call self % autosave   % Configure (controlVariables, initial_time)
+         call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
          
+         
+         call self % TauEstimator % construct(controlVariables, sem)
          
       END SUBROUTINE constructTimeIntegrator
 !
@@ -180,12 +194,15 @@ print*, "Method selected: RK5"
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
          
+         if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
          
+         call self % TauEstimator % destruct
       END SUBROUTINE destructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE Integrate( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      USE FASMultigridClass
       IMPLICIT NONE
 !
 !     ---------
@@ -204,7 +221,9 @@ print*, "Method selected: RK5"
 !     Internal variables
 !     ---------
 !
+      real(kind=RP)        :: FMGres    ! Target residual for FMG solver
       REAL(KIND=RP)        :: maxResidual(NCONS)
+      type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
 !     ---------------
@@ -221,8 +240,43 @@ print*, "Method selected: RK5"
 !     Estimate Tau initially, if requested
 !     ------------------------------------
       if ( controlVariables % logicalValueForKey("plot truncation error") ) then
+         call EstimateAndPlotTruncationError(sem,0._RP,controlVariables,ComputeTimeDerivative,ComputeTimeDerivativeIsolated)
       end if
       
+!     Perform FMG cycle if requested
+!        (only for steady simulations)
+!     ------------------------------
+      
+      if (controlVariables % containsKey("fasfmg residual")) then
+          
+         FMGres = controlVariables % doubleprecisionValueForKey("fasfmg residual")
+         write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
+         
+         call FMGSolver % construct(controlVariables,sem)
+         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
+         
+         call FMGSolver % destruct
+      end if
+      
+!     Perform static p-adaptation stage(s) if requested
+!     -------------------------------------------------
+      if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
+         
+         do while (self % pAdaptator % Adapt)
+            
+            if (self % integratorType == STEADY_STATE) then
+!
+!              Lower the residual to 0.1 * truncation error threshold 
+!              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
+!              ------------------------------------------------------
+               call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
+            end if
+            
+            call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
+            
+         end do
+      end if
       
 !     Finish time integration
 !     -----------------------
@@ -243,6 +297,10 @@ print*, "Method selected: RK5"
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
    
+      USE BDFTimeIntegrator
+      use FASMultigridClass
+      use AnisFASMultigridClass
+      use RosenbrockTimeIntegrator
       use StopwatchClass
       IMPLICIT NONE
 !
@@ -271,6 +329,10 @@ print*, "Method selected: RK5"
       integer                       :: k
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
+      type(FASMultigrid_t)          :: FASSolver
+      type(AnisFASMultigrid_t)      :: AnisFASSolver
+      type(BDFIntegrator_t)         :: BDFSolver
+      type(RosenbrockIntegrator_t)  :: RosenbrockSolver
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients
@@ -317,6 +379,12 @@ print*, "Method selected: RK5"
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
       
+      if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
+          self % pAdaptator % nextAdaptationTime == self % time) then
+         call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+      end if 
+      
       call monitors % WriteToFile(sem % mesh)
 
       IF (self % integratorType == STEADY_STATE) THEN
@@ -333,6 +401,20 @@ print*, "Method selected: RK5"
 !     Integrate in time
 !     -----------------
 !
+      select case (TimeIntegration)
+      case(FAS_SOLVER)
+         call FASSolver % construct(controlVariables,sem)
+
+      case(ANISFAS_SOLVER)
+         call AnisFASSolver % construct(controlVariables,sem)
+
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % construct(controlVariables,sem)
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % construct(controlVariables,sem)
+
+      end select
           
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
@@ -351,8 +433,18 @@ print*, "Method selected: RK5"
 !        Perform time step
 !        -----------------         
          SELECT CASE (TimeIntegration)
+         CASE (IMPLICIT_SOLVER)
+            call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
+         CASE (ROSENBROCK_SOLVER)
+            call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+         case (FAS_SOLVER)
+            call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+         case (ANISFAS_SOLVER)
+            call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
+         case (IMEX_SOLVER)
+            call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
 !
 !        Compute the new time
@@ -410,6 +502,13 @@ print*, "Method selected: RK5"
 !        --------------
          IF( (MOD( k+1, self % outputInterval) == 0) .or. (k .eq. self % initial_iter) ) call self % Display(sem % mesh, monitors, k+1)
 !
+!        p- Adapt
+!        --------------
+         IF( self % pAdaptator % hasToAdapt(k+1) ) then
+            call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         end if
+         call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+!
 !        Autosave
 !        --------         
          if ( self % autosave % Autosave(k+1) ) then
@@ -443,6 +542,21 @@ print*, "Method selected: RK5"
 !     Finish up
 !     ---------
 !
+      select case(TimeIntegration)
+      case(FAS_SOLVER)
+         CALL FASSolver % destruct
+      
+      case(ANISFAS_SOLVER)
+         CALL AnisFASSolver % destruct
+      
+      case(IMPLICIT_SOLVER)
+         call BDFSolver % destruct
+
+      case(ROSENBROCK_SOLVER)
+         call RosenbrockSolver % destruct
+
+      end select
+
    end subroutine IntegrateInTime
       
 !
@@ -542,6 +656,7 @@ print*, "Method selected: RK5"
 !
 !     Initializations
 !     -------------------------------      
+      self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
       dt_out = dt_in
       
@@ -568,16 +683,36 @@ print*, "Method selected: RK5"
                dt_out = self % autosave % nextAutosaveTime - t
                self % autosave % performAutosave = .TRUE.
                
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % pAdaptator % performPAdaptationT = .TRUE.
+                  self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               end if
+               
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, huge(1.0_RP)],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+            end if
+            
+         case (ADAPT)
+            
+            if ( self % pAdaptator % nextAdaptationTime < (t + dt_out) ) then
+               dt_out = self % pAdaptator % nextAdaptationTime - t
+               self % pAdaptator % performPAdaptationT = .TRUE.
+               
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % autosave % performAutosave = .TRUE.
+                  self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
+               end if
+               
+               self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
             end if
             
          case (DONT_KNOW)
             
-            if (  .false. .or. &
+            if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
                   self % autosave % mode       == AUTOSAVE_BY_TIME) then
                
-               next_time_will = minloc([self % autosave % nextAutosaveTime, huge(1.0_RP)],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
                
                dt_temp = self % CorrectDt (t, dt_out)
                dt_out  = dt_temp
