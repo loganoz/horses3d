@@ -267,23 +267,15 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit'. & 'explicit' \\ \hline
 
-jacobian flag           & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
-				\begin{enumerate}
-					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian.
-					\item Analytical Jacobian: Being implemented. To date the complete analytical Jacobian is available for the compressible Euler equations, whereas for the Navier-Stokes equations it is only available for diagonal blocks of the matrix.
-					\end{enumerate}
-										& 1 \\ \hline
-
 jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
 
 linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
 				\begin{itemize}
-					\item 'petsc': PETSc library Krylov-Subspace methods.
-					\item 'pardiso': Intel MKL PARDISO.
-					\item 'matrix-free gmres': A matrix-free version of the GMRES algorithm. Can be used without preconditioner or with a recursive GMRES preconditioner using 'preconditioner=GMRES'.
+					\item 'petsc': PETSc library Krylov-Subspace methods. Available in serial, but use with care (PETSc is not thread-safe, so OpenMP is not recommended). Only available in parallel (MPI) for preallocated Jacobians (see next section).
+					\item 'pardiso': Intel MKL PARDISO. Only available in serial or with OpenMP.
+					\item 'matrix-free gmres': A matrix-free version of the GMRES algorithm. Can be used without preconditioner or with a recursive GMRES preconditioner using 'preconditioner=GMRES'. Available in serial and parallel (OpenMP+MPI)
 					\item 'smooth': Traditional iterative methods. One can select either 'smoother=WeightedJacobi' or 'smoother=BlockJacobi'.
-					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available eith 'smoother=BlockJacobi'
-					\item 'multigrid': .
+					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available with 'smoother=BlockJacobi'.
 				\end{itemize}
 										& 'petsc'  \\ \hline
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
@@ -292,6 +284,42 @@ newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton metho
     &  &  \\ \hline
     
 \end{longtable}
+
+\section{Jacobian Specifications}
+The Jacobian must be defined using a block of the form:
+\begin{lstlisting}
+#define Jacobian
+   type = 2
+   print info = .TRUE.
+   preallocate = .TRUE.
+#end
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for Jacobian definition block.} \label{tab:Jacobiankey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for Jacobian definition block - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+
+type             & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
+				\begin{enumerate}
+					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian (only available with shared memory parallelization).
+					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws. 
+					\end{enumerate}
+										& \textbf{Mandatory Keyword} \\ \hline
+
+print info      & \textit{LOGICAL}: Specifies the verbosity of the Jacobian subroutines  & .TRUE. \\ \hline
+
+preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated in preprocessing (.TRUE. - only available for advective/diffusive nonlinear conservation laws) or every time it is computed (.FALSE.)  & .FALSE. \\ \hline
+
+\end{longtable}
+.TRUE.=Preallocate / .FALSE.=Perform allocation every time the Jacobian is constructed
 
 \section{Multigrid}
 

@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Sun May 19 16:54:12 2019
+!   @Last revision date: Wed Jul 17 11:52:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -158,6 +158,12 @@ MODULE MKLPardisoSolverClass
       else
          call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
          
+      end if
+!
+!     Configure the Jacobian (this includes matrix preallocation -if needed)
+!     ----------------------------------------------------------------------
+      if ( present(sem) ) then
+         call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
       end if
 
 #ifdef HAS_MKL
@@ -553,7 +559,7 @@ MODULE MKLPardisoSolverClass
       
       if (self % Variable_dt) then
          call self % ALU % destruct
-         call self % ALU % constructWithArrays  (self % A % Rows, &
+         call self % ALU % constructWithCSRArrays  (self % A % Rows, &
                                                  self % A % Cols, &
                                                  self % A % Values)
       end if

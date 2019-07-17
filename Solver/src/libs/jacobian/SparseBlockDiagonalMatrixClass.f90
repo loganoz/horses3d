@@ -326,7 +326,7 @@ contains
                           CBlock => Factorized % Blocks(iBL)   )
                
                call CBlock % Matrix % destruct
-               call CBlock % Matrix % constructWithArrays(A % Rows, &
+               call CBlock % Matrix % constructWithCSRArrays(A % Rows, &
                                                           A % Cols, &
                                                           A % Values)
                

@@ -12,10 +12,11 @@ module GenericLinSolverClass
    use DGSEMClass
    use FTValueDictionaryClass
    use TimeIntegratorDefinitions
-   use MatrixClass         , only: Matrix_t
-   use AnalyticalJacobian  , only: AnJacobian_t
-   use NumericalJacobian   , only: NumJacobian_t
-   use Jacobian            , only: Jacobian_t
+   use MatrixClass            , only: Matrix_t
+   use AnalyticalJacobian     , only: AnJacobian_t
+   use NumericalJacobian      , only: NumJacobian_t
+   use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
+   use MPI_Process_Info       , only: MPI_Process
    implicit none
    
    private
@@ -26,12 +27,14 @@ module GenericLinSolverClass
    
    public FTValueDictionary
    
+   integer, parameter :: NOTDEF_JACOBIAN     = 0
    integer, parameter :: NUMERICAL_JACOBIAN  = 1
    integer, parameter :: ANALYTICAL_JACOBIAN = 2
    
    type :: GenericLinSolver_t
-      class(Jacobian_t), allocatable   :: Jacobian
+      class(JacobianComputer_t), allocatable   :: Jacobian
       logical                          :: converged = .FALSE.   ! The solution converged?
+      logical                          :: withMPI = .FALSE.
       integer                          :: DimPrb                ! Dimension of the (local) problem
       integer                          :: globalDimPrb          ! Dimension of the (global) problem
       integer                          :: niter = 0             ! Number of iterations to reach solution (for iterative solvers)
@@ -100,21 +103,32 @@ contains
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
       !---------------------------------------------------------------------
       
-      if ( present(controlVariables) ) then
-         if ( controlVariables % containsKey("jacobian flag") ) then
-            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-            
-            select case (this % JacobianComputation)
-               case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: this % Jacobian)
-               case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: this % Jacobian)
-               case default
-                  ERROR stop 'Invalid jacobian flag'
-            end select
-            
-            if ( present(sem) ) then
-               call this % Jacobian % construct(sem % mesh, nEqn)
-            end if
+      if (globalDimPrb < DimPrb) then        ! This never makes sense
+         ERROR stop 'Inconsistent problem sizes: globalDimPrb < DimPrb'
+      elseif (globalDimPrb > DimPrb) then    ! This only makes sense if MPI is active
+         if (.not. MPI_Process % doMPIAction) then    ! MPI is not enabled: ERROR
+            ERROR stop "Trying to solve linSystem with MPI, but there's no MPI"
          end if
+         this % withMPI = .TRUE.
+      end if
+      
+      this % JacobianComputation = GetJacobianFlag() !controlVariables % integerValueForKey("jacobian flag")
+      
+      select case (this % JacobianComputation)
+         case (NOTDEF_JACOBIAN )
+         case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: this % Jacobian)
+         case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: this % Jacobian)
+         case default
+            ERROR stop 'Invalid jacobian type'
+      end select
+      
+!
+!     ***************************
+!     Construct Jacobian computer
+!     ***************************
+!
+      if ( present(sem) ) then
+         call this % Jacobian % construct(sem % mesh, nEqn)
       end if
    end subroutine Construct
 !

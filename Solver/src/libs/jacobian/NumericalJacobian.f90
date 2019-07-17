@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Fri May 17 17:57:23 2019
+!   @Last revision date: Wed Jul 17 11:52:31 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 53bf8adf594bf053effaa1d0381d379cecc5e74f
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,8 @@ module NumericalJacobian
    use HexMeshClass           , only: HexMesh, Neighbor_t, NUM_OF_NEIGHBORS
    use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
    use ElementClass
-   use Jacobian               , only: JACEPS, local2ijk, Look_for_neighbour, Jacobian_t
+   use JacobianDefinitions    , only: JACEPS
+   use JacobianComputerClass  , only: local2ijk, Look_for_neighbour, JacobianComputer_t
    use PhysicsStorage
    use Utilities              , only: Qsort
    use StorageClass           , only: SolutionStorage_t
@@ -30,13 +31,13 @@ module NumericalJacobian
    implicit none
    
    private
-   public NumJacobian_t
+   public NumJacobian_t, GetRowsAndColsVector
    
 !
 !  *************************************************
 !  Main type for the numerical Jacobian computations
 !  *************************************************
-   type, extends(Jacobian_t) :: NumJacobian_t
+   type, extends(JacobianComputer_t) :: NumJacobian_t
       
       contains
          procedure :: Construct           => NumJacobian_Construct
@@ -70,7 +71,7 @@ contains
 !
 !     Construct parent
 !     ----------------
-      call this % Jacobian_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn)
       
       call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
       
@@ -111,7 +112,6 @@ contains
       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
       
       logical, save                                      :: isfirst = .TRUE.
-      logical :: PINFO=.TRUE.
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
@@ -233,25 +233,28 @@ contains
          end associate
       end if
 !
-!     ---------------------------
-!     Preallocate Jacobian matrix
-!     ---------------------------
+!     *************************************************
+!     If Jacobian matrix was not preallocated, allocate
+!     *************************************************
 !
-      select type(Matrix_p => Matrix)
-         type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
-         type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
-         type is(CSRMat_t)
-!~             call GetRowsAndColsVector(sem, nEqn, Matrix_p % numRows, totalnnz, this % firstIdx, rows, cols, diag)
-!~             call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
-            call Matrix_p % Preallocate()
-         class default ! Construct with nonzeros in each row
-            call Matrix_p % Preallocate(nnz)
-      end select
+      if (.not. this % preAllocate) then
+         select type(Matrix_p => Matrix)
+            type is(DenseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
+            type is(SparseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
+            type is(CSRMat_t)
+!~                call GetRowsAndColsVector(sem, nbr, nEqn, Matrix_p % num_of_Rows, totalnnz, this % firstIdx, rows, cols, diag)
+!~                call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
+               call Matrix_p % Preallocate()
+            class default ! Construct with nonzeros in each row
+               call Matrix_p % Preallocate(nnz)
+         end select
+         
+         call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
+      end if
       
       call Matrix % Reset(ForceDiagonal = .TRUE.)
-      call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
       
 #if defined(CAHNHILLIARD)
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_ONLY_CH_LIN )
@@ -336,7 +339,7 @@ contains
       
       call Stopwatch % Pause("Numerical Jacobian construction")
       
-      IF (PINFO) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
+      IF (this % verbose) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
       
    end subroutine NumJacobian_Compute
 !
@@ -451,9 +454,10 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !   
 !  ! To be deprecated(?)
-   subroutine GetRowsAndColsVector(sem, nEqn, nRows, nnz, firstIdx, rows, cols, diag)
+   subroutine GetRowsAndColsVector(sem, nbr, nEqn, nRows, nnz, firstIdx, rows, cols, diag)
       implicit none
       class(DGSEM)         :: sem
+      type(Neighbor_t)     :: nbr(:)
       integer, intent(in)  :: nEqn, nRows
       integer, intent(in)  :: firstIdx(1:sem % mesh % no_of_elements)
       integer, intent(out)  :: nnz
@@ -508,7 +512,6 @@ contains
       end do
 !!$omp end do
 !!$omp end parallel
-
       allocate(rows(1:nRows+1))
       allocate(cols(1:nnz))
       allocate(diag(1:nRows))
@@ -528,14 +531,14 @@ contains
 
          do i = 1, size(nbr(eID) % elmnt)
             if ( nbr(eID) % elmnt(i) .le. 0 ) cycle
-            do j = 1, size(nbr(nbr(eID) % elmnt(i)) % elmnt)
-               if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle
+            do j = 1, size(nbr(nbr(eID) % elmnt(i)) % elmnt)          ! For only neighbors comment this
+               if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle  ! For only neighbors comment this
 
-               if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then
+               if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then ! For neighbors change by if ( .not. any(neighbours .eq. nbr(eID) % elmnt(i)) ) then
                   counter = counter + 1 
-                  neighbours(counter) = nbr(nbr(eID) % elmnt(i)) % elmnt(j)
+                  neighbours(counter) = nbr(eID) % elmnt(i)                               ! For neighbors change by neighbours(counter) = nbr(eID) % elmnt(i)
                end if
-            end do
+            end do                                                    ! For only neighbors comment this
          end do
          call Qsort(neighbours(1:counter))
 

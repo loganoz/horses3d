@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Sun May 19 16:54:13 2019
+!   @Last revision date: Wed Jul 17 11:52:58 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -235,6 +235,10 @@ contains
             end select
          else
             this % Preconditioner = PC_NONE
+         end if
+         
+         if ( present(sem) ) then
+            call this % Jacobian % Configure (sem % mesh, nEqn, this % BlockA)
          end if
          
 !        ******************
@@ -500,7 +504,7 @@ contains
          
          this%V(:,1) = this%RHS - this%V(:,1)   
          this%g(1) = L2Norm(this%V(:,1))
-         this%V(:,1) = this%V(:,1) / this%g(1)
+         this%V(:,1) = this%V(:,1) / this%g(1)           ! TODO: V1 should be constructed using the preconditioner...
          
          this%H = 0.0_RP
          m = this%m

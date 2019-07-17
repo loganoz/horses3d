@@ -13,7 +13,7 @@ module DenseBlockDiagonalMatrixClass
    use SMConstants
    use GenericMatrixClass  , only: Matrix_t, DenseBlock_t
    use CSRMatrixClass      , only: csrMat_t
-   use Jacobian            , only: JACEPS
+   use JacobianDefinitions , only: JACEPS
    use PartitionedMeshClass, only: mpi_partition ! for MPI
    use MPI_Process_Info    , only: MPI_Process
 #include "Includes.h"
@@ -556,7 +556,7 @@ contains
          j_offset = j_offset + this % BlockSizes(bID)
       end do
       
-      call Acsr % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      call Acsr % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine getTransCSR
 end module DenseBlockDiagonalMatrixClass

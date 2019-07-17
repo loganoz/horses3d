@@ -4,9 +4,9 @@
 !   @File:    ReadMeshFile.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Oct  1 12:09:46 2018
+!   @Last revision date: Wed Jul 17 11:52:46 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: c0e33a87fc7298912026e6bcb96893161b87913a
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -37,6 +37,7 @@ contains
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       integer                    :: nelem
+      integer                    :: eID
       !---------------------------------------------------------------
       
       ext = getFileExtension(trim(filename))
@@ -49,6 +50,10 @@ contains
          ERROR STOP 'Mesh file extension not recognized.'
       end if
       
+      self % NDOF = 0
+      do eID=1, self % no_of_elements
+         self % NDOF = self % NDOF + product(self % elements(eID) % Nxyz + 1)
+      end do
    end subroutine constructMeshFromFile
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

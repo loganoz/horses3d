@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sun May 19 16:54:07 2019
+!   @Last revision date: Wed Jul 17 11:52:41 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -62,6 +62,7 @@ MODULE HexMeshClass
          integer                                   :: no_of_allElements
          integer                                   :: dt_restriction = DT_FIXED     ! Time step restriction of last step (DT_FIXED -initial value-, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
+         integer                                   :: NDOF
          integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
@@ -879,7 +880,7 @@ slavecoord:             DO l = 1, 4
                associate( e => self % elements(maxval(f % elementIDs)) )
                
                
-               self % MPIfaces % faces(domain) % Nsend(counter:counter+1  ) = e % Nxyz(axisMap(:,maxval(f % elementSide)))
+               self % MPIfaces % faces(domain) % Nsend(counter:counter+1  ) = e % Nxyz(axisMap(:,f % elementSide(thisSide)))
                self % MPIfaces % faces(domain) % Nsend(counter+2:counter+4) = e % Nxyz
                self % MPIfaces % faces(domain) % Nsend(counter+5)           = e % globID
                
@@ -1815,12 +1816,12 @@ slavecoord:             DO l = 1, 4
                counter = 1
                do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
                   fID  = self % MPIfaces % faces(domain) % faceIDs(mpifID)
-                  side = self % MPIfaces % faces(domain) % elementSide(mpifID) ! face side 1/2
+                  side = self % MPIfaces % faces(domain) % elementSide(mpifID)   ! face side 1/2
                   
                   associate( f => self % faces(fID) )
                   associate( e => self % elements(maxval(f % elementIDs)) )
                   
-                  sideL = maxval(f % elementSide)                              ! element side 1/2/3/4/5/6
+                  sideL = f % elementSide(side)                                  ! element side 1/2/3/4/5/6
                   
                   Nel(:,      side ) = e % Nxyz(axisMap(:,sideL))
                   Nel(:,other(side)) = self % MPIfaces % faces(domain) % Nrecv(counter:counter+1)
@@ -1830,8 +1831,8 @@ slavecoord:             DO l = 1, 4
                   Nxyz   = self % MPIfaces % faces(domain) % Nrecv(counter+2:counter+4)
                   globID = self % MPIfaces % faces(domain) % Nrecv(counter+5)
                   
+                  e % NumberOfConnections (sideL) = 1
                   call e % Connection(sideL) % construct (globID,Nxyz)
-                  
                   counter = counter + 6
                   
                   end associate
@@ -1943,9 +1944,9 @@ slavecoord:             DO l = 1, 4
             f % faceType = HMESH_MPI
             f % rotation = partition % mpiface_rotation(bFace)
             f % elementIDs(eSide) = eID
-            f % elementIDs(otherSide(eSide)) = HMESH_NONE
+            f % elementIDs(otherSide(eSide)) = HMESH_NONE   ! This makes sense since elementIDs are in local numbering...
             f % elementSide(eSide) = side
-            f % elementSide(otherSide(eSide)) = HMESH_NONE
+            f % elementSide(otherSide(eSide)) = partition % element_mpifaceSideOther(bFace)
             
             if (eSide == RIGHT) f % nodeIDs = f % nodeIDs (invRot (:,f % rotation) )
             end associate
@@ -1997,6 +1998,7 @@ slavecoord:             DO l = 1, 4
          integer, allocatable       :: bfOrder_local(:)  ! Polynomial order on a zone (partition wise)
          integer, allocatable       :: bfOrder(:)        ! Polynomial order on a zone (global)
          integer                    :: ierr              ! Error for MPI calls
+         integer                    :: thisSide          ! The side of the MPI face that corresponds to current partition
          !--------------------------------
          
          corners = 0._RP
@@ -2193,7 +2195,8 @@ slavecoord:             DO l = 1, 4
 
             case (HMESH_MPI)
                eID = maxval(f % elementIDs)
-               side = maxval(f % elementSide)
+               thisSide = maxloc(f % elementIDs, dim=1)
+               side = f % elementSide(thisSide)
                NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
                
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
@@ -3693,6 +3696,11 @@ slavecoord:             DO l = 1, 4
 !     **************************************
       if ( maxval(NNew) /= minval(NNew) ) self % anisotropic = .TRUE.
       
+      self % NDOF = 0
+      do eID=1, self % no_of_elements
+         self % NDOF = self % NDOF + product( NNew(:,eID) + 1 )
+      end do
+      
 !     ********************
 !     Some initializations
 !     ********************
@@ -3846,6 +3854,7 @@ slavecoord:             DO l = 1, 4
       to % no_of_elements     = from % no_of_elements
       to % no_of_allElements  = from % no_of_allElements
       to % dt_restriction     = from % dt_restriction
+      to % NDOF               = from % NDOF
       
       to % meshFileName       = from % meshFileName
       to % meshIs2D           = from % meshIs2D

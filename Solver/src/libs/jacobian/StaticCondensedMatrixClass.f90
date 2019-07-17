@@ -4,9 +4,9 @@
 !   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May 19 16:54:06 2019
+!   @Last revision date: Wed Jul 17 11:52:40 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -649,7 +649,7 @@ contains
       
 !     Finish constructing the matrix
 !     ------------------------------
-      call Acsr % constructWithArrays(Rows, Cols, Values, this % num_of_Cols)
+      call Acsr % constructWithCSRArrays(Rows, Cols, Values, this % num_of_Cols)
       
       class default
          stop 'ERROR :: Static_getCSR not defined for submatrices /= cstMat_t'

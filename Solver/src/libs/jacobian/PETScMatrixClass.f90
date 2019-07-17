@@ -4,9 +4,9 @@
 !   @File:    PETScMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Sun May 19 16:54:04 2019
+!   @Last revision date: Wed Jul 17 11:52:32 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,7 +21,7 @@ module PETScMatrixClass
    use SMConstants
    use GenericMatrixClass
    use CSRMatrixClass
-   use Jacobian            , only: JACEPS
+   use JacobianDefinitions , only: JACEPS
    use MPI_Process_Info    , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
@@ -54,13 +54,16 @@ module PETScMatrixClass
          procedure :: PreAssembly
          procedure :: Assembly
          procedure :: GetCSRMatrix
-         procedure :: SpecifyBlockInfo => PETSCMat_SpecifyBlockInfo
-         procedure :: AddToBlockEntry  => PETScMat_AddToBlockEntry
-         procedure :: SetBlockEntry    => PETScMat_SetBlockEntry
+         procedure :: SpecifyBlockInfo       => PETSCMat_SpecifyBlockInfo
+         procedure :: AddToBlockEntry        => PETScMat_AddToBlockEntry
+         procedure :: SetBlockEntry          => PETScMat_SetBlockEntry
+         procedure :: ForceAddToEntry        => PETScMat_ForceAddToEntry
+         procedure :: ForceAddToBlockEntry   => PETScMat_ForceAddToBlockEntry
          procedure :: MatMatMul        => PETScMat_MatMatMul
          procedure :: MatVecMul        => PETScMat_MatVecMul
          procedure :: MatAdd           => PETScMat_MatAdd
          procedure :: ConstructFromDiagBlocks   => PETScMat_ConstructFromDiagBlocks
+         procedure :: constructWithCSRArrays => PETScMat_constructWithCSRArrays
    end type PETSCMatrix_t
    
 !
@@ -88,6 +91,7 @@ module PETScMatrixClass
       PetscBool, optional, intent(in) :: withMPI
       !---------------------------------------------
       PetscBool :: hasMPI
+      PetscInt  :: num_of_totalCols
       !---------------------------------------------
 !
 !     Initialize PETSc environment... If it was already done by the solver, it's alright
@@ -123,6 +127,7 @@ module PETScMatrixClass
       CALL MatCreate(PETSC_COMM_WORLD,this%A,ierr)                           ; CALL CheckPetscErr(ierr,'error creating A matrix')
       
       if (this % withMPI) then
+         num_of_totalCols = num_of_totalRows
          CALL MatSetSizes(this%A,num_of_Rows,PETSC_DECIDE,num_of_totalRows,num_of_totalRows,ierr) ! At the moment only for square matrices...
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATMPIAIJ, ierr)                       
@@ -130,6 +135,7 @@ module PETScMatrixClass
 !~         CALL MatSetFromOptions(this%A,ierr)                                  
 !~         CALL CheckPetscErr(ierr,'error in MatSetFromOptions')
       else
+         num_of_totalCols = this % num_of_Cols
          CALL MatSetSizes(this%A,num_of_Rows,this % num_of_Cols,num_of_Rows,this % num_of_Cols,ierr)
          CALL CheckPetscErr(ierr,'error setting mat size')
          CALL MatSetType(this%A,MATSEQAIJ, ierr)
@@ -148,7 +154,7 @@ module PETScMatrixClass
       call VecSetFromOptions(this % rowvec,ierr)                              ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       
       call VecCreate(PETSC_COMM_WORLD,this % colvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
-      call VecSetSizes(this % colvec,PETSC_DECIDE,this % num_of_Cols,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      call VecSetSizes(this % colvec,PETSC_DECIDE,num_of_totalCols,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       call VecSetFromOptions(this % colvec,ierr)                              ; call CheckPetscErr(ierr,'error setting Petsc vector options')
       
 #else
@@ -283,6 +289,30 @@ module PETScMatrixClass
       STOP ':: PETSc is not linked correctly'
 #endif
    end subroutine PETScMat_AddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine PETScMat_ForceAddToEntry(this, row, col, value )
+      implicit none
+      !---------------------------------------------
+      class(PETSCMatrix_t), intent(inout) :: this
+#ifdef HAS_PETSC
+      PetscInt            , intent(in)    :: row
+      PetscInt            , intent(in)    :: col
+      PetscScalar         , intent(in)    :: value
+      !---------------------------------------------
+      
+!$omp critical
+      CALL MatSetValues(this%A, 1 ,row-1,1,col-1,value,ADD_VALUES,ierr)
+      CALL CheckPetscErr(ierr, 'error in MatSetValues')
+!$omp end critical
+#else
+      INTEGER        , intent(in) :: row
+      INTEGER        , intent(in) :: col
+      real(kind=RP)  , intent(in) :: value
+      STOP ':: PETSc is not linked correctly'
+#endif
+   end subroutine PETScMat_ForceAddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -656,6 +686,35 @@ module PETScMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index (Force)
+!  -----------------------------------------------------------------------
+   subroutine PETScMat_ForceAddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      CLASS(PETSCMatrix_t), intent(inout) :: this        !<    PETSc matrix
+      integer             , intent(in)    :: iBlock, jBlock
+      integer             , intent(in)    :: i, j
+      real(kind=RP)       , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'PETSCMatrix :: Error '
+         write(STD_OUT,*) '            :: PETScMat_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % ForceAddToEntry(row, col, value)
+      
+   end subroutine PETScMat_ForceAddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  ------------------------------------------------------
 !  Construct a general sparse matrix from diagonal blocks
 !  ------------------------------------------------------
@@ -695,6 +754,35 @@ module PETScMatrixClass
       call this % assembly
       
    end subroutine PETScMat_ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------
+!  Construct a PETSc matrix from CSR arrays
+!  ----------------------------------------
+   subroutine PETScMat_constructWithCSRArrays(this,Rows,Cols,Values,num_of_Cols)
+      !-arguments-----------------------------------
+      class(PETSCMatrix_t)          :: this       !<> Matrix to be Created
+      integer, optional, intent(in) :: num_of_Cols
+#ifdef HAS_PETSC
+      PetscInt         , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      PetscInt         , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      PetscScalar      , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      !---------------------------------------------
+      
+      if (this % withMPI) then
+         call MatMPIAIJSetPreallocationCSR(this % A, Rows-1, Cols-1, Values, ierr)
+         call CheckPetscErr(ierr," MatMPIAIJSetPreallocationCSR")
+      else
+         call MatSeqAIJSetPreallocationCSR(this % A, Rows-1, Cols-1, Values, ierr)
+         call CheckPetscErr(ierr," MatMPIAIJSetPreallocationCSR")
+      end if
+#else
+      integer          , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      integer          , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+#endif
+   end subroutine PETScMat_constructWithCSRArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

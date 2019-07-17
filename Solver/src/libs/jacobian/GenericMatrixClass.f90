@@ -28,6 +28,8 @@ module GenericMatrixClass
          procedure :: AddToEntry
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
+         procedure :: ForceAddToEntry
+         procedure :: ForceAddToBlockEntry
          procedure :: ResetBlock
          procedure :: Shift
          procedure :: ReShift
@@ -39,6 +41,7 @@ module GenericMatrixClass
          procedure :: MatVecMul
          procedure :: MatAdd
          procedure :: ConstructFromDiagBlocks
+         procedure :: constructWithCSRArrays
          procedure :: SolveBlocks_LU
          procedure :: FactorizeBlocks_LU
    end type Matrix_t
@@ -149,6 +152,19 @@ contains
    end subroutine AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+   subroutine ForceAddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToEntry not implemented for current matrix type'
+   end subroutine ForceAddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------------------------
 !  Subroutine to set the entries of a block with relative index
@@ -179,6 +195,22 @@ contains
       !---------------------------------------------
       ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
    end subroutine AddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine ForceAddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
+   end subroutine ForceAddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -278,6 +310,22 @@ contains
       !---------------------------------------------
       ERROR stop ' :: ConstructFromDiagBlocks not implemented for current matrix type'
    end subroutine ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------
+!  Construct a general sparse matrix from CSR arrays
+!  -------------------------------------------------
+   subroutine constructWithCSRArrays(this,Rows,Cols,Values,num_of_Cols)
+      !-arguments-----------------------------------
+      class(Matrix_t)               :: this       !<> Matrix to be Created
+      integer          , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      integer          , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      integer, optional, intent(in) :: num_of_Cols
+      !---------------------------------------------
+      
+   end subroutine constructWithCSRArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

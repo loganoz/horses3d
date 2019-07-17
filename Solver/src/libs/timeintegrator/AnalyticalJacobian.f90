@@ -4,16 +4,14 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun May 19 16:54:08 2019
+!   @Last revision date: Wed Jul 17 11:52:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
 !  -> Only for p-conforming representations (TODO: make general)
-!  -> TODO: Implement as class to prevent memory leaking and additional computations
-!  -> TODO: MPI implementation is missing
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
 !//////////////////////////////////////////////////////
@@ -25,7 +23,8 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian                        , only: JACEPS, Jacobian_t
+   use JacobianDefinitions             , only: JACEPS
+   use JacobianComputerClass           , only: JacobianComputer_t
    use MatrixClass
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use StopWatchClass
@@ -57,7 +56,7 @@ module AnalyticalJacobian
 !  **************************************************
 !  Main type for the analytical Jacobian computations
 !  **************************************************
-   type, extends(Jacobian_t) :: AnJacobian_t
+   type, extends(JacobianComputer_t) :: AnJacobian_t
       
       contains
          procedure :: Construct => AnJacobian_Construct
@@ -87,7 +86,7 @@ contains
 !
 !     Construct parent
 !     ----------------
-      call this % Jacobian_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn)
       
       call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
       
@@ -116,6 +115,7 @@ contains
       integer :: nnz
       integer :: nelem, ierr
       logical :: BlockDiagonal
+      integer :: eID, i
       !--------------------------------------------
       
       
@@ -132,39 +132,44 @@ contains
       nelem = size(sem % mesh % elements)
 
       !TODO: Check if there was p-adaptation and reconstruct if necessary
+      
 !
-!     ***************************
-!     Preallocate Jacobian matrix
-!     ***************************
+!     *************************************************
+!     If Jacobian matrix was not preallocated, allocate
+!     *************************************************
 !
-      select type(Matrix_p => Matrix)
+      if (.not. this % preAllocate) then
+         select type(Matrix_p => Matrix)
 !
-!        If block-diagonal matrix, construct with size of blocks
-!        -------------------------------------------------------
-         type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
-         type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
-            
+!           If block-diagonal matrix, construct with size of blocks
+!           -------------------------------------------------------
+            type is(DenseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
+            type is(SparseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
+               
 !
-!        If matrix is CSR, standard preallocate with LinkedListMatrix
-!        ------------------------------------------------------------
-         type is(csrMat_t)
-            call Matrix_p % Preallocate()
+!           If matrix is CSR, standard preallocate with LinkedListMatrix
+!           ------------------------------------------------------------
+            type is(csrMat_t)
+               call Matrix_p % Preallocate()
 !
-!        Otherwise, construct with nonzeros in each row
-!        ----------------------------------------------
-         class default 
-            if (BlockDiagonal) then
-               nnz = maxval(this % ndofelm_l)
-            else
-               nnz = 7*maxval(this % ndofelm_l) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
-            end if
-            call Matrix_p % Preallocate(nnz)
-      end select
+!           Otherwise, construct with nonzeros in each row
+!           ----------------------------------------------
+            class default 
+               if (BlockDiagonal) then
+                  nnz = maxval(this % ndofelm_l)
+               else
+                  nnz = 7*maxval(this % ndofelm_l) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
+               end if
+               call Matrix_p % Preallocate(nnz)
+         end select
+         
+         call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
+      end if
+      
       
       call Matrix % Reset (ForceDiagonal = .TRUE.)
-      call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
       
 !$omp parallel
 !     ------------------
@@ -222,10 +227,11 @@ contains
 !
 !     Add an MPI Barrier
 !     ------------------
+#ifdef _HAS_MPI_
       if (MPI_Process % doMPIAction) then
          call mpi_barrier(MPI_COMM_WORLD, ierr)
       end if
-      
+#endif
       call Matrix % Assembly()
 !
 !     *********
@@ -234,7 +240,7 @@ contains
 !
       call Stopwatch % Pause("Analytical Jacobian construction")
       
-      if ( MPI_Process % isRoot ) then
+      if ( this % verbose ) then
          write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
       end if
 #else
@@ -321,7 +327,7 @@ contains
 !     ---------------------------------------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+         if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
             call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
             call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
          end if
@@ -334,7 +340,7 @@ contains
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
-            if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+            if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
                call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
                call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
             end if
@@ -1054,7 +1060,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  ! TODO: This can be improved by setting the whole matrix at once
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1523,7 +1529,6 @@ contains
       real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the second tangent direction to the face
       real(kind=RP), allocatable :: nHat(:,:,:)
       !--------------------------------------------------------------------------------
-      
 !
 !     ***********
 !     Definitions

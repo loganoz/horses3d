@@ -4,9 +4,9 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Sun May 19 16:54:00 2019
+!   @Last revision date: Wed Jul 17 11:52:23 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,7 +14,7 @@ MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass   , only: Matrix_t, DenseBlock_t
    use LinkedListMatrixClass, only: LinkedListMatrix_t
-   use Jacobian             , only: JACEPS
+   use JacobianDefinitions  , only: JACEPS
 #include "Includes.h"
    IMPLICIT NONE
    
@@ -30,25 +30,27 @@ MODULE CSRMatrixClass
       logical                     :: usingListMat =.FALSE.
    contains
    
-      procedure :: construct           => CSR_Construct
-      procedure :: constructWithArrays => CSR_constructWithArrays
-      procedure :: PreAllocate         => CSR_PreAllocate
-      procedure :: Reset               => CSR_Reset
-      procedure :: ResetBlock          => CSR_ResetBlock
-      procedure :: assigndiag          => CSR_AssignDiag
-      procedure :: Visualize           => CSR2Visualize
+      procedure :: construct              => CSR_Construct
+      procedure :: constructWithCSRArrays => CSR_constructWithCSRArrays
+      procedure :: PreAllocate            => CSR_PreAllocate
+      procedure :: Reset                  => CSR_Reset
+      procedure :: ResetBlock             => CSR_ResetBlock
+      procedure :: assigndiag             => CSR_AssignDiag
+      procedure :: Visualize              => CSR2Visualize
       procedure :: destruct
-      procedure :: Shift               => SetMatShift
+      procedure :: Shift                  => SetMatShift
       procedure :: SetColumn
-      procedure :: AddToColumn         => CSR_AddToColumn
-      procedure :: SetEntry            => CSR_SetEntry
-      procedure :: AddToEntry          => CSR_AddToEntry
-      procedure :: GetDense            => CSR2Dense
-      procedure :: GetBlock            => CSR_GetBlock
-      procedure :: Assembly            => CSR_Assembly
-      procedure :: SpecifyBlockInfo    => CSR_SpecifyBlockInfo
-      procedure :: AddToBlockEntry     => CSR_AddToBlockEntry
-      procedure :: SetBlockEntry       => CSR_SetBlockEntry
+      procedure :: AddToColumn            => CSR_AddToColumn
+      procedure :: SetEntry               => CSR_SetEntry
+      procedure :: AddToEntry             => CSR_AddToEntry
+      procedure :: ForceAddToEntry        => CSR_ForceAddToEntry
+      procedure :: GetDense               => CSR2Dense
+      procedure :: GetBlock               => CSR_GetBlock
+      procedure :: Assembly               => CSR_Assembly
+      procedure :: SpecifyBlockInfo       => CSR_SpecifyBlockInfo
+      procedure :: AddToBlockEntry        => CSR_AddToBlockEntry
+      procedure :: ForceAddToBlockEntry   => CSR_ForceAddToBlockEntry
+      procedure :: SetBlockEntry          => CSR_SetBlockEntry
       procedure :: ConstructFromDiagBlocks   => CSR_ConstructFromDiagBlocks
       procedure :: MatMatMul                 => CSR_MatMatMul
       procedure :: MatVecMul                 => CSR_MatVecMul
@@ -121,7 +123,7 @@ MODULE CSRMatrixClass
 !  ------------------------------------------------
 !  Constructor that is fed with the arrays directly
 !  ------------------------------------------------
-   subroutine CSR_constructWithArrays(this,Rows,Cols,Values,num_of_Cols)
+   subroutine CSR_constructWithCSRArrays(this,Rows,Cols,Values,num_of_Cols)
       !-arguments-----------------------------------
       class(csrMat_t)               :: this       !<> Matrix to be Created
       integer          , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
@@ -141,7 +143,7 @@ MODULE CSRMatrixClass
       end if
       
       if ( maxval(Cols) > this % num_of_Cols) then
-         print*, 'CSR_constructWithArrays :: WARNING: Increasing num_of_Cols'
+         print*, 'CSR_constructWithCSRArrays :: WARNING: Increasing num_of_Cols'
          this % num_of_Cols = maxval(Cols)
       end if
       
@@ -166,7 +168,7 @@ MODULE CSRMatrixClass
       
       call this % assigndiag()
       
-   end subroutine CSR_constructWithArrays
+   end subroutine CSR_constructWithCSRArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -493,6 +495,36 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  ---------------------------------------------
+!  Add a given value to an element of a CSR matrix
+!  ---------------------------------------------
+   subroutine CSR_ForceAddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer                         :: k
+      !---------------------------------------------
+      
+      if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
+         write (*,*) 'CSR_SetEntry: Dimension error'
+         stop
+      end if
+      
+      if (this % usingListMat) then
+         call this % ListMatrix % ForceAddToEntry(row,col,value)
+      else
+         k = CSR_Search(this,row,col)
+         this % Values(k) = this % Values(k) + value
+      end if
+      
+   end subroutine CSR_ForceAddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    FUNCTION CSR_Search (A,i,j) RESULT(k)
    !    Obtains the position k for the information of A(i,j) --> A % Values (k)
    !    If the position is not contained in the sparse matrix A, k = 0 is returned
@@ -645,7 +677,7 @@ MODULE CSRMatrixClass
          stop
       end if
                               
-      call Cmat % constructWithArrays (ic,jc,c, A % num_of_Cols)
+      call Cmat % constructWithCSRArrays (ic,jc,c, A % num_of_Cols)
 !
 !     Finish extra check
 !     ------------------
@@ -719,7 +751,7 @@ MODULE CSRMatrixClass
          stop
       end if
       
-      call Cmat % constructWithArrays (ic,jc,c, B % num_of_Cols)
+      call Cmat % constructWithCSRArrays (ic,jc,c, B % num_of_Cols)
 !
 !     Finish extra check
 !     ------------------
@@ -739,6 +771,7 @@ MODULE CSRMatrixClass
    !  -> v needs to be allocated beforehand
    !  ----------------------------------------------------
    function CSR_MatVecMul( A,u, trans) result(v)
+      implicit none
       !-arguments--------------------------------------------------------------------
       class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
       real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
@@ -947,6 +980,35 @@ MODULE CSRMatrixClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine CSR_ForceAddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(csrMat_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: row, col
+      !---------------------------------------------
+      
+      if (.not. allocated(this % BlockIdx)) then
+         write(STD_OUT,*) 'CSRMatrixClass :: Error '
+         write(STD_OUT,*) '               :: CSR_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
+         stop 99
+      end if
+      
+      row = this % BlockIdx(iBlock) + i - 1
+      col = this % BlockIdx(jBlock) + j - 1
+      
+      call this % ForceAddToEntry(row, col, value)
+      
+   end subroutine CSR_ForceAddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !  CSR_ConstructFromDiagBlocks:
 !     Constructs a CSR matrix from SQUARE diagonal blocks
    subroutine CSR_ConstructFromDiagBlocks(this, num_of_Blocks, Blocks, BlockIdx, BlockSizes)
@@ -1020,7 +1082,7 @@ MODULE CSRMatrixClass
          if (differentBlockSizes) deallocate(BlockTrans)
       end do
       
-      call this % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      call this % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine CSR_ConstructFromDiagBlocks
 END MODULE CSRMatrixClass
