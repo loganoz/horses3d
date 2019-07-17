@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Jul 17 16:54:56 2019
+!   @Last revision date: Wed Jul 17 19:22:43 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
+!   @Last revision commit: bd19c2b55f7c80b92387da8943084b7679834a33
 !
 !//////////////////////////////////////////////////////
 !
@@ -905,6 +905,7 @@ module StorageClass
          safedeallocate(self % U_zNS)
          safedeallocate(self % mu_art)
          safedeallocate(self % dF_dgradQ)
+         safedeallocate(self % rho)
          
 #endif
 #ifdef CAHNHILLIARD
@@ -1108,14 +1109,14 @@ module StorageClass
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
 !
 !        TODO: JMT, if (implicit..?)
-         allocate( self % dFStar_dqF (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
-         allocate( self % dFStar_dqEl(NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
+         allocate( self % dFStar_dqF  (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
+         allocate( self % dFStar_dqEl (NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
          
          allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: Nf(1),0: Nf(2)) )
          allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:Nel(1),0:Nel(2),2) )
          
 !        TODO: AMR, if Boundary
-         allocate( self % BCJac       (NNS,NNS,0:Nel(1),0:Nel(2)) )
+         allocate( self % BCJac       (NCONS,NCONS,0:Nel(1),0:Nel(2)) )
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
@@ -1195,6 +1196,7 @@ module StorageClass
          safedeallocate(self % dFv_dGradQF)
          safedeallocate(self % dFv_dGradQEl)
          safedeallocate(self % mu_art)
+         safedeallocate(self % rho )
          safedeallocate(self % BCJac )
 #endif
 #ifdef CAHNHILLIARD

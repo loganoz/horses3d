@@ -346,7 +346,7 @@
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
             real(kind=RP), parameter           :: wake_u = -4.5319588018831309E-006_RP
-            real(kind=RP), parameter           :: cd =  4.8760727342198127
+            real(kind=RP), parameter           :: cd = 4.8760727342198127_RP
             real(kind=RP), parameter           :: cl = -5.8462394242342341E-005_RP
             
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
