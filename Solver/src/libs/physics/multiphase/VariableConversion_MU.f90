@@ -62,10 +62,7 @@ module VariableConversion_MU
 
          invSqrtRho = 1.0_RP / sqrt(rho_)
 
-         U(IGU) = Q(IMSQRHOU) * invSqrtRho
-         U(IGV) = Q(IMSQRHOV) * invSqrtRho
-         U(IGW) = Q(IMSQRHOW) * invSqrtRho
-         U(IGP) = Q(IMP)
+         U = [0.0_RP, invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q
 
       end subroutine mGradientValuesForQ_0D
 

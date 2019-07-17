@@ -326,7 +326,7 @@ print*, "CH is BR1"
          do eID = 1, size(mesh % elements)
             mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,:,:,:)
 
-            mesh % elements(eID) % storage % rho = max(mesh % elements(eID) % storage % rho, 0.001_RP)
+            mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, 1.0_RP),10.0_RP)
          end do
 !$omp end do nowait
 
@@ -335,8 +335,8 @@ print*, "CH is BR1"
             mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,:,:)
             mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,:,:)
 
-            mesh % faces(fID) % storage(1) % rho = max(mesh % faces(fID) % storage(1) % rho, 0.001_RP)
-            mesh % faces(fID) % storage(2) % rho = max(mesh % faces(fID) % storage(2) % rho, 0.001_RP)
+            mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, 1.0_RP),10.0_RP)
+            mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, 1.0_RP),10.0_RP)
          end do
 !$omp end do
 !
@@ -410,7 +410,7 @@ print*, "CH is BR1"
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
-         real(kind=RP) :: sqrtRho
+         real(kind=RP) :: sqrtRho, invSqrtRho
 !
 !        ****************
 !        Volume integrals
@@ -446,7 +446,7 @@ print*, "CH is BR1"
 !                                      sqrt(rho), and add source terms
 !        *************************************************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k,sqrtRho)
+!$omp do schedule(runtime) private(i,j,k,sqrtRho,invSqrtRho)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
@@ -454,9 +454,11 @@ print*, "CH is BR1"
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                sqrtRho = sqrt(e % storage % rho(i,j,k))
+               invSqrtRho = 1.0_RP / sqrtRho
 !
 !            + Scale with Jacobian and sqrt(Rho)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / (e % geom % jacobian(i,j,k) * sqrtRho) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % InvJacobian(i,j,k)
+               e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) = e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) * invSqrtRho
 !
 !            + Add gravity
                e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
