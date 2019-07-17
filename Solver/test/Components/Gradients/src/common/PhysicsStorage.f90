@@ -27,13 +27,13 @@ module PhysicsStorage
    implicit none
 
 #if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS
+   integer, parameter   :: NCONS = NCONS
    integer, parameter   :: NTOTALGRADS = NGRAD
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCOMP
+   integer, parameter   :: NCONS = NCOMP
    integer, parameter   :: NTOTALGRADS = NCOMP
 #elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
-   integer, parameter   :: NTOTALVARS = NCONS + NCOMP
+   integer, parameter   :: NCONS = NCONS + NCOMP
    integer, parameter   :: NTOTALGRADS = NGRAD + NCOMP
 #endif
 
