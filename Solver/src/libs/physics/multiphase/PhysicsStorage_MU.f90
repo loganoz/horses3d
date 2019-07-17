@@ -174,19 +174,6 @@
       thermodynamics_ % mu (2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
 
 
-      if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
-         thermodynamics_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY)
-      else
-         thermodynamics_ % rho_max = huge(1.0_RP)
-
-      end if
-
-      if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
-         thermodynamics_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY)
-      else
-         thermodynamics_ % rho_min = -huge(1.0_RP)
-
-      end if
 
 !
 !     ********************
@@ -227,7 +214,24 @@
 !     **************************
 !
       thermodynamics_ % rho0c02 = maxval(dimensionless_ % rho) * controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
-      
+!
+!     ****************
+!     Density limiters
+!     ****************
+!
+      if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
+         dimensionless_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY) / refValues_ % rho
+      else
+         dimensionless_ % rho_max = maxval(dimensionless_ % rho)
+
+      end if
+
+      if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
+         dimensionless_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY) / refValues_ % rho
+      else
+         dimensionless_ % rho_min = minval(dimensionless_ % rho)
+
+      end if
 !
 !     *********************************************
 !     Choose the Riemann solver (by default is ERS)

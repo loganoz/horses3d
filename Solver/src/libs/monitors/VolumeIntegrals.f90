@@ -138,6 +138,8 @@ module VolumeIntegrals
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
          real(kind=RP)           :: free_en, fchem, entr
+         real(kind=RP)           :: Strain(NDIM,NDIM)
+         real(kind=RP)           :: mu
 
          Nel = e % Nxyz
 
@@ -352,7 +354,22 @@ module VolumeIntegrals
             KinEn = KinEn + (1.0_RP/thermodynamics % rho0c02)*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+
+!               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
+!               Strain(1,1) = e % storage % U_x(IGU,i,j,k)
+!               Strain(2,2) = e % storage % U_y(IGV,i,j,k)
+!               Strain(3,3) = e % storage % U_z(IGW,i,j,k)
+!
+!               Strain(1,2) = 0.5_RP * (e % storage % U_x(IGV,i,j,k) + e % storage % U_y(IGU,i,j,k))
+!               Strain(1,3) = 0.5_RP * (e % storage % U_x(IGW,i,j,k) + e % storage % U_z(IGU,i,j,k))
+!               Strain(2,3) = 0.5_RP * (e % storage % U_y(IGW,i,j,k) + e % storage % U_z(IGV,i,j,k))
+!         
+!               Strain(2,1) = Strain(1,2)
+!               Strain(3,1) = Strain(1,3)
+!               Strain(3,2) = Strain(2,3)
+               Strain = 0.0_RP
+
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (kinEn(i,j,k) + 2.0_RP*mu*sum(Strain*Strain))
             end do            ; end do           ; end do
 
 #endif

@@ -326,7 +326,7 @@ print*, "CH is BR1"
          do eID = 1, size(mesh % elements)
             mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,:,:,:)
 
-            mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, 1.0_RP),10.0_RP)
+            mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
          end do
 !$omp end do nowait
 
@@ -335,8 +335,8 @@ print*, "CH is BR1"
             mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,:,:)
             mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,:,:)
 
-            mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, 1.0_RP),10.0_RP)
-            mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, 1.0_RP),10.0_RP)
+            mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
+            mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
          end do
 !$omp end do
 !
@@ -564,6 +564,8 @@ print*, "CH is BR1"
          real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: muL, muR
+         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
+         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
@@ -574,13 +576,13 @@ print*, "CH is BR1"
 !
 !            - Premultiply velocity gradients by the viscosity
 !              -----------------------------------------------
-               f % storage(1) % U_x(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_x(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(1) % U_y(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_y(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(1) % U_z(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_z(IMSQRHOU:IMSQRHOW,i,j) 
+               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
+               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
+               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
 
-               f % storage(2) % U_x(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_x(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(2) % U_y(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_y(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(2) % U_z(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_z(IMSQRHOU:IMSQRHOW,i,j) 
+               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
+               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
+               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
 !      
 !              --------------
 !              Viscous fluxes
@@ -590,12 +592,12 @@ print*, "CH is BR1"
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  U_xLeft = UxL, &
+                                                  U_yLeft = UyL, &
+                                                  U_zLeft = UzL, &
+                                                  U_xRight = UxR, &
+                                                  U_yRight = UyR, &
+                                                  U_zRight = UzR, &
                                                   mu   = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &

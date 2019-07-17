@@ -265,56 +265,6 @@ module EllipticBR1
             end associate
          end do
 !$omp end do
-!
-!        ******************
-!        Wait for MPI faces
-!        ******************
-!
-!$omp single
-         if ( MPI_Process % doMPIAction ) then 
-            call mesh % GatherMPIFacesSolution(nEqn)
-         end if
-!$omp end single
-!
-!        *******************************
-!        Compute MPI interface solutions
-!        *******************************
-!
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_MPI) 
-               call IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients0D) 
- 
-            end select 
-            end associate 
-         end do            
-!$omp end do 
-!
-!        **************************************************
-!        Compute face integrals for elements with MPI faces
-!        **************************************************
-!
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID))
-            if ( .not. e % hasSharedFaces ) cycle
-            call ComputeLiftGradientFaceIntegrals(nGradEqn, e, mesh)
-!
-!           Prolong gradients
-!           -----------------
-            fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-                                             mesh % faces(fIDs(2)),&
-                                             mesh % faces(fIDs(3)),&
-                                             mesh % faces(fIDs(4)),&
-                                             mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
-
-            end associate
-         end do
-!$omp end do
 
       end subroutine BR1_LiftGradients
 
@@ -665,6 +615,7 @@ module EllipticBR1
          kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
                                POW2( dimensionless % Mach) * dimensionless % Pr ) * dimensionless % mu + e % storage % mu_art(3,:,:,:)
          beta  = e % storage % mu_art(2,:,:,:)
+
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call self % GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      
