@@ -25,8 +25,8 @@
 #define NNS NCONS
 #define NGRADNS NGRAD
 #elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
+#define NNS NCONS
+#define NGRADNS NCONS
 #endif
 
          SUBROUTINE UserDefinedStartup
@@ -278,6 +278,7 @@
 !           Usage example
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
+            S    = 0.0_RP
    
          end subroutine UserDefinedSourceTermNS
 #endif

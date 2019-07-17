@@ -1,11 +1,4 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
-#define NNS NCONS
-#define NGRADNS NGRAD
-#elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
-#endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicSplitForm
@@ -107,20 +100,22 @@ module HyperbolicSplitForm
 !
 !           Skew-symmetric version of the standard DG. Useful for testing
 !           -------------------------------------------------------------
-print*, "STANDARD!!"
             self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
             splitType = STANDARD_SPLIT
 
-         case("skew-symmetric")
-print*, "SKEW!!"
-            self % ComputeVolumetricSharpFlux => SkewSymmetricDG_VolumetricSharpFlux
-            splitType = SKEWSYMMETRIC_SPLIT
+         case("skew-symmetric-1split")
+            self % ComputeVolumetricSharpFlux => SkewSymmetric1DG_VolumetricSharpFlux
+            splitType = SKEWSYMMETRIC1_SPLIT
+         case("skew-symmetric-2split")
+            self % ComputeVolumetricSharpFlux => SkewSymmetric2DG_VolumetricSharpFlux
+            splitType = SKEWSYMMETRIC2_SPLIT
          case default
             if ( MPI_Process % isRoot ) then   
             write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
             write(STD_OUT,'(A)') "Implemented split forms are:"
             write(STD_OUT,'(A)') "  * Standard"
-            write(STD_OUT,'(A)') "  * Skew-symmetric"
+            write(STD_OUT,'(A)') "  * Skew-symmetric-1split"
+            write(STD_OUT,'(A)') "  * Skew-symmetric-2split"
             errorMessage(STD_OUT)
             stop 
             end if
@@ -193,6 +188,17 @@ print*, "SKEW!!"
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
          
          end select
+#else if defined(INCNS)
+         select case ( splitType )
+         case (STANDARD_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
+
+         case (SKEWSYMMETRIC1_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Skew-Symmetric (1split)"
+
+         case (SKEWSYMMETRIC2_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Skew-Symmetric (2split)"
+         end select
 #endif
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
@@ -211,10 +217,10 @@ print*, "SKEW!!"
          implicit none
          class(SplitDG_t), intent(in)  :: self
          type(Element),    intent(in)  :: e
-         real(kind=RP),    intent(in)  :: contravariantFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),    intent(out) :: fSharp(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: gSharp(1:NNS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),    intent(out) :: hSharp(1:NNS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),    intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),    intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 !
 !        ---------------
 !        Local variables
@@ -830,11 +836,11 @@ print*, "SKEW!!"
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NINC)
-         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(NINC)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -843,9 +849,10 @@ print*, "SKEW!!"
          real(kind=RP)     :: rhoL, uL, vL, wL, pL, invRhoL
          real(kind=RP)     :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP)     :: Ja(1:NDIM)
-         real(kind=RP)     :: f(NINC), g(NINC), h(NINC)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
-         rhoL    = QL(INSRHO)            ; rhoR    = QR(INSRHO)
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
          invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
          uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
          vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
@@ -883,15 +890,84 @@ print*, "SKEW!!"
 
       end subroutine StandardDG_VolumetricSharpFlux
 
-      subroutine SkewSymmetricDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+      subroutine SkewSymmetric1DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NINC)
-         real(kind=RP), intent(in)       :: QR(1:NINC)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(NINC)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP) :: rho, u, v, w, p, rhou, rhov, rhow
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+
+         rhou = 0.5_RP * (QL(INSRHOU) + QR(INSRHOU))
+         rhov = 0.5_RP * (QL(INSRHOV) + QR(INSRHOV))
+         rhow = 0.5_RP * (QL(INSRHOW) + QR(INSRHOW))
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rhou
+         f(INSRHOU) = rhou*u + p
+         f(INSRHOV) = rhou*v
+         f(INSRHOW) = rhou*w
+         f(INSP)    = thermodynamics % rho0c02 * u
+
+         g(INSRHO)  = rhov
+         g(INSRHOU) = rhov*u
+         g(INSRHOV) = rhov*v + p
+         g(INSRHOW) = rhov*w
+         g(INSP)    = thermodynamics % rho0c02 * v
+
+         h(INSRHO)  = rhow
+         h(INSRHOU) = rhow*u
+         h(INSRHOV) = rhow*v
+         h(INSRHOW) = rhow*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------         
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
+
+      end subroutine SkewSymmetric1DG_VolumetricSharpFlux
+
+
+      subroutine SkewSymmetric2DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -901,9 +977,11 @@ print*, "SKEW!!"
          real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP) :: rho, u, v, w, p
          real(kind=RP) :: Ja(1:NDIM)
-         real(kind=RP) :: f(NINC), g(NINC), h(NINC)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
 
-         rhoL    = QL(INSRHO)            ; rhoR    = QR(INSRHO)
+         rhoL    = QL(INSRHO)       
+         rhoR    = QR(INSRHO)
+
          invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
          uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
          vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
@@ -916,7 +994,7 @@ print*, "SKEW!!"
          w   = 0.5_RP * (wL + wR)
          p   = 0.5_RP * (pL + pR)
 !
-!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        Average metrics
 !        ---------------
          Ja = 0.5_RP * (JaL + JaR)
 !
@@ -944,7 +1022,7 @@ print*, "SKEW!!"
 !        ----------------------         
          fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
 
-      end subroutine SkewSymmetricDG_VolumetricSharpFlux
+      end subroutine SkewSymmetric2DG_VolumetricSharpFlux
 #endif
 end module HyperbolicSplitForm
 #endif

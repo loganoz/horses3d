@@ -1,10 +1,10 @@
 #!/bin/bash
-######################################################################
-##	This script configures the test cases:
-##		-> Copies Makefiles with the solver absolute path
-##		-> Generates the required folders.
-##		-> Generates links to the solver.
-######################################################################
+#######################################################################
+###	This script configures the test cases:
+###		-> Copies Makefiles with the solver absolute path
+###		-> Generates the required folders.
+###		-> Generates links to the solver.
+#######################################################################
 
 ##################################################
 ## 	APPLY A PATCH IF REQUESTED 		##
@@ -63,7 +63,11 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./CahnHilliard/Bubble \
 	    ./CahnHilliard/Pipe \
             ./iNSCH/RisingBubble \
-            ./iNSCH/TJokisaari"
+            ./iNSCH/TJokisaari \
+		./Particles/FreeFall \
+		./Particles/RadiationHeat \
+		./Particles/Pouransari \
+		./Particles/ParticleBoundaryCond " 
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
@@ -89,8 +93,7 @@ for subdir in $TEST_CASES; do
 	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
-	ln -fsv $PWD/bin/horses3d.nsch ./test/$subdir
-	ln -fsv $PWD/bin/horses3d.insch ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
 done
 
 
@@ -106,4 +109,5 @@ cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
 mkdir -p ./test/Components/Gradients/MESH
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
 rm -f ./test/Components/Gradients/Makefile-e
+
 

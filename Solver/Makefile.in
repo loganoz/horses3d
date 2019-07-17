@@ -55,14 +55,12 @@ ifeq ($(PLATFORM),MACOSX)
    PROBLEM_LIB_NS=$(HOME_DIR)/lib/libproblemfile_ns.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
    PROBLEM_LIB_iNS=$(HOME_DIR)/lib/libproblemfile_ins.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
    PROBLEM_LIB_CH=$(HOME_DIR)/lib/libproblemfile_ch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
-   PROBLEM_LIB_NSCH=$(HOME_DIR)/lib/libproblemfile_nsch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
-   PROBLEM_LIB_iNSCH=$(HOME_DIR)/lib/libproblemfile_insch.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
+   PROBLEM_LIB_MU=$(HOME_DIR)/lib/libproblemfile_mu.dylib -Wl,-rpath,./SETUP,-rpath,$(HOME_DIR)/lib
 else ifeq ($(PLATFORM),LINUX)
    PROBLEM_LIB_NS=-L$(HOME_DIR)/lib -lproblemfile_ns -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_iNS=-L$(HOME_DIR)/lib -lproblemfile_ins -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
    PROBLEM_LIB_CH=-L$(HOME_DIR)/lib -lproblemfile_ch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
-   PROBLEM_LIB_NSCH=-L$(HOME_DIR)/lib -lproblemfile_nsch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
-   PROBLEM_LIB_iNSCH=-L$(HOME_DIR)/lib -lproblemfile_insch -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
+   PROBLEM_LIB_MU=-L$(HOME_DIR)/lib -lproblemfile_mu -Wl,-rpath=./SETUP,-rpath=$(HOME_DIR)/lib
 endif
 
 ##########################################
@@ -180,12 +178,11 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics/incns physics/navierstokes physics/cahnhilliard physics/common mesh particles monitors problemfile discretization jacobian timeintegrator
+HORSES_LIBS=ftobject foundation mpiutils spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/common mesh particles monitors problemfile discretization jacobian timeintegrator
 HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_NSCH=-L$(HOME_DIR)/lib -ltimeintegrator_nsch -ljacobian_nsch -ldiscretization_nsch -lmonitors_nsch -lparticles_nsch -lmesh_nsch -lphysics_nsch -lphysicsch -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
-HORSES_LIBS_iNSCH=-L$(HOME_DIR)/lib -ltimeintegrator_insch -ljacobian_insch -ldiscretization_insch -lmonitors_insch -lparticles_insch -lmesh_insch -lphysics_insch -lphysicsch -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject
+HORSES_LIBS_MU=-L$(HOME_DIR)/lib -ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject
 ADDONS=horses2tecplot extractgeometry mergeStatistics
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
@@ -232,22 +229,12 @@ HORSES_CH_FLAGS= FC='$(FC)' \
 	         MACROS='$(MACROS)' \
 	   	 LIBS='$(LIBS)'
 
-HORSES_NSCH_FLAGS= FC='$(FC)' \
+HORSES_MU_FLAGS= FC='$(FC)' \
  	         FFLAGS='$(FFLAGS)'\
                  INCLUDE='$(INCLUDE)' \
                  INSTALL_DIR='$(INSTALL_DIR)' \
 	         MOD_FLAG='$(MOD_FLAG)'\
-	         HORSES_LIBS_EXEC='$(HORSES_LIBS_NSCH) $(PROBLEM_LIB_NSCH)' \
-	         EXTLIB_INC='$(EXTLIB_INC)' \
-	         MACROS='$(MACROS)' \
-	   	 LIBS='$(LIBS)'
-
-HORSES_iNSCH_FLAGS= FC='$(FC)' \
- 	         FFLAGS='$(FFLAGS)'\
-                 INCLUDE='$(INCLUDE)' \
-                 INSTALL_DIR='$(INSTALL_DIR)' \
-	         MOD_FLAG='$(MOD_FLAG)'\
-	         HORSES_LIBS_EXEC='$(HORSES_LIBS_iNSCH) $(PROBLEM_LIB_iNSCH)' \
+	         HORSES_LIBS_EXEC='$(HORSES_LIBS_MU) $(PROBLEM_LIB_MU)' \
 	         EXTLIB_INC='$(EXTLIB_INC)' \
 	         MACROS='$(MACROS)' \
 	   	 LIBS='$(LIBS)'
@@ -269,7 +256,7 @@ ADDONSFLAGS= FC='$(FC)' \
 
 .DEFAULT_GOAL := all
 
-all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.nsch horses3d.insch addons
+all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.mu addons
 
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
@@ -280,11 +267,8 @@ horses3d.ins:
 horses3d.ch: 
 	(cd $(HOME_DIR)/src/CahnHilliardSolver/ && $(MAKE) $(HORSES_CH_FLAGS) install) || exit 1; 
 
-horses3d.nsch: 
-	(cd $(HOME_DIR)/src/NSCHSolver/ && $(MAKE) $(HORSES_NSCH_FLAGS) install) || exit 1; 
-
-horses3d.insch: 
-	(cd $(HOME_DIR)/src/iNSCHSolver/ && $(MAKE) $(HORSES_iNSCH_FLAGS) install) || exit 1; 
+horses3d.mu: 
+	(cd $(HOME_DIR)/src/MultiphaseSolver/ && $(MAKE) $(HORSES_MU_FLAGS) install) || exit 1; 
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS) ; do \
@@ -318,13 +302,11 @@ clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 	@rm -f $(HOME_DIR)/build_ns/*.o* $(HOME_DIR)/include_ns/*.mod $(HOME_DIR)/include_ns/*.h
 	@rm -f $(HOME_DIR)/build_ins/*.o* $(HOME_DIR)/include_ins/*.mod $(HOME_DIR)/include_ins/*.h
 	@rm -f $(HOME_DIR)/build_ch/*.o* $(HOME_DIR)/include_ch/*.mod $(HOME_DIR)/include_ch/*.h
-	@rm -f $(HOME_DIR)/build_nsch/*.o* $(HOME_DIR)/include_nsch/*.mod $(HOME_DIR)/include_nsch/*.h
-	@rm -f $(HOME_DIR)/build_insch/*.o* $(HOME_DIR)/include_insch/*.mod $(HOME_DIR)/include_insch/*.h
+	@rm -f $(HOME_DIR)/build_mu/*.o* $(HOME_DIR)/include_mu/*.mod $(HOME_DIR)/include_mu/*.h
 	@rm -f $(HOME_DIR)/lib/libproblemfile_ns.so
 	@rm -f $(HOME_DIR)/lib/libproblemfile_ch.so
-	@rm -f $(HOME_DIR)/lib/libproblemfile_nsch.so
+	@rm -f $(HOME_DIR)/lib/libproblemfile_mu.so
 	@rm -f $(HOME_DIR)/lib/libproblemfile_ins.so
-	@rm -f $(HOME_DIR)/lib/libproblemfile_insch.so
 
 test: all
 	(cd $(HOME_DIR)/test/Euler/Diffuser/SETUP && $(MAKE) MODE=$(MODE) COMPILER=$(COMPILER) COMM=$(COMM) allclean all \
@@ -348,8 +330,7 @@ horsesclean: FORCE
 	(cd $(HOME_DIR)/src/NavierStokesSolver && $(MAKE) $(HORSES_NS_FLAGS) clean) || exit 1;
 	(cd $(HOME_DIR)/src/IncompressibleNSSolver && $(MAKE) $(HORSES_iNS_FLAGS) clean) || exit 1;
 	(cd $(HOME_DIR)/src/CahnHilliardSolver && $(MAKE) $(HORSES_CH_FLAGS) clean) || exit 1;
-	(cd $(HOME_DIR)/src/NSCHSolver && $(MAKE) $(HORSES_NSCH_FLAGS) clean) || exit 1;
-	(cd $(HOME_DIR)/src/iNSCHSolver && $(MAKE) $(HORSES_iNSCH_FLAGS) clean) || exit 1;
+	(cd $(HOME_DIR)/src/MultiphaseSolver && $(MAKE) $(HORSES_MU_FLAGS) clean) || exit 1;
 
 addonsclean: FORCE
 	@for subdir in $(ADDONS); do \
@@ -357,8 +338,8 @@ addonsclean: FORCE
 	done
 
 mkdirs: FORCE
-	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_ins $(HOME_DIR)/build_ch $(HOME_DIR)/build_nsch $(HOME_DIR)/build_insch
-	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_ins $(HOME_DIR)/include_ch $(HOME_DIR)/include_nsch $(HOME_DIR)/include_insch
+	@mkdir -p $(HOME_DIR)/build $(HOME_DIR)/build_ns $(HOME_DIR)/build_ins $(HOME_DIR)/build_ch $(HOME_DIR)/build_mu
+	@mkdir -p $(HOME_DIR)/include $(HOME_DIR)/include_ns $(HOME_DIR)/include_ins $(HOME_DIR)/include_ch $(HOME_DIR)/include_mu
 	@mkdir -p $(HOME_DIR)/bin
 	@mkdir -p $(HOME_DIR)/lib
 

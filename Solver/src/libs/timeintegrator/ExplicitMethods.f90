@@ -10,6 +10,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+#include "Includes.h"
 MODULE ExplicitMethods
    USE SMConstants
    use HexMeshClass
@@ -43,7 +44,7 @@ MODULE ExplicitMethods
 !     -----------------
 !
       type(HexMesh)      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -68,12 +69,12 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
              mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
              mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
 #endif
 
-#if defined(CAHNHILLIARD)
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
             mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
             mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
@@ -81,6 +82,9 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
       END DO
+!
+!     ***** Uncomment this line for good monitors time derivative
+!      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements
@@ -102,7 +106,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -127,12 +131,12 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES)
+#ifdef FLOW
              mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
              mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
 #endif
 
-#if defined(CAHNHILLIARD)
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
             mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
             mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
 #endif
@@ -161,7 +165,7 @@ MODULE ExplicitMethods
 !
       implicit none
       type(HexMesh)                   :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       type(Particles_t)  :: particles
 #else
       logical            :: particles
@@ -179,11 +183,11 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#if defined(NAVIERSTOKES)
+#ifdef FLOW
             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q  + deltaT*mesh % elements(id) % storage % QDot
 #endif
 
-#if defined(CAHNHILLIARD)
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
             mesh % elements(id) % storage % c = mesh % elements(id) % storage % c  + deltaT*mesh % elements(id) % storage % cDot
 #endif
          END DO

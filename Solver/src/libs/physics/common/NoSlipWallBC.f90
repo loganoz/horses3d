@@ -56,20 +56,20 @@ module NoSlipWallBCClass
       real(kind=RP)     :: ewall       ! Wall internal energy
       real(kind=RP)     :: kWallType
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP)     :: vWall(NDIM)
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       real(kind=RP)     :: thetaw
 #endif
       contains
          procedure         :: Destruct          => NoSlipWallBC_Destruct
          procedure         :: Describe          => NoSlipWallBC_Describe
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure         :: FlowState         => NoSlipWallBC_FlowState
          procedure         :: FlowNeumann       => NoSlipWallBC_FlowNeumann
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => NoSlipWallBC_PhaseFieldState
          procedure         :: PhaseFieldNeumann => NoSlipWallBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => NoSlipWallBC_ChemPotState
@@ -202,7 +202,7 @@ module NoSlipWallBCClass
             ConstructNoSlipWallBC % kWallType = 1.0_RP
          end if
 #endif
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          if ( bcdict % ContainsKey("wall velocity") ) then
             ConstructNoSlipWallBC % vWall = getRealArrayFromString( bcdict % StringValueForKey("wall velocity",&
                                                                                            LINE_LENGTH))    
@@ -211,7 +211,7 @@ module NoSlipWallBCClass
             ConstructNoSlipWallBC % vWall = 0.0_RP
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          call GetValueWithDefault(bcdict, "contact angle", 0.0_RP, ConstructNoSlipWallBC % thetaw)
 #endif
 
@@ -227,10 +227,10 @@ module NoSlipWallBCClass
          implicit none
          class(NoSlipWallBC_t),  intent(in)  :: self
          write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "NoSlipWall"
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          write(STD_OUT,'(30X,A,A28,A,F10.2,A,F10.2,A,F10.2,A)') "->", ' Wall velocity: ',"[",self % vWall(1),",",self % vWall(2),",",self % vWall(3),"]"
 #endif
-#if defined(NAVIERSTOKES) 
+#ifdef NAVIERSTOKES
          if ( self % isAdiabatic ) then
             write(STD_OUT,'(30X,A,A28,A)') "->", ' Thermal type: ', "Adiabatic"
 
@@ -240,7 +240,7 @@ module NoSlipWallBCClass
             write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall temperature: ', self % Twall
          end if
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
 #endif
          
@@ -379,7 +379,7 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 
          Q(INSRHOU:INSRHOW) = 2.0_RP * self % vWall - Q(INSRHOU:INSRHOW)
 
@@ -391,10 +391,10 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
 !
 !        ---------------
 !        Local Variables
@@ -429,6 +429,81 @@ module NoSlipWallBCClass
 
       end subroutine NoSlipWallBC_FlowNeumann
 #endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!        Subroutines for the multiphase solver
+!        -------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#ifdef MULTIPHASE
+      subroutine NoSlipWallBC_FlowState(self, x, t, nHat, Q)
+!
+!        *************************************************************
+!           Compute the state variables for a general wall
+!
+!           · Density is computed from the interior state
+!           · Wall velocity is set to 2v_wall - v_interior
+!           · Pressure is computed from the interior state
+!        *************************************************************
+!
+
+         implicit none
+         class(NoSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+
+         Q(IMSQRHOU:IMSQRHOW) = 2.0_RP * self % vWall - Q(IMSQRHOU:IMSQRHOW)
+
+      end subroutine NoSlipWallBC_FlowState
+
+      subroutine NoSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(NoSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+!
+         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
+!
+!
+!        Remove the normal component of the chemical potential gradient
+!        --------------------------------------------------------------
+         gradUNorm =  nHat(1)*U_x(IGMU) + nHat(2)*U_y(IGMU)+ nHat(3)*U_z(IGMU)
+         UTanx = U_x(IGMU) - gradUNorm*nHat(1)
+         UTany = U_y(IGMU) - gradUNorm*nHat(2)
+         UTanz = U_z(IGMU) - gradUNorm*nHat(3)
+   
+         U_x(IGMU) = UTanx - gradUNorm*nHat(1)
+         U_y(IGMU) = UTany - gradUNorm*nHat(2)
+         U_z(IGMU) = UTanz - gradUNorm*nHat(3)
+!
+!        Remove the normal component of the pressure gradient
+!        ----------------------------------------------------
+         gradUNorm =  nHat(1)*U_x(IMP) + nHat(2)*U_y(IMP)+ nHat(3)*U_z(IMP)
+         UTanx = U_x(IMP) - gradUNorm*nHat(1)
+         UTany = U_y(IMP) - gradUNorm*nHat(2)
+         UTanz = U_z(IMP) - gradUNorm*nHat(3)
+   
+         U_x(IMP) = UTanx - gradUNorm*nHat(1)
+         U_y(IMP) = UTany - gradUNorm*nHat(2)
+         U_z(IMP) = UTanz - gradUNorm*nHat(3)
+
+      end subroutine NoSlipWallBC_FlowNeumann
+#endif
+
 !
 !////////////////////////////////////////////////////////////////////////////
 !

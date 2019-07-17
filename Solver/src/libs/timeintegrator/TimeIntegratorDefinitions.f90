@@ -10,6 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module TimeIntegratorDefinitions
    use SMConstants
    implicit none
@@ -22,12 +23,12 @@ module TimeIntegratorDefinitions
          use SMConstants
          use HexMeshClass
          use DGSEMClass
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)              :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Particles_t)          :: particles
 #else
          logical                    :: particles

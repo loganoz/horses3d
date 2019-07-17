@@ -410,7 +410,7 @@ module InflowBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -477,10 +477,10 @@ module InflowBCClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
 !
 !        ---------------
 !        Local Variables

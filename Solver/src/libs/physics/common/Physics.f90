@@ -15,6 +15,8 @@ module Physics
    use Physics_NS
 #elif defined(INCNS)
    use Physics_iNS
+#elif defined(MULTIPHASE)
+   use Physics_MU
 #endif
 #if defined(CAHNHILLIARD)
    use Physics_CH

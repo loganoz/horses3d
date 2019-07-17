@@ -47,16 +47,16 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: EXACT_SOLVER_NAME       = "exact"
 
-         !PARTICLES 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gx_PART_KEY              = "gravity_x" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gy_PART_KEY              = "gravity_y" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: gz_PART_KEY              = "gravity_z" 
+         ! !PARTICLES 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
+         ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box"          
       END MODULE Physics_iNSKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -72,12 +72,12 @@
      IMPLICIT NONE
 
      private
-     public    NINC
+     public    NCONS, NGRAD
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
-     public    STANDARD_SPLIT, SKEWSYMMETRIC_SPLIT
-     public    enableGravity, enableDensityLimiter
+     public    STANDARD_SPLIT, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
+     public    enableGravity
       
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
      public    CheckPhysics_iNSInputIntegrity
@@ -92,7 +92,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NINC = 5
+     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
@@ -116,7 +116,7 @@
 !    -----------------------------
 !
      enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC_SPLIT
+        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
      end enum
      integer            :: whichAverage               = -1
 !
@@ -126,7 +126,6 @@
 !
      real(kind=RP), protected :: lambdaStab            = 1.0_RP     
      logical, protected       :: enableGravity         = .false.
-     logical, protected       :: enableDensityLimiter = .false.
 !
 !    ========
      contains
@@ -203,7 +202,6 @@
 
       if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
          thermodynamics_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY)
-         enableDensityLimiter = .true.
       else
          thermodynamics_ % rho_max = huge(1.0_RP)
 
@@ -211,11 +209,11 @@
 
       if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
          thermodynamics_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY)
-         enableDensityLimiter = .true.
       else
-         thermodynamics_ % rho_min = 0.0_RP
+         thermodynamics_ % rho_min = -huge(1.0_RP)
 
       end if
+
 !
 !     ********************
 !     Set reference values
@@ -246,6 +244,8 @@
             dimensionless_ % Re    = 0.0_RP
    
          end if
+      else
+         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
       end if
 !
 !     **************************

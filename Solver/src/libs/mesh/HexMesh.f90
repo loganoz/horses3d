@@ -1864,7 +1864,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
             call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NGRAD, MPI_NDOFS)
 #elif defined(INCNS)
-            call ConstructMPIFacesStorage(self % MPIfaces, NINC, NINC, MPI_NDOFS)
+            call ConstructMPIFacesStorage(self % MPIfaces, NCONS, NCONS, MPI_NDOFS)
 #elif defined(CAHNHILLIARD)
             call ConstructMPIFacesStorage(self % MPIfaces, NCOMP, NCOMP, MPI_NDOFS)
 #endif
@@ -2666,7 +2666,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
             Q(1:NCONS,:,:,:) = e % storage % Q
 #elif defined(INCNS)
-            Q(1:NINC,:,:,:)  = e % storage % Q
+            Q(1:NCONS,:,:,:)  = e % storage % Q
 #endif
 #if defined(CAHNHILLIARD)
             Q(NTOTALVARS,:,:,:) = e % storage % c(1,:,:,:)
@@ -2683,7 +2683,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_x
 #elif defined(INCNS)
-               Q(1:NINC,:,:,:) = e % storage % U_x
+               Q(1:NCONS,:,:,:) = e % storage % U_x
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_x(1,:,:,:)
@@ -2693,7 +2693,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_y
 #elif defined(INCNS)
-               Q(1:NINC,:,:,:) = e % storage % U_y
+               Q(1:NCONS,:,:,:) = e % storage % U_y
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_y(1,:,:,:)
@@ -2703,7 +2703,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
                Q(1:NGRAD,:,:,:) = e % storage % U_z
 #elif defined(INCNS)
-               Q(1:NINC,:,:,:) = e % storage % U_z
+               Q(1:NCONS,:,:,:) = e % storage % U_z
 #endif
 #if defined(CAHNHILLIARD)
                Q(NTOTALGRADS,:,:,:) = e % storage % c_z(1,:,:,:)
@@ -3018,7 +3018,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
             e % storage % QNS = Q(1:NCONS,:,:,:)
 #elif defined(INCNS)
-            e % storage % QNS = Q(1:NINC,:,:,:)
+            e % storage % QNS = Q(1:NCONS,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
             e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
@@ -3032,7 +3032,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)               
                e % storage % U_x = Q(1:NTOTALGRADS,:,:,:)
 #elif defined(INCNS)
-               e % storage % U_x = Q(1:NINC,:,:,:)
+               e % storage % U_x = Q(1:NCONS,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
                e % storage % c_x(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
@@ -3042,7 +3042,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)               
                e % storage % U_y = Q(1:NTOTALGRADS,:,:,:)
 #elif defined(INCNS)
-               e % storage % U_y = Q(1:NINC,:,:,:)
+               e % storage % U_y = Q(1:NCONS,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
                e % storage % c_y(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
@@ -3051,7 +3051,7 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)               
                e % storage % U_z = Q(1:NTOTALGRADS,:,:,:)
 #elif defined(INCNS)
-               e % storage % U_z = Q(1:NINC,:,:,:)
+               e % storage % U_z = Q(1:NCONS,:,:,:)
 #endif
 #if defined(CAHNHILLIARD)
                e % storage % c_z(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
@@ -3513,7 +3513,7 @@ slavecoord:             DO l = 1, 4
       call GetStorageEquations(off, ns, c, mu)
 
       if ( which .eq. ns ) then
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          self % storage % Q => self % storage % QNS 
          self % storage % QDot => self % storage % QDotNS 
          self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)

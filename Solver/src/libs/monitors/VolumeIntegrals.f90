@@ -16,7 +16,11 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
+#endif
+
+#if defined(INCNS)
+   public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -31,7 +35,10 @@ module VolumeIntegrals
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
-      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, MOMENTUM, SOURCE
+      enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
+#endif
+#if defined(INCNS)
+      enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -62,7 +69,8 @@ module VolumeIntegrals
 !              * VELOCITY
 !              * ENTROPY
 !              * ENTROPY_RATE
-!              * FREE_ENERGY
+!              * INTERNAL ENERGY
+!              * FREE_ENERGY            
 !        -----------------------------------------------------------
 !
 
@@ -122,7 +130,7 @@ module VolumeIntegrals
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem
+         real(kind=RP)           :: free_en, fchem, entr
 
          Nel = e % Nxyz
 
@@ -248,7 +256,80 @@ module VolumeIntegrals
                s   =  dtP/p - thermodynamics % gamma * e % storage % QDot(IRHO,i,j,k) / e % storage % Q(IRHO,i,j,k) 
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
             end do            ; end do           ; end do
+         case ( INTERNAL_ENERGY )
+            !
+            !           ***********************************
+            !              Computes the internal energy
+            !              integral:
+            !              \rho e = \int \rho e dV
+            !           ***********************************
+            !
+            
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
+            end do            ; end do           ; end do
+            
 #endif
+#if defined(INCNS)
+         case (MASS)
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(INSRHO,i,j,k)
+            end do            ; end do           ; end do
+
+         case (ENTROPY)
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               entr =   0.5_RP*(sum(POW2(e % storage % Q(INSRHOU:INSRHOW,i,j,k))))/e % storage % Q(INSRHO,i,j,k) &
+                         + 0.5_RP * POW2(e % storage % Q(INSP,i,j,k)) / thermodynamics % rho0c02
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * entr
+            end do            ; end do           ; end do
+
+         case (KINETIC_ENERGY_RATE)
+!
+!           ***********************************
+!              Computes the kinetic energy
+!              time derivative:
+!              K_t = (d/dt)\int \rho V^2 dV
+!           ***********************************
+!
+            uvw = e % storage % Q(INSRHOU,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = uvw * e % storage % QDot(INSRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            uvw = e % storage % Q(INSRHOV,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(INSRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            uvw = e % storage % Q(INSRHOW,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(INSRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+            end do            ; end do           ; end do
+
+         case (ENTROPY_RATE)
+!
+!           ***********************************
+!              Computes the kinetic energy
+!              time derivative:
+!              K_t = (d/dt)\int \rho V^2 dV
+!           ***********************************
+!
+            uvw = e % storage % Q(INSRHOU,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = uvw * e % storage % QDot(INSRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            uvw = e % storage % Q(INSRHOV,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(INSRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            uvw = e % storage % Q(INSRHOW,:,:,:) / e % storage % Q(INSRHO,:,:,:)
+            KinEn = KinEn + uvw * e % storage % QDot(INSRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(INSRHO,:,:,:)
+
+            KinEn = KinEn + (1.0_RP/thermodynamics % rho0c02)*e % storage % Q(INSP,:,:,:)*e % storage % QDot(INSP,:,:,:)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+            end do            ; end do           ; end do
+
+
+#endif
+
 #if defined(CAHNHILLIARD)            
          case (FREE_ENERGY)
 
@@ -392,6 +473,12 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
+
+            case ( PSOURCE )
+               
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
+               end do            ; end do           ; end do               
 #endif
             case default
                

@@ -100,7 +100,7 @@
 !        ----------------------------------------------------------------------------------
 !
          IF (controlVariables % containsKey("cfl")) THEN
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
             self % Compute_dt = .TRUE.
             self % cfl        = controlVariables % doublePrecisionValueForKey("cfl")
 #if defined(NAVIERSTOKES)
@@ -135,6 +135,27 @@
          self % outputInterval =  controlVariables % integerValueForKey("output interval")
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
+
+         if ( controlVariables % ContainsKey("explicit method") ) then
+            select case ((controlVariables % StringValueForKey("explicit method",LINE_LENGTH)))
+            case("Euler")
+               self % RKStep => TakeExplicitEulerStep
+print*, "Method selected: Euler"
+
+            case("RK3")
+               self % RKStep => TakeRK3Step
+print*, "Method selected: RK3"
+
+            case("RK5")
+               self % RKStep => TakeRK5Step
+print*, "Method selected: RK5"
+
+            end select
+         else
+            self % RKStep => TakeRK3Step
+
+         end if
+
 !
 !        ------------------------------------
 !        Integrator-dependent initializarions
@@ -394,7 +415,7 @@
          call RosenbrockSolver % construct(controlVariables,sem)
 
       end select
-      
+          
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
@@ -463,8 +484,18 @@
 !        Integration of particles
 !        ------------------------
          if ( sem % particles % active ) then 
+
             call sem % particles % Integrate(sem % mesh, dt)
+
+            if ( sem % particles % injection % active ) then 
+               if ( (MOD(k+1, sem % particles % injection % period) == 0 ) .or. (k .eq. self % initial_iter) ) then 
+                  call sem % particles % inject( sem % mesh )
+               endif 
+            endif 
+
          endif 
+
+
 #endif
 !
 !        Print monitors
@@ -482,7 +513,11 @@
 !        --------         
          if ( self % autosave % Autosave(k+1) ) then
             call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
-   
+#if defined(NAVIERSTOKES)            
+            if ( sem % particles % active ) then 
+               call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
+            end if 
+#endif 
          end if
 
 !        Flush monitors
@@ -491,6 +526,7 @@
          
          sem % numberOfTimeSteps = k + 1
       END DO
+
 !
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------

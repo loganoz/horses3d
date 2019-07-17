@@ -52,7 +52,7 @@ module UserDefinedBCClass
       integer     :: udf_no
       contains
          procedure         :: Destruct          => UserDefinedBC_Destruct
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure         :: FlowState         => UserDefinedBC_FlowState
          procedure         :: FlowNeumann       => UserDefinedBC_FlowNeumann
 #endif
@@ -211,12 +211,12 @@ module UserDefinedBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Subroutines for compressible Navier--Stokes equations
-!        -----------------------------------------------------
+!        Subroutines for Navier--Stokes equations
+!        ----------------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#ifdef FLOW
       subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(UserDefinedBC_t),   intent(in)    :: self
@@ -232,8 +232,8 @@ module UserDefinedBCClass
          interface
             subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
-               use PhysicsStorage_NS
-               use FluidData_NS
+               use PhysicsStorage
+               use FluidData
                implicit none
                real(kind=RP)  :: x(NDIM)
                real(kind=RP)  :: t
@@ -285,87 +285,6 @@ module UserDefinedBCClass
          case default
             print*, "Unrecognized UDF number for boundary", self % bname
          end select
-
-      end subroutine UserDefinedBC_FlowNeumann
-#endif
-!
-!////////////////////////////////////////////////////////////////////////////
-!
-!        Subroutines for incompressible Navier--Stokes equations
-!        -------------------------------------------------------
-!
-!////////////////////////////////////////////////////////////////////////////
-!
-#if defined(INCNS)
-      subroutine UserDefinedBC_FlowState(self, x, t, nHat, Q)
-         implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         interface
-            subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-               use SMConstants
-               use PhysicsStorage_iNS
-               use FluidData_iNS
-               implicit none
-               real(kind=RP)  :: x(NDIM)
-               real(kind=RP)  :: t
-               real(kind=RP)  :: nHat(NDIM)
-               real(kind=RP)  :: Q(NINC)
-               type(Thermodynamics_t), intent(in)  :: thermodynamics_
-               type(Dimensionless_t),  intent(in)  :: dimensionless_
-               type(RefValues_t),      intent(in)  :: refValues_
-            end subroutine UserDefinedState1
-         end interface
-
-         select case(self % udf_no)
-         case(1)
-            call UserDefinedState1(x, t, nHat, Q, thermodynamics, dimensionless, refValues)
-         case default
-            print*, "Unrecognized UDF number for boundary", self % bname
-         end select
-
-      end subroutine UserDefinedBC_FlowState
-
-      subroutine UserDefinedBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
-         implicit none
-         class(UserDefinedBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
-         interface
-            subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
-            use SMConstants
-            use PhysicsStorage
-            use FluidData
-            implicit none
-            real(kind=RP), intent(in)     :: x(NDIM)
-            real(kind=RP), intent(in)     :: t
-            real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NINC)
-            real(kind=RP), intent(inout)  :: U_y(NINC)
-            real(kind=RP), intent(inout)  :: U_z(NINC)
-            end subroutine UserDefinedNeumann1
-         end interface
-
-         select case(self % udf_no)
-         case(1)
-            call UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
-         case default
-            print*, "Unrecognized UDF number for boundary", self % bname
-         end select
-
 
       end subroutine UserDefinedBC_FlowNeumann
 #endif

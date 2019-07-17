@@ -111,11 +111,11 @@ module FluidData_iNS
          type(Dimensionless_t),  intent(in)     :: dimensionless_
 
          if(allocated(dimensionless % rho)) deallocate(dimensionless % rho)
-         allocate(dimensionless % rho(size(dimensionless % rho)))
+         allocate(dimensionless % rho(size(dimensionless_ % rho)))
          dimensionless % rho              = dimensionless_ % rho              
 
          if(allocated(dimensionless % mu )) deallocate(dimensionless % mu )
-         allocate(dimensionless % mu (size(dimensionless % mu)))
+         allocate(dimensionless % mu (size(dimensionless_ % mu)))
          dimensionless % mu               = dimensionless_ % mu               
 
          dimensionless % Re              = dimensionless_ % Re

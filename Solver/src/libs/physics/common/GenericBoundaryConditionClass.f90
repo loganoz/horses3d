@@ -58,11 +58,11 @@ module GenericBoundaryConditionClass
          procedure         :: Destruct          => GenericBC_Destruct
          procedure         :: Describe          => GenericBC_Describe
          procedure         :: GetPeriodicPair   => GenericBC_GetPeriodicPair
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure         :: FlowState         => GenericBC_FlowState
          procedure         :: FlowNeumann       => GenericBC_FlowNeumann
 #endif
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
          procedure         :: PhaseFieldState   => GenericBC_PhaseFieldState
          procedure         :: PhaseFieldNeumann => GenericBC_PhaseFieldNeumann
          procedure         :: ChemPotState      => GenericBC_ChemPotState
@@ -144,12 +144,12 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(in)    :: nHat(NDIM)
          real(kind=RP),       intent(inout) :: Q(nEqn)
 
-#if (!defined(CAHNHILLIARD))
+#ifndef CAHNHILLIARD
          call self % FlowState(x, t, nHat, Q)
 
 #else
          select case(self % currentEqn)
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          case(NS_BC)
             call self % FlowState(x, t, nHat, Q)
 #endif
@@ -177,12 +177,12 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: U_y(nGradEqn)
          real(kind=RP),       intent(inout) :: U_z(nGradEqn)
 
-#if (!defined(CAHNHILLIARD))
+#ifndef CAHNHILLIARD
          call self % FlowNeumann(x, t, nHat, Q, U_x, U_y, U_z)
 
 #else
          select case(self % currentEqn)
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          case(NS_BC)
             call self % FlowNeumann(x, t, nHat, Q, U_x, U_y, U_z)
 #endif
@@ -199,12 +199,12 @@ module GenericBoundaryConditionClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Subroutines for compressible Navier--Stokes equations
-!        -----------------------------------------------------
+!        Subroutines for Navier--Stokes equations
+!        ----------------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(NAVIERSTOKES)
+#ifdef FLOW
       subroutine GenericBC_FlowState(self, x, t, nHat, Q)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
@@ -229,42 +229,12 @@ module GenericBoundaryConditionClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Subroutines for incompressible Navier--Stokes equations
-!        -------------------------------------------------------
-!
-!////////////////////////////////////////////////////////////////////////////
-!
-#if defined(INCNS)
-      subroutine GenericBC_FlowState(self, x, t, nHat, Q)
-         implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-      end subroutine GenericBC_FlowState
-
-      subroutine GenericBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
-         implicit none
-         class(GenericBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NINC)
-         real(kind=RP),       intent(inout) :: U_x(NINC)
-         real(kind=RP),       intent(inout) :: U_y(NINC)
-         real(kind=RP),       intent(inout) :: U_z(NINC)
-      end subroutine GenericBC_FlowNeumann
-#endif
-!
-!////////////////////////////////////////////////////////////////////////////
-!
 !        Subroutines for Cahn--Hilliard
 !        ------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-#if defined(CAHNHILLIARD)
+#ifdef CAHNHILLIARD
       subroutine GenericBC_PhaseFieldState(self, x, t, nHat, Q)
          implicit none
          class(GenericBC_t),  intent(in)    :: self

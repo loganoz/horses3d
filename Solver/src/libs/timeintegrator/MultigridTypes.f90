@@ -1,3 +1,4 @@
+#include "Includes.h"
 module MultigridTypes
    use SMConstants
    use HexMeshClass              , only: HexMesh
@@ -26,12 +27,12 @@ module MultigridTypes
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          use ParticlesClass, only: Particles_t
 #endif
          IMPLICIT NONE
          type(HexMesh)      :: mesh
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          type(Particles_t)  :: particles
 #else
          logical            :: particles

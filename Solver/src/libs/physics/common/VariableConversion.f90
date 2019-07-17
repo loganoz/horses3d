@@ -16,6 +16,8 @@ module VariableConversion
    use VariableConversion_NS
 #elif defined(INCNS)
    use VariableConversion_iNS
+#elif defined(MULTIPHASE)
+   use VariableConversion_MU
 #endif
 #if defined(CAHNHILLIARD)
    use VariableConversion_CH
@@ -23,20 +25,22 @@ module VariableConversion
    implicit none
 
    abstract interface
-      subroutine GetGradientValues0D_f(nEqn, nGradEqn, Q, U)
+      subroutine GetGradientValues0D_f(nEqn, nGradEqn, Q, U, rho_)
          use SMConstants, only: RP
          implicit none
-         integer, intent(in)        :: nEqn, nGradEqn
-         real(kind=RP), intent(in)  :: Q(nEqn)
-         real(kind=RP), intent(out) :: U(nGradEqn)
+         integer, intent(in)                 :: nEqn, nGradEqn
+         real(kind=RP), intent(in)           :: Q(nEqn)
+         real(kind=RP), intent(out)          :: U(nGradEqn)
+         real(kind=RP), intent(in), optional :: rho_
       end subroutine GetGradientValues0D_f
 
-      subroutine GetGradientValues3D_f(nEqn, nGradEqn, Nx, Ny, Nz, Q, U)
+      subroutine GetGradientValues3D_f(nEqn, nGradEqn, Nx, Ny, Nz, Q, U, rho_)
          use SMConstants, only: RP
          implicit none
-         integer,    intent(in)  :: nEqn, nGradEqn, Nx, Ny, Nz
-         real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out) :: U(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
+         integer,    intent(in)              :: nEqn, nGradEqn, Nx, Ny, Nz
+         real(kind=RP), intent(in)           :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(out)          :: U(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
+         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
       end subroutine GetGradientValues3D_f
    end interface
 

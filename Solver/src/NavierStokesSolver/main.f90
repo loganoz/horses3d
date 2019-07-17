@@ -123,6 +123,15 @@
 !     -------------------------
 !
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
+      !
+      !     -------------------
+      !     Build the particles
+      !     -------------------
+      !
+      sem % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
+      if ( sem % particles % active ) then 
+            call sem % particles % construct(sem % mesh, controlVariables, sem % monitors % solution_file)
+      endif
 !
 !     -----------------------------
 !     Construct the time integrator
@@ -135,12 +144,6 @@
 !     -----------------
 !
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-!
-!     ----------------------------------
-!     Export particles to VTK (temporal)
-!     ----------------------------------
-!TODO
-!      call sem % particles % ExportToVTK()
 !
 !     ------------------------------------------
 !     Finish measuring the total simulation time
@@ -176,6 +179,9 @@
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
+         if ( sem % particles % active ) then 
+            call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
+         end if 
       END IF
       call Stopwatch % WriteSummaryFile(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH)))
       

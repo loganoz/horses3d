@@ -192,22 +192,26 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         INTEGER :: k
+         INTEGER :: k, eID
 !
-!        Apply a limiter to the density
-!        ------------------------------
-         if ( enableDensityLimiter ) then
-            do k = 1, mesh % no_of_elements
-               call DensityLimiter(mesh % elements(k) % Nxyz, mesh % elements(k) % storage % Q)
-            end do
-         end if
+!        *******************************************************************
+!        Construct the auxiliar state for the fluxes with density positivity
+!        *******************************************************************
+!
+!$omp do schedule(runtime)
+         do eID = 1, size(mesh % elements)
+            mesh % elements(eID) % storage % rho = mesh % elements(eID) % storage % Q(INSRHO,:,:,:)
+            mesh % elements(eID) % storage % Q(INSRHO,:,:,:) = min(max(mesh % elements(eID) % storage % Q(INSRHO,:,:,:), thermodynamics % rho_min), &
+                                                                   thermodynamics % rho_max)
+         end do
+!$omp end do nowait
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces(NINC)
+         call mesh % ProlongSolutionToFaces(NCONS)
 !
 !        ----------------
 !        Update MPI Faces
@@ -215,7 +219,7 @@ module SpatialDiscretization
 !
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesSolution(NINC)
+         call mesh % UpdateMPIFacesSolution(NCONS)
 !$omp end single
 #endif
 !
@@ -229,7 +233,7 @@ module SpatialDiscretization
 
 #ifdef _HAS_MPI_
 !$omp single
-         call mesh % UpdateMPIFacesGradients(NINC)
+         call mesh % UpdateMPIFacesGradients(NCONS)
 !$omp end single
 #endif
 !
@@ -240,6 +244,17 @@ module SpatialDiscretization
          call ComputeNSTimeDerivative(mesh = mesh , &
                                          particles = particles, &
                                          t    = time)
+!
+!        ***************************************
+!        Return the density to its default value
+!        ***************************************
+!
+!$omp do schedule(runtime)
+         do eID = 1, size(mesh % elements)
+             mesh % elements(eID) % storage % Q(INSRHO,:,:,:) = mesh % elements(eID) % storage % rho 
+         end do
+!$omp end do
+
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -273,18 +288,18 @@ module SpatialDiscretization
 !        -----------------------------------------
 !
 !$omp parallel shared(mesh, time)
-         call mesh % ProlongSolutionToFaces(NINC)
+         call mesh % ProlongSolutionToFaces(NCONS)
 !
 !        -----------------------------------------------------
 !        Compute LOCAL gradients and prolong them to the faces
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NINC, NINC, mesh , time, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NCONS, mesh , time, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
-            call mesh % ProlongGradientsToFaces(NINC)
+            call mesh % ProlongGradientsToFaces(NCONS)
          end if
 
 !
@@ -371,7 +386,7 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients(NINC)
+            call mesh % GatherMPIFacesGradients(NCONS)
 !$omp end single
 !
 !           **************************************
@@ -413,16 +428,6 @@ module SpatialDiscretization
 !$omp end single
          end if
 #endif
-
-         if (.not. mesh % child) then
-            if ( particles % active ) then             
-!$omp do schedule(runtime)
-               do eID = 1, size(mesh % elements)
-                  call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
-               end do
-!$omp end do
-            endif 
-         end if
 !
 !        ***********
 !        Add gravity
@@ -464,7 +469,30 @@ module SpatialDiscretization
             end do
 !$omp end do
 
+!
+!           ********************
+!           Add Particles source
+!           ********************
+            if (.not. mesh % child) then
+               if ( particles % active ) then             
+!$omp do schedule(runtime)
+                  do eID = 1, size(mesh % elements)
+                  !   call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+                  end do
+!$omp end do
+               endif 
+            end if
 
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+                        
       end subroutine ComputeNSTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////
@@ -525,12 +553,12 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: fSharp(1:NINC, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: gSharp(1:NINC, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: hSharp(1:NINC, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
 !        *************************************
@@ -543,7 +571,7 @@ module SpatialDiscretization
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NINC, NINC, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -558,7 +586,7 @@ module SpatialDiscretization
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NINC, contravariantFlux ) 
+            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux ) 
 
          type is (SplitDG_t)
             ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
@@ -591,12 +619,12 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: fSharp(1:NINC, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: gSharp(1:NINC, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: hSharp(1:NINC, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
 !        *************************************
@@ -609,7 +637,7 @@ module SpatialDiscretization
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NINC, NINC, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -624,7 +652,7 @@ module SpatialDiscretization
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NINC, contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
 
          type is (SplitDG_t)
 !
@@ -651,7 +679,7 @@ module SpatialDiscretization
          real(kind=RP)           :: t
          type(HexMesh)           :: mesh
 
-         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, NINC, &
+         e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, NCONS, &
                       mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
                       mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
                       mesh % faces(e % faceIDs(EBOTTOM)) % storage(e % faceSide(EBOTTOM)) % fStar, &
@@ -674,9 +702,9 @@ module SpatialDiscretization
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
-         real(kind=RP) :: inv_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: muL, muR, mu
 
          DO j = 0, f % Nf(2)
@@ -690,7 +718,7 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -735,7 +763,7 @@ module SpatialDiscretization
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(NINC, flux, (/1,2/))
+         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
 
       END SUBROUTINE computeElementInterfaceFlux_iNS
 
@@ -746,9 +774,9 @@ module SpatialDiscretization
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu
 !
 !        --------------
@@ -764,7 +792,7 @@ module SpatialDiscretization
 !      
                call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -799,7 +827,7 @@ module SpatialDiscretization
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(NINC, flux, (/thisSide, HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
 
       end subroutine ComputeMPIFaceFlux_iNS
 
@@ -822,9 +850,9 @@ module SpatialDiscretization
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_flux(NINC)
-      real(kind=RP)                   :: visc_flux(NINC, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: fStar(NINC, 0:f % Nf(1), 0: f % Nf(2))
+      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu
 !
 !     -------------------
@@ -862,7 +890,7 @@ module SpatialDiscretization
 !   
             call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
-            CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
@@ -899,7 +927,7 @@ module SpatialDiscretization
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(NINC, fStar, (/1, HMESH_NONE/))
+      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_iNS
 !
@@ -912,19 +940,19 @@ module SpatialDiscretization
 !
       subroutine DGSpatial_ComputeGradient( mesh , time)
          use HexMeshClass
-         use PhysicsStorage, only: NINC
+         use PhysicsStorage, only: NCONS
          implicit none
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call ViscousDiscretization % ComputeGradient( NINC, NINC, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
 
       end subroutine DGSpatial_ComputeGradient
 
       subroutine DensityLimiter(N,Q)
          implicit none
          integer,       intent(in)    :: N(3)
-         real(kind=RP), intent(inout) :: Q(1:NINC,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(inout) :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
 !
 !        ---------------
 !        Local variables

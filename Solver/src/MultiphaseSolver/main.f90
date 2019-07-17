@@ -1,10 +1,10 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    HORSES3DMain.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Tue Apr 24 17:10:06 2018
-!   @Last revision date: Tue Mar 12 15:43:37 2019
+!   @File:    main.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Wed Jun 20 18:14:45 2018
+!   @Last revision date: Tue Mar 12 15:43:34 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 321880e2a7ff1c1a96d33bc8e5d9cc0ccdb4ef05
 !
@@ -22,7 +22,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      PROGRAM HORSES3DMainNS
+      PROGRAM HORSES3DMainMU
       
       USE SMConstants
       use FTValueDictionaryClass
@@ -37,7 +37,6 @@
       use SpatialDiscretization
       use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use ManufacturedSolutions
       use FluidData
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
@@ -64,7 +63,7 @@
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
-      call SetSolver(NSCH_SOLVER)
+      call SetSolver(INCNS_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time
@@ -85,10 +84,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Cahn-Hilliard Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Incompressible Navier-Stokes Solver",__DATE__,__TIME__)
 
       end if
 
@@ -109,16 +108,11 @@
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
-      sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
-      
-      IF (sem % ManufacturedSol) THEN
-         CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
-      END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage(controlVariables, Nmax)
       call Initialize_InterpolationMatrices(Nmax)
-
+      
       call sem % construct (  controlVariables  = controlVariables,                                         &
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
@@ -170,8 +164,7 @@
 !     -----------------------------------------------------
 !
       CALL UserDefinedFinalize(sem % mesh, timeIntegrator % time, sem % numberOfTimeSteps, &
-                              sem % maxResidual, thermodynamics, dimensionless, refValues, &
-                              multiphase, &
+                              sem % maxResidual, thermodynamics, dimensionless, refValues, multiphase,&
                               sem % monitors, Stopwatch % ElapsedTime("Solver"), &
                               Stopwatch % CPUTime("Solver"))
 #ifdef _HAS_MPI_
@@ -208,7 +201,7 @@
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainNS
+      END PROGRAM HORSES3DMainMU
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
@@ -219,7 +212,7 @@
          USE mainKeywordsModule
          use FTValueClass
          use MPI_Process_Info
-         use SpatialDiscretization, only: viscousDiscretizationKey, CHDiscretizationKey
+         use SpatialDiscretization, only: viscousDiscretizationKey
          IMPLICIT NONE
 !
 !        ---------
@@ -261,14 +254,9 @@
             call controlVariables % addValueForKey("BR1",viscousDiscretizationKey)
          end if
 
-         obj => controlVariables % objectForKey(CHDiscretizationKey)
-         if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("IP",CHDiscretizationKey)
-         end if
-
          obj => controlVariables % objectForKey(splitFormKey)
          if ( .not. associated(obj) ) then
-            call controlVariables % addValueForKey("Ducros",splitFormKey)
+            call controlVariables % addValueForKey("Skew-symmetric",splitFormKey)
          end if
 !
 !        Check for inconsistencies in the input variables

@@ -11,7 +11,7 @@ module VolumeMonitorClass
 !~   public VOLUME
 #if defined(NAVIERSTOKES)
 !~   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
-!~   public ENTROPY, ENTROPY_RATE
+!~   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY
 #elif defined(CAHNHILLIARD)
 !~   public FREE_ENERGY
 #endif
@@ -111,10 +111,12 @@ module VolumeMonitorClass
          case ("enstrophy")
          case ("entropy")
          case ("entropy rate")
+         case ("internal energy")
          case ("mean velocity")
          case ("velocity") ; self % num_of_vars = 3
          case ("momentum") ; self % num_of_vars = 3
          case ("source")   ; self % num_of_vars = NTOTALVARS
+         case ("particles source")   ; self % num_of_vars = NTOTALVARS
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -127,14 +129,40 @@ module VolumeMonitorClass
                print*, "   * Enstrophy"
                print*, "   * Entropy"
                print*, "   * Entropy rate"
+               print*, "   * Internal energy"
                print*, "   * Mean velocity"
                print*, "   * Velocity"
                print*, "   * Momentum"
                print*, "   * source"
+               print*, "   * particles source"
                stop "Stopped."
 
             end if
          end select
+
+#elif defined(INCNS)
+         select case ( trim ( self % variable ) )
+         case ("mass")
+         case ("entropy")
+         case ("kinetic energy rate")
+         case ("entropy rate")
+         case default
+
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
+               print*, "Options available are:"
+               print*, "   * Mass"
+               print*, "   * Entropy"
+               print*, "   * Kinetic energy rate"
+               print*, "   * Entropy rate"
+               stop "Stopped."
+
+            end if
+         end select
+
+
 
 #elif defined(CAHNHILLIARD)
          select case ( trim ( self % variable ) )
@@ -178,6 +206,8 @@ module VolumeMonitorClass
                   write( fID , '(A10,2X,A24,3(2X,A24))') "#Iteration" , "Time" , 'mean-rhou', 'mean-rhov', 'mean-rhow'
                case("source")
                   write( fID , '(A10,2X,A24,5(2X,A24))') "#Iteration" , "Time" , 'S1', 'S2', 'S3', 'S4', 'S5'
+               case("particles source")
+                  write( fID , '(A10,2X,A24,5(2X,A24))') "#Iteration" , "Time" , 'pS1', 'pS2', 'pS3', 'pS4', 'pS5'
                case default
                   write( fID , '(A10,2X,A24,2X,A24)'   ) "#Iteration" , "Time" , trim(self % variable)
             end select
@@ -221,6 +251,9 @@ module VolumeMonitorClass
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
 
+         case ("internal energy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, INTERNAL_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)            
+
          case ("mean velocity")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, VELOCITY) / ScalarVolumeIntegral(mesh, VOLUME)
             
@@ -232,6 +265,24 @@ module VolumeMonitorClass
             
          case ("source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, SOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("particles source")
+            self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+
+#elif defined(INCNS)
+         case ("mass")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, MASS)
+
+         case ("entropy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY)
+
+         case ("kinetic energy rate")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE)
+
+         case ("entropy rate")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE)
+
+
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")
@@ -261,6 +312,8 @@ module VolumeMonitorClass
                write(STD_OUT , '(3(3X,A10))' , advance = "no") 'mean-rhou', 'mean-rhov', 'mean-rhow'
             case("source")
                write(STD_OUT , '(5(3X,A10))' , advance = "no") 'S1', 'S2', 'S3', 'S4', 'S5'
+            case("particles source")
+               write(STD_OUT , '(5(3X,A10))' , advance = "no") 'pS1', 'pS2', 'pS3', 'pS4', 'pS5'
             case default
                write(STD_OUT , '(3X,A10)' , advance = "no") trim(self % monitorName(1 : MONITOR_LENGTH))
          end select

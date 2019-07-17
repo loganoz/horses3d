@@ -11,21 +11,19 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-#if defined(NAVIERSTOKES)
-#define NNS NCONS
-#define NGRADNS NGRAD
-#elif defined(INCNS)
-#define NNS NINC
-#define NGRADNS NINC
+#if defined(NAVIERSTOKES) || defined(INCNS)
+#define HAS_SPLIT_FORM
 #endif
 
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicDiscretizationClass
    use SMConstants
 #if defined(NAVIERSTOKES)
    use RiemannSolvers_NS
 #elif defined(INCNS)
    use RiemannSolvers_iNS
+#elif defined(MULTIPHASE)
+   use RiemannSolvers_MU
 #endif
    implicit none
 
@@ -33,7 +31,9 @@ module HyperbolicDiscretizationClass
    public   HyperbolicDiscretization_t, volumetricSharpFlux_FCN
 
    integer,    parameter   :: STANDARD_DG = 1
+#ifdef HAS_SPLIT_FORM
    integer,    parameter   :: SPLIT_DG = 2
+#endif
 
    type HyperbolicDiscretization_t
       procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
@@ -47,41 +47,44 @@ module HyperbolicDiscretizationClass
    end type HyperbolicDiscretization_t
 
    abstract interface
-      pure subroutine HyperbolicFlux0D_f(Q, F)
+      pure subroutine HyperbolicFlux0D_f(Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NNS     )
-         real(kind=RP), intent(out) :: F(1:NNS, 1:NDIM)
+         real(kind=RP), intent(in)           :: Q   (1:NCONS     )
+         real(kind=RP), intent(out)          :: F(1:NCONS, 1:NDIM)
+         real(kind=RP), intent(in), optional :: rho_
       end subroutine HyperbolicFlux0D_f
 
-      pure subroutine HyperbolicFlux2D_f( N, Q, F)
+      pure subroutine HyperbolicFlux2D_f( N, Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
          integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NNS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NNS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
+         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2))
       end subroutine HyperbolicFlux2D_f
 
-      pure subroutine HyperbolicFlux3D_f( N, Q, F)
+      pure subroutine HyperbolicFlux3D_f( N, Q, F, rho_)
          use SMConstants
          use PhysicsStorage
          implicit none
          integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NNS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NNS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
+         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
+         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
       end subroutine HyperbolicFlux3D_f
 
       subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)       :: QL(1:NNS)
-         real(kind=RP), intent(in)       :: QR(1:NNS)
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
          real(kind=RP), intent(in)       :: JaL(1:NDIM)
          real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(1:NNS)
+         real(kind=RP), intent(out)      :: fSharp(1:NCONS)
       end subroutine VolumetricSharpFlux_FCN
    end interface
 !
@@ -110,10 +113,13 @@ module HyperbolicDiscretizationClass
                character(*), intent(in out) :: str
             end subroutine toLower
          end interface
+
+#ifdef HAS_SPLIT_FORM
 !
 !        Set up the Hyperbolic Discretization
 !        ----------------------------------
          splitType = STANDARD_SPLIT
+#endif
 
          call SetRiemannSolver( whichRiemannSolver, splitType )
 !
@@ -163,10 +169,19 @@ module HyperbolicDiscretizationClass
          case (RIEMANN_EXACT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
 
+#elif defined(MULTIPHASE)
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_EXACT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
+
 #endif         
          end select
 
+#if defined(NAVIERSTOKES) || defined(INCNS)
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+#endif
          
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
@@ -184,14 +199,14 @@ module HyperbolicDiscretizationClass
          class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
          procedure(HyperbolicFlux3D_f)        :: HyperbolicFlux
-         real(kind=RP),           intent(out) :: contravariantFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer            :: i, j, k
-         real(kind=RP)      :: cartesianFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 
          call HyperbolicFlux( e%Nxyz, e % storage % Q, cartesianFlux)
 
@@ -232,9 +247,9 @@ module HyperbolicDiscretizationClass
          !--------------------------------------------
          class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element)          , intent(in)  :: e
-         real(kind=RP)          , intent(out) :: dFdQ( NNS, NNS, NDIM , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)          , intent(out) :: dFdQ( NCONS, NCONS, NDIM , 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          !--------------------------------------------
-         real(kind=RP), DIMENSION(NNS,NNS)  :: dfdq_,dgdq_,dhdq_
+         real(kind=RP), DIMENSION(NCONS,NCONS)  :: dfdq_,dgdq_,dhdq_
          integer                                :: i,j,k
          !--------------------------------------------
          
@@ -267,10 +282,10 @@ module HyperbolicDiscretizationClass
          implicit none
          class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
-         real(kind=RP),           intent(in)  :: contravariantFlux(1:NNS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),           intent(out) :: fSharp(1:NNS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: gSharp(1:NNS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: hSharp(1:NNS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
+         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
 
       end subroutine BaseClass_ComputeSplitFormFluxes
 end module HyperbolicDiscretizationClass

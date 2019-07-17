@@ -263,7 +263,7 @@ module SpatialDiscretization
             call SetBoundaryConditionsEqn(NS_BC)
 !$omp end single
 
-            call mesh % ProlongSolutionToFaces(NINC)
+            call mesh % ProlongSolutionToFaces(NCONS)
 !
 !           ----------------
 !           Update MPI Faces
@@ -282,7 +282,7 @@ stop
 !           -----------------
 !
             if ( computeGradients ) then
-               call ViscousDiscretization % ComputeGradient( NINC, NINC, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
+               call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
             end if
 
 #ifdef _HAS_MPI_
@@ -558,7 +558,7 @@ stop
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
-            call TimeDerivative_FacesContribution(e, t, mesh,NINC) 
+            call TimeDerivative_FacesContribution(e, t, mesh,NCONS) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -574,7 +574,7 @@ stop
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            call mesh % GatherMPIFacesGradients(NINC)
+            call mesh % GatherMPIFacesGradients(NCONS)
 !$omp end single
 !
 !           **************************************
@@ -600,7 +600,7 @@ stop
             do eID = 1, size(mesh % elements) 
                associate(e => mesh % elements(eID)) 
                if ( .not. e % hasSharedFaces ) cycle
-               call TimeDerivative_FacesContribution(e, t, mesh, NINC) 
+               call TimeDerivative_FacesContribution(e, t, mesh, NCONS) 
    
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                   e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
@@ -621,7 +621,7 @@ stop
             if ( particles % active ) then             
 !$omp do schedule(runtime)
                do eID = 1, size(mesh % elements)
-                  call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
+               !   call particles % AddSource(mesh % elements(eID), t, thermodynamics, dimensionless, refValues)
                end do
 !$omp end do
             endif 
@@ -697,12 +697,12 @@ stop
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: fSharp(1:NINC, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: gSharp(1:NINC, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: hSharp(1:NINC, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NINC, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
 !        *************************************
@@ -715,7 +715,7 @@ stop
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NINC, NINC, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -730,7 +730,7 @@ stop
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NINC, contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
 
          type is (SplitDG_t)
 !
@@ -782,9 +782,9 @@ stop
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
-         real(kind=RP) :: inv_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: muL, muR, mu
 
          DO j = 0, f % Nf(2)
@@ -798,7 +798,7 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -843,7 +843,7 @@ stop
 !        Return the flux to elements
 !        ---------------------------
 !
-         call f % ProjectFluxToElements(NINC, flux, (/1,2/))
+         call f % ProjectFluxToElements(NCONS, flux, (/1,2/))
 
       END SUBROUTINE computeElementInterfaceFlux_iNS
 
@@ -854,9 +854,9 @@ stop
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NINC,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu
 !
 !        --------------
@@ -872,7 +872,7 @@ stop
 !      
                call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), mu)
 
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -907,7 +907,7 @@ stop
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         call f % ProjectFluxToElements(NINC, flux, (/thisSide, HMESH_NONE/))
+         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
 
       end subroutine ComputeMPIFaceFlux_iNS
 
@@ -930,9 +930,9 @@ stop
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_flux(NINC)
-      real(kind=RP)                   :: visc_flux(NINC, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)                   :: fStar(NINC, 0:f % Nf(1), 0: f % Nf(2))
+      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu
       
 !
@@ -972,7 +972,7 @@ stop
 !   
             call ViscousDiscretization % GetViscosity(f % storage(1) % c(1,i,j), mu)
 
-            CALL ViscousDiscretization % RiemannSolver(nEqn = NINC, nGradEqn = NINC, &
+            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
@@ -1009,7 +1009,7 @@ stop
          END DO   
       END DO   
 
-      call f % ProjectFluxToElements(NINC, fStar, (/1, HMESH_NONE/))
+      call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
       END SUBROUTINE computeBoundaryFlux_iNS
 !
