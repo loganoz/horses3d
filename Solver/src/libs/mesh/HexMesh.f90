@@ -2628,11 +2628,11 @@ slavecoord:             DO l = 1, 4
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NTOTALVARS + 3*NTOTALGRADS
+            padding = NCONS + 3*NGRAD
          else
             call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
                                        self % no_of_allElements, iter, time, refs)
-            padding = NTOTALVARS
+            padding = NCONS
          end if
 !
 !        Write arrays
@@ -2641,14 +2641,12 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
 
-            allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-#if defined(NAVIERSTOKES)
-            Q(1:NCONS,:,:,:) = e % storage % Q
-#elif defined(INCNS)
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+#ifdef FLOW
             Q(1:NCONS,:,:,:)  = e % storage % Q
 #endif
-#if defined(CAHNHILLIARD)
-            Q(NTOTALVARS,:,:,:) = e % storage % c(1,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+            Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
             
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
@@ -2657,35 +2655,29 @@ slavecoord:             DO l = 1, 4
             deallocate(Q)
             if ( saveGradients .and. computeGradients ) then
 
-               allocate(Q(NTOTALGRADS,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
-#if defined(NAVIERSTOKES)
-               Q(1:NGRAD,:,:,:) = e % storage % U_x
-#elif defined(INCNS)
+#ifdef FLOW
                Q(1:NCONS,:,:,:) = e % storage % U_x
 #endif
-#if defined(CAHNHILLIARD)
-               Q(NTOTALGRADS,:,:,:) = e % storage % c_x(1,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(NGRAD,:,:,:) = e % storage % c_x(1,:,:,:)
 #endif
                write(fid) Q
 
-#if defined(NAVIERSTOKES)
-               Q(1:NGRAD,:,:,:) = e % storage % U_y
-#elif defined(INCNS)
+#ifdef FLOW
                Q(1:NCONS,:,:,:) = e % storage % U_y
 #endif
-#if defined(CAHNHILLIARD)
-               Q(NTOTALGRADS,:,:,:) = e % storage % c_y(1,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(NGRAD,:,:,:) = e % storage % c_y(1,:,:,:)
 #endif
                write(fid) Q
 
-#if defined(NAVIERSTOKES)
-               Q(1:NGRAD,:,:,:) = e % storage % U_z
-#elif defined(INCNS)
+#ifdef FLOW
                Q(1:NCONS,:,:,:) = e % storage % U_z
 #endif
-#if defined(CAHNHILLIARD)
-               Q(NTOTALGRADS,:,:,:) = e % storage % c_z(1,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(NGRAD,:,:,:) = e % storage % c_z(1,:,:,:)
 #endif
                write(fid) Q
 
@@ -2784,7 +2776,7 @@ slavecoord:             DO l = 1, 4
          type(HexMesh), target                :: auxMesh
          integer                              :: NDOF, eID
          logical                              :: with_gradients
-#if (!defined(NAVIERSTOKES)) || (!defined(INCNS))
+#if (!defined(NAVIERSTOKES)) || (!defined(INCNS)) || (!defined(MULTIPHASE))
          logical                          :: computeGradients = .true.
 #endif
          !---------------------------------------------------------
@@ -2913,10 +2905,10 @@ slavecoord:             DO l = 1, 4
             stop
 
          case(SOLUTION_FILE)
-            padding = 1*NTOTALVARS
+            padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
-            padding = NTOTALVARS + 3 * NTOTALGRADS
+            padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
          case(STATS_FILE)
@@ -2974,7 +2966,7 @@ slavecoord:             DO l = 1, 4
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
                  .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
-                 .or. (no_of_eqs .ne. NTOTALVARS )       ) then
+                 .or. (no_of_eqs .ne. NCONS )       ) then
                write(STD_OUT,'(A,I0,A)') "Error reading restart file: wrong dimension for element "&
                                            ,eID,"."
 
@@ -2992,48 +2984,40 @@ slavecoord:             DO l = 1, 4
                stop
             end if
 
-            allocate(Q(NTOTALVARS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
-#if defined(NAVIERSTOKES)
-            e % storage % QNS = Q(1:NCONS,:,:,:)
-#elif defined(INCNS)
+#ifdef FLOW
             e % storage % QNS = Q(1:NCONS,:,:,:)
 #endif
-#if defined(CAHNHILLIARD)
-            e % storage % c(1,:,:,:) = Q(NTOTALVARS,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+            e % storage % c(1,:,:,:) = Q(NCONS,:,:,:)
 #endif
 
             deallocate(Q)
  
             if (gradients) then
-               allocate(Q(NTOTALGRADS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               allocate(Q(NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                read(fID) Q  
-#if defined(NAVIERSTOKES)               
-               e % storage % U_x = Q(1:NTOTALGRADS,:,:,:)
-#elif defined(INCNS)
+#ifdef FLOW
                e % storage % U_x = Q(1:NCONS,:,:,:)
 #endif
-#if defined(CAHNHILLIARD)
-               e % storage % c_x(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               e % storage % c_x(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
                
                read(fID) Q  
-#if defined(NAVIERSTOKES)               
-               e % storage % U_y = Q(1:NTOTALGRADS,:,:,:)
-#elif defined(INCNS)
+#ifdef FLOW
                e % storage % U_y = Q(1:NCONS,:,:,:)
 #endif
-#if defined(CAHNHILLIARD)
-               e % storage % c_y(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               e % storage % c_y(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
                read(fID) Q  
-#if defined(NAVIERSTOKES)               
-               e % storage % U_z = Q(1:NTOTALGRADS,:,:,:)
-#elif defined(INCNS)
+#ifdef FLOW
                e % storage % U_z = Q(1:NCONS,:,:,:)
 #endif
-#if defined(CAHNHILLIARD)
-               e % storage % c_z(1,:,:,:) = Q(NTOTALGRADS,:,:,:)
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
 
                deallocate(Q)

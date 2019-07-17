@@ -61,7 +61,7 @@ module EllipticBR2
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
-         character(len=*), intent(in)          :: eqname
+         integer,          intent(in)          :: eqname
 !
 !        ---------------
 !        Local variables
@@ -77,6 +77,27 @@ module EllipticBR2
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
          self % GetViscosity   => GetViscosity
+
+         select case (eqName)
+         case(ELLIPTIC_NS)
+            self % eqName = ELLIPTIC_NS
+
+         case(ELLIPTIC_iNS)
+            self % eqName = ELLIPTIC_iNS
+
+         case(ELLIPTIC_CH)
+            self % eqName = ELLIPTIC_CH
+
+         case(ELLIPTIC_MU)
+            self % eqName = ELLIPTIC_MU
+
+         case default
+            print*, "Unrecognized equation"
+            errorMessage(STD_OUT)
+            stop
+
+         end select
+
 !
 !        Request the penalty parameter
 !        -----------------------------

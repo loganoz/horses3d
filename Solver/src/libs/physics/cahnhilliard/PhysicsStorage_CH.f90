@@ -25,19 +25,12 @@
 !        Required arguments
 !        ******************
 !
-         character(len=KEYWORD_LENGTH), parameter    :: PECLET_NUMBER_KEY     = "peclet number"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width (dimensionless)"
+         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY     = "mobility"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
-                                                                              PECLET_NUMBER_KEY,   &
+                                                                              MOBILITY_KEY,   &
                                                                               INTERFACE_TENSION_KEY ]
-!
-!        ******************
-!        Optional arguments
-!        ******************
-!
-!         character(len=KEYWORD_LENGTH), parameter  :: ALPHA_CONCENTRATION_KEY = "alpha concentration"
-!         character(len=KEYWORD_LENGTH), parameter  :: BETA_CONCENTRATION_KEY  = "beta concentration"
       END MODULE Physics_CHKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -105,20 +98,9 @@
 !     Read multiphase properties
 !     *****************************
 !
-      multiphase_ % w     = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
-      multiphase_ % eps   = multiphase_ % w
-      multiphase_ % Pe    = controlVariables % DoublePrecisionValueForKey(PECLET_NUMBER_KEY)
+      multiphase_ % eps   = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
+      multiphase_ % M     = controlVariables % DoublePrecisionValueForKey(MOBILITY_KEY)
       multiphase_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
-!
-!     **********************************
-!     Compute the rest of the quantities
-!     **********************************
-!
-      multiphase_ % rhoS    = 1.0_RP
-      multiphase_ % M       = Lref / (multiphase_ % rhoS * multiphase_ % Pe)
-      multiphase_ % kappa   = POW2(multiphase_ % eps*Lref) * multiphase_ % rhoS
-      multiphase_ % c_alpha = -1.0_RP
-      multiphase_ % c_beta  = 1.0_RP
 !
 !     ************************************
 !     Set the global (proteted) multiphase
@@ -157,19 +139,11 @@
 
          call SubSection_Header("Chemical properties")
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility: " , multiphase % M
-         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Double-well potential height: " , multiphase % rhoS
-         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Gradient energy coefficient: " , multiphase % kappa
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Alpha equilibrium concentration: " , multiphase % c_alpha 
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Beta  equilibrium concentration: " , multiphase % c_beta
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Capilar number: " , multiphase % Ca
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Density ratio: " , multiphase % densityRatio
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Viscosity ratio: " , multiphase % viscRatio
 
       
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface width (dimensionless): " , multiphase % w
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface energy (dimensionless): " , multiphase % sigma
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface tension: " , multiphase % sigma
          write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Epsilon: " , multiphase % eps
 
       END SUBROUTINE DescribePhysicsStorage_CH

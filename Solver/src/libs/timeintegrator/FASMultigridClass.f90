@@ -544,7 +544,7 @@ module FASMultigridClass
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
-      real(kind=RP)                 :: maxResidual(NTOTALVARS)
+      real(kind=RP)                 :: maxResidual(NCONS)
       integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
@@ -691,7 +691,7 @@ module FASMultigridClass
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
-      real(kind=RP)  :: maxResidual(NTOTALVARS)   ! Maximum residual in each equation
+      real(kind=RP)  :: maxResidual(NCONS)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       character(len=LINE_LENGTH) :: FMGFile
       !----------------------------------------------------------------------------
@@ -931,7 +931,7 @@ module FASMultigridClass
             call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
             
 !~            this % computeA = .TRUE.
-            call this % linsolver % solve(NTOTALVARS, NTOTALGRADS, maxiter=SmoothSweeps, time= t, dt = dt, &
+            call this % linsolver % solve(NCONS, NGRAD, maxiter=SmoothSweeps, time= t, dt = dt, &
                                              ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
             call UpdateNewtonSol(this % p_sem, this % linsolver)
       end select
@@ -970,7 +970,7 @@ module FASMultigridClass
          
 !           Restrict solution
 !           -----------------
-            call Interp3DArrays(NTOTALVARS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
+            call Interp3DArrays(NCONS, N1, this % p_sem % mesh % elements(eID) % storage % Q, &
                                        N2, this % Child % p_sem % mesh % elements(eID) % storage % Q )
          end do
 !$omp end parallel do

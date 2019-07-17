@@ -131,7 +131,7 @@ CONTAINS
                Nx = sem % mesh % elements(k) % Nxyz(1)
                Ny = sem % mesh % elements(k) % Nxyz(2)
                Nz = sem % mesh % elements(k) % Nxyz(3)
-               ndofelm = NTOTALVARS*(Nx+1)*(Ny+1)*(Nz+1)
+               ndofelm = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
                allocate (this % BlockPreco(k) % PLU(ndofelm,ndofelm) )
                allocate (this % BlockPreco(k) % LUpivots   (ndofelm) )
             END DO

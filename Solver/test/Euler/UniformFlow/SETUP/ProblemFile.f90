@@ -294,7 +294,7 @@
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
-            real(kind=RP)                      :: qq, u, v, w, p, Q(NTOTALVARS), theta, phi
+            real(kind=RP)                      :: qq, u, v, w, p, Q(NCONS), theta, phi
             TYPE(FTAssertionsManager), POINTER :: sharedManager
 !
 !           -----------------------------------------------------------------------

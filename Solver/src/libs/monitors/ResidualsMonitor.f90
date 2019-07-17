@@ -61,7 +61,7 @@ module ResidualsMonitorClass
 !        Enable the monitor
 !        ------------------
          self % active = .true.
-         allocate ( self % values(NTOTALVARS,1:BUFFER_SIZE) , self % CPUtime(BUFFER_SIZE) )
+         allocate ( self % values(NCONS,1:BUFFER_SIZE) , self % CPUtime(BUFFER_SIZE) )
 !
 !        Get monitor file name
 !        ---------------------
@@ -78,6 +78,9 @@ module ResidualsMonitorClass
 #elif defined(INCNS)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "dens-transp" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
+#elif defined(MULTIPHASE)
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Elapsed Time (s)" , "concentration" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
 #elif defined(CAHNHILLIARD)
             write ( fID , ' ( A10,2X,A24,2X,A24) ' ) "#Iteration" , "Time" , "concentration"
 
@@ -99,12 +102,12 @@ module ResidualsMonitorClass
          implicit none
          class(Residuals_t)         :: self
          class(HexMesh), intent(in) :: mesh
-         real(kind=RP)              :: maxResiduals(NTOTALVARS)
+         real(kind=RP)              :: maxResiduals(NCONS)
          integer                    :: bufferPosition
 !
 !        Update buffer values
 !        --------------------      
-         self % values( 1:NTOTALVARS, bufferPosition ) = maxResiduals
+         self % values( 1:NCONS, bufferPosition ) = maxResiduals
 
       end subroutine Residuals_Update
 
@@ -129,9 +132,14 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
-#endif
+#elif defined(MULTIPHASE)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "div-v"
 
-#if defined(CAHNHILLIARD)
+#elif defined(CAHNHILLIARD)
          write(STD_OUT , '(3X,A10)' , advance = "no") "concentration"
 
 #endif
@@ -151,7 +159,7 @@ module ResidualsMonitorClass
 !        ---------------------------------------------------------
          integer            :: eq
       
-         do eq = 1 , NTOTALVARS
+         do eq = 1 , NCONS
             write(STD_OUT , '(1X,A,1X,ES10.3)' , advance = "no") "|" , self % values(eq , bufferLine)
          end do
 
@@ -183,7 +191,7 @@ module ResidualsMonitorClass
 !        ------------      
          do i = 1 , no_of_lines
             write(fID, '(I10,3(2X,ES24.16))', advance="no") iter(i), t(i), TotalSimuTime(i), SolverSimuTime(i)
-            write(fID, 111) self % values(1:NTOTALVARS,i), maxval(self % values(1:NTOTALVARS,i))
+            write(fID, 111) self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
          end do
 !
 !        Close file
@@ -191,19 +199,13 @@ module ResidualsMonitorClass
          close ( fID )
 
          if ( no_of_lines .ne. 0 ) then
-            self % values(1:NTOTALVARS,1) = self % values(1:NTOTALVARS,no_of_lines)
+            self % values(1:NCONS,1) = self % values(1:NCONS,no_of_lines)
          end if
 
-#if (defined(NAVIERSTOKES) && !defined(CAHNHILLIARD))
+#if defined(FLOW)
 111 format(6(2X,ES24.16))
-#elif (defined(INCNS) && !defined(CAHNHILLIARD))
-111 format(6(2X,ES24.16))
-#elif (defined(INCNS) && defined(CAHNHILLIARD))
-111 format(7(2X,ES24.16))
 #elif (!defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
 111 format(2(2X,ES24.16))
-#elif (defined(NAVIERSTOKES) && defined(CAHNHILLIARD))
-111 format(7(2X,ES24.16))
 #endif
       end subroutine Residuals_WriteToFile
       

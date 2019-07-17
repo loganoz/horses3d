@@ -208,7 +208,7 @@ module HyperbolicDiscretizationClass
          integer            :: i, j, k
          real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 
-         call HyperbolicFlux( e%Nxyz, e % storage % Q, cartesianFlux)
+         call HyperbolicFlux( e%Nxyz, e % storage % Q, cartesianFlux, e % storage % rho)
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
          

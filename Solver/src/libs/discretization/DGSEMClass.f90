@@ -447,14 +447,14 @@ Module DGSEMClass
       use MPI_Process_Info
       IMPLICIT NONE
       CLASS(HexMesh), intent(in)  :: mesh
-      REAL(KIND=RP) :: maxResidual(NTOTALVARS)
+      REAL(KIND=RP) :: maxResidual(NCONS)
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
       INTEGER       :: id , eq, ierr
-      REAL(KIND=RP) :: localMaxResidual(NTOTALVARS)
+      REAL(KIND=RP) :: localMaxResidual(NCONS)
       real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localc
       real(kind=RP) :: R1, R2, R3, R4, R5, c
       
@@ -498,14 +498,14 @@ Module DGSEMClass
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #endif
       
-#ifdef CAHNHILLIARD
-      maxResidual(NTOTALVARS) = c
+#if  defined(CAHNHILLIARD) && (!defined(FLOW))
+      maxResidual(NCONS) = c
 #endif
 
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localMaxResidual = maxResidual
-         call mpi_allreduce(localMaxResidual, maxResidual, NTOTALVARS, MPI_DOUBLE, MPI_MAX, &
+         call mpi_allreduce(localMaxResidual, maxResidual, NCONS, MPI_DOUBLE, MPI_MAX, &
                             MPI_COMM_WORLD, ierr)
       end if
 #endif

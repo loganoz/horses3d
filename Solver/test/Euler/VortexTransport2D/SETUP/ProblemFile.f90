@@ -103,7 +103,7 @@
 !
 #if defined(NAVIERSTOKES)
             integer        :: eid, i, j, k
-            real(kind=rp)  :: q(NTOTALVARS)
+            real(kind=rp)  :: q(NCONS)
             real(kind=RP)            :: r2 , rho , u , w , T, p
             real(kind=RP)            :: x(NDIM)
             interface

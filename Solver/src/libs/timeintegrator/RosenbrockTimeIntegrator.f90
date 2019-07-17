@@ -81,11 +81,11 @@ contains
 !     -----------------------------
       call this % SetupCoefficients ( trim(controlVariables % StringValueForKey("rosenbrock scheme",LINE_LENGTH)) )
       
-      allocate ( this % Y (sem % NDOF * NTOTALVARS,this % NumStages) )
+      allocate ( this % Y (sem % NDOF * NCONS,this % NumStages) )
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF * NTOTALVARS
+      DimPrb = sem % NDOF * NCONS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -152,7 +152,7 @@ contains
          
          call this % ComputeRHS(sem, t, dt, this % linsolver, ComputeTimeDerivative, stage)
          
-         CALL this % linsolver % solve ( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
+         CALL this % linsolver % solve ( nEqn=NCONS, nGradEqn=NGRAD, tol = 1e-6_RP, maxiter=500, time= t, dt=dt, &
                                           ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          
          this % Y (:,stage) = this % linsolver % GetX()
@@ -183,8 +183,8 @@ contains
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
       integer,        intent(in)    :: stage                   !<  Current stage
       !--------------------------------------------------------
-      real(kind=RP) :: Qn (sem % NDOF * NTOTALVARS) ! Buffer to store the previous solution
-      real(kind=RP) :: RHS(sem % NDOF * NTOTALVARS) ! Right-hand side for this stage
+      real(kind=RP) :: Qn (sem % NDOF * NCONS) ! Buffer to store the previous solution
+      real(kind=RP) :: RHS(sem % NDOF * NCONS) ! Right-hand side for this stage
       integer       :: j               ! Counter
       !--------------------------------------------------------
       

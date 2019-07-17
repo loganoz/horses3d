@@ -1034,26 +1034,26 @@ module StorageClass
             !---------------------------------------------
             ! Interpolate solution to new solution storage
             !---------------------------------------------
-            call Interp3DArrays  (Nvars      = NTOTALVARS   , &
+            call Interp3DArrays  (Nvars      = NCONS   , &
                                   Nin        = this  % Nxyz , &
                                   inArray    = this  % Q    , &
                                   Nout       = other % Nxyz , &
                                   outArray   = other % Q    )
             
             if (gradients) then
-               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+               call Interp3DArrays  (Nvars      = NGRAD  , &
                                      Nin        = this % Nxyz  , &
                                      inArray    = this % U_x   , &
                                      Nout       = other % Nxyz , &
                                      outArray   = other % U_x  )
                
-               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+               call Interp3DArrays  (Nvars      = NGRAD  , &
                                      Nin        = this  % Nxyz , &
                                      inArray    = this  % U_y  , &
                                      Nout       = other % Nxyz , &
                                      outArray   = other % U_y  )
                                   
-               call Interp3DArrays  (Nvars      = NTOTALGRADS  , &
+               call Interp3DArrays  (Nvars      = NGRAD  , &
                                      Nin        = this  % Nxyz , &
                                      inArray    = this  % U_z  , &
                                      Nout       = other % Nxyz , &

@@ -65,7 +65,7 @@
          F(IMSQRHOU, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOU) + Q(IMP)
          F(IMSQRHOV, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOV)
          F(IMSQRHOW, IX) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOW)
-         F(IMP     , IX) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU)
+         F(IMP     , IX) = 0.0_RP
 !
 !        Y-Flux
 !        ------
@@ -73,7 +73,7 @@
          F(IMSQRHOU, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOU)
          F(IMSQRHOV, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOV) + Q(IMP)
          F(IMSQRHOW, IY) = 0.5_RP*Q(IMSQRHOV)*Q(IMSQRHOW)
-         F(IMP     , IY) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOV)
+         F(IMP     , IY) = 0.0_RP
 !
 !        Z-Flux
 !        ------
@@ -81,7 +81,7 @@
          F(IMSQRHOU, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOU)
          F(IMSQRHOV, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOV) 
          F(IMSQRHOW, IZ) = 0.5_RP*Q(IMSQRHOW)*Q(IMSQRHOW) + Q(IMP)
-         F(IMP     , IZ) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOW)
+         F(IMP     , IZ) = 0.0_RP
       
       end subroutine mEulerFlux0D
 
@@ -105,7 +105,7 @@
          F(IMSQRHOU) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOU) + Q(IMP)
          F(IMSQRHOV) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOV)
          F(IMSQRHOW) = 0.5_RP*Q(IMSQRHOU)*Q(IMSQRHOW)
-         F(IMP)      = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU)
+         F(IMP)      = 0.0_RP
       
       end subroutine mEulerXFlux
 
@@ -132,7 +132,7 @@
             F(IMSQRHOU,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOU,i,j,k) + Q(IMP,i,j,k)
             F(IMSQRHOV,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOV,i,j,k)
             F(IMSQRHOW,i,j,k, IX) = 0.5_RP*Q(IMSQRHOU,i,j,k)*Q(IMSQRHOW,i,j,k)
-            F(IMP     ,i,j,k, IX) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOU,i,j,k)
+            F(IMP     ,i,j,k, IX) = 0.0_RP
 !   
 !           Y-Flux
 !           ------
@@ -140,7 +140,7 @@
             F(IMSQRHOU,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOU,i,j,k)
             F(IMSQRHOV,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOV,i,j,k) + Q(IMP,i,j,k)
             F(IMSQRHOW,i,j,k, IY) = 0.5_RP*Q(IMSQRHOV,i,j,k)*Q(IMSQRHOW,i,j,k)
-            F(IMP     ,i,j,k, IY) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOV,i,j,k)
+            F(IMP     ,i,j,k, IY) = 0.0_RP
 !   
 !           Z-Flux
 !           ------
@@ -148,7 +148,7 @@
             F(IMSQRHOU,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOU,i,j,k)
             F(IMSQRHOV,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOV,i,j,k) 
             F(IMSQRHOW,i,j,k, IZ) = 0.5_RP*Q(IMSQRHOW,i,j,k)*Q(IMSQRHOW,i,j,k) + Q(IMP,i,j,k)
-            F(IMP     ,i,j,k, IZ) = thermodynamics % rho0c02 * invSqrtRho * Q(IMSQRHOW,i,j,k)
+            F(IMP     ,i,j,k, IZ) = 0.0_RP
 
          end do   ; end do          ; end do
 

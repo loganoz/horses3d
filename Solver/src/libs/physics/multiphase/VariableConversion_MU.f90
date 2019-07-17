@@ -62,10 +62,7 @@ module VariableConversion_MU
 
          invSqrtRho = 1.0_RP / sqrt(rho_)
 
-         U(IGU) = Q(IMSQRHOU) * invSqrtRho
-         U(IGV) = Q(IMSQRHOV) * invSqrtRho
-         U(IGW) = Q(IMSQRHOW) * invSqrtRho
-         U(IGP) = Q(IMP)
+         U = [0.0_RP, invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q
 
       end subroutine mGradientValuesForQ_0D
 
@@ -88,7 +85,7 @@ module VariableConversion_MU
 !
 !           I made this an entire line just in case the compiler vectorizes it ?
 !           ------------------------------------------------------------------
-            U(IGU:IGP,i,j,k) = [invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q(IMSQRHOU:IMP,i,j,k)
+            U(:,i,j,k) = [0.0_RP, invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q(:,i,j,k)
             
          end do       ; end do       ; end do
          
@@ -131,7 +128,6 @@ module VariableConversion_MU
          mu = dimensionless % mu(1) * c + dimensionless % mu(2) * (1.0_RP - c)
 
       end subroutine GetmTwoFluidsViscosity
-
 !
 ! /////////////////////////////////////////////////////////////////////
 !
