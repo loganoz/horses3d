@@ -27,7 +27,7 @@
 !
          character(len=KEYWORD_LENGTH), parameter    :: TCH_KEY               = "chemical characteristic time (s)"
          character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width (m)"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension (N/m)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension (n/m)"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
                                                                               TCH_KEY,   &
                                                                               INTERFACE_TENSION_KEY ]
@@ -105,7 +105,7 @@
       multiphase_ % eps   = multiphase_ % eps_wDim / Lref
       multiphase_ % tCH   = multiphase_ % tCH_wDim / timeRef
       multiphase_ % sigma = multiphase_ % sigma_wDim / pRef
-      multiphase_ % M0    = multiphase_ % eps / (multiphase_ % tCH * multiphase % sigma)
+      multiphase_ % M0    = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
 !
 !     ************************************
 !     Set the global (proteted) multiphase
