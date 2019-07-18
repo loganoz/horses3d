@@ -148,7 +148,8 @@
 !     ---------
 !
       TYPE(FTValueDictionary)      :: controlVariables
-      real(kind=RP), intent(inout) :: Lref, timeref
+      real(kind=RP), intent(in)    :: Lref
+      real(kind=RP), intent(out)   :: timeref
       LOGICAL                      :: success
 !
 !     ---------------

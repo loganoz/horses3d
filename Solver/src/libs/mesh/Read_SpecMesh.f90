@@ -165,6 +165,7 @@ MODULE Read_SpecMesh
 !
          DO j = 1, numberOfNodes 
             READ( fUnit, * ) x
+            x = x/Lref
             CALL ConstructNode( self % nodes(j), x, j )
          END DO
 !
@@ -229,6 +230,8 @@ MODULE Read_SpecMesh
                            READ( fUnit, * ) values(:,i,j)
                         END DO  
                      END DO
+   
+                     values = values / Lref
                      
                      call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      
@@ -426,6 +429,7 @@ MODULE Read_SpecMesh
 !
          DO j = 1, numberOfNodes 
             READ( fUnit, * ) x
+            x = x / Lref
             CALL ConstructNode( self % nodes(j), x, j )
          END DO
 !
@@ -659,6 +663,7 @@ MODULE Read_SpecMesh
          pNode = 1
          DO j = 1, numberOfAllNodes 
             READ( fUnit, * ) x
+            x = x / Lref
             if ( pNode .gt. mpi_partition % no_of_nodes ) cycle
 !
 !           Construct only nodes that belong to the partition
@@ -806,6 +811,8 @@ MODULE Read_SpecMesh
                            READ( fUnit, * ) values(:,i,j)
                         END DO  
                      END DO
+
+                     values = values / Lref
                      
                      call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
                      

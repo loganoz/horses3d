@@ -12,7 +12,8 @@
 !
 #include "Includes.h"
 module PhysicsStorage
-   use SMConstants, only: RP
+   use SMConstants, only: RP, STD_OUT
+   use Headers
 #ifdef FLOW
    use FluidData, only: refValues, thermodynamics
 #endif
@@ -57,8 +58,10 @@ module PhysicsStorage
 #endif
    end enum
 
-   real(kind=RP)     :: Lref
-   real(kind=RP)     :: timeref
+   real(kind=RP), protected     :: Lref
+   real(kind=RP), protected     :: timeref
+
+   character(len=*), parameter   :: REFERENCE_LENGTH_KEY = "reference length (m)" 
 
 #if (!defined(FLOW)) && (defined(CAHNHILLIARD))
    integer, parameter :: NCONS = NCOMP
@@ -72,31 +75,50 @@ module PhysicsStorage
          TYPE(FTValueDictionary)      :: controlVariables
          LOGICAL                      :: success
 !
-!        Default values
-!        --------------
-         Lref = 1.0_RP
-         timeref = 1.0_RP
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: timeRef_NS, pRef
+         
+
+         if ( controlVariables % ContainsKey(REFERENCE_LENGTH_KEY) ) then
+            Lref = controlVariables % DoublePrecisionValueForKey(REFERENCE_LENGTH_KEY)
+         else
+            Lref = 1.0_RP
+         end if
 !
 !        Construct NSE physics
 !        ---------------------
 #if defined(NAVIERSTOKES)
-         call ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
+         call ConstructPhysicsStorage_NS( controlVariables, Lref, timeRef_NS, success )
 #elif defined(INCNS)
-         call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeref, success )
+         call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeRef_NS, success )
 #elif defined(MULTIPHASE)
-         call ConstructPhysicsStorage_MU( controlVariables, Lref, timeref, success )
+         call ConstructPhysicsStorage_MU( controlVariables, Lref, timeRef_NS, success )
+#endif
+
+!        Navier--Stokes equations set the reference time
+!        -----------------------------------------------
+#ifdef FLOW
+         timeRef = timeRef_NS
+         pRef    = refValues % p
+#else
+         timeRef = 1.0_RP
+         pRef    = 1.0_RP
 #endif
 !
 !        Construct CHE physics
 !        ---------------------
 #ifdef CAHNHILLIARD
-         call ConstructPhysicsStorage_CH( controlVariables, Lref, timeref, success )
+         call ConstructPhysicsStorage_CH( controlVariables, Lref, timeRef, pRef, success )
 #endif
 !
 !        ****************
 !        Describe physics      
 !        ****************
 !
+         call DescribePhysicsStorage_Common
 #if defined(NAVIERSTOKES)
          call DescribePhysicsStorage_NS()
 #elif defined(INCNS)
@@ -106,9 +128,21 @@ module PhysicsStorage
 #endif
 
 #ifdef CAHNHILLIARD
-         call DescribePhysicsStorage_CH()
+         call DescribePhysicsStorage_CH(Lref)
 #endif
-
    
       end subroutine ConstructPhysicsStorage
+
+      subroutine DescribePhysicsStorage_Common()
+         implicit none
+
+         call Section_Header("Loading common physics")
+
+         write(STD_OUT,'(/,/)')
+
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Reference length (m): " , Lref
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Reference time (s): "   , timeRef
+
+      end subroutine DescribePhysicsStorage_Common
+
 end module PhysicsStorage

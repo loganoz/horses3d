@@ -206,7 +206,8 @@
 !     ---------
 !
       TYPE(FTValueDictionary)      :: controlVariables
-      real(kind=RP), intent(inout) :: Lref, timeref
+      real(kind=RP), intent(in)    :: Lref
+      real(kind=RP), intent(out)   :: timeref
       LOGICAL                      :: success
 !
 !     ---------------
@@ -327,11 +328,9 @@
       dimensionless_ % gammaM2 = thermodynamics_ % gamma * POW2( dimensionless_ % Mach )
 !
 !     ********************
-!     Set reference values: TODO read from parameter file
-!                           Ok, but be sure to change the mesh reading accordingly (x = x / refValues % L)
+!     Set reference values
 !     ********************
 !
-      Lref = 1.0_RP
       refValues_ % T = 520.0_RP     ! Rankine
 
       refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)

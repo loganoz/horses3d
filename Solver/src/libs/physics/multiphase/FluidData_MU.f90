@@ -27,31 +27,31 @@ module FluidData_MU
 !  ----------------
 !
    type Thermodynamics_t
-      integer                    :: number_of_fluids
-      real(kind=RP)              :: rho0c02   ! Artificial compressibility constant
-      real(kind=RP), allocatable :: rho(:)
-      real(kind=RP), allocatable :: mu(:)
+      real(kind=RP) :: rho(2)
+      real(kind=RP) :: mu(2)
+      real(kind=RP) :: c02
    end type Thermodynamics_t
 
    type RefValues_t
-      real(kind=RP)        :: V
-      real(kind=RP)        :: p
-      real(kind=RP)        :: rho
-      real(kind=RP)        :: mu
-      real(kind=RP)        :: g0
-      real(kind=RP)        :: AoATheta
-      real(kind=RP)        :: AoAPhi
+      real(kind=RP) :: rho
+      real(kind=RP) :: V
+      real(kind=RP) :: p
+      real(kind=RP) :: mu
+      real(kind=RP) :: g0
    end type RefValues_t
 
    type Dimensionless_t
-      real(kind=RP), allocatable :: rho(:)
-      real(kind=RP), allocatable :: mu(:)
-      real(kind=RP)              :: Re
-      real(kind=RP)              :: Fr
-      real(kind=RP)              :: invFr2
-      real(kind=RP)              :: gravity_dir(NDIM)
-      real(kind=RP)              :: rho_max
-      real(kind=RP)              :: rho_min
+      real(kind=RP) :: rho(2)
+      real(kind=RP) :: mu(2)
+      real(kind=RP) :: Re(2)
+      real(kind=RP) :: Fr
+      real(kind=RP) :: gravity_dir(NDIM)
+      real(kind=RP) :: invFr2
+      real(kind=RP) :: vel_dir(NDIM)
+      real(kind=RP) :: rho_max
+      real(kind=RP) :: rho_min
+      real(kind=RP) :: Ma2
+      real(kind=RP) :: invMa2
    end type Dimensionless_t
 !
 !  ---------
@@ -77,17 +77,9 @@ module FluidData_MU
          implicit none
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
 
-         thermodynamics % number_of_fluids = thermodynamics_ % number_of_fluids  
-         thermodynamics % rho0c02          = thermodynamics_ % rho0c02              
-
-         if(allocated(thermodynamics % rho)) deallocate(thermodynamics % rho)
-         allocate(thermodynamics % rho(thermodynamics % number_of_fluids))
-         thermodynamics % rho              = thermodynamics_ % rho              
-
-         if(allocated(thermodynamics % mu )) deallocate(thermodynamics % mu )
-         allocate(thermodynamics % mu (thermodynamics % number_of_fluids))
-         thermodynamics % mu               = thermodynamics_ % mu               
-
+         thermodynamics % rho = thermodynamics_ % rho
+         thermodynamics % mu  = thermodynamics_ % mu
+         thermodynamics % c02 = thermodynamics_ % c02
 
       end subroutine SetThermodynamics
 
@@ -95,12 +87,11 @@ module FluidData_MU
          implicit none
          type(RefValues_t),   intent(in)     :: refValues_
 
-         refValues % p        = refValues_ % p
-         refValues % rho      = refValues_ % rho
-         refValues % V        = refValues_ % V
-         refValues % mu       = refValues_ % mu
-         refValues % AoATheta = refValues_ % AoATheta
-         refValues % AoAPhi   = refValues_ % AoAPhi
+         refValues % p   = refValues_ % p
+         refValues % rho = refValues_ % rho
+         refValues % V   = refValues_ % V
+         refValues % mu  = refValues_ % mu
+         refValues % g0  = refValues_ % g0
 
       end subroutine SetRefValues
 
@@ -108,21 +99,17 @@ module FluidData_MU
          implicit none
          type(Dimensionless_t),  intent(in)     :: dimensionless_
 
-         if(allocated(dimensionless % rho)) deallocate(dimensionless % rho)
-         allocate(dimensionless % rho(size(dimensionless_ % rho)))
-         dimensionless % rho              = dimensionless_ % rho              
-
-         if(allocated(dimensionless % mu )) deallocate(dimensionless % mu )
-         allocate(dimensionless % mu (size(dimensionless_ % mu)))
-         dimensionless % mu               = dimensionless_ % mu               
-
-         dimensionless % Re              = dimensionless_ % Re
-         dimensionless % Fr              = dimensionless_ % Fr
-         dimensionless % invFr2 = dimensionless_ % invFr2
-         dimensionless % gravity_dir     = dimensionless_ % gravity_dir
-
-         dimensionless % rho_max          = dimensionless_ % rho_max          
-         dimensionless % rho_min          = dimensionless_ % rho_min          
+         dimensionless % rho         = dimensionless_ % rho
+         dimensionless % mu          = dimensionless_ % mu
+         dimensionless % Re          = dimensionless_ % Re
+         dimensionless % Fr          = dimensionless_ % Fr
+         dimensionless % invFr2      = dimensionless_ % invFr2
+         dimensionless % gravity_dir = dimensionless_ % gravity_dir
+         dimensionless % vel_dir     = dimensionless_ % vel_dir
+         dimensionless % rho_max     = dimensionless_ % rho_max
+         dimensionless % rho_min     = dimensionless_ % rho_min
+         dimensionless % Ma2         = dimensionless_ % Ma2
+         dimensionless % invMa2      = dimensionless_ % invMa2
 
       end subroutine SetDimensionless
 end module FluidData_MU
