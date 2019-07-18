@@ -11,8 +11,8 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS_NS = 	./build_ns/ColorsClass.o \
-				./build_ns/Jacobian.o \
+LIBOBJS_NS = ./build_ns/JacobianDefinitions.o \
+	        ./build_ns/ColorsClass.o \
 					./build_ns/GenericMatrixClass.o \
 			    ./build_ns/LinkedListMatrixClass.o \
 			    ./build_ns/CSRMatrixClass.o \
@@ -21,10 +21,11 @@ LIBOBJS_NS = 	./build_ns/ColorsClass.o \
 			    ./build_ns/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ns/StaticCondensedMatrixClass.o \
 			    ./build_ns/MatrixClass.o \
+				  ./build_ns/JacobianComputerClass.o \
 				./build_ns/NumericalJacobian.o
 
-LIBOBJS_iNS = 	./build_ins/ColorsClass.o \
-				./build_ins/Jacobian.o \
+LIBOBJS_iNS = ./build_ins/JacobianDefinitions.o \
+         	./build_ins/ColorsClass.o \
 					./build_ins/GenericMatrixClass.o \
 			    ./build_ins/LinkedListMatrixClass.o \
 			    ./build_ins/CSRMatrixClass.o \
@@ -33,12 +34,13 @@ LIBOBJS_iNS = 	./build_ins/ColorsClass.o \
 			    ./build_ins/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ins/StaticCondensedMatrixClass.o \
 			    ./build_ins/MatrixClass.o \
+				  ./build_ins/JacobianComputerClass.o \
 				./build_ins/NumericalJacobian.o
 
 
 
-LIBOBJS_CH = 	./build_ch/ColorsClass.o \
-				  ./build_ch/Jacobian.o \
+LIBOBJS_CH = ./build_ch/JacobianDefinitions.o \
+        	./build_ch/ColorsClass.o \
 				  ./build_ch/GenericMatrixClass.o \
 			    ./build_ch/LinkedListMatrixClass.o \
 			    ./build_ch/CSRMatrixClass.o \
@@ -47,10 +49,11 @@ LIBOBJS_CH = 	./build_ch/ColorsClass.o \
 			    ./build_ch/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ch/StaticCondensedMatrixClass.o \
 			    ./build_ch/MatrixClass.o \
+				  ./build_ch/JacobianComputerClass.o \
 				./build_ch/NumericalJacobian.o
 
-LIBOBJS_MU = 	./build_mu/ColorsClass.o \
-				./build_mu/Jacobian.o \
+LIBOBJS_MU = ./build_mu/JacobianDefinitions.o \
+        	./build_mu/ColorsClass.o \
 					./build_mu/GenericMatrixClass.o \
 			    ./build_mu/LinkedListMatrixClass.o \
 			    ./build_mu/CSRMatrixClass.o \
@@ -59,6 +62,7 @@ LIBOBJS_MU = 	./build_mu/ColorsClass.o \
 			    ./build_mu/SparseBlockDiagonalMatrixClass.o \
 			    ./build_mu/StaticCondensedMatrixClass.o \
 			    ./build_mu/MatrixClass.o \
+				  ./build_mu/JacobianComputerClass.o \
 				./build_mu/NumericalJacobian.o
 
 LIB = jacobian

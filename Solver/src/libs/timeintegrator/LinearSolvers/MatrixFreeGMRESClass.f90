@@ -4,9 +4,9 @@
 !   @File:    MatrixFreeGMRESClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Mon Apr 22 18:37:40 2019
+!   @Last revision date: Wed Jul 17 16:55:05 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
+!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
 !
 !//////////////////////////////////////////////////////
 !
@@ -14,12 +14,13 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 module MatrixFreeGMRESClass
-   use GenericLinSolverClass , only: GenericLinSolver_t, MatrixShift_FCN, MatrixShift
-   use SMConstants           , only: RP, STD_OUT, LINE_LENGTH
-   use DGSEMClass            , only: DGSem, ComputeTimeDerivative_f
-   use FTValueDictionaryClass, only: FTValueDictionary
-   use MatrixClass           , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
+   use GenericLinSolverClass  , only: GenericLinSolver_t, MatrixShift_FCN, MatrixShift
+   use SMConstants            , only: RP, STD_OUT, LINE_LENGTH
+   use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
+   use FTValueDictionaryClass , only: FTValueDictionary
+   use MatrixClass            , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
    use PhysicsStorage        , only: NCONS, NGRAD, CTD_IGNORE_MODE
+   use MPI_Utilities          , only: infNorm, L2Norm, MPI_SumAll
    implicit none
    
    private
@@ -125,11 +126,13 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      recursive subroutine GMRES_Construct(this,DimPrb,controlVariables, sem,MatrixShiftFunc)
+      recursive subroutine GMRES_Construct(this,DimPrb, globalDimPrb, nEqn,controlVariables, sem,MatrixShiftFunc)
          implicit none
          !------------------------------------------------
          class(MatFreeGMRES_t)  , intent(inout), target :: this
          integer                , intent(in)            :: DimPrb
+         integer                , intent(in)            :: globalDimPrb
+         integer                , intent(in)            :: nEqn
          TYPE(FTValueDictionary), intent(in), optional  :: controlVariables
          TYPE(DGSem), target                , optional  :: sem
          procedure(MatrixShift_FCN)                     :: MatrixShiftFunc
@@ -139,6 +142,8 @@ contains
          integer                                    :: k, Nx, Ny, Nz
          integer, allocatable                       :: ndofelm(:)
          !------------------------------------------------
+         
+         call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
          
          if ( present(sem) ) this % p_sem => sem
          
@@ -157,12 +162,6 @@ contains
                this % m = controlVariables % integerValueForKey("gmres inner iterations")
             end if
             
-!           Jacobian computation to be used
-!           *******************************
-            if ( controlVariables % containsKey("jacobian flag") ) then
-               this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-            end if
-            
 !           Preconditioner
 !           **************
             pc = controlVariables % StringValueForKey("preconditioner",LINE_LENGTH)
@@ -177,7 +176,7 @@ contains
                   allocate(this%Z(this%DimPrb,this%m+1))
                   ! Construct inner GMRES solver
                   allocate (this % PCsolver)
-                  call this % PCsolver % Construct(dimprb,sem = sem, MatrixShiftFunc = MatrixShiftFunc)
+                  call this % PCsolver % Construct(dimprb, globalDimPrb, nEqn,sem = sem, MatrixShiftFunc = MatrixShiftFunc)
                   call this % PCsolver % SetMaxInnerIter(15)      ! Hardcoded to 15
                   call this % PCsolver % SetMaxIter(30)           ! Hardcoded to 30... old: 15
                   ! Change this solver's definitions
@@ -186,7 +185,7 @@ contains
 !              
 !              Block-Jacobi preconditioner
 !              ---------------------------
-               case('BlockJacobi')
+               case('Block-Jacobi')
                   if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem for "BlockJacobi" preconditioner'
                   
                   allocate(this%Z(this%DimPrb,this%m+1))
@@ -236,6 +235,10 @@ contains
             end select
          else
             this % Preconditioner = PC_NONE
+         end if
+         
+         if ( present(sem) .and. this % Preconditioner == PC_BlockJacobi ) then
+            call this % Jacobian % Configure (sem % mesh, nEqn, this % BlockA)
          end if
          
 !        ******************
@@ -343,9 +346,9 @@ contains
       
       SELECT CASE (TypeOfNorm)
          CASE ('infinity')
-            xnorm = MAXVAL(ABS(this % x))
+            xnorm = infNorm(this % x)
          CASE ('l2')
-            xnorm = NORM2(this % x)
+            xnorm = L2Norm(this % x)
          CASE DEFAULT
             STOP 'MatFreeSmoothClass ERROR: Norm not implemented yet'
       END SELECT
@@ -500,12 +503,11 @@ contains
          call this % MatrixAction(this%x0,this%V(:,1), ComputeTimeDerivative)
          
          this%V(:,1) = this%RHS - this%V(:,1)   
-         this%g(1) = NORM2(this%V(:,1))
+         this%g(1) = L2Norm(this%V(:,1))
          this%V(:,1) = this%V(:,1) / this%g(1)
          
          this%H = 0.0_RP
          m = this%m
-
          do j = 1,m ! Krylov loop
             select case (this % Preconditioner)
                case (PC_GMRES)
@@ -520,9 +522,13 @@ contains
             
             do i = 1,j
                this%H(i,j) = dot_product(this%W,this%V(:,i))
+               call MPI_SumAll(this%H(i,j))
+               
                this%W = this%W - this%H(i,j) * this%V(:,i)
             end do
-            this%H(j+1,j) = NORM2(this%W)
+            
+            this%H(j+1,j) = L2Norm(this%W)
+            
             if ((ABS(this%H(j+1,j)) .LT. this%tol)) then
                this%CONVERGED = .TRUE.
                this%res = this%tol
@@ -537,7 +543,9 @@ contains
                this%H(i,j) = this%cc(i) * tmp1 + this%ss(i) * tmp2
                this%H(i+1,j) = this%cc(i) * tmp2 - this%ss(i) * tmp1
             end do 
-            tmp1 = SQRT(this%H(j,j)*this%H(j,j) + this%H(j+1,j)*this%H(j+1,j) )    
+            
+            tmp1 = SQRT(this%H(j,j)*this%H(j,j) + this%H(j+1,j)*this%H(j+1,j) )
+            
             if (ABS(tmp1) .LT. 1e-15_RP) then
                this%ERROR_CODE = -1
                RETURN
@@ -599,6 +607,7 @@ contains
          logical      , optional  , intent(inout)  :: computeA                !<> In case of block preconditioning, this tells the solver if the block preconditioner should be calculated
          !----------------------------------------------------
          integer                                :: i
+         real(kind=RP) :: xnorm
          !----------------------------------------------------
          
 !        Set the optional values
@@ -620,6 +629,7 @@ contains
          
          if (.not. this % UserDef_Ax) then
             if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem or MatrixAction'
+            call this % p_sem % mesh % storage % local2GlobalQ(this % p_sem % NDOF)
             this % Ur   = this % p_sem % mesh % storage % Q
             this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
          end if
@@ -630,13 +640,13 @@ contains
             case (PC_BlockJacobi)
                if ( present(ComputeA)) then
                   if (ComputeA) then
-                     call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                     call this % Jacobian % Compute (this % p_sem, nEqn, time, this % BlockA, ComputeTimeDerivative, BlockDiagonalized = .TRUE.)
                      call this % SetOperatorDt(dt) ! the matrix is factorized inside
                      
                      ComputeA = .FALSE.
                   end if
                else
-                  call this % ComputeJacobian(this % BlockA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+                  call this % Jacobian % Compute (this % p_sem, nEqn, time, this % BlockA, ComputeTimeDerivative, BlockDiagonalized = .TRUE.)
                   call this % SetOperatorDt(dt) ! the matrix is factorized inside
                   
                end if
@@ -647,7 +657,16 @@ contains
          
          this%niter = 0
          this%CONVERGED = .FALSE.
-         this%x0 = 0._RP
+         
+         ! Set initial guess to Knoll: P⁻¹b
+!~         select case (this % Preconditioner)
+!~            case (PC_GMRES)
+!~               call this % PC_GMRES_Ax(this%RHS,this%x0, ComputeTimeDerivative)
+!~            case (PC_BlockJacobi)
+!~               call this % PC_BlockJacobi_Ax(this%RHS,this%x0)
+!~            case default ! PC_NONE
+               this % x0 = 0._RP ! The actual "preconditioned" guess would be this%RHS, but 0 is a good initial guess for the Newton linearized system 
+!~         end select
          
          if (this % Preconditioner == PC_GMRES) call this % PCsolver % SetTol(this % tol) ! Set the same tolerance for the first iteration of preconditioner... This is a first approximation and can be changed...
 !
@@ -737,7 +756,7 @@ contains
          if (this % UserDef_Ax) then
             Ax = this % User_MatrixAction(x)
          else
-            eps = 1e-8_RP * (1._RP + norm2(x) )
+            eps = 1e-8_RP * (1._RP + L2Norm(x) )
             shift = MatrixShift(this % dtsolve)
             
             Ax = ( this % p_F(this % Ur + x * eps, ComputeTimeDerivative) - this % F_Ur)/ eps  + shift * x     !First order 
@@ -795,5 +814,5 @@ contains
          this % User_MatrixAction => MatrixAx
          
       end subroutine GMRES_SetMatrixAction
-         
+
 end module MatrixFreeGMRESClass

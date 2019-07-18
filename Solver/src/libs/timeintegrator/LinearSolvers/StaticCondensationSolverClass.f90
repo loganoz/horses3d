@@ -4,28 +4,29 @@
 !   @File:    StaticCondensationSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Tue Feb 12 17:06:52 2019
+!   @Last revision date: Sun May 19 16:54:16 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
-!  StaticCondensationSolverClass: (UNDER DEVELOPMENT!!)
+!  StaticCondensationSolverClass:
 !     Routines for solving Gauss-Lobatto DGSEM representations using static-condensation/substructuring
-!
-!     -> Only valid for hp-conforming representations (a middle ground can be found -partial condensation)
-!
-!  TO CHANGE:
-!     -> nEqn hard-coded to 5
 !
 module StaticCondensationSolverClass
    use SMConstants
    use DGSEMClass                   , only: DGSem, ComputeTimeDerivative_f
+   ! Linear solvers
    use GenericLinSolverClass
    use MKLPardisoSolverClass        , only: MKLPardisoSolver_t
-   use StaticCondensedMatrixClass   , only: StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF
+   use PetscSolverClass             , only: PetscKspLinearSolver_t
+   ! Matrices
+   use GenericMatrixClass           , only: Matrix_t
+   use StaticCondensedMatrixClass   , only: StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF, SC_MATRIX_CSR, SC_MATRIX_PETSC
    use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
-   use CSRMatrixClass               , only: csrMat_t, CSR_MatMatMul, CSR_MatAdd, CSR_MatVecMul
+   use CSRMatrixClass               , only: csrMat_t, CSR_MatAdd
+   use PETScMatrixClass             , only: PETSCMatrix_t
+   ! Extras
    use Utilities                    , only: AlmostEqual
    use StopwatchClass               , only: Stopwatch
    use NodalStorageClass            , only: GAUSSLOBATTO
@@ -43,13 +44,13 @@ module StaticCondensationSolverClass
       type(StaticCondensedMatrix_t)    :: A              ! System matrix
       integer                          :: linsolver      ! Currently used linear solver
       
-!     Variables for the direct (sparse LU) solver
-!     ------------------------------------------- 
-      type(csrMat_t)                   :: Mii_inv           ! Inverse of the inner blocks in CSR (only needed for direct solve)
-      type(MKLPardisoSolver_t)         :: pardisoSolver     ! Solver for the condensed system
+!     Variables for the matrix (pardiso/PETSc) solvers
+!     ------------------------------------------------
+      class(Matrix_t)          , allocatable :: Mii_inv           ! Inverse of the inner blocks in CSR (only needed for matrix solvers)
+      class(GenericLinSolver_t), allocatable :: matSolver         ! Solver for the condensed system
       
-!     Variables for the iterative (GMRES) solver
-!     ------------------------------------------
+!     Variables for the matrix-free (GMRES) solver
+!     --------------------------------------------
       type(DenseBlockDiagMatrix_t)     :: Mii_LU
       type(MatFreeGMRES_t)             :: gmresSolver
       
@@ -79,10 +80,13 @@ module StaticCondensationSolverClass
 !  *****************
 !  Module parameters
 !  *****************
-   integer, parameter :: nEqn = 5 ! hard-coded
    
-   integer, parameter :: PARDISO = 0
-   integer, parameter :: GMRES   = 1
+!
+!  Sub solvers
+!  -----------
+   integer, parameter :: SSOLVER_PARDISO    = 0
+   integer, parameter :: SSOLVER_PETSC      = 1
+   integer, parameter :: SSOLVER_MATF_GMRES = 2
    
 !
 !  ****************
@@ -97,17 +101,23 @@ contains
 !  -----------
 !  Constructor
 !  -----------
-   subroutine SCS_construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   subroutine SCS_construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(StaticCondSolver_t), intent(inout), target :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb
+      integer                  , intent(in)            :: nEqn
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
       !-local-variables-----------------------------------------------------
       integer :: nelem
+      character(len=LINE_LENGTH) :: linsolver
+      integer :: MatrixType
       !---------------------------------------------------------------------
+      
+      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
 !
 !     **********************
 !     Check needed arguments
@@ -116,7 +126,7 @@ contains
       if (.not. present(controlVariables)) ERROR stop 'StaticCondSolver_t needs controlVariables'
       if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
       
-      ! TODO: Add conformity check!
+      ! TODO: Add conformity check?
 !
 !     Gauss-Lobatto check
 !     -------------------
@@ -127,13 +137,37 @@ contains
       
       this % DimPrb = DimPrb
       this % p_sem => sem
-      
-      if ( controlVariables % containsKey("jacobian flag") ) then
-         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-      end if
-      
+       
       MatrixShift => MatrixShiftFunc
+!
+!     ****************
+!     Select subsolver
+!     ****************
+!
+      linsolver = trim( controlVariables % StringValueForKey("static condensed subsolver",LINE_LENGTH) )
+      if ( trim(linsolver) == '' ) linsolver = 'pardiso' ! default value
       
+      select case ( trim(linsolver) )
+         case('pardiso')
+            this % linsolver = SSOLVER_PARDISO
+            allocate(csrMat_t :: this % Mii_inv)
+            allocate(MKLPardisoSolver_t :: this % matSolver)
+            MatrixType = SC_MATRIX_CSR
+         case('petsc')
+            this % linsolver = SSOLVER_PETSC
+            allocate(PETSCMatrix_t :: this % Mii_inv)
+            allocate(PetscKspLinearSolver_t :: this % matSolver)
+            MatrixType = SC_MATRIX_PETSC
+         case('gmres')
+            this % linsolver = SSOLVER_MATF_GMRES
+         case default   
+            write(*,'(A)') 'Not recognized static condensed subsolver.'
+            write(*,'(A)') 'Options are:'
+            write(*,'(A)') '  * pardiso'
+            write(*,'(A)') '  * petsc'
+            write(*,'(A)') '  * gmres (matrix-free)'
+            stop
+      end select
 !
 !     ***************************
 !     Construct the system matrix
@@ -148,7 +182,7 @@ contains
 !     Construct the permutation
 !     -------------------------
 !
-      call this % A % constructPermutationArrays(sem % mesh, nEqn) !,.TRUE. ) ! For ignoring (physical) boundary DOFs 
+      call this % A % constructPermutationArrays(sem % mesh, nEqn, MatrixType) !,.TRUE. ) ! For ignoring (physical) boundary DOFs 
 
 !
 !     ***********
@@ -158,46 +192,42 @@ contains
       allocate(this % x(DimPrb))
       allocate ( this % bi(this % A % size_i) ) 
       allocate ( this % bb(DimPrb - this % A % size_i) ) 
-
 !
-!     **********************************
-!     Construct solver-related variables
-!     **********************************
-!
-      select case ( trim( controlVariables % StringValueForKey("static condensed subsolver",LINE_LENGTH) ) )
-         case('pardiso'); this % linsolver = PARDISO
-         case('gmres')  ; this % linsolver = GMRES
-         case default   ; this % linsolver = PARDISO
-      end select
-      
+!     ***********************
+!     Construct linear solver
+!     ***********************
+!     
       select case (this % linsolver)
-         case(PARDISO)
+         case(SSOLVER_PARDISO, SSOLVER_PETSC)
 !
-!           MKL-Pardiso solver
+!           Matrix solvers
+!           **************
+
+            ! Construct solver
+            call this % matSolver % construct(DimPrb = DimPrb - this % A % size_i, &
+                                              globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
+                                              nEqn = nEqn, &
+                                              MatrixShiftFunc = MatrixShiftFunc, &
+                                              controlVariables = controlVariables)
+            
+            ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
+!~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
+            
+         case(SSOLVER_MATF_GMRES)
+!
+!           Matrix-free solver
 !           ******************
-!
-!           Construct Mii_inv
-!           -----------------
-            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
-      
-!
-!           Solver
-!           ------
-            call this % pardisoSolver % construct (DimPrb = DimPrb - this % A % size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
-      
-         case(GMRES)
-!
-!           GMRES solver
-!           ************
             
             ! Construct auxiliar CSR matrices
             call this % Mii_LU % construct (num_of_Blocks = this % A % num_of_Blocks)
             call this % Mii_LU % PreAllocate(nnzs = this % A % inner_blockSizes)
             
-!
-!           Solver
-!           ------
-            call this % gmresSolver % construct  (DimPrb = DimPrb - this % A % size_i, MatrixShiftFunc = MatrixShiftFunc, controlVariables = controlVariables)
+            ! Construct solver
+            call this % gmresSolver % construct (DimPrb = DimPrb - this % A % size_i, &
+                                                 globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
+                                                 nEqn = nEqn, &
+                                                 MatrixShiftFunc = MatrixShiftFunc, &
+                                                 controlVariables = controlVariables)
             call this % gmresSolver % SetMatrixAction (MatrixAction)
             
       end select
@@ -224,10 +254,24 @@ contains
       deallocate (this % bb)
       
       select case (this % linsolver)
-         case(PARDISO)
-            call this % pardisoSolver % destroy
+!
+!        Matrix solvers
+!        **************
+         case(SSOLVER_PARDISO, SSOLVER_PETSC)
+!
+!           Destroy auxiliar matrix (must be done prior to destroying solver)
+!           -----------------------------------------------------------------
             call this % Mii_inv   % destruct
-         case(GMRES)
+            deallocate (this % Mii_inv)
+!
+!           Destroy solver
+!           --------------
+            call this % matSolver % destroy
+            deallocate (this % matSolver)
+!
+!        Matrix-free solvers
+!        *******************
+         case(SSOLVER_MATF_GMRES)
             call this % gmresSolver % destroy
             call this % Mii_LU   % destruct
       end select
@@ -335,10 +379,13 @@ contains
       real(kind=RP)                            :: residual(this % DimPrb)
       !-----------------------------------------------------------
       
-!~      residual = this % b - CSR_MatVecMul(this % A, this % x)
-!~      rnorm = MAXVAL(ABS(residual))
-      !!! TODO: OImplement this!!!
-      rnorm = 0._RP
+      select case (this % linsolver)
+         case (SSOLVER_MATF_GMRES)
+            rnorm = this % gmresSolver % GetRnorm()
+         case default
+            rnorm = this % matSolver % GetRnorm()
+      end select
+      
    end function SCS_GetRnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -451,14 +498,14 @@ contains
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt)
             
             ComputeA = .FALSE.
             call this % getCondensedSystem
          end if
       else
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
          
          call this % getCondensedSystem
@@ -467,12 +514,14 @@ contains
       call this % getCondensedRHS
       
       subCompA = .FALSE.
+      
       select case (this % linsolver)
-         case (PARDISO)
-            call this % pardisoSolver % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = tol, maxiter=maxiter, time = time, dt=dt, &
+         case (SSOLVER_PARDISO, SSOLVER_PETSC)
+            call this % matSolver % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = tol, maxiter=maxiter, time = time, dt=dt, &
                                     ComputeTimeDerivative = ComputeTimeDerivative, computeA = subCompA)
-            xb = this % pardisoSolver % getX()
-         case (GMRES)
+            this % niter = this % matSolver % niter
+            xb = this % matSolver % getX()
+         case (SSOLVER_MATF_GMRES)
             call this % gmresSolver   % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = tol, maxiter=maxiter, time = time, dt=dt, &
                                     ComputeTimeDerivative = ComputeTimeDerivative, computeA = subCompA)
             this % niter = this % gmresSolver % niter
@@ -495,35 +544,41 @@ contains
       class(StaticCondSolver_t), intent(inout) :: this
       !-local-variables-----------------------------------------------------
       type(DenseBlockDiagMatrix_t) :: Mii_inv
-      type(csrMat_t) :: Mii_inv_Mbi 
       !---------------------------------------------------------------------
       
       select case (this % linsolver)
-         case (PARDISO)
+         case (SSOLVER_PARDISO, SSOLVER_PETSC)
             call Stopwatch % Start("System condensation")
             
-            ! Construct auxiliar CSR matrices
+            ! Construct auxiliar matrix for Mii⁻¹
             call Mii_inv % construct (num_of_Blocks = this % A % num_of_Blocks)
             call Mii_inv % PreAllocate(nnzs = this % A % inner_blockSizes)
             
-            call Mii_inv_Mbi % construct (num_of_Rows = this % A % size_i, num_of_Cols = this % A % size_b)
-            
-            ! Invert blocks and get CSR
+            ! Invert blocks and get corresponding sparse matrix
             call this % A % Mii % InvertBlocks_LU (Mii_inv)
-            call Mii_inv % getTransCSR (this % Mii_inv)
-            
-            ! Get contensed matrix
-            Mii_inv_Mbi = CSR_MatMatMul (this % Mii_inv  , this % A % Mbi, .TRUE.)
-            this % pardisoSolver % A = CSR_MatMatMul (this % A % Mib, Mii_inv_Mbi )
-            this % pardisoSolver % A = CSR_MatAdd (this % A % Mbb, this % pardisoSolver % A, -1._RP)
-            
-            call Stopwatch % Pause("System condensation")
-            
-            call this % pardisoSolver % FactorizeJacobian
-            
+            call this % Mii_inv % ConstructFromDiagBlocks(Mii_inv % num_of_Blocks, Mii_inv % Blocks, Mii_inv % BlockIdx, Mii_inv % BlockSizes)
             call Mii_inv % destruct
-            call Mii_inv_Mbi % destruct
-         case (GMRES)
+            
+            ! Additional operations (solver specific)
+            select type (matSolver => this % matSolver)
+               class is (PetscKspLinearSolver_t)
+                  ! Get condensed matrix
+                  call this % A % getSchurComplement(this % Mii_inv, matSolver % A)
+                  call Stopwatch % Pause("System condensation")
+                  
+                  ! Set PETSc matrix and preconditioner
+                  call matSolver % SetPreconditioner
+                  
+               class is (MKLPardisoSolver_t)
+                  ! Get condensed matrix
+                  call this % A % getSchurComplement(this % Mii_inv, matSolver % A)
+                  call Stopwatch % Pause("System condensation")
+                  
+                  ! Factorize Jacobian
+                  call matSolver % FactorizeJacobian
+            end select
+            
+         case (SSOLVER_MATF_GMRES)
             call Stopwatch % Start("System condensation")
             call this % A % Mii % FactorizeBlocks_LU (this % Mii_LU)
             call Stopwatch % Pause("System condensation")
@@ -542,18 +597,19 @@ contains
       class(StaticCondSolver_t), intent(inout) :: this
       !-local-variables-----------------------------------------------------
       real(kind=RP)  :: Minv_bi(this % A % size_i)
+      real(kind=RP)  :: bb     (this % A % size_b)
       !---------------------------------------------------------------------
       
       call Stopwatch % Start("System condensation")
       
       select case (this % linsolver)
-         case (PARDISO)
-            Minv_bi = CSR_MatVecMul (this % Mii_inv, this % bi, .TRUE.)
-            this % pardisoSolver % b = CSR_MatVecMul (this % A % Mib, Minv_bi)
-            this % pardisoSolver % b = this % bb - this % pardisoSolver % b
-         case (GMRES)
+         case (SSOLVER_PARDISO, SSOLVER_PETSC)
+            Minv_bi = this % Mii_inv % MatVecMul (this % bi)
+            bb = this % A % Mib % MatVecMul (Minv_bi)
+            call this % matSolver % SetRHS (this % bb - bb)
+         case (SSOLVER_MATF_GMRES)
             call this % Mii_LU % SolveBlocks_LU (Minv_bi, this % bi)
-            this % gmresSolver % RHS = CSR_MatVecMul (this % A % Mib, Minv_bi)
+            this % gmresSolver % RHS = this % A % Mib % MatVecMul (Minv_bi)
             this % gmresSolver % RHS = this % bb - this % gmresSolver % RHS
       end select
       
@@ -577,12 +633,12 @@ contains
       !---------------------------------------------------------------------
       call Stopwatch % Start("System condensation")
       
-      xi = CSR_MatVecMul(this % A % Mbi, xb)
+      xi = this % A % Mbi % MatVecMul (xb)
       
       select case (this % linsolver)
-         case (PARDISO)
-            xi = CSR_MatVecMul(this % Mii_inv, this % bi - xi, .TRUE.)
-         case(GMRES)
+         case (SSOLVER_PARDISO, SSOLVER_PETSC)
+            xi = this % Mii_inv % MatVecMul (this % bi - xi)
+         case(SSOLVER_MATF_GMRES)
             call this % Mii_LU % SolveBlocks_LU (xi, this % bi - xi)
       end select
       
@@ -612,16 +668,16 @@ contains
       call Stopwatch % Start("System condensation")
       
       ! Compute M_{bi} x_b
-      Mbi_xb = CSR_MatVecMul (this % A % Mbi, x)
+      Mbi_xb = this % A % Mbi % MatVecMul (x)
       
       ! Compute M_{ii}^{-1} M_{bi} x_b
       call this % Mii_LU % SolveBlocks_LU (vi, Mbi_xb)
       
       ! Compute M_{ib} M_{ii}^{-1} M_{bi} x_b
-      v = CSR_MatVecMul (this % A % Mib, vi)
+      v = this % A % Mib % MatVecMul (vi)
       
       ! Compute M_{bb} x_ b
-      vb = CSR_MatVecMul (this % A % Mbb, x)
+      vb = this % A % Mbb % MatVecMul (x)
       
       ! Compute M_{bb} x_ b - M_{ib} M_{ii}^{-1} M_{bi} x_b
       v = vb - v

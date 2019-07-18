@@ -33,7 +33,7 @@ module Utilities
 
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
-   public   toLower, Qsort
+   public   toLower, Qsort, QsortWithFriend
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
    
@@ -374,6 +374,66 @@ SUBROUTINE Partition(A, marker)
   END DO
 
 END SUBROUTINE Partition
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!     A routine to perform quicksort for array A and reorder array B with the same operations 
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+RECURSIVE SUBROUTINE QsortWithFriend(A,B)
+  INTEGER, INTENT(IN OUT), DIMENSION(:) :: A
+  INTEGER, INTENT(IN OUT), DIMENSION(size(A)) :: B
+  INTEGER                               :: iq
+  
+  IF(size(A) > 1) THEN
+     call PartitionWithFriend(A, B, iq)
+     call QsortWithFriend(A(:iq-1),B(:iq-1))
+     call QsortWithFriend(A(iq:),B(iq:))
+  ENDIF
+END SUBROUTINE QsortWithFriend
 
+SUBROUTINE PartitionWithFriend(A, B, marker)
+  INTEGER, INTENT(IN OUT), DIMENSION(:) :: A
+  INTEGER, INTENT(IN OUT), DIMENSION(:) :: B
+  INTEGER, INTENT(OUT)                  :: marker
+  INTEGER                               :: i, j
+  INTEGER                               :: temp
+  INTEGER                               :: tempB
+  INTEGER                               :: x      ! pivot poINt
+  x = A(1)
+  i = 0
+  j = size(A) + 1
+
+  DO
+     j = j-1
+     DO
+        IF (A(j) <= x) EXIT
+        j = j-1
+     END DO
+     i = i+1
+     DO
+        IF (A(i) >= x) EXIT
+        i = i+1
+     END DO
+     IF (i < j) THEN
+        ! exchange A(i) and A(j)
+        temp = A(i)
+        A(i) = A(j)
+        A(j) = temp
+        
+        tempB = B(i)
+        B(i) = B(j)
+        B(j) = tempB
+     elseIF (i == j) THEN
+        marker = i+1
+        return
+     else
+        marker = i
+        return
+     ENDIF
+  END DO
+
+END SUBROUTINE PartitionWithFriend
 end module Utilities
 

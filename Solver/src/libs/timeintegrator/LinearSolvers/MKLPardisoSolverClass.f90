@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Mon Apr 22 18:37:39 2019
+!   @Last revision date: Wed Jul 17 11:52:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,13 +20,14 @@
 #endif
 MODULE MKLPardisoSolverClass
    USE GenericLinSolverClass
-   USE CSRMatrixClass
+   USE CSRMatrixClass            , only: csrMat_t
    use PETScMatrixClass
    USE SMConstants
    use DGSEMClass
    use TimeIntegratorDefinitions
    use Utilities                 , only: AlmostEqual
    use StopwatchClass            , only: Stopwatch
+   use MPI_Process_Info          , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
 #endif
@@ -65,6 +66,7 @@ MODULE MKLPardisoSolverClass
       PROCEDURE :: ReSetOperatorDt
       procedure :: ComputeJacobianMKL
       procedure :: FactorizeJacobian            => MKL_FactorizeJacobian
+      procedure :: SetJacobian                  => MKL_SetJacobian
       !Functions:
       PROCEDURE :: Getxnorm                     => MKL_GetXnorm    !Get solution norm
       PROCEDURE :: Getrnorm    !Get residual norm
@@ -104,11 +106,13 @@ MODULE MKLPardisoSolverClass
 !  -----------------------
 !  MKL pardiso constructor
 !  -----------------------
-   subroutine ConstructMKLContext(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   subroutine ConstructMKLContext(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-----------------------------------------------------------
       class(MKLPardisoSolver_t), intent(inout), TARGET :: this
       integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb
+      integer                  , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , intent(in), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -117,6 +121,13 @@ MODULE MKLPardisoSolverClass
       PetscErrorCode :: ierr
 #endif
       !-----------------------------------------------------------
+      
+      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      
+      if (MPI_Process % doMPIRootAction) then
+         ERROR stop 'MKLPardisoSolver_t cannot be used as a distributed solver'
+         !TODO: Implement cluster_sparse_solver (MKL) or use the actual pardiso solver (http://www.pardiso-project.org/)
+      end if
       
       if ( present(sem) ) then
          this % p_sem => sem
@@ -148,6 +159,12 @@ MODULE MKLPardisoSolverClass
          call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
          
       end if
+!
+!     Configure the Jacobian (this includes matrix preallocation -if needed)
+!     ----------------------------------------------------------------------
+      if ( present(sem) ) then
+         call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
+      end if
 
 #ifdef HAS_MKL
       call pardisoinit(this % Pardiso_pt, this % mtype, this % Pardiso_iparm)
@@ -160,12 +177,6 @@ MODULE MKLPardisoSolverClass
 !     -----------------------------
 !
       if ( present(controlVariables) ) then
-!
-!        Select the kind of Jacobian to be used
-!        --------------------------------------
-         if ( controlVariables % containsKey("jacobian flag") ) then
-            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-         end if
 !
 !        See if the time-step is constant
 !           If it's not, the factorized matrix cannot be stored in the matrix structure
@@ -287,7 +298,6 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine ComputeJacobianMKL(this,dt,time,nEqn,nGradEqn,ComputeTimeDerivative)
-      use DenseMatUtilities, only: Mat2File ! debug
       use DenseBlockDiagonalMatrixClass
       implicit none
       !-----------------------------------------------------------
@@ -301,14 +311,14 @@ MODULE MKLPardisoSolverClass
       type(csrMat_t) :: B, Cmat !debug
       
       if (this % AIsPetsc) then
-         call this % ComputeJacobian(this % PETScA,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, ComputeTimeDerivative)
          
          call this % PETScA % GetCSRMatrix(this % A)
          call this % SetOperatorDt(dt)
          this % AIsPetsc = .FALSE.
          call this % PETScA % destruct
       else
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          
 !~         !<debug
          
@@ -324,7 +334,7 @@ MODULE MKLPardisoSolverClass
 !~         call B % Visualize('NumJac_visu.dat')
          
 !~         !------------
-!~         Cmat = CSR_MatAdd(this % A,B,-1._RP)
+!~         call  this % A % MatAdd(B, Cmat,-1._RP)
          
 !~         print*, 'Error(L2)  = ',  norm2( (Cmat % Values) )
 !~         print*, 'Error(inf) = ',  maxval( abs(Cmat % Values) )
@@ -479,7 +489,7 @@ MODULE MKLPardisoSolverClass
       real(kind=RP)                            :: residual(this % DimPrb)
       !-----------------------------------------------------------
       
-      residual = this % b - CSR_MatVecMul(this % A, this % x)
+      residual = this % b - this % A % MatVecMul (this % x)
       rnorm = MAXVAL(ABS(residual))
       
       
@@ -513,7 +523,7 @@ MODULE MKLPardisoSolverClass
 !     Compute numerical Jacobian in the PETSc matrix
 !     ----------------------------------------------
       if ( self % AIsPetsc) then
-         call self % ComputeJacobian(self  % PETScA,0._RP,nEqn,nGradEqn,F_J,eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % PETScA, F_J, eps_in = eps)
 !
 !        Transform the Jacobian to CSRMatrix
 !        -----------------------------------
@@ -525,7 +535,7 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % ComputeJacobian(self % A,0._RP,nEqn,nGradEqn,F_J,eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, eps_in = eps)
          call self % SetOperatorDt(dt)
          
          self % A % values = -dt * self % A % values
@@ -549,7 +559,7 @@ MODULE MKLPardisoSolverClass
       
       if (self % Variable_dt) then
          call self % ALU % destruct
-         call self % ALU % constructWithArrays  (self % A % Rows, &
+         call self % ALU % constructWithCSRArrays  (self % A % Rows, &
                                                  self % A % Cols, &
                                                  self % A % Values)
       end if
@@ -594,5 +604,22 @@ MODULE MKLPardisoSolverClass
       stop 'MKL not linked correctly'
 #endif
    end subroutine MKL_SolveLUDirect
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MKL_SetJacobian(this,Matrix)
+      implicit none
+      !-arguments-----------------------------------------------------------
+      class(MKLPardisoSolver_t), intent(inout)  :: this
+      class(Matrix_t)          , intent(in)     :: Matrix
+      !---------------------------------------------------------------------
+      
+      select type(Matrix)
+      class is(csrMat_t)
+         this % A = Matrix
+      class default
+         ERROR stop 'MKL_SetJacobian :: Wrong matrix type'
+      end select
+      
+   end subroutine MKL_SetJacobian
 END MODULE MKLPardisoSolverClass

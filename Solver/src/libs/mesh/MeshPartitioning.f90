@@ -4,9 +4,9 @@
 !   @File:    MeshPartitioning.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat Nov 25 10:26:08 2017
-!   @Last revision date: Wed Oct 31 18:01:25 2018
+!   @Last revision date: Wed Jul 17 11:52:44 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4cb44266e1f1a3b075b9d1413a55399ec0b38b20
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -278,6 +278,7 @@ module MeshPartitioning
             associate(nFaces => partitions(domain) % no_of_mpifaces)
             allocate(partitions(domain) % mpiface_elements(nFaces))
             allocate(partitions(domain) % element_mpifaceSide(nFaces))
+            allocate(partitions(domain) % element_mpifaceSideOther(nFaces))
             allocate(partitions(domain) % mpiface_rotation(nFaces))
             allocate(partitions(domain) % mpiface_elementSide(nFaces))
             allocate(partitions(domain) % mpiface_sharedDomain(nFaces))
@@ -320,10 +321,15 @@ module MeshPartitioning
             partitions(dL) % mpiface_elements(bfaceID(dL)) = eL % eID
             partitions(dR) % mpiface_elements(bfaceID(dR)) = eR % eID
 !
-!           Get the face sides in the elements
-!           ----------------------------------
+!           Get the face sides in the elements (current partition)
+!           ------------------------------------------------------
             partitions(dL) % element_mpifaceSide(bfaceID(dL)) = f % elementSide(1)
             partitions(dR) % element_mpifaceSide(bfaceID(dR)) = f % elementSide(2)
+!
+!           Get the face sides in the elements (neighbor partition)
+!           ------------------------------------------------------
+            partitions(dL) % element_mpifaceSideOther(bfaceID(dL)) = f % elementSide(2)
+            partitions(dR) % element_mpifaceSideOther(bfaceID(dR)) = f % elementSide(1)
 !
 !           Get the face rotation
 !           ---------------------

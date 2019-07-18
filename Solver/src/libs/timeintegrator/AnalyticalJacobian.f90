@@ -4,16 +4,14 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Tue Apr 23 17:08:54 2019
+!   @Last revision date: Wed Jul 17 11:52:49 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
 !  -> Only for p-conforming representations (TODO: make general)
-!  -> TODO: Implement as class to prevent memory leaking and additional computations
-!  -> TODO: MPI implementation is missing
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
 !//////////////////////////////////////////////////////
@@ -25,65 +23,101 @@ module AnalyticalJacobian
    use NodalStorageClass
    use PhysicsStorage
    use Physics
-   use Jacobian                        , only: JACEPS
+   use JacobianDefinitions             , only: JACEPS
+   use JacobianComputerClass           , only: JacobianComputer_t
    use MatrixClass
-   use DGSEMClass
+   use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f
    use StopWatchClass
    use MeshTypes
    use EllipticDiscretizations
+   use MPI_Process_Info                , only: MPI_Process
    use ElementConnectivityDefinitions  , only: axisMap, normalAxis
    use BoundaryConditions              , only: BCs
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
+   use ConnectivityClass               , only: Connectivity
 #if defined(NAVIERSTOKES)
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D
    use FluidData_NS, only: dimensionless
 #endif
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
    private
-   public AnalyticalJacobian_Compute
+   public AnJacobian_t
    
    integer, parameter :: other(2) = [2, 1]
    
-   ! Variables to be moved to Jacobian Storage
-   integer, allocatable :: ndofelm(:)
-   integer, allocatable :: firstIdx(:)
+!
+!  **************************************************
+!  Main type for the analytical Jacobian computations
+!  **************************************************
+   type, extends(JacobianComputer_t) :: AnJacobian_t
+      
+      contains
+         procedure :: Construct => AnJacobian_Construct
+         procedure :: Compute   => AnJacobian_Compute
+   end type AnJacobian_t
    
+   
+#if defined(NAVIERSTOKES)
+   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix. TODO: Define only once in the constructor (When this is a class!!)
+#endif
 contains
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------
+!  AnJacobian_Construct:
+!  Main class constructor
+!  -------------------------------------------------------
+   subroutine AnJacobian_Construct(this, mesh, nEqn)
+      implicit none
+      !-arguments-----------------------------------------
+      class(AnJacobian_t)  , intent(inout) :: this
+      type(HexMesh)        , intent(in)    :: mesh
+      integer              , intent(in)    :: nEqn
+      !---------------------------------------------------
+      
+!
+!     Construct parent
+!     ----------------
+      call this % JacobianComputer_t % construct (mesh, nEqn)
+      
+      call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
+      
+      !TODO: Add conformity check
+      
+   end subroutine AnJacobian_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnalyticalJacobian_Compute(sem,nEqn, time,Matrix,BlockDiagonalized)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized)
       implicit none
-      !--------------------------------------------
-      type(DGSem)              , intent(inout) :: sem
-      integer,                   intent(in)    :: nEqn
-      real(kind=RP)            , intent(in)    :: time
-      class(Matrix_t)          , intent(inout) :: Matrix
-      logical        , optional, intent(in)    :: BlockDiagonalized  !<? Construct only the block diagonal?
+      !-arguments----------------------------------
+      class(AnJacobian_t)      , intent(inout)     :: this
+      type(DGSem)              , intent(inout)     :: sem
+      integer,                   intent(in)        :: nEqn
+      real(kind=RP)            , intent(in)        :: time
+      class(Matrix_t)          , intent(inout)     :: Matrix
+      procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+      real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
+      logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
 #if defined(NAVIERSTOKES)
       !--------------------------------------------
-      integer :: eID, fID  ! Element and face counters
       integer :: nnz
-      integer :: nelem
+      integer :: nelem, ierr
       logical :: BlockDiagonal
-      logical, save :: IsFirst = .TRUE.
+      integer :: eID, i
       !--------------------------------------------
       
-      if (IsFirst) then
-         call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
-         IsFirst = .FALSE.
-         
-         ! TODO: Add conformity check!
-         
-      end if
       
       call Stopwatch % Start("Analytical Jacobian construction")
 !
@@ -96,65 +130,81 @@ contains
       end if
       
       nelem = size(sem % mesh % elements)
-!
-!     Get block sizes and position in matrix. This can be moved elsewhere since it's needed by both the numerical and analytical Jacobians
-!     ---------------------------------------
-      safedeallocate(ndofelm)  ; allocate (ndofelm(nelem))
-      safedeallocate(firstIdx) ; allocate (firstIdx(nelem+1))
-      
-      firstIdx = 1
-      DO eID=1, nelem
-         ndofelm(eID)  = nEqn * (sem % mesh % Nx(eID)+1) * (sem % mesh % Ny(eID)+1) * (sem % mesh % Nz(eID)+1)
-         if (eID>1) firstIdx(eID) = firstIdx(eID-1) + ndofelm(eID-1)
-      END DO
-      firstIdx(nelem+1) = firstIdx(nelem) + ndofelm(nelem)
+
+      !TODO: Check if there was p-adaptation and reconstruct if necessary
       
 !
-!     ***************************
-!     Preallocate Jacobian matrix
-!     ***************************
+!     *************************************************
+!     If Jacobian matrix was not preallocated, allocate
+!     *************************************************
 !
-      select type(Matrix_p => Matrix)
+      if (.not. this % preAllocate) then
+         select type(Matrix_p => Matrix)
 !
-!        If block-diagonal matrix, construct with size of blocks
-!        -------------------------------------------------------
-         type is(DenseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
-         type is(SparseBlockDiagMatrix_t)
-            call Matrix_p % Preallocate(nnzs=ndofelm)
-            
+!           If block-diagonal matrix, construct with size of blocks
+!           -------------------------------------------------------
+            type is(DenseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
+            type is(SparseBlockDiagMatrix_t)
+               call Matrix_p % Preallocate(nnzs=this % ndofelm_l)
+               
 !
-!        If matrix is CSR, standard preallocate with LinkedListMatrix
-!        ------------------------------------------------------------
-         type is(csrMat_t)
-            call Matrix_p % Preallocate()
+!           If matrix is CSR, standard preallocate with LinkedListMatrix
+!           ------------------------------------------------------------
+            type is(csrMat_t)
+               call Matrix_p % Preallocate()
 !
-!        Otherwise, construct with nonzeros in each row
-!        ----------------------------------------------
-         class default 
-            if (BlockDiagonal) then
-               nnz = maxval(ndofelm)
-            else
-               nnz = 7*maxval(ndofelm) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
-            end if
-            call Matrix_p % Preallocate(nnz)
-      end select
+!           Otherwise, construct with nonzeros in each row
+!           ----------------------------------------------
+            class default 
+               if (BlockDiagonal) then
+                  nnz = maxval(this % ndofelm_l)
+               else
+                  nnz = 7*maxval(this % ndofelm_l) ! 20180201: hard-coded to 7, since the analytical Jacobian can only compute off-diagonal blocks for compact schemes (neighbors' effect)
+               end if
+               call Matrix_p % Preallocate(nnz)
+         end select
+         
+         call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
+      end if
+      
       
       call Matrix % Reset (ForceDiagonal = .TRUE.)
-      call Matrix % SpecifyBlockInfo(firstIdx,ndofelm)
       
 !$omp parallel
+!     ------------------
+!     Prolong Q to faces
+!     ------------------
+!
+      call sem % mesh % ProlongSolutionToFaces(NCONS)
+!
+!     ----------------
+!     Update MPI Faces
+!     ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+      call sem % mesh % UpdateMPIFacesSolution(NCONS)
+!$omp end single
+#endif
 !
 !     ******************************************************************
 !     If the physics has an elliptic component, compute the DG gradients
 !     -> This routine also projects the appropriate grads to the faces
 !     ******************************************************************
 !
-      if (flowIsNavierStokes) call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+      if (flowIsNavierStokes) then
+         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+#ifdef _HAS_MPI_
+!$omp single
+         call sem % mesh % UpdateMPIFacesGradients(NGRAD)
+!$omp end single
+#endif
+      end if
 !
-!     **************************************************
-!     Compute the Jacobian of the Numerical Flux (FStar)
-!     **************************************************
+!     ************************************************************************
+!     Compute the Jacobian of the Numerical Fluxes \hat{f}^a and \hat{f}^{\nu}
+!     ************************************************************************
 !
       call ComputeNumericalFluxJacobian(sem % mesh,nEqn,time)
 !
@@ -170,21 +220,33 @@ contains
 !
       if (.not. BlockDiagonal) call AnalyticalJacobian_OffDiagonalBlocks(sem % mesh,Matrix)
 !$omp end parallel
-      
 !
+!     ************************
 !     Finish assembling matrix
-!     ------------------------
-      
+!     ************************
+!
+!     Add an MPI Barrier
+!     ------------------
+#ifdef _HAS_MPI_
+      if (MPI_Process % doMPIAction) then
+         call mpi_barrier(MPI_COMM_WORLD, ierr)
+      end if
+#endif
       call Matrix % Assembly()
-      
+!
+!     *********
+!     Finish up
+!     *********
+!
       call Stopwatch % Pause("Analytical Jacobian construction")
       
-      write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
-      
+      if ( this % verbose ) then
+         write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
+      end if
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
-   end subroutine AnalyticalJacobian_Compute
+   end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES)
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,7 +319,6 @@ contains
       !--------------------------------------------
       integer :: eID, fID, elSide, side
       type(Element), pointer :: e_plus
-      type(Element), pointer :: e_minus
       type(Face)   , pointer :: f
       !--------------------------------------------
       
@@ -266,7 +327,7 @@ contains
 !     ---------------------------------------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+         if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
             call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
             call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
          end if
@@ -279,7 +340,7 @@ contains
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
-            if (mesh % faces(fID) % faceType == HMESH_INTERIOR) then
+            if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
                call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
                call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
             end if
@@ -290,7 +351,7 @@ contains
 !
 !     Compute the off-diagonal blocks for each element's equations
 !     ------------------------------------------------------------
-!$omp do schedule(runtime) private(e_plus,elSide,fID,side,f,e_minus)
+!$omp do schedule(runtime) private(e_plus,elSide,fID,side,f)
       do eID = 1, mesh % no_of_elements
          e_plus => mesh % elements(eID)
 !
@@ -303,13 +364,12 @@ contains
             side = e_plus % faceSide(elSide)
             
             f => mesh % faces(fID)
-            e_minus => mesh % elements(f % elementIDs( other(side) ))
             
-            call Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
+            call Local_GetOffDiagonalBlock(f,e_plus,e_plus % Connection(elSide),side,Matrix)
          end do
       end do
 !$omp end do
-      nullify (f, e_plus, e_minus)
+      nullify (f, e_plus)
    end subroutine AnalyticalJacobian_OffDiagonalBlocks
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -324,11 +384,12 @@ contains
       integer,       intent(in)       :: nEqn
       real(kind=RP), intent(in)       :: time
       !--------------------------------------------
-      integer :: fID
+      integer :: fID, ierr
       !--------------------------------------------
-      
-      call mesh % ProlongSolutionToFaces(NCONS)
-      
+!
+!     Compute the non-shared faces
+!     ----------------------------
+!
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          select case (mesh % faces(fID) % faceType)
@@ -339,7 +400,38 @@ contains
          end select
       end do
 !$omp end do
-   
+!
+!     Compute the MPI faces
+!     ---------------------
+!
+#ifdef _HAS_MPI_
+      if ( MPI_Process % doMPIAction ) then
+!
+!        Wait until the MPI messages have been received
+!        ----------------------------------------------
+!$omp single
+         if ( flowIsNavierStokes ) then 
+            call mesh % GatherMPIFacesGradients(NGRAD)
+         else  
+            call mesh % GatherMPIFacesSolution(NCONS)
+         end if
+!$omp end single
+!$omp do schedule(runtime)
+         do fID = 1, size(mesh % faces)
+            select case (mesh % faces(fID) % faceType)
+               case (HMESH_MPI)
+                  call ComputeInterfaceFluxJacobian(mesh % faces(fID))
+            end select
+         end do
+!$omp end do
+!
+!        Add an MPI Barrier
+!        ------------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+      end if
+#endif
    end subroutine ComputeNumericalFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -359,7 +451,7 @@ contains
       real(kind=RP), intent(in) :: time
       !--------------------------------------------
       integer :: i,j, n, m
-      real(kind=RP) :: BCjac(NCONS,NCONS)
+      real(kind=RP) :: BCjac(NCONS,NCONS,0:f % Nf(1),0:f % Nf(2))
       real(kind=RP) :: dF_dQ     (NCONS,NCONS)
       real(kind=RP) :: dF_dgradQ (NCONS,NCONS,NDIM)
       !--------------------------------------------
@@ -409,10 +501,10 @@ contains
                                      f % storage(1) % Q(:,i,j),&
                                      f % storage(2) % Q(:,i,j),&
                                      f % zone, &
-                                     BCjac )
+                                     BCjac(:,:,i,j) )
          
          f % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT ) % dFStar_dqF (:,:,i,j) &
-                                            + matmul(f % storage(RIGHT) % dFStar_dqF (:,:,i,j),BCjac)
+                                            + matmul(f % storage(RIGHT) % dFStar_dqF (:,:,i,j),BCjac(:,:,i,j))
       end do             ; end do
       
 !
@@ -421,6 +513,8 @@ contains
 !     ********************
 !
       if (flowIsNavierStokes) then
+      
+         call f % ProjectBCJacobianToElements(NCONS,BCjac)
       
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1) 
             
@@ -869,7 +963,15 @@ contains
       real(kind=RP) :: etaAux (NCONS,NCONS,4)
       real(kind=RP) :: zetaAux(NCONS,NCONS,4)
       real(kind=RP), pointer :: Gvec_xi(:,:,:), Gvec_eta (:,:,:), Gvec_zeta(:,:,:)
-      real(kind=RP) :: a_plus, a_minus, temp
+      real(kind=RP) :: dqHat_dqp ! Derivative of solution numerical flux, qHat, with respect to q⁺ (viscous method)
+      real(kind=RP) :: dqHat_dqm ! Derivative of solution numerical flux, qHat, with respect to q⁻ (viscous method)
+      real(kind=RP) :: temp
+      real(kind=RP) :: JacF( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Jacobian for FRONT  face
+      real(kind=RP) :: JacB( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(3) )   ! Jacobian for BACK   face
+      real(kind=RP) :: JacO( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for BOTTOM face
+      real(kind=RP) :: JacR( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for RIGHT  face
+      real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
+      real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
       !-------------------------------------------
 !
 !     *******************
@@ -881,8 +983,12 @@ contains
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
       
-      a_plus  = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
-      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+!     TODO: Fill this only once in class constructor
+!     ----------------------------------------------
+      Identity = 0._RP
+      do i=1, NCONS
+         Identity(i,i) = 1._RP
+      end do
       
       dF_dgradQ => e % storage % dF_dgradQ
       
@@ -908,7 +1014,21 @@ contains
 !     *********************
 !
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      if (flowIsNavierStokes) call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+      
+      if (flowIsNavierStokes) then
+         call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+         ! TODO: Read this from Viscous discretization
+         dqHat_dqp = 0.5_RP
+         dqHat_dqm = 0.5_RP
+         
+         call AnJac_GetFaceJac(fF, sideF, JacF, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fB, sideB, JacB, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fO, sideO, JacO, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fR, sideR, JacR, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fT, sideT, JacT, dqHat_dqp, dqHat_dqm)
+         call AnJac_GetFaceJac(fL, sideL, JacL, dqHat_dqp, dqHat_dqm)
+         
+      end if
       
 !
 !     Pointers to the flux Jacobians with respect to q on the faces
@@ -940,7 +1060,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  ! TODO: This can be improved by setting the whole matrix at once
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1028,14 +1148,13 @@ contains
                
                Gvec_xi   => dF_dgradQ(:,:,:,1,r,j12,k12)
                
-               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_xi  , nL(:,j12,k12) ) &
-                                                          +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_xi  , nR(:,j12,k12) ) )
+               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_xi  , nL(:,j12,k12) ) , JacL(:,:,j12,k12) ) &
+                                                          +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_xi  , nR(:,j12,k12) ) , JacR(:,:,j12,k12) ) )
                temp = temp * e % spAxi   % hatD(r,i2)
                
                xiAux  (:,:,1:3) = xiAux  (:,:,1:3) + temp * Gvec_xi
             end do
             
-            xiAux(:,:,4) = xiAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Xi-component of the flux
 !           -----------------------------------------------------
@@ -1075,13 +1194,12 @@ contains
                
                Gvec_eta  => dF_dgradQ(:,:,:,2,i12,r,k12)
                
-               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_eta , nF(:,i12,k12) ) &
-                                                         +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_eta , nB(:,i12,k12) ) )
+               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_eta , nF(:,i12,k12) ), JacF(:,:,i12,k12)) &
+                                                         +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_eta , nB(:,i12,k12) ), JacB(:,:,i12,k12)) )
                temp = temp * e % spAEta  % hatD(r,j2)
                
                etaAux (:,:,1:3) = etaAux (:,:,1:3) + temp * Gvec_eta
             end do
-            etaAux(:,:,4) = etaAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Eta-component of the flux
 !           ------------------------------------------------------
@@ -1121,13 +1239,12 @@ contains
                
                Gvec_zeta => dF_dgradQ(:,:,:,3,i12,j12,r)
                
-               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_zeta, nO(:,i12,j12) ) &
-                                                         +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_zeta, nT(:,i12,j12) ) )
+               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_zeta, nO(:,i12,j12) ), JacO(:,:,i12,j12)) &
+                                                         +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_zeta, nT(:,i12,j12) ), JacT(:,:,i12,j12)) )
                temp = temp * e % spAZeta % hatD(r,k2)
                
                zetaAux(:,:,1:3) = zetaAux(:,:,1:3) + temp * Gvec_zeta
             end do
-            zetaAux(:,:,4) = zetaAux(:,:,4) * a_plus
 !
 !           Compute contributions to the Zeta-component of the flux
 !           -------------------------------------------------------
@@ -1171,9 +1288,9 @@ contains
 !                    -------------------------------------------------------------------
                         + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i12,j2,k1) *                                                  &
                            (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_eta , e % geom % jGradZeta(:,i12,j2,k2) )                      &
-                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_eta , nO(:,i12,j2) ) &
-                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_eta , nT(:,i12,j2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul ( dot_product( Gvec_eta , nO(:,i12,j2) ), JacO(:,:,i12,j2) ) &
+                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul ( dot_product( Gvec_eta , nT(:,i12,j2) ), JacT(:,:,i12,j2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_bo(:,:,2,i12,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
@@ -1187,9 +1304,9 @@ contains
 !                    -------------------------------------------------------------------
                         + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i12,j1,k2) *                                                  &
                            (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_zeta, e % geom % jGradEta (:,i12,j2,k2) )                      &
-                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_zeta, nF(:,i12,k2) ) &
-                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_zeta, nB(:,i12,k2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_zeta, nF(:,i12,k2) ), JacF(:,:,i12,k2) ) &
+                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_zeta, nB(:,i12,k2) ), JacB(:,:,i12,k2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_fr(:,:,3,i12,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
@@ -1233,9 +1350,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j12,k1) *                                                  &
                            (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_xi  , e % geom % jGradZeta(:,i2,j12,k2) )                      & 
-                            - a_plus * (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * dot_product( Gvec_xi  , nO(:,i2,j12) ) &
-                                        + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * dot_product( Gvec_xi  , nT(:,i2,j12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_xi  , nO(:,i2,j12) ), JacO(:,:,i2,j12) ) &
+                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_xi  , nT(:,i2,j12) ), JacT(:,:,i2,j12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_bo(:,:,1,i1,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
@@ -1249,9 +1366,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i1,j12,k2) *                                                  &
                            (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_zeta, e % geom % jGradXi  (:,i2,j12,k2) )                      &
-                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_zeta, nL(:,j12,k2) ) &
-                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_zeta, nR(:,j12,k2) ) &
-                                       )                                                                                                  &
+                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_zeta, nL(:,j12,k2) ), JacL(:,:,j12,k2) ) &
+                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_zeta, nR(:,j12,k2) ), JacR(:,:,j12,k2) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_ri(:,:,3,j12,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
@@ -1294,9 +1411,9 @@ contains
 !                    ------------------------------------------------------------------
                         + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j1,k12) *                                                  &
                            (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_xi  , e % geom % jGradEta (:,i2,j2,k12) )                      &
-                            - a_plus * (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * dot_product( Gvec_xi  , nF(:,i2,k12) ) &
-                                        + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * dot_product( Gvec_xi  , nB(:,i2,k12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_xi  , nF(:,i2,k12) ), JacF(:,:,i2,k12) ) &
+                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_xi  , nB(:,i2,k12) ), JacB(:,:,i2,k12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                            
                         +   dfdGradQ_fr(:,:,1,i1,k12) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
@@ -1310,9 +1427,9 @@ contains
 !                    -----------------------------------------------------------------
                         + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i1,j2,k12) *                                                  &
                            (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_eta , e % geom % jGradXi  (:,i2,j2,k12) )                      &
-                            - a_plus * (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * dot_product( Gvec_eta , nL(:,j2,k12) ) &
-                                        + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * dot_product( Gvec_eta , nR(:,j2,k12) ) &
-                                       )                                                                                                  &
+                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_eta , nL(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_eta , nR(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                              )                                                                                                  &
                            )                                                                                                              &
                         
                         +   dfdGradQ_ri(:,:,2,j1,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
@@ -1358,7 +1475,7 @@ contains
       !-arguments----------------------------------------------------------------------
       type(Face), target, intent(in)    :: f       !<  Face connecting elements
       type(Element)     , intent(in)    :: e_plus  !<  The off-diagonal block is the contribution to this element's equations
-      type(Element)     , intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
+      type(Connectivity), intent(in)    :: e_minus !<  Element that connects with e_plus through "f"
       integer           , intent(in)    :: side    !<  side of face where e_plus is
       class(Matrix_t)   , intent(inout) :: Matrix  !<> Jacobian matrix
       !-local-variables----------------------------------------------------------------
@@ -1387,8 +1504,6 @@ contains
       integer :: NxyFace_minus(2)         ! Polynomial orders of face on element e⁻ (only needed for viscous fluxes)
       integer :: faceInd_plus2minus(2)    ! Face indexes on e⁺ passed to the reference frame of e⁻
       integer :: faceInd_minus2plus(2)    ! Face indexes on e⁻ passed to the reference frame of e⁺ (only needed for viscous fluxes)
-      integer :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
-      integer :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       integer :: Deltas                   ! Number of Kronecker deltas /= 0
       integer :: elInd_plus_norm(3)       ! Element indexes on e⁺, but the index in the normal direction has been replaced by a specified value "r"
       integer :: elInd_plus_tan1(3)       ! Element indexes on e⁺, but the index in the first tangent direction has been replaced by the index on e⁻ (in the reference frame of e⁺)
@@ -1405,6 +1520,8 @@ contains
       real(kind=RP)       , pointer :: dfdq(:,:,:,:)     ! 
       real(kind=RP)       , pointer :: df_dGradQ_f(:,:,:,:,:)     ! Pointer to the Jacobian with respect to gradQ on face
       real(kind=RP)       , pointer :: df_dGradQ_e(:,:,:,:,:,:,:) ! Pointer to the Jacobian with respect to gradQ on face
+      real(kind=RP) :: dtan1, dtan2             ! Kronecker deltas in the tangent directions
+      real(kind=RP) :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       real(kind=RP) :: a_minus
       real(kind=RP) :: normAux(NCONS,NCONS)
       real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the direction normal to the face
@@ -1412,7 +1529,6 @@ contains
       real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the second tangent direction to the face
       real(kind=RP), allocatable :: nHat(:,:,:)
       !--------------------------------------------------------------------------------
-      
 !
 !     ***********
 !     Definitions
@@ -1513,7 +1629,7 @@ contains
                i = eq1 + baseRow ! row index (1-based)
                j = eq2 + baseCol ! column index (1-based)
                
-               call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntries(eq1,eq2))
+               call Matrix % AddToBlockEntry (e_plus % globID, e_minus % globID, i, j, MatEntries(eq1,eq2))
             end do            ; end do
             
          end do                ; end do                ; end do
@@ -1657,7 +1773,7 @@ contains
                   i = eq1 + baseRow ! row index (1-based)
                   j = eq2 + baseCol ! column index (1-based)
                
-                  call Matrix % AddToBlockEntry (e_plus % GlobID, e_minus % GlobID, i, j, MatEntries(eq1,eq2))
+                  call Matrix % AddToBlockEntry (e_plus % globID, e_minus % globID, i, j, MatEntries(eq1,eq2))
                end do            ; end do
                
             end do                ; end do                ; end do
@@ -1682,7 +1798,7 @@ contains
 !  Get normal vector for element indexing and scale with surface Jacobian
 !     (Only for p-conforming meshes)
 !  ----------------------------------------------------------------------
-   subroutine AnJac_GetNormalVec(f, faceSide, nEl) 
+   subroutine AnJac_GetNormalVec(f, faceSide, nEl)
       implicit none
       !-arguments-----------------------------------------------------
       type(Face)     , intent(in)    :: f
@@ -1705,7 +1821,45 @@ contains
             end do                        ; end do
       end select
       
-   end subroutine AnJac_GetNormalVec   
+   end subroutine AnJac_GetNormalVec  
+   
+   !
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------------------------
+!  AnJac_GetFaceJac: 
+!  Get face Jacobian... This routine is used for the surface integrals of the grad (inner) equation
+!  Perform the matrix operation only on boundaries....
+!  ----------------------------------------------------------------------
+   subroutine AnJac_GetFaceJac(f, faceSide, faceJac, dqHat_dqp, dqHat_dqm)
+      implicit none
+      !-arguments-----------------------------------------------------
+      type(Face)     , intent(in)    :: f
+      integer        , intent(in)    :: faceSide
+      real(kind=RP)  , intent(inout) :: faceJac (:,:,0:,0:)
+      real(kind=RP)  , intent(in)    :: dqHat_dqp, dqHat_dqm
+      !-local-variables-----------------------------------------------
+      integer :: i,j, ii, jj
+      !---------------------------------------------------------------
+      
+      select case (faceSide)
+         case (LEFT)
+            if (f % FaceType == HMESH_BOUNDARY) then
+               do j = 0, f % NelLeft(2)   ; do i = 0, f % NelLeft(1)
+                  faceJac(:,:,i,j) = Identity * dqHat_dqp + dqHat_dqm * f % storage(1) % BCJac(:,:,i,j)
+               end do                        ; end do
+            else
+               do j = 0, f % NelLeft(2)   ; do i = 0, f % NelLeft(1)
+                  faceJac(:,:,i,j) = Identity * dqHat_dqp
+               end do                        ; end do
+            end if
+         case (RIGHT)
+            do j = 0, f % NelRight(2)   ; do i = 0, f % NelRight(1)
+               faceJac(:,:,i,j) = Identity * dqHat_dqp
+            end do                        ; end do
+      end select
+      
+   end subroutine AnJac_GetFaceJac  
    
 #endif
 end module AnalyticalJacobian

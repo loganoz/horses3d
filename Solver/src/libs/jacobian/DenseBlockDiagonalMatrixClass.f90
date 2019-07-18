@@ -11,28 +11,25 @@
 !////////////////////////////////////////////////////////////////////////
 module DenseBlockDiagonalMatrixClass
    use SMConstants
-   use GenericMatrixClass
-   use CSRMatrixClass, only: csrMat_t
-   use Jacobian      , only: JACEPS
+   use GenericMatrixClass  , only: Matrix_t, DenseBlock_t
+   use CSRMatrixClass      , only: csrMat_t
+   use JacobianDefinitions , only: JACEPS
+   use PartitionedMeshClass, only: mpi_partition ! for MPI
+   use MPI_Process_Info    , only: MPI_Process
 #include "Includes.h"
    implicit none
    
    private
    public DenseBlockDiagMatrix_t, Matrix_t
    
-   type Block_t
-      real(kind=RP), allocatable :: Matrix(:,:)
-      integer      , allocatable :: Indexes(:)
-   end type Block_t
-   
    type, extends(Matrix_t) :: DenseBlockDiagMatrix_t
-      type(Block_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
+      type(DenseBlock_t), allocatable :: Blocks(:)   ! Array containing each block in a dense matrix
       contains
          procedure :: construct
          procedure :: Preallocate
          procedure :: Reset
-         procedure :: SetColumn
-         procedure :: AddToColumn         => Dense_AddToColumn
+         procedure :: SetColumn           => DBD_SetColumn
+         procedure :: AddToColumn         => DBD_AddToColumn
          procedure :: SetDiagonalBlock
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
@@ -51,13 +48,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,withMPI)
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t) :: this     !<> This matrix
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       
@@ -125,7 +123,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SetColumn(this,nvalues, irow, icol, values )
+   subroutine DBD_SetColumn(this,nvalues, irow, icol, values )
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this
@@ -138,6 +136,8 @@ contains
       integer :: i
 !~      integer, pointer :: indexes(:)
       !---------------------------------------------
+      
+      if (MPI_Process % doMPIAction) ERROR stop 'DBD_SetColumn not ready for MPI'
       
       if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
@@ -168,11 +168,11 @@ contains
       
       end associate
       
-   end subroutine SetColumn
+   end subroutine DBD_SetColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Dense_AddToColumn(this,nvalues, irow, icol, values )
+   subroutine DBD_AddToColumn(this,nvalues, irow, icol, values )
       implicit none
       !---------------------------------------------
       class(DenseBlockDiagMatrix_t), intent(inout) :: this
@@ -185,6 +185,8 @@ contains
       integer :: i
 !~      integer, pointer :: indexes(:)
       !---------------------------------------------
+      
+      if (MPI_Process % doMPIAction) ERROR stop 'DBD_AddToColumn not ready for MPI'
       
       if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
@@ -215,7 +217,7 @@ contains
       
       end associate
       
-   end subroutine Dense_AddToColumn
+   end subroutine DBD_AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -250,7 +252,7 @@ contains
       
       if (iBlock /= jBlock) return ! Only diagonal blocks here!
       
-      this % Blocks(iBlock) % Matrix(i,j) = value
+      this % Blocks( mpi_partition % global2localeID(iBlock) ) % Matrix(i,j) = value
       
    end subroutine SetBlockEntry
 !
@@ -270,7 +272,7 @@ contains
       
       if (iBlock /= jBlock) return ! Only diagonal blocks here!
       
-      this % Blocks(iBlock) % Matrix(i,j) = this % Blocks(iBlock) % Matrix(i,j) + value
+      this % Blocks( mpi_partition % global2localeID(iBlock) ) % Matrix(i,j) = this % Blocks( mpi_partition % global2localeID(iBlock) ) % Matrix(i,j) + value
       
    end subroutine AddToBlockEntry
 !
@@ -288,7 +290,7 @@ contains
       
       if (iBlock /= jBlock) return ! Only diagonal blocks here!
       
-      this % Blocks(iBlock) % Matrix = 0._RP
+      this % Blocks( mpi_partition % global2localeID(iBlock) ) % Matrix = 0._RP
       
    end subroutine ResetBlock
 !
@@ -554,7 +556,7 @@ contains
          j_offset = j_offset + this % BlockSizes(bID)
       end do
       
-      call Acsr % constructWithArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
+      call Acsr % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine getTransCSR
 end module DenseBlockDiagonalMatrixClass

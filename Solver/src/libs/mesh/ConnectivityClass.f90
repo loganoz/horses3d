@@ -4,9 +4,9 @@
 !   @File:    ConnectivityClass.f90
 !   @Author:  Gonzalo Rubio Calzado (g.rubio@upm.es)
 !   @Created: Thu Oct  25 13:27:17 2012
-!   @Last revision date: Thu Aug 16 16:15:29 2018
+!   @Last revision date: Sun May 19 16:54:06 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d9871e8d2a08e4b4346bb29d921b80d139c575cd
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -20,7 +20,8 @@
 !////////////////////////////////////////////////////////////////////////
 !
 #include "Includes.h"
-      Module ConnectivityClass
+   module ConnectivityClass
+      use SMConstants
       IMPLICIT NONE
 !
 !     -------------------------------------------------------------------
@@ -30,7 +31,8 @@
 !
       
       TYPE Connectivity
-         INTEGER, ALLOCATABLE   :: ElementIDs(:)
+         integer :: globID       ! Global ID of the element on the other side of the face
+         integer :: Nxyz(NDIM)   ! Polynomial orders of the element on the other side of the face
       
          CONTAINS
             PROCEDURE           :: construct => ConstructConnectivity
@@ -41,14 +43,15 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE ConstructConnectivity( this, NumberOfElements )
+      SUBROUTINE ConstructConnectivity( this, globID, Nxyz )
          IMPLICIT NONE
          
-         CLASS(Connectivity)            :: this
-         INTEGER                        :: NumberOfElements
+         class(Connectivity) :: this
+         integer, intent(in) :: globID
+         integer, intent(in) :: Nxyz(NDIM)
          
-         ALLOCATE(this%ElementIDs(NumberOfElements))
-         this%ElementIDs = 0
+         this % globID = globID
+         this % Nxyz   = Nxyz
          
       END SUBROUTINE ConstructConnectivity
 !
@@ -58,49 +61,9 @@
          IMPLICIT NONE
          CLASS(Connectivity), intent(inout) :: this
          
-         safedeallocate(this%ElementIDs)
+         this % globID = 0
+         this % Nxyz   = -1
          
       END SUBROUTINE DestructConnectivity
 
-!
-!////////////////////////////////////////////////////////////////////////
-!
-
-!~      SUBROUTINE SetConnectivities(this,fUnit)
-!~         IMPLICIT NONE 
-!~         INTEGER               :: fUnit, totalElementIDs
-!~         INTEGER, ALLOCATABLE  :: temp(:)
-!~         TYPE(Connectivity)     :: this(:)
-         
-!~         INTEGER            :: i, j, counter
-         
-!~         totalElementIDs = 0
-!~         DO i = 1, 4
-!~            totalElementIDs = totalElementIDs + SIZE(this(i)%ElementIDs)
-!~         ENDDO
-         
-!~         ALLOCATE(temp(totalElementIDs))
-         
-!~         READ(fUnit, * ) temp(:)
-!~         PRINT*, temp         
-!~         counter = 0
-!~         DO i = 1,4
-!~            DO j = 1,SIZE(this(i)%ElementIDs)
-!~               counter = counter + 1
-!~               IF (temp(counter) == 0) THEN 
-!~                  !PRINT*, i,j
-!~                  !STOP 
-!~                  temp(counter) = 6
-!~               ENDIF
-!~               this(i)%ElementIDs(j) = temp(counter)
-!~            ENDDO
-!~         ENDDO
-
-!~         DEALLOCATE(temp)
-         
-!~      END SUBROUTINE SetConnectivities 
-!
-!////////////////////////////////////////////////////////////////////////
-!  
-      
       END Module ConnectivityClass

@@ -3,10 +3,16 @@ module GenericMatrixClass
    implicit none
    
    private
-   public Matrix_t
+   public Matrix_t, DenseBlock_t
+   
+   type DenseBlock_t
+      real(kind=RP), allocatable :: Matrix(:,:)
+      integer      , allocatable :: Indexes(:)
+   end type DenseBlock_t
    
    type Matrix_t
       integer :: num_of_Rows
+      integer :: num_of_Cols
       integer :: num_of_Blocks
       integer, allocatable :: BlockSizes(:)
       integer, allocatable :: BlockIdx(:)
@@ -22,6 +28,8 @@ module GenericMatrixClass
          procedure :: AddToEntry
          procedure :: SetBlockEntry
          procedure :: AddToBlockEntry
+         procedure :: ForceAddToEntry
+         procedure :: ForceAddToBlockEntry
          procedure :: ResetBlock
          procedure :: Shift
          procedure :: ReShift
@@ -29,6 +37,11 @@ module GenericMatrixClass
          procedure :: Assembly
          procedure :: SpecifyBlockInfo
          procedure :: destruct
+         procedure :: MatMatMul
+         procedure :: MatVecMul
+         procedure :: MatAdd
+         procedure :: ConstructFromDiagBlocks
+         procedure :: constructWithCSRArrays
          procedure :: SolveBlocks_LU
          procedure :: FactorizeBlocks_LU
    end type Matrix_t
@@ -36,13 +49,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,withMPI)
+   subroutine construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,WithMPI)
       implicit none
       !---------------------------------------------
       class(Matrix_t) :: this
       integer, optional, intent(in) :: num_of_Rows
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_Blocks
+      integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
       ERROR stop ' :: construct not implemented for current matrix type'
@@ -138,6 +152,19 @@ contains
    end subroutine AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! 
+   subroutine ForceAddToEntry(this, row, col, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: row
+      integer        , intent(in)    :: col
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToEntry not implemented for current matrix type'
+   end subroutine ForceAddToEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------------------------
 !  Subroutine to set the entries of a block with relative index
@@ -168,6 +195,22 @@ contains
       !---------------------------------------------
       ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
    end subroutine AddToBlockEntry
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine ForceAddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t), intent(inout) :: this
+      integer        , intent(in)    :: iBlock, jBlock
+      integer        , intent(in)    :: i, j
+      real(kind=RP)  , intent(in)    :: value
+      !---------------------------------------------
+      ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
+   end subroutine ForceAddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -250,6 +293,90 @@ contains
       !---------------------------------------------
       ERROR stop ' :: destruct not implemented for current matrix type'
    end subroutine destruct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------
+!  Construct a general sparse matrix from diagonal blocks
+!  ------------------------------------------------------
+   subroutine ConstructFromDiagBlocks(this, num_of_Blocks, Blocks, BlockIdx, BlockSizes)
+      implicit none
+      !-arguments-----------------------------------
+      class(Matrix_t)   , intent(inout) :: this
+      integer           , intent(in)    :: num_of_Blocks
+      type(DenseBlock_t), intent(in)    :: Blocks(num_of_Blocks)
+      integer           , intent(in)    :: BlockIdx(num_of_Blocks+1)
+      integer           , intent(in)    :: BlockSizes(num_of_Blocks)
+      !---------------------------------------------
+      ERROR stop ' :: ConstructFromDiagBlocks not implemented for current matrix type'
+   end subroutine ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------
+!  Construct a general sparse matrix from CSR arrays
+!  -------------------------------------------------
+   subroutine constructWithCSRArrays(this,Rows,Cols,Values,num_of_Cols)
+      !-arguments-----------------------------------
+      class(Matrix_t)               :: this       !<> Matrix to be Created
+      integer          , intent(in) :: Rows(:)    ! Row indices (index of first value of each row)
+      integer          , intent(in) :: Cols(:)    ! Column indices that correspond to each value
+      real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
+      integer, optional, intent(in) :: num_of_Cols
+      !---------------------------------------------
+      
+   end subroutine constructWithCSRArrays
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Matrix-matrix multiplication for CSR matrices
+!     Cmat = AB   .or.    Cmat = A^T B
+!  ---------------------------------------------
+   subroutine MatMatMul(A,B,Cmat,trans)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(Matrix_t)   , intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t)   , intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t)   , intent(inout)   :: Cmat    !< Structure holding matrix
+      logical, optional , intent(in)      :: trans   !< A matrix is transposed?
+      !------------------------------------------------------------------------------
+      ERROR stop ' :: MatMatMul not implemented for current matrix type'
+   end subroutine MatMatMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  MatVecMul:
+!  Matrix vector product (v = Au) being A a CSR matrix
+!  -> v needs to be allocated beforehand
+!  ----------------------------------------------------
+   function MatVecMul( A,u, trans) result(v)
+      !-arguments--------------------------------------------------------------------
+      class(Matrix_t)  , intent(inout) :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in)    :: trans   !< A matrix is transposed?
+      real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
+      !------------------------------------------------------------------------------
+      ERROR stop ' :: MatVecMul not implemented for current matrix type'
+   end function MatVecMul
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------
+!  MatAdd:
+!  Matrix addition: Cmat = A + Factor*B
+!  ----------------------
+   subroutine MatAdd(A,B,Cmat,Factor)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(Matrix_t), intent(in)      :: A       !< Structure holding matrix
+      class(Matrix_t), intent(in)      :: B       !< Structure holding matrix
+      class(Matrix_t), intent(inout)   :: Cmat    !< Structure holding matrix
+      real(kind=RP)  , intent(in)      :: Factor  !< Factor for addition
+      !------------------------------------------------------------------------------
+      ERROR stop ' :: MatAdd not implemented for current matrix type'
+   end subroutine MatAdd
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

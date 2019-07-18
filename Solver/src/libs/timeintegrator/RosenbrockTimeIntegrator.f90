@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Tue Dec  4 16:26:00 2018
+!   @Last revision date: Wed Jul 17 11:53:00 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3e0b998bb7ed936ee88015baafc142a29bb17b38
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -73,7 +73,7 @@ contains
       type(FTValueDictionary), intent(in) :: controlVariables
       type(DGSem)            , intent(in) :: sem
       !---------------------------------------------------------------
-      integer :: DimPrb
+      integer :: DimPrb, globalDimPrb
       !---------------------------------------------------------------
       
 !
@@ -86,6 +86,7 @@ contains
 !     Setup linear solver
 !     -------------------
       DimPrb = sem % NDOF * NCONS
+      globalDimPrb = sem % totalNDOF * NCONS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -105,7 +106,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,controlVariables,sem,Rosenbrock_MatrixShift)
+      call this % linsolver % construct (DimPrb,globalDimPrb,NCONS,controlVariables,sem,Rosenbrock_MatrixShift)
       
       
    end subroutine construct
@@ -206,6 +207,7 @@ contains
       
       call sem % mesh % storage % global2LocalQ
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      call sem % mesh % storage % local2GlobalQdot(sem % NDOF)
       
       RHS = RHS/dt - Qdot
       

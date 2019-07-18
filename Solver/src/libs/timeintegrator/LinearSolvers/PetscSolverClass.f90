@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Mon Feb  4 16:17:45 2019
+!   @Last revision date: Wed Jul 17 11:52:59 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eeaa4baf8b950247d4df92783ba30d8050b7f3bd
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
@@ -21,9 +21,13 @@ module PetscSolverClass
    use MatrixClass            , only: PETSCMatrix_t
    use SMConstants
    use DGSEMClass             , only: DGSem, computetimederivative_f
+   use MPI_Process_Info       , only: MPI_Process
 #ifdef HAS_PETSC
    use petsc
 #endif
+#ifdef _HAS_MPI_
+   use mpi
+#endif 
    implicit none
    
    type, extends(GenericLinSolver_t) :: PetscKspLinearSolver_t
@@ -39,8 +43,6 @@ module PetscSolverClass
       PetscInt                                      :: nz = 0
       PetscScalar                                   :: Ashift                              ! Stores the shift to the Jacobian due to time integration
       PetscBool                                     :: init_context = PETSC_FALSE
-      PetscBool                                     :: setpreco = PETSC_TRUE
-      PetscBool                                     :: withMPI = PETSC_FALSE
 #endif
       CONTAINS
          !Subroutines
@@ -98,43 +100,52 @@ module PetscSolverClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine PETSc_construct(this, DimPrb,controlVariables,sem,MatrixShiftFunc)
+   subroutine PETSc_construct(this, DimPrb, globalDimPrb, nEqn, controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
       class(PetscKspLinearSolver_t), intent(inout), TARGET :: this
+      integer                      , intent(in)            :: nEqn
       type(FTValueDictionary)      , intent(in), optional  :: controlVariables
       type(DGSem), TARGET                      , optional  :: sem
       procedure(MatrixShift_FCN)                           :: MatrixShiftFunc
 #ifdef HAS_PETSC
       PetscInt, intent(in)                                 :: DimPrb
+      PetscInt, intent(in)                                 :: globalDimPrb
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                       :: ierr
       !---------------------------------------------------------------------
       
+      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      
       MatrixShift => MatrixShiftFunc
       this % p_sem => sem
-      
-      if ( present(controlVariables) ) then
-         if ( controlVariables % containsKey("jacobian flag") ) then
-            this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-         end if
-      end if
       
       !Initialisation of the PETSc variables
       call PetscInitialize(PETSC_NULL_character,ierr)
 
 !     PETSc matrix A 
-      call this % A % construct(num_of_Rows = DimPrb, withMPI = this % WithMPI)
-
+      call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
+      
+      if ( present(sem) ) then
+         call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
+      end if
+      
 !     Petsc vectors x and b (of A x = b)
-      call VecCreate(PETSC_COMM_WORLD,this%x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
-      call VecSetSizes(this%x,PETSC_DECIDE,dimPrb,ierr)     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
-      call VecSetFromOptions(this%x,ierr)                   ; call CheckPetscErr(ierr,'error setting Petsc vector options')
-      call VecDuplicate(this%x,this%b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
+      
+      if (this % withMPI) then ! Only possible if this % A is preallocated
+         call MatCreateVecs(this % A % A, this % x, this % b,ierr) ; call CheckPetscErr(ierr,'error creating MPI Petsc vector')
+!~         call VecCreateMPI(PETSC_COMM_WORLD,dimPrb,globalDimPrb,this % x,ierr)
+!~         call CheckPetscErr(ierr,'error creating MPI Petsc vector')
+      else
+         call VecCreate  (PETSC_COMM_WORLD,this % x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
+         call VecSetSizes(this % x,dimPrb,globalDimPrb,ierr)       ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+         call VecSetFromOptions(this % x,ierr)                     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+      end if
+      call VecDuplicate(this % x,this % b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
 
 !     Petsc ksp solver context      
       call KSPCreate(PETSC_COMM_WORLD,this%ksp,ierr)                    ; call CheckPetscErr(ierr,'error in KSPCreate')
-      
+      call KSPSetFromOptions(this%ksp,ierr) ! debug
 !     Petsc preconditioner 
       call KSPGetPC(this%ksp,this%pc,ierr)                              ; call CheckPetscErr(ierr,'error in KSPGetPC')
       
@@ -152,6 +163,7 @@ module PetscSolverClass
       
 #else
       integer, intent(in)                       :: DimPrb
+      integer, intent(in)                       :: globalDimPrb
       stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_construct
@@ -166,13 +178,13 @@ module PetscSolverClass
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                  :: ierr
       !---------------------------------------------------------------------
-      
-      if (.not. this % setpreco) return
-      
+!      
+!     Set preconditioner settings in KSP (this only has to be done once in theory, but it's needed when the matrix is reconstructed (like in the static-condensation solver)
+!     ----------------------------------
       select case ( trim(this % preconditioner) )
          case ('Block-Jacobi')
-      
-            call MatSetVariableBlockSizes (this % A % A, this % p_sem % mesh % no_of_elements, this % A % BlockSizes(1), ierr)  ; call CheckPetscErr(ierr, 'error in MatSetVariableBlockSizes')     ! PCVPBJACOBI
+            
+            call MatSetVariableBlockSizes (this % A % A, size(this % Jacobian % ndofelm_l), this % Jacobian % ndofelm_l(1), ierr)  ; call CheckPetscErr(ierr, 'error in MatSetVariableBlockSizes')     ! PCVPBJACOBI
             call PCSetType(this%pc,PCVPBJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
             
          case ('Jacobi')
@@ -183,8 +195,10 @@ module PetscSolverClass
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
       end select
-         
-      this % setpreco = PETSC_FALSE
+!      
+!     Set operators for KSP
+!     ---------------------
+      call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
       
 !~      call PCSetType(this%pc,PCILU,ierr)       ;call CheckPetscErr(ierr, 'error in PCSetType')
 #else
@@ -212,19 +226,17 @@ module PetscSolverClass
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt)
             ComputeA = .FALSE.
             
             call this % SetPreconditioner
-            call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
          end if
       else 
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt)
          
          call this % SetPreconditioner
-         call KSPSetOperators(this%ksp, this%A%A, this%A%A, ierr)     ; call CheckPetscErr(ierr, 'error in KSPSetOperators')
       end if
       
       ! Set , if given, solver tolerance and max number of iterations
@@ -242,6 +254,10 @@ module PetscSolverClass
       
       call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetTolerances')
+      
+      ! Set initial guess to P⁻¹b
+      call KSPSetInitialGuessKnoll(this%ksp,PETSC_TRUE,ierr)
+      call CheckPetscErr(ierr, 'error in KSPSetInitialGuessKnoll')
       
       call KSPSolve(this%ksp,this%b,this%x,ierr)               ; call CheckPetscErr(ierr, 'error in KSPSolve')
       
@@ -368,12 +384,30 @@ module PetscSolverClass
 #ifdef HAS_PETSC
       PetscScalar                  , intent(in)    :: RHS(this % DimPrb)
       !-local-variables-----------------------------------------------------
-      integer        :: i
-      PetscErrorCode :: ierr
+      integer              :: i, counter, ndof
+      integer, allocatable :: ind(:)
+      integer              :: eID, globID
+      PetscErrorCode       :: ierr
+      PetscInt :: ranges(this % DimPrb + 1)
       !---------------------------------------------------------------------
       
-      call VecSetValues  (this%b, this % DimPrb, [(i, i=0, this % DimPrb-1)] , RHS, INSERT_VALUES, ierr)
-      call CheckPetscErr(ierr, 'error in VecSetValues')
+      if (this % withMPI) then ! Assuming the Jacobian was constructed
+         counter = 1
+         do eID = 1, size(this % Jacobian % globIDs_l)
+            globID = this % Jacobian % globIDs_l (eID)
+            ndof   = this % Jacobian % ndofelm(globID)
+            
+            allocate ( ind (ndof) )
+            ind = [(i, i=this % Jacobian % firstIdx(globID)      - 1 , &
+                         this % Jacobian % firstIdx(globID + 1 ) - 2) ]
+            call VecSetValues  (this%b, ndof, ind, RHS(counter:counter+ndof-1), INSERT_VALUES, ierr)
+            counter = counter + ndof
+            deallocate(ind)
+         end do
+      else
+         call VecSetValues  (this%b, this % DimPrb, [(i, i=0, this % DimPrb-1)] , RHS, INSERT_VALUES, ierr)
+         call CheckPetscErr(ierr, 'error in VecSetValues')
+      end if
       
 #else
       real(kind=RP)                , intent(in)    :: RHS(this % DimPrb)
@@ -460,14 +494,36 @@ module PetscSolverClass
 #ifdef HAS_PETSC
       PetscScalar                                           :: x(this % DimPrb)
       !-local-variables-----------------------------------------------------
-      PetscInt                          :: irow(this % DimPrb), i
-      PetscErrorCode                    :: ierr
+      PetscInt             :: irow(this % DimPrb)
+      PetscErrorCode       :: ierr
+      PetscScalar, pointer :: xout(:)
+!~      integer :: ndof, counter, eID, i, globID
+!~      integer, allocatable :: ind(:)
       !------------------------------------------
       
-      irow = (/ (i, i=0, this % DimPrb-1) /)
+!~      if (this % withMPI) then ! Assuming the Jacobian was constructed
+!~         counter = 1
+!~         do eID = 1, size(this % Jacobian % globIDs_l)
+!~            globID = this % Jacobian % globIDs_l (eID)
+!~            ndof   = this % Jacobian % ndofelm(globID)
+            
+!~            allocate ( ind (ndof) )
+!~            ind = [(i, i=this % Jacobian % firstIdx(globID)      - 1 , &
+!~                         this % Jacobian % firstIdx(globID + 1 ) - 2) ]
+!~            call VecGetValues  (this%x, ndof, ind, x(counter:counter+ndof-1), ierr)
+!~            call CheckPetscErr(ierr, 'error in VecGetValue')
+!~            counter = counter + ndof
+!~            deallocate(ind)
+!~         end do
+!~      else
+!~         irow = (/ (i, i=0, this % DimPrb-1) /)
+!~         call VecGetValues(this%x,this % DimPrb ,irow,x, ierr) ; call CheckPetscErr(ierr, 'error in VecGetValue')
+!~      end if
       
-      call VecGetValues(this%x,this % DimPrb ,irow,x, ierr)
-      call CheckPetscErr(ierr, 'error in VecGetValue')
+      ! TODO: Check if this works for non-consecutive (in the numbering) elements in a single partition
+      call VecGetArrayReadF90(this%x,xout,ierr)
+      x = xout
+      call VecRestoreArrayReadF90(this%x,xout,ierr)
       
 #else
       integer         :: irow
@@ -490,7 +546,7 @@ module PetscSolverClass
       !---------------------------------------------------------------------
       
       !call MatView(this % A % A,PETSC_VIEWER_DRAW_SELF)
-      read(*,*)
+!~      read(*,*)
 !~       if (.NOT. PRESENT(filename)) filename = &
 !~                             '/home/andresrueda/Dropbox/PhD/03_Initial_Codes/3D/Implicit/nslite3d/Tests/Euler/NumJac/MatMatlab.dat'
 !~       call PetscViewerASCIIOpen(PETSC_COMM_WORLD, filename , viewer, ierr)    ; call CheckPetscErr(ierr)
@@ -512,13 +568,11 @@ module PetscSolverClass
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                   :: ierr1, ierr2, ierr3, ierr4
       !---------------------------------------------------------------------
-      
       call VecDestroy(this%x,ierr1)
       call VecDestroy(this%b,ierr2)
+      
       call this % A % destruct
-      
       call KSPDestroy(this%ksp,ierr3)  ! this % pc is destructed inside
-      
       call PetscFinalize(ierr4)
       
       call CheckPetscErr(ierr1,'error in VecDestroy x')

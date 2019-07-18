@@ -4,9 +4,9 @@
 !   @File:    GeometryClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Fri Aug 17 10:25:30 2018
+!   @Last revision date: Sun May 19 16:53:58 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
+!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
 !
@@ -261,7 +261,7 @@ module GeometryClass
             neighs(1) = lastelement
             do n = 1, 6
                if ( mesh % elements(lastelement) % NumberOfConnections(n) .ne. 0 ) then
-                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % ElementIDs(1)
+                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % globID     ! TODO: Careful if you are using MPI
                else
                   neighs(n+1) = -1
                end if

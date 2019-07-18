@@ -81,11 +81,13 @@ CONTAINS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb,controlVariables,sem,MatrixShiftFunc)
+   SUBROUTINE construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       IMPLICIT NONE
       !-----------------------------------------------------------
       CLASS(MultigridSolver_t) , INTENT(INOUT), TARGET :: this
       INTEGER                  , INTENT(IN)            :: DimPrb
+      INTEGER                  , INTENT(IN)            :: globalDimPrb
+      integer                  , intent(in)            :: nEqn
       TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
       TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
@@ -95,6 +97,8 @@ CONTAINS
       INTEGER, DIMENSION(:), ALLOCATABLE :: Nx, Ny, Nz       ! Dimensions of fine mesh
       !-----------------------------------------------------------
       !Module variables: MGlevels, deltaN
+      
+      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       MatrixShift => MatrixShiftFunc
       
@@ -118,11 +122,6 @@ CONTAINS
          deltaN = 1
       END IF
       
-      if ( controlVariables % containsKey("jacobian flag") ) then
-         this % JacobianComputation = controlVariables % integerValueForKey("jacobian flag")
-      end if
-!
-!
       this % p_sem => sem
       this % DimPrb = DimPrb
       
@@ -296,12 +295,12 @@ CONTAINS
       
       if ( present(ComputeA)) then
          if (ComputeA) then
-            call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
             call this % SetOperatorDt(dt) 
             ComputeA = .FALSE.
          end if
       else 
-         call this % ComputeJacobian(this % A,time,nEqn,nGradEqn,ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
          call this % SetOperatorDt(dt) 
       end if
       

@@ -23,7 +23,7 @@ module MPI_Face_Class
       integer                    :: gradQrecv_req
       integer                    :: sizeQ
       integer                    :: sizeU_xyz
-      integer      , allocatable :: Nsend(:)
+      integer      , allocatable :: Nsend(:)          ! Information to send: [fNxi, fNeta, eNxi, eNeta, eNzeta, eGlobID]
       integer      , allocatable :: Nrecv(:)
       real(kind=RP), allocatable :: Qsend(:)
       real(kind=RP), allocatable :: U_xyzsend(:)
@@ -131,7 +131,7 @@ module MPI_Face_Class
    
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_isend(self % Nsend, 2 * self % no_of_faces, MPI_INT, domain-1, DEFAULT_TAG, &
+            call mpi_isend(self % Nsend, 6 * self % no_of_faces, MPI_INT, domain-1, DEFAULT_TAG, &
                            MPI_COMM_WORLD, dummyreq, ierr)
             call mpi_request_free(dummyreq, ierr)
          end if
@@ -151,7 +151,7 @@ module MPI_Face_Class
          !---------------------------------------------------------
 #ifdef _HAS_MPI_
          if ( self % no_of_faces .gt. 0 ) then
-            call mpi_irecv(self % Nrecv, 2 * self % no_of_faces, MPI_INT, domain-1, MPI_ANY_TAG, &
+            call mpi_irecv(self % Nrecv, 6 * self % no_of_faces, MPI_INT, domain-1, MPI_ANY_TAG, &
                            MPI_COMM_WORLD, self % Nrecv_req, ierr)
          end if
 #endif
@@ -346,8 +346,8 @@ module MPI_Face_Class
          allocate(self % faceIDs(no_of_faces))
          allocate(self % elementSide(no_of_faces))
          
-         allocate( self % Nsend(2 * no_of_faces) )
-         allocate( self % Nrecv(2 * no_of_faces) )
+         allocate( self % Nsend(6 * no_of_faces) )
+         allocate( self % Nrecv(6 * no_of_faces) )
 
          self % faceIDs       = -1
          self % elementSide   = -1
