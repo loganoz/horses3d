@@ -351,7 +351,7 @@ module VolumeIntegrals
             KinEn = KinEn + e % storage % Q(IMSQRHOU,:,:,:)*e % storage % QDot(IMSQRHOU,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOV,:,:,:)*e % storage % QDot(IMSQRHOV,:,:,:)
             KinEn = KinEn + e % storage % Q(IMSQRHOW,:,:,:)*e % storage % QDot(IMSQRHOW,:,:,:)
-            KinEn = KinEn + (1.0_RP/thermodynamics % rho0c02)*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+            KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 

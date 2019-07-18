@@ -13,42 +13,34 @@
 #include "Includes.h"
       Module Physics_MUKeywordsModule
          IMPLICIT NONE 
-         INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAXIMUM_DENSITY_KEY            = "maximum density (kg/m^3)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MINIMUM_DENSITY_KEY            = "minimum density (kg/m^3)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial compressibility factor"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
-!
-!        *****************
-!        Mode with 2 fluid
-!        *****************
-!
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID1_VISCOSITY_KEY  =  "fluid 1 viscosity (pa.s)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLUID2_VISCOSITY_KEY  =  "fluid 2 viscosity (pa.s)"
+         INTEGER, parameter :: KEYWORD_LENGTH = 132
+         character(len=KEYWORD_LENGTH), parameter :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
+         character(len=KEYWORD_LENGTH), parameter :: MAXIMUM_DENSITY_KEY            = "maximum density (kg/m^3)"
+         character(len=KEYWORD_LENGTH), parameter :: MINIMUM_DENSITY_KEY            = "minimum density (kg/m^3)"
+         character(len=KEYWORD_LENGTH), parameter :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial sound speed square (m/s)"
+         character(len=KEYWORD_LENGTH), parameter :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
+         character(len=KEYWORD_LENGTH), parameter :: GRAVITY_DIRECTION_KEY          = "gravity direction"
+         character(len=KEYWORD_LENGTH), parameter :: VELOCITY_DIRECTION_KEY         = "velocity direction"
 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME       = "central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: EXACT_SOLVER_NAME       = "exact"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID1_DENSITY_KEY    =  "fluid 1 density (kg/m^3)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID2_DENSITY_KEY    =  "fluid 2 density (kg/m^3)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID1_VISCOSITY_KEY  =  "fluid 1 viscosity (pa.s)"
+         character(len=KEYWORD_LENGTH), parameter :: FLUID2_VISCOSITY_KEY  =  "fluid 2 viscosity (pa.s)"
+
+         character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
+         character(len=KEYWORD_LENGTH), parameter :: CENTRAL_SOLVER_NAME       = "central"
+         character(len=KEYWORD_LENGTH), parameter :: EXACT_SOLVER_NAME         = "exact"
 
          !PARTICLES 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box"          
+         character(len=KEYWORD_LENGTH), parameter :: particlesKey             = "lagrangian particles"         
+         character(len=KEYWORD_LENGTH), parameter :: numberOfParticlesKey     = "number of particles"          
+         character(len=KEYWORD_LENGTH), parameter :: STOKES_NUMBER_PART_KEY   = "stokes number" 
+         character(len=KEYWORD_LENGTH), parameter :: GAMMA_PART_KEY           = "gamma" 
+         character(len=KEYWORD_LENGTH), parameter :: PHI_M_PART_KEY           = "phi_m" 
+         character(len=KEYWORD_LENGTH), parameter :: I0_PART_KEY              = "radiation source" 
+         character(len=KEYWORD_LENGTH), parameter :: MIN_BOX_KEY              = "minimum box" 
+         character(len=KEYWORD_LENGTH), parameter :: MAX_BOX_KEY              = "maximum box" 
+         character(len=KEYWORD_LENGTH), parameter :: BC_BOX_KEY               = "bc box"          
       END MODULE Physics_MUKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
@@ -84,7 +76,7 @@
 !!   The sizes of the NS system
 !    --------------------------
 !
-     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
+     INTEGER, parameter :: NCONS = 5, NGRAD = 5
 !
 !    -------------------------------------------
 !!   The positions of the conservative variables
@@ -130,14 +122,15 @@
 !     ---------
 !
       TYPE(FTValueDictionary)      :: controlVariables
-      real(kind=RP), intent(inout) :: Lref, timeref
+      real(kind=RP), intent(in)    :: Lref
+      real(kind=RP), intent(out)   :: timeref
       LOGICAL                      :: success
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      CHARACTER(LEN=KEYWORD_LENGTH)   :: keyword
+      character(len=KEYWORD_LENGTH)   :: keyword
       type(Thermodynamics_t)          :: thermodynamics_
  
       type(RefValues_t)               :: refValues_
@@ -162,19 +155,41 @@
 !     Set thermodynamics
 !     ******************
 !
-      thermodynamics_ % number_of_fluids = 2
+      if ( controlVariables % ContainsKey(FLUID1_DENSITY_KEY) ) then
+         thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
+      else
+!      - Default to 1.0
+         thermodynamics_ % rho(1) = 1.0_RP
+      end if
+
       
-      allocate(thermodynamics_ % rho(thermodynamics_ % number_of_fluids))
-      allocate(thermodynamics_ % mu (thermodynamics_ % number_of_fluids))
+      if ( controlVariables % ContainsKey(FLUID2_DENSITY_KEY) ) then
+         thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
+      else
+!      - Default to 1.0
+         thermodynamics_ % rho(2) = 1.0_RP
+      end if
 
-      thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
-      thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
+      if ( controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY) ) then
+         thermodynamics_ % mu(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_VISCOSITY_KEY)
+      else
+!      - Default to 0.0
+         thermodynamics_ % mu(1) = 0.0_RP
+      end if
 
-      thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(FLUID1_VISCOSITY_KEY)
-      thermodynamics_ % mu (2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
+      if ( controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY) ) then
+         thermodynamics_ % mu(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
+      else
+!      - Default to 0.0
+         thermodynamics_ % mu(2) = 0.0_RP
+      end if
 
-
-
+      if ( controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
+         thermodynamics_ % c02 = controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
+      else
+!      - Default to 1000.0
+         thermodynamics_ % c02 = 1000.0_RP
+      end if
 !
 !     ********************
 !     Set reference values
@@ -183,45 +198,96 @@
       refValues_ % rho = thermodynamics_ % rho(1)
       refValues_ % V   = controlVariables % DoublePrecisionValueForKey(REFERENCE_VELOCITY_KEY)
       refValues_ % p   = refValues_ % rho * POW2( refValues_ % V )
-      refValues_ % mu  = thermodynamics_ % mu(1)
+
+      if ( .not. almostEqual(thermodynamics_ % mu(1), 0.0_RP) ) then
+         refValues_ % mu = thermodynamics_ % mu(1)
+      else
+         refValues_ % mu = thermodynamics_ % mu(2)
+      end if
+
+      refValues_ % g0  = controlVariables % DoublePrecisionValueForKey(GRAVITY_ACCELERATION_KEY)
       timeref          = Lref / refValues_ % V
 !
 !     ****************************
 !     Set dimensionless quantities
 !     ****************************
 !
-      allocate(dimensionless_ % rho(thermodynamics_ % number_of_fluids))
-      allocate(dimensionless_ % mu (thermodynamics_ % number_of_fluids))
-
+!     -------------
+!     Thermodynamic
+!     -------------
+!
       dimensionless_ % rho = thermodynamics_ % rho / refValues_ % rho
-      dimensionless_ % mu(1) = thermodynamics_ % mu(1) / (thermodynamics_ % rho(1) * refValues_ % V * Lref)
+      dimensionless_ % mu  = thermodynamics_ % mu  / (refValues_ % rho * refValues_ % V * Lref)
 
-      if ( thermodynamics_ % number_of_fluids .eq. 2 ) then
-         if ( .not. almostEqual(thermodynamics_ % mu(1), 0.0_RP)) then
-            dimensionless_ % mu(2) = dimensionless_ % mu(1) * thermodynamics_ % mu(2) / thermodynamics_ % mu(1)
-            dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
-         else
-            dimensionless_ % mu(2) = 0.0_RP
-            dimensionless_ % Re    = 0.0_RP
-   
-         end if
+      if ( .not. almostEqual(dimensionless_ % mu(1), 0.0_RP) ) then
+         dimensionless_ % Re(1) = 1.0_RP / dimensionless_ % mu(1)
       else
-         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+         dimensionless_ % Re(1) = 0.0_RP
+      end if
+
+      if ( .not. almostEqual(dimensionless_ % mu(2), 0.0_RP) ) then
+         dimensionless_ % Re(2) = (dimensionless_ % rho(2)/dimensionless_ % rho(1)) / dimensionless_ % mu(2)
+      else
+         dimensionless_ % Re(2) = 0.0_RP
       end if
 !
-!     **************************
+!     -------
+!     Gravity
+!     -------
+!
+      if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
+         array = 0.0_RP
+         array = GetRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
+                                                                             KEYWORD_LENGTH))
+         if ( norm2(array(1:3)) .gt. epsilon(1.0_RP) ) then
+            dimensionless_ % gravity_dir = array(1:3) / norm2(array(1:3))
+         else
+            dimensionless_ % gravity_dir = 0.0_RP
+         end if
+      end if
+
+      if ( almostEqual(abs(refValues_ % g0), 0.0_RP) ) then
+         enableGravity = .false.
+         dimensionless_ % Fr = 0.0_RP
+         dimensionless_ % invFr2 = 0.0_RP
+
+      else
+         enableGravity = .true.
+         dimensionless_ % invFr2 = refValues_ % g0 * Lref / POW2(refValues_ % V)
+         dimensionless_ % Fr     = 1.0_RP / sqrt(dimensionless_ % invFr2)
+
+      end if
+!
+!     ------------------
+!     Velocity direction
+!     ------------------
+!
+      if ( controlVariables % ContainsKey(VELOCITY_DIRECTION_KEY) ) then
+         array = 0.0_RP
+         array = GetRealArrayFromString( controlVariables % StringValueForKey(VELOCITY_DIRECTION_KEY,&
+                                                                             KEYWORD_LENGTH))
+         dimensionless_ % vel_dir = array(1:3) / norm2(array(1:3))
+      else
+         print*, "*** ERROR: Introduce the 'velocity direction = [x,y,z]'"
+         stop
+      end if
+!
+!     --------------------------
 !     Artificial compressibility
-!     **************************
+!     --------------------------
 !
-      thermodynamics_ % rho0c02 = maxval(dimensionless_ % rho) * controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
+      dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics % c02)
+      dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics % c02 / POW2(refValues_ % V)
 !
-!     ****************
+!     ----------------
 !     Density limiters
-!     ****************
+!     ----------------
 !
       if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
          dimensionless_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY) / refValues_ % rho
       else
+!
+!      - Default to maximum density between fluids 1 and 2
          dimensionless_ % rho_max = maxval(dimensionless_ % rho)
 
       end if
@@ -229,6 +295,8 @@
       if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
          dimensionless_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY) / refValues_ % rho
       else
+!
+!      - Default to minimum density between fluids 1 and 2
          dimensionless_ % rho_min = minval(dimensionless_ % rho)
 
       end if
@@ -267,56 +335,6 @@
 !        Select Roe by default
 !        ---------------------
          whichRiemannSolver = RIEMANN_EXACT 
-
-      end if
-!
-!     ***************
-!     Angle of attack
-!     ***************
-!
-      IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
-         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
-
-      ELSE
-!
-!        Phi angle of attack is zero by default
-!        --------------------------------------
-         refValues_ % AOAPhi = 0.0_RP
-
-      END IF 
-
-      IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
-         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
-
-      ELSE
-!
-!        Theta angle of attack is zero by default
-!        ----------------------------------------
-         refValues_ % AOATheta = 0.0_RP
-
-      END IF 
-!
-!     *************
-!     Gravity force
-!     *************
-!
-      if ( controlVariables % ContainsKey(GRAVITY_DIRECTION_KEY) ) then
-         array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
-                                                                             KEYWORD_LENGTH))
-         dimensionless_ % gravity_dir = array(1:3) / norm2(array(1:3))
-      end if
-
-      refValues_ % g0 = controlVariables % DoublePrecisionValueForKey(GRAVITY_ACCELERATION_KEY)
-
-      if ( almostEqual(abs(refValues_ % g0), 0.0_RP) ) then
-         enableGravity = .false.
-         dimensionless_ % Fr = 0.0_RP
-         dimensionless_ % invFr2 = 0.0_RP
-
-      else
-         enableGravity = .true.
-         dimensionless_ % invFr2 = refValues_ % g0 * Lref / POW2(refValues_ % V)
-         dimensionless_ % Fr     = 1.0_RP / sqrt(dimensionless_ % invFr2)
 
       end if
 !
@@ -359,20 +377,11 @@
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Fluid data")
-         write(STD_OUT,'(30X,A,A22,I0)') "->" , "Number of fluids: " , thermodynamics % number_of_fluids
-         select case(thermodynamics % number_of_fluids)
-         case(1)
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid density: " , thermodynamics % rho(1), " kg/m^3"
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid viscosity: " , thermodynamics % mu(1), " Pa.s"
-            
-         case(2)
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 density: " , thermodynamics % rho(1), " kg/m^3"
-            write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
-            write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
-            write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
-         end select
-
-         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility " , thermodynamics % rho0c02, "-"
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 density: " , thermodynamics % rho(1), " kg/m^3"
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
+         write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
+         write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
+         write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility c02: " , thermodynamics % c02, "(m/s)^2"
       
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
@@ -380,15 +389,23 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
          write(STD_OUT,'(30X,A,A30,1pG10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
+         write(STD_OUT,'(30X,A,A30,1pG10.3,A)') "->" , "Gravity acceleration: ",refValues % g0 , " m/s^2."
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Reynolds number: " , dimensionless % Re
+         write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Velocity direction: ","[", &
+                                                   dimensionless % vel_dir(1), ", ", &
+                                                   dimensionless % vel_dir(2), ", ", &
+                                                   dimensionless % vel_dir(3), "]"
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Fluid 1 Reynolds number: " , dimensionless % Re(1)
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Fluid 2 Reynolds number: " , dimensionless % Re(2)
          write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "Froude number: " , dimensionless % Fr
          write(STD_OUT,'(30X,A,A20,A,F4.1,A,F4.1,A,F4.1,A)') "->" , "Gravity direction: ","[", &
                                                    dimensionless % gravity_dir(1), ", ", &
                                                    dimensionless % gravity_dir(2), ", ", &
                                                    dimensionless % gravity_dir(3), "]"
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Mach number: " , sqrt(dimensionless % Ma2)
+         write(STD_OUT,'(30X,A,A20,F10.3)') "->" , "ACM Factor: "      , dimensionless % invMa2
 
       END SUBROUTINE DescribePhysicsStorage_MU
 !

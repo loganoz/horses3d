@@ -28,7 +28,6 @@ module SpatialDiscretization
       use VariableConversion, only: mGradientValuesForQ_0D, mGradientValuesForQ_3D, GetmOneFluidViscosity,&
                                     GetmTwoFluidsViscosity, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D,&
                                     GetCHViscosity
-      use ProblemFileFunctions
       use BoundaryConditions, only: BCs, SetBoundaryConditionsEqn, NS_BC, C_BC, MU_BC
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use ParticlesClass
@@ -154,13 +153,7 @@ module SpatialDiscretization
 
                end select
 
-               select case (thermodynamics % number_of_fluids)
-               case(1)
-                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmOneFluidViscosity, ELLIPTIC_MU)
-               case(2)
-                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmTwoFluidsViscosity, ELLIPTIC_MU)
-               end select
-
+               call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmTwoFluidsViscosity, ELLIPTIC_MU)
                call ViscousDiscretization % Describe
 !
 !           Compute wall distances
@@ -371,7 +364,7 @@ print*, "CH is BR1"
                                                                      + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGW,i,j,k) ) &
                                                     - e % storage % Q(IMC,i,j,k)*e % storage % U_z(IGMU,i,j,k)
    
-               e % storage % QDot(IMP,i,j,k) = -thermodynamics % rho0c02*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+               e % storage % QDot(IMP,i,j,k) = -dimensionless % invMa2*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
                                                                           + e % storage % U_z(IGW,i,j,k))  
 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)

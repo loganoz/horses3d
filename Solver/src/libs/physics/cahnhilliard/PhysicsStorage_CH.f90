@@ -25,11 +25,11 @@
 !        Required arguments
 !        ******************
 !
-         character(len=KEYWORD_LENGTH), parameter    :: MOBILITY_KEY     = "mobility"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width"
-         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension"
+         character(len=KEYWORD_LENGTH), parameter    :: TCH_KEY               = "chemical characteristic time (s)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_WIDTH_KEY   = "interface width (m)"
+         character(len=KEYWORD_LENGTH), parameter    :: INTERFACE_TENSION_KEY = "interface tension (n/m)"
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(3) :: physics_CHKeywords = [INTERFACE_WIDTH_KEY, &
-                                                                              MOBILITY_KEY,   &
+                                                                              TCH_KEY,   &
                                                                               INTERFACE_TENSION_KEY ]
       END MODULE Physics_CHKeywordsModule
 !
@@ -64,7 +64,7 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage_CH( controlVariables, Lref, tref, success )
+      SUBROUTINE ConstructPhysicsStorage_CH( controlVariables, Lref, timeRef, pRef, success )
       USE FTValueDictionaryClass
       use Utilities, only: toLower, almostEqual
 !
@@ -72,10 +72,9 @@
 !     Arguments
 !     ---------
 !
-      TYPE(FTValueDictionary) :: controlVariables
-      real(kind=RP),    intent(inout)    :: Lref
-      real(kind=RP),    intent(inout)    :: tref
-      LOGICAL                 :: success
+      TYPE(FTValueDictionary)      :: controlVariables
+      real(kind=RP),    intent(in) :: Lref, timeRef, pRef
+      LOGICAL                      :: success
 !
 !     ---------------
 !     Local variables
@@ -98,9 +97,15 @@
 !     Read multiphase properties
 !     *****************************
 !
-      multiphase_ % eps   = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
-      multiphase_ % M     = controlVariables % DoublePrecisionValueForKey(MOBILITY_KEY)
-      multiphase_ % sigma = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
+      multiphase_ % eps_wDim   = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
+      multiphase_ % tCH_wDim   = controlVariables % DoublePrecisionValueForKey(TCH_KEY)
+      multiphase_ % sigma_wDim = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
+      multiphase_ % M0_wDim    = POW2(Lref)*multiphase_ % eps_wDim / (multiphase_ % tCH_wDim * multiphase_ % sigma_wDim)
+
+      multiphase_ % eps   = multiphase_ % eps_wDim / Lref
+      multiphase_ % tCH   = multiphase_ % tCH_wDim / timeRef
+      multiphase_ % sigma = multiphase_ % sigma_wDim / pRef
+      multiphase_ % M0    = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
 !
 !     ************************************
 !     Set the global (proteted) multiphase
@@ -126,10 +131,11 @@
 !!    Descriptor: Shows the gathered data
 !     -----------------------------------------
 !
-      SUBROUTINE DescribePhysicsStorage_CH()
+      SUBROUTINE DescribePhysicsStorage_CH(Lref)
          USE Headers
          use MPI_Process_Info
          IMPLICIT NONE
+         real(kind=RP), intent(in)  :: Lref
 
          if ( .not. MPI_Process % isRoot ) return 
 
@@ -138,13 +144,16 @@
          write(STD_OUT,'(/,/)')
 
          call SubSection_Header("Chemical properties")
-         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility: " , multiphase % M
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Chemical characteristic time: " , multiphase % tCH_wDim, " (s)."
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility diffusion: " , POW2(Lref)/multiphase % tCH_wDim, " (m^2/s)."
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Interface tension: " , multiphase % sigma_wDim, " (N/m)."
+         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Interface width: " , multiphase % eps_wDim, " (m)."
 
-      
          write(STD_OUT,'(/)')
          call SubSection_Header("Dimensionless quantities")
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface tension: " , multiphase % sigma
-         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Epsilon: " , multiphase % eps
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Interface tension: " , multiphase % sigma, " [-]."
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Epsilon: " , multiphase % eps, " [-]."
+         write(STD_OUT,'(30X,A,A40,ES10.3)') "->" , "Mobility: " , multiphase % M0, " [-]."
 
       END SUBROUTINE DescribePhysicsStorage_CH
 !
@@ -174,6 +183,8 @@
             IF ( .NOT. ASSOCIATED(obj) )     THEN
                PRINT *, "Input file is missing entry for keyword: ",physics_CHKeywords(i)
                success = .FALSE. 
+               errorMessage(STD_OUT)
+               stop
             END IF  
          END DO  
          

@@ -2501,7 +2501,7 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 3*e % offsetIO*SIZEOF_RP
-            call writeArray(fID, e % geom % x, position=pos)
+            call writeArray(fID, e % geom % x*Lref, position=pos)
             end associate
          end do
          close(fid)

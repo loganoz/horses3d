@@ -147,12 +147,12 @@ module RiemannSolvers_MU
          fL(IMSQRHOU) = fL(IMSQRHOU) + 0.5_RP*cL*(muR-muL) + 0.25_RP*rhoL*uL*(uR-uL)
          fL(IMSQRHOV) = fL(IMSQRHOV) + 0.25_RP*rhoL*uL*(vR-vL)
          fL(IMSQRHOW) = fL(IMSQRHOW) + 0.25_RP*rhoL*uL*(wR-wL)
-         fL(IMP)      = fL(IMP)      + 0.5_RP*thermodynamics % rho0c02*(uR-uL)
+         fL(IMP)      = fL(IMP)      + 0.5_RP*dimensionless % invMa2*(uR-uL)
 
          fR(IMSQRHOU) = fR(IMSQRHOU) + 0.5_RP*cR*(muL-muR) + 0.25_RP*rhoR*uR*(uL-uR)
          fR(IMSQRHOV) = fR(IMSQRHOV) + 0.25_RP*rhoR*uR*(vL-vR)
          fR(IMSQRHOW) = fR(IMSQRHOW) + 0.25_RP*rhoR*uR*(wL-wR)
-         fR(IMP)      = fR(IMP)      + 0.5_RP*thermodynamics % rho0c02*(uL-uR)
+         fR(IMP)      = fR(IMP)      + 0.5_RP*dimensionless % invMa2*(uL-uR)
 
          fL(IMSQRHOU:IMSQRHOW) = nHat*fL(IMSQRHOU) + t1*fL(IMSQRHOV) + t2*fL(IMSQRHOW)
          fR(IMSQRHOU:IMSQRHOW) = nHat*fR(IMSQRHOU) + t1*fR(IMSQRHOV) + t2*fR(IMSQRHOW)
@@ -201,11 +201,11 @@ module RiemannSolvers_MU
 !
 !        Compute the Star Region
 !        -----------------------
-         lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
-         lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*thermodynamics % rho0c02/rhoR))
+         lambdaMinusR = 0.5_RP * (uR - sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR))
+         lambdaPlusR  = 0.5_RP * (uR + sqrt(uR*uR + 4.0_RP*dimensionless % invMa2/rhoR))
 
-         lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
-         lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*thermodynamics % rho0c02/rhoL))
+         lambdaMinusL = 0.5_RP * (uL - sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL))
+         lambdaPlusL  = 0.5_RP * (uL + sqrt(uL*uL + 4.0_RP*dimensionless % invMa2/rhoL))
 
          uStar = (pR-pL+rhoR*uR*lambdaMinusR-rhoL*uL*lambdaPlusL)/(rhoR*lambdaMinusR - rhoL*lambdaPlusL)
          pStar = pR + rhoR*lambdaMinusR*(uR-uStar)
@@ -228,12 +228,12 @@ module RiemannSolvers_MU
          halfRhouStar = 0.5_RP*rhoStar*uStar
 !
 !      - Add first the common (conservative) part
-         fL = [cuStar, rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, thermodynamics % rho0c02 * uStar]
+         fL = [cuStar, rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
          fR = fL
 !
 !      - Add the non--conservative part
-         fL = fL + [0.0_RP, cL*0.5_RP*(muR-muL)-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -thermodynamics % rho0c02*uL]
-         fR = fR + [0.0_RP, cR*0.5_RP*(muL-muR)-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -thermodynamics % rho0c02*uR]
+         fL = fL + [0.0_RP, cL*0.5_RP*(muR-muL)-halfRhouStar*uL,-halfRhouStar*vL, -halfRhouStar*wL, -dimensionless % invMa2*uL]
+         fR = fR + [0.0_RP, cR*0.5_RP*(muL-muR)-halfRhouStar*uR,-halfRhouStar*vR, -halfRhouStar*wR, -dimensionless % invMa2*uR]
 !
 !        ************************************************
 !        Return momentum equations to the cartesian frame
