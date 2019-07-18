@@ -341,13 +341,23 @@
 !           the roe solver and mach = 0.3
 !           ------------------------------------------------
 !
+!#ifdef HAS_MKL  ! Version 18.0.2 (The LU routines that are used modify the residuals slightly)
             INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516589371759036_RP, 0E-011_RP, &
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516590777692205_RP, 0E-011_RP, &
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -4.5319588018831309E-006_RP
-            real(kind=RP), parameter           :: cd = 4.8760727342198127_RP
-            real(kind=RP), parameter           :: cl = -5.8462394242342341E-005_RP
+            real(kind=RP), parameter           :: wake_u = -4.5318351346989675E-006_RP
+            real(kind=RP), parameter           :: cd = 4.8760727412337017_RP
+            real(kind=RP), parameter           :: cl = -5.8462269589831806E-005_RP
+!~#else
+!~            INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
+!~            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516589371759036_RP, 0E-011_RP, &
+!~                                                               0E-011_RP, 0E-011_RP, &
+!~                                                               0E-011_RP]
+!~            real(kind=RP), parameter           :: wake_u = -4.5319588018831309E-006_RP
+!~            real(kind=RP), parameter           :: cd = 4.8760727342198127_RP
+!~            real(kind=RP), parameter           :: cl = -5.8462394242342341E-005_RP
+!~#endif
             
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
