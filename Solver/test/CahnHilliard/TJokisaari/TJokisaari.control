@@ -15,9 +15,9 @@ interior penalty variant = SIPG
 time integration = imex
 !-------- multiphase
 reference length                 = 1.0d0
-interface width (dimensionless)  = 3.1623d0
-interface tension = 0.0d0
-peclet number = 0.1d0
+interface width = 3.1623d0
+interface tension = 1.0d0
+mobility = 10.0
 dt                    = 1.0d-3
 simulation type       = time-accurate
 final time            = 20.0d3

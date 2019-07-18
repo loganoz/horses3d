@@ -26,7 +26,8 @@ module SpatialDiscretization
       use DGSEMClass
       use FluidData
       use VariableConversion, only: mGradientValuesForQ_0D, mGradientValuesForQ_3D, GetmOneFluidViscosity,&
-                                    GetmTwoFluidsViscosity, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D
+                                    GetmTwoFluidsViscosity, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D,&
+                                    GetCHViscosity
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs, SetBoundaryConditionsEqn, NS_BC, C_BC, MU_BC
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
@@ -62,6 +63,7 @@ module SpatialDiscretization
       end interface
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
+      character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
 !
 !     ========      
       CONTAINS 
@@ -83,8 +85,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         character(len=LINE_LENGTH)       :: inviscidDiscretizationName
-         character(len=LINE_LENGTH)       :: viscousDiscretizationName
+         character(len=LINE_LENGTH) :: inviscidDiscretizationName
+         character(len=LINE_LENGTH) :: viscousDiscretizationName
+         character(len=LINE_LENGTH) :: CHDiscretizationName
          
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
@@ -153,16 +156,54 @@ module SpatialDiscretization
 
                select case (thermodynamics % number_of_fluids)
                case(1)
-                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmOneFluidViscosity, "NS")
+                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmOneFluidViscosity, ELLIPTIC_MU)
                case(2)
-                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmTwoFluidsViscosity, "NS")
+                  call ViscousDiscretization % Construct(controlVariables, mViscousFlux0D, mViscousFlux2D, mViscousFlux3D, GetmTwoFluidsViscosity, ELLIPTIC_MU)
                end select
 
                call ViscousDiscretization % Describe
 !
-!        Compute wall distances
-!        ----------------------
-         call mesh % ComputeWallDistances
+!           Compute wall distances
+!           ----------------------
+            call mesh % ComputeWallDistances
+
+!
+!           Initialize Cahn--Hilliard discretization
+!           ----------------------------------------         
+            if ( .not. controlVariables % ContainsKey(CHDiscretizationKey) ) then
+               print*, "Input file is missing entry for keyword: Cahn-Hilliard discretization"
+               errorMessage(STD_OUT)
+               stop
+            end if
+   
+            CHDiscretizationName = controlVariables % stringValueForKey(CHDiscretizationKey, requestedLength = LINE_LENGTH)
+            call toLower(CHDiscretizationName)
+            
+            select case ( trim(CHDiscretizationName) )
+            case("br1")
+               allocate(BassiRebay1_t     :: CHDiscretization)
+print*, "CH is BR1"
+   
+            case("br2")
+               allocate(BassiRebay2_t     :: CHDiscretization)
+   
+            case("ip")
+               allocate(InteriorPenalty_t :: CHDiscretization)
+   
+            case default
+               write(STD_OUT,'(A,A,A)') 'Requested viscous discretization "',trim(CHDiscretizationName),'" is not implemented.'
+               write(STD_OUT,'(A)') "Implemented discretizations are:"
+               write(STD_OUT,'(A)') "  * BR1"
+               write(STD_OUT,'(A)') "  * BR2"
+               write(STD_OUT,'(A)') "  * IP"
+               errorMessage(STD_OUT)
+               stop 
+   
+            end select
+   
+            call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, ELLIPTIC_CH)
+            call CHDiscretization % Describe
+
          
          end if
 
@@ -285,7 +326,7 @@ module SpatialDiscretization
          do eID = 1, size(mesh % elements)
             mesh % elements(eID) % storage % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % elements(eID) % storage % Q(IMC,:,:,:)
 
-!           TODO: limiter would go here
+            mesh % elements(eID) % storage % rho = min(max(mesh % elements(eID) % storage % rho, dimensionless % rho_min),dimensionless % rho_max)
          end do
 !$omp end do nowait
 
@@ -294,7 +335,8 @@ module SpatialDiscretization
             mesh % faces(fID) % storage(1) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(1) % Q(IMC,:,:)
             mesh % faces(fID) % storage(2) % rho = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*mesh % faces(fID) % storage(2) % Q(IMC,:,:)
 
-!           TODO: limiter would go here
+            mesh % faces(fID) % storage(1) % rho = min(max(mesh % faces(fID) % storage(1) % rho, dimensionless % rho_min),dimensionless % rho_max)
+            mesh % faces(fID) % storage(2) % rho = min(max(mesh % faces(fID) % storage(2) % rho, dimensionless % rho_min),dimensionless % rho_max)
          end do
 !$omp end do
 !
@@ -308,32 +350,36 @@ module SpatialDiscretization
 !        Add the Non-Conservative term to QDot
 !        -------------------------------------
 !
-!$omp do schedule(runtime) private(i,j,k,e)
+!$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
          do eID = 1, size(mesh % elements)
             e => mesh % elements(eID)
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
-               e % storage % QDot(IMSQRHOU,i,j,k) = 0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGU,i,j,k) & 
-                                                                    + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGU,i,j,k) &   
-                                                                    + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGU,i,j,k) ) &
-                                                    + e % storage % Q(IMC,i,j,k)*e % storage % U_x(IGMU,i,j,k)
+               e % storage % QDot(IMC,i,j,k)      = 0.0_RP
+               e % storage % QDot(IMSQRHOU,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGU,i,j,k) & 
+                                                                     + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGU,i,j,k) &   
+                                                                     + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGU,i,j,k) ) &
+                                                    - e % storage % Q(IMC,i,j,k)*e % storage % U_x(IGMU,i,j,k)
 
-               e % storage % QDot(IMSQRHOV,i,j,k) = 0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGV,i,j,k) & 
-                                                                    + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGV,i,j,k) &   
-                                                                    + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGV,i,j,k) ) &
-                                                    + e % storage % Q(IMC,i,j,k)*e % storage % U_y(IGMU,i,j,k)
+               e % storage % QDot(IMSQRHOV,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGV,i,j,k) & 
+                                                                     + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGV,i,j,k) &   
+                                                                     + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGV,i,j,k) ) &
+                                                    - e % storage % Q(IMC,i,j,k)*e % storage % U_y(IGMU,i,j,k)
 
-               e % storage % QDot(IMSQRHOW,i,j,k) = 0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGW,i,j,k) & 
-                                                                    + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGW,i,j,k) &   
-                                                                    + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGW,i,j,k) ) &
-                                                    + e % storage % Q(IMC,i,j,k)*e % storage % U_z(IGMU,i,j,k)
+               e % storage % QDot(IMSQRHOW,i,j,k) = -0.5_RP*sqrtRho*(  e % storage % Q(IMSQRHOU,i,j,k)*e % storage % U_x(IGW,i,j,k) & 
+                                                                     + e % storage % Q(IMSQRHOV,i,j,k)*e % storage % U_y(IGW,i,j,k) &   
+                                                                     + e % storage % Q(IMSQRHOW,i,j,k)*e % storage % U_z(IGW,i,j,k) ) &
+                                                    - e % storage % Q(IMC,i,j,k)*e % storage % U_z(IGMU,i,j,k)
    
-               e % storage % QDot(IMP,i,j,k) = thermodynamics % rho0c02*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
-                                                                         + e % storage % U_z(IGW,i,j,k))  
+               e % storage % QDot(IMP,i,j,k) = -thermodynamics % rho0c02*(  e % storage % U_x(IGU,i,j,k) + e % storage % U_y(IGV,i,j,k) &
+                                                                          + e % storage % U_z(IGW,i,j,k))  
+
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
          end do
 !$omp end do
 
+         call ViscousDiscretization % LiftGradients( NCONS, NCONS, mesh , time , mGradientValuesForQ_0D, mGradientValuesForQ_3D)
 !
 !        -----------------------
 !        Compute time derivative
@@ -364,7 +410,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID
-         real(kind=RP) :: sqrtRho
+         real(kind=RP) :: sqrtRho, invSqrtRho
 !
 !        ****************
 !        Volume integrals
@@ -400,7 +446,7 @@ module SpatialDiscretization
 !                                      sqrt(rho), and add source terms
 !        *************************************************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,sqrtRho,invSqrtRho)
          do eID = 1, size(mesh % elements) 
             associate(e => mesh % elements(eID)) 
             if ( e % hasSharedFaces ) cycle
@@ -408,9 +454,11 @@ module SpatialDiscretization
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
                sqrtRho = sqrt(e % storage % rho(i,j,k))
+               invSqrtRho = 1.0_RP / sqrtRho
 !
 !            + Scale with Jacobian and sqrt(Rho)
-               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) / (e % geom % jacobian(i,j,k) * sqrtRho) 
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % InvJacobian(i,j,k)
+               e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) = e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) * invSqrtRho
 !
 !            + Add gravity
                e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
@@ -516,6 +564,8 @@ module SpatialDiscretization
          real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: muL, muR
+         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
+         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
@@ -526,13 +576,13 @@ module SpatialDiscretization
 !
 !            - Premultiply velocity gradients by the viscosity
 !              -----------------------------------------------
-               f % storage(1) % U_x(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_x(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(1) % U_y(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_y(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(1) % U_z(IMSQRHOU:IMSQRHOW,i,j) = muL*f % storage(1) % U_z(IMSQRHOU:IMSQRHOW,i,j) 
+               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
+               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
+               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
 
-               f % storage(2) % U_x(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_x(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(2) % U_y(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_y(IMSQRHOU:IMSQRHOW,i,j) 
-               f % storage(2) % U_z(IMSQRHOU:IMSQRHOW,i,j) = muR*f % storage(2) % U_z(IMSQRHOU:IMSQRHOW,i,j) 
+               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
+               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
+               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
 !      
 !              --------------
 !              Viscous fluxes
@@ -542,12 +592,12 @@ module SpatialDiscretization
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                  U_xLeft = UxL, &
+                                                  U_yLeft = UyL, &
+                                                  U_zLeft = UzL, &
+                                                  U_xRight = UxR, &
+                                                  U_yRight = UyR, &
+                                                  U_zRight = UzR, &
                                                   mu   = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &

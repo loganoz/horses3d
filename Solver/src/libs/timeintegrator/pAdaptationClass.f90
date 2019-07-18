@@ -22,9 +22,9 @@
 module pAdaptationClass
    use SMConstants
 #ifdef NAVIERSTOKES
-   use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE, flowIsNavierStokes
+   use PhysicsStorage                  , only: NCONS, CTD_IGNORE_MODE, flowIsNavierStokes
 #else
-   use PhysicsStorage                  , only: NTOTALVARS, CTD_IGNORE_MODE
+   use PhysicsStorage                  , only: NCONS, CTD_IGNORE_MODE
 #endif
    use FaceClass                       , only: Face
    use ElementClass

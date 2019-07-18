@@ -222,7 +222,7 @@ print*, "Method selected: RK5"
 !     ---------
 !
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
-      REAL(KIND=RP)        :: maxResidual(NTOTALVARS)
+      REAL(KIND=RP)        :: maxResidual(NCONS)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
       
 !     Initializations
@@ -324,7 +324,7 @@ print*, "Method selected: RK5"
 !
       real(kind=RP)                 :: Tol                                 ! Tolerance used for STEADY_STATE computations
       REAL(KIND=RP)                 :: t
-      REAL(KIND=RP)                 :: maxResidual(NTOTALVARS)
+      REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
       integer                       :: k
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName

@@ -1,3 +1,4 @@
+#include "Includes.h"
 module EllipticDiscretizationClass
    use SMConstants
    use MeshTypes
@@ -9,10 +10,12 @@ module EllipticDiscretizationClass
 !
    private
    public   EllipticDiscretization_t, EllipticFlux0D_f, EllipticFlux2D_f, EllipticFlux3D_f, GetViscosity_f
+   public   ELLIPTIC_NS, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
 
    public BaseClass_ComputeGradient
 
    type EllipticDiscretization_t
+      integer                                        :: eqName
       procedure(EllipticFlux0D_f), nopass, pointer   :: EllipticFlux0D
       procedure(EllipticFlux2D_f), nopass, pointer   :: EllipticFlux2D
       procedure(EllipticFlux3D_f), nopass, pointer   :: EllipticFlux3D
@@ -88,12 +91,16 @@ module EllipticDiscretizationClass
          real(kind=RP), intent(out) :: mu
       end subroutine GetViscosity_f
    end interface
+
+   enum, bind(C)
+      enumerator :: ELLIPTIC_NS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
+   end enum
 !
 !  ========
    contains
 !  ========
 !
-      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqname)
+      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqName)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
@@ -106,7 +113,7 @@ module EllipticDiscretizationClass
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
-         character(len=*), intent(in)          :: eqname
+         integer, intent(in)                   :: eqName
 !
 !        ----------------------------------------------------------
 !        Set the particular procedures to compute the elliptic flux
@@ -116,6 +123,27 @@ module EllipticDiscretizationClass
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
          self % GetViscosity   => GetViscosity
+
+         select case (eqName)
+         case(ELLIPTIC_NS)
+            self % eqName = ELLIPTIC_NS
+
+         case(ELLIPTIC_iNS)
+            self % eqName = ELLIPTIC_iNS
+
+         case(ELLIPTIC_CH)
+            self % eqName = ELLIPTIC_CH
+
+         case(ELLIPTIC_MU)
+            self % eqName = ELLIPTIC_MU
+
+         case default
+            print*, "Unrecognized equation"
+            errorMessage(STD_OUT)
+            stop
+
+         end select
+      
 
       end subroutine BaseClass_Construct
 

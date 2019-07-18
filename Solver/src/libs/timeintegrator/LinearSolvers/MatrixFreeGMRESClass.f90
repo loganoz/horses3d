@@ -19,7 +19,7 @@ module MatrixFreeGMRESClass
    use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f
    use FTValueDictionaryClass , only: FTValueDictionary
    use MatrixClass            , only: Matrix_t, DenseBlockDiagMatrix_t, SparseBlockDiagMatrix_t
-   use PhysicsStorage         , only: NTOTALVARS, NTOTALGRADS, CTD_IGNORE_MODE
+   use PhysicsStorage        , only: NCONS, NGRAD, CTD_IGNORE_MODE
    use MPI_Utilities          , only: infNorm, L2Norm, MPI_SumAll
    implicit none
    
@@ -219,7 +219,7 @@ contains
                      Nx = sem % mesh % elements(k) % Nxyz(1)
                      Ny = sem % mesh % elements(k) % Nxyz(2)
                      Nz = sem % mesh % elements(k) % Nxyz(3)
-                     ndofelm(k) = NTOTALVARS*(Nx+1)*(Ny+1)*(Nz+1)
+                     ndofelm(k) = NCONS*(Nx+1)*(Ny+1)*(Nz+1)
                   end do
                   call this % BlockPreco % PreAllocate(nnzs = ndofelm)
                   
@@ -710,7 +710,7 @@ contains
          !---------------------------------------------------------
           
          CALL this % PCSolver % SetRHS(v)
-         CALL this % PCSolver % Solve(NTOTALVARS, NTOTALGRADS, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
+         CALL this % PCSolver % Solve(NCONS, NGRAD, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
          CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed

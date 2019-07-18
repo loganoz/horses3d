@@ -127,8 +127,8 @@ contains
 !
 !     Setup linear solver
 !     -------------------
-      DimPrb = sem % NDOF * NTOTALVARS
-      globalDimPrb = sem % totalNDOF * NTOTALVARS
+      DimPrb = sem % NDOF * NCONS
+      globalDimPrb = sem % totalNDOF * NCONS
       
       select case ( trim(controlVariables % StringValueForKey("linear solver",LINE_LENGTH)) )
          case('petsc')
@@ -150,7 +150,7 @@ contains
             allocate (PetscKspLinearSolver_t :: this % linsolver)
       end select
       
-      call this % linsolver % construct (DimPrb,globalDimPrb,NTOTALVARS,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
+      call this % linsolver % construct (DimPrb,globalDimPrb,NCONS,controlVariables,sem,BDF_MatrixShift)             !Constructs linear solver 
       
 !
 !     Setup BDF methods
@@ -384,7 +384,7 @@ contains
          call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          call Stopwatch % Start("BDF Newton-Solve")
-         call linsolver%solve( nEqn=NTOTALVARS, nGradEqn=NTOTALGRADS, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         call linsolver%solve( nEqn=NCONS, nGradEqn=NGRAD, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          call Stopwatch % Pause("BDF Newton-Solve")
          
@@ -444,7 +444,7 @@ contains
       procedure(ComputeTimeDerivative_f)                   :: ComputeTimeDerivative
       !----------------------------------------------------------------
       real(kind=RP)                                :: value
-      real(kind=RP)  :: RHS(NTOTALVARS*sem % NDOF)
+      real(kind=RP)  :: RHS(NCONS*sem % NDOF)
       !----------------------------------------------------------------
       
       call sem % mesh % storage % global2LocalQ
@@ -489,7 +489,7 @@ contains
       ! .frm file
       OPEN(newunit=fd, file=TRIM(FileName)//'.frm', action='write')
          write(fd,*)
-         write(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NTOTALVARS, 1
+         write(fd,*) SIZE(Mat % Values), SIZE(Mat % Rows)-1, 1, NCONS, 1
          write(fd,*) sem % mesh % elements(1) % Nxyz(1), SIZE(sem % mesh % elements)
       CLOSE (fd)
       
@@ -497,7 +497,7 @@ contains
       call Mat % Visualize(TRIM(FileName)//'.amg',FirstRow=.FALSE.)
       
       ! .coo file
-      call sem % mesh % WriteCoordFile(NTOTALVARS, TRIM(FileName)//'.coo')
+      call sem % mesh % WriteCoordFile(NCONS, TRIM(FileName)//'.coo')
       
       
    end subroutine WriteEigenFiles

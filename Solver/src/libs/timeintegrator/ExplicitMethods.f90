@@ -179,12 +179,12 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
 #ifdef FLOW
-            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q  + deltaT*mesh % elements(id) % storage % QDot
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
 #endif
 
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
@@ -192,6 +192,9 @@ MODULE ExplicitMethods
 #endif
          END DO
 !$omp end parallel do
+
+!     ***** Uncomment this line for good monitors time derivative
+!      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
    end subroutine TakeExplicitEulerStep
 !

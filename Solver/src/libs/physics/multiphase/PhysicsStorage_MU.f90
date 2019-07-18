@@ -15,19 +15,11 @@
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: NUMBER_OF_FLUIDS_KEY           = "number of fluids (1/2)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAXIMUM_DENSITY_KEY            = "maximum density (kg/m^3)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MINIMUM_DENSITY_KEY            = "minimum density (kg/m^3)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ARTIFICIAL_COMPRESSIBILITY_KEY = "artificial compressibility factor"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_ACCELERATION_KEY       = "gravity acceleration (m/s^2)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
-!
-!        *****************
-!        Mode with 1 fluid
-!        *****************
-!
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: DENSITY_KEY    =  "density (kg/m^3)"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOSITY_KEY  =  "viscosity (pa.s)"
 !
 !        *****************
 !        Mode with 2 fluid
@@ -170,39 +162,18 @@
 !     Set thermodynamics
 !     ******************
 !
-      thermodynamics_ % number_of_fluids = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
+      thermodynamics_ % number_of_fluids = 2
       
       allocate(thermodynamics_ % rho(thermodynamics_ % number_of_fluids))
       allocate(thermodynamics_ % mu (thermodynamics_ % number_of_fluids))
 
-      select case(thermodynamics_ % number_of_fluids)
-      case(1)
-         thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(DENSITY_KEY)
-         thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(VISCOSITY_KEY)
-         
-      case(2)
-         thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
-         thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
+      thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
+      thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
 
-         thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(FLUID1_VISCOSITY_KEY)
-         thermodynamics_ % mu (2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
-
-      end select
+      thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(FLUID1_VISCOSITY_KEY)
+      thermodynamics_ % mu (2) = controlVariables % DoublePrecisionValueForKey(FLUID2_VISCOSITY_KEY)
 
 
-      if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
-         thermodynamics_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY)
-      else
-         thermodynamics_ % rho_max = huge(1.0_RP)
-
-      end if
-
-      if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
-         thermodynamics_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY)
-      else
-         thermodynamics_ % rho_min = -huge(1.0_RP)
-
-      end if
 
 !
 !     ********************
@@ -243,7 +214,24 @@
 !     **************************
 !
       thermodynamics_ % rho0c02 = maxval(dimensionless_ % rho) * controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
-      
+!
+!     ****************
+!     Density limiters
+!     ****************
+!
+      if ( controlVariables % ContainsKey(MAXIMUM_DENSITY_KEY) ) then
+         dimensionless_ % rho_max = controlVariables % DoublePrecisionValueForKey(MAXIMUM_DENSITY_KEY) / refValues_ % rho
+      else
+         dimensionless_ % rho_max = maxval(dimensionless_ % rho)
+
+      end if
+
+      if ( controlVariables % ContainsKey(MINIMUM_DENSITY_KEY) ) then
+         dimensionless_ % rho_min = controlVariables % DoublePrecisionValueForKey(MINIMUM_DENSITY_KEY) / refValues_ % rho
+      else
+         dimensionless_ % rho_min = minval(dimensionless_ % rho)
+
+      end if
 !
 !     *********************************************
 !     Choose the Riemann solver (by default is ERS)
@@ -445,10 +433,6 @@
             call controlVariables % AddValueForKey("1.0", REFERENCE_VELOCITY_KEY)
          end if
 
-         if ( .not. controlVariables % ContainsKey(NUMBER_OF_FLUIDS_KEY) ) then
-            call controlVariables % AddValueForKey("1", NUMBER_OF_FLUIDS_KEY)
-         end if
-         
          if ( .not. controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
             call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
          end if
@@ -457,41 +441,28 @@
             call controlVariables % AddValueForKey(EXACT_SOLVER_NAME, RIEMANN_SOLVER_NAME_KEY)
          end if
             
-         nF = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
+         if ( .not. controlVariables % ContainsKey(FLUID1_DENSITY_KEY)) then
+            print*, "Specify density for fluid #1 using:"
+            print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
+            errorMessage(STD_OUT)
+            stop 
+         end if
+   
+         if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
+            print*, "Specify density for fluid #2 using:"
+            print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
+            errorMessage(STD_OUT)
+            stop 
+         end if
 
-         select case (nF)
-         case (1)
-            if ( .not. controlVariables % ContainsKey(DENSITY_KEY)) then
-               call controlVariables % AddValueForKey("1.0", DENSITY_KEY)
-            end if
-      
-            if ( .not. controlVariables % ContainsKey(VISCOSITY_KEY)) then
-               call controlVariables % AddValueForKey("0.0", VISCOSITY_KEY)
-            end if
-         case (2)
-            if ( .not. controlVariables % ContainsKey(FLUID1_DENSITY_KEY)) then
-               print*, "Specify density for fluid #1 using:"
-               print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
-               errorMessage(STD_OUT)
-               stop 
-            end if
-      
-            if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
-               print*, "Specify density for fluid #2 using:"
-               print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
-               errorMessage(STD_OUT)
-               stop 
-            end if
+         if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
+            call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
+         end if
+   
+         if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
+            call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
+         end if
 
-            if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
-               call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
-            end if
-      
-            if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
-               call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
-            end if
-
-         end select
 !
 !        *************
 !        Gravity force

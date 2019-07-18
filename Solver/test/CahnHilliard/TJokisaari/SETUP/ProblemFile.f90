@@ -124,7 +124,7 @@
                end do               ; end do                ; end do
                
                e % storage % c = (e % storage % c - 0.5_RP) * 5.0_RP
-               e % storage % mu(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
+               !e % storage % mu(1,:,:,:) = multiphase_ % tildeRho * e % storage % c(1,:,:,:) + multiphase_ % barRho
                end associate
             end do
 #endif

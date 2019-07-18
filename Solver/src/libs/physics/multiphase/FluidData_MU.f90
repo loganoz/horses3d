@@ -31,8 +31,6 @@ module FluidData_MU
       real(kind=RP)              :: rho0c02   ! Artificial compressibility constant
       real(kind=RP), allocatable :: rho(:)
       real(kind=RP), allocatable :: mu(:)
-      real(kind=RP)              :: rho_max
-      real(kind=RP)              :: rho_min
    end type Thermodynamics_t
 
    type RefValues_t
@@ -52,6 +50,8 @@ module FluidData_MU
       real(kind=RP)              :: Fr
       real(kind=RP)              :: invFr2
       real(kind=RP)              :: gravity_dir(NDIM)
+      real(kind=RP)              :: rho_max
+      real(kind=RP)              :: rho_min
    end type Dimensionless_t
 !
 !  ---------
@@ -88,8 +88,6 @@ module FluidData_MU
          allocate(thermodynamics % mu (thermodynamics % number_of_fluids))
          thermodynamics % mu               = thermodynamics_ % mu               
 
-         thermodynamics % rho_max          = thermodynamics_ % rho_max          
-         thermodynamics % rho_min          = thermodynamics_ % rho_min          
 
       end subroutine SetThermodynamics
 
@@ -122,6 +120,9 @@ module FluidData_MU
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % invFr2 = dimensionless_ % invFr2
          dimensionless % gravity_dir     = dimensionless_ % gravity_dir
+
+         dimensionless % rho_max          = dimensionless_ % rho_max          
+         dimensionless % rho_min          = dimensionless_ % rho_min          
 
       end subroutine SetDimensionless
 end module FluidData_MU

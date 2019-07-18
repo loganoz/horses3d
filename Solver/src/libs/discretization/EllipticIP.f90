@@ -84,7 +84,7 @@ module EllipticIP
          procedure(EllipticFlux2D_f)           :: EllipticFlux2D
          procedure(EllipticFlux3D_f)           :: EllipticFlux3D
          procedure(GetViscosity_f)             :: GetViscosity
-         character(len=*),         intent(in)  :: eqname
+         integer,                  intent(in)  :: eqname
 !
 !        ---------------
 !        Local variables
@@ -102,20 +102,25 @@ module EllipticIP
          self % EllipticFlux3D => EllipticFlux3D
          self % GetViscosity   => GetViscosity
 
-         eqnameaux = eqname
-         call tolower(eqnameaux)
-         select case(trim(eqnameaux))
-         case("ns")
+         select case (eqName)
+         case(ELLIPTIC_NS)
+            self % eqName = ELLIPTIC_NS
             self % PenaltyParameter => PenaltyParameterNS
 
-         case("ch")
+         case(ELLIPTIC_iNS)
+            self % eqName = ELLIPTIC_iNS
+            self % PenaltyParameter => PenaltyParameterNS
+
+         case(ELLIPTIC_CH)
+            self % eqName = ELLIPTIC_CH
             self % PenaltyParameter => PenaltyParameterCH
 
+         case(ELLIPTIC_MU)
+            self % eqName = ELLIPTIC_MU
+            self % PenaltyParameter => PenaltyParameterNS
+
          case default
-            print*, "Unrecognized equation name."
-            print*, "Options available are:"
-            print*, "   * NS"
-            print*, "   * CH"    
+            print*, "Unrecognized equation"
             errorMessage(STD_OUT)
             stop
 
@@ -389,8 +394,13 @@ module EllipticIP
          integer       :: i,j
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable
@@ -434,8 +444,13 @@ module EllipticIP
          integer       :: i,j, thisSide
          
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
+            call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR, rho_ = f % storage(2) % rho(i,j))
+#else
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
             call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable
@@ -491,8 +506,13 @@ module EllipticIP
 !           u, v, w, T averages
 !           -------------------
 !   
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
-            call GetGradients(nEqn, nGradEqn, bvExt, UR )
+#ifdef MULTIPHASE
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
+            call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j))
+#else
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
+            call GetGradients(nEqn, nGradEqn, bvExt, UR)
+#endif
 
 #ifdef MULTIPHASE
 !           The multiphase solver needs the Chemical potential as first entropy variable
@@ -518,7 +538,7 @@ module EllipticIP
 !           *****************************
             do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
    
-               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL )
+               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
 
 #ifdef MULTIPHASE
 !              The multiphase solver needs the Chemical potential as first entropy variable

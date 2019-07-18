@@ -152,9 +152,9 @@ module SpatialDiscretization
 
                select case (thermodynamics % number_of_fluids)
                case(1)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSOneFluidViscosity, "NS")
+                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSOneFluidViscosity, ELLIPTIC_iNS)
                case(2)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSTwoFluidsViscosity, "NS")
+                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSTwoFluidsViscosity, ELLIPTIC_iNS)
                end select
 
                call ViscousDiscretization % Describe

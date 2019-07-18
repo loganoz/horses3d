@@ -119,7 +119,7 @@ module RiemannSolvers_MU
          fL(IMSQRHOU) = 0.5_RP*rhoL*uL*uL + pL
          fL(IMSQRHOV) = 0.5_RP*rhoL*uL*vL
          fL(IMSQRHOW) = 0.5_RP*rhoL*uL*wL
-         fL(IMP)      = thermodynamics % rho0c02 * uL
+         fL(IMP)      = 0.0_RP
 
 !
 !        Right state variables and fluxes
@@ -135,12 +135,11 @@ module RiemannSolvers_MU
          fR(IMSQRHOU) = 0.5_RP*rhoR*uR*uR + pR
          fR(IMSQRHOV) = 0.5_RP*rhoR*uR*vR
          fR(IMSQRHOW) = 0.5_RP*rhoR*uR*wR
-         fR(IMP)      = thermodynamics % rho0c02 * uR
+         fR(IMP)      = 0.0_RP
 !
 !        Perform the average and rotation
 !        --------------------------------
          fL = 0.5_RP*(fL + fR)
-
          fR = fL
 !
 !        Add the non-conservative term
@@ -148,10 +147,12 @@ module RiemannSolvers_MU
          fL(IMSQRHOU) = fL(IMSQRHOU) + 0.5_RP*cL*(muR-muL) + 0.25_RP*rhoL*uL*(uR-uL)
          fL(IMSQRHOV) = fL(IMSQRHOV) + 0.25_RP*rhoL*uL*(vR-vL)
          fL(IMSQRHOW) = fL(IMSQRHOW) + 0.25_RP*rhoL*uL*(wR-wL)
+         fL(IMP)      = fL(IMP)      + 0.5_RP*thermodynamics % rho0c02*(uR-uL)
 
          fR(IMSQRHOU) = fR(IMSQRHOU) + 0.5_RP*cR*(muL-muR) + 0.25_RP*rhoR*uR*(uL-uR)
          fR(IMSQRHOV) = fR(IMSQRHOV) + 0.25_RP*rhoR*uR*(vL-vR)
          fR(IMSQRHOW) = fR(IMSQRHOW) + 0.25_RP*rhoR*uR*(wL-wR)
+         fR(IMP)      = fR(IMP)      + 0.5_RP*thermodynamics % rho0c02*(uL-uR)
 
          fL(IMSQRHOU:IMSQRHOW) = nHat*fL(IMSQRHOU) + t1*fL(IMSQRHOV) + t2*fL(IMSQRHOW)
          fR(IMSQRHOU:IMSQRHOW) = nHat*fR(IMSQRHOU) + t1*fR(IMSQRHOV) + t2*fR(IMSQRHOW)
@@ -174,26 +175,28 @@ module RiemannSolvers_MU
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
-         real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
+         real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, invSqrtRhoL, lambdaMinusL, lambdaPlusL
+         real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
          real(kind=RP)  :: stab(NCONS), lambdaMax
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
-         invRhoL = 1.0_RP / rhoL
+         invRhoL     = 1.0_RP / rhoL
+         invSqrtRhoL = sqrt(invRhoL)
          cL = QLeft(IMC)
-         uL = invRhoL * (QLeft(IMSQRHOU) * nHat(1) + QLeft(IMSQRHOV) * nHat(2) + QLeft(IMSQRHOW) * nHat(3))
-         vL = invRhoL * (QLeft(IMSQRHOU) * t1(1)   + QLeft(IMSQRHOV) * t1(2)   + QLeft(IMSQRHOW) * t1(3))
-         wL = invRhoL * (QLeft(IMSQRHOU) * t2(1)   + QLeft(IMSQRHOV) * t2(2)   + QLeft(IMSQRHOW) * t2(3))
+         uL = invSqrtRhoL * (QLeft(IMSQRHOU) * nHat(1) + QLeft(IMSQRHOV) * nHat(2) + QLeft(IMSQRHOW) * nHat(3))
+         vL = invSqrtRhoL * (QLeft(IMSQRHOU) * t1(1)   + QLeft(IMSQRHOV) * t1(2)   + QLeft(IMSQRHOW) * t1(3))
+         wL = invSqrtRhoL * (QLeft(IMSQRHOU) * t2(1)   + QLeft(IMSQRHOV) * t2(2)   + QLeft(IMSQRHOW) * t2(3))
          pL = QLeft(IMP)
 
-         invRhoR = 1.0_RP / rhoR
+         invRhoR     = 1.0_RP / rhoR
+         invSqrtRhoR = sqrt(invRhoR)
          cR = QRight(IMC)
-         uR = invRhoR * (QRight(IMSQRHOU) * nHat(1) + QRight(IMSQRHOV) * nHat(2) + QRight(IMSQRHOW) * nHat(3))
-         vR = invRhoR * (QRight(IMSQRHOU) * t1(1)   + QRight(IMSQRHOV) * t1(2)   + QRight(IMSQRHOW) * t1(3))
-         wR = invRhoR * (QRight(IMSQRHOU) * t2(1)   + QRight(IMSQRHOV) * t2(2)   + QRight(IMSQRHOW) * t2(3))
+         uR = invSqrtRhoR * (QRight(IMSQRHOU) * nHat(1) + QRight(IMSQRHOV) * nHat(2) + QRight(IMSQRHOW) * nHat(3))
+         vR = invSqrtRhoR * (QRight(IMSQRHOU) * t1(1)   + QRight(IMSQRHOV) * t1(2)   + QRight(IMSQRHOW) * t1(3))
+         wR = invSqrtRhoR * (QRight(IMSQRHOU) * t2(1)   + QRight(IMSQRHOV) * t2(2)   + QRight(IMSQRHOW) * t2(3))
          pR = QRight(IMP)
 !
 !        Compute the Star Region
