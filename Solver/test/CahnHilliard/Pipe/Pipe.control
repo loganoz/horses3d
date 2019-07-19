@@ -7,6 +7,11 @@ Convergence tolerance = 1.d-10
 riemann solver        = standard roe
 discretization nodes = Gauss-Lobatto
 time integration      = imex
+
+#define Jacobian
+   type = 1
+#end
+
 dt = 5.0e-4
 mach number           = 0.1
 viscous discretization = ip

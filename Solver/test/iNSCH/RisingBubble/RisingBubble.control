@@ -52,7 +52,9 @@
                               Final time = 3.0
                            Autosave mode = Iteration  ! Time
                        Autosave interval = 1000   ! 1.0
-
+#define Jacobian
+   type = 1
+#end
 !-------------------- Boundary conditions:-
 #define boundary right
    type = NoSlipWall

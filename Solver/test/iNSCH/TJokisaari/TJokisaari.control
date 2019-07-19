@@ -14,6 +14,10 @@ penalty parameter = 1.0
 interior penalty variant = SIPG
 riemann solver = Exact
 time integration = imex
+#define Jacobian
+   type = 1
+#end
+
 interface width (dimensionless)  = 3.1623d0
 reference velocity = 1.0d0
 viscosity ratio (mu2/mu1) = 1.0d0

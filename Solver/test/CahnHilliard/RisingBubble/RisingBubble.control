@@ -52,6 +52,9 @@
                               Final time = 100.0
                            Autosave mode = Iteration
                        Autosave interval = 1
+#define Jacobian
+   type = 1
+#end
 
 !-------------------- Boundary conditions:-
 Number of boundaries  = 6

@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Wed Jul 17 11:52:59 2019
+!   @Last revision date: Fri Jul 19 12:59:07 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: 09a29cdae6e15333eec4158cebda9e7bb2d70917
 !
 !//////////////////////////////////////////////////////
 !
@@ -140,8 +140,8 @@ module PetscSolverClass
          call VecCreate  (PETSC_COMM_WORLD,this % x,ierr)          ; call CheckPetscErr(ierr,'error creating Petsc vector')
          call VecSetSizes(this % x,dimPrb,globalDimPrb,ierr)       ; call CheckPetscErr(ierr,'error setting Petsc vector options')
          call VecSetFromOptions(this % x,ierr)                     ; call CheckPetscErr(ierr,'error setting Petsc vector options')
+         call VecDuplicate(this % x,this % b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
       end if
-      call VecDuplicate(this % x,this % b,ierr)                 ; call CheckPetscErr(ierr,'error creating Petsc vector')
 
 !     Petsc ksp solver context      
       call KSPCreate(PETSC_COMM_WORLD,this%ksp,ierr)                    ; call CheckPetscErr(ierr,'error in KSPCreate')
