@@ -115,6 +115,7 @@ Module DGSEMClass
       INTEGER                     :: nTotalElem                              ! Number of elements in mesh
       INTEGER                     :: fUnit
       integer                     :: dir2D
+      integer                     :: ierr
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
 #if (!defined(NAVIERSTOKES))
@@ -170,8 +171,6 @@ Module DGSEMClass
       ELSE
          ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
-      
-      self % totalNDOF = sum((Nx+1)*(Ny+1)*(Nz+1))
       
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
       
@@ -284,7 +283,18 @@ Module DGSEMClass
          self % NDOF = self % NDOF + (e % Nxyz(1) + 1) * (e % Nxyz(2) + 1) * (e % Nxyz(3) + 1)
          end associate
       END DO
-
+!
+!     ----------------------------------
+!     Get the final total number of DOFs
+!     ----------------------------------
+!
+      if ( MPI_Process % doMPIAction ) then
+#ifdef _HAS_MPI_
+         call mpi_allreduce(self % NDOF, self % totalNDOF, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      else
+         self % totalNDOF = self % NDOF
+      end if
 !
 !     ------------------------
 !     Allocate and zero memory

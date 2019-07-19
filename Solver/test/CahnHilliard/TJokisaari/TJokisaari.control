@@ -13,6 +13,11 @@ penalty parameter = 1.0
 2D mesh offset direction = z
 interior penalty variant = SIPG
 time integration = imex
+
+#define Jacobian
+   type = 1
+#end
+
 !-------- multiphase
 reference length                 = 1.0d0
 interface width = 3.1623d0
