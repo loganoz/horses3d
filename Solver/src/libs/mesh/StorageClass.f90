@@ -41,6 +41,7 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH)
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
@@ -942,6 +943,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
 
          self % currentlyLoaded = NS
          self % Q   (1:,0:,0:,0:) => self % QNS
@@ -949,6 +956,10 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % U_yNS
          self % U_z (1:,0:,0:,0:) => self % U_zNS
          self % QDot(1:,0:,0:,0:) => self % QDotNS
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % QNS
+         end do
 
       end subroutine ElementStorage_SetStorageToNS
 #endif
@@ -962,6 +973,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
       
          self % currentlyLoaded = C
 !
@@ -972,6 +989,11 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % c_y
          self % U_z (1:,0:,0:,0:) => self % c_z
          self % QDot(1:,0:,0:,0:) => self % cDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+         end do
+
    
       end subroutine ElementStorage_SetStorageToCH_c
 
@@ -985,6 +1007,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
 
          self % currentlyLoaded = MU
 
@@ -993,6 +1021,10 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % mu_y
          self % U_z (1:,0:,0:,0:) => self % mu_z
          self % QDot(1:,0:,0:,0:) => self % cDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+         end do
    
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif

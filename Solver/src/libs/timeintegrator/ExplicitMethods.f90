@@ -22,6 +22,8 @@ MODULE ExplicitMethods
 
    private
    public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep
+
+   integer, protected :: eBDF_order = 3
 !========
  CONTAINS
 !========
@@ -183,13 +185,7 @@ MODULE ExplicitMethods
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-#ifdef FLOW
             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
-#endif
-
-#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-            mesh % elements(id) % storage % c = mesh % elements(id) % storage % c  + deltaT*mesh % elements(id) % storage % cDot
-#endif
          END DO
 !$omp end parallel do
 
@@ -197,6 +193,148 @@ MODULE ExplicitMethods
 !      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
    end subroutine TakeExplicitEulerStep
+
+   subroutine TakeExplicitBDFStep(mesh, particles, t, deltaT, ComputeTimeDerivative)
+      implicit none
+      type(HexMesh)                      :: mesh
+#ifdef FLOW
+      type(Particles_t)                  :: particles
+#else
+      logical                            :: particles
+#endif
+      REAL(KIND=RP)                      :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                  :: id
+      real(kind=RP), parameter :: invGamma1 = 1.0_RP, invGamma2 = 2.0_RP/3.0_RP, invGamma3 = 6.0_RP / 11.0_RP
+      logical, save            :: isFirst = .true., isSecond = .false., isThird = .false.
+
+      if (isThird) then      
+!
+!        Perform the third order stages
+!        ------------------------------
+!$omp parallel do schedule(runtime)
+         do id = 1, size(mesh % elements)
+!           Set y^{*,n+1} in Q and downgrade y^n and y^{n-1}
+!           ------------------------------------------------
+            mesh % elements(id) % storage % QDot = mesh % elements(id) % storage % prevQ(2) % Q
+            mesh % elements(id) % storage % prevQ(2) % Q = mesh % elements(id) % storage % prevQ(1) % Q
+            mesh % elements(id) % storage % prevQ(1) % Q = mesh % elements(id) % storage % Q
+            mesh % elements(id) % storage % Q =   3.0_RP * mesh % elements(id) % storage % prevQ(1) % Q &
+                                                  - 3.0_RP * mesh % elements(id) % storage % prevQ(2) % Q & 
+                                                  + mesh % elements(id) % storage % QDot
+         end do
+!$omp end parallel do
+!
+!        Compute QDot
+!        ------------
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+!
+!        Perform the time-step
+!        ---------------------
+!$omp parallel do schedule(runtime)
+         do id = 1, size(mesh % elements)
+            mesh % elements(id) % storage % Q =   2.0_RP * mesh % elements(id) % storage % prevQ(1) % Q &
+                                                - 0.5_RP * mesh % elements(id) % storage % prevQ(2) % Q &
+                                                + (1.0_RP/3.0_RP) * mesh % elements(id) % storage % Q & 
+                                                + deltaT * mesh % elements(id) % storage % QDot  
+            mesh % elements(id) % storage % Q = invGamma3 * mesh % elements(id) % storage % Q
+         end do
+!$omp end parallel do
+
+
+      elseif (isSecond) then
+!
+!        Perform the second order stages
+!        -------------------------------
+         if (eBDF_ORDER > 2) then
+!$omp parallel do schedule(runtime)
+            do id = 1, size(mesh % elements)          
+!
+!              Set for the previous solution
+!              -----------------------------
+               mesh % elements(id) % storage % prevQ(2) % Q = mesh % elements(id) % storage % prevQ(1) % Q
+            end do
+!$omp end parallel do
+         end if
+
+!$omp parallel do schedule(runtime)
+         do id = 1, size(mesh % elements)          
+!
+!           Set y^{*,n+1} in Q
+!           ------------------
+            mesh % elements(id) % storage % Q = 2.0_RP*mesh % elements(id) % storage % Q -mesh % elements(id) % storage % prevQ(1) % Q
+!
+!           Set y^{n} in prevQ
+!           --------------------
+            mesh % elements(id) % storage % prevQ(1) % Q = 0.5_RP*(mesh % elements(id) % storage % Q + mesh % elements(id) % storage % prevQ(1) % Q)
+
+         end do
+!$omp end parallel do
+!
+!        Compute QDot
+!        ------------
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+!
+!        Perform the time-step
+!        ---------------------
+!$omp parallel do schedule(runtime)
+         do id = 1, size(mesh % elements)          
+            mesh % elements(id) % storage % Q =   mesh % elements(id) % storage % prevQ(1) % Q + 0.5_RP*mesh % elements(id) % storage % Q  &
+                                                + deltaT * mesh % elements(id) % storage % QDot
+            mesh % elements(id) % storage % Q = invGamma2 * mesh % elements(id) % storage % Q
+
+         end do
+!$omp end parallel do
+
+         if (eBDF_ORDER > 1 ) then
+!
+!           Move to third order
+!           -------------------
+            isFirst = .false.
+            isSecond = .false.
+            isThird = .true.
+         end if
+
+      elseif (isFirst) then
+!
+!        Perform the first order stages
+!        ------------------------------
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+            if (eBDF_ORDER > 1 ) then
+!
+!              Set for the previous solution
+!              -----------------------------
+               mesh % elements(id) % storage % prevQ(1) % Q = mesh % elements(id) % storage % Q
+
+            end if
+
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+
+         END DO
+!$omp end parallel do
+
+            if (eBDF_ORDER > 1 ) then
+!
+!              Move to second order
+!              --------------------
+               isFirst = .false.
+               isSecond = .true.
+            end if
+
+      end if
+
+
+
+
+   end subroutine TakeExplicitBDFStep
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
