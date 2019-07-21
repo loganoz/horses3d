@@ -40,10 +40,10 @@ MODULE IMEXMethods
 !   
    subroutine TakeIMEXStep(sem, t, dt, controlVariables, ComputeTimeDerivative)
       implicit none
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
-      REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
-      REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
-      TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
+      TYPE(DGSem),                  intent(inout)           :: sem                  !<>DGSem class with solution storage 
+      REAL(KIND=RP),                intent(in)              :: t                    !< Time at the beginning of time step
+      REAL(KIND=RP),                intent(in)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
+      TYPE(FTValueDictionary),      intent(in)              :: controlVariables     !< Input file variables
       procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
 
       select case(solver)
@@ -51,11 +51,11 @@ MODULE IMEXMethods
          print*, "IMEX solver not implemented for monophase Navier-Stokes equations"
          stop
 
-      case(CAHNHILLIARD_SOLVER, NSCH_SOLVER)
-         call TakeIMEXEulerStep_NSCH (sem, t , dt , controlVariables, ComputeTimeDerivative)
+      case(CAHNHILLIARD_SOLVER)
+         call TakeIMEXEulerStep_CH(sem, t , dt , controlVariables, ComputeTimeDerivative)
 
-      case(INSCH_SOLVER)
-         call TakeIMEXEulerStep_MU (sem, t , dt , controlVariables, ComputeTimeDerivative)
+      case(MULTIPHASE_SOLVER)
+         call TakeIMEXRKStep_MU(sem, t , dt , controlVariables, ComputeTimeDerivative)
 
       case default
          print*, "Solver not recognized"
@@ -64,36 +64,35 @@ MODULE IMEXMethods
 
    end subroutine TakeIMEXStep
 
-   SUBROUTINE TakeIMEXEulerStep_NSCH (sem, t , dt , controlVariables, ComputeTimeDerivative)
-
+   SUBROUTINE TakeIMEXEulerStep_CH (sem, t , dt , controlVariables, ComputeTimeDerivative)
       IMPLICIT NONE
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
-      REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
-      REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
-      TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
+      TYPE(DGSem),                  intent(inout) :: sem                  !<>DGSem class with solution storage
+      REAL(KIND=RP),                intent(in)    :: t                    !< Time at the beginning of time step
+      REAL(KIND=RP),                intent(in)    :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
+      TYPE(FTValueDictionary),      intent(in)    :: controlVariables     !< Input file variables
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
       type(MKLPardisoSolver_t), save           :: linsolver
-      INTEGER                                  :: nelm, DimPrb, globalDimPrb
-      LOGICAL, save                            :: isfirst = .TRUE.
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
-      LOGICAL                                  :: TimeAccurate = .true.
+      integer                                  :: nelm, DimPrb, globalDimPrb
+      logical, save                            :: isfirst = .TRUE.
+      REAL(KIND=RP), DIMENSION(:), allocatable :: U_n                                   !Solution at the beginning of time step (even for inner time steps)
+      logical                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
       REAL(KIND=RP), DIMENSION(3)              :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
       REAL(KIND=RP), DIMENSION(3)              :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3)              :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
       real(kind=RP)                            :: tk
-      INTEGER                                  :: k, id
+      integer                                  :: k, id
       SAVE DimPrb, nelm, TimeAccurate
 
-#if defined(CAHNHILLIARD)
+#if (!defined(FLOW)) && defined(CAHNHILLIARD)
+
       nEqnJac = NCOMP
       nGradJac = NCOMP
-#endif
       
       IF (isfirst) THEN           
 !
@@ -104,13 +103,8 @@ MODULE IMEXMethods
 !
          isfirst = .FALSE.
          nelm = SIZE(sem%mesh%elements)
-#if (!defined(CAHNHILLIARD))
-         print*, "IMEX Methods only configured to solve Cahn-Hilliard"
-         stop
-#else
          DimPrb = sem % NDOF * NCOMP
          globalDimPrb = sem % totalNDOF * NCOMP
-#endif
          
          ALLOCATE(U_n(0:Dimprb-1))
 
@@ -127,7 +121,6 @@ MODULE IMEXMethods
 !
 !     Compute the non linear time derivative
 !     -------------------------------------- 
-#if defined(CAHNHILLIARD)
       call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_ONLY_CH_NONLIN)
 !
 !     Compute the RHS
@@ -143,171 +136,146 @@ MODULE IMEXMethods
       call sem % mesh % storage % local2GlobalQ (sem % NDOF)
       sem % mesh % storage % Q = linsolver % x
       call sem % mesh % storage % global2LocalQ
-#endif
-
-#if (!defined(NAVIERSTOKES))
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
       call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
-
-#else
-!
-!     *****************************
-!     Perform a RK3 time step in NS
-!     *****************************
-!
-!     Compute the new chemical potential
-!     ----------------------------------
-#if defined(CAHNHILLIARD)
-      CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_CH)
-#endif
-
-      DO k = 1,3
-         tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_NS)
-         
-!$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( sem % mesh % elements )
-             sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-!             sem % mesh % elements(id) % storage % Q    =       sem % mesh % elements(id) % storage % Q    + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
-         END DO
-!$omp end parallel do
-      END DO
-#endif
       
-   END SUBROUTINE TakeIMEXEulerStep_NSCH
+#endif
+   END SUBROUTINE TakeIMEXEulerStep_CH
 
-   SUBROUTINE TakeIMEXEulerStep_MU (sem, t , dt , controlVariables, ComputeTimeDerivative)
-
-      IMPLICIT NONE
-      TYPE(DGSem),                  INTENT(INOUT)           :: sem                  !<>DGSem class with solution storage 
-      REAL(KIND=RP),                INTENT(IN)              :: t                    !< Time at the beginning of time step
-      REAL(KIND=RP),                INTENT(IN)              :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
-      TYPE(FTValueDictionary),      INTENT(IN)              :: controlVariables     !< Input file variables
-      procedure(ComputeTimeDerivative_f)                            :: ComputeTimeDerivative
+   SUBROUTINE TakeIMEXRKStep_MU (sem, t , dt , controlVariables, ComputeTimeDerivative)
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!           This subroutine implements an IMplicit-EXplicit third order RK scheme
+!        See the details in: https://doi.org/10.1016/S0168-9274(97)00056-1
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      implicit none
+      type(DGSem),                  intent(inout) :: sem                  !<>DGSem class with solution storage
+      real(kind=RP),                intent(in)    :: t                    !< Time at the beginning of time step
+      real(kind=RP),                intent(in)    :: dt                   !< Initial (outer) time step (can internally, the subroutine can use a smaller one depending on convergence)
+      TYPE(FTValueDictionary),      intent(in)    :: controlVariables     !< Input file variables
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
       type(MKLPardisoSolver_t), save           :: linsolver
-      INTEGER                                  :: nelm, DimPrb, globalDimPrb
-      LOGICAL, save                            :: isfirst = .TRUE.
-      LOGICAL                                  :: TimeAccurate = .true.
+      integer                                  :: nelm, DimPrb, globalDimPrb
+      logical, save                            :: isfirst = .TRUE.
+      logical                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
-      REAL(KIND=RP), DIMENSION(3)              :: a = (/0.0_RP       , -5.0_RP /9.0_RP , -153.0_RP/128.0_RP/)
-      REAL(KIND=RP), DIMENSION(3)              :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
-      REAL(KIND=RP), DIMENSION(3)              :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
+      integer,       parameter                 :: NSTAGES = 2
+      real(kind=RP), parameter                 :: gamma = (3.0_RP + sqrt(3.0_RP))/(6.0_RP)
+      real(kind=RP), parameter                 :: a(2,2) = RESHAPE((/gamma,1.0_RP-2.0_RP*gamma,0.0_RP,gamma/),(/2,2/))
+      real(kind=RP), parameter                 :: b(2) = [0.5_RP,0.5_RP]
+      real(kind=RP), parameter                 :: c(2) = [gamma, 1.0_RP-gamma]
+      real(kind=RP), parameter                 :: hatA(3,3) = RESHAPE((/0.0_RP,gamma,gamma-1.0_RP,0.0_RP,0.0_RP,2.0_RP*(1.0_RP-gamma),0.0_RP,0.0_RP,0.0_RP/),(/3,3/))
+      real(Kind=RP), parameter                 :: hatB(3) = [0.0_RP, 0.5_RP, 0.5_RP]
+      real(Kind=RP), parameter                 :: hatC(3) = [0.0_RP,gamma,1.0_RP-gamma]
       real(kind=RP)                            :: tk
-      INTEGER                                  :: k, id
+      integer                                  :: k, id, s
       SAVE DimPrb, nelm, TimeAccurate
-
-#if (defined(INCNS) && defined(CAHNHILLIARD))
-
+#if defined(MULTIPHASE) && defined(CAHNHILLIARD)
       nEqnJac = NCOMP
       nGradJac = NCOMP
-      
-      IF (isfirst) THEN           
-!
-!        ***********************************************************************
-!           Construct the Jacobian, and perform the factorization in the first
-!           call.
-!        ***********************************************************************
-!
-         isfirst = .FALSE.
-         nelm = SIZE(sem%mesh%elements)
-         DimPrb = sem % NDOF * NCOMP
-         globalDimPrb = sem % totalNDOF * NCOMP
-         
-         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXEuler_MatrixShift) 
 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
-         
-      ENDIF
-      
-      time = t
+!      IF (isfirst) THEN           
+!!
+!!        ***********************************************************************
+!!           Construct the Jacobian, and perform the factorization in the first
+!!           call.
+!!        ***********************************************************************
+!!
+!         isfirst = .FALSE.
+!         nelm = SIZE(sem%mesh%elements)
+!         DimPrb = sem % NDOF * NCOMP
+!         globalDimPrb = sem % totalNDOF * NCOMP
+!         
+!         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXRK_MatrixShift) 
+!         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
+!         
+!      ENDIF
 !
-!     *************************************************
-!     1) Compute cDot (full) to obtain \nabla c, and mu
-!     *************************************************
+!     Lets try the explicit part first
 !
-      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_ONLY_CH)
-!
-!     ********************************
-!     2) Perform a RK3 time step in NS
-!     ********************************
-!
-      DO k = 1,3
-         tk = t + b(k)*dt
-         CALL ComputeTimeDerivative( sem % mesh, sem % particles, tk, CTD_ONLY_NS)
-         
+!     First stage
+!     -----------
+!      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
 !$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( sem % mesh % elements )
-             sem % mesh % elements(id) % storage % G_NS = a(k)* sem % mesh % elements(id) % storage % G_NS +          sem % mesh % elements(id) % storage % QDot
-             sem % mesh % elements(id) % storage % QNS  =       sem % mesh % elements(id) % storage % QNS + c(k)*dt* sem % mesh % elements(id) % storage % G_NS
-         END DO
+      do id = 1, sem % mesh % no_of_elements
+         sem % mesh % elements(id) % storage % QDot(1,:,:,:) = sem % mesh % elements(id) % storage % QDot(1,:,:,:)+sem % mesh % elements(id) % storage % cDot(1,:,:,:)
+         sem % mesh % elements(id) % storage % RKSteps(1) % hatK = sem % mesh % elements(id) % storage % QDot 
+      end do
 !$omp end parallel do
-      END DO
 !
-!     ******************************************************************
-!     3) Compatibilize the concentration with the new (advected) density
-!     ******************************************************************
+!     Rest of the stages            
+!     ------------------
+      do s = 1, NSTAGES
 !
-      call sem % mesh % ConvertDensityToPhaseField
+!        Load Q
+!        ------
+!$omp parallel do schedule(runtime) private(k)
+         do id = 1, sem % mesh % no_of_elements
+            do k = 1, s
+               sem % mesh % elements(id) % storage % Q = sem % mesh % elements(id) % storage % Q + dt*hatA(s+1,k)*sem % mesh % elements(id) % storage % RKSteps(k) % hatK
+            end do
+         end do
+!$omp end parallel do
 !
-!     *****************************************
-!     4) Compute Cahn-Hilliard non-linear terms
-!     *****************************************
+!        Compute QDot -> RKStep(s+1) % hatK
+!        ----------------------------------
+!         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
+         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
 !
-      call sem % mesh % SetStorageToEqn(2)
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_ONLY_CH_NONLIN)
+!        Recover the original solution
+!        -----------------------------
+!$omp parallel do schedule(runtime) private(k)
+         do id = 1, sem % mesh % no_of_elements
+            sem % mesh % elements(id) % storage % QDot(1,:,:,:) = sem % mesh % elements(id) % storage % QDot(1,:,:,:)+sem % mesh % elements(id) % storage % cDot(1,:,:,:)
+            sem % mesh % elements(id) % storage % RKSteps(s+1) % hatK = sem % mesh % elements(id) % storage % QDot
+            do k = 1, s
+               sem % mesh % elements(id) % storage % Q = sem % mesh % elements(id) % storage % Q - dt*hatA(s+1,k)*sem % mesh % elements(id) % storage % RKSteps(k) % hatK
+            end do
+         end do
+!$omp end parallel do
+      end do
 !
-!     Compute the RHS
-!     ---------------
-      call ComputeRHS(sem, dt, nelm, linsolver)
+!     Perform the time step
+!     ---------------------
+!$omp parallel do schedule(runtime) private(s)
+      do id = 1, sem % mesh % no_of_elements
+         do s = 1, NSTAGES
+            sem % mesh % elements(id) % storage % Q = sem % mesh % elements(id) % storage % Q + dt*hatB(s)*sem % mesh % elements(id) % storage % RKSteps(s) % hatK
+         end do
+      end do
+!$omp end parallel do
 !
-!     ************************************
-!     5) Solve Cahn-Hilliard linear system
-!     ************************************
-!
-      call linsolver % SolveLUDirect
-!
-!     Return the computed state vector to storage
-!     -------------------------------------------
-      sem % mesh % storage % Q = linsolver % x
-      call sem % mesh % storage % global2LocalQ
-!
-!     Return NS as main storage
-!     -------------------------
-      call sem % mesh % SetStorageToEqn(1)
-!
-!     ******************************************************
-!     6) Update the density with the new concentration value
-!     ******************************************************
-!
-      call sem % mesh % ConvertPhaseFieldToDensity
-
-#else
-      print*, "Multiphase IMEX solver only works with both Navier-Stokes and Cahn-Hilliard equations."
-      errorMessage(STD_OUT)
-      stop
+!     The "good" residuals CTD call
+!     -----------------------------
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
 
 #endif
-      
-   END SUBROUTINE TakeIMEXEulerStep_MU
+   end subroutine TakeIMEXRKStep_MU
 
 !  
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
    SUBROUTINE ComputeRHS(sem, dt, nelm, linsolver )
       implicit none
-      TYPE(DGSem),                INTENT(IN)       :: sem
-      REAL(KIND=RP),              INTENT(IN)       :: dt
-      INTEGER,                    INTENT(IN)       :: nelm
-      CLASS(GenericLinSolver_t),  INTENT (INOUT)   :: linsolver
+      TYPE(DGSem),                intent(in)       :: sem
+      REAL(KIND=RP),              intent(in)       :: dt
+      integer,                    intent(in)       :: nelm
+      CLASS(GenericLinSolver_t),  intent(inout)   :: linsolver
 
-      INTEGER                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
+      integer                                      :: Nx, Ny, Nz, l, i, j, k, elmnt, counter   
       REAL(KIND=RP)                                :: value
 
 #if defined(CAHNHILLIARD)
@@ -346,6 +314,19 @@ MODULE IMEXMethods
       Ashift = -1.0_RP/dt
       
    end function IMEXEuler_MatrixShift
+
+
+   function IMEXRK_MatrixShift(dt) result(Ashift)
+      implicit none
+      !------------------------------------------------------
+      real(kind=RP), intent(in) :: dt
+      real(kind=RP)             :: Ashift
+      !------------------------------------------------------
+      real(kind=RP), parameter   :: gamma = (3.0_RP + sqrt(3.0_RP))/(6.0_RP)
+      
+      Ashift = -1.0_RP/(dt*gamma)
+      
+   end function IMEXRK_MatrixShift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

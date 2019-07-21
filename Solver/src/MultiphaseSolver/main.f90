@@ -63,7 +63,7 @@
       procedure(UserDefinedFinalize_f)    :: UserDefinedFinalize
       procedure(UserDefinedTermination_f) :: UserDefinedTermination
 
-      call SetSolver(INCNS_SOLVER)
+      call SetSolver(MULTIPHASE_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time

@@ -56,6 +56,9 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
       enumerator :: CTD_ONLY_CH, CTD_ONLY_CH_LIN, CTD_ONLY_CH_NONLIN
 #endif
+#ifdef MULTIPHASE 
+      enumerator :: CTD_IMEX_EXPLICIT, CTD_IMEX_IMPLICIT
+#endif
    end enum
 
    real(kind=RP), protected     :: Lref

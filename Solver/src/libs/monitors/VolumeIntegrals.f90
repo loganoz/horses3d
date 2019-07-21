@@ -355,21 +355,23 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 
-!               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
-!               Strain(1,1) = e % storage % U_x(IGU,i,j,k)
-!               Strain(2,2) = e % storage % U_y(IGV,i,j,k)
-!               Strain(3,3) = e % storage % U_z(IGW,i,j,k)
-!
-!               Strain(1,2) = 0.5_RP * (e % storage % U_x(IGV,i,j,k) + e % storage % U_y(IGU,i,j,k))
-!               Strain(1,3) = 0.5_RP * (e % storage % U_x(IGW,i,j,k) + e % storage % U_z(IGU,i,j,k))
-!               Strain(2,3) = 0.5_RP * (e % storage % U_y(IGW,i,j,k) + e % storage % U_z(IGV,i,j,k))
-!         
-!               Strain(2,1) = Strain(1,2)
-!               Strain(3,1) = Strain(1,3)
-!               Strain(3,2) = Strain(2,3)
-               Strain = 0.0_RP
+               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
+               Strain(1,1) = e % storage % U_x(IGU,i,j,k)
+               Strain(2,2) = e % storage % U_y(IGV,i,j,k)
+               Strain(3,3) = e % storage % U_z(IGW,i,j,k)
 
-               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (kinEn(i,j,k) + 2.0_RP*mu*sum(Strain*Strain))
+               Strain(1,2) = 0.5_RP * (e % storage % U_x(IGV,i,j,k) + e % storage % U_y(IGU,i,j,k))
+               Strain(1,3) = 0.5_RP * (e % storage % U_x(IGW,i,j,k) + e % storage % U_z(IGU,i,j,k))
+               Strain(2,3) = 0.5_RP * (e % storage % U_y(IGW,i,j,k) + e % storage % U_z(IGV,i,j,k))
+         
+               Strain(2,1) = Strain(1,2)
+               Strain(3,1) = Strain(1,3)
+               Strain(3,2) = Strain(2,3)
+!               Strain = 0.0_RP
+
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (kinEn(i,j,k) + 2.0_RP*mu*sum(Strain*Strain)  & 
+                        + multiphase % M0 * (POW2(e % storage % U_x(IGMU,i,j,k)) + POW2(e % storage % U_y(IGMU,i,j,k)) + POW2(e % storage % U_z(IGMU,i,j,k)) ) )
+
             end do            ; end do           ; end do
 
 #endif

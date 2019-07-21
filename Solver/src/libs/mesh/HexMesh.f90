@@ -3433,7 +3433,7 @@ slavecoord:             DO l = 1, 4
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
-      integer :: bdf_order, eID, fID
+      integer :: bdf_order, eID, fID, RKSteps_num
       logical :: Face_St
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
@@ -3449,17 +3449,25 @@ slavecoord:             DO l = 1, 4
       
       if     ( controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
+         RKSteps_num = 0
       elseif ( trim(time_int) == "imex" ) then
          bdf_order = 1
+#ifdef MULTIPHASE
+         RKSteps_num = 3
+#else
+         RKSteps_num = 0
+#endif
       elseif ( trim(time_int) == "rosenbrock" ) then 
          bdf_order = 0
+         RKSteps_num = 0
       else
          bdf_order = -1
+         RKSteps_num = 0
       end if
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order, RKSteps_num )
 
 !     Construct faces' storage
 !     ------------------------

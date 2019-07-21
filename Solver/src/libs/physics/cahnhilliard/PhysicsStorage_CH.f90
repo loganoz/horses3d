@@ -42,6 +42,7 @@
      USE SMConstants
      USE Physics_CHKeywordsModule
      use FluidData_CH
+     use Utilities,            only: toLower, almostEqual
      
      IMPLICIT NONE
 
@@ -66,7 +67,6 @@
 !
       SUBROUTINE ConstructPhysicsStorage_CH( controlVariables, Lref, timeRef, pRef, success )
       USE FTValueDictionaryClass
-      use Utilities, only: toLower, almostEqual
 !
 !     ---------
 !     Arguments
@@ -100,12 +100,23 @@
       multiphase_ % eps_wDim   = controlVariables % DoublePrecisionValueForKey(INTERFACE_WIDTH_KEY)
       multiphase_ % tCH_wDim   = controlVariables % DoublePrecisionValueForKey(TCH_KEY)
       multiphase_ % sigma_wDim = controlVariables % DoublePrecisionValueForKey(INTERFACE_TENSION_KEY)
-      multiphase_ % M0_wDim    = POW2(Lref)*multiphase_ % eps_wDim / (multiphase_ % tCH_wDim * multiphase_ % sigma_wDim)
+
+      if ( .not. almostEqual(multiphase_ % tCH_wDim, 0.0_RP) ) then
+         multiphase_ % M0_wDim = POW2(Lref)*multiphase_ % eps_wDim / (multiphase_ % tCH_wDim * multiphase_ % sigma_wDim)
+      else
+         multiphase_ % M0_wDim = 0.0_RP
+      end if
 
       multiphase_ % eps   = multiphase_ % eps_wDim / Lref
       multiphase_ % tCH   = multiphase_ % tCH_wDim / timeRef
       multiphase_ % sigma = multiphase_ % sigma_wDim / pRef
-      multiphase_ % M0    = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
+
+      if ( .not. almostEqual(multiphase_ % tCH, 0.0_RP) ) then
+         multiphase_ % M0 = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
+      else
+         multiphase_ % M0 = 0.0_RP
+      end if
+
 !
 !     ************************************
 !     Set the global (proteted) multiphase
@@ -145,7 +156,12 @@
 
          call SubSection_Header("Chemical properties")
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Chemical characteristic time: " , multiphase % tCH_wDim, " (s)."
-         write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility diffusion: " , POW2(Lref)/multiphase % tCH_wDim, " (m^2/s)."
+
+         if ( almostEqual(multiphase % tCH_wDim, 0.0_RP) ) then
+            write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility diffusion: " , multiphase % M0_wDim, " (m^2/s)."
+         else
+            write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Mobility diffusion: " , POW2(Lref)/multiphase % tCH_wDim, " (m^2/s)."
+         end if
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Interface tension: " , multiphase % sigma_wDim, " (N/m)."
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Interface width: " , multiphase % eps_wDim, " (m)."
 
