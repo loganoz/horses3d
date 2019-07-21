@@ -4,9 +4,9 @@
 !   @File:    ReadHDF5Mesh.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Mon Mar 11 19:20:11 2019
+!   @Last revision date: Sun Jul 21 16:34:58 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
+!   @Last revision commit: 3a3b3537f2ab57f789c42bdc46a6d882364587f6
 !
 !//////////////////////////////////////////////////////
 !
@@ -265,7 +265,7 @@ contains
          DO k = 1, NODES_PER_ELEMENT
             HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
             
-            corners(:,k) = NodeCoords(:,HOPRNodeID)
+            corners(:,k) = NodeCoords(:,HOPRNodeID) / Lref
             
             call AddToNodeMap (TempNodes , HOPRNodeMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
          END DO
@@ -325,7 +325,7 @@ contains
                      DO j = 1, numBFacePoints
                         DO i = 1, numBFacePoints
                            HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HNodeSideMap(i,j,k)
-                           values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                           values(:,i,j) = NodeCoords(:,HOPRNodeID) / Lref
                         END DO  
                      END DO
                      
@@ -667,7 +667,7 @@ contains
             nodeIDs(k) = gHOPR2pHORSESNodeMap ( GlobalNodeIDs(HOPRNodeID) )
             
             if (self % nodes(nodeIDs(k)) % GlobID < 0) then
-               x = NodeCoords(:,HOPRNodeID)
+               x = NodeCoords(:,HOPRNodeID) / Lref
                CALL ConstructNode( self % nodes(nodeIDs(k)), x, mpi_partition % nodeIDs(nodeIDs(k)) )
             end if
          END DO
@@ -732,7 +732,7 @@ contains
                   DO j = 1, numBFacePoints
                      DO i = 1, numBFacePoints
                         HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,GlobeID) + HNodeSideMap(i,j,k)
-                        values(:,i,j) = NodeCoords(:,HOPRNodeID)
+                        values(:,i,j) = NodeCoords(:,HOPRNodeID) / Lref
                      END DO  
                   END DO
                   
