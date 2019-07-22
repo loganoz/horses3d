@@ -47,18 +47,10 @@ module PhysicsStorage
 !
    enum, bind(C)
       enumerator :: CTD_IGNORE_MODE
-#ifdef FLOW
-      enumerator :: CTD_ONLY_NS
 #ifdef CAHNHILLIARD
-      enumerator :: CTD_NS_AND_CH
-#endif
-#endif
-#ifdef CAHNHILLIARD
-      enumerator :: CTD_ONLY_CH, CTD_ONLY_CH_LIN, CTD_ONLY_CH_NONLIN
-#endif
-#ifdef MULTIPHASE 
       enumerator :: CTD_IMEX_EXPLICIT, CTD_IMEX_IMPLICIT
 #endif
+      enumerator :: CTD_DUMMY
    end enum
 
    real(kind=RP), protected     :: Lref

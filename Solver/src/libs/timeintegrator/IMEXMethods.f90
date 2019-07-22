@@ -121,7 +121,7 @@ MODULE IMEXMethods
 !
 !     Compute the non linear time derivative
 !     -------------------------------------- 
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_ONLY_CH_NONLIN)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
 !
 !     Compute the RHS
 !     ---------------
@@ -184,22 +184,22 @@ MODULE IMEXMethods
       nEqnJac = NCOMP
       nGradJac = NCOMP
 
-!      IF (isfirst) THEN           
-!!
-!!        ***********************************************************************
-!!           Construct the Jacobian, and perform the factorization in the first
-!!           call.
-!!        ***********************************************************************
-!!
-!         isfirst = .FALSE.
-!         nelm = SIZE(sem%mesh%elements)
-!         DimPrb = sem % NDOF * NCOMP
-!         globalDimPrb = sem % totalNDOF * NCOMP
-!         
-!         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXRK_MatrixShift) 
-!         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
-!         
-!      ENDIF
+      IF (isfirst) THEN           
+!
+!        ***********************************************************************
+!           Construct the Jacobian, and perform the factorization in the first
+!           call.
+!        ***********************************************************************
+!
+         isfirst = .FALSE.
+         nelm = SIZE(sem%mesh%elements)
+         DimPrb = sem % NDOF * NCOMP
+         globalDimPrb = sem % totalNDOF * NCOMP
+         
+         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEXRK_MatrixShift) 
+         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
+         
+      ENDIF
 !
 !     Lets try the explicit part first
 !

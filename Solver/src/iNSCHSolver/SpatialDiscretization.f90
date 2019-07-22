@@ -227,7 +227,7 @@ module SpatialDiscretization
          case (CTD_ONLY_CH)
             NS_enable = .false. ; CH_enable_linear = .true.  ; CH_enable_nonlinear = .true.
 
-         case (CTD_ONLY_CH_LIN)
+         case (CTD_IMEX_IMPLICIT)
             NS_enable = .false. ; CH_enable_linear = .true.  ; CH_enable_nonlinear = .false.
 
          case (CTD_ONLY_CH_NONLIN)

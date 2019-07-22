@@ -337,10 +337,11 @@ module SpatialDiscretization
 !
 !           Get the concentration Laplacian (into QDot => cDot)
             call ComputeLaplacian(mesh, time)
-
-!$omp single
-            call mesh % SetStorageToEqn(NS_BC)
-!$omp end single
+!
+!           ------------------------------------------
+!           *** WARNING! The storage leaves set to CH!
+!           ------------------------------------------
+!
          end select
 !
 !///////////////////////////////////////////////
