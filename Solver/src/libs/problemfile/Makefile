@@ -105,6 +105,16 @@ install: all
 	@echo
 	@echo
 
+install-mu: lib$(LIB)_mu$(LIBSUFFIX)
+	cp -p lib$(LIB)_mu$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
+	@echo
+
+install-ns: lib$(LIB)_ns$(LIBSUFFIX)
+	cp -p lib$(LIB)_ns$(LIBSUFFIX) $(INSTALL_DIR)/lib/
+	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
+	@echo
+
 header: FORCE
 	@echo
 	@echo "================================"

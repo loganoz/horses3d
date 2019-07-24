@@ -178,7 +178,9 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS=ftobject foundation mpiutils spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/common mesh particles monitors problemfile discretization jacobian timeintegrator
+HORSES_LIBS_GENERAL = ftobject foundation mpiutils spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard
+HORSES_LIBS_PARTICULAR = physics/common mesh particles monitors problemfile discretization jacobian timeintegrator
+HORSES_LIBS=$(HORSES_LIBS_GENERAL) $(HORSES_LIBS_PARTICULAR)
 HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject
 HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject
@@ -258,6 +260,9 @@ ADDONSFLAGS= FC='$(FC)' \
 
 all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.mu addons
 
+multiphase: header mkdirs horseslibs-mu horses3d.mu 
+ns: header mkdirs horseslibs-ns horses3d.ns
+
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
 
@@ -279,6 +284,43 @@ horseslibs:
 			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
 		fi \
 	done
+
+horseslibs-mu:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-mu) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-mu) || exit 1; \
+		fi \
+	done
+
+horseslibs-ns:
+	@for subdir in $(HORSES_LIBS_GENERAL) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install) || exit 1; \
+		fi \
+	done
+	@for subdir in $(HORSES_LIBS_PARTICULAR) ; do \
+		if [ "$$subdir" = "problemfile" ] ; \
+		then  \
+			(cd $(HOME_DIR)/src/libs/problemfile/ && $(MAKE) PLATFORM=$(PLATFORM) $(LIBFLAGS) DYNLIB_FLAG='$(DYNLIB_FLAG)' install-ns) || exit 1 ; \
+	    	else \
+			(cd $(HOME_DIR)/src/libs/$$subdir && $(MAKE) $(LIBFLAGS) install-ns) || exit 1; \
+		fi \
+	done
+
 
 bench: all
 	(export PYTHONPATH=$(HOME_DIR)/../utils/PythonUtilities \

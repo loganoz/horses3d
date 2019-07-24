@@ -36,7 +36,7 @@ module FluidData_CH
       real(kind=RP)  :: M0_wDim
       real(kind=RP)  :: invEps        ! (Inverse of the) interface width
       contains
-         procedure   :: SetStarMobility => Multiphase_SetStarMobility
+         procedure, nopass   :: SetStarMobility => Multiphase_SetStarMobility
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
@@ -80,12 +80,11 @@ module FluidData_CH
 
       end subroutine SetMultiphase
    
-      subroutine Multiphase_SetStarMobility(self, M0)
+      subroutine Multiphase_SetStarMobility(M0)
          implicit none
-         class(Multiphase_t), intent(inout) :: self
-         real(kind=RP),       intent(in)    :: M0
+         real(kind=RP),       intent(in) :: M0
 
-         self % M0_star = M0
+         multiphase % M0_star = M0
 
       end subroutine Multiphase_SetStarMobility
 end module FluidData_CH
