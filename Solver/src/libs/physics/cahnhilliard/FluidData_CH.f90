@@ -29,11 +29,14 @@ module FluidData_CH
       real(kind=RP)  :: eps           ! Interface width
       real(kind=RP)  :: sigma         ! Interface tension
       real(kind=RP)  :: M0            ! Mobility
+      real(kind=RP)  :: M0_star       ! Actual mobility
       real(kind=RP)  :: tCH_wDim      
       real(kind=RP)  :: eps_wDim    
       real(kind=RP)  :: sigma_wDim
       real(kind=RP)  :: M0_wDim
       real(kind=RP)  :: invEps        ! (Inverse of the) interface width
+      contains
+         procedure, nopass   :: SetStarMobility => Multiphase_SetStarMobility
    end type Multiphase_t
 
    type(Multiphase_t), protected    :: multiphase
@@ -51,6 +54,7 @@ module FluidData_CH
          ConstructMultiphase % eps        = 0.0_RP
          ConstructMultiphase % sigma      = 0.0_RP
          ConstructMultiphase % M0         = 0.0_RP
+         ConstructMultiphase % M0_star    = 0.0_RP
          ConstructMultiphase % tCH_wDim   = 0.0_RP
          ConstructMultiphase % eps_wDim   = 0.0_RP
          ConstructMultiphase % sigma_wDim = 0.0_RP
@@ -67,6 +71,7 @@ module FluidData_CH
          multiphase % eps        = multiphase_ % eps
          multiphase % sigma      = multiphase_ % sigma
          multiphase % M0         = multiphase_ % M0
+         multiphase % M0_star    = multiphase_ % M0
          multiphase % tCH_wDim   = multiphase_ % tCH_wDim
          multiphase % eps_wDim   = multiphase_ % eps_wDim
          multiphase % sigma_wDim = multiphase_ % sigma_wDim
@@ -74,4 +79,12 @@ module FluidData_CH
          multiphase % invEps     = 1.0_RP / multiphase % eps
 
       end subroutine SetMultiphase
+   
+      subroutine Multiphase_SetStarMobility(M0)
+         implicit none
+         real(kind=RP),       intent(in) :: M0
+
+         multiphase % M0_star = M0
+
+      end subroutine Multiphase_SetStarMobility
 end module FluidData_CH

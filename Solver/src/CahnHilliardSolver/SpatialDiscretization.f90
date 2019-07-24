@@ -152,14 +152,12 @@ module SpatialDiscretization
          logical                  :: enable_linear, enable_nonlinear
 
          select case (mode)
-         case (CTD_ONLY_CH)
-            enable_linear = .true.  ; enable_nonlinear = .true.
-         case (CTD_ONLY_CH_LIN)
-            enable_linear = .true.  ; enable_nonlinear = .false.
-         case (CTD_ONLY_CH_NONLIN)
-            enable_linear = .false. ; enable_nonlinear = .true.
          case (CTD_IGNORE_MODE)
             enable_linear = .true.  ; enable_nonlinear = .true.
+         case (CTD_IMEX_IMPLICIT)
+            enable_linear = .true.  ; enable_nonlinear = .false.
+         case (CTD_IMEX_EXPLICIT)
+            enable_linear = .false. ; enable_nonlinear = .true.
          case default
             print*, "Unrecognized mode"
             errorMessage(STD_OUT)

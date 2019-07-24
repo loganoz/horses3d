@@ -649,7 +649,7 @@ module EllipticBR1
          end do                ; end do                ; end do
 
          kappa = 0.0_RP
-         beta  = 0.0_RP    ! TODO: enable chemical potential gradient.
+         beta  = multiphase % M0_star
 
 #endif
 

@@ -28,6 +28,7 @@ module NumericalJacobian
    use StorageClass           , only: SolutionStorage_t
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
+   use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
    implicit none
    
    private
@@ -257,16 +258,15 @@ contains
       call Matrix % Reset(ForceDiagonal = .TRUE.)
       
 #if defined(CAHNHILLIARD)
-      CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_ONLY_CH_LIN )
+      CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
-
 #if defined(CAHNHILLIARD)
-      call sem % mesh % SetStorageToEqn(2)
+      call sem % mesh % SetStorageToEqn(C_BC)
 #endif
       
       call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
@@ -306,7 +306,7 @@ contains
 !           Compute the time derivative
 !           ---------------------------
 #if defined(CAHNHILLIARD)
-            CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_ONLY_CH_LIN )
+            CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT )
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
@@ -340,6 +340,15 @@ contains
       call Stopwatch % Pause("Numerical Jacobian construction")
       
       IF (this % verbose) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
+
+!
+!     --------------------
+!     Return storage to NS
+!     --------------------
+!
+#if defined(FLOW) && defined(CAHNHILLIARD)
+      call sem % mesh % SetStorageToEqn(NS_BC)
+#endif
       
    end subroutine NumJacobian_Compute
 !

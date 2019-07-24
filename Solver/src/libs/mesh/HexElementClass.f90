@@ -677,13 +677,13 @@
 !        Reconstruct storage
 !        -------------------
          
-         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, prevSol_num)
+         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, prevSol_num,0)
          tempStorage = self % storage
          
          self % Nxyz = NNew
          
          call self % storage % destruct()
-         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, prevSol_num)
+         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, prevSol_num,0)
          
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
          

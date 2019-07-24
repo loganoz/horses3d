@@ -258,9 +258,7 @@ MODULE HexMeshClass
 !     Go through the elements and find the unique faces in the mesh
 !     -------------------------------------------------------------
 !
-         USE FTMultiIndexTableClass 
-         USE FTValueClass
-         
+         use IntegerArrayLinkedListTable
          IMPLICIT NONE  
          TYPE(HexMesh) :: self
          LOGICAL       :: success
@@ -268,13 +266,9 @@ MODULE HexMeshClass
          INTEGER                 :: eID, faceNumber
          INTEGER                 :: faceID
          INTEGER                 :: nodeIDs(8), faceNodeIDs(4), j
-         
-         CLASS(FTMultiIndexTable), POINTER  :: table
-         CLASS(FTObject), POINTER :: obj
-         CLASS(FTValue) , POINTER :: v
-         
-         ALLOCATE(table)
-         CALL table % initWithSize( SIZE( self % nodes) )
+         type(Table_t)           :: table         
+
+         table = Table_t(size(self % nodes))
          
          self % numberOfFaces = 0
          DO eID = 1, SIZE( self % elements )
@@ -285,17 +279,14 @@ MODULE HexMeshClass
                   faceNodeIDs(j) = nodeIDs(localFaceNode(j,faceNumber)) 
                END DO
             
-               IF ( table % containsKeys(faceNodeIDs) )     THEN
+               faceID = table % ContainsEntry(faceNodeIDs)
+               IF ( faceID .ne. 0 )     THEN
 !
 !                 --------------------------------------------------------------
 !                 Add this element to the slave side of the face associated with
 !                 these nodes.
 !                 --------------------------------------------------------------
 !
-                  obj => table % objectForKeys(faceNodeIDs)
-                  v   => valueFromObject(obj)
-                  faceID = v % integerValue()
-                  
                   self % faces(faceID) % elementIDs(2)  = eID
                   self % faces(faceID) % elementSide(2) = faceNumber
                   self % faces(faceID) % FaceType       = HMESH_INTERIOR
@@ -311,7 +302,7 @@ MODULE HexMeshClass
                   
                   IF(self % numberOfFaces > SIZE(self % faces))     THEN
           
-                     CALL release(table)
+                     call table % Destruct
                      PRINT *, "Too many faces for # of elements:", self % numberOfFaces, " vs ", SIZE(self % faces)
                      success = .FALSE.
                      RETURN  
@@ -329,17 +320,13 @@ MODULE HexMeshClass
 !                 Mark which face is associated with these nodes
 !                 ----------------------------------------------
 !
-                  ALLOCATE(v)
-                  CALL v % initWithValue(self % numberOfFaces)
-                  obj => v
-                  CALL table % addObjectForKeys(obj,faceNodeIDs)
-                  CALL release(v)
+                  call table % AddEntry(faceNodeIDs)
                END IF 
             END DO 
               
          END DO  
          
-         CALL release(table)
+         call table % Destruct
          
       END SUBROUTINE ConstructFaces
 
@@ -3433,7 +3420,7 @@ slavecoord:             DO l = 1, 4
       logical                 , intent(in)   :: computeGradients
       logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
-      integer :: bdf_order, eID, fID
+      integer :: bdf_order, eID, fID, RKSteps_num
       logical :: Face_St
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
@@ -3449,17 +3436,25 @@ slavecoord:             DO l = 1, 4
       
       if     ( controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
+         RKSteps_num = 0
       elseif ( trim(time_int) == "imex" ) then
          bdf_order = 1
+#ifdef MULTIPHASE
+         RKSteps_num = 3
+#else
+         RKSteps_num = 0
+#endif
       elseif ( trim(time_int) == "rosenbrock" ) then 
          bdf_order = 0
+         RKSteps_num = 0
       else
          bdf_order = -1
+         RKSteps_num = 0
       end if
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order )
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order, RKSteps_num )
 
 !     Construct faces' storage
 !     ------------------------

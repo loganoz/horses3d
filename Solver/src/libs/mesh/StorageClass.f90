@@ -41,6 +41,7 @@ module StorageClass
 !  Class for pointing to previous solutions in an element
 !  ******************************************************
    type ElementPrevSol_t
+      real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q ! Pointers to the appropriate storage (NS or CH)
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: QNS
 #endif
@@ -48,6 +49,11 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  allocatable     :: c
 #endif
    end type ElementPrevSol_t
+
+   type RKStep_t
+      real(kind=RP), dimension(:,:,:,:), allocatable :: K      ! Explicit Runge-Kutta coefficients
+      real(kind=RP), dimension(:,:,:,:), allocatable :: hatK   ! Implicit Runge-Kutta coefficients
+   end type RKStep_t
 !  
 !  Class for storing variables element-wise
 !  ****************************************
@@ -61,6 +67,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_y         !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_z         !
       type(ElementPrevSol_t),  allocatable :: PrevQ(:)           ! Previous solution
+      type(RKStep_t),          allocatable :: RKSteps(:)         ! Runge-Kutta stages
 #ifdef FLOW
       real(kind=RP),           allocatable :: QNS(:,:,:,:)         ! NSE State vector
       real(kind=RP),           allocatable :: rho(:,:,:)           ! Temporal storage for the density
@@ -248,7 +255,7 @@ module StorageClass
 !     -------------------------------------------------------
 !     The global solution arrays are only allocated if needed
 !     -------------------------------------------------------
-      pure subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, prevSol_num)
+      pure subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
          implicit none
          !-arguments---------------------------------------------
          class(SolutionStorage_t), target, intent(inout) :: self
@@ -256,6 +263,7 @@ module StorageClass
          integer, dimension(:)   , intent(in)    :: Nx, Ny, Nz
          logical                 , intent(in)    :: computeGradients                   !<  Compute gradients?
          integer, optional       , intent(in)    :: prevSol_num
+         integer, optional       , intent(in)    :: RKSteps_num
          !-local-variables---------------------------------------
          integer :: k
          !-------------------------------------------------------
@@ -291,9 +299,14 @@ module StorageClass
 #endif
             end if
          end if
-         
+
          allocate (self % elements(size(Nx)) )
-         call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num)
+      
+         if ( present(RKSteps_num) ) then
+            call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
+         else
+            call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num, 0)
+         end if
          
       end subroutine SolutionStorage_Construct
 !
@@ -688,13 +701,14 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      elemental subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients, prevSol_num)
+      elemental subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
          implicit none
          !------------------------------------------------------------
          class(ElementStorage_t), intent(inout) :: self                               !<> Storage to be constructed
          integer                , intent(in)    :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
          logical                , intent(in)    :: computeGradients                   !<  Compute gradients?
          integer                , intent(in)    :: prevSol_num
+         integer                , intent(in)    :: RKSteps_num
          !------------------------------------------------------------
          integer :: k
          !------------------------------------------------------------
@@ -721,6 +735,8 @@ module StorageClass
                allocate ( self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
             end do
          end if
+
+               
 
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
@@ -762,6 +778,17 @@ module StorageClass
          allocate(self % mu_z(NCOMP, 0:Nx, 0:Ny, 0:Nz))
          ALLOCATE(self % G_CH(NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate(self % v   (1:NDIM, 0:Nx, 0:Ny, 0:Nz))
+#endif
+
+#ifdef MULTIPHASE
+         if ( RKSteps_num .gt. 0 ) then
+            allocate(self % RKSteps(RKSteps_num))
+
+            do k = 1, RKSteps_num
+               allocate(self % RKSteps(k) % K(1:NCOMP,0:Nx, 0:Ny, 0:Nz))
+               allocate(self % RKSteps(k) % hatK(1:NCONS,0:Nx, 0:Ny, 0:Nz))
+            enddo
+         end if
 #endif
 !         
 !        -----------------
@@ -942,6 +969,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
 
          self % currentlyLoaded = NS
          self % Q   (1:,0:,0:,0:) => self % QNS
@@ -949,6 +982,10 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % U_yNS
          self % U_z (1:,0:,0:,0:) => self % U_zNS
          self % QDot(1:,0:,0:,0:) => self % QDotNS
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % QNS
+         end do
 
       end subroutine ElementStorage_SetStorageToNS
 #endif
@@ -962,6 +999,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
       
          self % currentlyLoaded = C
 !
@@ -972,6 +1015,11 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % c_y
          self % U_z (1:,0:,0:,0:) => self % c_z
          self % QDot(1:,0:,0:,0:) => self % cDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+         end do
+
    
       end subroutine ElementStorage_SetStorageToCH_c
 
@@ -985,6 +1033,12 @@ module StorageClass
 !
          implicit none
          class(ElementStorage_t), target, intent(inout) :: self
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: k
 
          self % currentlyLoaded = MU
 
@@ -993,6 +1047,10 @@ module StorageClass
          self % U_y (1:,0:,0:,0:) => self % mu_y
          self % U_z (1:,0:,0:,0:) => self % mu_z
          self % QDot(1:,0:,0:,0:) => self % cDot
+
+         do k = 1, size(self % prevQ)
+            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+         end do
    
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif

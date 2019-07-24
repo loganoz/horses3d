@@ -63,6 +63,8 @@ module SpatialDiscretization
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
+
+      real(kind=RP), protected :: IMEX_S0 = 0.0_RP
 !
 !     ========      
       CONTAINS 
@@ -175,7 +177,6 @@ module SpatialDiscretization
             select case ( trim(CHDiscretizationName) )
             case("br1")
                allocate(BassiRebay1_t     :: CHDiscretization)
-print*, "CH is BR1"
    
             case("br2")
                allocate(BassiRebay2_t     :: CHDiscretization)
@@ -254,7 +255,14 @@ print*, "CH is BR1"
 !
 !$omp single
          call mesh % SetStorageToEqn(C_BC)
-         call SetBoundaryConditionsEqn(C_BC)
+         select case (mode)
+         case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
+            call SetBoundaryConditionsEqn(C_BC)
+
+         case (CTD_IMEX_IMPLICIT)
+            call SetBoundaryConditionsEqn(MU_BC)
+
+         end select
 !$omp end single
 !
 !        --------------------------------------------
@@ -276,16 +284,30 @@ print*, "CH is BR1"
 !        Get the concentration Laplacian (into QDot => cDot)
          call ComputeLaplacian(mesh, time)
 
+         select case (mode)
+         case (CTD_IGNORE_MODE, CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
-         do eID = 1, size(mesh % elements)
+            do eID = 1, size(mesh % elements)
 !
-!         + Linear part
-            mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot
+!            + Linear part
+               mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot
 !
-!         + NonLinear part
-            call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
-         end do
+!            + NonLinear part
+               call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+            end do
 !$omp end do         
+         case (CTD_IMEX_IMPLICIT)
+!$omp do schedule(runtime)
+            do eID = 1, size(mesh % elements)
+!
+!            + Linear part
+               mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot &
+                                                     + IMEX_S0 * mesh % elements(eID) % storage % c
+!            + Multiply by mobility
+               mesh % elements(eID) % storage % mu = multiphase % M0 * mesh % elements(eID) % storage % mu
+            end do
+!$omp end do         
+         end select
 !
 !        -----------------------------------
 !        Prolong chemical potential to faces
@@ -296,10 +318,38 @@ print*, "CH is BR1"
 !$omp end single
          call mesh % ProlongSolutionToFaces(NCOMP)
 !
+!/////////////////////////////////////////////////////////////////////////////////
+!        2nd step: If IMEX_IMPLCIIT, get the chemical potential laplacian and exit
+!/////////////////////////////////////////////////////////////////////////////////
+!
+         select case (mode)
+         case (CTD_IMEX_IMPLICIT)
+!
+!           ------------------------------------------------------------
+!           Get concentration (lifted) gradients (also prolong to faces)
+!           ------------------------------------------------------------
+!
+            call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+!
+!           ----------------------
+!           Get chemical potential
+!           ----------------------
+!
+!           Get the concentration Laplacian (into QDot => cDot)
+            call ComputeLaplacian(mesh, time)
+!
+!           ------------------------------------------
+!           *** WARNING! The storage leaves set to CH!
+!           ------------------------------------------
+!
+         end select
+!
 !///////////////////////////////////////////////
-!        2nd step: Navier-Stokes time derivative
+!        3nd step: Navier-Stokes time derivative
 !///////////////////////////////////////////////
 !
+         select case (mode)
+         case (CTD_IGNORE_MODE, CTD_IMEX_EXPLICIT)
 !$omp single         
          call mesh % SetStorageToEqn(NS_BC)
          call SetBoundaryConditionsEqn(NS_BC)
@@ -378,9 +428,73 @@ print*, "CH is BR1"
 !        Compute time derivative
 !        -----------------------
 !
+         select case (mode)
+         case(CTD_IMEX_EXPLICIT)
+            call multiphase % SetStarMobility(0.0_RP)
+         case(CTD_IGNORE_MODE)
+            call multiphase % SetStarMobility(multiphase % M0)
+         end select
+
          call ComputeNSTimeDerivative(mesh, time)
 
+         call multiphase % SetStarMobility(multiphase % M0)
 
+         end select
+!
+!        -------------------------------------------------------------------------------
+!        If IMEX_Explicit, compute cDot with the explicit part of the chemical potential
+!        -------------------------------------------------------------------------------
+!
+         select case (mode)
+         case(CTD_IMEX_EXPLICIT)
+!$omp do schedule(runtime)
+            do eID = 1, size(mesh % elements)
+!
+!            + Linear part
+               mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c
+!
+!            + NonLinear part
+               call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+            end do
+!$omp end do         
+!
+!           -----------------------------------
+!           Prolong chemical potential to faces
+!           -----------------------------------
+!
+!$omp single
+            call mesh % SetStorageToEqn(MU_BC)
+!$omp end single
+            call mesh % ProlongSolutionToFaces(NCOMP)
+!
+!           ------------------------------------------------------------
+!           Get concentration (lifted) gradients (also prolong to faces)
+!           ------------------------------------------------------------
+!
+            call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+!
+!           --------------------------------
+!           Get chemical potential laplacian
+!           --------------------------------
+!
+!           Get the concentration Laplacian (into QDot => cDot)
+            call ComputeLaplacian(mesh, time)
+
+!$omp single
+            call mesh % SetStorageToEqn(NS_BC)
+!$omp end single
+!
+!           -----------------------------------------
+!           Add the Chemical potential to the NS QDot
+!           -----------------------------------------
+!
+!$omp do schedule(runtime)
+            do eID = 1, size(mesh % elements)
+               mesh % elements(eID) % storage % QDot(IMC,:,:,:) =   mesh % elements(eID) % storage % QDot(IMC,:,:,:) &
+                                                                  + multiphase % M0*mesh % elements(eID) % storage % cDot(1,:,:,:)
+            end do
+!$omp end do
+         end select
 !$omp end parallel
 !
       END SUBROUTINE ComputeTimeDerivative
@@ -591,7 +705,7 @@ print*, "CH is BR1"
                                                   U_xRight = UxR, &
                                                   U_yRight = UyR, &
                                                   U_zRight = UzR, &
-                                                  mu   = 1.0_RP, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -767,7 +881,7 @@ print*, "CH is BR1"
                                             U_xRight = f % storage(2) % U_x(:,i,j), &
                                             U_yRight = f % storage(2) % U_y(:,i,j), &
                                             U_zRight = f % storage(2) % U_z(:,i,j), &
-                                            mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                            mu   = mu, beta = multiphase % M0_star, kappa = 0.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
                                             flux  = visc_flux(:,i,j) )

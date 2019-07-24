@@ -52,6 +52,7 @@
      USE SMConstants
      use FluidData_MU
      use FileReadingUtilities, only: getRealArrayFromString
+     use Utilities,            only: toLower, almostEqual
      
      IMPLICIT NONE
 
@@ -115,7 +116,6 @@
       SUBROUTINE ConstructPhysicsStorage_MU( controlVariables, Lref, timeref, success )
       USE FTValueDictionaryClass
       USE Physics_MUKeywordsModule
-      use Utilities, only: toLower, almostEqual
 !
 !     ---------
 !     Arguments
@@ -276,8 +276,8 @@
 !     Artificial compressibility
 !     --------------------------
 !
-      dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics % c02)
-      dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics % c02 / POW2(refValues_ % V)
+      dimensionless_ % Ma2 = POW2(refValues_ % V)/(maxval(dimensionless_ % rho) * thermodynamics_ % c02)
+      dimensionless_ % invMa2 = maxval(dimensionless_ % rho) * thermodynamics_ % c02 / POW2(refValues_ % V)
 !
 !     ----------------
 !     Density limiters

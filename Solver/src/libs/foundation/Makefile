@@ -14,12 +14,12 @@ MOD_FLAG?=-J
 LIBOBJS = 	./build/SMConstants.o \
 		./build/Stopwatch.o \
 		./build/Utilities.o \
+      ./build/IntegerArrayLinkedListTable.o \
 		./build/IntegerDataLinkedList.o \
 		./build/DenseMatUtilities.o \
 		./build/SharedDictionaries.o \
 		./build/Setup.o \
 		./build/RealDataLinkedList.o 
-
 
 LIB = foundation
 
