@@ -55,6 +55,7 @@ MODULE MKLPardisoSolverClass
       !Subroutines:
       PROCEDURE :: construct                    => ConstructMKLContext
       procedure :: ComputeAndFactorizeJacobian  => MKL_ComputeAndFactorizeJacobian
+      procedure :: ReFactorizeJacobian          => MKL_ReFactorizeJacobian
       PROCEDURE :: solve
       procedure :: SolveLUDirect                => MKL_SolveLUDirect
       procedure :: SetRHSValue                  => MKL_SetRHSValue
@@ -544,6 +545,39 @@ MODULE MKLPardisoSolverClass
       call self % FactorizeJacobian
       
    end subroutine MKL_ComputeAndFactorizeJacobian
+
+   subroutine MKL_ReFactorizeJacobian(self) 
+! 
+!     ************************************************************************************* 
+!        This subroutine changes the gamma0 coefficient from 1.0 to 1.5 by 
+!        adding 0.5 to the diagonal. 
+!     ************************************************************************************* 
+! 
+      implicit none 
+      class(MKLPardisoSolver_t), intent(inout) :: self 
+! 
+!     --------------- 
+!     Local variables 
+!     --------------- 
+! 
+      integer     :: error 
+! 
+!     Shift the Jacobian 
+!     ------------------ 
+      self % A % values(self % A % diag) = self % A % values(self % A % diag) + 0.5_RP 
+! 
+!     Perform the factorization 
+!     ------------------------- 
+#ifdef HAS_MKL 
+      call pardiso(self % Pardiso_pt, 1, 1, self % mtype, 12, self % ALU % num_of_Rows, self % ALU % values, &
+                   self % ALU % rows, self % ALU % cols, self % perm, 1, self % Pardiso_iparm, 0, &
+                   self % b, self % x, error)
+#else 
+      STOP 'MKL not linked correctly' 
+#endif 
+ 
+   end subroutine MKL_ReFactorizeJacobian 
+
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

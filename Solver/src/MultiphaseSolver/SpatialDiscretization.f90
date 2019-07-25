@@ -64,7 +64,7 @@ module SpatialDiscretization
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
 
-      real(kind=RP), protected :: IMEX_S0 = 0.0_RP
+      real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
 !
 !     ========      
       CONTAINS 

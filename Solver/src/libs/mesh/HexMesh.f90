@@ -3440,7 +3440,8 @@ slavecoord:             DO l = 1, 4
       elseif ( trim(time_int) == "imex" ) then
          bdf_order = 1
 #ifdef MULTIPHASE
-         RKSteps_num = 3
+!         RKSteps_num = 3
+         RKSteps_num = 0
 #else
          RKSteps_num = 0
 #endif
