@@ -64,7 +64,8 @@ module SpatialDiscretization
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
 
-      real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
+      real(kind=RP), protected :: IMEX_S0 = 200.0_RP 
+      real(kind=RP), protected :: IMEX_K0 = 2.0_RP
 !
 !     ========      
       CONTAINS 
@@ -232,6 +233,7 @@ module SpatialDiscretization
          real(kind=RP)           :: sqrtRho
          class(Element), pointer :: e
 
+
 !$omp parallel shared(mesh, time)
 !
 !///////////////////////////////////////////////////
@@ -282,6 +284,10 @@ module SpatialDiscretization
 !        ----------------------
 !
 !        Get the concentration Laplacian (into QDot => cDot)
+
+!$omp single
+         CHDiscretization % sigma = 10.0_RP
+!$omp end single 
          call ComputeLaplacian(mesh, time)
 
          select case (mode)
@@ -301,7 +307,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
 !
 !            + Linear part
-               mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot &
+               mesh % elements(eID) % storage % mu = - 1.5_RP * IMEX_K0 * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot &
                                                      + IMEX_S0 * mesh % elements(eID) % storage % c
 !            + Multiply by mobility
                mesh % elements(eID) % storage % mu = multiphase % M0 * mesh % elements(eID) % storage % mu
@@ -336,6 +342,10 @@ module SpatialDiscretization
 !           ----------------------
 !
 !           Get the concentration Laplacian (into QDot => cDot)
+
+!$omp single
+            CHDiscretization % sigma = 10.0_RP * multiphase % M0
+!$omp end single 
             call ComputeLaplacian(mesh, time)
 !
 !           ------------------------------------------
@@ -435,6 +445,10 @@ module SpatialDiscretization
             call multiphase % SetStarMobility(multiphase % M0)
          end select
 
+!$omp single
+         viscousDiscretization % sigma = multiphase % M0_star
+!$omp end single
+
          call ComputeNSTimeDerivative(mesh, time)
 
          call multiphase % SetStarMobility(multiphase % M0)
@@ -451,7 +465,8 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
 !
 !            + Linear part
-               mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c
+               mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
+                                                     - 1.5_RP*(1.0_RP - IMEX_K0)*multiphase % sigma*multiphase % eps*mesh % elements(eID) % storage % cDot
 !
 !            + NonLinear part
                call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
@@ -478,6 +493,10 @@ module SpatialDiscretization
 !           --------------------------------
 !
 !           Get the concentration Laplacian (into QDot => cDot)
+
+!$omp single
+            CHDiscretization % sigma = 0.0_RP
+!$omp end single
             call ComputeLaplacian(mesh, time)
 
 !$omp single

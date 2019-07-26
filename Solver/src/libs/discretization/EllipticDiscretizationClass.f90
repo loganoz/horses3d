@@ -16,6 +16,7 @@ module EllipticDiscretizationClass
 
    type EllipticDiscretization_t
       integer                                        :: eqName
+      real(kind=RP)                                  :: sigma = 1.0_RP
       procedure(EllipticFlux0D_f), nopass, pointer   :: EllipticFlux0D
       procedure(EllipticFlux2D_f), nopass, pointer   :: EllipticFlux2D
       procedure(EllipticFlux3D_f), nopass, pointer   :: EllipticFlux3D

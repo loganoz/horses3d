@@ -41,7 +41,6 @@ module EllipticIP
 
    type, extends(EllipticDiscretization_t)   :: InteriorPenalty_t
       procedure(PenaltyParameter_f), pointer   :: PenaltyParameter
-      real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
          procedure      :: Construct              => IP_Construct
