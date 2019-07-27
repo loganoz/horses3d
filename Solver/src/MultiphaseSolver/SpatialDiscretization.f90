@@ -247,6 +247,8 @@ module SpatialDiscretization
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             mesh % elements(eID) % storage % c(1,:,:,:) = mesh % elements(eID) % storage % Q(IMC,:,:,:)
+
+            mesh % elements(eID) % storage % Q(IMSQRHOU:IMSQRHOW,:,:,:) = 0.0_RP
          end do
 !$omp end do         
 

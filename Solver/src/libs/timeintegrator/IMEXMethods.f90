@@ -56,7 +56,7 @@ MODULE IMEXMethods
          call TakeIMEXEulerStep_CH(sem, t , dt , controlVariables, ComputeTimeDerivative)
 
       case(MULTIPHASE_SOLVER)
-         call TakeIMEXRKStep_MU(sem, t , dt , controlVariables, ComputeTimeDerivative)
+         call TakeIMEXBDF2Step_MU(sem, t , dt , controlVariables, ComputeTimeDerivative)
 
       case default
          print*, "Solver not recognized"
