@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Mon Mar 25 10:51:20 2019
+!   @Last revision date: Thu Aug  1 18:48:28 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0832a8c34faff5d5b70fb77eac7ecb84ef0f30b9
+!   @Last revision commit: 6a5c8d0cd14b48b0b93496dd37d0190cb9574cc0
 !
 !//////////////////////////////////////////////////////
 !
@@ -1003,7 +1003,7 @@ readloop:do
 !        --------------------------------------------------------------------------------
 !
          if (this % ErrorEstimFromFiles) then
-            call this % MultiTauEstim % GetTEmap(this % EstimFilesNumber, sem % mesh % elements(eID) % globID,this % NxyzMax,P_1,TEmap)
+            call this % MultiTauEstim % GetTEmap(this % EstimFilesNumber, sem % mesh % elements(eID) % globID,this % NxyzMax,NMIN,P_1,TEmap)
          else
             do k = NMINest, P_1(3) ; do j = NMINest, P_1(2) ; do i = NMINest, P_1(1) 
                      ! 1. Generate a TEmap entry
