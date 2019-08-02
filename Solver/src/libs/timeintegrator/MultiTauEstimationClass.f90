@@ -272,7 +272,7 @@ module MultiTauEstimationClass
       subroutine MultiTau_GetTEmap(this,stages,glob_eID,Nmax,Nmin,P_1,TEmap)
          implicit none
          !-arguments----------------------------------------------------
-         class(MultiTauEstim_t)  , intent(inout)   :: this
+         class(MultiTauEstim_t)  , intent(in)      :: this
          integer                 , intent(in)      :: stages(2) ! Initial and final estimation stage
          integer                 , intent(in)      :: glob_eID
          integer                 , intent(in)      :: Nmax(NDIM)  ! Maximum polynomial order for adaptation

@@ -43,6 +43,7 @@ module pAdaptationClass
    use ExplicitMethods                 , only: TakeRK3Step
    use InterpolationMatrices           , only: Interp3DArrays
    use MultiTauEstimationClass         , only: MultiTauEstim_t
+   use StopwatchClass                  , only: Stopwatch
    implicit none
    
 #include "Includes.h"
@@ -705,6 +706,16 @@ readloop:do
          if (replacedValue == "") cycle
          call ReplacedVariables % addValueForKey(trim(replacedValue),TRIM(ReplaceableVars(i)))
       end do
+      
+!
+!     Stopwatch events
+!     ****************
+!  
+      call Stopwatch % CreateNewEvent("pAdapt: Error estimation")
+      call Stopwatch % CreateNewEvent("pAdapt: PolOrder selection")
+      call Stopwatch % CreateNewEvent("pAdapt: Adaptation")
+      
+      
 !
 !     Some things are read from the control file
 !     ******************************************
@@ -869,9 +880,8 @@ readloop:do
 !  ------------------------------------------------------------------------
    subroutine pAdaptation_pAdaptTE(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
       use AnisFASMultigridClass
-      use StopwatchClass
       implicit none
-      !--------------------------------------
+      !-arguments----------------------------
       class(pAdaptation_t)       :: this              !<> Adaptation class
       type(DGSem)                :: sem               !<> sem
       integer                    :: itera             !<  iteration
@@ -879,34 +889,19 @@ readloop:do
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
-      !--------------------------------------
+      !-local-variables----------------------
       integer                    :: eID               !   Element counter
-      integer                    :: iEQ               !   Equation counter
       integer                    :: Dir               !   Direction
-      integer                    :: NMax              !   Max polynomial order
-      integer                    :: p                 !   Polynomial order counter
       integer                    :: NNew(3,nelem)     !   New polynomial orders of mesh (after adaptation!)
       integer                    :: Error(3,nelem)    !   Stores (with ==1) elements where the truncation error has a strange behavior of the truncation error (in every direction)
       integer                    :: Warning(nelem)    !   Stores (with ==1) elements where the specified truncation error was not achieved
-      logical                    :: success
       integer, save              :: Stage = 0         !   Stage of p-adaptation for the increasing method
       CHARACTER(LEN=LINE_LENGTH) :: newInput          !   Variable used to change the input in controlVariables after p-adaptation 
       character(len=LINE_LENGTH) :: RegfileName
-      !--------------------------------------
-      ! For new adaptation algorithm
-      integer                    :: Pxyz(3)           !   Polynomial order the estimation was performed with
-      real(kind=RP), allocatable :: TEmap(:,:,:)      !   Map of truncation error
-      real(kind=RP)              :: TE_L
-      integer                    :: L(3)
-      integer                    :: P_1(3)            !   Pxyz-1
-      integer                    :: i,j,k             !   Counters
-      integer                    :: DOFs, NewDOFs
-      logical                    :: notenough(3)
+      integer                    :: i             !   Counters
       TYPE(AnisFASMultigrid_t)   :: AnisFASpAdaptSolver
       character(len=LINE_LENGTH) :: AdaptedMeshFile
       logical                    :: last
-      !--------------------------------------
-      integer  :: multiStage, multiStages(2)
       !--------------------------------------
 #if defined(NAVIERSTOKES)
       
@@ -952,6 +947,8 @@ readloop:do
 !     Estimate the truncation error using the anisotropic multigrid (if needed)
 !     -------------------------------------------------------------------------
 !
+      
+      call Stopwatch % Start("pAdapt: Error estimation")
       if (.not. this % ErrorEstimFromFiles) then
 
          CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
@@ -967,6 +964,7 @@ readloop:do
          end if
          
       end if
+      call Stopwatch % Pause("pAdapt: Error estimation")
 !
 !     ------------------------
 !     Post-smoothing procedure
@@ -980,192 +978,17 @@ readloop:do
 !     Find the polynomial order that fulfills the error requirement
 !     -------------------------------------------------------------
 !
-      ! Allocate the TEmap with the maximum number of N combinations
-      allocate(TEmap(NMINest:this % NxyzMax(1),NMINest:this % NxyzMax(2),NMINest:this % NxyzMax(3)))
       
-      ! Loop over all elements
-!!!!$OMP PARALLEL do PRIVATE(Pxyz,P_1,TEmap,NewDOFs,i,j,k)  ! TODO: Modify private and uncomment
+      call Stopwatch % Start("pAdapt: PolOrder selection")
+      
+!$omp parallel do schedule(runtime)
       do eID = 1, nelem
-         
-         Pxyz = sem % mesh % elements(eID) % Nxyz
-         P_1  = Pxyz - 1
-         
-         do dir=1, NDIM
-            if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
-         end do
-         
-         TEmap = 0._RP
-         
-         NNew(:,eID) = -1 ! Initialized to negative value
-!
-!        --------------------------------------------------------------------------------
-!        If ErrorEstimFromFiles, get complete TEmap, otherwise compute the inner map only
-!        --------------------------------------------------------------------------------
-!
-         if (this % ErrorEstimFromFiles) then
-            call this % MultiTauEstim % GetTEmap(this % EstimFilesNumber, sem % mesh % elements(eID) % globID,this % NxyzMax,NMIN,P_1,TEmap)
-         else
-            do k = NMINest, P_1(3) ; do j = NMINest, P_1(2) ; do i = NMINest, P_1(1) 
-                     ! 1. Generate a TEmap entry
-                     TEmap(i,j,k) = this % TE(eID) % Dir(1) % maxTE(i) + &  !xi   contribution
-                                    this % TE(eID) % Dir(2) % maxTE(j) + &  !eta  contribution
-                                    this % TE(eID) % Dir(3) % maxTE(k)      !zeta contribution
-            end do                 ; end do                 ; end do
-         end if
-         
-!
-!        -----------------------------------------------------------------------
-!        Check if the desired TE can be obtained using the "inner" map (N_i<P_i)
-!           Accomplished in 1 merged steps:
-!              1. Check every entry of the map 
-!              2. select the one that
-!                 fulfills the requirement with the lowest DOFs
-!        ----------------------------------------------------------------------
-!
-         NewDOFs = (P_1(1) + 1) * (P_1(2) + 1) * (P_1(3) + 1) ! Initialized with maximum number of DOFs (for N<P)
-         TE_L = huge(1._RP)
-         do k = NMIN(3), P_1(3)
-            do j = NMIN(2), P_1(2)
-               do i = NMIN(1), P_1(1)
-                  
-                  ! 2. Check if it fulfills the requirement
-                  if (TEmap(i,j,k) < this % reqTEc) then
-                     DOFs = (i+1) * (j+1) * (k+1)
-                     
-                     !  3. Select the entry if it minimizes the DOFs
-                     if (DOFs < NewDOFs) then
-                        NNew(:,eID) = [i,j,k]
-                        NewDOFs = DOFs
-                        TE_L    = TEmap(i,j,k)
-                     elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
-                        NNew(:,eID) = [i,j,k]
-                        NewDOFs = DOFs
-                        TE_L    = TEmap(i,j,k)
-                     end if
-                  end if
-               end do
-            end do
-         end do
-!
-!        -----------------------------------------------------------------------
-!        Extra check:
-!           When NMIN > P_1, it is not always necessary to extrapolate.
-!           If Tau(P_1) < threshold, then NMIN should fulfill it too
-!        -----------------------------------------------------------------------
-!
-         if ( any(NMIN > P_1) .and. all( P_1 >= NMINest ) ) then
-            do dir=1, NDIM
-               if (P_1(dir) <= NMIN(dir)) then
-                  L(dir) = P_1(dir)
-               else
-                  L(dir) = NMIN(dir)
-               end if
-            end do
-            
-            if (TEmap(L(1),L(2),L(3)) < this % reqTEc) NNew(:,eID) = NMIN
-         end if
-               
-!
-!        -----------------------------------------------------------------------
-!        If the desired TE could NOT be achieved using the inner map (N_i<P_i),
-!        find it with a higher order
-!           Accomplished in 3 steps:
-!              1. Perform regression analysis and extrapolate the decoupled TE
-!              2. Obtain the extended TE map for higher orders
-!              3. Check every entry of the extended map
-!              4. Select the N>P that fulfills the requirement with lowest DOFs
-!        -----------------------------------------------------------------------
-!
-         if (any(NNew(:,eID)<NMIN)) then
-            
-            if (.not. this % ErrorEstimFromFiles) then
-!
-!              1. Regression analysis
-!              ----------------------
-               do Dir = 1, 3
-                  call this % TE(eID) % ExtrapolateInOneDir(  &
-                                        P_1   = P_1(Dir)             , & 
-                                        NMax  = this % NxyzMax(Dir), &
-                                        Dir   = Dir                  , &
-                                        notenough = notenough(Dir)   , &
-                                        error     = Error(Dir,eID)   )
-               end do
-            end if
-            
-            ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N. TODO: Change? extrapolation can still be done in some directions...
-            if (all(error(:,eID) < 1)) then
-!
-!              2. Generate outer map
-!                 -> ">=" Pxyz(dir) can be changed by ">" to avoid enriching 2
-!              ---------------------------------------------------------------
-               if (.not. this % ErrorEstimFromFiles) then
-                  do k = NMIN(3), this % NxyzMax(3) ; do j = NMIN(2), this % NxyzMax(2) ; do i = NMIN(1), this % NxyzMax(1)
-                           ! cycle if it is not necessary/possible to compute the TEmap
-                           if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already computed)
-                           if ( (notenough(1) .AND. i >= Pxyz(1)) .or. & ! The regression was not possible in xi   (too few points), hence only checking with known values
-                                (notenough(2) .AND. j >= Pxyz(2)) .or. & ! The regression was not possible in eta  (too few points), hence only checking with known values
-                                (notenough(3) .AND. k >= Pxyz(3)) ) then ! The regression was not possible in zeta (too few points), hence only checking with known values
-                              TEmap(i,j,k) = huge(1._RP)
-                           else
-                              TEmap(i,j,k) = this % TE(eID) % Dir(1) % maxTE(i) + &  !x contribution
-                                             this % TE(eID) % Dir(2) % maxTE(j) + &  !y contribution
-                                             this % TE(eID) % Dir(3) % maxTE(k)      !z contribution
-                           end if
-                  end do                            ; end do                              ; end do
-               end if
-!
-!              3. Check the outer map
-!              ----------------------
-               NewDOFs = (this % NxyzMax(1) + 1) * (this % NxyzMax(2) + 1) * (this % NxyzMax(3) + 1) ! Initialized as maximum DOFs possible
-               TE_L = huge(1._RP)
-               do k = NMIN(3), this % NxyzMax(3)
-                  do j = NMIN(2), this % NxyzMax(2)
-                     do i = NMIN(1), this % NxyzMax(1)
-                        ! cycle if it is not necessary/possible to compute the TEmap
-                        if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already checked)
-                        
-                        ! Check if TE was achieved
-                        if (TEmap(i,j,k) < this % reqTE) then
-                           DOFs = (i+1) * (j+1) * (k+1)
-                           ! 4. Select the entry if it minimizes the DOFs
-                           if (DOFs < NewDOFs) then
-                              NNew(:,eID) = [i,j,k]
-                              NewDOFs = DOFs
-                              TE_L    = TEmap(i,j,k)
-                           elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
-                              NNew(:,eID) = [i,j,k]
-                              NewDOFs = DOFs
-                              TE_L    = TEmap(i,j,k)
-                           end if
-                        end if
-                        
-                     end do
-                  end do
-               end do
-            else
-               write(STD_OUT,*) 'p-Adaptation ERROR: Unexpected behavior of truncation error in element',eID, '. Direction (1,2,3)', error(:,eID)
-               write(STD_OUT,*) '                    Using maximum polynomial order, N=', this % NxyzMax
-               NNew(:,eID) = this % NxyzMax
-            end if
-         end if
-         
-!~         if (eID==1) call PrintTEmap(NMIN,TEmap,1,this % solutionFileName)
-!
-!        ---------------------------------------------------------------------------
-!        If the maximum polynomial order was not found, select the maximum available
-!        ---------------------------------------------------------------------------
-!
-         if (any(NNew(:,eID)<NMIN)) then
-            write(STD_OUT,*) 'p-Adaptation WARNING: Desired truncation error not achieved within specified limits in element', eID
-            write(STD_OUT,*) '                      Using max polynomial order instead, N=', this % NxyzMax
-            Warning(eID) = 1
-            NNew(:,eID) = this % NxyzMax
-         end if
-         
+         call pAdaptation_pAdaptTE_SelectElemPolorders (this, sem % mesh % elements(eID), NNew(:,eID), error(:,eID), warning(eID) )
       end do
-!!!!$OMP END PARALLEL DO
+!$omp end parallel do
       
-      deallocate(TEmap)  
+      call Stopwatch % Pause("pAdapt: PolOrder selection")
+      
 !
 !     ----------------------------------------------------------------------------
 !     In case of increasing adaptator, modify polynomial orders according to stage
@@ -1234,7 +1057,11 @@ readloop:do
 !~      call Stopwatch % Pause("Solver")
 !~      call Stopwatch % Start("Preprocessing")
       
+      call Stopwatch % Start("pAdapt: Adaptation")
+      
       call sem % mesh % pAdapt (NNew, controlVariables)
+      
+      call Stopwatch % Pause("pAdapt: Adaptation")
       
       ! Reconstruct probes
       do i=1, sem % monitors % no_of_probes
@@ -1291,6 +1118,215 @@ readloop:do
 
 #endif
    end subroutine pAdaptation_pAdaptTE
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -------------------------------------------------------------------------------------
+!  pAdaptation_pAdaptTE_SelectElemPolorders:
+!  Select the polynomial orders for one element based on the truncation error estimation
+!  -------------------------------------------------------------------------------------
+   subroutine pAdaptation_pAdaptTE_SelectElemPolorders (this, e, NNew, error, warning)
+      implicit none
+      !-arguments----------------------------------
+      class(pAdaptation_t), intent(inout) :: this        !<> Adaptation class: Only needed as inout to extrapolate TE (change?)
+      type(Element)       , intent(in)    :: e
+      integer             , intent(out)   :: NNew(NDIM)
+      integer             , intent(out)   :: error(NDIM) !>  0 if everything is right, 1 if no extrapolation was possible
+      integer             , intent(out)   :: warning     !>  0 if everything is right, 1 if reqTE was not achieved in TEmap
+      !-local-variables----------------------------
+      logical        :: notenough(NDIM)  ! Not enough points to extrapolate
+      integer        :: Pxyz(3)     ! Estimation polynomial order
+      integer        :: P_1 (3)     ! Estimation polynomial order - 
+      integer        :: i, j, k     ! Coordinate counters
+      integer        :: dir         ! Coordinate direction
+      integer        :: L(NDIM)     ! Temporary variable to store polynomial orders
+      integer        :: DOFs        ! DOFs of a configuration
+      integer        :: NewDOFs     ! DOFs of the currently selected configuration
+      real(kind=RP)  :: TE_L        ! Truncation error of the currently selected configuration
+      real(kind=RP)  :: TEmap(NMINest:this % NxyzMax(1),NMINest:this % NxyzMax(2),NMINest:this % NxyzMax(3))
+      !--------------------------------------------
+      
+!     Initialization of output
+!     ------------------------
+      error   = 0
+      warning = 0
+      
+!     Initialization of P and P-1
+!     ---------------------------
+      Pxyz = e % Nxyz ! Assumed as Nxyz (not necessarily true for static p-adaptation, but makes no difference - P_1 is corrected)
+      P_1  = Pxyz - 1
+      
+      ! Correction of P-1
+      do dir=1, NDIM
+         if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
+      end do
+      
+!     Initialiation of TEmap and NNew
+!     -------------------------------
+      TEmap = 0._RP
+      NNew = -1 ! Initialized to negative value
+!
+!     --------------------------------------------------------------------------------
+!     If ErrorEstimFromFiles, get complete TEmap, otherwise compute the inner map only
+!     --------------------------------------------------------------------------------
+!
+      if (this % ErrorEstimFromFiles) then
+         call this % MultiTauEstim % GetTEmap(this % EstimFilesNumber, e % globID,this % NxyzMax,NMIN,P_1,TEmap)
+      else
+         do k = NMINest, P_1(3) ; do j = NMINest, P_1(2) ; do i = NMINest, P_1(1) 
+                  ! 1. Generate a TEmap entry
+                  TEmap(i,j,k) = this % TE(e % eID) % Dir(1) % maxTE(i) + &  !xi   contribution
+                                 this % TE(e % eID) % Dir(2) % maxTE(j) + &  !eta  contribution
+                                 this % TE(e % eID) % Dir(3) % maxTE(k)      !zeta contribution
+         end do                 ; end do                 ; end do
+      end if
+      
+!
+!     -----------------------------------------------------------------------
+!     Check if the desired TE can be obtained using the "inner" map (N_i<P_i)
+!        Accomplished in 1 merged steps:
+!           1. Check every entry of the map 
+!           2. select the one that
+!              fulfills the requirement with the lowest DOFs
+!     ----------------------------------------------------------------------
+!
+      NewDOFs = (P_1(1) + 1) * (P_1(2) + 1) * (P_1(3) + 1) ! Initialized with maximum number of DOFs (for N<P)
+      TE_L = huge(1._RP)
+      
+      do k = NMIN(3), P_1(3) ; do j = NMIN(2), P_1(2) ; do i = NMIN(1), P_1(1)
+
+         ! 2. Check if it fulfills the requirement
+         if (TEmap(i,j,k) < this % reqTEc) then
+            DOFs = (i+1) * (j+1) * (k+1)
+            
+            !  3. Select the entry if it minimizes the DOFs
+            if (DOFs < NewDOFs) then
+               NNew = [i,j,k]
+               NewDOFs = DOFs
+               TE_L    = TEmap(i,j,k)
+            elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
+               NNew = [i,j,k]
+               NewDOFs = DOFs
+               TE_L    = TEmap(i,j,k)
+            end if
+         end if
+      end do                 ; end do                 ; end do
+!
+!     -----------------------------------------------------------------------
+!     Extra check:
+!        When NMIN > P_1, it is not always necessary to extrapolate.
+!        If Tau(P_1) < threshold, then NMIN should fulfill it too
+!     -----------------------------------------------------------------------
+!
+      if ( any(NMIN > P_1) .and. all( P_1 >= NMINest ) ) then
+         do dir=1, NDIM
+            if (P_1(dir) <= NMIN(dir)) then
+               L(dir) = P_1(dir)
+            else
+               L(dir) = NMIN(dir)
+            end if
+         end do
+         
+         if (TEmap(L(1),L(2),L(3)) < this % reqTEc) NNew = NMIN
+      end if
+            
+!
+!     -----------------------------------------------------------------------
+!     If the desired TE could NOT be achieved using the inner map (N_i<P_i),
+!     find it with a higher order
+!        Accomplished in 3 steps:
+!           1. Perform regression analysis and extrapolate the decoupled TE
+!           2. Obtain the extended TE map for higher orders
+!           3. Check every entry of the extended map
+!           4. Select the N>P that fulfills the requirement with lowest DOFs
+!     -----------------------------------------------------------------------
+!
+      if (any(NNew<NMIN)) then
+         
+         if (.not. this % ErrorEstimFromFiles) then
+!
+!              1. Regression analysis
+!              ----------------------
+            do Dir = 1, 3
+               call this % TE(e % eID) % ExtrapolateInOneDir(P_1       = P_1(Dir)             , & 
+                                                             NMax      = this % NxyzMax(Dir), &
+                                                             Dir       = Dir                  , &
+                                                             notenough = notenough(Dir)   , &
+                                                             error     = error(Dir)   )
+            end do
+         end if
+         
+         ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N. TODO: Change? extrapolation can still be done in some directions...
+         if (all(error < 1)) then
+!
+!           2. Generate outer map
+!           -> ">=" Pxyz(dir) can be changed by ">" to avoid enriching 2
+!           ---------------------------------------------------------------
+            if (.not. this % ErrorEstimFromFiles) then
+               do k = NMIN(3), this % NxyzMax(3) ; do j = NMIN(2), this % NxyzMax(2) ; do i = NMIN(1), this % NxyzMax(1)
+                        ! cycle if it is not necessary/possible to compute the TEmap
+                        if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already computed)
+                        if ( (notenough(1) .AND. i >= Pxyz(1)) .or. & ! The regression was not possible in xi   (too few points), hence only checking with known values
+                             (notenough(2) .AND. j >= Pxyz(2)) .or. & ! The regression was not possible in eta  (too few points), hence only checking with known values
+                             (notenough(3) .AND. k >= Pxyz(3)) ) then ! The regression was not possible in zeta (too few points), hence only checking with known values
+                           TEmap(i,j,k) = huge(1._RP)
+                        else
+                           TEmap(i,j,k) = this % TE(e % eID) % Dir(1) % maxTE(i) + &  !x contribution
+                                          this % TE(e % eID) % Dir(2) % maxTE(j) + &  !y contribution
+                                          this % TE(e % eID) % Dir(3) % maxTE(k)      !z contribution
+                        end if
+               end do                            ; end do                              ; end do
+            end if
+!
+!           3. Check the outer map
+!           ----------------------
+            NewDOFs = (this % NxyzMax(1) + 1) * (this % NxyzMax(2) + 1) * (this % NxyzMax(3) + 1) ! Initialized as maximum DOFs possible
+            TE_L = huge(1._RP)
+            
+            do k = NMIN(3), this % NxyzMax(3) ; do j = NMIN(2), this % NxyzMax(2) ; do i = NMIN(1), this % NxyzMax(1)
+               
+               ! cycle if it is not necessary/possible to compute the TEmap
+               if (k <= P_1(3) .AND. j <= P_1(2) .AND. i <= P_1(1)) cycle ! This is the inner map (already checked)
+               
+               ! Check if TE was achieved
+               if (TEmap(i,j,k) < this % reqTE) then
+                  DOFs = (i+1) * (j+1) * (k+1)
+                  ! 4. Select the entry if it minimizes the DOFs
+                  if (DOFs < NewDOFs) then
+                     NNew = [i,j,k]
+                     NewDOFs = DOFs
+                     TE_L    = TEmap(i,j,k)
+                  elseif ( (DOFs == NewDOFs) .and. (TEmap(i,j,k) < TE_L) ) then
+                     NNew = [i,j,k]
+                     NewDOFs = DOFs
+                     TE_L    = TEmap(i,j,k)
+                  end if
+               end if
+            end do                            ; end do                            ; end do
+         else
+            write(STD_OUT,'(A)')  'p-Adaptation ERROR: Unexpected behavior of truncation error.'
+            write(STD_OUT,'(A,I0)')  ' -> Element: ', e % globID
+            write(STD_OUT,'(A,3I3)') ' -> Direction (1,2,3): ', error
+            write(STD_OUT,'(A,3I3)') ' -> Using maximum polynomial order, N = ', this % NxyzMax
+            NNew = this % NxyzMax
+         end if
+      end if
+      
+!~      if (e % eID==1) call PrintTEmap(NMIN,TEmap,1,this % solutionFileName)
+!
+!     ---------------------------------------------------------------------------
+!     If the maximum polynomial order was not found, select the maximum available
+!     ---------------------------------------------------------------------------
+!
+      if (any(NNew < NMIN)) then
+         write(STD_OUT,'(A,I0)')  'p-Adaptation WARNING: Truncation error not achieved within limits.'
+         write(STD_OUT,'(A,I0)')  ' -> Element: ', e % globID
+         write(STD_OUT,'(A,3I3)') ' -> Using max polynomial order instead, N = ', this % NxyzMax
+         warning = 1
+         NNew = this % NxyzMax
+      end if
+      
+   end subroutine pAdaptation_pAdaptTE_SelectElemPolorders
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
