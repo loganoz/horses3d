@@ -4,9 +4,9 @@
 !   @File:    Particle.f90
 !   @Author:  Gonzalo (g.rubio@upm.es)
 !   @Created: Tue Apr 10 17:31:21 2018
-!   @Last revision date: Mon Jul  2 14:17:27 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
+!   @Last revision date: Sat Aug  3 23:57:40 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -17,6 +17,7 @@ module ParticleClass
  use HexMeshClass
  use ElementClass
  use PhysicsStorage
+ use NodalStorageClass, only: NodalStorage
 implicit none
 !
 #include "Includes.h"
@@ -29,7 +30,6 @@ public  Particle_t
 !  ******************************
 !  
 type Particle_t
-    type(HexMesh), pointer :: mesh 
     real(KIND=RP)   :: pos(3)
     real(KIND=RP)   :: pos_old(3)    
     real(KIND=RP)   :: vel(3)
@@ -71,7 +71,6 @@ subroutine particle_init(self, mesh)
    class(particle_t)       :: self
    type(HexMesh), target   :: mesh
 
-    self % mesh        => mesh
     self % pos(:)      = 0.0_RP
     self % vel(:)      = 0.0_RP
     self % temp        = 0.0_RP
@@ -135,7 +134,6 @@ end subroutine
 !///////////////////////////////////////////////////////////////////////////////////////
 !
 subroutine particle_setGlobalPos ( self, mesh )
-
     implicit none
     class(Particle_t)       , intent(inout)  :: self    
     class(HexMesh)          , intent(in)     :: mesh    
@@ -182,6 +180,9 @@ subroutine particle_setGlobalPos ( self, mesh )
     ! -----------------------------
 
     associate(e => mesh % elements(self % eID))
+    associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+              spAeta  => NodalStorage(e % Nxyz(2)), &
+              spAzeta => NodalStorage(e % Nxyz(3)) )
         if ( elementwas(1) /= self % eID ) then 
             if (allocated(self % lxi)) deallocate(self % lxi)
             allocate( self % lxi(0 : e % Nxyz(1)) )
@@ -189,9 +190,9 @@ subroutine particle_setGlobalPos ( self, mesh )
             allocate( self % leta(0 : e % Nxyz(2)) )
             if (allocated(self % lzeta)) deallocate(self % lzeta)        
             allocate( self % lzeta(0 : e % Nxyz(3)) )
-            self % lxi = e % spAxi % lj(self % xi(1))
-            self % leta = e % spAeta % lj(self % xi(2))
-            self % lzeta = e % spAzeta % lj(self % xi(3))
+            self % lxi = spAxi % lj(self % xi(1))
+            self % leta = spAeta % lj(self % xi(2))
+            self % lzeta = spAzeta % lj(self % xi(3))
         endif 
         ! 
         ! Recover the coordinates from direct projection. These will be the real coordinates
@@ -201,6 +202,7 @@ subroutine particle_setGlobalPos ( self, mesh )
             self % x = self % x + e % geom % x(:,i,j,k) * self % lxi(i) * self % leta(j) * self % lzeta(k)
         end do                  ; end do                ; end do      
     end associate   
+    end associate
 #endif                      
 end subroutine 
 !
@@ -284,13 +286,15 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_integrate ( self, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStPr, minbox, maxbox , bcbox ) 
+subroutine particle_integrate ( self, mesh, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStPr, minbox, maxbox , bcbox ) 
 #if defined(NAVIERSTOKES)
     use Physics,   only : sutherlandsLaw
     use FluidData, only : dimensionless
 #endif
     implicit none
+    
     class(Particle_t)               , intent(inout)  :: self   
+    type(HexMesh)                   , intent(in)     :: mesh
     real(KIND=RP)                   , intent(in)     :: dt 
     real(KIND=RP), intent(in) :: St         ! Particle non dimensional number
     real(KIND=RP), intent(in) :: Nu         ! Particle non dimensional number 
@@ -312,7 +316,7 @@ subroutine particle_integrate ( self, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStP
     real(KIND=RP) :: gravity(3) 
 
     if ( .not. self % active ) then 
-      call compute_bounce_parameters(self, minbox, maxbox, bcbox)
+      call compute_bounce_parameters(self, mesh, minbox, maxbox, bcbox)
     endif 
 
     mu              = SutherlandsLaw(self % fluidTemp)    ! Non dimensional viscosity mu(T)
@@ -344,9 +348,9 @@ end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
+subroutine compute_bounce_parameters(p, mesh, minbox, maxbox, bcbox)
    class(particle_t)   , intent(inout)      :: p
-
+   type(HexMesh), intent(in)       :: mesh
    real(KIND=RP), intent(in)       :: minbox(3)  ! Minimum value of box for particles    
    real(KIND=RP), intent(in)       :: maxbox(3)  ! Maximum value of box for particles
    integer, intent(in)       :: bcbox(3)   ! Boundary conditions of box for particles [0,1,2] [inflow/outflow, wall, periodic] 
@@ -460,14 +464,15 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
          endif 
 
          p % eID = p%eID_old 
-         call p % setGlobalPos ( p % mesh )
+         call p % setGlobalPos ( mesh )
 
  end subroutine
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
- subroutine  FindPointWithCoords_Neighbours(p, pos,eID,neighbours, xi,inside)
+ subroutine  FindPointWithCoords_Neighbours(p, mesh, pos,eID,neighbours, xi,inside)
    class(Particle_t), intent(in)      :: p
+   class(HexMesh)   , intent(in)      :: mesh    
    real(kind=RP)  , intent(in)      :: pos(3)
    integer        , intent(inout)   :: eID
    integer        , intent(in)      :: neighbours(6)
@@ -476,14 +481,14 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
 
    integer  :: i
    
-   inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+   inside = mesh%elements(eID)%FindPointWithCoords(pos, xi)
    if (inside) return
 
    ! Else check if the point resides iniside a neigbour
 
    do i = 1, 6
       if (neighbours(i) <= 0) cycle
-      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
+      inside = mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
       if (inside) then
          eID = neighbours(i)
          return
@@ -632,11 +637,14 @@ subroutine particle_source_gaussian ( self, e, source )
    !**************************************
    ! COMPUTE SCALING OF THE ELEMENT (dx) 
    !**************************************
-
+   associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+              spAeta  => NodalStorage(e % Nxyz(2)), &
+              spAzeta => NodalStorage(e % Nxyz(3)) )
+              
    ! only once! 
    vol = 0.0_RP
    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-     vol = vol + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+     vol = vol + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * e % geom % jacobian(i,j,k)
    end do            ; end do           ; end do
    dx = vol ** (1.0_RP/3.0_RP)
 
@@ -660,7 +668,7 @@ subroutine particle_source_gaussian ( self, e, source )
    !*********************************************************************************
    val = 0.0_RP
    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-     val = val + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
+     val = val + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * e % geom % jacobian(i,j,k) * delta(i,j,k)
    end do            ; end do           ; end do
 
    ! CON ESTO DESACTIVADO PIERDO ENERGÍA. TENGO QUE EXTENDER ESTA IDEA A LOS VECINOS. 
@@ -676,6 +684,8 @@ subroutine particle_source_gaussian ( self, e, source )
      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * delta(i,j,k)
      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * delta(i,j,k) 
    enddo ; enddo ; enddo     
+   
+   end associate
 #endif     
 end subroutine 
 !

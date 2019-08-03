@@ -434,7 +434,7 @@ Module DGSEMClass
 !     -> Trivial but must be defined since self % monitors has a user-defined assignment
 !     -> Must be impure because of some pointers of the derived types
 !     -----------------------------------------------------------------------------------
-      impure elemental subroutine DGSEM_Assign (to, from)
+      elemental subroutine DGSEM_Assign (to, from)
          implicit none
          class(DGSem), intent(inout) :: to
          type (DGSem), intent(in)    :: from

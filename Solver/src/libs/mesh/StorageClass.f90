@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Jul 17 19:22:43 2019
+!   @Last revision date: Sat Aug  3 23:57:24 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: bd19c2b55f7c80b92387da8943084b7679834a33
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -58,6 +58,9 @@ module StorageClass
 !  Class for storing variables element-wise
 !  ****************************************
    type ElementStorage_t
+      logical                                         :: computeGradients
+      integer                                         :: prevSol_num
+      integer                                         :: RKSteps_num
       integer                                         :: currentlyLoaded
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: Nxyz(NDIM)
@@ -153,6 +156,8 @@ module StorageClass
 !  Class for storing variables in the faces
 !  ****************************************
    type FaceStorage_t
+      logical                                          :: computeGradients
+      integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
@@ -231,6 +236,7 @@ module StorageClass
       contains
          procedure   :: Construct => FaceStorage_Construct
          procedure   :: Destruct  => FaceStorage_Destruct
+         procedure   :: PointStorage => FaceStorage_PointStorage
 #ifdef FLOW
          procedure   :: SetStorageToNS => FaceStorage_SetStorageToNS
 #endif
@@ -238,6 +244,8 @@ module StorageClass
          procedure   :: SetStorageToCH_c  => FaceStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => FaceStorage_SetStorageToCH_mu
 #endif
+         procedure :: copy             => FaceStorage_Assign
+         generic   :: assignment(=)    => copy
    end type FaceStorage_t
 !
 !  ========
@@ -628,64 +636,45 @@ module StorageClass
          implicit none
          class(SolutionStorage_t), intent(inout) :: to
          type(SolutionStorage_t),  intent(in)    :: from
+         
+         integer :: eID
 !
 !        Copy the storage
 !        ----------------
+         call to % destruct
+         
          to % NDOF         =  from % NDOF
          to % AdaptedQ     =  from % AdaptedQ
          to % AdaptedQdot  =  from % AdaptedQdot
          to % AdaptedPrevQ =  from % AdaptedPrevQ
          to % prevSol_num  =  from % prevSol_num
          
-         safedeallocate (to % prevSol_index)
-         if ( allocated(from % prevSol_index) ) then
-            allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
-            to % prevSol_index=  from % prevSol_index
-         end if
+         allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
+         to % prevSol_index=  from % prevSol_index
          
-         safedeallocate (to % elements)
-         if ( allocated(from % elements) ) then
-            allocate ( to % elements ( size(from % elements) ) )
-            to % elements = from % elements
-         end if
+         allocate ( to % elements ( size(from % elements) ) )
+         to % elements = from % elements
          
 #ifdef FLOW
-         safedeallocate (to % QdotNS)
-         if ( allocated(from % QdotNS) ) then
-            allocate ( to % QdotNS ( size(from % QdotNS) ) )
-            to % QdotNS       =  from % QdotNS
-         end if
+         allocate ( to % QdotNS ( size(from % QdotNS) ) )
+         to % QdotNS       =  from % QdotNS
          
-         safedeallocate (to % QNS)
-         if ( allocated(from % QNS) ) then
-            allocate ( to % QNS ( size(from % QNS) ) )
-            to % QNS          =  from % QNS
-         end if
+         allocate ( to % QNS ( size(from % QNS) ) )
+         to % QNS          =  from % QNS
          
-         safedeallocate (to % PrevQNS)
-         if ( allocated(from % PrevQNS) ) then
-            allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
-            to % PrevQNS      =  from % PrevQNS
-         end if
+         allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
+         to % PrevQNS      =  from % PrevQNS
 #endif
 #ifdef CAHNHILLIARD
-         safedeallocate (to % cDot)
-         if ( allocated(from % cDot) ) then
-            allocate ( to % cDot ( size(from % cDot) ) )
-            to % cDot         =  from % cDot
-         end if
+         allocate ( to % cDot ( size(from % cDot) ) )
+         to % cDot         =  from % cDot
          
-         safedeallocate (to % c)
-         if ( allocated(from % c) ) then
-            allocate ( to % c ( size(from % c) ) )
-            to % c            =  from % c
-         end if
+         allocate ( to % c ( size(from % c) ) )
+         to % c            =  from % c
          
-         safedeallocate (to % Prevc)
-         if ( allocated(from % Prevc) ) then
-            allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
-            to % Prevc        =  from % Prevc
-         end if
+         allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
+         to % Prevc        =  from % Prevc
+!~         end if
 #endif   
 !
 !        Point the storage
@@ -712,6 +701,11 @@ module StorageClass
          !------------------------------------------------------------
          integer :: k
          !------------------------------------------------------------
+         
+         self % computeGradients = computeGradients
+         self % prevSol_num = prevSol_num
+         self % RKSteps_num = RKSteps_num
+         
 !
 !        --------------------------------
 !        Get number of degrees of freedom
@@ -735,9 +729,7 @@ module StorageClass
                allocate ( self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
             end do
          end if
-
-               
-
+         
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NSP  (NCONS,0:Nx,0:Ny,0:Nz) )
@@ -827,12 +819,20 @@ module StorageClass
       elemental subroutine ElementStorage_Assign(to, from)
 !
 !        **********************************
-!        We need a special assign procedure TODO: Consider face pointers
+!        We need a special assign procedure
 !        **********************************
 !
          implicit none
          class(ElementStorage_t), intent(inout) :: to
          type(ElementStorage_t),  intent(in)    :: from
+         
+         call to % destruct
+         call to % construct (from % Nxyz(1), &
+                              from % Nxyz(2), & 
+                              from % Nxyz(3), & 
+                              from % computeGradients, & ! TODO: Fix this: it is not being used!!
+                              from % prevSol_num, &
+                              from % RKSteps_num )
 !
 !        Copy the storage
 !        ----------------
@@ -1137,27 +1137,31 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients)
+      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients)
          implicit none
-         class(FaceStorage_t)     :: self
-         integer, intent(in)  :: NDIM
-         integer, intent(in)  :: Nf(2)              ! Face polynomial order
-         integer, intent(in)  :: Nel(2)             ! Element face polynomial order
-         logical              :: computeGradients 
+         class(FaceStorage_t), intent(inout) :: self
+         integer             , intent(in)    :: NDIM
+         integer             , intent(in)    :: Nf(2)              ! Face polynomial order
+         integer             , intent(in)    :: Nel(2)             ! Element face polynomial order
+         logical             , intent(in)    :: computeGradients 
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer     :: interfaceFluxMemorySize
-
+         
          self % Nf  = Nf
          self % Nel = Nel
-
+         self % NDIM = NDIM
+         self % computeGradients = computeGradients
+         
          interfaceFluxMemorySize = 0
 
 #ifdef FLOW
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
+         
+         !if computeGradients
          ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
          ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
@@ -1277,9 +1281,9 @@ module StorageClass
 
       end subroutine FaceStorage_Destruct
 #ifdef FLOW
-      subroutine FaceStorage_SetStorageToNS(self)
+      pure subroutine FaceStorage_SetStorageToNS(self)
          implicit none
-         class(FaceStorage_t), target    :: self
+         class(FaceStorage_t), intent(inout), target    :: self
 
          self % currentlyLoaded = NS
 !
@@ -1300,9 +1304,9 @@ module StorageClass
       end subroutine FaceStorage_SetStorageToNS
 #endif
 #ifdef CAHNHILLIARD
-      subroutine FaceStorage_SetStorageToCH_c(self)
+      pure subroutine FaceStorage_SetStorageToCH_c(self)
          implicit none
-         class(FaceStorage_t), target  :: self
+         class(FaceStorage_t), intent(inout), target  :: self
 
          self % currentlyLoaded = C
 !
@@ -1320,9 +1324,9 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_c
 
-      subroutine FaceStorage_SetStorageToCH_mu(self)
+      pure subroutine FaceStorage_SetStorageToCH_mu(self)
          implicit none
-         class(FaceStorage_t), target  :: self
+         class(FaceStorage_t), intent(inout), target  :: self
 
          self % currentlyLoaded = MU
 
@@ -1338,6 +1342,81 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_mu
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine FaceStorage_PointStorage (self)
+         implicit none
+         class(FaceStorage_t), intent(inout)  :: self
+         
+         select case ( self % currentlyLoaded ) 
+            case (OFF)
+               self % Q      => NULL()
+               self % U_x    => NULL()
+               self % U_y    => NULL()
+               self % U_z    => NULL()
+               self % FStar  => NULL()
+               self % unStar => NULL()
+#ifdef FLOW
+            case (NS)
+               call self % SetStorageToNS   
+#endif
+#ifdef CAHNHILLIARD
+            case (C)
+               call self % SetStorageToCH_c
+
+            case (MU)
+               call self % SetStorageToCH_mu
+#endif
+         end select
+      end subroutine FaceStorage_PointStorage
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      
+      elemental subroutine FaceStorage_Assign(to, from)
+         implicit none
+         !-arguments--------------------------------------
+         class(FaceStorage_t), intent(inout) :: to
+         class(FaceStorage_t), intent(in)    :: from
+         !------------------------------------------------
+         
+         call to % destruct
+         call to % construct(from % NDIM, from % Nf, from % Nel, from % computeGradients)
+         
+         to % currentlyLoaded = from % currentlyLoaded
+         to % Nf = from % Nf
+         to % Nel = from % Nel
+         to % genericInterfaceFluxMemory = from % genericInterfaceFluxMemory
+      
+#ifdef FLOW
+         to % QNS = from % QNS
+         to % U_xNS = from % U_xNS
+         to % U_yNS = from % U_yNS
+         to % U_zNS = from % U_zNS
+         to % rho = from % rho
+         to % mu_art = from % mu_art
+         
+         ! TODO: if computeJacobian
+         to % dFStar_dqF = from % dFStar_dqF
+         to % dFStar_dqEl = from % dFStar_dqEl
+         to % dFv_dGradQF = from % dFv_dGradQF
+         to % dFv_dGradQEl = from % dFv_dGradQEl
+         to % BCJac = from % BCJac
+#endif
+#ifdef CAHNHILLIARD
+         to % c = from % c
+         to % c_x = from % c_x
+         to % c_y = from % c_y
+         to % c_z = from % c_z
+         to % mu = from % mu
+         to % mu_x = from % mu_x
+         to % mu_y = from % mu_y
+         to % mu_z = from % mu_z
+         to % v = from % v
+#endif
+         call to % PointStorage
+      end subroutine FaceStorage_Assign
 !
 !/////////////////////////////////////////////////////////////////////////////////////
 !

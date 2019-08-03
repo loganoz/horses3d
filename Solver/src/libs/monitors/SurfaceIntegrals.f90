@@ -130,12 +130,15 @@ module SurfaceIntegrals
 !        Local variables
 !        ---------------
 !
-         integer     :: i, j      ! Face indices
-         real(kind=RP)           :: p
+         integer                       :: i, j      ! Face indices
+         real(kind=RP)                 :: p
+         type(NodalStorage_t), pointer :: spAxi, spAeta
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
+         spAxi  => NodalStorage(f % Nf(1))
+         spAeta => NodalStorage(f % Nf(2))
 !
 !        Perform the numerical integration
 !        ---------------------------------
@@ -149,7 +152,7 @@ module SurfaceIntegrals
 !           **********************************
 !
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
+               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
             end do          ;    end do
 
          case ( MASS_FLOW )
@@ -166,7 +169,7 @@ module SurfaceIntegrals
                val = val +  (Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
                           + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
                           + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                       * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
+                       * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
             end do          ;    end do
 
@@ -184,7 +187,7 @@ module SurfaceIntegrals
                val = val + (1.0_RP / Q(IRHO,i,j))*(Q(IRHOU,i,j) * f % geom % normal(1,i,j)  &
                                              + Q(IRHOV,i,j) * f % geom % normal(2,i,j)  &
                                              + Q(IRHOW,i,j) * f % geom % normal(3,i,j) ) &
-                                          * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) 
+                                          * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) 
             end do          ;    end do
 
          case ( PRESSURE_FORCE )
@@ -199,14 +202,15 @@ module SurfaceIntegrals
 !              Compute the integral
 !              --------------------
                p = Pressure(Q(:,i,j))
-               val = val + p * f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) 
+               val = val + p * spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) 
             end do          ;    end do
 
 
          case ( USER_DEFINED )   ! TODO
          end select
          end associate
-
+         
+         nullify (spAxi, spAeta)
       end function ScalarSurfaceIntegral_Face
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -324,12 +328,15 @@ module SurfaceIntegrals
 !        Local variables
 !        ---------------
 !
-         integer     :: i, j      ! Face indices
-         real(kind=RP)           :: p, tau(NDIM,NDIM)
+         integer                       :: i, j      ! Face indices
+         real(kind=RP)                 :: p, tau(NDIM,NDIM)
+         type(NodalStorage_t), pointer :: spAxi, spAeta
 !
 !        Initialization
 !        --------------
          val = 0.0_RP
+         spAxi  => NodalStorage(f % Nf(1))
+         spAeta => NodalStorage(f % Nf(2))
 !
 !        Perform the numerical integration
 !        ---------------------------------
@@ -346,7 +353,7 @@ module SurfaceIntegrals
 !           **********************************
 !
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
-               val = val + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j) &
+               val = val + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j) &
                          * f % geom % normal(:,i,j)
             end do          ;    end do
 
@@ -365,7 +372,7 @@ module SurfaceIntegrals
                call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
 
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
-                           * f % geom % jacobian(i,j) * f % spAxi % w(i) * f % spAeta % w(j)
+                           * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
 
             end do          ;    end do
 
@@ -383,7 +390,7 @@ module SurfaceIntegrals
                p = Pressure(Q(:,i,j))
 
                val = val + ( p * f % geom % normal(:,i,j) ) * f % geom % jacobian(i,j) &
-                         * f % spAxi % w(i) * f % spAeta % w(j)
+                         * spAxi % w(i) * spAeta % w(j)
 
             end do          ;    end do
 
@@ -400,7 +407,7 @@ module SurfaceIntegrals
 !              --------------------
                call getStressTensor(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), tau)
                val = val - matmul(tau,f % geom % normal(:,i,j)) * f % geom % jacobian(i,j) &
-                           * f % spAxi % w(i) * f % spAeta % w(j)
+                           * spAxi % w(i) * spAeta % w(j)
 
             end do          ;    end do
 
@@ -408,7 +415,7 @@ module SurfaceIntegrals
 
          end select
          end associate
-
+         nullify (spAxi, spAeta)
       end function VectorSurfaceIntegral_Face
 
 end module SurfaceIntegrals

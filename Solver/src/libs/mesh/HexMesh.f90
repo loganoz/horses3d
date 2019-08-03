@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Jul 17 11:52:41 2019
+!   @Last revision date: Sat Aug  3 23:57:22 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -1672,15 +1672,12 @@ slavecoord:             DO l = 1, 4
                case (IX)
                   e % Nxyz(1) = 0
                   self % Nx(eID) = 0
-                  e % spAxi   => NodalStorage(0)
                case (IY)
                   e % Nxyz(2) = 0
                   self % Ny(eID) = 0
-                  e % spAEta  => NodalStorage(0)
                case (IZ)
                   e % Nxyz(3) = 0
                   self % Nz(eID) = 0
-                  e % spAZeta => NodalStorage(0)
             end select
 
             end associate
@@ -3692,7 +3689,6 @@ slavecoord:             DO l = 1, 4
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
-
 !$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
          e => self % elements(eID)   ! Associate fails(!) here
@@ -3723,7 +3719,7 @@ slavecoord:             DO l = 1, 4
 !     *************************
 !     Adapt corresponding faces
 !     *************************
-      
+
 !     Destruct faces storage
 !     ----------------------
 !$omp parallel do 
@@ -3819,8 +3815,12 @@ slavecoord:             DO l = 1, 4
    end subroutine HexMesh_pAdapt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-! 
-   impure elemental subroutine HexMesh_Assign (to, from)
+!
+!  HexMesh_Assign:
+!  Elemental subroutine to assign a HexMesh to another
+!
+   elemental subroutine HexMesh_Assign (to, from)
+   use StopwatchClass
       implicit none
       !-arguments----------------------------------------
       class(HexMesh), intent(inout), target :: to
@@ -3878,10 +3878,10 @@ slavecoord:             DO l = 1, 4
 !
 !     Point elements' storage
 !     -----------------------
-      
-      do eID = 1, to % no_of_elements
+      do concurrent (eID = 1 : to % no_of_elements)
          to % elements(eID) % storage => to % storage % elements(eID)
       end do
+      
    end subroutine HexMesh_Assign
 END MODULE HexMeshClass
       

@@ -6,6 +6,7 @@ module VolumeIntegrals
    use ElementClass
    use HexMeshClass
    use FluidData
+   use NodalStorageClass, only: NodalStorage
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -143,9 +144,9 @@ module VolumeIntegrals
 
          Nel = e % Nxyz
 
-         associate ( wx => e % spAxi % w, &
-                     wy => e % spAeta % w, &
-                     wz => e % spAzeta % w    )
+         associate ( wx => NodalStorage(e % Nxyz(1)) % w, &
+                     wy => NodalStorage(e % Nxyz(2)) % w, &
+                     wz => NodalStorage(e % Nxyz(3)) % w    )
 !
 !        Initialization
 !        --------------
@@ -488,9 +489,9 @@ module VolumeIntegrals
          
          Nel = e % Nxyz
 
-         associate ( wx => e % spAxi % w, &
-                     wy => e % spAeta % w, &
-                     wz => e % spAzeta % w    )
+         associate ( wx => NodalStorage(e % Nxyz(1)) % w, &
+                     wy => NodalStorage(e % Nxyz(2)) % w, &
+                     wz => NodalStorage(e % Nxyz(3)) % w    )
 !
 !        Initialization
 !        --------------

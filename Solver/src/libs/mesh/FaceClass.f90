@@ -81,9 +81,7 @@
          integer                         :: projectionType(2)
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName
          type(MappedGeometryFace)        :: geom
-         type(FaceStorage_t)             :: storage(2) 
-         class(NodalStorage_t), pointer    :: spAxi
-         class(NodalStorage_t), pointer    :: spAeta
+         type(FaceStorage_t)             :: storage(2)
          contains
             procedure   :: Construct => ConstructFace
             procedure   :: Destruct  => DestructFace
@@ -98,6 +96,8 @@
             procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
             procedure   :: ProjectBCJacobianToElements   => Face_ProjectBCJacobianToElements
 #endif
+            procedure   :: copy           => Face_Assign
+            generic     :: assignment(=)  => copy
       end type Face
 !
 !     ========
@@ -163,9 +163,6 @@
          
          call self % geom % Destruct
          call self % storage % Destruct
-               
-         self % spAxi => NULL()
-         self % spAeta => NULL()
 
       end SUBROUTINE DestructFace
 !
@@ -225,9 +222,9 @@
       self % Nf(1) = max(self % NfLeft(1), self % NfRight(1))
       self % Nf(2) = max(self % NfLeft(2), self % NfRight(2))
 !
-!     ----------------------
-!     Construct face storage
-!     ----------------------
+!     ------------------------------
+!     Construct needed nodal storage
+!     ------------------------------
 !
       if ( .not. NodalStorage(self % Nf(1)) % Constructed ) then
          call NodalStorage(self % Nf(1)) % Construct(nodeType, self % Nf(1))
@@ -236,9 +233,6 @@
       if ( .not. NodalStorage(self % Nf(2)) % Constructed ) then
          call NodalStorage(self % Nf(2)) % Construct(nodeType, self % Nf(2))
       end if
-
-      self % spAxi => NodalStorage(self % Nf(1))
-      self % spAeta => NodalStorage(self % Nf(2))
 !
 !     -----------------------------------------------------------------------
 !     Construction of the projection matrices (simple Lagrange interpolation)
@@ -1020,4 +1014,28 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
+      elemental subroutine Face_Assign(to,from)
+         implicit none
+         class(Face), intent(inout) :: to
+         class(Face), intent(in)    :: from
+         
+         
+         to % flat = from % flat
+         to % ID = from % ID
+         to % FaceType = from % FaceType
+         to % zone = from % zone
+         to % rotation = from % rotation
+         to % NelLeft = from % NelLeft
+         to % NelRight = from % NelRight
+         to % NfLeft = from % NfLeft
+         to % NfRight = from % NfRight
+         to % Nf = from % Nf
+         to % nodeIDs = from % nodeIDs
+         to % elementIDs = from % elementIDs
+         to % elementSide = from % elementSide
+         to % projectionType = from % projectionType
+         to % boundaryName = from % boundaryName
+         to % geom = from % geom
+         to % storage = from % storage
+      end subroutine Face_Assign
 end Module FaceClass

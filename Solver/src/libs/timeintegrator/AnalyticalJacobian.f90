@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Jul 17 11:52:49 2019
+!   @Last revision date: Sat Aug  3 23:57:46 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -972,7 +972,11 @@ contains
       real(kind=RP) :: JacR( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for RIGHT  face
       real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
       real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
+      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
       !-------------------------------------------
+      spAxi   => NodalStorage(e % Nxyz(1))
+      spAeta  => NodalStorage(e % Nxyz(2))
+      spAzeta => NodalStorage(e % Nxyz(3))
 !
 !     *******************
 !     Initial definitions
@@ -1047,9 +1051,9 @@ contains
          MatEntries = 0._RP
          
          MatEntries = MatEntries + &
-                           (       dFdQ(:,:,1,i2,j12,k12) * e % spAXi   % hatD(i1,i2) &                           ! Volumetric contribution
-                            -   dfdq_ri(:,:,j12,k12) * e % spAXi  % b(i1,RIGHT ) * e % spAXi  % v(i2,RIGHT )    & ! Face 4 Right
-                            -   dfdq_le(:,:,j12,k12) * e % spAXi  % b(i1,LEFT  ) * e % spAXi  % v(i2,LEFT  )  )   ! Face 6 Left
+                           (       dFdQ(:,:,1,i2,j12,k12) * spAXi   % hatD(i1,i2) &                           ! Volumetric contribution
+                            -   dfdq_ri(:,:,j12,k12) * spAXi  % b(i1,RIGHT ) * spAXi  % v(i2,RIGHT )    & ! Face 4 Right
+                            -   dfdq_le(:,:,j12,k12) * spAXi  % b(i1,LEFT  ) * spAXi  % v(i2,LEFT  )  )   ! Face 6 Left
                             
          MatEntries = MatEntries * e % geom % invJacobian(i1,j12,k12) ! Scale with Jacobian from mass matrix
             
@@ -1072,9 +1076,9 @@ contains
          MatEntries = 0._RP
          
          MatEntries = MatEntries + &
-                           (       dFdQ(:,:,2,i12,j2,k12) * e % spAEta  % hatD(j1,j2)                           & ! Volumetric contribution
-                            -   dfdq_fr(:,:,i12,k12) * e % spAeta % b(j1,FRONT ) * e % spAeta % v(j2,FRONT )    & ! Face 1 Front
-                            -   dfdq_ba(:,:,i12,k12) * e % spAeta % b(j1,BACK  ) * e % spAeta % v(j2,BACK  )  )   ! Face 2 Back
+                           (       dFdQ(:,:,2,i12,j2,k12) * spAEta  % hatD(j1,j2)                           & ! Volumetric contribution
+                            -   dfdq_fr(:,:,i12,k12) * spAeta % b(j1,FRONT ) * spAeta % v(j2,FRONT )    & ! Face 1 Front
+                            -   dfdq_ba(:,:,i12,k12) * spAeta % b(j1,BACK  ) * spAeta % v(j2,BACK  )  )   ! Face 2 Back
                             
          MatEntries = MatEntries * e % geom % invJacobian(i12,j1,k12) ! Scale with Jacobian from mass matrix
             
@@ -1097,9 +1101,9 @@ contains
          MatEntries = 0._RP
          
          MatEntries = MatEntries + &
-                           (       dFdQ(:,:,3,i12,j12,k2) * e % spAZeta % hatD(k1,k2)                           & ! Volumetric contribution
-                            -   dfdq_bo(:,:,i12,j12) * e % spAZeta% b(k1,BOTTOM) * e % spAZeta% v(k2,BOTTOM)    & ! Face 3 Bottom
-                            -   dfdq_to(:,:,i12,j12) * e % spAZeta% b(k1,TOP   ) * e % spAZeta% v(k2,TOP   )  )   ! Face 5 Top
+                           (       dFdQ(:,:,3,i12,j12,k2) * spAZeta % hatD(k1,k2)                           & ! Volumetric contribution
+                            -   dfdq_bo(:,:,i12,j12) * spAZeta% b(k1,BOTTOM) * spAZeta% v(k2,BOTTOM)    & ! Face 3 Bottom
+                            -   dfdq_to(:,:,i12,j12) * spAZeta% b(k1,TOP   ) * spAZeta% v(k2,TOP   )  )   ! Face 5 Top
          
          MatEntries = MatEntries * e % geom % invJacobian(i12,j12,k1) ! Scale with Jacobian from mass matrix
             
@@ -1144,13 +1148,13 @@ contains
             
             do r=0, e % Nxyz(1)
                
-               temp = e % spAxi   % hatD(i1,r) * e % geom % invJacobian(r,j12,k12)
+               temp = spAxi   % hatD(i1,r) * e % geom % invJacobian(r,j12,k12)
                
                Gvec_xi   => dF_dgradQ(:,:,:,1,r,j12,k12)
                
-               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( e % spAXi   % b(r,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_xi  , nL(:,j12,k12) ) , JacL(:,:,j12,k12) ) &
-                                                          +e % spAXi   % b(r,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_xi  , nR(:,j12,k12) ) , JacR(:,:,j12,k12) ) )
-               temp = temp * e % spAxi   % hatD(r,i2)
+               xiAux(:,:,4)   = xiAux(:,:,4)   + temp *  ( spAXi   % b(r,LEFT  ) * spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_xi  , nL(:,j12,k12) ) , JacL(:,:,j12,k12) ) &
+                                                          +spAXi   % b(r,RIGHT ) * spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_xi  , nR(:,j12,k12) ) , JacR(:,:,j12,k12) ) )
+               temp = temp * spAxi   % hatD(r,i2)
                
                xiAux  (:,:,1:3) = xiAux  (:,:,1:3) + temp * Gvec_xi
             end do
@@ -1160,8 +1164,8 @@ contains
 !           -----------------------------------------------------
             MatEntries =  MatEntries &
                   +  dot_product(xiAux  (:,:,1:3), e % geom % jGradXi  (:,i2,j12,k12) ) - xiAux(:,:,4)        & ! Volumetric contribution: xi-gradient to xi-component of the flux
-                  +   dfdGradQ_ri(:,:,1,j12,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAXi   % vd(i2,RIGHT ) & ! Right face contribution (outer surface integral)
-                  +   dfdGradQ_le(:,:,1,j12,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAXi   % vd(i2,LEFT  )   ! Left face contribution  (outer surface integral)
+                  +   dfdGradQ_ri(:,:,1,j12,k12) * spAXi   % b(i1,RIGHT ) * spAXi   % vd(i2,RIGHT ) & ! Right face contribution (outer surface integral)
+                  +   dfdGradQ_le(:,:,1,j12,k12) * spAXi   % b(i1,LEFT  ) * spAXi   % vd(i2,LEFT  )   ! Left face contribution  (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i1,j12,k12) ! Scale with Jacobian from mass matrix
             
@@ -1190,13 +1194,13 @@ contains
             
             do r=0, e % Nxyz(2)
                
-               temp = e % spAEta  % hatD(j1,r) * e % geom % invJacobian(i12,r,k12)
+               temp = spAEta  % hatD(j1,r) * e % geom % invJacobian(i12,r,k12)
                
                Gvec_eta  => dF_dgradQ(:,:,:,2,i12,r,k12)
                
-               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( e % spAEta  % b(r,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_eta , nF(:,i12,k12) ), JacF(:,:,i12,k12)) &
-                                                         +e % spAEta  % b(r,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_eta , nB(:,i12,k12) ), JacB(:,:,i12,k12)) )
-               temp = temp * e % spAEta  % hatD(r,j2)
+               etaAux(:,:,4)  = etaAux(:,:,4)  + temp * ( spAEta  % b(r,FRONT ) * spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_eta , nF(:,i12,k12) ), JacF(:,:,i12,k12)) &
+                                                         +spAEta  % b(r,BACK  ) * spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_eta , nB(:,i12,k12) ), JacB(:,:,i12,k12)) )
+               temp = temp * spAEta  % hatD(r,j2)
                
                etaAux (:,:,1:3) = etaAux (:,:,1:3) + temp * Gvec_eta
             end do
@@ -1205,8 +1209,8 @@ contains
 !           ------------------------------------------------------
             MatEntries =  MatEntries &
                   + dot_product(etaAux (:,:,1:3), e % geom % jGradEta (:,i12,j2,k12) ) - etaAux(:,:,4)        & ! Volumetric contribution: eta-gradient to eta-component of the flux
-                  +   dfdGradQ_fr(:,:,2,i12,k12) * e % spAEta  % b(j1,FRONT ) * e % spAEta  % vd(j2,FRONT ) & ! Front face contribution (outer surface integral)
-                  +   dfdGradQ_ba(:,:,2,i12,k12) * e % spAEta  % b(j1,BACK  ) * e % spAEta  % vd(j2,BACK  )   ! Back face contribution (outer surface integral)
+                  +   dfdGradQ_fr(:,:,2,i12,k12) * spAEta  % b(j1,FRONT ) * spAEta  % vd(j2,FRONT ) & ! Front face contribution (outer surface integral)
+                  +   dfdGradQ_ba(:,:,2,i12,k12) * spAEta  % b(j1,BACK  ) * spAEta  % vd(j2,BACK  )   ! Back face contribution (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i12,j1,k12) ! Scale with Jacobian from mass matrix
             
@@ -1235,13 +1239,13 @@ contains
                   
             do r=0, e % Nxyz(3)
                
-               temp = e % spAZeta % hatD(k1,r) * e % geom % invJacobian(i12,j12,r)
+               temp = spAZeta % hatD(k1,r) * e % geom % invJacobian(i12,j12,r)
                
                Gvec_zeta => dF_dgradQ(:,:,:,3,i12,j12,r)
                
-               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( e % spAZeta % b(r,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_zeta, nO(:,i12,j12) ), JacO(:,:,i12,j12)) &
-                                                         +e % spAZeta % b(r,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_zeta, nT(:,i12,j12) ), JacT(:,:,i12,j12)) )
-               temp = temp * e % spAZeta % hatD(r,k2)
+               zetaAux(:,:,4) = zetaAux(:,:,4) + temp * ( spAZeta % b(r,BOTTOM) * spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_zeta, nO(:,i12,j12) ), JacO(:,:,i12,j12)) &
+                                                         +spAZeta % b(r,TOP   ) * spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_zeta, nT(:,i12,j12) ), JacT(:,:,i12,j12)) )
+               temp = temp * spAZeta % hatD(r,k2)
                
                zetaAux(:,:,1:3) = zetaAux(:,:,1:3) + temp * Gvec_zeta
             end do
@@ -1250,8 +1254,8 @@ contains
 !           -------------------------------------------------------
             MatEntries = MatEntries &
                   + dot_product(zetaAux(:,:,1:3), e % geom % jGradZeta(:,i12,j12,k2) ) - zetaAux(:,:,4)       & ! Volumetric contribution: zeta-gradient to zeta-component of the flux
-                  +   dfdGradQ_bo(:,:,3,i12,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAZeta % vd(k2,BOTTOM) & ! Bottom face contribution (outer surface integral) 
-                  +   dfdGradQ_to(:,:,3,i12,j12) * e % spAZeta % b(k1,TOP   ) * e % spAZeta % vd(k2,TOP   )   ! Top  face contribution (outer surface integral)
+                  +   dfdGradQ_bo(:,:,3,i12,j12) * spAZeta % b(k1,BOTTOM) * spAZeta % vd(k2,BOTTOM) & ! Bottom face contribution (outer surface integral) 
+                  +   dfdGradQ_to(:,:,3,i12,j12) * spAZeta % b(k1,TOP   ) * spAZeta % vd(k2,TOP   )   ! Top  face contribution (outer surface integral)
             
             MatEntries = MatEntries * e % geom % invJacobian(i12,j12,k1) ! Scale with Jacobian from mass matrix
             
@@ -1286,15 +1290,15 @@ contains
 !
 !                    Volumetric contribution: zeta-gradient to eta-component of the flux
 !                    -------------------------------------------------------------------
-                        + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i12,j2,k1) *                                                  &
-                           (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_eta , e % geom % jGradZeta(:,i12,j2,k2) )                      &
-                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul ( dot_product( Gvec_eta , nO(:,i12,j2) ), JacO(:,:,i12,j2) ) &
-                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul ( dot_product( Gvec_eta , nT(:,i12,j2) ), JacT(:,:,i12,j2) ) &
+                        + spAEta  % hatD(j1,j2) * e % geom % invJacobian(i12,j2,k1) *                                                  &
+                           (  spAZeta % hatD(k1,k2) * dot_product( Gvec_eta , e % geom % jGradZeta(:,i12,j2,k2) )                      &
+                            - (  spAZeta % b(k1,BOTTOM) * spAZeta % v(k2,BOTTOM) * matmul ( dot_product( Gvec_eta , nO(:,i12,j2) ), JacO(:,:,i12,j2) ) &
+                               + spAZeta % b(k1,TOP   ) * spAZeta % v(k2,TOP   ) * matmul ( dot_product( Gvec_eta , nT(:,i12,j2) ), JacT(:,:,i12,j2) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_bo(:,:,2,i12,j1) * e % spAZeta % b(k1,BOTTOM) * e % spAEta  % D(j1,j2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
-                        +   dfdGradQ_to(:,:,2,i12,j1) * e % spAZeta % b(k1,TOP   ) * e % spAeta  % D(j1,j2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
+                        +   dfdGradQ_bo(:,:,2,i12,j1) * spAZeta % b(k1,BOTTOM) * spAEta  % D(j1,j2) * spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
+                        +   dfdGradQ_to(:,:,2,i12,j1) * spAZeta % b(k1,TOP   ) * spAeta  % D(j1,j2) * spAZeta % v(k2,TOP   )   ! Top face outer surface integral
 !
 !                 Contributions to the Zeta-component of the flux
 !                 ***********************************************
@@ -1302,15 +1306,15 @@ contains
 !
 !                    Volumetric contribution: eta-gradient to zeta-component of the flux
 !                    -------------------------------------------------------------------
-                        + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i12,j1,k2) *                                                  &
-                           (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_zeta, e % geom % jGradEta (:,i12,j2,k2) )                      &
-                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_zeta, nF(:,i12,k2) ), JacF(:,:,i12,k2) ) &
-                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_zeta, nB(:,i12,k2) ), JacB(:,:,i12,k2) ) &
+                        + spAZeta % hatD(k1,k2) * e % geom % invJacobian(i12,j1,k2) *                                                  &
+                           (  spAEta  % hatD(j1,j2) * dot_product( Gvec_zeta, e % geom % jGradEta (:,i12,j2,k2) )                      &
+                            - (  spAEta  % b(j1,FRONT ) * spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_zeta, nF(:,i12,k2) ), JacF(:,:,i12,k2) ) &
+                               + spAEta  % b(j1,BACK  ) * spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_zeta, nB(:,i12,k2) ), JacB(:,:,i12,k2) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_fr(:,:,3,i12,k1) * e % spAEta  % b(j1,FRONT ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
-                        +   dfdGradQ_ba(:,:,3,i12,k1) * e % spAEta  % b(j1,BACK  ) * e % spAZeta % D(k1,k2) * e % spAEta  % v(j2,BACK  )   ! Back face outer surface integral
+                        +   dfdGradQ_fr(:,:,3,i12,k1) * spAEta  % b(j1,FRONT ) * spAZeta % D(k1,k2) * spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
+                        +   dfdGradQ_ba(:,:,3,i12,k1) * spAEta  % b(j1,BACK  ) * spAZeta % D(k1,k2) * spAEta  % v(j2,BACK  )   ! Back face outer surface integral
                
                
                   MatEntries = MatEntries * e % geom % invJacobian(i12,j1,k1) ! Scale with Jacobian from mass matrix
@@ -1348,15 +1352,15 @@ contains
 !
 !                    Volumetric contribution: zeta-gradient to xi-component of the flux
 !                    ------------------------------------------------------------------
-                        + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j12,k1) *                                                  &
-                           (  e % spAZeta % hatD(k1,k2) * dot_product( Gvec_xi  , e % geom % jGradZeta(:,i2,j12,k2) )                      & 
-                            - (  e % spAZeta % b(k1,BOTTOM) * e % spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_xi  , nO(:,i2,j12) ), JacO(:,:,i2,j12) ) &
-                               + e % spAZeta % b(k1,TOP   ) * e % spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_xi  , nT(:,i2,j12) ), JacT(:,:,i2,j12) ) &
+                        + spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j12,k1) *                                                  &
+                           (  spAZeta % hatD(k1,k2) * dot_product( Gvec_xi  , e % geom % jGradZeta(:,i2,j12,k2) )                      & 
+                            - (  spAZeta % b(k1,BOTTOM) * spAZeta % v(k2,BOTTOM) * matmul( dot_product( Gvec_xi  , nO(:,i2,j12) ), JacO(:,:,i2,j12) ) &
+                               + spAZeta % b(k1,TOP   ) * spAZeta % v(k2,TOP   ) * matmul( dot_product( Gvec_xi  , nT(:,i2,j12) ), JacT(:,:,i2,j12) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_bo(:,:,1,i1,j12) * e % spAZeta % b(k1,BOTTOM) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
-                        +   dfdGradQ_to(:,:,1,i1,j12) * e % spAZeta % b(k1,TOP   ) * e % spAXi   % D(i1,i2) * e % spAZeta % v(k2,TOP   )   ! Top face outer surface integral
+                        +   dfdGradQ_bo(:,:,1,i1,j12) * spAZeta % b(k1,BOTTOM) * spAXi   % D(i1,i2) * spAZeta % v(k2,BOTTOM) & ! Bottom face outer surface integral
+                        +   dfdGradQ_to(:,:,1,i1,j12) * spAZeta % b(k1,TOP   ) * spAXi   % D(i1,i2) * spAZeta % v(k2,TOP   )   ! Top face outer surface integral
 !
 !                 Contributions to the Zeta-component of the flux
 !                 ***********************************************
@@ -1364,15 +1368,15 @@ contains
 !
 !                    Volumetric contribution: xi-gradient to zeta-component of the flux
 !                    ------------------------------------------------------------------
-                        + e % spAZeta % hatD(k1,k2) * e % geom % invJacobian(i1,j12,k2) *                                                  &
-                           (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_zeta, e % geom % jGradXi  (:,i2,j12,k2) )                      &
-                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_zeta, nL(:,j12,k2) ), JacL(:,:,j12,k2) ) &
-                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_zeta, nR(:,j12,k2) ), JacR(:,:,j12,k2) ) &
+                        + spAZeta % hatD(k1,k2) * e % geom % invJacobian(i1,j12,k2) *                                                  &
+                           (  spAXi   % hatD(i1,i2) * dot_product( Gvec_zeta, e % geom % jGradXi  (:,i2,j12,k2) )                      &
+                            - (  spAXi   % b(i1,LEFT  ) * spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_zeta, nL(:,j12,k2) ), JacL(:,:,j12,k2) ) &
+                               + spAXi   % b(i1,RIGHT ) * spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_zeta, nR(:,j12,k2) ), JacR(:,:,j12,k2) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_ri(:,:,3,j12,k1) * e % spAXi   % b(i1,RIGHT ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
-                        +   dfdGradQ_le(:,:,3,j12,k1) * e % spAXi   % b(i1,LEFT  ) * e % spAZeta % D(k1,k2) * e % spAXi   % v(i2,LEFT  )   ! Left  face outer surface integral
+                        +   dfdGradQ_ri(:,:,3,j12,k1) * spAXi   % b(i1,RIGHT ) * spAZeta % D(k1,k2) * spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
+                        +   dfdGradQ_le(:,:,3,j12,k1) * spAXi   % b(i1,LEFT  ) * spAZeta % D(k1,k2) * spAXi   % v(i2,LEFT  )   ! Left  face outer surface integral
                
                
                   MatEntries = MatEntries * e % geom % invJacobian(i1,j12,k1) ! Scale with Jacobian from mass matrix
@@ -1409,15 +1413,15 @@ contains
 !
 !                    Volumetric contribution: eta-gradient to xi-component of the flux
 !                    ------------------------------------------------------------------
-                        + e % spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j1,k12) *                                                  &
-                           (  e % spAEta  % hatD(j1,j2) * dot_product( Gvec_xi  , e % geom % jGradEta (:,i2,j2,k12) )                      &
-                            - (  e % spAEta  % b(j1,FRONT ) * e % spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_xi  , nF(:,i2,k12) ), JacF(:,:,i2,k12) ) &
-                               + e % spAEta  % b(j1,BACK  ) * e % spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_xi  , nB(:,i2,k12) ), JacB(:,:,i2,k12) ) &
+                        + spAXi   % hatD(i1,i2) * e % geom % invJacobian(i2,j1,k12) *                                                  &
+                           (  spAEta  % hatD(j1,j2) * dot_product( Gvec_xi  , e % geom % jGradEta (:,i2,j2,k12) )                      &
+                            - (  spAEta  % b(j1,FRONT ) * spAEta  % v(j2,FRONT ) * matmul( dot_product( Gvec_xi  , nF(:,i2,k12) ), JacF(:,:,i2,k12) ) &
+                               + spAEta  % b(j1,BACK  ) * spAEta  % v(j2,BACK  ) * matmul( dot_product( Gvec_xi  , nB(:,i2,k12) ), JacB(:,:,i2,k12) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                            
-                        +   dfdGradQ_fr(:,:,1,i1,k12) * e % spAEta  % b(j1,FRONT ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
-                        +   dfdGradQ_ba(:,:,1,i1,k12) * e % spAEta  % b(j1,BACK  ) * e % spAXi   % D(i1,i2) * e % spAEta  % v(j2,BACK  )   ! Back  face outer surface integral
+                        +   dfdGradQ_fr(:,:,1,i1,k12) * spAEta  % b(j1,FRONT ) * spAXi   % D(i1,i2) * spAEta  % v(j2,FRONT ) & ! Front face outer surface integral
+                        +   dfdGradQ_ba(:,:,1,i1,k12) * spAEta  % b(j1,BACK  ) * spAXi   % D(i1,i2) * spAEta  % v(j2,BACK  )   ! Back  face outer surface integral
 !
 !                 Contributions to the Eta-component of the flux
 !                 **********************************************
@@ -1425,15 +1429,15 @@ contains
 !
 !                    Volumetric contribution: xi-gradient to eta-component of the flux
 !                    -----------------------------------------------------------------
-                        + e % spAEta  % hatD(j1,j2) * e % geom % invJacobian(i1,j2,k12) *                                                  &
-                           (  e % spAXi   % hatD(i1,i2) * dot_product( Gvec_eta , e % geom % jGradXi  (:,i2,j2,k12) )                      &
-                            - (  e % spAXi   % b(i1,LEFT  ) * e % spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_eta , nL(:,j2,k12) ), JacL(:,:,j2,k12) ) &
-                               + e % spAXi   % b(i1,RIGHT ) * e % spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_eta , nR(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                        + spAEta  % hatD(j1,j2) * e % geom % invJacobian(i1,j2,k12) *                                                  &
+                           (  spAXi   % hatD(i1,i2) * dot_product( Gvec_eta , e % geom % jGradXi  (:,i2,j2,k12) )                      &
+                            - (  spAXi   % b(i1,LEFT  ) * spAXi   % v(i2,LEFT  ) * matmul( dot_product( Gvec_eta , nL(:,j2,k12) ), JacL(:,:,j2,k12) ) &
+                               + spAXi   % b(i1,RIGHT ) * spAXi   % v(i2,RIGHT ) * matmul( dot_product( Gvec_eta , nR(:,j2,k12) ), JacL(:,:,j2,k12) ) &
                               )                                                                                                  &
                            )                                                                                                              &
                         
-                        +   dfdGradQ_ri(:,:,2,j1,k12) * e % spAXi   % b(i1,RIGHT ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
-                        +   dfdGradQ_le(:,:,2,j1,k12) * e % spAXi   % b(i1,LEFT  ) * e % spAeta  % D(j1,j2) * e % spAXi   % v(i2,LEFT  )   ! Left face outer surface integral
+                        +   dfdGradQ_ri(:,:,2,j1,k12) * spAXi   % b(i1,RIGHT ) * spAeta  % D(j1,j2) * spAXi   % v(i2,RIGHT ) & ! Right face outer surface integral
+                        +   dfdGradQ_le(:,:,2,j1,k12) * spAXi   % b(i1,LEFT  ) * spAeta  % D(j1,j2) * spAXi   % v(i2,LEFT  )   ! Left face outer surface integral
                
                   MatEntries = MatEntries * e % geom % invJacobian(i1,j1,k12) ! Scale with Jacobian from mass matrix
                   
@@ -1457,7 +1461,7 @@ contains
       end if
       
       nullify(dF_dgradQ)
-      
+      nullify(spAxi,spAeta,spAzeta)
    end subroutine Local_SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

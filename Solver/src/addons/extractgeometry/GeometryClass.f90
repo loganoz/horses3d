@@ -4,9 +4,9 @@
 !   @File:    GeometryClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Sun May 19 16:53:58 2019
+!   @Last revision date: Sat Aug  3 23:57:01 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -151,9 +151,13 @@ module GeometryClass
    
       do eID = 1, mesh % no_of_elements
          associate( e => mesh % elements(eID) ) 
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
          do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-            volume = volume + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k)
+            volume = volume + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * e % geom % jacobian(i,j,k)
          end do                  ; end do                   ; end do
+         end associate
          end associate
       end do
 !
@@ -204,10 +208,14 @@ module GeometryClass
          xintegral = 0.0_RP
          do eID = 1, mesh % no_of_elements
             associate( e => mesh % elements(eID) ) 
+            associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                      spAeta  => NodalStorage(e % Nxyz(2)), &
+                      spAzeta => NodalStorage(e % Nxyz(3)) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-               xintegral = xintegral + e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) * e % geom % jacobian(i,j,k) &
+               xintegral = xintegral + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * e % geom % jacobian(i,j,k) &
                                        * e % geom % x(:,i,j,k)
             end do                  ; end do                   ; end do
+            end associate
             end associate
          end do
          self % xc = xintegral / volume
