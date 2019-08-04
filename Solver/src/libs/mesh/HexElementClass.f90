@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Sat Aug  3 23:57:19 2019
+!   @Last revision date: Sun Aug  4 16:39:47 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -687,7 +687,7 @@
          logical       , intent(in)    :: saveGradients
          integer       , intent(in)    :: prevSol_num
          !-arguments--------------------------------------------
-         
+         logical                       :: anJacobian
          type(ElementStorage_t)        :: tempStorage
 #if (!defined(NAVIERSTOKES))
          logical, parameter            :: computeGradients = .true.
@@ -698,13 +698,15 @@
 !        Reconstruct storage
 !        -------------------
          
-         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, prevSol_num,0)         
+         anJacobian = self % storage % anJacobian
+         
+         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)         
          tempStorage = self % storage
          
          self % Nxyz = NNew
          
          call self % storage % destruct()
-         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, prevSol_num,0)
+         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)
          
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
          

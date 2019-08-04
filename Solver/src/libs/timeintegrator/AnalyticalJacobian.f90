@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sat Aug  3 23:57:46 2019
+!   @Last revision date: Sun Aug  4 16:39:54 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -79,16 +79,38 @@ contains
       implicit none
       !-arguments-----------------------------------------
       class(AnJacobian_t)  , intent(inout) :: this
-      type(HexMesh)        , intent(in)    :: mesh
+      type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      !-local-variables-----------------------------------
+      integer :: fID, eID
       !---------------------------------------------------
       
 !
 !     Construct parent
 !     ----------------
       call this % JacobianComputer_t % construct (mesh, nEqn)
-      
+!
+!     Create stopwatch event
+!     ----------------------
       call Stopwatch % CreateNewEvent("Analytical Jacobian construction")
+!
+!     Construct specific storage
+!     --------------------------
+      ! Global storage
+      mesh % storage % anJacobian = .TRUE.
+      ! Elements:
+!$omp parallel do schedule(runtime)
+      do eID=1, mesh % no_of_elements
+         call mesh % storage % elements(eID) % ConstructAnJac ()
+      end do
+!$omp end parallel do
+      
+      ! Faces:
+!$omp parallel do schedule(runtime)
+      do fID=1, size(mesh % faces)
+         call mesh % faces(fID) % storage % ConstructAnJac (NDIM)
+      end do
+!$omp end parallel do
       
       !TODO: Add conformity check
       

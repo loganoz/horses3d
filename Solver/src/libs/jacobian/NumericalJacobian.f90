@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Wed Jul 17 11:52:31 2019
+!   @Last revision date: Sun Aug  4 16:39:45 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -65,7 +65,7 @@ contains
       implicit none
       !-arguments-----------------------------------------
       class(NumJacobian_t) , intent(inout) :: this
-      type(HexMesh)        , intent(in)    :: mesh
+      type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
       !---------------------------------------------------
       

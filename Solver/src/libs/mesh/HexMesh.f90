@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sat Aug  3 23:57:22 2019
+!   @Last revision date: Sun Aug  4 16:39:50 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -3408,6 +3408,10 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
+!  HexMesh_AllocateStorage:
+!  Allocates the storage for the simulation
+!  -> Storage specific to the analytical Jacobian is constructed by the corresponding class (AnalyticalJacobian.f90)
+!
    subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_Storage)
       implicit none
       !-----------------------------------------------------------
@@ -3451,15 +3455,15 @@ slavecoord:             DO l = 1, 4
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order, RKSteps_num )
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
 
 !     Construct faces' storage
 !     ------------------------
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
-            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE.)
+            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE.)
             end associate
          end do
       end if
@@ -3653,6 +3657,7 @@ slavecoord:             DO l = 1, 4
       !-local-variables-----------------------------------
       integer :: eID, fID, zoneID
       logical :: saveGradients
+      logical :: analyticalJac   ! Do we need analytical Jacobian storage?
       type(IntegerDataLinkedList_t) :: elementList
       type(IntegerDataLinkedList_t) :: facesList
       type(IntegerDataLinkedList_t) :: zoneList
@@ -3685,6 +3690,7 @@ slavecoord:             DO l = 1, 4
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
       zoneList = IntegerDataLinkedList_t(.FALSE.)
+      analyticalJac  = self % storage % anJacobian
       
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
@@ -3722,7 +3728,7 @@ slavecoord:             DO l = 1, 4
 
 !     Destruct faces storage
 !     ----------------------
-!$omp parallel do 
+!$omp parallel do schedule(runtime)
       do fID=1, size(facesArray)
          call self % faces( facesArray(fID) ) % storage % destruct
       end do
@@ -3734,11 +3740,11 @@ slavecoord:             DO l = 1, 4
       
 !     Construct faces storage
 !     -----------------------
-!$omp parallel do private(f)
+!$omp parallel do private(f) schedule(runtime)
       do fID=1, size(facesArray)
          f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers 
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac)
       end do
 !$omp end parallel do 
 
@@ -3817,10 +3823,9 @@ slavecoord:             DO l = 1, 4
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  HexMesh_Assign:
-!  Elemental subroutine to assign a HexMesh to another
+!  Elemental subroutine to assign a HexMesh to another.
 !
    elemental subroutine HexMesh_Assign (to, from)
-   use StopwatchClass
       implicit none
       !-arguments----------------------------------------
       class(HexMesh), intent(inout), target :: to
