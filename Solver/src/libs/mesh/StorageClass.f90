@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sun Aug  4 16:39:52 2019
+!   @Last revision date: Sun Aug  4 17:23:25 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision commit: 24d459a8500e347b8d94ede7385c6453c118d4dd
 !
 !//////////////////////////////////////////////////////
 !
@@ -683,7 +683,6 @@ module StorageClass
          
          allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
          to % Prevc        =  from % Prevc
-!~         end if
 #endif   
 !
 !        Point the storage
@@ -744,9 +743,12 @@ module StorageClass
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NSP  (NCONS,0:Nx,0:Ny,0:Nz) )
          
-         ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         if (computeGradients) then
+            ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         end if
+         
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
          
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
@@ -877,9 +879,12 @@ module StorageClass
          
 #ifdef FLOW
          to % QNS    = from % QNS
-         to % U_xNS  = from % U_xNS
-         to % U_yNS  = from % U_yNS
-         to % U_zNS  = from % U_zNS
+         
+         if (to % computeGradients) then
+            to % U_xNS  = from % U_xNS
+            to % U_yNS  = from % U_yNS
+            to % U_zNS  = from % U_zNS
+         end if
          to % QDotNS = from % QDotNS
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
@@ -967,9 +972,12 @@ module StorageClass
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
          safedeallocate(self % S_NSP)
-         safedeallocate(self % U_xNS)
-         safedeallocate(self % U_yNS)
-         safedeallocate(self % U_zNS)
+         
+         if (self % computeGradients) then
+            safedeallocate(self % U_xNS)
+            safedeallocate(self % U_yNS)
+            safedeallocate(self % U_zNS)
+         end if
          safedeallocate(self % mu_art)
          safedeallocate(self % rho)
          
@@ -1021,9 +1029,11 @@ module StorageClass
 
          self % currentlyLoaded = NS
          self % Q   (1:,0:,0:,0:) => self % QNS
-         self % U_x (1:,0:,0:,0:) => self % U_xNS
-         self % U_y (1:,0:,0:,0:) => self % U_yNS
-         self % U_z (1:,0:,0:,0:) => self % U_zNS
+         if (self % computeGradients) then
+            self % U_x (1:,0:,0:,0:) => self % U_xNS
+            self % U_y (1:,0:,0:,0:) => self % U_yNS
+            self % U_z (1:,0:,0:,0:) => self % U_zNS
+         end if
          self % QDot(1:,0:,0:,0:) => self % QDotNS
 
          do k = 1, size(self % prevQ)
@@ -1149,7 +1159,7 @@ module StorageClass
                                   Nout       = other % Nxyz , &
                                   outArray   = other % Q    )
             
-            if (gradients) then
+            if (gradients .and. this % computeGradients .and. other % computeGradients) then
                call Interp3DArrays  (Nvars      = NGRAD  , &
                                      Nin        = this % Nxyz  , &
                                      inArray    = this % U_x   , &
@@ -1205,10 +1215,11 @@ module StorageClass
 #ifdef FLOW
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
          
-         !if computeGradients
-         ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         if (computeGradients) then
+            ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         end if
 !
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
@@ -1295,8 +1306,10 @@ module StorageClass
          allocate( self % dFStar_dqF  (NCONS,NCONS, 0: self % Nf(1), 0: self % Nf(2)) )
          allocate( self % dFStar_dqEl (NCONS,NCONS, 0:self % Nel(1), 0:self % Nel(2),2) )
          
-         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
-         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
+         if (self % computeGradients) then
+            allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
+            allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
+         end if
          
 !        TODO: AMR, if Boundary
          allocate( self % BCJac       (NCONS,NCONS,0:self % Nel(1),0:self % Nel(2)) )
@@ -1319,9 +1332,11 @@ module StorageClass
          
 #ifdef FLOW
          safedeallocate(self % QNS)
-         safedeallocate(self % U_xNS)
-         safedeallocate(self % U_yNS)
-         safedeallocate(self % U_zNS)
+         if (self % computeGradients) then
+            safedeallocate(self % U_xNS)
+            safedeallocate(self % U_yNS)
+            safedeallocate(self % U_zNS)
+         end if
          safedeallocate(self % mu_art)
          safedeallocate(self % rho )
          
@@ -1330,8 +1345,10 @@ module StorageClass
          if (self % anJacobian) then
             safedeallocate(self % dFStar_dqF)
             safedeallocate(self % dFStar_dqEl)
-            safedeallocate(self % dFv_dGradQF)
-            safedeallocate(self % dFv_dGradQEl)
+            if (self % computeGradients) then
+               safedeallocate(self % dFv_dGradQF)
+               safedeallocate(self % dFv_dGradQEl)
+            end if
             safedeallocate(self % BCJac )
          end if
 #endif
@@ -1369,7 +1386,7 @@ module StorageClass
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
-         if ( allocated(self % U_xNS) ) then
+         if (self % computeGradients) then
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
@@ -1409,7 +1426,7 @@ module StorageClass
          self % U_x(1:,0:,0:) => self % mu_x
          self % U_y(1:,0:,0:) => self % mu_y
          self % U_z(1:,0:,0:) => self % mu_z
-
+         
          self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
          self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
@@ -1466,17 +1483,21 @@ module StorageClass
       
 #ifdef FLOW
          to % QNS = from % QNS
-         to % U_xNS = from % U_xNS
-         to % U_yNS = from % U_yNS
-         to % U_zNS = from % U_zNS
+         if (to % computeGradients) then
+            to % U_xNS = from % U_xNS
+            to % U_yNS = from % U_yNS
+            to % U_zNS = from % U_zNS
+         end if
          to % rho = from % rho
          to % mu_art = from % mu_art
          
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF
             to % dFStar_dqEl = from % dFStar_dqEl
-            to % dFv_dGradQF = from % dFv_dGradQF
-            to % dFv_dGradQEl = from % dFv_dGradQEl
+            if (to % computeGradients) then
+               to % dFv_dGradQF = from % dFv_dGradQF
+               to % dFv_dGradQEl = from % dFv_dGradQEl
+            end if
             to % BCJac = from % BCJac
          end if
 #endif
