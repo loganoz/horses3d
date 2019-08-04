@@ -1479,7 +1479,7 @@ module SpatialDiscretization
          real(kind=RP) :: h, sBeta, muAver(3)
          real(kind=RP), parameter   :: kBeta = 1.5_RP
 
-!$omp do private(h,i,j,k,fID,muAver,sBeta)
+!$omp do private(h,i,j,k,fID,muAver,sBeta) schedule(runtime)
          do eID = 1, mesh % no_of_elements
             associate(e => mesh % elements(eID))
             h = (e % geom % volume/product(e % Nxyz+1))**(1.0_RP/3.0_RP) 
@@ -1525,7 +1525,7 @@ module SpatialDiscretization
 !
 !        Average each face values
 !        ------------------------
-!$omp do private(muAver,i,j)
+!$omp do private(muAver,i,j) schedule(runtime)
          do fID = 1, size(mesh % faces)
             if ( .not. (mesh % faces(fID) % faceType .eq. HMESH_INTERIOR) ) cycle
             muAver = max(mesh % faces(fID) % storage(1) % mu_art(:,0,0), mesh % faces(fID) % storage(2) % mu_art(:,0,0))
@@ -1538,7 +1538,7 @@ module SpatialDiscretization
          end do
 !$omp end do
 
-!!$omp do private(h,i,j,k,fID,muAver,sBeta)
+!!$omp do private(h,i,j,k,fID,muAver,sBeta) schedule(runtime)
 !         do fID = 1, size(mesh % faces)
 !            associate(f => mesh % faces(fID))
 !            h = (f % geom % surface/product(f % Nf+1))**(1.0_RP/2.0_RP) 
@@ -1586,7 +1586,7 @@ module SpatialDiscretization
 !
 !        Gather the face values onto the closest nodal value
 !        ---------------------------------------------------
-!!$omp do private(i,j,k)
+!!$omp do private(i,j,k) schedule(runtime)
 !         do eID = 1, mesh % no_of_elements
 !            associate(e => mesh % elements(eID))
 !            do k = 1, e % Nxyz(3)-1 ; do j = 1, e % Nxyz(2)-1

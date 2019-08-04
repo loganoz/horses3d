@@ -432,9 +432,10 @@ Module DGSEMClass
 !     -----------------------------------------------------------------------------------
 !     Specifies how to copy a DGSem object:
 !     -> Trivial but must be defined since self % monitors has a user-defined assignment
-!     -> Must be impure because of some pointers of the derived types
+!     -> Must be impure because the assignment procedures of derived times are not pure
+!        (they perform better being impure!!)
 !     -----------------------------------------------------------------------------------
-      elemental subroutine DGSEM_Assign (to, from)
+      subroutine DGSEM_Assign (to, from)
          implicit none
          class(DGSem), intent(inout) :: to
          type (DGSem), intent(in)    :: from
@@ -482,7 +483,7 @@ Module DGSEMClass
       c    = 0.0_RP
 
 !$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5,c)
+!$omp do reduction(max:R1,R2,R3,R4,R5,c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
 #ifdef FLOW
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
@@ -574,7 +575,7 @@ Module DGSEMClass
       TimeStep_Visc = huge(1._RP)
       
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes) default(private) 
-!$omp do reduction(min:TimeStep_Conv,TimeStep_Visc)
+!$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(eID) % Nxyz
          spAxi_p => NodalStorage(N(1))

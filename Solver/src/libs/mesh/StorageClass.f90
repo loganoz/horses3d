@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sun Aug  4 17:23:25 2019
+!   @Last revision date: Sun Aug  4 19:18:50 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 24d459a8500e347b8d94ede7385c6453c118d4dd
+!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -268,7 +268,7 @@ module StorageClass
 !     -------------------------------------------------------
 !     The global solution arrays are only allocated if needed
 !     -------------------------------------------------------
-      pure subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
+      subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
          implicit none
          !-arguments---------------------------------------------
          class(SolutionStorage_t), target, intent(inout) :: self
@@ -279,7 +279,7 @@ module StorageClass
          integer, optional       , intent(in)    :: prevSol_num
          integer, optional       , intent(in)    :: RKSteps_num
          !-local-variables---------------------------------------
-         integer :: k
+         integer :: k, eID, num_of_elems
          !-------------------------------------------------------
          
          self % NDOF = NDOF
@@ -314,13 +314,22 @@ module StorageClass
 #endif
             end if
          end if
-
-         allocate (self % elements(size(Nx)) )
+         
+         num_of_elems = size(Nx)
+         allocate (self % elements(num_of_elems) )
       
          if ( present(RKSteps_num) ) then
-            call self % elements % construct( Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, RKSteps_num)
+            end do
+!$omp end parallel do
          else
-            call self % elements % construct( Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, 0)
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, 0)
+            end do
+!$omp end parallel do
          end if
          
       end subroutine SolutionStorage_Construct
@@ -635,17 +644,17 @@ module StorageClass
 !
 !/////////////////////////////////////////////////
 ! 
-      elemental subroutine SolutionStorage_Assign(to, from)
+!     (We need an special assign procedure)
 !
-!        ***********************************
-!        We need an special assign procedure
-!        ***********************************
-!
+      subroutine SolutionStorage_Assign(to, from)
          implicit none
+         !-arguments------------------------------------
          class(SolutionStorage_t), intent(inout) :: to
          type(SolutionStorage_t),  intent(in)    :: from
-         
+         !-local-variables------------------------------
+         integer :: num_of_elems
          integer :: eID
+         !----------------------------------------------
 !
 !        Copy the storage
 !        ----------------
@@ -661,8 +670,13 @@ module StorageClass
          allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
          to % prevSol_index=  from % prevSol_index
          
-         allocate ( to % elements ( size(from % elements) ) )
-         to % elements = from % elements
+         num_of_elems = size(from % elements)
+         allocate ( to % elements (num_of_elems) )
+!$omp parallel do schedule(runtime)
+         do eID=1, num_of_elems
+            to % elements(eID) = from % elements(eID)
+         end do
+!$omp end parallel do
          
 #ifdef FLOW
          allocate ( to % QdotNS ( size(from % QdotNS) ) )

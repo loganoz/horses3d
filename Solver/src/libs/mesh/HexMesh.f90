@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sun Aug  4 16:39:50 2019
+!   @Last revision date: Sun Aug  4 19:18:48 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -3823,9 +3823,10 @@ slavecoord:             DO l = 1, 4
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  HexMesh_Assign:
-!  Elemental subroutine to assign a HexMesh to another.
+!  Subroutine to assign a HexMesh to another.
+!  It turns out that an "impure" procedure with explicit OMP is more efficient than pure or elemental in this case.
 !
-   elemental subroutine HexMesh_Assign (to, from)
+   subroutine HexMesh_Assign (to, from)
       implicit none
       !-arguments----------------------------------------
       class(HexMesh), intent(inout), target :: to
@@ -3864,15 +3865,26 @@ slavecoord:             DO l = 1, 4
       
       safedeallocate (to % nodes)
       allocate ( to % nodes ( size(from % nodes) ) )
-      to % nodes = from % nodes
+!$omp parallel do schedule(runtime)
+      do eID=1, size(from % nodes)
+         to % nodes(eID) = from % nodes(eID)
+      end do
+!$omp end parallel do
       
       safedeallocate (to % faces)
       allocate ( to % faces ( size(from % faces) ) )
-      to % faces = from % faces
-      
+!$omp parallel do schedule(runtime)
+      do eID=1, size(from % faces)
+         to % faces(eID) = from % faces(eID)
+      end do
+!$omp end parallel do
       safedeallocate (to % elements)
       allocate ( to % elements ( size(from % elements) ) )
-      to % elements = from % elements
+!$omp parallel do schedule(runtime)
+      do eID=1, from % no_of_elements
+         to % elements(eID) = from % elements(eID)
+      end do
+!$omp end parallel do
       
       to % MPIfaces = from % MPIfaces
       
@@ -3883,9 +3895,11 @@ slavecoord:             DO l = 1, 4
 !
 !     Point elements' storage
 !     -----------------------
-      do concurrent (eID = 1 : to % no_of_elements)
+!$omp parallel do schedule(runtime)
+      do eID = 1, to % no_of_elements
          to % elements(eID) % storage => to % storage % elements(eID)
       end do
+!$omp end parallel do
       
    end subroutine HexMesh_Assign
 END MODULE HexMeshClass

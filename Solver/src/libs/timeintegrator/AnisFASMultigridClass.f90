@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Sat Aug  3 23:57:49 2019
+!   @Last revision date: Sun Aug  4 19:18:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
+!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -270,6 +270,7 @@ module AnisFASMultigridClass
       if (isfirst) then
          call Stopwatch % CreateNewEvent("AnisFAS: child-copy")
          call Stopwatch % CreateNewEvent("AnisFAS: child-adapt")
+         
          isfirst = .FALSE.
       end if
 !
@@ -361,7 +362,7 @@ module AnisFASMultigridClass
       N1y => p_sem % mesh % Ny
       N1z => p_sem % mesh % Nz
    
-!$omp parallel do
+!$omp parallel do schedule(runtime)
       do k = 1, nelem
          allocate(Solver % MGStorage(Dir) % Var(k) % Q    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
          allocate(Solver % MGStorage(Dir) % Var(k) % E    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
