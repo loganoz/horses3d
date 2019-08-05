@@ -4,14 +4,15 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Sun Aug  4 19:18:50 2019
+!   @Last revision date: Mon Aug  5 18:24:43 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
+!   @Last revision commit: 16994fcf37674654b5e0eef9236074835c272ffc
 !
 !//////////////////////////////////////////////////////
 !
 !     TODO1: Store FaceStorage in SolutionStorage
-!     TODO2: Remove physics-related pointers... Allocate one storage for each physics 
+!     TODO2: Remove physics-related pointers... Allocate one storage for each physics (AND REMOVE ALL POINTERS)
+!     TODO3: Allocate implicit methods storage (global arrays) from implicit classes
 #include "Includes.h"
 
 module StorageClass
@@ -125,7 +126,7 @@ module StorageClass
       logical                                    :: AdaptedQdot  = .FALSE.
       logical                                    :: AdaptedPrevQ = .FALSE.
       logical                                    :: anJacobian   = .FALSE.
-      integer                                    :: prevSol_num    = 0
+      integer                                    :: prevSol_num    = -1
       integer                      , allocatable :: prevSol_index(:)           ! Indexes for the previous solutions
       
       type(ElementStorage_t)       , allocatable :: elements(:)
@@ -159,6 +160,7 @@ module StorageClass
 !  Class for storing variables in the faces
 !  ****************************************
    type FaceStorage_t
+      logical                                          :: constructed = .FALSE.
       logical                                          :: computeGradients
       logical                                          :: anJacobian =.FALSE.         ! Has Jacobian storage?
       integer                                          :: NDIM
@@ -286,8 +288,8 @@ module StorageClass
          self % anJacobian = analyticalJac
          
          if ( present(prevSol_num) ) then 
+            self % prevSol_num = prevSol_num
             if ( prevSol_num > 0 ) then
-               self % prevSol_num = prevSol_num
                allocate ( self % prevSol_index(prevSol_num) )
                self % prevSol_index = (/ (k, k=1, prevSol_num) /)
 #ifdef FLOW
@@ -667,8 +669,7 @@ module StorageClass
          to % prevSol_num  =  from % prevSol_num
          to % anJacobian   =  from % anJacobian
          
-         allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
-         to % prevSol_index=  from % prevSol_index
+         
          
          num_of_elems = size(from % elements)
          allocate ( to % elements (num_of_elems) )
@@ -678,26 +679,36 @@ module StorageClass
          end do
 !$omp end parallel do
          
+         if ( to % prevSol_num > 0 ) then
+            allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
+            to % prevSol_index=  from % prevSol_index
 #ifdef FLOW
-         allocate ( to % QdotNS ( size(from % QdotNS) ) )
-         to % QdotNS       =  from % QdotNS
-         
-         allocate ( to % QNS ( size(from % QNS) ) )
-         to % QNS          =  from % QNS
-         
-         allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
-         to % PrevQNS      =  from % PrevQNS
+            allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
+            to % PrevQNS      =  from % PrevQNS
 #endif
 #ifdef CAHNHILLIARD
-         allocate ( to % cDot ( size(from % cDot) ) )
-         to % cDot         =  from % cDot
-         
-         allocate ( to % c ( size(from % c) ) )
-         to % c            =  from % c
-         
-         allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
-         to % Prevc        =  from % Prevc
+            allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
+            to % Prevc        =  from % Prevc
 #endif   
+         end if
+         
+         if ( to % prevSol_num >= 0 ) then
+#ifdef FLOW
+            allocate ( to % QdotNS ( size(from % QdotNS) ) )
+            to % QdotNS       =  from % QdotNS
+            
+            allocate ( to % QNS ( size(from % QNS) ) )
+            to % QNS          =  from % QNS
+#endif
+#ifdef CAHNHILLIARD
+            allocate ( to % cDot ( size(from % cDot) ) )
+            to % cDot         =  from % cDot
+            
+            allocate ( to % c ( size(from % c) ) )
+            to % c            =  from % c
+#endif   
+         end if
+         
 !
 !        Point the storage
 !        -----------------            
@@ -821,9 +832,11 @@ module StorageClass
          self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
          
-         self % U_xNS = 0.0_RP
-         self % U_yNS = 0.0_RP
-         self % U_zNS = 0.0_RP
+         if (computeGradients) then
+            self % U_xNS = 0.0_RP
+            self % U_yNS = 0.0_RP
+            self % U_zNS = 0.0_RP
+         end if
 #endif
 
 #ifdef CAHNHILLIARD
@@ -1278,10 +1291,11 @@ module StorageClass
 #ifdef FLOW
          self % QNS    = 0.0_RP
          
-         self % U_xNS = 0.0_RP
-         self % U_yNS = 0.0_RP
-         self % U_zNS = 0.0_RP
-         
+         if (computeGradients) then
+            self % U_xNS = 0.0_RP
+            self % U_yNS = 0.0_RP
+            self % U_zNS = 0.0_RP
+         end if
          self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
 #endif
@@ -1297,7 +1311,7 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % v     = 0.0_RP
 #endif
-
+         self % constructed = .TRUE.
       end subroutine FaceStorage_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1341,7 +1355,8 @@ module StorageClass
       elemental subroutine FaceStorage_Destruct(self)
          implicit none
          class(FaceStorage_t), intent(inout) :: self
-   
+         
+         self % constructed = .FALSE.
          self % currentlyLoaded = OFF
          
 #ifdef FLOW
@@ -1488,6 +1503,7 @@ module StorageClass
          !------------------------------------------------
          
          call to % destruct
+         if (.not. from % constructed) return
          call to % construct(from % NDIM, from % Nf, from % Nel, from % computeGradients, from % anJacobian)
          
          to % currentlyLoaded = from % currentlyLoaded

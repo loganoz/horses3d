@@ -809,63 +809,67 @@ module SpatialDiscretization
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, beta, kappa
          integer       :: Sidearray(2)
+         
+         visc_flux = 0._RP
+         
+         if (flowIsNavierStokes) then
+            if ( .not. LESModel % active ) then
+               DO j = 0, f % Nf(2)
+                  DO i = 0, f % Nf(1)
 
-         if ( .not. LESModel % active ) then
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-
-               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
-               beta  = f % storage(1) % mu_art(2,i,j)
-               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+                     mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+                     beta  = f % storage(1) % mu_art(2,i,j)
+                     kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
-!              --------------
-!              Viscous fluxes
-!              --------------
+!                    --------------
+!                    Viscous fluxes
+!                    --------------
 !      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, beta = beta, kappa = kappa, &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
+                     CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                        f = f, &
+                                                        QLeft = f % storage(1) % Q(:,i,j), &
+                                                        QRight = f % storage(2) % Q(:,i,j), &
+                                                        U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                        U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                        U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                        U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                        U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                        U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                        mu   = mu, beta = beta, kappa = kappa, &
+                                                        nHat = f % geom % normal(:,i,j) , &
+                                                        dWall = f % geom % dWall(i,j), &
+                                                        flux  = visc_flux(:,i,j) )
 
-            end do
-         end do
+                  end do
+               end do
 
-         else
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
+            else
+               do j = 0, f % Nf(2)
+                  do i = 0, f % Nf(1)
 
 !      
-!              --------------
-!              Viscous fluxes
-!              --------------
+!                    --------------
+!                    Viscous fluxes
+!                    --------------
 !      
-               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
+                     CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
+                                                        QLeft = f % storage(1) % Q(:,i,j), &
+                                                        QRight = f % storage(2) % Q(:,i,j), &
+                                                        U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                        U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                        U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                        U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                        U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                        U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                        nHat = f % geom % normal(:,i,j) , &
+                                                        dWall = f % geom % dWall(i,j), &
+                                                        flux  = visc_flux(:,i,j) )
 
-            end do
-         end do
+                  end do
+               end do
+            end if
          end if
-
+         
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 !      
@@ -910,65 +914,68 @@ module SpatialDiscretization
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu, kappa, beta
          integer       :: Sidearray(2)
+         
+         visc_flux = 0._RP
+         if (flowIsNavierStokes) then
+            if ( .not. LESModel % active ) then
+               DO j = 0, f % Nf(2)
+                  DO i = 0, f % Nf(1)
 
-         if ( .not. LESModel % active ) then
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-
-               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
-               beta  = f % storage(1) % mu_art(2,i,j)
-               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
+                     mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+                     beta  = f % storage(1) % mu_art(2,i,j)
+                     kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
-!              --------------
-!              Viscous fluxes
-!              --------------
+!                    --------------
+!                    Viscous fluxes
+!                    --------------
 !      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, &
-                                                  beta = beta, &
-                                                  kappa= kappa, &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
+                     CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                        f = f, &
+                                                        QLeft = f % storage(1) % Q(:,i,j), &
+                                                        QRight = f % storage(2) % Q(:,i,j), &
+                                                        U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                        U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                        U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                        U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                        U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                        U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                        mu   = mu, &
+                                                        beta = beta, &
+                                                        kappa= kappa, &
+                                                        nHat = f % geom % normal(:,i,j) , &
+                                                        dWall = f % geom % dWall(i,j), &
+                                                        flux  = visc_flux(:,i,j) )
 
-            end do
-         end do
+                  end do
+               end do
 
-         else
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
+            else
+               DO j = 0, f % Nf(2)
+                  DO i = 0, f % Nf(1)
 
 !      
-!              --------------
-!              Viscous fluxes
-!              --------------
+!                    --------------
+!                    Viscous fluxes
+!                    --------------
 !      
-               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
+                     CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
+                                                        QLeft = f % storage(1) % Q(:,i,j), &
+                                                        QRight = f % storage(2) % Q(:,i,j), &
+                                                        U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                        U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                        U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                        U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                        U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                        U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                        nHat = f % geom % normal(:,i,j) , &
+                                                        dWall = f % geom % dWall(i,j), &
+                                                        flux  = visc_flux(:,i,j) )
 
-            end do
-         end do
+                  end do
+               end do
+            end if
          end if
-
+         
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 !      
@@ -1044,54 +1051,12 @@ module SpatialDiscretization
 
       if ( flowIsNavierStokes ) then
          if ( .not. LESModel % active ) then
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-            f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
-            f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
-            f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
-
-            CALL BCs(f % zone) % bc % FlowNeumann(&
-                                              f % geom % x(:,i,j), &
-                                              time, &
-                                              f % geom % normal(:,i,j), &
-                                              f % storage(2) % Q(:,i,j), &
-                                              f % storage(2) % U_x(:,i,j), &
-                                              f % storage(2) % U_y(:,i,j), &
-                                              f % storage(2) % U_z(:,i,j))
-
-               mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
-               beta  = f % storage(1) % mu_art(2,i,j)
-               kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
-!      
-!              --------------
-!              Viscous fluxes
-!              --------------
-!      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, beta = beta, kappa = kappa, &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
-
-            end do
-         end do
-
-         else
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
+            DO j = 0, f % Nf(2)
+               DO i = 0, f % Nf(1)
                f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
                f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
                f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
-   
+
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                                  f % geom % x(:,i,j), &
                                                  time, &
@@ -1101,26 +1066,68 @@ module SpatialDiscretization
                                                  f % storage(2) % U_y(:,i,j), &
                                                  f % storage(2) % U_z(:,i,j))
 
+                  mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
+                  beta  = f % storage(1) % mu_art(2,i,j)
+                  kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 !      
-!              --------------
-!              Viscous fluxes
-!              --------------
+!                 --------------
+!                 Viscous fluxes
+!                 --------------
 !      
-               CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
+                  CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                     f = f, &
+                                                     QLeft = f % storage(1) % Q(:,i,j), &
+                                                     QRight = f % storage(2) % Q(:,i,j), &
+                                                     U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                     U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                     U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                     U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                     U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                     U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                     mu   = mu, beta = beta, kappa = kappa, &
+                                                     nHat = f % geom % normal(:,i,j) , &
+                                                     dWall = f % geom % dWall(i,j), &
+                                                     flux  = visc_flux(:,i,j) )
 
+               end do
             end do
-         end do
+
+         else
+            do j = 0, f % Nf(2)
+               do i = 0, f % Nf(1)
+                  f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
+                  f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
+                  f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
+      
+                  call BCs(f % zone) % bc % FlowNeumann(&
+                                                    f % geom % x(:,i,j), &
+                                                    time, &
+                                                    f % geom % normal(:,i,j), &
+                                                    f % storage(2) % Q(:,i,j), &
+                                                    f % storage(2) % U_x(:,i,j), &
+                                                    f % storage(2) % U_y(:,i,j), &
+                                                    f % storage(2) % U_z(:,i,j))
+
+!      
+!                 --------------
+!                 Viscous fluxes
+!                 --------------
+!      
+                  CALL ViscousDiscretization % RiemannSolverWithSGS(f = f, &
+                                                     QLeft = f % storage(1) % Q(:,i,j), &
+                                                     QRight = f % storage(2) % Q(:,i,j), &
+                                                     U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                     U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                     U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                     U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                     U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                     U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                     nHat = f % geom % normal(:,i,j) , &
+                                                     dWall = f % geom % dWall(i,j), &
+                                                     flux  = visc_flux(:,i,j) )
+
+               end do
+            end do
          end if
       else
          visc_flux = 0.0_RP
