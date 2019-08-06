@@ -64,8 +64,8 @@ module SpatialDiscretization
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
       character(len=LINE_LENGTH), parameter     :: CHDiscretizationKey = "cahn-hilliard discretization"
 
-      real(kind=RP), protected :: IMEX_S0 = 200.0_RP 
-      real(kind=RP), protected :: IMEX_K0 = 2.0_RP
+      real(kind=RP), protected :: IMEX_S0 = 0.0_RP 
+      real(kind=RP), protected :: IMEX_K0 = 1.0_RP
 !
 !     ========      
       CONTAINS 
@@ -244,13 +244,14 @@ module SpatialDiscretization
 !        Update concentration with the state vector
 !        ------------------------------------------
 !
+         select case (mode)
+         case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
 !$omp do schedule(runtime)
-         do eID = 1, size(mesh % elements)
-            mesh % elements(eID) % storage % c(1,:,:,:) = mesh % elements(eID) % storage % Q(IMC,:,:,:)
-
-            mesh % elements(eID) % storage % Q(IMSQRHOU:IMSQRHOW,:,:,:) = 0.0_RP
-         end do
+            do eID = 1, size(mesh % elements)
+               mesh % elements(eID) % storage % c(1,:,:,:) = mesh % elements(eID) % storage % QNS(IMC,:,:,:)
+            end do
 !$omp end do         
+         end select
 
 !
 !        -------------------------------
@@ -287,9 +288,6 @@ module SpatialDiscretization
 !
 !        Get the concentration Laplacian (into QDot => cDot)
 
-!$omp single
-         CHDiscretization % sigma = 10.0_RP
-!$omp end single 
          call ComputeLaplacian(mesh, time)
 
          select case (mode)
@@ -298,10 +296,13 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
 !
 !            + Linear part
+               !mesh % elements(eID) % storage % mu = - POW2(multiphase % eps)* mesh % elements(eID) % storage % QDot
                mesh % elements(eID) % storage % mu = - 1.5_RP * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot
 !
 !            + NonLinear part
+               !call AddQuarticDWPDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
                call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
+
             end do
 !$omp end do         
          case (CTD_IMEX_IMPLICIT)
@@ -309,6 +310,7 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
 !
 !            + Linear part
+               !mesh % elements(eID) % storage % mu = - IMEX_K0 * POW2(multiphase % eps) * mesh % elements(eID) % storage % QDot &
                mesh % elements(eID) % storage % mu = - 1.5_RP * IMEX_K0 * multiphase % eps * multiphase % sigma * mesh % elements(eID) % storage % QDot &
                                                      + IMEX_S0 * mesh % elements(eID) % storage % c
 !            + Multiply by mobility
@@ -325,6 +327,7 @@ module SpatialDiscretization
          call mesh % SetStorageToEqn(MU_BC)
 !$omp end single
          call mesh % ProlongSolutionToFaces(NCOMP)
+
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !        2nd step: If IMEX_IMPLCIIT, get the chemical potential laplacian and exit
@@ -345,15 +348,16 @@ module SpatialDiscretization
 !
 !           Get the concentration Laplacian (into QDot => cDot)
 
-!$omp single
-            CHDiscretization % sigma = 10.0_RP * multiphase % M0
-!$omp end single 
             call ComputeLaplacian(mesh, time)
 !
 !           ------------------------------------------
 !           *** WARNING! The storage leaves set to CH!
 !           ------------------------------------------
 !
+!$omp single
+            call mesh % SetStorageToEqn(C_BC)
+            call SetBoundaryConditionsEqn(C_BC)
+!$omp end single
          end select
 !
 !///////////////////////////////////////////////
@@ -431,6 +435,7 @@ module SpatialDiscretization
 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
+
          end do
 !$omp end do
 
@@ -446,10 +451,6 @@ module SpatialDiscretization
          case(CTD_IGNORE_MODE)
             call multiphase % SetStarMobility(multiphase % M0)
          end select
-
-!$omp single
-         viscousDiscretization % sigma = multiphase % M0_star
-!$omp end single
 
          call ComputeNSTimeDerivative(mesh, time)
 
@@ -469,8 +470,11 @@ module SpatialDiscretization
 !            + Linear part
                mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
                                                      - 1.5_RP*(1.0_RP - IMEX_K0)*multiphase % sigma*multiphase % eps*mesh % elements(eID) % storage % cDot
+               !mesh % elements(eID) % storage % mu = - IMEX_S0 * mesh % elements(eID) % storage % c &
+               !                                      - (1.0_RP - IMEX_K0)* POW2(multiphase % eps)*mesh % elements(eID) % storage % cDot
 !
 !            + NonLinear part
+               !call AddQuarticDWPDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
                call Multiphase_AddChemFEDerivative(mesh % elements(eID) % storage % c, mesh % elements(eID) % storage % mu)
             end do
 !$omp end do         
@@ -496,9 +500,6 @@ module SpatialDiscretization
 !
 !           Get the concentration Laplacian (into QDot => cDot)
 
-!$omp single
-            CHDiscretization % sigma = 0.0_RP
-!$omp end single
             call ComputeLaplacian(mesh, time)
 
 !$omp single
@@ -594,10 +595,11 @@ module SpatialDiscretization
 
 !
 !            + Add user defined source terms
-               call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / sqrtRho
+               call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
 
             end do         ; end do          ; end do 
+
             end associate 
          end do
 !$omp end do

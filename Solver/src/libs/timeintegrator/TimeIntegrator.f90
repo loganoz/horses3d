@@ -473,7 +473,7 @@ print*, "Method selected: RK5"
                exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
-            IF ( t .ge. self % tFinal) then
+            IF ( (t .ge. self % tFinal) .or. (abs(t-self % tFinal) .le. 100.0_RP*epsilon(1.0_RP))) then
                call self % Display( sem % mesh, monitors, k+1)
                sem % numberOfTimeSteps = k + 1
                exit

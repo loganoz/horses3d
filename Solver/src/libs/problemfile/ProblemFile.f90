@@ -128,7 +128,11 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
+#ifdef CAHNHILLIARD
+,multiphase_ &
+#endif
+)
          use SMConstants
          USE HexMeshClass
          use FluidData
@@ -141,6 +145,9 @@ module ProblemFileFunctions
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
+#ifdef CAHNHILLIARD
+         type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
 !
@@ -408,7 +415,11 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
+#ifdef CAHNHILLIARD
+, multiphase_ &
+#endif
+)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -426,6 +437,9 @@ end module ProblemFileFunctions
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
+#ifdef CAHNHILLIARD
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
 !
 !           ---------------
 !           Local variables

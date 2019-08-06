@@ -181,7 +181,7 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

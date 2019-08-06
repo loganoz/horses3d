@@ -188,30 +188,31 @@ MODULE IMEXMethods
       integer                                  :: k, id, s
       SAVE DimPrb, nelm, TimeAccurate
 
+
 #if defined(MULTIPHASE) && defined(CAHNHILLIARD)
       nEqnJac = NCOMP
       nGradJac = NCOMP
 
-      IF (isfirst) THEN           
-!
-!        ***********************************************************************
-!           Construct the Jacobian, and perform the factorization in the first
-!           call.
-!        ***********************************************************************
-!
-         isfirst = .FALSE.
-         nelm = SIZE(sem%mesh%elements)
-         DimPrb = sem % NDOF * NCOMP
-         globalDimPrb = sem % totalNDOF * NCOMP
-         
-         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEX_MatrixShift) 
-         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, gamma*dt, 1.0_RP)
-         
-      ENDIF
+!      IF (isfirst) THEN           
+!!
+!!        ***********************************************************************
+!!           Construct the Jacobian, and perform the factorization in the first
+!!           call.
+!!        ***********************************************************************
+!!
+!         isfirst = .FALSE.
+!         nelm = SIZE(sem%mesh%elements)
+!         DimPrb = sem % NDOF * NCOMP
+!         globalDimPrb = sem % totalNDOF * NCOMP
+!         
+!         CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEX_MatrixShift) 
+!         call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, gamma*dt, 1.0_RP)
+!         
+!      ENDIF
 !
 !     First stage
 !     -----------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
 
 !$omp parallel do schedule(runtime)
       do id = 1, sem % mesh % no_of_elements
@@ -237,40 +238,40 @@ MODULE IMEXMethods
             end do
 !
 !         - Implicit coefficients
-            do k = 1,s-1
-               sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
-                                                                    + dt*A(s,k)*sem % mesh % elements(id) % storage % RKSteps(k) % K(1,:,:,:)
-            end do
+!            do k = 1,s-1
+!               sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
+!                                                                    + dt*A(s,k)*sem % mesh % elements(id) % storage % RKSteps(k) % K(1,:,:,:)
+!            end do
          end do
 !$omp end parallel do
 !
 !        Get the Right Hand Side for the linear solver
 !        ---------------------------------------------
-         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
+!         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
 !
 !        Solve the linear system
 !        -----------------------
-         call sem % mesh % SetStorageToEqn(C_BC)
-         call ComputeRHS_MURK(sem, dt, nelm, linsolver)
-         call linsolver % SolveLUDirect
-         call sem % mesh % storage % local2GlobalQ (sem % NDOF)
-         sem % mesh % storage % Q = linsolver % x
-         call sem % mesh % storage % global2LocalQ
-         call sem % mesh % SetStorageToEqn(NS_BC)
+!         call sem % mesh % SetStorageToEqn(C_BC)
+!         call ComputeRHS_MURK(sem, dt, nelm, linsolver)
+!         call linsolver % SolveLUDirect
+!         call sem % mesh % storage % local2GlobalQ (sem % NDOF)
+!         sem % mesh % storage % Q = linsolver % x
+!         call sem % mesh % storage % global2LocalQ
+!         call sem % mesh % SetStorageToEqn(NS_BC)
 !
 !        Set the implicit Runge-Kutta coefficient (stored in c) and add it to the solution
 !        ---------------------------------------------------------------------------------
-!$omp parallel do schedule(runtime)
-         do id = 1, sem % mesh % no_of_elements
-            sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:) = sem % mesh % elements(id) % storage % c(1,:,:,:)
-            sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
-                                                                 + dt*A(s,s)*sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:)
-         end do
-!$omp end parallel do
+!!$omp parallel do schedule(runtime)
+!         do id = 1, sem % mesh % no_of_elements
+!            sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:) = sem % mesh % elements(id) % storage % c(1,:,:,:)
+!            sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
+!                                                                 + dt*A(s,s)*sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:)
+!         end do
+!!$omp end parallel do
 !
 !        Compute QDot -> RKStep(s+1) % hatK
 !        ----------------------------------
-         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
 !
 !        Set new explicit Runge-Kutta coefficient + recover the original solution
 !        ------------------------------------------------------------------------
@@ -284,11 +285,11 @@ MODULE IMEXMethods
             end do
 !
 !         - Implicit coefficients
-            do k = 1,s
-               sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
-                                                                    - dt*A(s,k)*sem % mesh % elements(id) % storage % RKSteps(k) % K(1,:,:,:)
-            end do
-
+!            do k = 1,s
+!               sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
+!                                                                    - dt*A(s,k)*sem % mesh % elements(id) % storage % RKSteps(k) % K(1,:,:,:)
+!            end do
+!
          end do
 !$omp end parallel do
       end do
@@ -304,11 +305,11 @@ MODULE IMEXMethods
          end do
 !
 !      - Implicit coefficients
-         do s = 1, NSTAGES
-            sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
-                                                                 + dt*B(s)*sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:)
-   
-         end do
+!         do s = 1, NSTAGES
+!            sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC,:,:,:) &
+!                                                                 + dt*B(s)*sem % mesh % elements(id) % storage % RKSteps(s) % K(1,:,:,:)
+!   
+!         end do
       end do
 !$omp end parallel do
 !
@@ -345,10 +346,11 @@ MODULE IMEXMethods
       logical, save                            :: isSecond = .false.
       logical                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
-      integer,       parameter                 :: NSTAGES = 2
       real(kind=RP)                            :: tk
       integer                                  :: k, id, s
       SAVE DimPrb, nelm, TimeAccurate
+
+      tk = t + dt
 
 #if defined(MULTIPHASE) && defined(CAHNHILLIARD)
       nEqnJac = NCOMP
@@ -368,9 +370,9 @@ MODULE IMEXMethods
          end do
 !$omp end parallel do
 !
-!        Compute the time derivative (Explicit)
+!        Compute the t derivative (Explicit)
 !        --------------------------------------
-         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+         call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IMEX_EXPLICIT)
 !
 !        Change the y^{*,n+1} in Q to \hat{y}
 !        ------------------------------------
@@ -381,7 +383,7 @@ MODULE IMEXMethods
          end do
 !$omp end parallel do
 !
-!        Perform the implicit time-step
+!        Perform the implicit t-step
 !        ------------------------------
          call ComputeRHS_MUBDF2(sem, dt, nelm, linsolver)
          call linsolver % SolveLUDirect
@@ -398,7 +400,7 @@ MODULE IMEXMethods
 !           -----------------------------------------------------
             sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % c(1,:,:,:)
 !
-!           Perform a time-step on the rest of the variables
+!           Perform a t-step on the rest of the variables
 !           ------------------------------------------------
             sem % mesh % elements(id) % storage % Q(IMC+1:,:,:,:) = (2.0_RP / 3.0_RP ) * (sem % mesh % elements(id) % storage % Q(IMC+1:,:,:,:) & 
                                                                     + dt*sem % mesh % elements(id) % storage % QDot(IMC+1:,:,:,:))
@@ -413,7 +415,7 @@ MODULE IMEXMethods
 !           Construct the Jacobian, and perform the factorization in the first
 !           call.
 !        ***********************************************************************
-!
+
          isfirst = .false.
          isSecond = .true.
          nelm = SIZE(sem%mesh%elements)
@@ -423,7 +425,7 @@ MODULE IMEXMethods
          CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEX_MatrixShift) 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
 
-         call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IMEX_EXPLICIT)
+         call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IMEX_EXPLICIT)
    
          call ComputeRHS_MUBDF2(sem, dt, nelm, linsolver)
          call linsolver % SolveLUDirect
@@ -432,7 +434,7 @@ MODULE IMEXMethods
          sem % mesh % storage % Q = linsolver % x
          call sem % mesh % storage % global2LocalQ
          call sem % mesh % SetStorageToEqn(NS_BC)
-!
+
 !$omp parallel do schedule(runtime)
          do id = 1, sem % mesh % no_of_elements
 !
@@ -444,10 +446,11 @@ MODULE IMEXMethods
 !           -----------------------------------------------------
             sem % mesh % elements(id) % storage % Q(IMC,:,:,:) = sem % mesh % elements(id) % storage % c(1,:,:,:)
 !
-!           Perform a time-step on the rest of the variables
+!           Perform a t-step on the rest of the variables
 !           ------------------------------------------------
             sem % mesh % elements(id) % storage % Q(IMC+1:,:,:,:) = sem % mesh % elements(id) % storage % Q(IMC+1:,:,:,:) & 
                                                                     + dt*sem % mesh % elements(id) % storage % QDot(IMC+1:,:,:,:)
+
          end do 
 !$omp end parallel do
 !
@@ -460,7 +463,7 @@ MODULE IMEXMethods
 !
 !     The "good" residuals CTD call
 !     -----------------------------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, time, CTD_IGNORE_MODE)
+      call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IGNORE_MODE)
 
 #endif
    end subroutine TakeIMEXBDF2Step_MU
