@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Jul 17 11:52:41 2019
+!   @Last revision date: Sun Aug  4 19:18:48 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -1672,15 +1672,12 @@ slavecoord:             DO l = 1, 4
                case (IX)
                   e % Nxyz(1) = 0
                   self % Nx(eID) = 0
-                  e % spAxi   => NodalStorage(0)
                case (IY)
                   e % Nxyz(2) = 0
                   self % Ny(eID) = 0
-                  e % spAEta  => NodalStorage(0)
                case (IZ)
                   e % Nxyz(3) = 0
                   self % Nz(eID) = 0
-                  e % spAZeta => NodalStorage(0)
             end select
 
             end associate
@@ -3411,6 +3408,10 @@ slavecoord:             DO l = 1, 4
 !
 !///////////////////////////////////////////////////////////////////////
 !
+!  HexMesh_AllocateStorage:
+!  Allocates the storage for the simulation
+!  -> Storage specific to the analytical Jacobian is constructed by the corresponding class (AnalyticalJacobian.f90)
+!
    subroutine HexMesh_AllocateStorage(self,NDOF,controlVariables,computeGradients,Face_Storage)
       implicit none
       !-----------------------------------------------------------
@@ -3454,15 +3455,15 @@ slavecoord:             DO l = 1, 4
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, bdf_order, RKSteps_num )
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
 
 !     Construct faces' storage
 !     ------------------------
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
-            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE.)
+            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE.)
             end associate
          end do
       end if
@@ -3656,6 +3657,7 @@ slavecoord:             DO l = 1, 4
       !-local-variables-----------------------------------
       integer :: eID, fID, zoneID
       logical :: saveGradients
+      logical :: analyticalJac   ! Do we need analytical Jacobian storage?
       type(IntegerDataLinkedList_t) :: elementList
       type(IntegerDataLinkedList_t) :: facesList
       type(IntegerDataLinkedList_t) :: zoneList
@@ -3688,11 +3690,11 @@ slavecoord:             DO l = 1, 4
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
       zoneList = IntegerDataLinkedList_t(.FALSE.)
+      analyticalJac  = self % storage % anJacobian
       
 !     *********************************************
 !     Adapt individual elements (geometry excluded)
 !     *********************************************
-
 !$omp parallel do schedule(runtime) private(fID, e)
       do eID=1, self % no_of_elements
          e => self % elements(eID)   ! Associate fails(!) here
@@ -3723,10 +3725,10 @@ slavecoord:             DO l = 1, 4
 !     *************************
 !     Adapt corresponding faces
 !     *************************
-      
+
 !     Destruct faces storage
 !     ----------------------
-!$omp parallel do 
+!$omp parallel do schedule(runtime)
       do fID=1, size(facesArray)
          call self % faces( facesArray(fID) ) % storage % destruct
       end do
@@ -3738,11 +3740,11 @@ slavecoord:             DO l = 1, 4
       
 !     Construct faces storage
 !     -----------------------
-!$omp parallel do private(f)
+!$omp parallel do private(f) schedule(runtime)
       do fID=1, size(facesArray)
          f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers 
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients)
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac)
       end do
 !$omp end parallel do 
 
@@ -3819,8 +3821,12 @@ slavecoord:             DO l = 1, 4
    end subroutine HexMesh_pAdapt
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-! 
-   impure elemental subroutine HexMesh_Assign (to, from)
+!
+!  HexMesh_Assign:
+!  Subroutine to assign a HexMesh to another.
+!  It turns out that an "impure" procedure with explicit OMP is more efficient than pure or elemental in this case.
+!
+   subroutine HexMesh_Assign (to, from)
       implicit none
       !-arguments----------------------------------------
       class(HexMesh), intent(inout), target :: to
@@ -3859,15 +3865,26 @@ slavecoord:             DO l = 1, 4
       
       safedeallocate (to % nodes)
       allocate ( to % nodes ( size(from % nodes) ) )
-      to % nodes = from % nodes
+!$omp parallel do schedule(runtime)
+      do eID=1, size(from % nodes)
+         to % nodes(eID) = from % nodes(eID)
+      end do
+!$omp end parallel do
       
       safedeallocate (to % faces)
       allocate ( to % faces ( size(from % faces) ) )
-      to % faces = from % faces
-      
+!$omp parallel do schedule(runtime)
+      do eID=1, size(from % faces)
+         to % faces(eID) = from % faces(eID)
+      end do
+!$omp end parallel do
       safedeallocate (to % elements)
       allocate ( to % elements ( size(from % elements) ) )
-      to % elements = from % elements
+!$omp parallel do schedule(runtime)
+      do eID=1, from % no_of_elements
+         to % elements(eID) = from % elements(eID)
+      end do
+!$omp end parallel do
       
       to % MPIfaces = from % MPIfaces
       
@@ -3878,10 +3895,12 @@ slavecoord:             DO l = 1, 4
 !
 !     Point elements' storage
 !     -----------------------
-      
+!$omp parallel do schedule(runtime)
       do eID = 1, to % no_of_elements
          to % elements(eID) % storage => to % storage % elements(eID)
       end do
+!$omp end parallel do
+      
    end subroutine HexMesh_Assign
 END MODULE HexMeshClass
       

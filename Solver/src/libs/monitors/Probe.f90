@@ -9,6 +9,7 @@ module ProbeClass
    use MPI_Process_Info
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
+   use NodalStorageClass   , only: NodalStorage
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -157,12 +158,15 @@ module ProbeClass
 !        Get the Lagrange interpolants
 !        -----------------------------
          associate(e => mesh % elements(self % eID))
+         associate( spAxi   => NodalStorage(e % Nxyz(1)), &
+                    spAeta  => NodalStorage(e % Nxyz(2)), &
+                    spAzeta => NodalStorage(e % Nxyz(3)) )
          safedeallocate(self % lxi  ) ; allocate( self % lxi(0 : e % Nxyz(1)) )
          safedeallocate(self % leta ) ; allocate( self % leta(0 : e % Nxyz(2)) )
          safedeallocate(self % lzeta) ; allocate( self % lzeta(0 : e % Nxyz(3)) )
-         self % lxi = e % spAxi % lj(self % xi(1))
-         self % leta = e % spAeta % lj(self % xi(2))
-         self % lzeta = e % spAzeta % lj(self % xi(3))
+         self % lxi = spAxi % lj(self % xi(1))
+         self % leta = spAeta % lj(self % xi(2))
+         self % lzeta = spAzeta % lj(self % xi(3))
 !
 !        ****************
 !        Prepare the file
@@ -186,6 +190,7 @@ module ProbeClass
 
             close ( fID )
          end if
+         end associate
          end associate
       end subroutine Probe_Initialization
 

@@ -4,9 +4,9 @@
 !   @File:    EllipticBR2.f90
 !   @Author:  Juan (juan.manzanero@upm.es)
 !   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Tue Feb 12 16:16:23 2019
+!   @Last revision date: Sat Aug  3 23:57:14 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 822273ecdeed19a671a81d0d29771b49c8e6ee70
+!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
 !
 !//////////////////////////////////////////////////////
 !
@@ -268,6 +268,7 @@ module EllipticBR2
          use PhysicsStorage
          use Physics
          use DGIntegrals
+         use NodalStorageClass, only: NodalStorage
          implicit none
          class(BassiRebay2_t),   intent(in) :: self
          integer,                intent(in) :: nGradEqn
@@ -309,9 +310,13 @@ module EllipticBR2
 !        Perform the interface gradients correction
 !        ******************************************
 !
-         bv_x = e % spAxi % b * e % spAxi % v
-         bv_y = e % spAeta % b * e % spAeta % v
-         bv_z = e % spAzeta % b * e % spAzeta % v
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+         bv_x = spAxi % b * spAxi % v
+         bv_y = spAeta % b * spAeta % v
+         bv_z = spAzeta % b * spAzeta % v
+         end associate
 !
 !        ----------------
 !>       Xi-contributions

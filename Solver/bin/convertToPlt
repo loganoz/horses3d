@@ -1,0 +1,110 @@
+#!/bin/bash
+# 
+#	This script converts all *.hsol files found in RESULTS_FOLDER with
+# the appropriate *.mesh file in the MESH_FOLDER, checking before if an
+# existing *.tec is newer or older than the *.hsol file.
+#########################################################################
+#
+#
+# Configuration:----------------------------------------
+SOLUTION_FILTER=${1:-Solution}	#INSERT SOLUTION NAME HERE!
+HORSES2PLT_FLAGS=${2:-}					#INSERT FLAGS FOR HORSES2PLT HERE!
+RESULTS_FOLDER=${3:-./RESULTS}  #INSERT RESULTS FOLDER HERE!
+MESH_FOLDER=${4:-./MESH}				#INSERT MESH FOLDER HERE!
+MESH_NAME=${5:-}								#INSERT MESH FILE HERE!
+########################################################
+
+########################################################
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+GRAY='\033[0m'
+NC='\033[0m' # No Color
+########################################################
+
+########################################################
+# Auxiliar functions
+function extractMeshNumber {
+	auxvar=${1##*_}
+	echo ${auxvar%%.hmesh*}
+}
+function extractHsolNumber {
+	auxvar=${1##*_}
+	echo ${auxvar%%.hsol*}
+}
+########################################################
+
+entries="$RESULTS_FOLDER"/"$SOLUTION_FILTER"*.hsol
+
+########################################################
+# Find all the mesh files
+imesh=0
+if [ -z $MESH_NAME ]; then
+	meshfiles=("$MESH_FOLDER"/"$SOLUTION_FILTER"_*.hmesh)
+	Nmeshes=${#meshfiles[@]}
+	if [ $Nmeshes -gt 0 ]; then
+		meshfile=${meshfiles[0]}
+	fi
+else
+	Nmeshes=0
+	meshfile=$MESH_NAME
+fi
+########################################################
+
+no_of_entries=0
+for entry in $entries
+do
+	no_of_entries=$((no_of_entries+1))
+done
+
+i=0
+for entry in $entries
+do
+	i=$((i+1))
+	
+	
+	if [ $imesh -lt $((Nmeshes-1)) ]; then
+		hsolnum=$( extractHsolNumber $entry )
+		
+		for imeshnew in `seq $imesh $Nmeshes`
+		do
+				meshnum=$( extractMeshNumber ${meshfiles[$imeshnew]} )
+				if [ $meshnum -gt $hsolnum ]; then 
+					imesh=$((imeshnew-1))
+					meshfile=${meshfiles[$imesh]}
+					break
+				elif [ $meshnum -eq $hsolnum ]; then 
+					imesh=$((imeshnew))
+					meshfile=${meshfiles[$imesh]}
+					break
+				fi
+		done
+	fi
+	
+	tecname=$(echo "${entry%.*}").tec
+	if [ -f $tecname ]; then
+		if [ $entry -nt $tecname ]; then
+			printf "${GREEN}(%d/%d) %s...${NC}" "$i" "$no_of_entries" "Converting $entry"
+			printf "${RED}"
+  			horses2plt $meshfile $entry $HORSES2PLT_FLAGS > /dev/null 
+			printf "${NC}"
+			if [ $? -eq 0 ]
+			then
+				printf "${GREEN}done!${NC}\n"
+			fi
+		else
+			printf "${GRAY}(%d/%d) %s${NC}\n" "$i" "$no_of_entries" "$entry conversion skipped since a more recent *.tec file exists"
+			
+		fi
+	else
+		printf "${GREEN}(%d/%d) %s...${NC}" "$i" "$no_of_entries" "Converting $entry"
+		printf "${RED}"
+  		horses2plt $meshfile $entry $HORSES2PLT_FLAGS > /dev/null
+		printf "${NC}"
+		if [ $? -eq 0 ]
+		then
+			printf "${GREEN}done!${NC}\n"
+		fi
+	fi
+done
+########################################################

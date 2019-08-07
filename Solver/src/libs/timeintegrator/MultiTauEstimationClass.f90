@@ -4,9 +4,9 @@
 !   @File:    MultiTauEstimationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Mar 12 15:43:41 2019
-!   @Last revision date: Sun May  5 21:27:54 2019
+!   @Last revision date: Thu Aug  1 18:48:27 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 097cb29a4813ba8affa07c25c6bbfba6dc0b5803
+!   @Last revision commit: 6a5c8d0cd14b48b0b93496dd37d0190cb9574cc0
 !
 !//////////////////////////////////////////////////////
 !
@@ -237,7 +237,7 @@ module MultiTauEstimationClass
 !        Initial checks
 !        **************
          if (.not. this % Active) return
-         if (mod(iter,this % interval) /= 0) return
+         if (iter == 1 .or. mod(iter,this % interval) /= 0) return
          
          this % stage = this % stage + 1
 !
@@ -269,14 +269,15 @@ module MultiTauEstimationClass
 !     ----------------------------------------------
 !     Get maximum values for the TEmap of an element
 !     ----------------------------------------------
-      subroutine MultiTau_GetTEmap(this,stages,glob_eID,Nmax,P_1,TEmap)
+      subroutine MultiTau_GetTEmap(this,stages,glob_eID,Nmax,Nmin,P_1,TEmap)
          implicit none
          !-arguments----------------------------------------------------
-         class(MultiTauEstim_t)  , intent(inout)   :: this
+         class(MultiTauEstim_t)  , intent(in)      :: this
          integer                 , intent(in)      :: stages(2) ! Initial and final estimation stage
          integer                 , intent(in)      :: glob_eID
-         integer                 , intent(in)      :: Nmax(NDIM)
-         integer                 , intent(in)      :: P_1 (NDIM)
+         integer                 , intent(in)      :: Nmax(NDIM)  ! Maximum polynomial order for adaptation
+         integer                 , intent(in)      :: Nmin(NDIM)  ! Minimum polynomial order for adaptation
+         integer                 , intent(inout)   :: P_1 (NDIM)
          real(kind=RP)           , intent(out)     :: TEmap(NMINest:Nmax(1),NMINest:Nmax(2),NMINest:Nmax(3))
          !-local-variables----------------------------------------------
          integer        :: stage, fd
@@ -299,6 +300,11 @@ module MultiTauEstimationClass
             call TE % ReadFromFile(fd_in = fd)
             
             do dir=1, 3
+               ! Adjust P-1
+               P_1(dir)  = TE % Dir(dir) % P - 1
+               if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
+               
+               ! Extrapolate
                call TE % ExtrapolateInOneDir (P_1(dir),NMax(dir),Dir,notenough,error)
                if (notenough .or. error==1) TE % Dir(dir) % maxTE(P_1(dir)+1:Nmax(dir)) = huge(1._RP) / 4 ! Divide by 4 to prevent overflow
             end do

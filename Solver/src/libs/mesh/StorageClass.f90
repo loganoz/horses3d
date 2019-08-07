@@ -4,14 +4,15 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Jul 17 19:22:43 2019
+!   @Last revision date: Mon Aug  5 18:24:43 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: bd19c2b55f7c80b92387da8943084b7679834a33
+!   @Last revision commit: 16994fcf37674654b5e0eef9236074835c272ffc
 !
 !//////////////////////////////////////////////////////
 !
 !     TODO1: Store FaceStorage in SolutionStorage
-!     TODO2: Remove physics-related pointers... Allocate one storage for each physics 
+!     TODO2: Remove physics-related pointers... Allocate one storage for each physics (AND REMOVE ALL POINTERS)
+!     TODO3: Allocate implicit methods storage (global arrays) from implicit classes
 #include "Includes.h"
 
 module StorageClass
@@ -58,6 +59,10 @@ module StorageClass
 !  Class for storing variables element-wise
 !  ****************************************
    type ElementStorage_t
+      logical                                         :: computeGradients
+      logical                                         :: anJacobian = .FALSE.    ! Does we need analytical Jacobian specific storage?
+      integer                                         :: prevSol_num
+      integer                                         :: RKSteps_num
       integer                                         :: currentlyLoaded
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: Nxyz(NDIM)
@@ -102,6 +107,7 @@ module StorageClass
          procedure   :: Destruct            => ElementStorage_Destruct
          procedure   :: InterpolateSolution => ElementStorage_InterpolateSolution
          procedure   :: PointStorage        => ElementStorage_PointStorage
+         procedure   :: constructAnJac      => ElementStorage_ConstructAnJac
 #ifdef FLOW
          procedure   :: SetStorageToNS    => ElementStorage_SetStorageToNS
 #endif
@@ -119,7 +125,8 @@ module StorageClass
       logical                                    :: AdaptedQ     = .FALSE.
       logical                                    :: AdaptedQdot  = .FALSE.
       logical                                    :: AdaptedPrevQ = .FALSE.
-      integer                                    :: prevSol_num    = 0
+      logical                                    :: anJacobian   = .FALSE.
+      integer                                    :: prevSol_num    = -1
       integer                      , allocatable :: prevSol_index(:)           ! Indexes for the previous solutions
       
       type(ElementStorage_t)       , allocatable :: elements(:)
@@ -153,6 +160,10 @@ module StorageClass
 !  Class for storing variables in the faces
 !  ****************************************
    type FaceStorage_t
+      logical                                          :: constructed = .FALSE.
+      logical                                          :: computeGradients
+      logical                                          :: anJacobian =.FALSE.         ! Has Jacobian storage?
+      integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
@@ -229,8 +240,10 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),   allocatable :: v
 #endif
       contains
-         procedure   :: Construct => FaceStorage_Construct
-         procedure   :: Destruct  => FaceStorage_Destruct
+         procedure   :: Construct      => FaceStorage_Construct
+         procedure   :: Destruct       => FaceStorage_Destruct
+         procedure   :: PointStorage   => FaceStorage_PointStorage
+         procedure   :: ConstructAnJac => FaceStorage_ConstructAnJac
 #ifdef FLOW
          procedure   :: SetStorageToNS => FaceStorage_SetStorageToNS
 #endif
@@ -238,6 +251,8 @@ module StorageClass
          procedure   :: SetStorageToCH_c  => FaceStorage_SetStorageToCH_c
          procedure   :: SetStorageToCH_mu => FaceStorage_SetStorageToCH_mu
 #endif
+         procedure :: copy             => FaceStorage_Assign
+         generic   :: assignment(=)    => copy
    end type FaceStorage_t
 !
 !  ========
@@ -255,24 +270,26 @@ module StorageClass
 !     -------------------------------------------------------
 !     The global solution arrays are only allocated if needed
 !     -------------------------------------------------------
-      pure subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
+      subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
          implicit none
          !-arguments---------------------------------------------
          class(SolutionStorage_t), target, intent(inout) :: self
          integer                 , intent(in)    :: NDOF
          integer, dimension(:)   , intent(in)    :: Nx, Ny, Nz
          logical                 , intent(in)    :: computeGradients                   !<  Compute gradients?
+         logical                 , intent(in)    :: analyticalJac                      !<  Create storage for analytical Jacobian?
          integer, optional       , intent(in)    :: prevSol_num
          integer, optional       , intent(in)    :: RKSteps_num
          !-local-variables---------------------------------------
-         integer :: k
+         integer :: k, eID, num_of_elems
          !-------------------------------------------------------
          
          self % NDOF = NDOF
+         self % anJacobian = analyticalJac
          
          if ( present(prevSol_num) ) then 
+            self % prevSol_num = prevSol_num
             if ( prevSol_num > 0 ) then
-               self % prevSol_num = prevSol_num
                allocate ( self % prevSol_index(prevSol_num) )
                self % prevSol_index = (/ (k, k=1, prevSol_num) /)
 #ifdef FLOW
@@ -299,13 +316,22 @@ module StorageClass
 #endif
             end if
          end if
-
-         allocate (self % elements(size(Nx)) )
+         
+         num_of_elems = size(Nx)
+         allocate (self % elements(num_of_elems) )
       
          if ( present(RKSteps_num) ) then
-            call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, RKSteps_num)
+            end do
+!$omp end parallel do
          else
-            call self % elements % construct( Nx, Ny, Nz, computeGradients, prevSol_num, 0)
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, 0)
+            end do
+!$omp end parallel do
          end if
          
       end subroutine SolutionStorage_Construct
@@ -596,6 +622,7 @@ module StorageClass
          self % AdaptedQ     = .FALSE.
          self % AdaptedQdot  = .FALSE.
          self % AdaptedPrevQ = .FALSE.
+         self % anJacobian   = .FALSE.
          
          safedeallocate(self % prevSol_index)
          
@@ -619,74 +646,69 @@ module StorageClass
 !
 !/////////////////////////////////////////////////
 ! 
-      elemental subroutine SolutionStorage_Assign(to, from)
+!     (We need an special assign procedure)
 !
-!        ***********************************
-!        We need an special assign procedure
-!        ***********************************
-!
+      subroutine SolutionStorage_Assign(to, from)
          implicit none
+         !-arguments------------------------------------
          class(SolutionStorage_t), intent(inout) :: to
          type(SolutionStorage_t),  intent(in)    :: from
+         !-local-variables------------------------------
+         integer :: num_of_elems
+         integer :: eID
+         !----------------------------------------------
 !
 !        Copy the storage
 !        ----------------
+         call to % destruct
+         
          to % NDOF         =  from % NDOF
          to % AdaptedQ     =  from % AdaptedQ
          to % AdaptedQdot  =  from % AdaptedQdot
          to % AdaptedPrevQ =  from % AdaptedPrevQ
          to % prevSol_num  =  from % prevSol_num
+         to % anJacobian   =  from % anJacobian
          
-         safedeallocate (to % prevSol_index)
-         if ( allocated(from % prevSol_index) ) then
+         
+         
+         num_of_elems = size(from % elements)
+         allocate ( to % elements (num_of_elems) )
+!$omp parallel do schedule(runtime)
+         do eID=1, num_of_elems
+            to % elements(eID) = from % elements(eID)
+         end do
+!$omp end parallel do
+         
+         if ( to % prevSol_num > 0 ) then
             allocate ( to % prevSol_index ( size(from % prevSol_index) ) )
             to % prevSol_index=  from % prevSol_index
-         end if
-         
-         safedeallocate (to % elements)
-         if ( allocated(from % elements) ) then
-            allocate ( to % elements ( size(from % elements) ) )
-            to % elements = from % elements
-         end if
-         
 #ifdef FLOW
-         safedeallocate (to % QdotNS)
-         if ( allocated(from % QdotNS) ) then
-            allocate ( to % QdotNS ( size(from % QdotNS) ) )
-            to % QdotNS       =  from % QdotNS
-         end if
-         
-         safedeallocate (to % QNS)
-         if ( allocated(from % QNS) ) then
-            allocate ( to % QNS ( size(from % QNS) ) )
-            to % QNS          =  from % QNS
-         end if
-         
-         safedeallocate (to % PrevQNS)
-         if ( allocated(from % PrevQNS) ) then
             allocate ( to % PrevQNS ( size(from % PrevQNS,1),size(from % PrevQNS,2) ) )
             to % PrevQNS      =  from % PrevQNS
-         end if
 #endif
 #ifdef CAHNHILLIARD
-         safedeallocate (to % cDot)
-         if ( allocated(from % cDot) ) then
-            allocate ( to % cDot ( size(from % cDot) ) )
-            to % cDot         =  from % cDot
-         end if
-         
-         safedeallocate (to % c)
-         if ( allocated(from % c) ) then
-            allocate ( to % c ( size(from % c) ) )
-            to % c            =  from % c
-         end if
-         
-         safedeallocate (to % Prevc)
-         if ( allocated(from % Prevc) ) then
             allocate ( to % Prevc ( size(from % Prevc,1),size(from % Prevc,2) ) )
             to % Prevc        =  from % Prevc
-         end if
 #endif   
+         end if
+         
+         if ( to % prevSol_num >= 0 ) then
+#ifdef FLOW
+            allocate ( to % QdotNS ( size(from % QdotNS) ) )
+            to % QdotNS       =  from % QdotNS
+            
+            allocate ( to % QNS ( size(from % QNS) ) )
+            to % QNS          =  from % QNS
+#endif
+#ifdef CAHNHILLIARD
+            allocate ( to % cDot ( size(from % cDot) ) )
+            to % cDot         =  from % cDot
+            
+            allocate ( to % c ( size(from % c) ) )
+            to % c            =  from % c
+#endif   
+         end if
+         
 !
 !        Point the storage
 !        -----------------            
@@ -701,17 +723,23 @@ module StorageClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
-      elemental subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients, prevSol_num, RKSteps_num)
+      elemental subroutine ElementStorage_Construct(self, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
          implicit none
          !------------------------------------------------------------
          class(ElementStorage_t), intent(inout) :: self                               !<> Storage to be constructed
          integer                , intent(in)    :: Nx, Ny, Nz                         !<  Polynomial orders in every direction
          logical                , intent(in)    :: computeGradients                   !<  Compute gradients?
+         logical                , intent(in)    :: analyticalJac                      !<  Analytical Jacobian specific storage(?)
          integer                , intent(in)    :: prevSol_num
          integer                , intent(in)    :: RKSteps_num
          !------------------------------------------------------------
          integer :: k
          !------------------------------------------------------------
+         
+         self % computeGradients = computeGradients
+         self % prevSol_num = prevSol_num
+         self % RKSteps_num = RKSteps_num
+         
 !
 !        --------------------------------
 !        Get number of degrees of freedom
@@ -735,26 +763,26 @@ module StorageClass
                allocate ( self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) )
             end do
          end if
-
-               
-
+         
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NSP  (NCONS,0:Nx,0:Ny,0:Nz) )
          
-         ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
-         ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         if (computeGradients) then
+            ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+            ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
+         end if
+         
          allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
          
-         ! TODO: if implicit...
-         allocate( self % dF_dgradQ( NCONS, NCONS, NDIM, NDIM, 0:Nx, 0:Ny, 0:Nz ) )
+         if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
+         
 !
 !        Point to NS by default
 !        ----------------------
          call self % SetStorageToNS
 #endif
-
 #ifdef CAHNHILLIARD
          allocate ( self % c   (1:NCOMP,0:Nx,0:Ny,0:Nz) )
          allocate ( self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) )
@@ -804,9 +832,11 @@ module StorageClass
          self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
          
-         self % U_xNS = 0.0_RP
-         self % U_yNS = 0.0_RP
-         self % U_zNS = 0.0_RP
+         if (computeGradients) then
+            self % U_xNS = 0.0_RP
+            self % U_yNS = 0.0_RP
+            self % U_zNS = 0.0_RP
+         end if
 #endif
 
 #ifdef CAHNHILLIARD
@@ -823,27 +853,65 @@ module StorageClass
 #endif
       
       end subroutine ElementStorage_Construct
-
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     ElementStorage_ConstructAnJac:
+!     Construct analytical Jacobian (specific) storage
+!
+      elemental subroutine ElementStorage_ConstructAnJac(self) 
+         implicit none
+         !-arguments----------------------------------------
+         class(ElementStorage_t), intent(inout) :: self
+         !--------------------------------------------------
+#ifdef FLOW
+         self % anJacobian = .TRUE.
+         
+!        Allocation
+!        ----------
+         allocate( self % dF_dgradQ( NCONS, NCONS, NDIM, NDIM, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3) ) )
+         
+!        Zero storage
+!        ------------
+         self % dF_dgradQ = 0._RP
+#endif
+      end subroutine ElementStorage_ConstructAnJac
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
       elemental subroutine ElementStorage_Assign(to, from)
 !
 !        **********************************
-!        We need a special assign procedure TODO: Consider face pointers
+!        We need a special assign procedure
 !        **********************************
 !
          implicit none
          class(ElementStorage_t), intent(inout) :: to
          type(ElementStorage_t),  intent(in)    :: from
+         
+         call to % destruct
+         call to % construct (from % Nxyz(1), &
+                              from % Nxyz(2), & 
+                              from % Nxyz(3), & 
+                              from % computeGradients, & ! TODO: Fix this: it is not being used!!
+                              from % anJacobian, &
+                              from % prevSol_num, &
+                              from % RKSteps_num )
 !
 !        Copy the storage
 !        ----------------
          to % currentlyLoaded = from % currentlyLoaded
          to % NDOF            = from % NDOF
          to % Nxyz            = from % Nxyz
+         
 #ifdef FLOW
          to % QNS    = from % QNS
-         to % U_xNS  = from % U_xNS
-         to % U_yNS  = from % U_yNS
-         to % U_zNS  = from % U_zNS
+         
+         if (to % computeGradients) then
+            to % U_xNS  = from % U_xNS
+            to % U_yNS  = from % U_yNS
+            to % U_zNS  = from % U_zNS
+         end if
          to % QDotNS = from % QDotNS
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
@@ -851,6 +919,10 @@ module StorageClass
          
          to % mu_art    = from % mu_art
          to % stats     = from % stats
+         
+         if (to % anJacobian) then
+            to % dF_dgradQ = from % dF_dgradQ
+         end if
 #endif
 #ifdef CAHNHILLIARD
          to % c    = from % c
@@ -927,14 +999,20 @@ module StorageClass
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
          safedeallocate(self % S_NSP)
-         safedeallocate(self % U_xNS)
-         safedeallocate(self % U_yNS)
-         safedeallocate(self % U_zNS)
+         
+         if (self % computeGradients) then
+            safedeallocate(self % U_xNS)
+            safedeallocate(self % U_yNS)
+            safedeallocate(self % U_zNS)
+         end if
          safedeallocate(self % mu_art)
-         safedeallocate(self % dF_dgradQ)
          safedeallocate(self % rho)
          
+         !if (self % anJacobian) then ! Not needed since there's only one variable (= one if)
+            safedeallocate(self % dF_dgradQ)
+         !end if
 #endif
+         
 #ifdef CAHNHILLIARD
          safedeallocate(self % c)
          safedeallocate(self % cDot)
@@ -978,9 +1056,11 @@ module StorageClass
 
          self % currentlyLoaded = NS
          self % Q   (1:,0:,0:,0:) => self % QNS
-         self % U_x (1:,0:,0:,0:) => self % U_xNS
-         self % U_y (1:,0:,0:,0:) => self % U_yNS
-         self % U_z (1:,0:,0:,0:) => self % U_zNS
+         if (self % computeGradients) then
+            self % U_x (1:,0:,0:,0:) => self % U_xNS
+            self % U_y (1:,0:,0:,0:) => self % U_yNS
+            self % U_z (1:,0:,0:,0:) => self % U_zNS
+         end if
          self % QDot(1:,0:,0:,0:) => self % QDotNS
 
          do k = 1, size(self % prevQ)
@@ -1106,7 +1186,7 @@ module StorageClass
                                   Nout       = other % Nxyz , &
                                   outArray   = other % Q    )
             
-            if (gradients) then
+            if (gradients .and. this % computeGradients .and. other % computeGradients) then
                call Interp3DArrays  (Nvars      = NGRAD  , &
                                      Nin        = this % Nxyz  , &
                                      inArray    = this % U_x   , &
@@ -1137,47 +1217,45 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients)
+      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients, analyticalJac)
          implicit none
-         class(FaceStorage_t)     :: self
-         integer, intent(in)  :: NDIM
-         integer, intent(in)  :: Nf(2)              ! Face polynomial order
-         integer, intent(in)  :: Nel(2)             ! Element face polynomial order
-         logical              :: computeGradients 
+         class(FaceStorage_t), intent(inout) :: self
+         integer             , intent(in)    :: NDIM
+         integer             , intent(in)    :: Nf(2)              ! Face polynomial order
+         integer             , intent(in)    :: Nel(2)             ! Element face polynomial order
+         logical             , intent(in)    :: computeGradients 
+         logical             , intent(in)    :: analyticalJac      !<? Construct analytical Jacobian storage?
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer     :: interfaceFluxMemorySize
-
+         
          self % Nf  = Nf
          self % Nel = Nel
-
+         self % NDIM = NDIM
+         self % computeGradients = computeGradients
+         
          interfaceFluxMemorySize = 0
 
 #ifdef FLOW
          ALLOCATE( self % QNS   (NCONS,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
-         ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         
+         if (computeGradients) then
+            ALLOCATE( self % U_xNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_yNS(NGRAD,0:Nf(1),0:Nf(2)) )
+            ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
+         end if
 !
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
-!
-!        TODO: JMT, if (implicit..?)
-         allocate( self % dFStar_dqF  (NCONS,NCONS, 0: Nf(1), 0: Nf(2)) )
-         allocate( self % dFStar_dqEl (NCONS,NCONS, 0:Nel(1), 0:Nel(2),2) )
-         
-         allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: Nf(1),0: Nf(2)) )
-         allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:Nel(1),0:Nel(2),2) )
-         
-!        TODO: AMR, if Boundary
-         allocate( self % BCJac       (NCONS,NCONS,0:Nel(1),0:Nel(2)) )
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
+         
+         if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
 #ifdef CAHNHILLIARD
          allocate(self % c   (NCOMP , 0:Nf(1), 0:Nf(2)))
@@ -1213,13 +1291,11 @@ module StorageClass
 #ifdef FLOW
          self % QNS    = 0.0_RP
          
-         self % U_xNS = 0.0_RP
-         self % U_yNS = 0.0_RP
-         self % U_zNS = 0.0_RP
-
-         self % dFStar_dqF  = 0.0_RP
-         self % dFStar_dqEl = 0.0_RP
-
+         if (computeGradients) then
+            self % U_xNS = 0.0_RP
+            self % U_yNS = 0.0_RP
+            self % U_zNS = 0.0_RP
+         end if
          self % rho    = 0.0_RP
          self % mu_art = 0.0_RP
 #endif
@@ -1235,28 +1311,77 @@ module StorageClass
          self % mu_z  = 0.0_RP
          self % v     = 0.0_RP
 #endif
-
+         self % constructed = .TRUE.
       end subroutine FaceStorage_Construct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     FaceStorage_ConstructAnJac:
+!     Subroutine to construct the analytical Jacobian (specific) storage. 
+!     -> Must be called during or after face storage construction
+!     -> Only for Navier-Stokes (meanwhile)
+!
+      elemental subroutine FaceStorage_ConstructAnJac(self,NDIM)
+         implicit none
+         class(FaceStorage_t) , intent(inout) :: self
+         integer              , intent(in)    :: NDIM
+         
+#ifdef FLOW
+         self % anJacobian = .TRUE.
+         
+!        Allocate memory
+!        ---------------
+         allocate( self % dFStar_dqF  (NCONS,NCONS, 0: self % Nf(1), 0: self % Nf(2)) )
+         allocate( self % dFStar_dqEl (NCONS,NCONS, 0:self % Nel(1), 0:self % Nel(2),2) )
+         
+         if (self % computeGradients) then
+            allocate( self % dFv_dGradQF (NCONS,NCONS,NDIM,0: self % Nf(1),0: self % Nf(2)) )
+            allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
+         end if
+         
+!        TODO: AMR, if Boundary
+         allocate( self % BCJac       (NCONS,NCONS,0:self % Nel(1),0:self % Nel(2)) )
+         
+!        Zero memory
+!        -----------
+         self % dFStar_dqF   = 0.0_RP
+         self % dFStar_dqEl  = 0.0_RP
+         self % dFv_dGradQF  = 0.0_RP
+         self % dFv_dGradQEl = 0.0_RP
+         self % BCJac        = 0.0_RP
+#endif
+      end subroutine
 
       elemental subroutine FaceStorage_Destruct(self)
          implicit none
          class(FaceStorage_t), intent(inout) :: self
-   
+         
+         self % constructed = .FALSE.
          self % currentlyLoaded = OFF
-
+         
 #ifdef FLOW
          safedeallocate(self % QNS)
-         safedeallocate(self % U_xNS)
-         safedeallocate(self % U_yNS)
-         safedeallocate(self % U_zNS)
-         safedeallocate(self % dFStar_dqF)
-         safedeallocate(self % dFStar_dqEl)
-         safedeallocate(self % dFv_dGradQF)
-         safedeallocate(self % dFv_dGradQEl)
+         if (self % computeGradients) then
+            safedeallocate(self % U_xNS)
+            safedeallocate(self % U_yNS)
+            safedeallocate(self % U_zNS)
+         end if
          safedeallocate(self % mu_art)
          safedeallocate(self % rho )
-         safedeallocate(self % BCJac )
+         
+         self % anJacobian      = .FALSE.
+         
+         if (self % anJacobian) then
+            safedeallocate(self % dFStar_dqF)
+            safedeallocate(self % dFStar_dqEl)
+            if (self % computeGradients) then
+               safedeallocate(self % dFv_dGradQF)
+               safedeallocate(self % dFv_dGradQEl)
+            end if
+            safedeallocate(self % BCJac )
+         end if
 #endif
+         
 #ifdef CAHNHILLIARD
          safedeallocate(self % c)
          safedeallocate(self % c_x)
@@ -1277,9 +1402,9 @@ module StorageClass
 
       end subroutine FaceStorage_Destruct
 #ifdef FLOW
-      subroutine FaceStorage_SetStorageToNS(self)
+      pure subroutine FaceStorage_SetStorageToNS(self)
          implicit none
-         class(FaceStorage_t), target    :: self
+         class(FaceStorage_t), intent(inout), target    :: self
 
          self % currentlyLoaded = NS
 !
@@ -1290,7 +1415,7 @@ module StorageClass
 
          self % genericInterfaceFluxMemory = 0.0_RP
 
-         if ( allocated(self % U_xNS) ) then
+         if (self % computeGradients) then
             self % U_x (1:,0:,0:) => self % U_xNS
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
@@ -1300,9 +1425,9 @@ module StorageClass
       end subroutine FaceStorage_SetStorageToNS
 #endif
 #ifdef CAHNHILLIARD
-      subroutine FaceStorage_SetStorageToCH_c(self)
+      pure subroutine FaceStorage_SetStorageToCH_c(self)
          implicit none
-         class(FaceStorage_t), target  :: self
+         class(FaceStorage_t), intent(inout), target  :: self
 
          self % currentlyLoaded = C
 !
@@ -1320,9 +1445,9 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_c
 
-      subroutine FaceStorage_SetStorageToCH_mu(self)
+      pure subroutine FaceStorage_SetStorageToCH_mu(self)
          implicit none
-         class(FaceStorage_t), target  :: self
+         class(FaceStorage_t), intent(inout), target  :: self
 
          self % currentlyLoaded = MU
 
@@ -1330,7 +1455,7 @@ module StorageClass
          self % U_x(1:,0:,0:) => self % mu_x
          self % U_y(1:,0:,0:) => self % mu_y
          self % U_z(1:,0:,0:) => self % mu_z
-
+         
          self % fStar(1:NCOMP,0:self % Nel(1),0:self % Nel(2))            => self % genericInterfaceFluxMemory
          self % unStar(1:NCOMP, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
 
@@ -1338,6 +1463,87 @@ module StorageClass
 
       end subroutine FaceStorage_SetStorageToCH_mu
 #endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      elemental subroutine FaceStorage_PointStorage (self)
+         implicit none
+         class(FaceStorage_t), intent(inout)  :: self
+         
+         select case ( self % currentlyLoaded ) 
+            case (OFF)
+               self % Q      => NULL()
+               self % U_x    => NULL()
+               self % U_y    => NULL()
+               self % U_z    => NULL()
+               self % FStar  => NULL()
+               self % unStar => NULL()
+#ifdef FLOW
+            case (NS)
+               call self % SetStorageToNS   
+#endif
+#ifdef CAHNHILLIARD
+            case (C)
+               call self % SetStorageToCH_c
+
+            case (MU)
+               call self % SetStorageToCH_mu
+#endif
+         end select
+      end subroutine FaceStorage_PointStorage
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      
+      elemental subroutine FaceStorage_Assign(to, from)
+         implicit none
+         !-arguments--------------------------------------
+         class(FaceStorage_t), intent(inout) :: to
+         class(FaceStorage_t), intent(in)    :: from
+         !------------------------------------------------
+         
+         call to % destruct
+         if (.not. from % constructed) return
+         call to % construct(from % NDIM, from % Nf, from % Nel, from % computeGradients, from % anJacobian)
+         
+         to % currentlyLoaded = from % currentlyLoaded
+         to % Nf = from % Nf
+         to % Nel = from % Nel
+         to % genericInterfaceFluxMemory = from % genericInterfaceFluxMemory
+      
+#ifdef FLOW
+         to % QNS = from % QNS
+         if (to % computeGradients) then
+            to % U_xNS = from % U_xNS
+            to % U_yNS = from % U_yNS
+            to % U_zNS = from % U_zNS
+         end if
+         to % rho = from % rho
+         to % mu_art = from % mu_art
+         
+         if (to % anJacobian) then
+            to % dFStar_dqF = from % dFStar_dqF
+            to % dFStar_dqEl = from % dFStar_dqEl
+            if (to % computeGradients) then
+               to % dFv_dGradQF = from % dFv_dGradQF
+               to % dFv_dGradQEl = from % dFv_dGradQEl
+            end if
+            to % BCJac = from % BCJac
+         end if
+#endif
+#ifdef CAHNHILLIARD
+         to % c = from % c
+         to % c_x = from % c_x
+         to % c_y = from % c_y
+         to % c_z = from % c_z
+         to % mu = from % mu
+         to % mu_x = from % mu_x
+         to % mu_y = from % mu_y
+         to % mu_z = from % mu_z
+         to % v = from % v
+#endif
+         call to % PointStorage
+      end subroutine FaceStorage_Assign
 !
 !/////////////////////////////////////////////////////////////////////////////////////
 !

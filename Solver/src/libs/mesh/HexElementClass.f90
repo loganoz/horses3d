@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Tue Feb 12 10:22:06 2019
+!   @Last revision date: Sun Aug  4 16:39:47 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ef1a68982e9b4d6cf051357cba284f67316d9dcc
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -80,9 +80,6 @@
          INTEGER                         :: NumberOfConnections(6)
          TYPE(Connectivity)              :: Connection(6)
          type(ElementStorage_t), pointer :: storage
-         type(NodalStorage_t)  , pointer :: spAxi
-         type(NodalStorage_t)  , pointer :: spAeta
-         type(NodalStorage_t)  , pointer :: spAzeta
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
          contains
@@ -96,6 +93,8 @@
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
+            procedure   :: copy => HexElement_Assign
+            generic     :: assignment(=) => copy
       END TYPE Element 
             
       CONTAINS 
@@ -120,9 +119,6 @@
          self % boundaryName        = emptyBCName
          self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
-         self % spAxi   => NodalStorage(Nx)
-         self % spAeta  => NodalStorage(Ny)
-         self % spAzeta => NodalStorage(Nz)
 !
 !        ----------------------------------------
 !        Solution Storage is allocated separately
@@ -143,7 +139,7 @@
          !--------------------------------------
          
          self % hexMap = hexMap
-         CALL self % geom % Construct( self % spAxi, self % spAeta, self % spAzeta, hexMap )
+         CALL self % geom % Construct( NodalStorage(Self % Nxyz(1)), NodalStorage(Self % Nxyz(2)), NodalStorage(Self % Nxyz(3)), hexMap )
          
       end subroutine HexElement_ConstructGeometry
 !
@@ -171,10 +167,6 @@
          CALL self % geom % Destruct
          call self % Connection % destruct
          call self % hexMap % destruct
-         
-         nullify( self % spAxi   )
-         nullify( self % spAeta  )
-         nullify( self % spAzeta )     
          
          call self % SurfInfo % destruct
 
@@ -239,8 +231,12 @@
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
-
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         
          N = self % Nxyz
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
 !
 !        *************************
 !        Prolong solution to faces
@@ -251,14 +247,14 @@
          QBOT = 0.0_RP     ; QT   = 0.0_RP
          
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* self % spAxi % v  (i,LEFT  )
-            QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* self % spAxi % v  (i,RIGHT )
-            QFR (:,i,k)= QFR (:,i,k)+ self % storage % Q(:,i,j,k)* self % spAeta % v (j,FRONT )
-            QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* self % spAeta % v (j,BACK  )
-            QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* self % spAzeta % v(k,BOTTOM)
-            QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* self % spAzeta % v(k,TOP   )
+            QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,LEFT  )
+            QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,RIGHT )
+            QFR (:,i,k)= QFR (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta % v (j,FRONT )
+            QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta % v (j,BACK  )
+            QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,BOTTOM)
+            QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,TOP   )
          end do                   ; end do                   ; end do
-
+         nullify (spAxi, spAeta, spAzeta)
          
          call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ))
          call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ))
@@ -287,8 +283,12 @@
          real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: UxT, UyT, UzT
          real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
          real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
-
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         
          N = self % Nxyz
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
 !
 !        *************************
 !        Prolong solution to faces
@@ -302,28 +302,29 @@
          UxT  = 0.0_RP ; UyT  = 0.0_RP ; UzT  = 0.0_RP
          
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            UxL (:,j,k) = UxL (:,j,k) + self % storage % U_x(:,i,j,k)* self % spAxi   % v (i,LEFT  )
-            UxR (:,j,k) = UxR (:,j,k) + self % storage % U_x(:,i,j,k)* self % spAxi   % v (i,RIGHT )
-            UxFR(:,i,k) = UxFR(:,i,k) + self % storage % U_x(:,i,j,k)* self % spAeta  % v (j,FRONT )
-            UxBK(:,i,k) = UxBK(:,i,k) + self % storage % U_x(:,i,j,k)* self % spAeta  % v (j,BACK  )
-            UxBT(:,i,j) = UxBT(:,i,j) + self % storage % U_x(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
-            UxT (:,i,j) = UxT (:,i,j) + self % storage % U_x(:,i,j,k)* self % spAzeta % v (k,TOP   )
+            UxL (:,j,k) = UxL (:,j,k) + self % storage % U_x(:,i,j,k)* spAxi   % v (i,LEFT  )
+            UxR (:,j,k) = UxR (:,j,k) + self % storage % U_x(:,i,j,k)* spAxi   % v (i,RIGHT )
+            UxFR(:,i,k) = UxFR(:,i,k) + self % storage % U_x(:,i,j,k)* spAeta  % v (j,FRONT )
+            UxBK(:,i,k) = UxBK(:,i,k) + self % storage % U_x(:,i,j,k)* spAeta  % v (j,BACK  )
+            UxBT(:,i,j) = UxBT(:,i,j) + self % storage % U_x(:,i,j,k)* spAzeta % v (k,BOTTOM)
+            UxT (:,i,j) = UxT (:,i,j) + self % storage % U_x(:,i,j,k)* spAzeta % v (k,TOP   )
 
-            UyL (:,j,k) = UyL (:,j,k) + self % storage % U_y(:,i,j,k)* self % spAxi   % v (i,LEFT  )
-            UyR (:,j,k) = UyR (:,j,k) + self % storage % U_y(:,i,j,k)* self % spAxi   % v (i,RIGHT )
-            UyFR(:,i,k) = UyFR(:,i,k) + self % storage % U_y(:,i,j,k)* self % spAeta  % v (j,FRONT )
-            UyBK(:,i,k) = UyBK(:,i,k) + self % storage % U_y(:,i,j,k)* self % spAeta  % v (j,BACK  )
-            UyBT(:,i,j) = UyBT(:,i,j) + self % storage % U_y(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
-            UyT (:,i,j) = UyT (:,i,j) + self % storage % U_y(:,i,j,k)* self % spAzeta % v (k,TOP   )
+            UyL (:,j,k) = UyL (:,j,k) + self % storage % U_y(:,i,j,k)* spAxi   % v (i,LEFT  )
+            UyR (:,j,k) = UyR (:,j,k) + self % storage % U_y(:,i,j,k)* spAxi   % v (i,RIGHT )
+            UyFR(:,i,k) = UyFR(:,i,k) + self % storage % U_y(:,i,j,k)* spAeta  % v (j,FRONT )
+            UyBK(:,i,k) = UyBK(:,i,k) + self % storage % U_y(:,i,j,k)* spAeta  % v (j,BACK  )
+            UyBT(:,i,j) = UyBT(:,i,j) + self % storage % U_y(:,i,j,k)* spAzeta % v (k,BOTTOM)
+            UyT (:,i,j) = UyT (:,i,j) + self % storage % U_y(:,i,j,k)* spAzeta % v (k,TOP   )
 
-            UzL (:,j,k) = UzL (:,j,k) + self % storage % U_z(:,i,j,k)* self % spAxi   % v (i,LEFT  )
-            UzR (:,j,k) = UzR (:,j,k) + self % storage % U_z(:,i,j,k)* self % spAxi   % v (i,RIGHT )
-            UzFR(:,i,k) = UzFR(:,i,k) + self % storage % U_z(:,i,j,k)* self % spAeta  % v (j,FRONT )
-            UzBK(:,i,k) = UzBK(:,i,k) + self % storage % U_z(:,i,j,k)* self % spAeta  % v (j,BACK  )
-            UzBT(:,i,j) = UzBT(:,i,j) + self % storage % U_z(:,i,j,k)* self % spAzeta % v (k,BOTTOM)
-            UzT (:,i,j) = UzT (:,i,j) + self % storage % U_z(:,i,j,k)* self % spAzeta % v (k,TOP   )
+            UzL (:,j,k) = UzL (:,j,k) + self % storage % U_z(:,i,j,k)* spAxi   % v (i,LEFT  )
+            UzR (:,j,k) = UzR (:,j,k) + self % storage % U_z(:,i,j,k)* spAxi   % v (i,RIGHT )
+            UzFR(:,i,k) = UzFR(:,i,k) + self % storage % U_z(:,i,j,k)* spAeta  % v (j,FRONT )
+            UzBK(:,i,k) = UzBK(:,i,k) + self % storage % U_z(:,i,j,k)* spAeta  % v (j,BACK  )
+            UzBT(:,i,j) = UzBT(:,i,j) + self % storage % U_z(:,i,j,k)* spAzeta % v (k,BOTTOM)
+            UzT (:,i,j) = UzT (:,i,j) + self % storage % U_z(:,i,j,k)* spAzeta % v (k,TOP   )
 
          end do                   ; end do                   ; end do
+         nullify (spAxi, spAeta, spAzeta)
          
          call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
          call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
@@ -360,8 +361,12 @@
          real(kind=RP)  :: U_xi(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          real(kind=RP)  :: U_eta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          real(kind=RP)  :: U_zeta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
-
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         
          associate( N => self % Nxyz )
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
 !
 !        **********************
 !        Get gradient variables
@@ -385,7 +390,7 @@
 !
          U_xi = 0.0_RP
          do k = 0, N(3)   ; do j = 0, N(2) ; do l = 0, N(1) ; do i = 0, N(1)
-            U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * self % spAxi % D(i,l)
+            U_xi(:,i,j,k) = U_xi(:,i,j,k) + U(:,l,j,k) * spAxi % D(i,l)
          end do           ; end do         ; end do         ; end do
 !
 !        *************
@@ -394,7 +399,7 @@
 !
          U_eta = 0.0_RP
          do k = 0, N(3)   ; do l = 0, N(2) ; do j = 0, N(2) ; do i = 0, N(1)
-            U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * self % spAeta % D(j,l)
+            U_eta(:,i,j,k) = U_eta(:,i,j,k) + U(:,i,l,k) * spAeta % D(j,l)
          end do           ; end do         ; end do         ; end do
 !
 !        **************
@@ -403,8 +408,10 @@
 !
          U_zeta = 0.0_RP
          do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * self % spAzeta % D(k,l)
+            U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * spAzeta % D(k,l)
          end do           ; end do         ; end do         ; end do
+         
+         nullify (spAxi, spAeta, spAzeta)
 !
 !        ******************************
 !        Project to the cartesian basis
@@ -553,6 +560,12 @@
          real(kind=RP)                 :: F(NDIM)
          real(kind=RP)                 :: Jac(NDIM,NDIM)
          real(kind=RP)                 :: dx(NDIM)
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         
+         spAxi   => NodalStorage(self % Nxyz(1))
+         spAeta  => NodalStorage(self % Nxyz(2))
+         spAzeta => NodalStorage(self % Nxyz(3))
+         
 !
 !        Initial seed
 !        ------------      
@@ -562,12 +575,12 @@
 !
 !           Get Lagrange polynomials and derivatives
 !           ----------------------------------------
-            lxi     = self %spAxi % lj   (xi(1))
-            leta    = self %spAeta % lj  (xi(2))
-            lzeta   = self %spAzeta % lj (xi(3))
+            lxi     = spAxi % lj   (xi(1))
+            leta    = spAeta % lj  (xi(2))
+            lzeta   = spAzeta % lj (xi(3))
   
             F = 0.0_RP
-            do k = 0, self %spAzeta % N   ; do j = 0, self %spAeta % N ; do i = 0, self %spAxi % N
+            do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
                F = F + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
             end do               ; end do             ; end do
    
@@ -582,12 +595,12 @@
 !
 !           Perform a step
 !           --------------
-            dlxi    = self %spAxi % dlj  (xi(1))
-            dleta   = self %spAeta % dlj (xi(2))
-            dlzeta  = self %spAzeta % dlj(xi(3))
+            dlxi    = spAxi % dlj  (xi(1))
+            dleta   = spAeta % dlj (xi(2))
+            dlzeta  = spAzeta % dlj(xi(3))
 
             Jac = 0.0_RP
-            do k = 0, self %spAzeta % N   ; do j = 0, self %spAeta % N ; do i = 0, self %spAxi % N
+            do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
                Jac(:,1) = Jac(:,1) + self % geom % x(:,i,j,k) * dlxi(i) * leta(j) * lzeta(k) 
                Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
                Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
@@ -597,7 +610,9 @@
             xi = xi + STEP * dx
    
          end do
-
+         
+         nullify (spAxi, spAeta, spAzeta)
+         
          if ( (abs(xi(1)) .lt. 1.0_RP + INSIDE_TOL) .and. &
               (abs(xi(2)) .lt. 1.0_RP + INSIDE_TOL) .and. &
               (abs(xi(3)) .lt. 1.0_RP + INSIDE_TOL)          ) then
@@ -632,23 +647,29 @@
          real(kind=RP)  :: leta(0:self % Nxyz(2))
          real(kind=RP)  :: lzeta(0:self % Nxyz(3))
          real(kind=RP)  :: Q(nEqn)
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         
+         spAxi   => NodalStorage(self % Nxyz(1))
+         spAeta  => NodalStorage(self % Nxyz(2))
+         spAzeta => NodalStorage(self % Nxyz(3))
 !
 !        Compute Lagrange basis
 !        ----------------------
-         lxi   = self %spAxi % lj(xi(1))
-         leta  = self %spAeta % lj(xi(2))
-         lzeta = self %spAzeta % lj(xi(3))
+         lxi   = spAxi % lj(xi(1))
+         leta  = spAeta % lj(xi(2))
+         lzeta = spAzeta % lj(xi(3))
 !
 !        Compute the tensor product
 !        --------------------------
          Q = 0.0_RP
       
-         do k = 0, self % spAzeta % N   ; do j = 0, self % spAeta % N ; do i = 0, self % spAxi % N
+         do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
             Q = Q + self % storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
          end do               ; end do             ; end do   
 
          HexElement_EvaluateSolutionAtPoint = Q
-
+         
+         nullify (spAxi, spAeta, spAzeta)
       end function HexElement_EvaluateSolutionAtPoint
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -666,7 +687,7 @@
          logical       , intent(in)    :: saveGradients
          integer       , intent(in)    :: prevSol_num
          !-arguments--------------------------------------------
-         
+         logical                       :: anJacobian
          type(ElementStorage_t)        :: tempStorage
 #if (!defined(NAVIERSTOKES))
          logical, parameter            :: computeGradients = .true.
@@ -677,32 +698,24 @@
 !        Reconstruct storage
 !        -------------------
          
-         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, prevSol_num,0)
+         anJacobian = self % storage % anJacobian
+         
+         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)         
          tempStorage = self % storage
          
          self % Nxyz = NNew
          
          call self % storage % destruct()
-         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, prevSol_num,0)
+         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)
          
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
          
          if (prevSol_num > 0) then
             ! TODO : call InterpolatePrevSol
          end if
-         
          call tempStorage % destruct()
          
-!
-!        Point nodal storage
-!        -------------------
-         
-         self % SpaXi   => NodalStorage (NNew(1))
-         self % SpaEta  => NodalStorage (NNew(2))
-         self % SpaZeta => NodalStorage (NNew(3))
-         
       end subroutine HexElement_pAdapt
-      
       
       pure subroutine SurfInfo_Destruct (self)
          implicit none
@@ -711,4 +724,28 @@
          call self % facePatches % destruct
       end subroutine SurfInfo_Destruct
       
+         elemental subroutine HexElement_Assign(to, from)
+            implicit none
+            class(Element), intent(inout) :: to
+            class(Element), intent(in)    :: from
+            
+            to % hasSharedFaces = from % hasSharedFaces
+            to % dir2D = from % dir2D
+            to % globDir = from % globDir
+            to % eID = from % eID
+            to % globID = from % globID
+            to % offsetIO = from % offsetIO
+            to % nodeIDs = from % nodeIDs
+            to % faceIDs = from % faceIDs
+            to % faceSide = from % faceSide
+            to % Nxyz = from % Nxyz
+            to % geom = from % geom
+            to % boundaryName = from % boundaryName
+            to % NumberOfConnections = from % NumberOfConnections
+            to % Connection = from % Connection
+            to % hexMap = from % hexMap
+            to % SurfInfo = from % SurfInfo
+!~            IGNORE to % storage
+            
+         end subroutine HexElement_Assign
       END Module ElementClass

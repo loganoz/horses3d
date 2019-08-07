@@ -7,7 +7,7 @@ module MeshTests
    use HexMeshClass
    use MeshConsistencySetup
    use ReadMeshFile
-   use NodalStorageClass, only: GAUSS
+   use NodalStorageClass, only: GAUSS, NodalStorage
    use PhysicsStorage
 
    private
@@ -60,10 +60,14 @@ module MeshTests
          volume = 0.0_RP
          do eID = 1, mesh % no_of_elements
             associate(e => mesh % elements(eID))
+            associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                      spAeta  => NodalStorage(e % Nxyz(2)), &
+                      spAzeta => NodalStorage(e % Nxyz(3)) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               volume = volume +  e % spAxi % w(i) * e % spAeta % w(j) * e % spAzeta % w(k) &
+               volume = volume +  spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) &
                                  * e % geom % jacobian(i,j,k) 
             end do                  ; end do                ; end do
+            end associate
             end associate
          end do
 
@@ -89,9 +93,12 @@ module MeshTests
             do nF = 1, mesh % zones(zID) % no_of_faces
                fID = mesh % zones(zID) % faces(nF)
                associate(f => mesh % faces(fID))
+               associate(spAxi   => NodalStorage(f % Nf(1)), &
+                         spAeta  => NodalStorage(f % Nf(2)))
                   do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                     surface = surface + f % spAxi % w(i) * f % spAeta % w(j) * f % geom % jacobian(i,j)
+                     surface = surface + spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
                   end do               ; end do
+               end associate
                end associate
             end do
 
@@ -161,39 +168,43 @@ module MeshTests
 !        ******************
 !
          XelL = 0.0_RP
+         associate(spAxi   => NodalStorage(eL % Nxyz(1)), &
+                   spAeta  => NodalStorage(eL % Nxyz(2)), &
+                   spAzeta => NodalStorage(eL % Nxyz(3)) )
 
          select case( f % elementSide(1) )
          case (EFRONT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,i,k) = XelL(:,i,k) + eL % geom % X(:,i,j,k) * eL % spAeta % v(j,FRONT)
+               XelL(:,i,k) = XelL(:,i,k) + eL % geom % X(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
          case (EBACK)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,i,k) = XelL(:,i,k) + eL % geom % X(:,i,j,k) * eL % spAeta % v(j,BACK)
+               XelL(:,i,k) = XelL(:,i,k) + eL % geom % X(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,i,j) = XelL(:,i,j) + eL % geom % X(:,i,j,k) * eL % spAzeta % v(k,BOTTOM)
+               XelL(:,i,j) = XelL(:,i,j) + eL % geom % X(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
          case (ERIGHT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,j,k) = XelL(:,j,k) + eL % geom % X(:,i,j,k) * eL % spAxi % v(i,RIGHT)
+               XelL(:,j,k) = XelL(:,j,k) + eL % geom % X(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,i,j) = XelL(:,i,j) + eL % geom % X(:,i,j,k) * eL % spAzeta % v(k,TOP)
+               XelL(:,i,j) = XelL(:,i,j) + eL % geom % X(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               XelL(:,j,k) = XelL(:,j,k) + eL % geom % X(:,i,j,k) * eL % spAxi % v(i,LEFT)
+               XelL(:,j,k) = XelL(:,j,k) + eL % geom % X(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
          end select
+         end associate
 !
 !        -------------
 !        Perform tests
@@ -226,39 +237,42 @@ module MeshTests
          if ( .not. present(eR) ) return
 
          XelR = 0.0_RP
-
+         associate(spAxi   => NodalStorage(eR % Nxyz(1)), &
+                   spAeta  => NodalStorage(eR % Nxyz(2)), &
+                   spAzeta => NodalStorage(eR % Nxyz(3)) )
          select case( f % elementSide(2) )
          case (EFRONT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,i,k) = XelR(:,i,k) + eR % geom % X(:,i,j,k) * eR % spAeta % v(j,FRONT)
+               XelR(:,i,k) = XelR(:,i,k) + eR % geom % X(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
          case (EBACK)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,i,k) = XelR(:,i,k) + eR % geom % X(:,i,j,k) * eR % spAeta % v(j,BACK)
+               XelR(:,i,k) = XelR(:,i,k) + eR % geom % X(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,i,j) = XelR(:,i,j) + eR % geom % X(:,i,j,k) * eR % spAzeta % v(k,BOTTOM)
+               XelR(:,i,j) = XelR(:,i,j) + eR % geom % X(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
          case (ERIGHT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,j,k) = XelR(:,j,k) + eR % geom % X(:,i,j,k) * eR % spAxi % v(i,RIGHT)
+               XelR(:,j,k) = XelR(:,j,k) + eR % geom % X(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,i,j) = XelR(:,i,j) + eR % geom % X(:,i,j,k) * eR % spAzeta % v(k,TOP)
+               XelR(:,i,j) = XelR(:,i,j) + eR % geom % X(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               XelR(:,j,k) = XelR(:,j,k) + eR % geom % X(:,i,j,k) * eR % spAxi % v(i,LEFT)
+               XelR(:,j,k) = XelR(:,j,k) + eR % geom % X(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
          end select
+         end associate
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             call leftIndexes2Right(i,j,f % Nf(1), f % Nf(2), f % rotation, ii, jj)
@@ -338,45 +352,48 @@ module MeshTests
          character(len=72) :: msg
 
          SelL = 0.0_RP
-
+         associate(spAxi   => NodalStorage(eL % Nxyz(1)), &
+                   spAeta  => NodalStorage(eL % Nxyz(2)), &
+                   spAzeta => NodalStorage(eL % Nxyz(3)) )
          select case( f % elementSide(1) )
          case (EFRONT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * eL % spAeta % v(j,FRONT)
+               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          case (EBACK)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * eL % spAeta % v(j,BACK)
+               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * eL % spAzeta % v(k,BOTTOM)
+               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          case (ERIGHT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * eL % spAxi % v(i,RIGHT)
+               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * eL % spAzeta % v(k,TOP)
+               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * eL % spAxi % v(i,LEFT)
+               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          end select
+         end associate
 !
 !        ---------------------
 !        Get the normal vector
@@ -414,45 +431,48 @@ module MeshTests
          if ( .not. present(eR) ) return
 
          SelR = 0.0_RP
-
+         associate(spAxi   => NodalStorage(eR % Nxyz(1)), &
+                   spAeta  => NodalStorage(eR % Nxyz(2)), &
+                   spAzeta => NodalStorage(eR % Nxyz(3)) )
          select case( f % elementSide(2) )
          case (EFRONT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,FRONT)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          case (EBACK)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,BACK)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,BOTTOM)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          case (ERIGHT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,RIGHT)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,TOP)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,LEFT)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          end select
+         end associate
 !
 !        --------------------
 !        Perform the rotation
@@ -540,45 +560,49 @@ module MeshTests
          character(len=72)    :: msg
 
          SelL = 0.0_RP
-
+         
+         associate(spAxi   => NodalStorage(eL % Nxyz(1)), &
+                   spAeta  => NodalStorage(eL % Nxyz(2)), &
+                   spAzeta => NodalStorage(eL % Nxyz(3)) )
          select case( f % elementSide(1) )
          case (EFRONT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * eL % spAeta % v(j,FRONT)
+               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          case (EBACK)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * eL % spAeta % v(j,BACK)
+               SelL(:,i,k) = SelL(:,i,k) + eL % geom % jGradEta(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * eL % spAzeta % v(k,BOTTOM)
+               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          case (ERIGHT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * eL % spAxi % v(i,RIGHT)
+               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * eL % spAzeta % v(k,TOP)
+               SelL(:,i,j) = SelL(:,i,j) + eL % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eL % Nxyz(3)  ; do j = 0, eL % Nxyz(2)   ; do i = 0, eL % Nxyz(1)
-               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * eL % spAxi % v(i,LEFT)
+               SelL(:,j,k) = SelL(:,j,k) + eL % geom % jGradXi(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
             SelL = -SelL
 
          end select
+         end associate
 
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
@@ -605,45 +629,48 @@ module MeshTests
          if ( .not. present(eR) ) return
 
          SelR = 0.0_RP
-
+         associate(spAxi   => NodalStorage(eR % Nxyz(1)), &
+                   spAeta  => NodalStorage(eR % Nxyz(2)), &
+                   spAzeta => NodalStorage(eR % Nxyz(3)) )
          select case( f % elementSide(2) )
          case (EFRONT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,FRONT)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * spAeta % v(j,FRONT)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          case (EBACK)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * eR % spAeta % v(j,BACK)
+               SelR(:,i,k) = SelR(:,i,k) + eR % geom % jGradEta(:,i,j,k) * spAeta % v(j,BACK)
             end do                  ; end do                   ; end do
    
          case (EBOTTOM)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,BOTTOM)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,BOTTOM)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          case (ERIGHT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,RIGHT)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * spAxi % v(i,RIGHT)
             end do                  ; end do                   ; end do
 
          case (ETOP)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * eR % spAzeta % v(k,TOP)
+               SelR(:,i,j) = SelR(:,i,j) + eR % geom % jGradZeta(:,i,j,k) * spAzeta % v(k,TOP)
             end do                  ; end do                   ; end do
 
          case (ELEFT)
             do k = 0, eR % Nxyz(3)  ; do j = 0, eR % Nxyz(2)   ; do i = 0, eR % Nxyz(1)
-               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * eR % spAxi % v(i,LEFT)
+               SelR(:,j,k) = SelR(:,j,k) + eR % geom % jGradXi(:,i,j,k) * spAxi % v(i,LEFT)
             end do                  ; end do                   ; end do
 
             SelR = -SelR
 
          end select
+         end associate
 !
 !        --------------------
 !        Perform the rotation

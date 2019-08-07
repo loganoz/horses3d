@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Mon Mar 11 19:20:15 2019
+!   @Last revision date: Sun Aug  4 19:18:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: eca5fad624db2ee72986d572fd1e994d2b3c4cfb
+!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,6 +25,7 @@ module AnisFASMultigridClass
    use DGSEMClass             , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep
    use FTValueDictionaryClass , only: FTValueDictionary
    use MPI_Process_Info       , only: MPI_Process
+   use StopwatchClass         , only: Stopwatch
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -98,7 +99,6 @@ module AnisFASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine construct(this,controlVariables,sem,estimator,NMINestim)
-      use StopwatchClass
       implicit none
       !-----------------------------------------------------------
       class(AnisFASMultigrid_t), intent(inout), target :: this              !<> Anisotropic FAS multigrid solver to be constructed
@@ -110,6 +110,7 @@ module AnisFASMultigridClass
       integer                    :: Dir               ! Direction of coarsening
       integer                    :: UserMGlvls        ! User defined number of MG levels
       character(len=LINE_LENGTH) :: PostSmoothOptions
+      logical, save              :: isfirst = .TRUE.
       !-----------------------------------------------------------
       
 !~      call Stopwatch % Pause("Solver")
@@ -265,6 +266,13 @@ module AnisFASMultigridClass
       
       nelem = SIZE(sem % mesh % elements)  ! Same for all levels (only p-multigrid)
       num_of_allElems = sem % mesh % no_of_allElements
+      
+      if (isfirst) then
+         call Stopwatch % CreateNewEvent("AnisFAS: child-copy")
+         call Stopwatch % CreateNewEvent("AnisFAS: child-adapt")
+         
+         isfirst = .FALSE.
+      end if
 !
 !     -----------------------------
 !     Construct linked solvers list
@@ -354,7 +362,7 @@ module AnisFASMultigridClass
       N1y => p_sem % mesh % Ny
       N1z => p_sem % mesh % Nz
    
-!$omp parallel do
+!$omp parallel do schedule(runtime)
       do k = 1, nelem
          allocate(Solver % MGStorage(Dir) % Var(k) % Q    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
          allocate(Solver % MGStorage(Dir) % Var(k) % E    (nEqn,0:N1x(k),0:N1y(k),0:N1z(k)))
@@ -426,42 +434,54 @@ module AnisFASMultigridClass
 !
          allocate (Child_p % MGStorage(Dir) % p_sem)
          
-!~!<New
-!~         ! Copy the sem
-!~         Child_p % MGStorage(Dir) % p_sem = Solver % MGStorage(Dir) % p_sem
+!<New
+         ! Copy the sem
          
-!~         ! Mark the mesh as a child mesh
-!~         Child_p % MGStorage(Dir) % p_sem % mesh % child = .TRUE. 
+         call Stopwatch % Start("AnisFAS: child-copy")
+         Child_p % MGStorage(Dir) % p_sem = Solver % MGStorage(Dir) % p_sem
+         call Stopwatch % Pause("AnisFAS: child-copy")
          
-!~         ! Adapt the mesh to the new polynomial orders
-!~         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
-!~         N2trans = transpose(N2)
-!~         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
-!~         call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
-!~!New>
-
-!<old
-         N2xAll = 0
-         N2yAll = 0
-         N2zAll = 0
-         
-         N2trans = transpose(N2)
-         do k=1, nelem
-            globID = Solver % MGStorage(Dir) % p_sem % mesh % elements(k) % globID
-            N2xAll( globID ) = N2trans(1,k)
-            N2yAll( globID ) = N2trans(2,k)
-            N2zAll( globID ) = N2trans(3,k)
-         end do
-         
+         ! Mark the mesh as a child mesh
+         Child_p % MGStorage(Dir) % p_sem % mesh % child = .TRUE. 
+       
+         ! Adapt the mesh to the new polynomial orders
          if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
-         call Child_p % MGStorage(Dir) % p_sem % construct &
-                                          (controlVariables  = controlVariables,                                         &
-                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
-                                           success = success,                                                            &
-                                           ChildSem = .TRUE. )
+         N2trans = transpose(N2)
          
-         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
-!old>
+         call Stopwatch % Start("AnisFAS: child-adapt")
+         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
+         call Stopwatch % Pause("AnisFAS: child-adapt")
+         
+         call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
+!New>
+!
+!        Following code is the old way the child representation was generated.
+!        This is slower and does not scale well, but is left here in case the assignment procedures are accidentally broken
+!        ******************************************************************************************************************
+!~!<old 
+!~         call Stopwatch % Start("AnisFAS: child-copy")
+!~         N2xAll = 0
+!~         N2yAll = 0
+!~         N2zAll = 0
+         
+!~         N2trans = transpose(N2)
+!~         do k=1, nelem
+!~            globID = Solver % MGStorage(Dir) % p_sem % mesh % elements(k) % globID
+!~            N2xAll( globID ) = N2trans(1,k)
+!~            N2yAll( globID ) = N2trans(2,k)
+!~            N2zAll( globID ) = N2trans(3,k)
+!~         end do
+         
+!~         if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .TRUE.
+!~         call Child_p % MGStorage(Dir) % p_sem % construct &
+!~                                          (controlVariables  = controlVariables,                                         &
+!~                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
+!~                                           success = success,                                                            &
+!~                                           ChildSem = .TRUE. )
+         
+!~         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+!~         call Stopwatch % Pause("AnisFAS: child-copy")
+!~!old>
          
          if (AnisFASestimator) Child_p % MGStorage(Dir) % p_sem % mesh % ignoreBCnonConformities = .FALSE.
          

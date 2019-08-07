@@ -24,6 +24,7 @@ module TruncationErrorClass
    use NodalStorageClass         , only: NodalStorage
    use FileReadingUtilities      , only: RemovePath
    use Utilities                 , only: AlmostEqual, LeastSquaresLinRegression
+   use ElementClass              , only: Element
    implicit none
    
    private
@@ -302,12 +303,14 @@ module TruncationErrorClass
       integer                 :: eID
       !------------------------------------------
       
+!$omp parallel do schedule(runtime)
       do eID=1, size(sem % mesh % elements)
          TE(eID) % TruncErrorType = TruncErrorType
          TE(eID) % Dir(1) % P = sem % mesh % Nx(eID)
          TE(eID) % Dir(2) % P = sem % mesh % Ny(eID)
          TE(eID) % Dir(3) % P = sem % mesh % Nz(eID)
       end do
+!$omp end parallel do
       
       if (TruncErrorType == ISOLATED_TE) then
          TimeDerivative => ComputeTimeDerivativeIsolated
@@ -327,11 +330,11 @@ module TruncationErrorClass
    subroutine EstimateTruncationError(TE,sem,t,Var,Dir)
       implicit none
       !--------------------------------------------------------
-      type(TruncationError_t)  :: TE(:)       !<> Type containing the truncation error estimation
-      type(DGSem)              :: sem         !<> sem (to evaluate Qdot in a given coarser mesh)
-      real(kind=RP)            :: t           !<  time 
-      type(MGSolStorage_t)     :: Var(:)      !<  Type containing the source term in the mesh where the truncation error is being estimated (to be deprecated.. maintained just to keep consistency with manufactured solutions module)
-      integer                  :: Dir         !<  Direction in which the truncation error is being estimated
+      type(TruncationError_t), intent(inout) :: TE(:)       !<> Type containing the truncation error estimation
+      type(DGSem), target    , intent(inout) :: sem         !<> sem (to evaluate Qdot in a given coarser mesh)
+      real(kind=RP)          , intent(in)    :: t           !<  time 
+      type(MGSolStorage_t)   , intent(in)    :: Var(:)      !<  Type containing the source term in the mesh where the truncation error is being estimated (to be deprecated.. maintained just to keep consistency with manufactured solutions module)
+      integer                , intent(in)    :: Dir         !<  Direction in which the truncation error is being estimated
       !--------------------------------------------------------
       integer                  :: iEl           !   Element counter
       integer                  :: iEQ           !   Equation counter
@@ -340,6 +343,7 @@ module TruncationErrorClass
       real(kind=RP)            :: Jac
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NCONS)      !   Source term
+      type(Element), pointer   :: e
 #if defined(NAVIERSTOKES)            
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 #endif
@@ -349,9 +353,10 @@ module TruncationErrorClass
       
       S = 0._RP ! Initialize source term
       
+!$omp parallel do private(iEl,maxTE,i,j,k,iEQ,wx,wy,wz,Jac,S,e) schedule(runtime)
       do iEl = 1, size(sem % mesh % elements)
          
-         associate (e => sem % mesh % elements(iEl))
+         e => sem % mesh % elements(iEl)  ! An associate does not work well here
          
          if (e % Nxyz(Dir) >= TE(iEl) % Dir(Dir) % P) cycle ! it is actually never going to be greater than... but for security
          
@@ -362,21 +367,19 @@ module TruncationErrorClass
 #if defined(NAVIERSTOKES)            
             call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
-            
+            wx  = NodalStorage(e % Nxyz(1)) % w (i)
+            wy  = NodalStorage(e % Nxyz(2)) % w (j)
+            wz  = NodalStorage(e % Nxyz(3)) % w (k)
+            Jac = e % geom % jacobian(i,j,k)
             do iEQ = 1, NCONS
-               wx  = NodalStorage(e % Nxyz(1)) % w (i)
-               wy  = NodalStorage(e % Nxyz(2)) % w (j)
-               wz  = NodalStorage(e % Nxyz(3)) % w (k)
-               Jac = e % geom % jacobian(i,j,k)
-               
                maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  )  ! The last term is included to do time-accurate p-adaptation...For steady-state it can be neglected (original formulation)
             end do
          end do         ; end do         ; end do
          
          TE(iEl) % Dir(Dir) % maxTE(e % Nxyz(Dir)) = maxTE
          
-         end associate
       end do
+!$omp end parallel do
    end subroutine EstimateTruncationError
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

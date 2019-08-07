@@ -4,9 +4,9 @@
 !   @File:    JacobianComputerClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Wed Jul 17 16:54:55 2019
+!   @Last revision date: Sun Aug  4 16:39:41 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
+!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
 !
 !//////////////////////////////////////////////////////
 !
@@ -96,8 +96,8 @@ module JacobianComputerClass
          implicit none
          !-arguments-----------------------------------------
          class(JacobianComputer_t), intent(inout) :: this
-         type(HexMesh)    , intent(in)    :: mesh
-         integer          , intent(in)    :: nEqn
+         type(HexMesh)            , intent(inout) :: mesh
+         integer                  , intent(in)    :: nEqn
          !-local-variables-----------------------------------
          integer :: eID, ierr
          integer :: all_globIDs(mesh % no_of_allElements)

@@ -4,6 +4,7 @@ module DGIntegrals
    use ElementClass
    use PhysicsStorage
    use MeshTypes
+   use NodalStorageClass, only: NodalStorage
    implicit none
 
    private
@@ -59,21 +60,25 @@ module DGIntegrals
 !        ---------------
 !
          integer     :: i, j, k, l
-
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+              
          volInt = 0.0_RP
 
          do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAxi % hatD(i,l) * F(:,l,j,k,IX)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % hatD(i,l) * F(:,l,j,k,IX)
          end do             ; end do               ; end do             ; end do
 
          do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAeta % hatD(j,l) * F(:,i,l,k,IY)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % hatD(j,l) * F(:,i,l,k,IY)
          end do             ; end do               ; end do             ; end do
 
          do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAzeta % hatD(k,l) * F(:,i,j,l,IZ)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % hatD(k,l) * F(:,i,j,l,IZ)
          end do             ; end do             ; end do               ; end do
-
+         
+         end associate
       end function ScalarWeakIntegrals_StdVolumeGreen
       
       function ScalarStrongIntegrals_StdVolumeGreen( e, NEQ, F ) result ( volInt )
@@ -88,21 +93,25 @@ module DGIntegrals
 !        ---------------
 !
          integer     :: i, j, k, l
-
+         
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
          volInt = 0.0_RP
 
          do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAxi % D(i,l) * F(:,l,j,k,IX)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % D(i,l) * F(:,l,j,k,IX)
          end do             ; end do               ; end do             ; end do
 
          do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAeta % D(j,l) * F(:,i,l,k,IY)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % D(j,l) * F(:,i,l,k,IY)
          end do             ; end do               ; end do             ; end do
 
          do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAzeta % D(k,l) * F(:,i,j,l,IZ)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % D(k,l) * F(:,i,j,l,IZ)
          end do             ; end do             ; end do               ; end do
-
+         
+         end associate
       end function ScalarStrongIntegrals_StdVolumeGreen
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -120,24 +129,29 @@ module DGIntegrals
 !        ---------------
 !
          integer     :: i, j, k, l
-
+         
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+                   
          volInt = 0.0_RP
 
          do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAxi % sharpD(i,l) * fSharp(:,l,i,j,k) &
-                                              + e % spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % sharpD(i,l) * fSharp(:,l,i,j,k) &
+                                              + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
          end do             ; end do               ; end do             ; end do
 
          do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAeta % sharpD(j,l) * gSharp(:,l,i,j,k) &
-                                              + e % spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % sharpD(j,l) * gSharp(:,l,i,j,k) &
+                                              + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
          end do             ; end do               ; end do             ; end do
 
          do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + e % spAzeta % sharpD(k,l) * hSharp(:,l,i,j,k) &
-                                              + e % spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % sharpD(k,l) * hSharp(:,l,i,j,k) &
+                                              + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
          end do             ; end do             ; end do               ; end do
-
+         
+         end associate
       end function ScalarWeakIntegrals_SplitVolumeDivergence
 #endif
 !
@@ -160,17 +174,21 @@ module DGIntegrals
 !        ---------------
 !
          integer            :: iXi, iEta, iZeta, iVar
+         
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
 !
 !        ----------------
 !>       Xi-contributions
 !        ----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = F_L(:, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = F_L(:, iEta, iZeta) * spAxi % b(iXi, LEFT)
          end do                 ; end do                ; end do
       
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_R(:, iEta, iZeta) * e % spAxi % b(iXi, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_R(:, iEta, iZeta) * spAxi % b(iXi, RIGHT)
          end do                 ; end do                ; end do
 !
 !        -----------------
@@ -178,11 +196,11 @@ module DGIntegrals
 !        -----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_FR(:, iXi, iZeta) * e % spAeta % b(iEta, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_FR(:, iXi, iZeta) * spAeta % b(iEta, LEFT)
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BK(:, iXi, iZeta) * e % spAeta % b(iEta, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BK(:, iXi, iZeta) * spAeta % b(iEta, RIGHT)
          end do                 ; end do                ; end do
 !
 !        ------------------
@@ -190,13 +208,14 @@ module DGIntegrals
 !        ------------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BOT(:, iXi, iEta) * e % spAzeta % b(iZeta, LEFT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_BOT(:, iXi, iEta) * spAzeta % b(iZeta, LEFT)
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_T(:, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT)
+            faceInt(:,iXi,iEta,iZeta) = faceInt(:,iXi,iEta,iZeta) + F_T(:, iXi, iEta) * spAzeta % b(iZeta, RIGHT)
          end do                 ; end do                ; end do
-
+         
+         end associate
       end function ScalarWeakIntegrals_StdFace
 !
 !/////////////////////////////////////////////////////////////////////////////
@@ -235,29 +254,34 @@ module DGIntegrals
          real(kind=RP)  :: U_xi(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
          real(kind=RP)  :: U_eta(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
          real(kind=RP)  :: U_zeta(NEQ,0:e % Nxyz(1), 0: e % Nxyz(2), 0: e % Nxyz(3))
-
+         
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+                   
          volInt_x = 0.0_RP
          volInt_y = 0.0_RP
          volInt_z = 0.0_RP
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IX,l,j,k) * U(:,l,j,k)
-            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IY,l,j,k) * U(:,l,j,k)
-            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAxi % hatD(i,l) * e % geom % jGradXi(IZ,l,j,k) * U(:,l,j,k)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IX,l,j,k) * U(:,l,j,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IY,l,j,k) * U(:,l,j,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IZ,l,j,k) * U(:,l,j,k)
          end do               ; end do                ; end do             ; end do
 
          do k = 0, e%Nxyz(3)   ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IX,i,l,k) * U(:,i,l,k)
-            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IY,i,l,k) * U(:,i,l,k)
-            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAeta % hatD(j,l) * e % geom % jGradEta(IZ,i,l,k) * U(:,i,l,k)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IX,i,l,k) * U(:,i,l,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IY,i,l,k) * U(:,i,l,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IZ,i,l,k) * U(:,i,l,k)
          end do               ; end do                ; end do    ; end do
  
          do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
-            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IX,i,j,l) * U(:,i,j,l)
-            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,l) * U(:,i,j,l)
-            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + e % spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,l) * U(:,i,j,l)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IX,i,j,l) * U(:,i,j,l)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,l) * U(:,i,j,l)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,l) * U(:,i,j,l)
          end do             ; end do               ; end do                ; end do
-   
+         
+         end associate
       end subroutine VectorWeakIntegrals_StdVolumeGreen
 !
 !/////////////////////////////////////////////////////////////////////////////////
@@ -285,21 +309,26 @@ module DGIntegrals
 !        ---------------
 !
          integer        :: iVar, iXi, iEta, iZeta
+         
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+                   
 !
 !        ----------------
 !>       Xi-contributions
 !        ----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   HL(:, IX, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
-            faceInt_y(:,iXi,iEta,iZeta) =   HL(:, IY, iEta, iZeta) * e % spAxi % b(iXi, LEFT)
-            faceInt_z(:,iXi,iEta,iZeta) =   HL(:, IZ, iEta, iZeta) * e % spAxi % b(iXi, LEFT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   HL(:, IX, iEta, iZeta) * spAxi % b(iXi, LEFT)
+            faceInt_y(:,iXi,iEta,iZeta) =   HL(:, IY, iEta, iZeta) * spAxi % b(iXi, LEFT)
+            faceInt_z(:,iXi,iEta,iZeta) =   HL(:, IZ, iEta, iZeta) * spAxi % b(iXi, LEFT) 
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HR(:,IX, iEta, iZeta) * e % spAxi % b(iXi, RIGHT)
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HR(:,IY, iEta, iZeta) * e % spAxi % b(iXi, RIGHT) 
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HR(:,IZ, iEta, iZeta) * e % spAxi % b(iXi, RIGHT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HR(:,IX, iEta, iZeta) * spAxi % b(iXi, RIGHT)
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HR(:,IY, iEta, iZeta) * spAxi % b(iXi, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HR(:,IZ, iEta, iZeta) * spAxi % b(iXi, RIGHT) 
          end do                 ; end do                ; end do
 !
 !        -----------------
@@ -307,15 +336,15 @@ module DGIntegrals
 !        -----------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HF(:,IX, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HF(:,IY, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HF(:,IZ, iXi, iZeta) * e % spAeta % b(iEta, LEFT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HF(:,IX, iXi, iZeta) * spAeta % b(iEta, LEFT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HF(:,IY, iXi, iZeta) * spAeta % b(iEta, LEFT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HF(:,IZ, iXi, iZeta) * spAeta % b(iEta, LEFT) 
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBK(:,IX, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBK(:,IY, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBK(:,IZ, iXi, iZeta) * e % spAeta % b(iEta, RIGHT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBK(:,IX, iXi, iZeta) * spAeta % b(iEta, RIGHT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBK(:,IY, iXi, iZeta) * spAeta % b(iEta, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBK(:,IZ, iXi, iZeta) * spAeta % b(iEta, RIGHT) 
          end do                 ; end do                ; end do
 !
 !        ------------------
@@ -323,16 +352,17 @@ module DGIntegrals
 !        ------------------
 !
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBO(:, IX, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBO(:, IY, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBO(:, IZ, iXi, iEta) * e % spAzeta % b(iZeta, LEFT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HBO(:, IX, iXi, iEta) * spAzeta % b(iZeta, LEFT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HBO(:, IY, iXi, iEta) * spAzeta % b(iZeta, LEFT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HBO(:, IZ, iXi, iEta) * spAzeta % b(iZeta, LEFT) 
          end do                 ; end do                ; end do
 
          do iZeta = 0, e%Nxyz(3) ; do iEta = 0, e%Nxyz(2) ; do iXi = 0, e%Nxyz(1)
-            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HT(:, IX, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
-            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HT(:, IY, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
-            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HT(:, IZ, iXi, iEta) * e % spAzeta % b(iZeta, RIGHT) 
+            faceInt_x(:,iXi,iEta,iZeta) =   faceInt_x(:,iXi,iEta,iZeta) + HT(:, IX, iXi, iEta) * spAzeta % b(iZeta, RIGHT) 
+            faceInt_y(:,iXi,iEta,iZeta) =   faceInt_y(:,iXi,iEta,iZeta) + HT(:, IY, iXi, iEta) * spAzeta % b(iZeta, RIGHT) 
+            faceInt_z(:,iXi,iEta,iZeta) =   faceInt_z(:,iXi,iEta,iZeta) + HT(:, IZ, iXi, iEta) * spAzeta % b(iZeta, RIGHT) 
          end do                 ; end do                ; end do
-
+         
+         end associate
       end subroutine VectorWeakIntegrals_StdFace
 end module DGIntegrals
