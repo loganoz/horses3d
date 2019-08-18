@@ -533,25 +533,10 @@ module EllipticIP
          else
 !
 !           *****************************
-!           Set W* = W in free slip walls
+!           Set W* = W in free slip walls: [[W]] = 0!
 !           *****************************
-            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-   
-               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
 
-#ifdef MULTIPHASE
-!              The multiphase solver needs the Chemical potential as first entropy variable
-!              ----------------------------------------------------------------------------
-               UL(IGMU) = f % storage(1) % mu(1,i,j)
-#endif
-      
-               Uhat = UL * f % geom % jacobian(i,j)
-               
-               f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
-               f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
-               f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
-   
-            end do ; end do   
+            f % storage(1) % unStar = 0.0_RP 
          end if 
 #endif
 
