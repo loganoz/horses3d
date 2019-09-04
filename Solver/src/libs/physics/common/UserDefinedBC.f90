@@ -316,6 +316,10 @@ module UserDefinedBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+
+         U_x = 0.0_RP
+         U_y = 0.0_RP
+         U_z = 0.0_RP
       end subroutine UserDefinedBC_PhaseFieldNeumann
 
       subroutine UserDefinedBC_ChemPotState(self, x, t, nHat, Q)
@@ -337,6 +341,10 @@ module UserDefinedBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+
+         U_x = 0.0_RP
+         U_y = 0.0_RP
+         U_z = 0.0_RP
       end subroutine UserDefinedBC_ChemPotNeumann
 #endif
 end module UserDefinedBCClass
