@@ -179,7 +179,7 @@ module RiemannSolvers_MU
          real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
-         real(kind=RP)  :: stab(NCONS), lambdaMax
+         real(kind=RP)  :: lambda_mu = 0.1_RP
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
@@ -228,7 +228,7 @@ module RiemannSolvers_MU
          halfRhouStar = 0.5_RP*rhoStar*uStar
 !
 !      - Add first the common (conservative) part
-         fL = [cuStar, rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
+         fL = [cuStar+lambda_mu*(muL-muR), rhoStar*uStar*uStar + pStar, rhoStar*uStar*vStar, rhoStar*uStar*wStar, dimensionless % invMa2 * uStar]
          fR = fL
 !
 !      - Add the non--conservative part

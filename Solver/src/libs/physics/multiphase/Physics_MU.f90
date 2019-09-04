@@ -26,6 +26,8 @@
       public  mViscousFlux0D, mViscousFlux2D, mViscousFlux3D
       public  mEulerFlux0D, mEulerFlux3D
 
+      real(kind=RP), parameter :: sigma_P = 0.0_RP
+
      interface mEulerFlux
          module procedure mEulerFlux0D, mEulerFlux3D
      end interface mEulerFlux
@@ -178,19 +180,19 @@
          F(IGU,IX) = 2.0_RP * mu * U_x(IGU)
          F(IGV,IX) = mu * (U_x(IGV) + U_y(IGU))
          F(IGW,IX) = mu * (U_x(IGW) + U_z(IGU))
-         F(IGP,IX) = 0.0_RP
+         F(IGP,IX) = sigma_P*U_x(IGP)
 
          F(IGMU,IY)  = beta*U_y(IGMU)
          F(IGU,IY) = F(IGV,IX)
          F(IGV,IY) = 2.0_RP * mu * U_y(IGV)
          F(IGW,IY) = mu * (U_y(IGW) + U_z(IGV))
-         F(IGP,IY) = 0.0_RP
+         F(IGP,IY) = sigma_P*U_y(IGP)
 
          F(IGMU,IZ)  = beta*U_z(IGMU)
          F(IGU,IZ) = F(IGW,IX)
          F(IGV,IZ) = F(IGW,IY)
          F(IGW,IZ) = 2.0_RP * mu * U_z(IGW)
-         F(IGP,IZ) = 0.0_RP
+         F(IGP,IZ) = sigma_P*U_z(IGP)
 
       end subroutine mViscousFlux0D
 
@@ -219,19 +221,19 @@
             F(IGU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(IGU,i,j)
             F(IGV,IX,i,j) = mu(i,j) * (U_x(IGV,i,j) + U_y(IGU,i,j))
             F(IGW,IX,i,j) = mu(i,j) * (U_x(IGW,i,j) + U_z(IGU,i,j))
-            F(IGP,IX,i,j) = 0.0_RP
+            F(IGP,IX,i,j) = sigma_P*U_x(IGP,i,j)
    
             F(IGMU,IY,i,j)  = beta(i,j)*U_y(IGMU,i,j)
             F(IGU,IY,i,j) = F(IGV,IX,i,j)
             F(IGV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(IGV,i,j)
             F(IGW,IY,i,j) = mu(i,j) * (U_y(IGW,i,j) + U_z(IGV,i,j))
-            F(IGP,IY,i,j) = 0.0_RP
+            F(IGP,IY,i,j) = sigma_P*U_y(IGP,i,j)
    
             F(IGMU,IZ,i,j)  = beta(i,j)*U_z(IGMU,i,j)
             F(IGU,IZ,i,j) = F(IGW,IX,i,j)
             F(IGV,IZ,i,j) = F(IGW,IY,i,j)
             F(IGW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(IGW,i,j)
-            F(IGP,IZ,i,j) = 0.0_RP
+            F(IGP,IZ,i,j) = sigma_P*U_z(IGP,i,j)
          end do    ; end do
 
       end subroutine mViscousFlux2D
@@ -261,19 +263,19 @@
             F(IGU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(IGU,i,j,k)
             F(IGV,i,j,k,IX) = mu(i,j,k) * (U_x(IGV,i,j,k) + U_y(IGU,i,j,k))
             F(IGW,i,j,k,IX) = mu(i,j,k) * (U_x(IGW,i,j,k) + U_z(IGU,i,j,k))
-            F(IGP,i,j,k,IX) = 0.0_RP
+            F(IGP,i,j,k,IX) = sigma_P*U_x(IGP,i,j,k)
    
             F(IGMU,i,j,k,IY)  = beta(i,j,k)*U_y(IGMU,i,j,k)
             F(IGU,i,j,k,IY) = F(IGV,i,j,k,IX)
             F(IGV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(IGV,i,j,k)
             F(IGW,i,j,k,IY) = mu(i,j,k) * (U_y(IGW,i,j,k) + U_z(IGV,i,j,k))
-            F(IGP,i,j,k,IY) = 0.0_RP
+            F(IGP,i,j,k,IY) = sigma_P*U_y(IGP,i,j,k)
    
             F(IGMU,i,j,k,IZ)  = beta(i,j,k)*U_z(IGMU,i,j,k)
             F(IGU,i,j,k,IZ) = F(IGW,i,j,k,IX)
             F(IGV,i,j,k,IZ) = F(IGW,i,j,k,IY)
             F(IGW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(IGW,i,j,k)
-            F(IGP,i,j,k,IZ) = 0.0_RP
+            F(IGP,i,j,k,IZ) = sigma_P*U_z(IGP,i,j,k)
          end do      ; end do    ; end do
 
       end subroutine mViscousFlux3D
