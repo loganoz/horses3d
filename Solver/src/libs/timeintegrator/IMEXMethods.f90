@@ -344,10 +344,12 @@ MODULE IMEXMethods
       integer                                  :: nelm, DimPrb, globalDimPrb
       logical, save                            :: isfirst = .TRUE.
       logical, save                            :: isSecond = .false.
+      logical, save                            :: isSecondOrder = .true.
       logical                                  :: TimeAccurate = .true.
       integer                                  :: nEqnJac, nGradJac
       real(kind=RP)                            :: tk
       integer                                  :: k, id, s
+      integer, save                            :: IMEX_order = 2
       SAVE DimPrb, nelm, TimeAccurate
 
       tk = t + dt
@@ -356,7 +358,7 @@ MODULE IMEXMethods
       nEqnJac = NCOMP
       nGradJac = NCOMP
 
-      if (isSecond) then
+      if (isSecond .and. isSecondOrder) then
 !
 !        Store the explicit approximation of Q
 !        -------------------------------------
@@ -410,13 +412,31 @@ MODULE IMEXMethods
       end if
 
       IF (isfirst) THEN           
+         if ( controlVariables % containsKey("imex order") ) then
+            IMEX_order = controlVariables % IntegerValueForKey("imex order")
+         else
+            IMEX_order = 2
+         end if
+         print*, "IMEX order = ", IMEX_order
+
+         select case (IMEX_order)
+         case(1)
+            isSecondOrder = .false.
+         case(2)
+            isSecondOrder = .true.
+         case default
+            print*, "IMEX order should be 1 or 2"
+            errorMessage(STD_OUT)
+            stop
+         end select
+
 !
 !        ***********************************************************************
 !           Construct the Jacobian, and perform the factorization in the first
 !           call.
 !        ***********************************************************************
 
-         isfirst = .false.
+
          isSecond = .true.
          nelm = SIZE(sem%mesh%elements)
          DimPrb = sem % NDOF * NCOMP
@@ -424,7 +444,10 @@ MODULE IMEXMethods
          
          CALL linsolver%construct(DimPrb,globalDimPrb, nEqnJac,controlVariables,sem, IMEX_MatrixShift) 
          call linsolver%ComputeAndFactorizeJacobian(nEqnJac,nGradJac, ComputeTimeDerivative, dt, 1.0_RP)
+      end if
 
+      if ( isFirst .or. (.not. isSecondOrder) ) then
+         isfirst = .false.
          call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IMEX_EXPLICIT)
    
          call ComputeRHS_MUBDF2(sem, dt, nelm, linsolver)
@@ -456,8 +479,10 @@ MODULE IMEXMethods
 !
 !        Change the coefficient in the Jacobian for the BDF2
 !        ---------------------------------------------------
-         call linsolver % ReFactorizeJacobian
-         print*, "Jacobian re-factorized"
+         if ( isSecondOrder ) then
+            call linsolver % ReFactorizeJacobian
+            print*, "Jacobian re-factorized"
+         end if
          
       ENDIF
 !

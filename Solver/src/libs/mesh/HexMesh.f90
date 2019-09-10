@@ -2652,6 +2652,9 @@ slavecoord:             DO l = 1, 4
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 #ifdef FLOW
             Q(1:NCONS,:,:,:)  = e % storage % Q
+#ifdef MULTIPHASE
+            Q(IMP,:,:,:) = e % storage % Q(IMP,:,:,:) + e % storage % Q(IMC,:,:,:)*e % storage % mu(1,:,:,:)
+#endif
 #endif
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
