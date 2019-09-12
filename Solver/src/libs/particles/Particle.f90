@@ -476,14 +476,14 @@ subroutine compute_bounce_parameters(p, minbox, maxbox, bcbox)
 
    integer  :: i
    
-   inside = p%mesh%elements(eID)%FindPointWithCoords(pos, xi)
+   inside = p%mesh%elements(eID)%FindPointWithCoords(pos, p % mesh % dir2D, xi)
    if (inside) return
 
    ! Else check if the point resides iniside a neigbour
 
    do i = 1, 6
       if (neighbours(i) <= 0) cycle
-      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
+      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, p % mesh % dir2D, xi)
       if (inside) then
          eID = neighbours(i)
          return

@@ -1,11 +1,11 @@
-#if defined(NAVIERSTOKES)
 #include "Includes.h"
+#ifdef FLOW
 module ProbeClass
    use SMConstants
    use HexMeshClass
    use MonitorDefinitions
    use PhysicsStorage
-   use VariableConversion  , only: Pressure
+   use VariableConversion
    use MPI_Process_Info
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
@@ -96,6 +96,7 @@ module ProbeClass
             call tolower(self % variable)
 
             select case ( trim(self % variable) )
+#ifdef NAVIERSTOKES
             case ("pressure")
             case ("velocity")
             case ("u")
@@ -114,6 +115,22 @@ module ProbeClass
                print*, "   * Mach"
                print*, "   * K"
             end select
+#endif
+#ifdef INCNS
+            case default
+               print*, "Probes are not implemented for the incompressible NSE"
+            end select
+#endif
+#ifdef MULTIPHASE
+            case ("static-pressure")
+
+            case default
+               print*, 'Probe variable "',trim(self % variable),'" not implemented.'
+               print*, "Options available are:"
+               print*, "   * static-pressure"
+
+            end select
+#endif
          
 !
 !           Find the requested point in the mesh
@@ -152,7 +169,7 @@ module ProbeClass
 !
 !        If this is not the first call, just reload the reference frame coordinates
 !        --------------------------------------------------------------------------
-         if (.not. firstCall) self % active = mesh % elements(self % eID) % FindPointWithCoords(self % x,self % xi)
+         if (.not. firstCall) self % active = mesh % elements(self % eID) % FindPointWithCoords(self % x,mesh % dir2D_ctrl, self % xi)
 !
 !        Get the Lagrange interpolants
 !        -----------------------------
@@ -217,6 +234,7 @@ module ProbeClass
             associate( Q => e % storage % Q )
    
             select case (trim(self % variable))
+#ifdef NAVIERSTOKES
             case("pressure")
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2)  ; do i = 0, e % Nxyz(1) 
                   var(i,j,k) = Pressure(Q(:,i,j,k))
@@ -252,7 +270,14 @@ module ProbeClass
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   var(i,j,k) = 0.5_RP * (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/Q(IRHO,i,j,k)
                end do         ; end do         ; end do
-   
+#endif
+#ifdef MULTIPHASE
+            case("static-pressure")
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  var(i,j,k) = Q(IMP,i,j,k) + Q(IMC,i,j,k)*e % storage % mu(1,i,j,k) - 12.0_RP*multiphase%sigma*multiphase%invEps*(POW2(Q(IMC,i,j,k)*(1.0_RP-Q(IMC,i,j,k)))) &
+                               - 0.25_RP*3.0_RP*multiphase % sigma * multiphase % eps * (POW2(e % storage % c_x(1,i,j,k))+POW2(e % storage % c_y(1,i,j,k))+POW2(e % storage % c_z(1,i,j,k)))
+               end do         ; end do         ; end do
+#endif 
             end select
    
             value = 0.0_RP

@@ -74,6 +74,7 @@ MODULE HexMeshClass
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
          integer                                   :: dir2D                         ! If it is in fact a 2D mesh, dir 2D stores the global direction IX, IY or IZ
+         integer                                   :: dir2D_ctrl                    ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
          contains
@@ -3136,7 +3137,7 @@ slavecoord:             DO l = 1, 4
             do op_eID = 1, size(optionalElements)
                if ( optionalElements(op_eID) .eq. -1 ) cycle
                associate(e => self % elements(optionalElements(op_eID)))
-               success = e % FindPointWithCoords(x, xi) 
+               success = e % FindPointWithCoords(x, self % dir2D_ctrl, xi) 
                if ( success ) then
                   eID = optionalElements(op_eID)
                   HexMesh_FindPointWithCoords = .true.
@@ -3169,7 +3170,7 @@ slavecoord:             DO l = 1, 4
             do fID=1, self % zones(zoneID) % no_of_faces
                
                op_eID = self % faces ( self % zones(zoneID) % faces(fID) ) % elementIDs(1)
-               success = self % elements (op_eID) % FindPointWithCoords(x, xi)
+               success = self % elements (op_eID) % FindPointWithCoords(x, self % dir2D_ctrl, xi)
                if ( success ) then
                   HexMesh_FindPointWithCoords = .true.
                   return
@@ -3199,7 +3200,7 @@ slavecoord:             DO l = 1, 4
          integer :: fID, nID, new_eID
          !------------------------------------------------------------
          
-         success = self % elements(eID) % FindPointWithCoords(x, xi)
+         success = self % elements(eID) % FindPointWithCoords(x, self % dir2D_ctrl, xi)
          if ( success ) then
             HexMesh_FindPointWithCoordsInNeighbors = .TRUE.
             return
