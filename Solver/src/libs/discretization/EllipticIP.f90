@@ -517,7 +517,7 @@ module EllipticIP
 !           The multiphase solver needs the Chemical potential as first entropy variable
 !           ----------------------------------------------------------------------------
             UL(IGMU) = f % storage(1) % mu(1,i,j)
-            UR(IGMU) = f % storage(2) % mu(1,i,j)
+            UR(IGMU) = f % storage(1) % mu(1,i,j)
 #endif
 
    

@@ -866,6 +866,7 @@ module SpatialDiscretization
 !
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
          f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
+         f % storage(2) % mu(1,i,j) = f % storage(1) % mu(1,i,j)
          CALL BCs(f % zone) % bc % FlowState( &
                                       f % geom % x(:,i,j), &
                                       time, &

@@ -179,7 +179,7 @@ module RiemannSolvers_MU
          real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
-         real(kind=RP)  :: lambda_mu = 0.1_RP
+         real(kind=RP)  :: lambda_mu = 0.0_RP
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
 !        -----------------------------------------------------------------------------
