@@ -324,7 +324,7 @@ contains
       real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
       integer, optional, intent(in) :: num_of_Cols
       !---------------------------------------------
-      
+      ERROR stop ' :: constructWithCSRArrays not implemented for current matrix type'
    end subroutine constructWithCSRArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
