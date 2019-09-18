@@ -49,13 +49,13 @@ module OutflowBCClass
 !  ****************
 !
    type, extends(GenericBC_t) ::  OutflowBC_t
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
       real(kind=RP)     :: pExt
 #endif
       contains
          procedure         :: Destruct          => OutflowBC_Destruct
          procedure         :: Describe          => OutflowBC_Describe
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          procedure         :: FlowState         => OutflowBC_FlowState
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
 #endif
@@ -173,19 +173,19 @@ module OutflowBCClass
 !
 !        Analyze the gathered data
 !        -------------------------
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          if ( bcdict % ContainsKey("pressure") ) then
             ConstructOutflowBC % pExt = bcdict % DoublePrecisionValueForKey("pressure")
          else if ( bcdict % ContainsKey("dp") ) then
 #if defined(NAVIERSTOKES)
             ConstructOutflowBC % pExt = refValues % p / dimensionless % gammaM2 - bcdict % DoublePrecisionValueForKey("dp")
-#elif defined(INCNS)
+#elif defined(INCNS) || defined(MULTIPHASE)
             ConstructOutflowBC % pExt = 0.0_RP - bcdict % DoublePrecisionValueForKey("dp")
 #endif
          else
 #if defined(NAVIERSTOKES)
             ConstructOutflowBC % pExt = refValues % p / dimensionless % gammaM2 
-#elif defined(INCNS)
+#elif defined(INCNS) || defined(MULTIPHASE)
             ConstructOutflowBC % pExt = 0.0_RP
 #endif
          end if
@@ -205,7 +205,7 @@ module OutflowBCClass
 !        ***************************************************
          implicit none
          class(OutflowBC_t),  intent(in)  :: self
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#ifdef FLOW
          write(STD_OUT,'(30X,A,A28,A)') "->", " Boundary condition type: ", "Outflow"
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", " Outflow pressure: ", self % pExt * refValues % p
 #endif
@@ -406,6 +406,90 @@ module OutflowBCClass
 
       end subroutine OutflowBC_FlowNeumann
 #endif
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!	Subroutines for the Multiphase solver
+!	-------------------------------------
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+#ifdef MULTIPHASE
+      subroutine OutflowBC_FlowState(self, x, t, nHat, Q)
+         implicit none
+         class(OutflowBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: u, v, w, theta, phi, un, rho, sqrtRho
+
+
+         un = Q(IMSQRHOU)*nHat(IX) + Q(IMSQRHOV)*nHat(IY) + Q(IMSQRHOW)*nHat(IZ)
+         
+         if ( un .ge. -1.0e-4_RP ) then
+         
+            Q(IMP) = self % pExt
+
+         else
+
+            u = dimensionless % vel_dir(IX)
+            v = dimensionless % vel_dir(IY)
+            w = dimensionless % vel_dir(IZ)
+
+            rho = dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC))
+            sqrtRho = sqrt(rho)
+
+            Q(IMSQRHOU) = sqrtRho*u
+            Q(IMSQRHOV) = sqrtRho*v
+            Q(IMSQRHOW) = sqrtRho*w
+
+         end if
+
+
+      end subroutine OutflowBC_FlowState
+
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+         implicit none
+         class(OutflowBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(inout) :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U_x(NCONS)
+         real(kind=RP),       intent(inout) :: U_y(NCONS)
+         real(kind=RP),       intent(inout) :: U_z(NCONS)
+
+         real(kind=RP) :: dmudn, dudn, dvdn, dwdn
+
+         dmudn = (U_x(IGMU)*nHat(IX) + U_y(IGMU)*nHat(IY) + U_z(IGMU)*nHat(IZ))
+         U_x(IGMU) = U_x(IGMU) - 2.0_RP * dmudn * nHat(IX)
+         U_y(IGMU) = U_y(IGMU) - 2.0_RP * dmudn * nHat(IY) 
+         U_z(IGMU) = U_z(IGMU) - 2.0_RP * dmudn * nHat(IZ) 
+
+         dudn = (U_x(IGU)*nHat(IX) + U_y(IGU)*nHat(IY) + U_z(IGU)*nHat(IZ))
+         U_x(IGU) = U_x(IGU) - 2.0_RP * dudn * nHat(IX)
+         U_y(IGU) = U_y(IGU) - 2.0_RP * dudn * nHat(IY) 
+         U_z(IGU) = U_z(IGU) - 2.0_RP * dudn * nHat(IZ) 
+
+         dvdn = (U_x(IGV)*nHat(IX) + U_y(IGV)*nHat(IY) + U_z(IGV)*nHat(IZ))
+         U_x(IGV) = U_x(IGV) - 2.0_RP * dvdn * nHat(IX)
+         U_y(IGV) = U_y(IGV) - 2.0_RP * dvdn * nHat(IY) 
+         U_z(IGV) = U_z(IGV) - 2.0_RP * dvdn * nHat(IZ) 
+
+         dwdn = (U_x(IGW)*nHat(IX) + U_y(IGW)*nHat(IY) + U_z(IGW)*nHat(IZ))
+         U_x(IGW) = U_x(IGW) - 2.0_RP * dwdn * nHat(IX)
+         U_y(IGW) = U_y(IGW) - 2.0_RP * dwdn * nHat(IY) 
+         U_z(IGW) = U_z(IGW) - 2.0_RP * dwdn * nHat(IZ)
+
+      end subroutine OutflowBC_FlowNeumann
+#endif
+
 !
 !////////////////////////////////////////////////////////////////////////////
 !

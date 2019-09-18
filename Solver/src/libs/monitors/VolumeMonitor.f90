@@ -165,6 +165,7 @@ module VolumeMonitorClass
 #elif defined(MULTIPHASE)
          select case ( trim ( self % variable ) )
          case ("entropy rate")
+         case ("entropy balance")
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -173,6 +174,7 @@ module VolumeMonitorClass
                print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
                print*, "Options available are:"
                print*, "   * Entropy rate"
+               print*, "   * Entropy balance"
                stop "Stopped."
 
             end if
@@ -301,6 +303,9 @@ module VolumeMonitorClass
 #elif defined(MULTIPHASE)
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE)
+
+         case ("entropy balance")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_BALANCE)
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")

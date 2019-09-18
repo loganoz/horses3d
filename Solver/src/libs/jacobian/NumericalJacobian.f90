@@ -134,7 +134,8 @@ contains
 !        -> TODO: Define according to physics and discretization
 !        -------------------------------------------------------
 #if defined(CAHNHILLIARD)
-         num_of_neighbor_levels = 2
+         num_of_neighbor_levels = 4
+print*, "4 NEIGHBORS!!!!!!!!!!!!"
 #elif defined(NAVIERSTOKES)
          if (flowIsNavierStokes) then
             num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2

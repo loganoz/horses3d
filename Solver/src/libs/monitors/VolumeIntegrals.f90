@@ -24,7 +24,7 @@ module VolumeIntegrals
 #endif
 
 #if defined(MULTIPHASE)
-   public ENTROPY_RATE
+   public ENTROPY_RATE, ENTROPY_BALANCE
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -45,7 +45,7 @@ module VolumeIntegrals
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
 #if defined(MULTIPHASE)
-      enumerator :: ENTROPY_RATE
+      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -340,6 +340,25 @@ module VolumeIntegrals
 #endif
 #ifdef MULTIPHASE
          case (ENTROPY_RATE)
+!
+!           ***********************************
+!              Computes the kinetic energy
+!              time derivative:
+!              K_t = (d/dt)\int \rho V^2 dV
+!           ***********************************
+!
+            KinEn = e % storage % QDot(IMC,:,:,:) * e % storage % mu(1,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOU,:,:,:)*e % storage % QDot(IMSQRHOU,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOV,:,:,:)*e % storage % QDot(IMSQRHOV,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOW,:,:,:)*e % storage % QDot(IMSQRHOW,:,:,:)
+            KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k) 
+            end do            ; end do           ; end do
+
+
+         case (ENTROPY_BALANCE)
 !
 !           ***********************************
 !              Computes the kinetic energy
