@@ -210,6 +210,10 @@ contains
                                               MatrixShiftFunc = MatrixShiftFunc, &
                                               controlVariables = controlVariables)
             
+            ! This is for adding the block sizes to the subsolver Jacobian definition (only valid in sequential)
+            allocate ( this % matSolver % Jacobian % ndofelm_l(nelem) )
+            this % matSolver % Jacobian % ndofelm_l = this % A % BlockSizes - this % A % inner_blockSizes
+            
             ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
 !~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
             
