@@ -24,7 +24,7 @@ module VolumeIntegrals
 #endif
 
 #if defined(MULTIPHASE)
-   public ENTROPY_RATE, ENTROPY_BALANCE
+   public ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_XCOG, PHASE2_XVEL
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -45,7 +45,7 @@ module VolumeIntegrals
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
 #if defined(MULTIPHASE)
-      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE
+      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_XCOG, PHASE2_XVEL
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -137,7 +137,7 @@ module VolumeIntegrals
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem, entr
+         real(kind=RP)           :: free_en, fchem, entr, area, rho
          real(kind=RP)           :: Strain(NDIM,NDIM)
          real(kind=RP)           :: mu
 
@@ -392,6 +392,33 @@ module VolumeIntegrals
                         + multiphase % M0 * (POW2(e % storage % U_x(IGMU,i,j,k)) + POW2(e % storage % U_y(IGMU,i,j,k)) + POW2(e % storage % U_z(IGMU,i,j,k)) ) )
 
             end do            ; end do           ; end do
+
+         case (PHASE2_XCOG)
+
+            area = 0.0_RP
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               area = area + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k))
+            end do            ; end do           ; end do
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*e % geom % x(IX,i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k))
+            end do            ; end do           ; end do
+
+            val = val / area
+
+         case (PHASE2_XVEL)
+
+            area = 0.0_RP
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               area = area + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k))
+            end do            ; end do           ; end do
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               rho = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+               val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*e % storage % Q(IMSQRHOU,i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k)) / sqrt(rho)
+            end do            ; end do           ; end do
+
+            val = val / area
 
 #endif
 #if defined(CAHNHILLIARD)            
