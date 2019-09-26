@@ -276,11 +276,31 @@ module SpatialDiscretization
 !
          call mesh % ProlongSolutionToFaces(NCOMP)
 !
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesSolution(NCOMP)
+!$omp end single
+#endif
+!
 !        ------------------------------------------------------------
 !        Get concentration (lifted) gradients (also prolong to faces)
 !        ------------------------------------------------------------
 !
          call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+!
+!        --------------------
+!        Update MPI Gradients
+!        --------------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesGradients(NCOMP)
+!$omp end single
+#endif
 !
 !        ----------------------
 !        Get chemical potential
@@ -327,6 +347,16 @@ module SpatialDiscretization
          call mesh % SetStorageToEqn(MU_BC)
 !$omp end single
          call mesh % ProlongSolutionToFaces(NCOMP)
+!
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesSolution(NCOMP)
+!$omp end single
+#endif
 
 !
 !/////////////////////////////////////////////////////////////////////////////////
@@ -341,6 +371,16 @@ module SpatialDiscretization
 !           ------------------------------------------------------------
 !
             call CHDiscretization % ComputeGradient(NCOMP, NCOMP, mesh, time, CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+!
+!           --------------------
+!           Update MPI Gradients
+!           --------------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+            call mesh % UpdateMPIFacesGradients(NCOMP)
+!$omp end single
+#endif
 !
 !           ----------------------
 !           Get chemical potential
@@ -377,6 +417,16 @@ module SpatialDiscretization
 !
          call mesh % ProlongSolutionToFaces(NCONS)
 !
+!        ----------------
+!        Update MPI Faces
+!        ----------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesSolution(NCONS)
+!$omp end single
+#endif
+!
 !        -------------------------------------
 !        Get the density in faces and elements
 !        -------------------------------------
@@ -404,6 +454,16 @@ module SpatialDiscretization
 !        ----------------------------------------
 !
          call ViscousDiscretization % ComputeLocalGradients( NCONS, NCONS, mesh , time , mGradientValuesForQ_0D, mGradientValuesForQ_3D)
+!
+!        --------------------
+!        Update MPI Gradients
+!        --------------------
+!
+#ifdef _HAS_MPI_
+!$omp single
+         call mesh % UpdateMPIFacesGradients(NCONS)
+!$omp end single
+#endif
 !
 !        -------------------------------------
 !        Add the Non-Conservative term to QDot
@@ -603,6 +663,77 @@ module SpatialDiscretization
             end associate 
          end do
 !$omp end do
+!
+!        ******************************************
+!        Do the same for elements with shared faces
+!        ******************************************
+!
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+!$omp single
+            call mesh % GatherMPIFacesGradients(NCONS)
+!$omp end single
+!
+!           **************************************
+!           Compute Riemann solver of shared faces
+!           **************************************
+!
+!$omp do schedule(runtime) 
+            do fID = 1, size(mesh % faces)
+               associate( f => mesh % faces(fID))
+               select case (f % faceType)
+               case (HMESH_MPI)
+                  CALL computeMPIFaceFlux_MU( f )
+               end select
+               end associate
+            end do
+!$omp end do 
+!
+!           ***********************************************************
+!           Surface integrals and scaling of elements with shared faces
+!           ***********************************************************
+! 
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, size(mesh % elements)
+               associate(e => mesh % elements(eID))
+               if ( .not. e % hasSharedFaces ) cycle
+               call TimeDerivative_FacesContribution(e, t, mesh)
+ 
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
+                  sqrtRho = sqrt(e % storage % rho(i,j,k))
+                  invSqrtRho = 1.0_RP / sqrtRho
+!   
+!               + Scale with Jacobian and sqrt(Rho)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % InvJacobian(i,j,k)
+                  e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) = e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) * invSqrtRho
+!   
+!               + Add gravity
+                  e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) =   e % storage % QDot(IMSQRHOU:IMSQRHOW,i,j,k) & 
+                                                                + sqrtRho * dimensionless % invFr2 * dimensionless % gravity_dir
+   
+!   
+!               + Add user defined source terms
+                  call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues, multiphase)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k) / [1.0_RP,sqrtRho,sqrtRho,sqrtRho,1.0_RP]
+   
+               end do         ; end do          ; end do 
+
+
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               end do         ; end do          ; end do
+               end associate
+            end do
+!$omp end do
+!
+!           Add an MPI Barrier
+!           ------------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+         end if
+#endif
+
 
       end subroutine ComputeNSTimeDerivative
 !
@@ -776,63 +907,97 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_MU(f)
          use FaceClass
+         use RiemannSolvers_MU
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
          integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu
-!!
-!!        --------------
-!!        Invscid fluxes
-!!        --------------
-!!
-!         DO j = 0, f % Nf(2)
-!            DO i = 0, f % Nf(1)
-!!      
-!!              --------------
-!!              Viscous fluxes
-!!              --------------
-!!      
-!               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(IMC,i,j), mu)
+         real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2),2)
+         real(kind=RP) :: muL, muR
+         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
+         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
+
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+
+               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(IMC,i,j), muL)
+               call ViscousDiscretization % GetViscosity(f % storage(2) % Q(IMC,i,j), muR)
+
 !
-!               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
-!                                                  f = f, &
-!                                                  QLeft = f % storage(1) % Q(:,i,j), &
-!                                                  QRight = f % storage(2) % Q(:,i,j), &
-!                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-!                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-!                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-!                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-!                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-!                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-!                                                  mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
-!                                                  nHat = f % geom % normal(:,i,j) , &
-!                                                  dWall = f % geom % dWall(i,j), &
-!                                                  flux  = visc_flux(:,i,j) )
+!            - Premultiply velocity gradients by the viscosity
+!              -----------------------------------------------
+               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
+               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
+               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
+
+               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
+               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
+               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
+!      
+!              --------------
+!              Viscous fluxes
+!              --------------
+!      
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = UxL, &
+                                                  U_yLeft = UyL, &
+                                                  U_zLeft = UzL, &
+                                                  U_xRight = UxR, &
+                                                  U_yRight = UyR, &
+                                                  U_zRight = UzR, &
+                                                  mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
+                                                  flux  = visc_flux(:,i,j) )
+
+            end do
+         end do
+
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+!      
+!              --------------
+!              Invscid fluxes
+!              --------------
+!      
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  rhoL   = f % storage(1) % rho(i,j), &
+                                  rhoR   = f % storage(2) % rho(i,j), &
+                                  muL    = f % storage(1) % mu(1,i,j), &
+                                  muR    = f % storage(2) % mu(1,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
+                                  fL     = inv_fluxL(:,i,j), &
+                                  fR     = inv_fluxR(:,i,j) )
+
+               
 !
-!!
-!               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-!                                  QRight = f % storage(2) % Q(:,i,j), &
-!                                  nHat   = f % geom % normal(:,i,j), &
-!                                  t1     = f % geom % t1(:,i,j), &
-!                                  t2     = f % geom % t2(:,i,j), &
-!                                  flux   = inv_flux(:,i,j) )
-!!
-!!              Multiply by the Jacobian
-!!              ------------------------
-!               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-!               
-!            END DO   
-!         END DO  
-!!
-!!        ---------------------------
-!!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
-!!        ---------------------------
-!!
-!         thisSide = maxloc(f % elementIDs, dim = 1)
-!         call f % ProjectFluxToElements(NCONS, flux, (/thisSide, HMESH_NONE/))
+!              Multiply by the Jacobian
+!              ------------------------
+               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               
+            END DO   
+         END DO  
+!
+!        ---------------------------
+!        Return the flux to elements
+!        ---------------------------
+!
+         thisSide = maxloc(f % elementIDs, dim = 1)
+         flux(:,:,:,1) = fluxL
+         flux(:,:,:,2) = fluxR
+
+         call f % ProjectFluxToElements(NCONS, flux(:,:,:,thisSide), (/thisSide, HMESH_NONE/))
 
       end subroutine ComputeMPIFaceFlux_MU
 
@@ -872,6 +1037,9 @@ module SpatialDiscretization
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j))
+
+         f % storage(2) % rho(i,j) = dimensionless % rho(2) + (dimensionless % rho(1)-dimensionless % rho(2))*f % storage(2) % Q(IMC,i,j)
+         f % storage(2) % rho(i,j) = min(max(f % storage(2) % rho(i,j), dimensionless % rho_min),dimensionless % rho_max)
 
       end do               ; end do
 
@@ -1007,6 +1175,56 @@ module SpatialDiscretization
             end associate 
          end do
 !$omp end do
+!
+!        ***********************************************************
+!        Surface integrals and scaling of elements with shared faces
+!        ***********************************************************
+! 
+#ifdef _HAS_MPI_
+         if ( MPI_Process % doMPIAction ) then
+!$omp single
+            call mesh % GatherMPIFacesGradients(NCOMP)
+!$omp end single
+!
+!           **************************************
+!           Compute Riemann solver of shared faces
+!           **************************************
+!
+!$omp do schedule(runtime) 
+            do fID = 1, size(mesh % faces)
+               associate( f => mesh % faces(fID))
+               select case (f % faceType)
+               case (HMESH_MPI)
+                  CALL Laplacian_computeMPIFaceFlux( f )
+               end select
+               end associate
+            end do
+!$omp end do 
+!
+!           ***********************************************************
+!           Surface integrals and scaling of elements with shared faces
+!           ***********************************************************
+! 
+!$omp do schedule(runtime) 
+            do eID = 1, size(mesh % elements)
+               associate(e => mesh % elements(eID))
+               if ( .not. e % hasSharedFaces ) cycle
+               call TimeDerivative_FacesContribution(e, t, mesh)
+
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               end do         ; end do          ; end do
+               end associate
+            end do
+!$omp end do
+!
+!           Add a MPI Barrier
+!           -----------------
+!$omp single
+            call mpi_barrier(MPI_COMM_WORLD, ierr)
+!$omp end single
+         end if
+#endif
 
       end subroutine ComputeLaplacian
 
