@@ -212,7 +212,7 @@ module NoSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         call GetValueWithDefault(bcdict, "contact angle 12", 90.0_RP, ConstructNoSlipWallBC % thetaw)
+         call GetValueWithDefault(bcdict, "contact angle", 90.0_RP, ConstructNoSlipWallBC % thetaw)
 
 #endif
 
@@ -548,9 +548,9 @@ module NoSlipWallBCClass
             prod = 0.0_RP
          end if
 
-         U_x = -4.0_RP * cos(DEG2RAD*self % thetaw) * nHat(1) * prod 
-         U_y = -4.0_RP * cos(DEG2RAD*self % thetaw) * nHat(2) * prod
-         U_z = -4.0_RP * cos(DEG2RAD*self % thetaw) * nHat(3) * prod
+         U_x = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(1) * prod 
+         U_y = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(2) * prod
+         U_z = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(3) * prod
 
       end subroutine NoSlipWallBC_PhaseFieldNeumann
 
