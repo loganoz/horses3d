@@ -774,11 +774,8 @@ module EllipticBR1
          U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
          call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
-         sigma = 0.5_RP*self % sigma * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
-
-!         flux(1) = flux(1) - sigma*(QLeft(1)-QRight(1))
 
       end subroutine BR1_RiemannSolver
 #if defined(NAVIERSTOKES)
