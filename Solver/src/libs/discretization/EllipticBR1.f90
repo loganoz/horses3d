@@ -54,7 +54,9 @@ module EllipticBR1
 
          if (.not. MPI_Process % isRoot ) return
 
+
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR1"
+         write(STD_OUT,'(30X,A,A30,F6.3)') "->","Penalty parameter: ",self % sigma
 
       end subroutine BR1_Describe
 
@@ -735,7 +737,11 @@ module EllipticBR1
       end subroutine BR1_ComputeInnerFluxesWithSGS
 #endif
       subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            mu, beta, kappa, nHat , dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, &
+#ifdef MULTIPHASE
+sigma, & 
+#endif
+flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -756,6 +762,9 @@ module EllipticBR1
          real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(nEqn)
+#endif
          real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
@@ -764,7 +773,7 @@ module EllipticBR1
 !
          real(kind=RP)     :: Q(nEqn) , U_x(nGradEqn) , U_y(nGradEqn) , U_z(nGradEqn)
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
-         real(kind=RP)     :: sigma
+         real(kind=RP)     :: sigma0
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
@@ -775,7 +784,13 @@ module EllipticBR1
 
          call self % EllipticFlux0D(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
 
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
+
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
+
+#ifdef MULTIPHASE
+         sigma0 = 0.5_RP * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h
+         flux = flux - sigma0 * sigma * (QLeft-QRIght)
+#endif
 
       end subroutine BR1_RiemannSolver
 #if defined(NAVIERSTOKES)

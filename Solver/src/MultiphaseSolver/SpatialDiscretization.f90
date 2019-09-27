@@ -862,6 +862,7 @@ module SpatialDiscretization
                                                   mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
+                                                  sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
                                                   flux  = visc_flux(:,i,j) )
 
             end do
@@ -955,6 +956,7 @@ module SpatialDiscretization
                                                   mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
+                                                  sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
                                                   flux  = visc_flux(:,i,j) )
 
             end do
@@ -1076,6 +1078,7 @@ module SpatialDiscretization
                                             mu   = mu, beta = multiphase % M0_star, kappa = 0.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
+                                            sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
                                             flux  = visc_flux(:,i,j) )
 
       end do               ; end do
@@ -1378,6 +1381,7 @@ module SpatialDiscretization
                                                   mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
+                                                  sigma = [1.0_RP], &
                                                   flux  = flux(:,i,j) )
 
                flux(:,i,j) = flux(:,i,j) * f % geom % jacobian(i,j)
@@ -1425,6 +1429,7 @@ module SpatialDiscretization
                                                   mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
+                                                  sigma = [1.0_RP], &
                                                   flux  = flux(:,i,j) )
 
                flux(:,i,j) = flux(:,i,j) * f % geom % jacobian(i,j)
@@ -1514,6 +1519,7 @@ module SpatialDiscretization
                                             mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
                                             nHat = f % geom % normal(:,i,j) , &
                                             dWall = f % geom % dWall(i,j), &
+                                            sigma = [1.0_RP], &
                                             flux  = flux(:,i,j) )
 
          flux(:,i,j) = flux(:,i,j) * f % geom % jacobian(i,j)

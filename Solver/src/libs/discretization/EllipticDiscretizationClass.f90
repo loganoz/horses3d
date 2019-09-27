@@ -124,6 +124,20 @@ module EllipticDiscretizationClass
          self % EllipticFlux2D => EllipticFlux2D
          self % EllipticFlux3D => EllipticFlux3D
          self % GetViscosity   => GetViscosity
+!
+!        Request the penalty parameter
+!        -----------------------------
+         if ( controlVariables % containsKey("penalty parameter") ) then
+            self % sigma = controlVariables % doublePrecisionValueForKey("penalty parameter")
+
+         else
+!            
+!           Set 0.0 by default
+!           ------------------
+            self % sigma = 0.0_RP
+
+         end if
+
 
          select case (eqName)
          case(ELLIPTIC_NS)
@@ -358,7 +372,12 @@ module EllipticDiscretizationClass
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
       subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           mu, beta, kappa, nHat, dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, &
+#ifdef MULTIPHASE
+sigma, & 
+#endif
+flux )
+         use SMConstants
          use SMConstants
          use PhysicsStorage
          use FaceClass
@@ -378,6 +397,9 @@ module EllipticDiscretizationClass
          real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(nEqn)
+#endif
          real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------------------

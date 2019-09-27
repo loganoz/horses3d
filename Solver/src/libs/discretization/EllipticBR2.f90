@@ -673,7 +673,11 @@ module EllipticBR2
       end subroutine BR2_ComputeInnerFluxesWithSGS
 #endif
       subroutine BR2_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            mu, beta, kappa, nHat , dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, &
+#ifdef MULTIPHASE
+sigma, & 
+#endif
+flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -694,6 +698,9 @@ module EllipticBR2
          real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(nEqn)
+#endif
          real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------

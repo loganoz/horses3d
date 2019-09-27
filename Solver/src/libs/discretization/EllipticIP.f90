@@ -712,7 +712,11 @@ module EllipticIP
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                           mu, beta, kappa, nHat , dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, &
+#ifdef MULTIPHASE
+sigma, & 
+#endif
+flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -733,6 +737,9 @@ module EllipticIP
          real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(nEqn)
+#endif
          real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
@@ -743,16 +750,15 @@ module EllipticIP
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
          real(kind=RP)     :: flux_vecL(nEqn,NDIM)
          real(kind=RP)     :: flux_vecR(nEqn,NDIM)
-         real(kind=RP)     :: delta, sigma
+         real(kind=RP)     :: delta
          
-         sigma = self % PenaltyParameter(f)
 
          call self % EllipticFlux0D(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, beta, kappa, flux_vecL )
          call self % EllipticFlux0D(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, beta, kappa, flux_vecR )
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * mu * (QLeft - QRight)
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - self % PenaltyParameter(f) * mu * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
 !
