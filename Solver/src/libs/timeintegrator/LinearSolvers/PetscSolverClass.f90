@@ -191,6 +191,12 @@ module PetscSolverClass
             
             call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
             
+         case ('ILU')
+            
+            print *, "Nothing done yet."
+            call PetscInitialize("ilu.petscrc",ierr) ! Fortran
+            call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
+            
          case default
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
