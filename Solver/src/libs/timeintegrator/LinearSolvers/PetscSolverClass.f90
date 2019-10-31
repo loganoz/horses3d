@@ -193,8 +193,7 @@ module PetscSolverClass
             
          case ('ILU')
             
-            print *, "Nothing done yet."
-            call PetscInitialize("ilu.petscrc",ierr) ! Fortran
+            call PetscInitialize("ilu.petscrc",ierr)
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
             
          case default

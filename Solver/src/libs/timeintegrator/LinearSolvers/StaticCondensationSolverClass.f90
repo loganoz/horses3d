@@ -155,9 +155,9 @@ contains
             MatrixType = SC_MATRIX_CSR
          case('petsc')
             this % linsolver = SSOLVER_PETSC
-            allocate(PETSCMatrix_t :: this % Mii_inv)
+            allocate(csrMat_t :: this % Mii_inv)
             allocate(PetscKspLinearSolver_t :: this % matSolver)
-            MatrixType = SC_MATRIX_PETSC
+            MatrixType = SC_MATRIX_CSR !SC_MATRIX_PETSC
          case('gmres')
             this % linsolver = SSOLVER_MATF_GMRES
          case default   
@@ -548,6 +548,7 @@ contains
       class(StaticCondSolver_t), intent(inout) :: this
       !-local-variables-----------------------------------------------------
       type(DenseBlockDiagMatrix_t) :: Mii_inv
+      type(csrMat_t)               :: SchurComp
       !---------------------------------------------------------------------
       
       select case (this % linsolver)
@@ -567,7 +568,15 @@ contains
             select type (matSolver => this % matSolver)
                class is (PetscKspLinearSolver_t)
                   ! Get condensed matrix
-                  call this % A % getSchurComplement(this % Mii_inv, matSolver % A)
+                  
+                  call SchurComp % construct(num_of_Rows = this % A % size_b, withMPI = .false.)
+                  
+                  call this % A % getSchurComplement(this % Mii_inv, SchurComp)
+                  
+                  call matSolver % A % constructWithCSRArrays(SchurComp % Rows,SchurComp % Cols,SchurComp % Values)
+                  
+                  call SchurComp % destruct
+                  
                   call Stopwatch % Pause("System condensation")
                   
                   ! Set PETSc matrix and preconditioner
