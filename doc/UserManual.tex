@@ -85,6 +85,8 @@ where \$HORSES\_DIR is the installation directory.
 
 \chapter{Input and Output Files}
 
+DONT USE TABS!
+
 \section{Input Files}
 \begin{itemize}
 \item Control file (*.control)
@@ -764,6 +766,16 @@ The options comprise following flags:
 \end{longtable}
 
 Additionally, depending on the type of solution file, the user can specify additional options.
+
+\subsection{Mesh}
+
+To visualize the mesh, the user needs to run the simulation first, which creates (*.bmesh) file. Then, simply:
+
+\begin{lstlisting}[language=bash]
+	$ horses2plt MeshFile.bmesh
+\end{lstlisting}
+
+If the mesh was created with Kopriva's SpecMesh, the better idea would be to use those tools to visalize the mesh right after it was created (see FIXME - ref to Kopriva guide).
 
 \subsection{Solution Files (*.hsol)}
 
