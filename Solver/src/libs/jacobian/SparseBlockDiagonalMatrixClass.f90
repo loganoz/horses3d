@@ -87,7 +87,7 @@ contains
       integer :: dimPrb
       !---------------------------------------------
       
-      if ( present(num_of_Blocks) ) then
+      if ( .not. present(num_of_Blocks) ) then
          ERROR stop 'SparseBlockDiagMatrix_t needs num_of_Blocks'
       else
          dimPrb = num_of_Blocks
