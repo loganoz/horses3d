@@ -4,16 +4,17 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Thu Jul  5 12:34:56 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision date: Tue Nov 19 15:40:44 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 4a1cb0b60ba7214f9ea84015f2ec8b4c04526553
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module PhysicsStorage
-   use SMConstants, only: RP, STD_OUT
+   use SMConstants     , only: RP, STD_OUT
    use Headers
+   use MPI_Process_Info, only: MPI_Process
 #ifdef FLOW
    use FluidData, only: refValues, thermodynamics
 #endif
@@ -130,7 +131,9 @@ module PhysicsStorage
 
       subroutine DescribePhysicsStorage_Common()
          implicit none
-
+         
+         if ( .not. MPI_Process % isRoot ) return 
+         
          call Section_Header("Loading common physics")
 
          write(STD_OUT,'(/,/)')
