@@ -4,9 +4,9 @@
 !   @File:    IntegerArrayLinkedListTable.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Fri Jan 18 18:03:41 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu Nov 21 17:53:41 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: ce8e66392935295156afd1c49990154b2f523f86
 !
 !//////////////////////////////////////////////////////
 !
@@ -38,6 +38,7 @@ module IntegerArrayLinkedListTable
 
    type Table_t
       integer                         :: no_of_lists
+      integer                         :: no_of_entries = 0
       type(LinkedList_t), allocatable :: lists(:)
       contains 
          procedure :: AddEntry      => Table_AddEntry
@@ -105,11 +106,9 @@ module IntegerArrayLinkedListTable
 !        -----------
          val_ordered = val
          call QSort(val_ordered)
-
-         global_position = 1
-         do t_id = 1, self % no_of_lists
-            global_position = global_position + self % lists(t_id) % no_of_entries
-         end do
+         
+         self % no_of_entries = self % no_of_entries + 1 
+         global_position = self % no_of_entries
 
          call self % lists(val_ordered(1)) % AddEntry(val_ordered(2:DATA_SIZE+1), global_position)
    
