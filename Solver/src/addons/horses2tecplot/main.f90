@@ -17,6 +17,7 @@ program horses2plt
    logical                                 :: fixedOrder
    integer                                 :: Nout(3)
    integer                                 :: basis
+   integer                                 :: mode
    integer                                 :: iSol
 
    call MPI_Process % Init
@@ -25,7 +26,7 @@ program horses2plt
 !
 !  Get the job type
 !  ----------------
-   jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis)
+   jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode)
 !
 !  Construct Spectral basis
 !  ------------------------
@@ -46,12 +47,12 @@ program horses2plt
          case ( SOLUTION_FILE )
             write(STD_OUT,'(/,/)')
             call Section_Header("Solution conversion")
-            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
+            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
 
          case ( SOLUTION_AND_GRADIENTS_FILE )
             write(STD_OUT,'(/,/)')
             call Section_Header("Solution with gradients conversion")
-            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)        
+            call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
 
          case ( STATS_FILE )
             write(STD_OUT,'(/,/)')

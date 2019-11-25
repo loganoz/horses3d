@@ -322,7 +322,9 @@ preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated 
 \end{longtable}
 .TRUE.=Preallocate / .FALSE.=Perform allocation every time the Jacobian is constructed
 
-\section{Multigrid}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Multigrid}
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{Keywords for the multigrid solver.} \label{tab:multigridKey} \\
@@ -353,7 +355,6 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
 #define p-adaptation
    Truncation error type = isolated
    truncation error      = 1.d-2
-   truncation error      = 1.d-4
    Nmax                  = [10,10,10]
    Nmin                  = [2 ,2 ,2 ]
    Conforming boundaries = [InnerCylinder,sphere]
@@ -744,35 +745,42 @@ The options comprise following flags:
 \multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
---output-order= 	& 
-			\textit{INTEGER}: Output order for equispaced nodes. The solution is interpolated in the desired number of points. & 
+-{}-output-order= 	& 
+			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. & 
 							Not Present \\ \hline
+							
+-{}-output-basis= 	& 
+			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  & 
+							\textit{Gauss}* \\ \hline
+							
+-{}-output-mode= 	& 
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one zone for the fluid with finite element definitions (this format is faster to read by Paraview and Tecplot, but currently it is only supported for \textit{-{}-output-order=1}).  & 
+							\textit{multizone} \\ \hline
+							
+-{}-output-variables= 	& 
+			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. & 
+							Q \\ \hline
 
---dimensionless 	& 
+-{}-dimensionless 	& 
 			Specifies that the output quantities must be dimensionless & 
 							Not Present  \\ \hline
 							
---partition-file= 	& 
+-{}-partition-file= 	& 
 			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
 							Not Present  \\ \hline
 							
---boundary-mesh= 	& 
+-{}-boundary-mesh= 	& 
 			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
 							Not Present  \\ \hline
-
+\multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
 
 \end{longtable}
 
 Additionally, depending on the type of solution file, the user can specify additional options.
 
-\subsection{Solution Files (*.hsol)}
+\subsection{Solution Files (*.hsol)} \label{PostProc:hsol}
 
-For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag:
-
-\begin{lstlisting}[language=bash]
-	--output-variables=
-\end{lstlisting}
-
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}. 
 The options are:
 
 \begin{multicols}{5}

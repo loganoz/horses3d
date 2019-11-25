@@ -26,7 +26,7 @@ module getTask
    
    private
    public   MESH_2_PLT, SOLUTION_2_PLT, UNKNOWN_JOB
-   public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG
+   public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG, MODE_MULTIZONE, MODE_FINITEELM
 
    public   getTaskType
 
@@ -36,14 +36,18 @@ module getTask
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
+   
+   integer, parameter   :: MODE_MULTIZONE = 0
+   integer, parameter   :: MODE_FINITEELM = 1
 
    character(len=*), parameter   :: OUTPUT_ORDER_FLAG="--output-order="
+   character(len=*), parameter   :: OUTPUT_MODE_FLAG ="--output-mode="
    character(len=*), parameter   :: OUTPUT_BASIS_FLAG="--output-basis="
    character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
 
    contains
 
-      integer function getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis)
+      integer function getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode)
          use SolutionFile
          implicit none
          character(len=*),                        intent(out) :: meshName
@@ -53,6 +57,7 @@ module getTask
          logical,                                 intent(out) :: fixedOrder
          integer,                                 intent(out) :: Nout(3)
          integer,                                 intent(out) :: basis
+         integer,                                 intent(out) :: mode
 !
 !        ---------------
 !        Local variables
@@ -63,7 +68,7 @@ module getTask
          integer     :: io, fid
          logical     :: meshFilePresent
          logical     :: basisPresent
-         character(len=LINE_LENGTH) :: auxiliarName, basisName
+         character(len=LINE_LENGTH) :: auxiliarName, basisName, modeName
 !
 !        Get number of command arguments         
 !        -------------------------------
@@ -196,6 +201,25 @@ module getTask
             if ( pos .ne. 0 ) then
                read(auxiliarName(pos+len_trim(OUTPUT_BASIS_FLAG):len_trim(auxiliarName)),*) basisName
                basisPresent = .true.
+               exit
+            end if
+         end do
+!
+!        Get the mode
+!        ------------
+         mode = MODE_MULTIZONE ! Default
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), OUTPUT_MODE_FLAG)
+            
+            if ( pos .ne. 0 ) then
+               read(auxiliarName(pos+len_trim(OUTPUT_MODE_FLAG):len_trim(auxiliarName)),*) modeName
+               select case(modeName)
+               case ("multizone")
+                  mode = MODE_MULTIZONE
+               case ("FE")
+                  mode = MODE_FINITEELM
+               end select
                exit
             end if
          end do
