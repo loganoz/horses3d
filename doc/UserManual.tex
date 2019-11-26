@@ -754,7 +754,8 @@ The options comprise following flags:
 							\textit{Gauss}* \\ \hline
 							
 -{}-output-mode= 	& 
-			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one zone for the fluid with finite element definitions (this format is faster to read by Paraview and Tecplot, but currently it is only supported for \textit{-{}-output-order=1}).  & 
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-mesh} is defined).
+			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  & 
 							\textit{multizone} \\ \hline
 							
 -{}-output-variables= 	& 

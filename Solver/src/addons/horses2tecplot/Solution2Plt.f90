@@ -135,7 +135,7 @@ module Solution2PltModule
 !        Write elements
 !        --------------
          if ( mode == MODE_FINITEELM) then
-            call WriteSingleFluidZoneToTecplot(fid,mesh,[10,10,10])
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
          else
             do eID = 1, no_of_elements
                associate ( e => mesh % elements(eID) )
@@ -291,7 +291,7 @@ module Solution2PltModule
 !        Write elements
 !        --------------
          if ( mode == MODE_FINITEELM) then
-            call WriteSingleFluidZoneToTecplot(fid,mesh,Nout)
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
          else
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
@@ -476,7 +476,7 @@ module Solution2PltModule
 !        Write elements
 !        --------------
          if ( mode == MODE_FINITEELM) then
-            call WriteSingleFluidZoneToTecplot(fid,mesh,Nout)
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
          else
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
@@ -590,67 +590,94 @@ module Solution2PltModule
 !
 !     Writes a single fluid zone using the FE Tecplot format
 !     -> This format is more efficiently read by paraview and tecplot.
-!     -> Currently, only for Nout=2, this can be changed*
 !     ------------------------------------------------------
-      subroutine WriteSingleFluidZoneToTecplot(fid,mesh,Nout)
+      subroutine WriteSingleFluidZoneToTecplot(fid,mesh)
          use Storage
          use OutputVariables
          implicit none
          integer     , intent(in)        :: fid
          type(Mesh_t), intent(inout)     :: mesh
-         integer     , intent(in)        :: Nout(3)   !< Output order (To be removed from here*)
          !---------
-         integer :: numOfPoints, numOfElems
-         integer :: eID, i, counter
+         integer :: numOfPoints  ! Number of plot points
+         integer :: numOfFElems  ! Number of FINITE elements
+         integer :: firstPoint(size(mesh % elements))
+         integer :: eID          ! Spectral (not finite) element counter
+         integer :: i, j, k
          integer :: N(3)
+         integer :: corners(8)
          character(len=LINE_LENGTH) :: formatout
          !---------
-         
-!        Initial check - To be removed*
-!        -----------------------------
-         if (any(Nout /= 1)) stop 'FE format is only implemented for --output-order=1'
          
 !        Definitions
 !        -----------
          formatout = getFormat() ! format for point data
-         numOfElems  = size(mesh % elements)
-         numOfPoints = numOfElems * 8
          
-         write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfElems,' ET=BRICK, F=FEPOINT'
+         ! Count points and elements
+         numOfPoints   = product(mesh % elements(1) % Nout + 1)
+         numOfFElems   = product(mesh % elements(1) % Nout    )
+         firstPoint(1) = 1
+         do eID = 2, size(mesh % elements)
+            associate ( e => mesh % elements(eID) )
+            firstPoint(eID) = numOfPoints + 1
+            numOfPoints = numOfPoints + product(e % Nout + 1)
+            numOfFElems = numOfFElems + product(e % Nout    )
+            end associate
+         end do
+         
+         write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfFElems,' ET=BRICK, F=FEPOINT'
          
 !        Write the points
 !        ----------------
-         do eID = 1, numOfElems
+         do eID = 1, size(mesh % elements)
             associate ( e => mesh % elements(eID) )
             N = e % Nout
             allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, mesh % hasGradients)
             
-            write(fid,trim(formatout)) e % xOut(:,  0 ,  0 ,  0 ), e % outputVars(:,  0 ,  0 ,  0 )
-            write(fid,trim(formatout)) e % xOut(:,N(1),  0 ,  0 ), e % outputVars(:,N(1),  0 ,  0 )
-            write(fid,trim(formatout)) e % xOut(:,N(1),N(2),  0 ), e % outputVars(:,N(1),N(2),  0 )
-            write(fid,trim(formatout)) e % xOut(:,  0 ,N(2),  0 ), e % outputVars(:,  0 ,N(2),  0 )
-            write(fid,trim(formatout)) e % xOut(:,  0 ,  0 ,N(3)), e % outputVars(:,  0 ,  0 ,N(3))
-            write(fid,trim(formatout)) e % xOut(:,N(1),  0 ,N(3)), e % outputVars(:,N(1),  0 ,N(3))
-            write(fid,trim(formatout)) e % xOut(:,N(1),N(2),N(3)), e % outputVars(:,N(1),N(2),N(3))
-            write(fid,trim(formatout)) e % xOut(:,  0 ,N(2),N(3)), e % outputVars(:,  0 ,N(2),N(3))
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
+            end do                ; end do                ; end do
             end associate
          end do
          
 !        Write the elems connectivity
 !        ----------------------------
-         counter=1
-         do eID = 1, numOfElems
-            write(fid,*) (/(i, i=counter, counter+7)/)
-            counter=counter+8
+         do eID = 1, size(mesh % elements)
+            associate ( e => mesh % elements(eID) )
+            
+            do k = 0, e % Nout(3) - 1 ; do j = 0, e % Nout(2) - 1 ; do i = 0, e % Nout(1) - 1
+               corners =  [ ijk2localDOF(i,j,k  ,e%Nout), ijk2localDOF(i+1,j,k  ,e%Nout), ijk2localDOF(i+1,j+1,k  ,e%Nout), ijk2localDOF(i,j+1,k  ,e%Nout), &
+                            ijk2localDOF(i,j,k+1,e%Nout), ijk2localDOF(i+1,j,k+1,e%Nout), ijk2localDOF(i+1,j+1,k+1,e%Nout), ijk2localDOF(i,j+1,k+1,e%Nout)  ] + firstPoint(eID)
+               write(fid,*) corners
+            end do                    ; end do                    ; end do
+            
+            end associate
          end do
       end subroutine WriteSingleFluidZoneToTecplot
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------------------
+!     ijk2localDOF:
+!     Returns the local DOF index for an element in zero-based numbering
+!     ------------------------------------------------------------------
+      function ijk2localDOF(i,j,k,Nout) result(idx)
+         implicit none
+         
+         integer, intent(in)   :: i, j, k, Nout(3)
+         integer               :: idx
+         
+         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         IF (k < 0 .OR. k > Nout(3))     STOP 'error in ijk2local, k has wrong value'
+         
+         idx = k*(Nout(1)+1)*(Nout(2)+1) + j*(Nout(1)+1) + i
+      end function ijk2localDOF
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
 !     Writes a single boundary zone using the FE Tecplot format
 !     -> This format is more efficiently read by paraview and tecplot.
-!     -> Currently, only for Nout=2, this can be changed*
 !     ------------------------------------------------------
       subroutine WriteSingleBoundaryZoneToTecplot(fd,boundary, elements)
          use Storage
@@ -664,15 +691,40 @@ module Solution2PltModule
          type(Boundary_t), intent(in) :: boundary
          type(Element_t) , intent(in) :: elements(:)
          !-local-variables-------------------------------------
-         integer :: fID, side, counter
+         integer :: numOfPoints  ! Number of plot points
+         integer :: numOfFElems  ! Number of FINITE elements
+         integer :: fID, side
+         integer :: corners(4)
          integer :: i,j,k
          integer :: N(3)
+         integer :: firstPoint(boundary % no_of_faces)
+         integer :: Nf      (2,boundary % no_of_faces)
          character(len=LINE_LENGTH) :: formatout
          !-----------------------------------------------------
          
          formatout = getFormat()
          
-         write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", 4 * boundary % no_of_faces,", E=", boundary % no_of_faces, &
+         ! Count points and elements
+         numOfPoints   = 0
+         numOfFElems   = 0
+         
+         do fID = 1, boundary % no_of_faces
+            associate (e => elements( boundary % elements(fID) ))
+            side = boundary % elementSides(fID)
+            
+            select case (side)
+               case(1,2) ; Nf(:,fID) = [e % Nout(1), e % Nout(3)]
+               case(3,5) ; Nf(:,fID) = [e % Nout(1), e % Nout(2)]
+               case(4,6) ; Nf(:,fID) = [e % Nout(2), e % Nout(3)]
+            end select
+            
+            firstPoint(fID) = numOfPoints + 1
+            numOfPoints     = numOfPoints + product(Nf(:,fID)+1)
+            numOfFElems     = numOfFElems + product(Nf(:,fID)  )
+            end associate
+         end do
+         
+         write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &
                                                   ',ET=QUADRILATERAL, F=FEPOINT, T="boundary_', trim(boundary % Name), '"'
                   
 !        Write the points
@@ -685,46 +737,35 @@ module Solution2PltModule
             select case (side)
             
                case(1)
-                  
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,  0 ), e % outputVars(:,  0 ,  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,  0 ), e % outputVars(:,N(1),  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,N(3)), e % outputVars(:,N(1),  0 ,N(3))
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,N(3)), e % outputVars(:,  0 ,  0 ,N(3))
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,0,k), e % outputVars(:,i,0,k)
+                  end do                ; end do
                   
                case(2)
-                  
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),  0 ), e % outputVars(:,  0 ,N(2),  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),  0 ), e % outputVars(:,N(1),N(2),  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),N(3)), e % outputVars(:,N(1),N(2),N(3))
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),N(3)), e % outputVars(:,  0 ,N(2),N(3))
-                  
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,e % Nout(2),k), e % outputVars(:,i,e % Nout(2),k)
+                  end do                ; end do
+               
                case(3)
-                  
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,  0 ), e % outputVars(:,  0 ,  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,  0 ), e % outputVars(:,N(1),  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),  0 ), e % outputVars(:,N(1),N(2),  0 )
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),  0 ), e % outputVars(:,  0 ,N(2),  0 )
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,0), e % outputVars(:,i,j,0)
+                  end do                ; end do
                   
                case(4)
-                  
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,  0 ), e % outputVars(:,N(1),  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),  0 ), e % outputVars(:,N(1),N(2),  0 )
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),N(3)), e % outputVars(:,N(1),N(2),N(3))
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,N(3)), e % outputVars(:,N(1),  0 ,N(3))
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,e % Nout(1),j,k), e % outputVars(:,e % Nout(1),j,k)
+                  end do                ; end do
                   
                case(5)
-                  
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,N(3)), e % outputVars(:,  0 ,  0 ,N(3))
-                  write(fd,trim(formatout)) e % xOut(:,N(1),  0 ,N(3)), e % outputVars(:,N(1),  0 ,N(3))
-                  write(fd,trim(formatout)) e % xOut(:,N(1),N(2),N(3)), e % outputVars(:,N(1),N(2),N(3))
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),N(3)), e % outputVars(:,  0 ,N(2),N(3))
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,e % Nout(3)), e % outputVars(:,i,j,e % Nout(3))
+                  end do                ; end do
                   
                case(6)
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,0,j,k), e % outputVars(:,0,j,k)
+                  end do                ; end do
                   
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,  0 ), e % outputVars(:,  0 ,  0 ,  0 )
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),  0 ), e % outputVars(:,  0 ,N(2),  0 )
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,N(2),N(3)), e % outputVars(:,  0 ,N(2),N(3))
-                  write(fd,trim(formatout)) e % xOut(:,  0 ,  0 ,N(3)), e % outputVars(:,  0 ,  0 ,N(3))
             end select
             
             end associate
@@ -732,12 +773,34 @@ module Solution2PltModule
          
 !        Write the elems connectivity
 !        ----------------------------
-         counter=1
          do fID = 1, boundary % no_of_faces
-            write(fd,*) (/(i, i=counter, counter+3)/)
-            counter=counter+4
+            
+            do j = 0, Nf(2,fID) - 1 ; do i = 0, Nf(1,fID) - 1
+               corners =  [ ij2localDOF(i,j,Nf(:,fID)), ij2localDOF(i+1,j,Nf(:,fID)), ij2localDOF(i+1,j+1,Nf(:,fID)), ij2localDOF(i,j+1,Nf(:,fID)) ] + firstPoint(fID)
+               write(fd,*) corners
+            end do                  ; end do
+            
          end do
+         
       end subroutine WriteSingleBoundaryZoneToTecplot
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------
+!     ij2localDOF:
+!     Returns the local DOF index for a face in zero-based numbering
+!     --------------------------------------------------------------
+      function ij2localDOF(i,j,Nout) result(idx)
+         implicit none
+         
+         integer, intent(in)   :: i, j, Nout(2)
+         integer               :: idx
+         
+         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         
+         idx = j*(Nout(1)+1) + i
+      end function ij2localDOF
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
