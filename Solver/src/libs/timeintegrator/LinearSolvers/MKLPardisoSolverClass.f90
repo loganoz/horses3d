@@ -501,7 +501,7 @@ MODULE MKLPardisoSolverClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 
-   subroutine MKL_ComputeAndFactorizeJacobian(self,nEqn, nGradEqn, F_J, dt, eps)
+   subroutine MKL_ComputeAndFactorizeJacobian(self,nEqn, nGradEqn, F_J, dt, eps, mode_in)
 !
 !     *************************************************************************************
 !     This subroutine performs the following:
@@ -518,6 +518,7 @@ MODULE MKLPardisoSolverClass
       procedure(ComputeTimeDerivative_f)       :: F_J
       real(kind=RP), intent(in)                :: dt
       real(kind=RP), intent(in)                :: eps
+      integer,       intent(in)                :: mode_in
 
 
 !
@@ -536,7 +537,7 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, eps_in = eps)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, eps, .false., mode_in)
          call self % SetOperatorDt(dt)
          
          self % A % values = -dt * self % A % values

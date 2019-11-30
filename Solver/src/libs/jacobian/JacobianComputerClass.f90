@@ -260,7 +260,7 @@ module JacobianComputerClass
 !     ----------------------------------------------------
 !     Generic subroutine for computing the Jacobian matrix
 !     ----------------------------------------------------
-      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized)
+      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
          implicit none
          !-arguments----------------------------------
          class(JacobianComputer_t)        , intent(inout)     :: this
@@ -271,6 +271,7 @@ module JacobianComputerClass
          procedure(ComputeTimeDerivative_f), optional :: TimeDerivative      !   
          real(kind=RP)  , optional, intent(in)        :: eps_in
          logical        , optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
+         integer        , optional, intent(in)        :: mode
          !--------------------------------------------
          
          ERROR stop 'JacobianComputer_t must be cast to an extended type (e.g. AnJacobian_r or NumJacobian_t) for computation'

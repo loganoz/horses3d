@@ -83,7 +83,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized )
+   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode )
       !-------------------------------------------------------------------
       class(NumJacobian_t)      , intent(inout)          :: this
       type(DGSem),                intent(inout)          :: sem
@@ -93,6 +93,7 @@ contains
       procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative      !   
       real(kind=RP),   optional, intent(in)              :: eps_in
       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
+      integer, optional, intent(in)                      :: mode
       !-------------------------------------------------------------------
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
@@ -259,7 +260,7 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
       call Matrix % Reset(ForceDiagonal = .TRUE.)
       
 #if defined(CAHNHILLIARD)
-      CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
+      CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
@@ -307,7 +308,7 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
 !           Compute the time derivative
 !           ---------------------------
 #if defined(CAHNHILLIARD)
-            CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT )
+            CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif

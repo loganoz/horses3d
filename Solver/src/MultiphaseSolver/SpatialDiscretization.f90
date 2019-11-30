@@ -264,7 +264,7 @@ module SpatialDiscretization
          case (CTD_IGNORE_MODE,CTD_IMEX_EXPLICIT)
             call SetBoundaryConditionsEqn(C_BC)
 
-         case (CTD_IMEX_IMPLICIT)
+         case (CTD_IMEX_IMPLICIT,CTD_LAPLACIAN)
             call SetBoundaryConditionsEqn(MU_BC)
 
          end select
@@ -343,6 +343,9 @@ module SpatialDiscretization
 !        Prolong chemical potential to faces
 !        -----------------------------------
 !
+         select case(mode)
+         case(CTD_LAPLACIAN)
+         case default
 !$omp single
          call mesh % SetStorageToEqn(MU_BC)
 !$omp end single
@@ -357,7 +360,7 @@ module SpatialDiscretization
          call mesh % UpdateMPIFacesSolution(NCOMP)
 !$omp end single
 #endif
-
+         end select
 !
 !/////////////////////////////////////////////////////////////////////////////////
 !        2nd step: If IMEX_IMPLCIIT, get the chemical potential laplacian and exit

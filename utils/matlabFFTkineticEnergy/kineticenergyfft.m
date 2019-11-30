@@ -12,7 +12,7 @@
 %
 %   Program options
 %   ---------------
-    cubeFile = '/home/juan/Volumes/bender/Simulations/TaylorGreenEsteban/RESULTS/TGV8P8IPLow/TGV8P8IPLow.cube.tec';
+    cubeFile = '/media/magerit/horses_cases/TaylorGreen/PaperReviewComputations/RESULTS/TGV8P2Psvv01/TGV8P2Psvv01_0000001602.cube.tec';
     plotSpectra = true;
     writeSpectra = false;
     resultsName = 'spectra';

@@ -50,6 +50,7 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
       enumerator :: CTD_IMEX_EXPLICIT, CTD_IMEX_IMPLICIT
 #endif
+      enumerator :: CTD_LAPLACIAN
       enumerator :: CTD_DUMMY
    end enum
 
