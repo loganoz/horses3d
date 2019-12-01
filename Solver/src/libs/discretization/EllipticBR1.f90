@@ -788,7 +788,7 @@ flux )
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
 
 #ifdef MULTIPHASE
-         sigma0 = 0.5_RP * self % sigma * (maxval(f % Nf)+1)*(maxval(f % Nf)+2) / f % geom % h
+         sigma0 = 0.5_RP * self % sigma * (maxval(f % Nf))*(maxval(f % Nf)+1) / f % geom % h
          flux = flux - sigma0 * sigma * (QLeft-QRIght)
 #endif
 
