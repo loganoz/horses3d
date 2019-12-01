@@ -124,8 +124,11 @@ module VariableConversion_MU
          implicit none
          real(kind=RP), intent(in)   :: c
          real(kind=RP), intent(out)  :: mu
+         real(kind=RP)  :: cHat
 
-         mu = dimensionless % mu(1) * c + dimensionless % mu(2) * (1.0_RP - c)
+         cHat = min(max(c,0.0_RP),1.0_RP)
+
+         mu = dimensionless % mu(1) * cHat + dimensionless % mu(2) * (1.0_RP - cHat)
 
       end subroutine GetmTwoFluidsViscosity
 !

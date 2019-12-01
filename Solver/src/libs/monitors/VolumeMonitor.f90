@@ -166,6 +166,7 @@ module VolumeMonitorClass
          select case ( trim ( self % variable ) )
          case ("entropy rate")
          case ("entropy balance")
+         case ("phase2-area")
          case ("phase2-xcog")
          case ("phase2-xvel")
          case default
@@ -177,6 +178,7 @@ module VolumeMonitorClass
                print*, "Options available are:"
                print*, "   * Entropy rate"
                print*, "   * Entropy balance"
+               print*, "   * Phase2-Area"
                print*, "   * Phase2-xCoG"
                print*, "   * Phase2-xVel"
                stop "Stopped."
@@ -316,6 +318,9 @@ module VolumeMonitorClass
 
          case ("phase2-xvel")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, PHASE2_XVEL)
+      
+         case ("phase2-area")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, PHASE2_AREA)
 
 #elif defined(CAHNHILLIARD)
          case ("free energy")
