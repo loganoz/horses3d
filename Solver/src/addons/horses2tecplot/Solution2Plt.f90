@@ -9,7 +9,7 @@ module Solution2PltModule
    private
    public   Solution2Plt, WriteBoundaryToTecplot
 
-#define PRECISION_FORMAT "(E13.5)"
+#define PRECISION_FORMAT "(E18.10)"
 
    contains
       subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout, mode)

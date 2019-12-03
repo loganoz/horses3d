@@ -4,9 +4,9 @@
 !   @File:    OutputVariables.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Wed Sep 12 13:12:39 2018
+!   @Last revision date: Tue Dec  3 18:47:37 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 06ee9cb1c578e7283cc508c9aacf873836377025
+!   @Last revision commit: 74aa71e8675dba27cdc3e65b0539a36f31e86478
 !
 !//////////////////////////////////////////////////////
 !
@@ -48,7 +48,7 @@ module OutputVariables
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
       enumerator :: Nzeta_V, Nav_V, N_V
-      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, MPIRANK_V
+      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V, MPIRANK_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
@@ -87,6 +87,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: ZetaKey = "Ax_Zeta"
    character(len=STR_VAR_LEN), parameter  :: ThreeAxesKey = "ThreeAxes"
    character(len=STR_VAR_LEN), parameter  :: AxesKey = "Axes"   
+   character(len=STR_VAR_LEN), parameter  :: eIDKey  = "eID"   
    character(len=STR_VAR_LEN), parameter  :: mpiRankKey    = "mpi_rank"
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
@@ -112,7 +113,7 @@ module OutputVariables
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
-                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, mpiRankKey, &
+                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
@@ -410,6 +411,9 @@ module OutputVariables
                   output(var,:,0,0) = 3
                   output(var,0,:,0) = 1.5
                   output(var,0,0,:) = 1.5
+               
+               case(eID_V)
+                  output(var,:,:,:) = e % eID
                   
                case(MPIRANK_V)
                   output(var,:,:,:) = e % mpi_rank

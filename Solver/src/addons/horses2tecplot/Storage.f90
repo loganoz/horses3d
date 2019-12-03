@@ -22,6 +22,7 @@ module Storage
 
    type Element_t
 !                                /* Mesh quantities */
+      integer                    :: eID
       integer                    :: Nmesh(NDIM)
       integer                    :: mpi_rank = 0
       real(kind=RP), pointer     :: x(:,:,:,:)
@@ -105,6 +106,8 @@ module Storage
       
          do eID = 1, self % no_of_elements
             associate ( e => self % elements(eID) ) 
+            e % eID = eID
+            
             call getSolutionFileArrayDimensions(fid,arrayDimensions)
 !
 !           Allocate memory for the coordinates
