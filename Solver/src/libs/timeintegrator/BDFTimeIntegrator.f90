@@ -34,6 +34,10 @@ MODULE BDFTimeIntegrator
    type BDFIntegrator_t
       
       class(GenericLinSolver_t), allocatable :: linsolver     !  Linear solver
+      integer                                :: maxLinSolIter
+      real(kind=RP)                          :: firstNorm
+      real(kind=RP)                          :: NewtonFactor
+      real(kind=RP)                          :: LinSolTolFactor
       integer                                :: StepsForJac   !· Maximum number of steps that should be taken for computing a new Jacobian matrix
       integer                                :: StepsSinceJac !  
       integer                                :: MaxNewtonIter
@@ -114,7 +118,32 @@ contains
          this % MaxNewtonIter = MAX_NEWTON_ITER
       end if
       
+      if (controlVariables % containsKey("linsolver max iter")) then
+         this % maxLinSolIter = controlVariables % integerValueForKey("linsolver max iter")
+      else
+         this % maxLinSolIter = 500
+      end if
+
+      if (controlVariables % containsKey("newton first norm")) then
+         this % firstNorm = controlVariables % doublePrecisionValueForKey("newton first norm")
+      else
+         this % firstNorm = 2.d-1
+      end if
+
+      if (controlVariables % containsKey("newton factor")) then
+         this % NewtonFactor = controlVariables % doublePrecisionValueForKey("newton factor")
+      else
+         this % NewtonFactor = 1e-3_RP
+      end if
+
+      if (controlVariables % containsKey("linsolver tol factor")) then
+         this % LinSolTolFactor = controlVariables % doublePrecisionValueForKey("linsolver tol factor")
+      else
+         this % LinSolTolFactor = 0.5_RP
+      end if
+
       PRINT_NEWTON_INFO = controlVariables % logicalValueForKey("print newton info") .and. MPI_Process % isRoot
+
       if (controlVariables % containsKey("newton tolerance")) then
          this % UserNewtonTol = .TRUE.
          this % NewtonTol = controlVariables % doublePrecisionValueForKey("newton tolerance")
@@ -203,7 +232,7 @@ contains
       !----------------------------------------------------------------------
       
       if ((.not. this % TimeAccurate) .and. (.not. this % UserNewtonTol)) then
-         this % NewtonTol = sem % MaxResidual* 1e-3_RP
+         this % NewtonTol = sem % MaxResidual* this % NewtonFactor
       end if
       
       !**************************
@@ -243,7 +272,7 @@ contains
                this % StepsSinceJac = 0
             end if
          end if
-         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, this % MaxNewtonIter, &
+         call NewtonSolve(sem, time+this % inner_dt, this % inner_dt, this % linsolver, this % NewtonTol, this % MaxNewtonIter, this % maxLinSolIter, this % firstNorm, this % LinSolTolFactor, &
                           this % JacByConv,ConvRate, newtonit,CONVERGED, ComputeTimeDerivative)
          
 !        Actions if Newton converged
@@ -304,7 +333,7 @@ contains
                if (this % TimeAccurate) then
                   ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
                else
-                  write(STD_OUT,*) 'WARNING: Newton loop did not converge.'
+                  if (MPI_Process % isRoot) write(STD_OUT,*) 'WARNING: Newton loop did not converge.'
                   exit
                end if
             end if
@@ -336,7 +365,7 @@ contains
 !  -> This can be taken out of the BDFTimeIntegrator if needed
 !        (but careful with Adaptive_dt and the Newton vars)
 !  -------------------------------------------------------------
-   subroutine NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, MaxNewtonIter, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
+   subroutine NewtonSolve(sem, t, dt, linsolver, NEWTON_TOLERANCE, MaxNewtonIter, maxLinSolIter, firstNorm, LinSolTolFactor, JacByConv,ConvRate, niter,CONVERGED, ComputeTimeDerivative)
       implicit none
       !----------------------------------------------------------------------
       type(DGSem),                  intent(inout)           :: sem
@@ -345,6 +374,9 @@ contains
       class(GenericLinSolver_t),    intent(inout)           :: linsolver       !Linear operator is calculate outside this subroutine
       real(kind=RP),                intent(in)              :: NEWTON_TOLERANCE
       integer,                      intent(in)              :: MaxNewtonIter
+      integer,                      intent(in)              :: maxLinSolIter
+      real(kind=RP),                intent(in)              :: firstNorm
+      real(kind=RP),                intent(in)              :: LinSolTolFactor
       logical,                      intent(in)              :: JacByConv         !< Must the Jacobian be computed for bad convergence? if .false., the Jacobian is computed at the beginning of every newton it
       real(kind=RP),                intent(out)             :: ConvRate
       integer,                      intent(out)             :: niter
@@ -363,11 +395,12 @@ contains
 !     ---------------
       
       if (isfirst) then
-         norm = 2.e-1_RP   ! A value to define the initial linsolver_tol
+         norm = firstNorm  ! A value to define the initial linsolver_tol
          isfirst = .FALSE.
       else
          norm = norm1
       end if
+
       norm_old = -1.0_RP  !Must be initialized to -1 to avoid bad things in the first newton iter
       ConvRate = 1.0_RP
    
@@ -379,12 +412,12 @@ contains
 !     -----------
       DO newtonit = 1, MaxNewtonIter
          
-         linsolver_tol = norm * ( 0.5_RP**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         linsolver_tol = norm * ( LinSolTolFactor**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
          
          call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
          call Stopwatch % Start("BDF Newton-Solve")
-         call linsolver%solve( nEqn=NCONS, nGradEqn=NGRAD, tol = linsolver_tol, maxiter=500, time= t, dt=dt, &
+         call linsolver%solve( nEqn=NCONS, nGradEqn=NGRAD, tol = linsolver_tol, maxiter=maxLinSolIter, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          call Stopwatch % Pause("BDF Newton-Solve")
          
