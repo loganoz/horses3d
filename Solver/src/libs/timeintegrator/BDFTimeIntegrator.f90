@@ -112,8 +112,8 @@ contains
          this % TimeAccurate = .FALSE.
       end if
       
-      if (controlVariables % containsKey("max newton iter")) then
-         this % MaxNewtonIter = controlVariables % integerValueForKey("max newton iter")
+      if (controlVariables % containsKey("newton max iter")) then
+         this % MaxNewtonIter = controlVariables % integerValueForKey("newton max iter")
       else
          this % MaxNewtonIter = MAX_NEWTON_ITER
       end if
