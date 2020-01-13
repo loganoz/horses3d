@@ -107,6 +107,7 @@
          multiphase_ % M0_wDim = 0.0_RP
       end if
 
+
       multiphase_ % eps   = multiphase_ % eps_wDim / Lref
       multiphase_ % tCH   = multiphase_ % tCH_wDim / timeRef
       multiphase_ % sigma = multiphase_ % sigma_wDim / pRef
@@ -115,6 +116,12 @@
          multiphase_ % M0 = multiphase_ % eps / (multiphase_ % tCH * multiphase_ % sigma)
       else
          multiphase_ % M0 = 0.0_RP
+      end if
+
+
+      if ( almostEqual(multiphase_ % sigma_wDim, 0.0_RP) ) then
+         multiphase_ % M0_wDim = 0.0_RP
+         multiphase_ % M0      = 0.0_RP
       end if
 
 !

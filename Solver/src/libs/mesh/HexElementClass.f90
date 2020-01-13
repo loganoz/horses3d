@@ -520,7 +520,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function HexElement_FindPointWithCoords(self, x, xi)
+      logical function HexElement_FindPointWithCoords(self, x, dir2D, xi)
 !
 !        **********************************************************
 !          
@@ -535,6 +535,7 @@
          implicit none
          class(Element),      intent(in)  :: self
          real(kind=RP),       intent(in)  :: x(NDIM)
+         integer,             intent(in)  :: dir2D
          real(kind=RP),       intent(out) :: xi(NDIM)
 !
 !        ----------------------------------
@@ -588,7 +589,8 @@
 !
 !           Stopping criteria: there are several
 !           ------------------------------------
-            if ( maxval(abs(F)) .lt. TOL ) exit
+            if ( maxval(abs(F(1:dir2D-1))) .lt. TOL ) exit
+            if ( maxval(abs(F(dir2D+1:NDIM))) .lt. TOL ) exit
             if ( abs(xi(1)) .ge. 2.5_RP ) exit
             if ( abs(xi(2)) .ge. 2.5_RP ) exit
             if ( abs(xi(3)) .ge. 2.5_RP ) exit
@@ -605,6 +607,18 @@
                Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
                Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
             end do               ; end do             ; end do
+
+            if ( (all(abs(Jac(:,1)) .lt. epsilon(1.0_RP))) .and. (self % spAxi % N .eq. 0) ) then
+               Jac(dir2D,1) = 1.0_RP
+            end if
+
+            if ( all(abs(Jac(:,2)) .lt. epsilon(1.0_RP)) .and. (self % spAeta % N .eq. 0)) then
+               Jac(dir2D,2) = 1.0_RP
+            end if
+
+            if ( all(abs(Jac(:,3)) .lt. epsilon(1.0_RP)) .and. (self % spAzeta % N .eq. 0)) then
+               Jac(dir2D,3) = 1.0_RP
+            end if
 
             dx = solveThreeEquationLinearSystem( Jac , -F )
             xi = xi + STEP * dx

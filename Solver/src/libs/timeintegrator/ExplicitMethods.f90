@@ -86,7 +86,7 @@ MODULE ExplicitMethods
       END DO
 !
 !     ***** Uncomment this line for good monitors time derivative
-!      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements
@@ -181,7 +181,7 @@ MODULE ExplicitMethods
 !
       integer                    :: id, k
 
-      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+      CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

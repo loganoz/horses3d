@@ -64,6 +64,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./CahnHilliard/Pipe \
             ./iNSCH/RisingBubble \
             ./iNSCH/TJokisaari \
+	    ./Multiphase/Convergence \
+	    ./Multiphase/RisingBubble \
+	    ./Multiphase/Pipe \
 		./Particles/FreeFall \
 		./Particles/RadiationHeat \
 		./Particles/Pouransari \

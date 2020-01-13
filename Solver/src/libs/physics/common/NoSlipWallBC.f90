@@ -212,7 +212,8 @@ module NoSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         call GetValueWithDefault(bcdict, "contact angle", 0.0_RP, ConstructNoSlipWallBC % thetaw)
+         call GetValueWithDefault(bcdict, "contact angle", 90.0_RP, ConstructNoSlipWallBC % thetaw)
+
 #endif
 
          close(fid)
@@ -241,7 +242,7 @@ module NoSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle: ', self % thetaw
 #endif
          
       end subroutine NoSlipWallBC_Describe
@@ -532,10 +533,24 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(inout) :: U_x(NCOMP)
          real(kind=RP),       intent(inout) :: U_y(NCOMP)
          real(kind=RP),       intent(inout) :: U_z(NCOMP)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!  
+         real(kind=RP), parameter   :: MIN_ = 1.0e-1_RP
+         real(kind=RP)              :: prod
+         real(kind=RP)              :: prod12, prod13, prod23, c3
 
-         U_x = self % thetaw * nHat(1)
-         U_y = self % thetaw * nHat(2)
-         U_z = self % thetaw * nHat(3)
+         prod = Q(1) * (1.0_RP - Q(1))
+
+         if ( prod .le. MIN_ ) then
+            prod = 0.0_RP
+         end if
+
+         U_x = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(1) * prod 
+         U_y = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(2) * prod
+         U_z = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * nHat(3) * prod
 
       end subroutine NoSlipWallBC_PhaseFieldNeumann
 

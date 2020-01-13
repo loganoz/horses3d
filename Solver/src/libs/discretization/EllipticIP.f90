@@ -41,7 +41,6 @@ module EllipticIP
 
    type, extends(EllipticDiscretization_t)   :: InteriorPenalty_t
       procedure(PenaltyParameter_f), pointer   :: PenaltyParameter
-      real(kind=RP)        :: sigma = 1.0_RP
       integer              :: IPmethod = SIPG
       contains
          procedure      :: Construct              => IP_Construct
@@ -518,7 +517,7 @@ module EllipticIP
 !           The multiphase solver needs the Chemical potential as first entropy variable
 !           ----------------------------------------------------------------------------
             UL(IGMU) = f % storage(1) % mu(1,i,j)
-            UR(IGMU) = f % storage(2) % mu(1,i,j)
+            UR(IGMU) = f % storage(1) % mu(1,i,j)
 #endif
 
    
@@ -534,25 +533,10 @@ module EllipticIP
          else
 !
 !           *****************************
-!           Set W* = W in free slip walls
+!           Set W* = W in free slip walls: [[W]] = 0!
 !           *****************************
-            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-   
-               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j))
 
-#ifdef MULTIPHASE
-!              The multiphase solver needs the Chemical potential as first entropy variable
-!              ----------------------------------------------------------------------------
-               UL(IGMU) = f % storage(1) % mu(1,i,j)
-#endif
-      
-               Uhat = UL * f % geom % jacobian(i,j)
-               
-               f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
-               f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
-               f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
-   
-            end do ; end do   
+            f % storage(1) % unStar = 0.0_RP 
          end if 
 #endif
 
@@ -728,7 +712,11 @@ module EllipticIP
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine IP_RiemannSolver ( self , nEqn, nGradEqn, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                           mu, beta, kappa, nHat , dWall, flux )
+                                           mu, beta, kappa, nHat , dWall, &
+#ifdef MULTIPHASE
+sigma, & 
+#endif
+flux )
          use SMConstants
          use PhysicsStorage
          use Physics
@@ -749,6 +737,9 @@ module EllipticIP
          real(kind=RP), intent(in)       :: mu, beta, kappa
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
+#ifdef MULTIPHASE
+         real(kind=RP), intent(in)       :: sigma(nEqn)
+#endif
          real(kind=RP), intent(out)      :: flux(nEqn)
 !
 !        ---------------
@@ -759,16 +750,15 @@ module EllipticIP
          real(kind=RP)     :: flux_vec(nEqn,NDIM)
          real(kind=RP)     :: flux_vecL(nEqn,NDIM)
          real(kind=RP)     :: flux_vecR(nEqn,NDIM)
-         real(kind=RP)     :: delta, sigma
+         real(kind=RP)     :: delta
          
-         sigma = self % PenaltyParameter(f)
 
          call self % EllipticFlux0D(nEqn, nGradEqn, QLeft , U_xLeft , U_yLeft , U_zLeft, mu, beta, kappa, flux_vecL )
          call self % EllipticFlux0D(nEqn, nGradEqn, QRight , U_xRight , U_yRight , U_zRight, mu, beta, kappa, flux_vecR )
 
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - sigma * mu * (QLeft - QRight)
+         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) - self % PenaltyParameter(f) * mu * (QLeft - QRight)
 
       end subroutine IP_RiemannSolver
 !

@@ -488,7 +488,7 @@ subroutine compute_bounce_parameters(p, mesh, minbox, maxbox, bcbox)
 
    do i = 1, 6
       if (neighbours(i) <= 0) cycle
-      inside = mesh%elements(neighbours(i))%FindPointWithCoords(pos, xi)
+      inside = p%mesh%elements(neighbours(i))%FindPointWithCoords(pos, p % mesh % dir2D, xi)
       if (inside) then
          eID = neighbours(i)
          return
