@@ -154,15 +154,15 @@
             NDOF = NDOF + (e % Nxyz(1) + 1)*(e % Nxyz(2) + 1)*(e % Nxyz(3) + 1) 
             end associate
          end do
-!      
-!        Construct global storage
-!        ------------------------
-         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
-         DO eID = 1, nelem
-            mesh % elements(eID) % storage => mesh % storage % elements(eID)
-         END DO
-
-         call mesh % SetStorageToEqn(1)
+!!      
+!!        Construct global storage
+!!        ------------------------
+!         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., .FALSE. )
+!         DO eID = 1, nelem
+!            mesh % elements(eID) % storage => mesh % storage % elements(eID)
+!         END DO
+!
+!         call mesh % SetStorageToEqn(1)
 !
 !        ---------------------------
 !        Check integrity of the mesh
@@ -327,7 +327,7 @@
             end associate
          end do
          
-         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
+         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., .FALSE. )
          DO eID = 1, nelem
             mesh % elements(eID) % storage => mesh % storage % elements(eID)
          END DO

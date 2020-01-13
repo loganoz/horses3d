@@ -144,4 +144,12 @@ module PhysicsStorage
 
       end subroutine DescribePhysicsStorage_Common
 
+      subroutine SetReferenceLength(Lref_)
+         implicit none
+         real(kind=RP), intent(in)  :: Lref_
+
+         Lref = Lref_
+
+      end subroutine SetReferenceLength
+
 end module PhysicsStorage

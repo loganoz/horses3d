@@ -461,7 +461,7 @@
 !        ----------------------------------
          integer,       parameter   :: N_MAX_ITER = 50
          real(kind=RP), parameter   :: TOL = 1.0e-12_RP
-         integer,       parameter   :: STEP = 1.0_RP
+         real(kind=RP), parameter   :: STEP = 1.0_RP
          real(kind=RP), parameter   :: INSIDE_TOL = 1.0e-08_RP
          !-arguments-------------------------------------------------
          
@@ -589,8 +589,8 @@
 !
 !           Stopping criteria: there are several
 !           ------------------------------------
-            if ( maxval(abs(F(1:dir2D-1))) .lt. TOL ) exit
-            if ( maxval(abs(F(dir2D+1:NDIM))) .lt. TOL ) exit
+            F(dir2D) = 0.0_RP
+            if ( maxval(abs(F)) .lt. TOL ) exit
             if ( abs(xi(1)) .ge. 2.5_RP ) exit
             if ( abs(xi(2)) .ge. 2.5_RP ) exit
             if ( abs(xi(3)) .ge. 2.5_RP ) exit
@@ -608,15 +608,15 @@
                Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
             end do               ; end do             ; end do
 
-            if ( (all(abs(Jac(:,1)) .lt. epsilon(1.0_RP))) .and. (self % spAxi % N .eq. 0) ) then
+            if ( (all(abs(Jac(:,1)) .lt. epsilon(1.0_RP))) .and. (spAxi % N .eq. 0) ) then
                Jac(dir2D,1) = 1.0_RP
             end if
 
-            if ( all(abs(Jac(:,2)) .lt. epsilon(1.0_RP)) .and. (self % spAeta % N .eq. 0)) then
+            if ( all(abs(Jac(:,2)) .lt. epsilon(1.0_RP)) .and. (spAeta % N .eq. 0)) then
                Jac(dir2D,2) = 1.0_RP
             end if
 
-            if ( all(abs(Jac(:,3)) .lt. epsilon(1.0_RP)) .and. (self % spAzeta % N .eq. 0)) then
+            if ( all(abs(Jac(:,3)) .lt. epsilon(1.0_RP)) .and. (spAzeta % N .eq. 0)) then
                Jac(dir2D,3) = 1.0_RP
             end if
 

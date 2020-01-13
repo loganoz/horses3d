@@ -517,6 +517,12 @@ end module ProblemFileFunctions
             real(kind=RP)  :: error(5)
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+            real(kind=RP), parameter   :: w_LGL(0:5) = [0.066666666666667_RP, &
+                                                      0.378474956297847_RP, &
+                                                      0.554858377035486_RP, &
+                                                      0.554858377035486_RP, &
+                                                      0.378474956297847_RP, &
+                                                      0.066666666666667_RP ]
 !
 !           *********************************
 !           Check the L-inf norm of the error
@@ -545,7 +551,7 @@ end module ProblemFileFunctions
 
                   locErr = e % storage % Q(:,i,j,k) - [c,sqrt(rho)*u,sqrt(rho)*v,sqrt(rho)*w,p]
 
-                  error = error + e % geom % jacobian(i,j,k)*locErr**2*e % spAxi % w(i)*e % spAeta % w(j)*e % spAzeta % w(k)
+                  error = error + e % geom % jacobian(i,j,k)*locErr**2*w_LGL(i)*w_LGL(j)*2.0_RP
 
                end do            ; end do ; end do
                end associate

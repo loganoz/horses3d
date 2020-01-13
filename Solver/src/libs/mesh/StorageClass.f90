@@ -320,18 +320,32 @@ module StorageClass
          num_of_elems = size(Nx)
          allocate (self % elements(num_of_elems) )
       
-         if ( present(RKSteps_num) ) then
+         if ( present(RKSteps_num) .and. present(prevSol_num)) then
 !$omp parallel do schedule(runtime)
             do eID=1,  num_of_elems
                call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, RKSteps_num)
             end do
 !$omp end parallel do
-         else
+         elseif ( present(prevSol_num) ) then
 !$omp parallel do schedule(runtime)
             do eID=1,  num_of_elems
                call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, 0)
             end do
 !$omp end parallel do
+         elseif ( present(RKSteps_num) ) then
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, -1, RKSteps_num)
+            end do
+!$omp end parallel do
+         else
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac,-1,0)
+            end do
+!$omp end parallel do
+
+
          end if
          
       end subroutine SolutionStorage_Construct

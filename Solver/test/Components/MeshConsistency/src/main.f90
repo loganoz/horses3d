@@ -21,6 +21,7 @@ program main
    use BoundaryConditions,    only: BCs
    use FreeSlipWallBCClass,   only: FreeSlipWallBC_t
    use InterpolationMatrices, only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
+   use PhysicsStorage, only: SetReferenceLength
    implicit none
    TYPE(TestSuiteManager) :: testSuite
    INTEGER                :: numberOfFailures
@@ -31,6 +32,7 @@ program main
    
    CALL testSuite % init()
    
+   call SetReferenceLength(1.0_RP)
    call InitializeNodalStorage(GAUSS,Nmax)
    call Initialize_InterpolationMatrices(Nmax)
    CALL ConstructSharedBCModule

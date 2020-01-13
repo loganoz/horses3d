@@ -86,7 +86,9 @@ MODULE ExplicitMethods
       END DO
 !
 !     ***** Uncomment this line for good monitors time derivative
+#ifdef MULTIPHASE
       CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+#endif
 
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements
