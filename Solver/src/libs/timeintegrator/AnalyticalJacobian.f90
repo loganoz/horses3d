@@ -198,6 +198,7 @@ contains
 !     Prolong Q to faces
 !     ------------------
 !
+!      print *, "[AJ] Moje Q: ", sem % mesh % elements(1) % storage % Q ! laskwj_test
       call sem % mesh % ProlongSolutionToFaces(NCONS)
 !
 !     ----------------

@@ -1,723 +1,801 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !      MultigridSolverClass.f90
-!      Created: 2017-04-XX 10:006:00 +0100 
-!      By: Andrés Rueda
+!      Created: Wed Nov 6 17:45:26 CET 2019
+!      Version: 1.0 (Wed Nov 6 17:45:26 CET 2019)
+!      Author: Wojciech Laskowski (wj.laskowski@upm.es) based on an old, unfinished routine by Andrés Rueda (XXXXX - last commit before deleting)
 !
-!      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid
+!      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid.
 !
-!        çThis class is not finished yet!!!!
+!      Control variables:  
+!      no_levels :: number of MG levels, IF NOT (no_levels = 2)        
+!      define levels x :: hard define N on each level, IF NOT \Delta N_{x} = 1
+!      define levels y ...
+!      define levels z ...
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-MODULE MultigridSolverClass
-   USE GenericLinSolverClass
-   USE CSRMatrixClass
-   USE SMConstants
-   USE PhysicsStorage
-   
-   USE PolynomialInterpAndDerivsModule
-   USE GaussQuadrature
+!
+!  ----------------
+!  TODO:
+!  ----------------
+!  1. Deallacotion: 
+!     a. DGSem on each level
+!     b. Jac on each level
+!     c. Prol/Rest operators 
+!  2. Generalize MG to operate on nonconforming p-mesh (elements with different pol. orders)
+!  3. Add more smoothers - so far only diag-jacobi implemented.
+!  ----------------
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+module MultigridSolverClass
+   use GenericLinSolverClass
+   use CSRMatrixClass
+   use SMConstants
+   use PhysicsStorage
+   use PolynomialInterpAndDerivsModule
+   use GaussQuadrature
    use DGSEMClass
    use TimeIntegratorDefinitions
    use MatrixClass
-   IMPLICIT NONE
+   use NumericalJacobian      , only: NumJacobian_t
+   use AnalyticalJacobian     , only: AnJacobian_t
+   use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
+   use GenericSmoother
+   implicit none
    
-   PRIVATE
-   PUBLIC MultigridSolver_t, GenericLinSolver_t
-   
-   TYPE, EXTENDS(GenericLinSolver_t) :: MultigridSolver_t
-      TYPE(csrMat_t)                             :: A                                  ! Jacobian matrix
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: x                                  ! Solution vector
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: b                                  ! Right hand side
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: F_Ur                               ! Qdot at the beginning of solving procedure
-      REAL(KIND=RP), DIMENSION(:), ALLOCATABLE   :: Ur                                 ! Q at the beginning of solving procedure
-      REAL(KIND=RP)                              :: rnorm                              ! L2 norm of residual
-      REAL(KIND=RP)                              :: Ashift                             ! Shift that the Jacobian matrix currently(!) has
-      LOGICAL                                    :: AIsPrealloc                        ! Has A already been preallocated? (to be deprecated)
+   private
+   public MultigridSolver_t, GenericLinSolver_t
+   public NUMERICAL_JACOBIAN, ANALYTICAL_JACOBIAN
+
+   type, extends(GenericLinSolver_t) :: MultigridSolver_t
+      type(csrMat_t)                             :: A                     ! Matrix to solve
+      real(kind=RP), dimension(:), allocatable   :: x                     ! Solution vector
+      real(kind=RP), dimension(:), allocatable   :: b                     ! Right hand side
+      real(kind=RP)                              :: rnorm                 ! L2 norm of residual
+      integer                                    :: MGlevel               ! Current level
+      integer                                    :: Nx                    ! Polynomial in X
+      integer                                    :: Ny                    ! Polynomial in Y
+      integer                                    :: Nz                    ! Polynomial in Z
+      type(MultigridSolver_t), pointer           :: Child                 ! Coarser level: MGlevel-1
+      type(MultigridSolver_t), pointer           :: Parent                ! Finer level: MGlevel+1
+      ! 1D prolongation/restriction operators in each direction 
+      real(kind=RP), dimension(:,:), allocatable :: RestX(:,:)             
+      real(kind=RP), dimension(:,:), allocatable :: ProlX(:,:)             
+      real(kind=RP), dimension(:,:), allocatable :: RestY(:,:)             
+      real(kind=RP), dimension(:,:), allocatable :: ProlY(:,:)             
+      real(kind=RP), dimension(:,:), allocatable :: RestZ(:,:)             
+      real(kind=RP), dimension(:,:), allocatable :: ProlZ(:,:)             
+      ! these are only needed for coarse levels
       
-      ! Variables that are specially needed for Multigrid
-      TYPE(MultigridSolver_t), POINTER           :: Child                 ! Next coarser multigrid solver
-      TYPE(MultigridSolver_t), POINTER           :: Parent                ! Next finer multigrid solver
-      INTEGER                                    :: MGlevel               ! Current Multigrid level
-!~       INTEGER                    , ALLOCATABLE   :: OrderList(:,:,:)      ! List containing the polynomial orders of all elements in current solver (not needed now.. Maybe when using p-adaptation)
-      TYPE(Interpolator_t)       , ALLOCATABLE   :: Restriction(:,:,:)    ! Restriction operators (element level)
-      TYPE(Interpolator_t)       , ALLOCATABLE   :: Prolongation(:,:,:)   ! Prolongation operators (element level)
-      
-   CONTAINS
+   contains
       !Subroutines:
-      PROCEDURE                                  :: construct
-      PROCEDURE                                  :: SetRHSValue
-      PROCEDURE                                  :: SetRHSValues
-      procedure                                  :: SetRHS           => MG_SetRHS
-      PROCEDURE                                  :: solve
-      PROCEDURE                                  :: GetXValue
-      PROCEDURE                                  :: destroy
-      PROCEDURE                                  :: SetOperatorDt
-      PROCEDURE                                  :: ReSetOperatorDt
-      !Functions:
-      PROCEDURE                                  :: Getxnorm    !Get solution norm
-      PROCEDURE                                  :: Getrnorm    !Get residual norm
-      
-      !! Internal procedures
-      PROCEDURE                                  :: AxMult                  ! arueda: This is needed here for lower multigrid levels
-      PROCEDURE                                  :: WeightedJacobiSmoother
-   END TYPE MultigridSolver_t
-   
+      procedure :: Construct            => MG_Construct 
+      procedure :: Destroy              => MG_Destruct 
+      procedure :: SetRHS               => MG_SetRHS
+      procedure :: GetX                 => MG_GetX
+      procedure :: Solve                => MG_Solve 
+      procedure :: Getrnorm             => MG_Getrnorm
+      procedure :: Getxnorm             => MG_Getxnorm
+      procedure :: SetRHSValue          => MG_SetRHSValue 
+      procedure :: SetRHSValues         => MG_SetRHSValues 
+      procedure :: MG_CreateProlongationOperator
+      procedure :: MG_CreateRestrictionOperator
+      !procedure :: prolong              => MG_Prolongation
+      !procedure :: restrict             => MG_Restriction
+      procedure :: MG_Prolongation
+      procedure :: MG_Restriction
+
+   end type MultigridSolver_t
 !
 !  ----------------
 !  Module variables
 !  ----------------
 !
-   REAL(KIND=RP)  :: timesolve ! Time
-   REAL(KIND=RP)  :: dtsolve   ! dt   
-   REAL(KIND=RP)  :: eps       ! Size of perturbation for matrix-free vector product
-   
    ! Multigrid
-   INTEGER        :: MGlevels  ! Total number of multigrid levels
-   INTEGER        :: deltaN    ! 
-   INTEGER        :: nelem     ! Number of elements (this is a p-multigrid implementation)
-   
-CONTAINS
+   integer                :: no_levels  ! Total number of multigrid levels
+   ! integer, dimension(10) :: MG_levels_x  ! multigrid levels, assuming max. 10 MG levels
+   integer, dimension(:), allocatable :: MG_levels_x  ! multigrid levels
+   integer, dimension(:), allocatable :: MG_levels_y  ! multigrid levels
+   integer, dimension(:), allocatable :: MG_levels_z  ! multigrid levels
+   integer                :: nelem      ! Number of elements (this is a p-multigrid implementation)
+contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t) , INTENT(INOUT), TARGET :: this
-      INTEGER                  , INTENT(IN)            :: DimPrb
-      INTEGER                  , INTENT(IN)            :: globalDimPrb
-      integer                  , intent(in)            :: nEqn
-      TYPE(FTValueDictionary)  , INTENT(IN), OPTIONAL  :: controlVariables
-      TYPE(DGSem), TARGET                  , OPTIONAL  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
-      !-----------------------------------------------------------
-      INTEGER                            :: lvl              ! Multigrid level
-      INTEGER                            :: k
-      INTEGER, DIMENSION(:), ALLOCATABLE :: Nx, Ny, Nz       ! Dimensions of fine mesh
-      !-----------------------------------------------------------
-      !Module variables: MGlevels, deltaN
-      
-      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
-      
-      MatrixShift => MatrixShiftFunc
-      
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: MultigridSolver needs sem.'
-      IF (.NOT. PRESENT(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
-      
-!
-!     ----------------------------------
-!     Read important variables from file
-!     ----------------------------------
-!
-      IF (.NOT. controlVariables % containsKey("multigrid levels")) THEN
-         print*, 'Fatal error: "multigrid levels" keyword is needed by the multigrid solver'
-         STOP
-      END IF
-      MGlevels  = controlVariables % IntegerValueForKey("multigrid levels")
-      
-      IF (controlVariables % containsKey("delta n")) THEN
-         deltaN = controlVariables % IntegerValueForKey("delta n")
-      ELSE
-         deltaN = 1
-      END IF
-      
-      this % p_sem => sem
-      this % DimPrb = DimPrb
-      
-      nelem = SIZE(sem % mesh % elements)
-      ALLOCATE(Nx(nelem),Ny(nelem),Nz(nelem))
-      DO k=1, nelem
-         Nx(k) = sem % mesh % elements(k) % Nxyz(1)
-         Ny(k) = sem % mesh % elements(k) % Nxyz(2)
-         Nz(k) = sem % mesh % elements(k) % Nxyz(3)
-      END DO
-!
-!     --------------------------
-!     Create linked solvers list
-!     --------------------------
-!
-      CALL RecursiveConstructor(this, Nx, Ny, Nz, MGlevels, controlVariables)
-      
-      CALL this % A % construct (num_of_Rows = DimPrb)
-      
-      DEALLOCATE (Nx,Ny,Nz)
-      
-   END SUBROUTINE construct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   RECURSIVE SUBROUTINE RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-      IMPLICIT NONE
-      TYPE(MultigridSolver_t), TARGET  :: Solver
-      INTEGER, DIMENSION(:)            :: N1x,N1y,N1z      !<  Order of approximation for every element in current solver
-      INTEGER                          :: lvl              !<  Current multigrid level
-      TYPE(FTValueDictionary)          :: controlVariables !< Control variables (for the construction of coarse sems
-      !----------------------------------------------
-      INTEGER                   :: DimPrb                 !   Dimension of problem for child solver
-      INTEGER, DIMENSION(nelem) :: N2x,N2y,N2z            !   Order of approximation for every element in child solver
-      INTEGER                   :: N1xMAX,N1yMAX,N1zMAX   !   Maximum polynomial orders for current (fine) grid
-      INTEGER                   :: N2xMAX,N2yMAX,N2zMAX   !   Maximum polynomial orders for child (coarse) grid
-      INTEGER                   :: k                      !   Counter
-      LOGICAL                   :: success                ! Did the creation of sem succeed?
-      TYPE(MultigridSolver_t) , POINTER :: Child_p          ! Pointer to Child
-      !----------------------------------------------
-      !
-#if defined(NAVIERSTOKES)      
-      
-      Solver % MGlevel = lvl
-      
-      IF (lvl > 1) THEN
-         ALLOCATE  (Solver % Child)
-         Child_p => Solver % Child
-         Solver % Child % Parent => Solver
-!
-!        -----------------------------------------------
-!        Allocate restriction and prolongation operators
-!        -----------------------------------------------
-!         
-         N1xMAX = MAXVAL(N1x)
-         N1yMAX = MAXVAL(N1y)
-         N1zMAX = MAXVAL(N1z)
-         
-         N2xMAX = N1xMAX - deltaN
-         N2yMAX = N1yMAX - deltaN
-         N2zMAX = N1zMAX - deltaN
-         IF (N2xMAX < 0) N2xMAX = 0             ! TODO: Complete for Lobatto quadrature (max order = 1)
-         IF (N2yMAX < 0) N2yMAX = 0
-         IF (N2zMAX < 0) N2zMAX = 0
-         
-         ALLOCATE (Solver  % Restriction (0:N1xMAX,0:N1yMAX,0:N1zMAX))
-         ALLOCATE (Child_p % Prolongation(0:N2xMAX,0:N2yMAX,0:N2zMAX))
-         
-!
-!        ---------------------------------------------
-!        Create restriction and prolongation operators
-!        ---------------------------------------------
-!
-         DimPrb = 0
-         DO k=1, nelem
-            CALL CreateInterpolationOperators(Solver % Restriction, Child_p % Prolongation, &
-                                              N1x(k),N1y(k),N1z(k),                         &
-                                              N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
-            
-            DimPrb = DimPrb + NCONS * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
-         END DO
-         Solver % Child % DimPrb = DimPrb
-         
-         ! Create DGSEM class for child
-         ALLOCATE (Child_p % p_sem)
-         CALL Child_p % p_sem % construct (controlVariables = controlVariables,              &
-                                           Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,            &
-                                           success = success )
-         IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
-         
-         
-         CALL RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
-      END IF
-      
-      ALLOCATE(Solver % x   (Solver % DimPrb))
-      ALLOCATE(Solver % b   (Solver % DimPrb))
-      ALLOCATE(Solver % F_Ur(Solver % DimPrb))
-      ALLOCATE(Solver % Ur  (Solver % DimPrb))
-      
-#endif
-   END SUBROUTINE RecursiveConstructor
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE SetRHSValue(this, irow, value)
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)    :: irow
-      REAL(KIND=RP)            , INTENT(IN)    :: value
-      !-----------------------------------------------------------
-      
-      this % b (irow) = value
-      
-   END SUBROUTINE SetRHSValue
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   SUBROUTINE SetRHSValues(this, nvalues, irow, values)
-      IMPLICIT NONE
-      CLASS(MultigridSolver_t)   , INTENT(INOUT)     :: this
-      INTEGER                     , INTENT(IN)        :: nvalues
-      INTEGER      , DIMENSION(1:), INTENT(IN)        :: irow
-      REAL(KIND=RP), DIMENSION(1:), INTENT(IN)        :: values
-      !------------------------------------------------------
-      INTEGER                                        :: i
-      
-      DO i=1, nvalues
-         IF (irow(i)<0) CYCLE
-         this % b(irow(i)) = values(i)
-      END DO
-      
-   END SUBROUTINE SetRHSValues
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine MG_SetRHS(this, RHS)
+    subroutine MG_Construct(this,DimPrb,globalDimPrb,nEqn,controlVariables,sem,MatrixShiftFunc)
       implicit none
       !-arguments-----------------------------------------------------------
-      class(MultigridSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
-      !---------------------------------------------------------------------
-      
-      this % b = RHS
-      
-   end subroutine MG_SetRHS
+      class(MultigridSolver_t),  intent(inout), target :: this
+      integer                  , intent(in)            :: DimPrb
+      integer                  , intent(in)            :: globalDimPrb        
+      integer                  , intent(in)            :: nEqn
+      type(FTValueDictionary)  , intent(in), optional  :: controlVariables
+      type(DGSem), target                  , optional  :: sem
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
+      procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
+      !---------------------------------------------------------------------`
+      character(len=LINE_LENGTH)                 :: pc
+      integer                                    :: i
+      real(kind=RP)                              :: tmp_1
+
+      ! Check dims, MPI and allocate Jacobian
+      call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+      MatrixShift => MatrixShiftFunc ! FIXME: ask whether we need this 
+
+!     ***********************************         
+!     Set variables from controlVariables
+!     ***********************************
+      if (.not. present(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
+      if (present(controlVariables)) then 
+
+        ! Multigrid coarse grids
+        ! *********************************************************
+        if ( controlVariables % containsKey("multigrid levels") ) then
+            no_levels = controlVariables % integerValueForKey("multigrid levels")
+        else
+            no_levels = 2
+        end if
+
+        print *, "No of pMG levels: ", no_levels
+        allocate(MG_levels_x(no_levels))
+        allocate(MG_levels_y(no_levels))
+        allocate(MG_levels_z(no_levels))
+
+        if ( controlVariables % containsKey("multigrid levels") ) then
+            ! Levels in X
+            pc = controlVariables % StringValueForKey("define levels x",LINE_LENGTH)
+            do i = 1, len_trim(pc)
+              read(pc(i:i),'(i)') MG_levels_x(i)
+            end do
+            ! Levels in Y
+            pc = controlVariables % StringValueForKey("define levels y",LINE_LENGTH)
+            do i = 1, len_trim(pc)
+              read(pc(i:i),'(i)') MG_levels_y(i)
+            end do
+            ! Levels in Z
+            pc = controlVariables % StringValueForKey("define levels z",LINE_LENGTH)
+            do i = 1, len_trim(pc)
+              read(pc(i:i),'(i)') MG_levels_z(i)
+            end do
+        else
+            ERROR stop ':: FIXME: Need to finish this.'
+        end if
+        ! *********************************************************
+
+        ! Smoother
+        ! *********************************************************
+        if ( controlVariables % containsKey("smoother") ) then
+          pc = controlVariables % StringValueForKey("smoother",LINE_LENGTH)
+        print *, "Smoother: ", pc
+        end if
+
+        if ( controlVariables % containsKey("pre smooths") ) then
+          pc = controlVariables % StringValueForKey("pre smooths",LINE_LENGTH)
+        print *, "No of pre-smoothing operations: ", pc
+        end if
+
+        if ( controlVariables % containsKey("post smooths") ) then
+          pc = controlVariables % StringValueForKey("post smooths",LINE_LENGTH)
+        print *, "No of post-smoothing operations: ", pc
+        end if
+        ! *********************************************************
+      end if 
+      nelem = size(sem % mesh % elements)
+
+      this % p_sem => sem ! this is for generic linear solver class
+      ! this % sem_lvl => sem ! this is for local sem on each level
+      this % DimPrb = DimPrb
+
+      print *, "My fine mesh: "
+      print *, " ************************** "
+      print *, "Mesh total DOF: ", this % p_sem % mesh % NDOF
+      print *, "DimPrb: ", this % DimPrb 
+      print *, "DOF of the each element: "
+      do i = 1, size(this % p_sem % mesh % elements) 
+         print *, i, this % p_sem % mesh % elements(i) % storage % NDOF
+      end do
+      print *, " ************************** "
+  
+      ! Construct initial variables for the finest level and call recursive constructor
+      ! *********************************************************
+      this % MGlevel = no_levels
+      this % Nx = MG_levels_x(no_levels)
+      this % Ny = MG_levels_y(no_levels)
+      this % Nz = MG_levels_z(no_levels)
+      call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
+      call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
+      ! call this % A % Visualize("JacF.txt") ! Visualize Jacobian
+      call MG_Levels_Construct(this,no_levels,controlVariables,nEqn)
+      ! *********************************************************
+
+
+    end subroutine MG_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE solve(this, nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt, ComputeA)
-      IMPLICIT NONE
-      CLASS(MultigridSolver_t), target, INTENT(INOUT) :: this
-      integer,       intent(in)               :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-      REAL(KIND=RP), OPTIONAL                 :: tol
-      INTEGER      , OPTIONAL                 :: maxiter
-      REAL(KIND=RP), OPTIONAL                 :: time
-      REAL(KIND=RP), OPTIONAL                 :: dt
-      logical      , optional      , intent(inout) :: ComputeA
-      !-------------------------------------------------
-      INTEGER                                 :: niter
-      INTEGER                                 :: i
-!~      LOGICAL, SAVE :: isfirst = .TRUE.
-      !-------------------------------------------------
-      
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for Multigrid solver'
-      
-!
-!     Compute Jacobian matrix if needed
-!     -----------------------------------------------------
-      
-      if ( present(ComputeA)) then
-         if (ComputeA) then
-            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
-            call this % SetOperatorDt(dt) 
-            ComputeA = .FALSE.
-         end if
-      else 
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
-         call this % SetOperatorDt(dt) 
+    recursive subroutine MG_Levels_Construct(Me,lvl,controlVariables,nEqn)
+      implicit none
+      type(MultigridSolver_t), target   :: Me
+      type(MultigridSolver_t) , pointer :: Child_p          ! Pointer to Child
+      integer, intent(in)               :: nEqn
+      integer, intent(in)               :: lvl
+      integer                           :: i
+
+      ! character(len=*) :: meshFileName_
+      class(FTValueDictionary), intent(in) :: controlVariables                
+      !integer, allocatable              :: Nx(:), Ny(:), Nz(:)
+      ! integer                           :: polynomialOrder(3)
+      logical                           :: success            
+
+      ! for coarse jacobian
+      ! integer                                 :: JacobianComputation = ANALYTICAL_JACOBIAN
+      integer                                 :: JacobianComputation = NUMERICAL_JACOBIAN
+
+
+      ! Construct coarser level
+      ! *********************************************************
+      if (lvl > 1) then
+        ! Allocate the child
+        ! *********************************************************
+        allocate(Me % Child) ! allocate coarser MG level (child)
+        Child_p => Me % Child ! set local pointer to a child
+        Me % Child % Parent => Me ! set child's parent pointer to this level (Me)
+        Child_p % MGlevel = lvl - 1
+        Child_p % Nx = MG_levels_x(lvl - 1)
+        Child_p % Ny = MG_levels_y(lvl - 1)
+        Child_p % Nz = MG_levels_z(lvl - 1)
+        ! *********************************************************
+
+        ! Create coarse DGSem
+        ! *********************************************************
+        ! polynomialOrder = (/ Child_p%Nx, Child_p%Ny, Child_p%Nz /)
+        allocate (Child_p % p_sem)
+        call Child_p % p_sem % construct (  controlVariables  = controlVariables, &
+        polynomialOrder = (/ Child_p%Nx, Child_p%Ny, Child_p%Nz /), success           = success)
+        if (.not. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+        
+        Child_p % DimPrb = Child_p % p_sem % mesh % NDOF * nEqn 
+        print *, "My coarse mesh: "
+        print *, " ************************** "
+        print *, "Mesh total DOF: ", Child_p % p_sem % mesh % NDOF
+        print *, "DimPrb: ", Child_p % DimPrb 
+        print *, "DOF of the each element: "
+        do i = 1, size(Child_p % p_sem % mesh % elements) 
+           print *, i, Child_p % p_sem % mesh % elements(i) % storage % NDOF
+        end do
+        print *, " ************************** "
+        ! *********************************************************
+
+        ! Construct Jacobian on coarse level
+        ! *********************************************************
+        call Child_p % A % construct(num_of_Rows = Child_p % DimPrb, withMPI = .false.)
+        JacobianComputation = GetJacobianFlag()
+        print *, "Jacobian Type: ", JacobianComputation
+        select case (JacobianComputation)
+          case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Child_p % Jacobian)
+          case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Child_p % Jacobian)
+          case default
+             ERROR stop 'Invalid jacobian type. FIXME: '
+        end select
+
+        call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn)
+        call Child_p % Jacobian % configure(Child_p % p_sem % mesh, nEqn, Child_p % A)
+        ! call Child_p % A % Visualize("JacC.txt") ! write Jacobian to a file
+        ! *********************************************************
+
+        ! Prolongation restriction operators
+        ! *********************************************************
+        allocate (Me  % RestX(0:Child_p%Nx,0:Me%Nx)                 )
+        allocate (Child_p % ProlX(0:Me%Nx,0:Child_p%Nx)             )
+        allocate (Me  % RestY(0:Child_p%Ny,0:Me%Ny)                 )
+        allocate (Child_p % ProlY(0:Me%Ny,0:Child_p%Ny)             )
+        allocate (Me  % RestZ(0:Child_p%Nz,0:Me%Nz)                 )
+        allocate (Child_p % ProlZ(0:Me%Nz,0:Child_p%Nz)             )
+
+        print *, "My interpolation matrices: "
+        call MG_CreateRestrictionOperator  ( Me )
+        call MG_CreateProlongationOperator ( Child_p )
+
+
+        ! *********************************************************
+
+        ! recursive call
+        call MG_Levels_Construct(Me % Child,lvl-1,controlVariables,nEqn)
       end if
-      
-      timesolve= time
-      dtsolve  = dt
-      
-!~      IF (isfirst) THEN
-         this % F_Ur = this % p_sem % mesh % storage % Qdot
-         this % Ur   = this % p_sem % mesh % storage % Q
-!~         isfirst = .FALSE.
-!~      END IF
-      
-      ! Initialize x
-      DO i=1, this % DimPrb
-         this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
-      END DO
-      
-      STOP 'incomplete solver'
-      
-      CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
-      
-      this % p_sem % mesh % storage % Q = this % Ur
-      
-!~      IF (this % niter < maxiter) THEN
-         this % CONVERGED = .TRUE.
-!~      ELSE
-!~         this % CONVERGED = .FALSE.
-!~      END IF
-      
-   END SUBROUTINE solve
+      ! *********************************************************
+
+      ! Printing
+      ! *********************************************************
+      print *, " ************************** "
+      print *, "We're on level: ", Me%MGlevel
+      print *, "Pol. orders: in x/y/z:", Me%Nx, "/", Me%Ny, "/", Me%Nz
+      print *, " ************************** "
+      ! *********************************************************
+    end subroutine MG_Levels_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE GetXValue(this,irow,x_i)       
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      INTEGER                  , INTENT(IN)    :: irow
-      REAL(KIND=RP)            , INTENT(OUT)   :: x_i
-      !-----------------------------------------------------------
-      
-      x_i = this % x(irow)
-      
-   END SUBROUTINE GetXValue
+    subroutine MG_Destruct(this)
+      implicit none
+      class(MultigridSolver_t), intent(inout) :: this
+
+      call this % A % destruct
+
+      deallocate(MG_levels_x)
+      deallocate(MG_levels_y)
+      deallocate(MG_levels_z)
+    end subroutine MG_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE destroy(this)       
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      !-----------------------------------------------------------
-      
-      CALL this % A % destruct()
-      
-      DEALLOCATE(this % b)
-      DEALLOCATE(this % x)
-      
-      this % AIsPrealloc = .FALSE.
-      
-    END SUBROUTINE destroy
-    
-    
+    subroutine MG_Solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+      implicit none
+      class(MultigridSolver_t), target, intent(inout) :: this
+      integer,       intent(in)                       :: nEqn, nGradEqn
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
+      real(kind=rp), optional                         :: tol
+      integer      , optional                         :: maxiter
+      real(kind=rp), optional                         :: time
+      real(kind=rp), optional                         :: dt
+      logical      , optional , intent(inout)         :: ComputeA
+      !---------------------------------------------------------------------
+      integer                                         :: niter
+      real(kind=rp)                                   :: tmpsize
+      integer                                         :: i
+
+      call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+      ! call this % A % Visualize("Jacobian.txt") ! Visualize Jacobian
+
+      ! print *, "Values (Jac. Fine)"
+      ! print *, "------------------------------------------------------------------------------"
+      ! print *, this % A % Values(:)
+      ! print *, "------------------------------------------------------------------------------"
+      ! call this % A % Visualize("JacF.txt") ! write Jacobian to a file
+      !print *, "Cols"
+      !print *, "------------------------------------------------------------------------------"
+      !print *, this % A % Cols(:)
+      !print *, "------------------------------------------------------------------------------"
+      !print *, "Rows"
+      !print *, "------------------------------------------------------------------------------"
+      !print *, this % A % Rows(:)
+      !print *, "------------------------------------------------------------------------------"
+      !tmpsize = sizeof(this % A % Values(:)) + sizeof(this % A % Cols(:)) + sizeof(this % A % Rows(:))
+      !tmpsize = sizeof(this % A % Values(:)) / sizeof(tol)
+      ! print *, "Sizeof Jacobian: ", tmpsize
+      ! print *, "Sizeof sem: ", sizeof(this % p_sem % mesh)
+
+      !!! FINDMEEEE
+
+      ! call GenSmoother(this % A, )
+      ! print *, "RHS: ", this % RHS
+      ! call MG_Restriction(this, nEqn)
+
+      ! print *, "Fine Q:"
+      ! print *, "------------------------------------------------------------------------------"
+      ! print *, this % p_sem % mesh % elements(1) % storage % Q(1,:,:,1)  
+      ! print *, "------------------------------------------------------------------------------"
+
+      ! print *, "Coarse Q:"
+      ! print *, "------------------------------------------------------------------------------"
+      ! print *, this % child % p_sem % mesh % elements(1) % storage % Q(1,:,:,1)  
+      ! print *, "------------------------------------------------------------------------------"
+
+      ! print *, "Coarse Q after Restriction:"
+      ! print *, "------------------------------------------------------------------------------"
+      ! print *, this % child % p_sem % mesh % storage % Q  
+      ! print *, "------------------------------------------------------------------------------"
+
+      ! call this % Child % A % Visualize("JacC_pre.txt") ! write Jacobian to a file
+
+      call this % Child % Jacobian % Compute (this % Child % p_sem, nEqn, time, this % Child % A, ComputeTimeDerivative)
+      ! print *, "Values (Jac. Coarse)"
+      ! print *, "------------------------------------------------------------------------------"
+      ! print *, this % Child % A % Values(:)
+      ! print *, "------------------------------------------------------------------------------"
+      ! call this % Child % A % Visualize("JacC.txt") ! write Jacobian to a file
+
+      ERROR stop ':: TBC Wojtek'
+    end subroutine MG_Solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine MG_CreateProlongationOperator(this)
+      use NodalStorageClass
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      integer              :: Norigin !<  Destination polynomial order
+      integer              :: Ndest   !<  Destination polynomial order
+      type(NodalStorage_t) :: spAo    !<  Origin nodal storage
+      type(NodalStorage_t) :: spAd    !<  Destination nodal storage
+      !-----------------------------------------------------
+
+      ! X direction
+      !-----------------------------------------------------
+      Norigin  = this % Nx
+      Ndest    = this % parent % Nx
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlX)
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+
+      ! Y direction
+      !-----------------------------------------------------
+      Norigin  = this % Ny
+      Ndest    = this % parent % Ny
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlY)
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+
+      ! Z direction
+      !-----------------------------------------------------
+      Norigin  = this % Nz
+      Ndest    = this % parent % Nz
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlZ)
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+   end subroutine MG_CreateProlongationOperator
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SetOperatorDt(this,dt)       
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)           , INTENT(IN)    :: dt
-      !-----------------------------------------------------------
-      
-      this % Ashift = MatrixShift(dt)
-      call this % A % Shift(this % Ashift)
-      
-    END SUBROUTINE SetOperatorDt
+   subroutine MG_CreateRestrictionOperator(this,Rweighted)
+      use NodalStorageClass
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      integer              :: Norigin !<  Destination polynomial order
+      integer              :: Ndest   !<  Destination polynomial order
+      type(NodalStorage_t) :: spAo    !<  Origin nodal storage
+      type(NodalStorage_t) :: spAd    !<  Destination nodal storage
+      logical, optional, intent(in) :: Rweighted    !< flag for weighted restriction operator 
+      ! only for restriction
+      real(kind=RP), allocatable    :: Rtmp(:,:)
+      integer                       :: i,j
+      !-----------------------------------------------------
+
+      ! X direction
+      !-----------------------------------------------------
+      Norigin  = this % Nx
+      Ndest    = this % child % Nx
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      allocate (Rtmp(0:Norigin,0:Ndest))
+      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      this % RestX = transpose(Rtmp)
+      deallocate (Rtmp)
+      if (present(Rweighted) .AND. Rweighted) then
+         do j = 0, Norigin ; do i = 0, Ndest
+            this % RestX(i,j) = this % RestX(i,j) * spAo % w(j) / spAd % w(i)
+         end do            ; end do
+      end if
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+
+      ! Y direction
+      !-----------------------------------------------------
+      Norigin  = this % Ny
+      Ndest    = this % child % Ny
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      allocate (Rtmp(0:Norigin,0:Ndest))
+      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      this % RestY = transpose(Rtmp)
+      deallocate (Rtmp)
+      if (present(Rweighted) .AND. Rweighted) then
+         do j = 0, Norigin ; do i = 0, Ndest
+            this % RestY(i,j) = this % RestY(i,j) * spAo % w(j) / spAd % w(i)
+         end do            ; end do
+      end if
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+
+      ! Z direction
+      !-----------------------------------------------------
+      Norigin  = this % Nz
+      Ndest    = this % child % Nz
+      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
+      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
+      allocate (Rtmp(0:Norigin,0:Ndest))
+      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      this % RestZ = transpose(Rtmp)
+      deallocate (Rtmp)
+      if (present(Rweighted) .AND. Rweighted) then
+         do j = 0, Norigin ; do i = 0, Ndest
+            this % RestZ(i,j) = this % RestZ(i,j) * spAo % w(j) / spAd % w(i)
+         end do            ; end do
+      end if
+      call spAo % destruct
+      call spAd % destruct
+      !-----------------------------------------------------
+
+   end subroutine MG_CreateRestrictionOperator
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE ReSetOperatorDt(this,dt)       
-      IMPLICIT NONE
-      !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)           , INTENT(IN)    :: dt
-      !-----------------------------------------------------------
-      REAL(KIND=RP)                            :: shift
-      !-----------------------------------------------------------
-      
-      shift = MatrixShift(dt)
-      
-      call this % A % Shift(-this % Ashift)
-      call this % A % Shift(shift)
-      
-      this % Ashift = shift
-      
-    END SUBROUTINE ReSetOperatorDt
+   subroutine MG_Prolongation(this,Norigin,Ndest)
+      use NodalStorageClass
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      integer, intent(in)  :: Norigin !<  Destination polynomial order
+      integer, intent(in)  :: Ndest   !<  Destination polynomial order
+      type(NodalStorage_t) :: spAo    !<  Origin nodal storage
+      type(NodalStorage_t) :: spAd    !<  Destination nodal storage
+      !-----------------------------------------------------
+
+   end subroutine MG_Prolongation
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   FUNCTION Getxnorm(this,TypeOfNorm) RESULT(xnorm)
-      IMPLICIT NONE
+   subroutine MG_Restriction(this, nEqn)
+      !
+      !---------------------------------------------------------------------
+      ! Restrict a 3D array from 'this' to 'this % child' using this % rest.
+      !---------------------------------------------------------------------
+      !
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      class(MultigridSolver_t), pointer               :: child_p
+      integer                         , intent(in)    :: nEqn
+      integer                                         :: iEl
+      integer, dimension(3)                           :: Norigin
+      integer, dimension(3)                           :: Ndest
+      !-----------------------------------------------------
+
+      child_p => this % child
+      Norigin = (/ this % Nx, this % Ny, this % Nz /)
+      Ndest = (/ child_p % Nx, child_p % Ny, child_p % Nz /)
+
+      do iEl = 1, size(this % p_sem % mesh % elements)
+         !print *, "We're here loop over els:", iEl
+         !print *, "Org Q: ", iEl                                      
+         !print *, this % p_sem % mesh % elements(iEl) % storage % Q
+         call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % Q, &
+                                      Ndest, child_p % p_sem % mesh % elements(iEl) % storage % Q, &
+                                      this % RestX, this % RestY, this % RestZ )
+         ! call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % QDot, &
+         !                              Ndest, child_p % p_sem % mesh % elements(iEl) % storage % QDot, &
+         !                              this % RestX, this % RestY, this % RestZ )
+         ! call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % U_x, &
+         !                              Ndest, child_p % p_sem % mesh % elements(iEl) % storage % U_x, &
+         !                              this % RestX, this % RestY, this % RestZ )
+         ! call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % U_y, &
+         !                              Ndest, child_p % p_sem % mesh % elements(iEl) % storage % U_y, &
+         !                              this % RestX, this % RestY, this % RestZ )
+         ! call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % U_z, &
+         !                              Ndest, child_p % p_sem % mesh % elements(iEl) % storage % U_z, &
+         !                              this % RestX, this % RestY, this % RestZ )
+         ! print *, "Coarse Q after", iEl                                      
+         ! print *, child_p % p_sem % mesh % elements(iEl) % storage % Q
+      end do
+      ! print *, "We're here 9."
+
+   end subroutine MG_Restriction
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   subroutine MG_Interp3DArrays(Nvars, Nin, inArray, Nout, outArray, InterpX, InterpY, InterpZ )
+      implicit none
+      !-------------------------------------------------------
+      integer                                                        , intent(in)    :: Nvars
+      integer      , dimension(3)                                    , intent(in)    :: Nin
+      integer      , dimension(3)                                    , intent(in)    :: Nout
+      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2), 0:Nin (3)), intent(in)    :: inArray
+      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2), 0:Nout(3)), intent(out)   :: outArray
+      real(kind=RP), dimension(0:Nout(1), 0:Nin(1))                  , intent(in)    :: InterpX
+      real(kind=RP), dimension(0:Nout(2), 0:Nin(2))                  , intent(in)    :: InterpY
+      real(kind=RP), dimension(0:Nout(3), 0:Nin(3))                  , intent(in)    :: InterpZ
+      !-------------------------------------------------------
+      integer :: i,j,k,l,m,n
+      !-------------------------------------------------------
+      
+      outArray = 0.0_RP
+      
+      do n = 0, Nin(3)  ; do k = 0, Nout(3)
+         do m = 0, Nin(2)  ; do j = 0, Nout(2)   
+            do l = 0, Nin(1)  ; do i = 0, Nout(1)
+               outArray(:,i,j,k) = outArray(:,i,j,k) +   InterpX (i,l) &
+                                                       * InterpY (j,m) &
+                                                       * InterpZ (k,n) &
+                                                       * inArray(:,l,m,n)
+            end do             ; end do
+         end do             ; end do
+      end do             ; end do
+
+   end subroutine MG_Interp3DArrays
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+    subroutine MG_SetRHS(this, RHS)
+       implicit none
+       !-arguments-----------------------------------------------------------
+       class(MultigridSolver_t), intent(inout) :: this
+       real(kind=RP)           , intent(in)    :: RHS(this % DimPrb)
+       !---------------------------------------------------------------------
+       
+       this % b = RHS
+       
+    end subroutine MG_SetRHS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+    function MG_GetX(this) result(x)
+       implicit none
+       !-----------------------------------------------------------
+       class(MultigridSolver_t), intent(inout) :: this
+       real(kind=RP)                           :: x(this % DimPrb)
+       !-----------------------------------------------------------
+
+       x = this % x
+
+    end function MG_GetX
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   function MG_Getxnorm(this,TypeOfNorm) result(xnorm)
+      implicit none
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      CHARACTER(len=*)                         :: TypeOfNorm
-      REAL(KIND=RP)                            :: xnorm
+      class(MultigridSolver_t), intent(inout)  :: this
+      character(len=*)                         :: TypeOfNorm
+      real(kind=RP)                            :: xnorm
       !-----------------------------------------------------------
       
-      SELECT CASE (TypeOfNorm)
-         CASE ('infinity')
+      select case (TypeOfNorm)
+         case ('infinity')
             xnorm = MAXVAL(ABS(this % x))
-         CASE ('l2')
+         case ('l2')
             xnorm = NORM2(this % x)
-         CASE DEFAULT
-            STOP 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
-      END SELECT
-   END FUNCTION Getxnorm
+         case default
+            stop 'MultigridSolverClass ERROR: Norm not implemented yet'
+      end select
+
+   end function MG_Getxnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   FUNCTION Getrnorm(this) RESULT(rnorm)
-      IMPLICIT NONE
+   function MG_Getrnorm(this) result(rnorm)
+      implicit none
 !
 !     ----------------------------------------
-!     Currently implemented with infinity norm
+!     Infinity norm
 !     ----------------------------------------
 !
       !-----------------------------------------------------------
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      REAL(KIND=RP)                            :: rnorm
+      class(MultigridSolver_t), intent(inout) :: this
+      real(kind=RP)                            :: rnorm
       !-----------------------------------------------------------
-      REAL(KIND=RP)                            :: residual(this % DimPrb)
+      real(kind=RP)                            :: residual(this % DimPrb)
       !-----------------------------------------------------------
       
       rnorm = this % rnorm
       
       
-   END FUNCTION Getrnorm
+   end function MG_Getrnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   FUNCTION ComputeANextStep(this) RESULT(ComputeA)
-      IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(IN) :: this
-      LOGICAL                              :: ComputeA
+   subroutine MG_SetRHSValue(this, irow, value)
+        implicit none
+        !-----------------------------------------------------------
+        class(MultigridSolver_t) , intent(inout) :: this
+        integer                  , intent(in)    :: irow
+        real(kind=RP)            , intent(in)    :: value
+        !-----------------------------------------------------------
       
-      ComputeA = .FALSE.
-   END FUNCTION ComputeANextStep
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!
-!  Internal procedures
+        this % b (irow) = value
+      
+   end subroutine MG_SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+ !
+   subroutine MG_SetRHSValues(this, nvalues, irow, values)
+        implicit none
+        class(MultigridSolver_t)    , intent(inout)     :: this
+        integer                     , intent(in)        :: nvalues
+        integer      , dimension(1:), intent(in)        :: irow
+        real(kind=RP), dimension(1:), intent(in)        :: values
+        !------------------------------------------------------
+        integer                                         :: i
 
-   FUNCTION AxMult(this,nEqn,x, ComputeTimeDerivative) RESULT(Ax)
-      IMPLICIT NONE
-      CLASS(MultigridSolver_t), INTENT(INOUT) :: this
-      integer, intent(in)                     :: nEqn
-      REAL(KIND=RP)                           :: x (:)
-      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-      REAL(KIND=RP)                           :: Ax(size(x))
-      !--------------------------------------------------
-!~      REAL(KIND=RP)                           :: eps
-      REAL(KIND=RP)                           :: F (size(x)), shift
-!~      REAL(KIND=RP)                           :: buffer (size(x))
-      !--------------------------------------------------
-      shift = MatrixShift(dtsolve)
-!~      eps = 1e-8_RP * (1._RP + NORM2(x))                           ! ~2e-5 2e-4
-!~      eps = 1e-8_RP * (1._RP + NORM2(this % Ur))                   ! better: ~6e-7
-      eps = SQRT(EPSILON(eps)) * (1._RP + NORM2(this % Ur))        !slightly better: ~4e-7 
-!~      eps = SQRT(EPSILON(eps)) * (1._RP + MAXVAL(ABS(this % Ur)))  !slightly worse: ~1e-5 9e-6
-!~      eps = SQRT(EPSILON(eps))                                     !worse:        : ~1e-4
+        do i=1, nvalues
+           if (irow(i)<0) cycle
+           this % b(irow(i)) = values(i)
+        end do
       
-!~      buffer = this % p_sem % mesh % storage % Q
-      this % p_sem % mesh % storage % Q = this % Ur + x*eps
-      call this % p_sem % mesh % storage % global2LocalQ
-      CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      call this % p_sem % mesh % storage % local2GlobalQdot (this % p_sem % NDOF)
-      
-      F = this % p_sem % mesh % storage % Qdot
-!~      this % p_sem % mesh % storage % Q = buffer
-      Ax = ( F - this % F_Ur) / eps + shift * x                          !First order
-      
-   END FUNCTION AxMult
-   
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!
-!  Smoothers
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   
-   SUBROUTINE WeightedJacobiSmoother( this, Diag, SmoothIters, tol, niter)
-      IMPLICIT NONE
-      !--------------------------------------------
-      CLASS(MultigridSolver_t), TARGET, INTENT(INOUT) :: this            !<  Iterative solver class
-      INTEGER                                         :: SmoothIters     !<  Number of smoothing operations
-      REAL(KIND=RP)                                   :: Diag(:)         !   Matrix diagonal
-      REAL(KIND=RP), OPTIONAL                         :: tol             !   Relative AND absolute tolerance of the method
-      INTEGER                         , INTENT(OUT)   :: niter           !>  Number of iterations needed
-      !--------------------------------------------
-      INTEGER                                 :: n                ! System size
-      REAL(KIND=RP)                           :: r(this % DimPrb) ! Residual
-      REAL(KIND=RP), POINTER                  :: x(:)             ! Solution
-      REAL(KIND=RP), POINTER                  :: b(:)             ! Right-hand-side
-      REAL(KIND=RP), PARAMETER                :: w = 2._RP/3._RP  ! Weight (optimal for FD laplacian... but DGSEM?)
-      INTEGER                                 :: i,j              ! Counters
-      
-      REAL(KIND=RP)                           :: bnorm, rnorm     ! Norm of b and r vectors
-      REAL(KIND=RP)                           :: endtol           ! Final tolerance that will be used to evaluate convergence 
-!~       REAL(KIND=RP) :: res(size(x,1),1), LinChange
-      !--------------------------------------------
-      
-      n =  this % DimPrb
-      x => this % x
-      b => this % b
-      
-      IF(PRESENT(tol)) THEN
-         bnorm = NORM2(b)
-         endtol = MAX(bnorm*tol,tol)  ! rtol and atol are taken as the same value
-      END IF
-      
-!~      print*, 'bnorm = ', bnorm
-!~      print*, '    iter      residual'
-      
-      DO i=1,SmoothIters
-!~         r = this % AxMult(x)        ! Matrix free mult
-         r = CSR_MatVecMul(this%A,x) ! CSR matrix product
-         
-!$omp parallel do
-         DO j=1,n
-            r(j) = b(j) - r(j)
-            x(j) = x(j) + w * r(j) / Diag(j)
-         END DO
-!$omp end parallel do
-         
-         IF (PRESENT(tol)) THEN
-            rnorm = NORM2(r)       ! Saves relative tolerance (one iteration behind)
-            print*, i, rnorm
-            read(*,*)
-            IF (rnorm < endtol) THEN
-               this % rnorm = rnorm
-               EXIT
-            END IF
-         END IF
-        
-!~         IF (i==1) call xyplot(Sol(:,1))
-!~         print*, x
-!~         read(*,*)
-      END DO
-      
-      this % rnorm = NORM2(r)
-      niter=i
-      
-   END SUBROUTINE WeightedJacobiSmoother
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!  Routines for interpolation procedures (will probably be moved to another module)
-!  
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
+   end subroutine MG_SetRHSValues
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE CreateInterpolationOperators(Restriction,Prolongation,N1x,N1y,N1z,N2x,N2y,N2z,DeltaN,Lobatto)
-      IMPLICIT NONE
-!
-!     ------------------------------------------------------------------------
-!     Creates the restriction and prolongation operators for a certain element
-!     for multigrid. Takes into account order anisotropy, but the coarse grid 
-!     is constructed by reducing the polynomial order uniformly.
-!     ------------------------------------------------------------------------
-!
-      !-----------------------------------------------------
-      TYPE(Interpolator_t), TARGET  :: Restriction (0:,0:,0:)  !>  Restriction operator
-      TYPE(Interpolator_t), TARGET  :: Prolongation(0:,0:,0:)  !>  Prolongation operator
-      INTEGER                       :: N1x, N1y, N1z           !<  Fine grid order(anisotropic) of the element
-      INTEGER                       :: N2x, N2y, N2z           !>  Coarse grid order(anisotropic) of the element
-      INTEGER                       :: DeltaN                  !<  Interval of reduction of polynomial order for coarser level
-      LOGICAL, OPTIONAL             :: Lobatto                 !<  Is the quadrature a Legendre-Gauss-Lobatto representation?
-      !-----------------------------------------------------
-      TYPE(Interpolator_t), POINTER :: rest                    ! Pointer to constructed restriction interpolator
-      TYPE(Interpolator_t), POINTER :: prol                    ! Pointer to constructed prolongation interpolator
-      LOGICAL                       :: LGL = .FALSE.           ! Is the quadrature a Legendre-Gauss-Lobatto representation? (false is default)
-      INTEGER                       :: i,j,k,l,m,n             ! Index counters
-      INTEGER                       :: s,r                     ! Row/column counters for operators
-      REAL(KIND=RP), ALLOCATABLE    :: x1 (:), y1 (:), z1 (:)  ! Position of quadrature points on mesh 1
-      REAL(KIND=RP), ALLOCATABLE    :: w1x(:), w1y(:), w1z(:)  ! Weights for quadrature points on mesh 1
-      REAL(KIND=RP), ALLOCATABLE    :: x2 (:), y2 (:), z2 (:)  ! Position of quadrature points on mesh 2
-      REAL(KIND=RP), ALLOCATABLE    :: w2x(:), w2y(:), w2z(:)  ! Weights for quadrature points on mesh 2
-      !-----------------------------------------------------
-      
-      IF (PRESENT(Lobatto) .AND. Lobatto) LGL = .TRUE.
-!
-!     --------------------------------------
-!     Compute order of coarse representation
-!     --------------------------------------
-!
-      N2x = N1x - DeltaN
-      N2y = N1y - DeltaN
-      N2z = N1z - DeltaN
-      
-      ! The order must be greater or equal to 0 (Legendre-Gauss quadrature) or 1 (Legendre-Gauss-Lobatto)
-      IF (LGL) THEN
-         IF (N2x < 1) N2x = 1
-         IF (N2y < 1) N2y = 1
-         IF (N2z < 1) N2z = 1
-      ELSE
-         IF (N2x < 0) N2x = 0
-         IF (N2y < 0) N2y = 0
-         IF (N2z < 0) N2z = 0
-      END IF
-      
-      ! Return if the operators were already created
-      IF (Restriction(N1x,N1y,N1z) % Created) RETURN
-      
-      rest => Restriction (N1x,N1y,N1z)
-      prol => Prolongation(N2x,N2y,N2z)
-!
-!     ----------------------------
-!     Allocate important variables
-!     ----------------------------
-!
-      !Nodes and weights
-      ALLOCATE(x1 (0:N1x), y1 (0:N1y), z1 (0:N1z), &
-               w1x(0:N1x), w1y(0:N1y), w1z(0:N1z), &
-               x2 (0:N2x), y2 (0:N2y), z2 (0:N2z), &
-               w2x(0:N2x), w2y(0:N2y), w2z(0:N2z))
-!
-!     ------------------------------------------
-!     Obtain the quadrature nodes on (1) and (2)
-!     ------------------------------------------
-!
-      IF (LGL) THEN
-         CALL LegendreLobattoNodesAndWeights(N1x, x1, w1x)
-         CALL LegendreLobattoNodesAndWeights(N1y, y1, w1y)
-         CALL LegendreLobattoNodesAndWeights(N1z, z1, w1z)
-         CALL LegendreLobattoNodesAndWeights(N2x, x2, w2x)
-         CALL LegendreLobattoNodesAndWeights(N2y, y2, w2y)
-         CALL LegendreLobattoNodesAndWeights(N2z, z2, w2z)
-      ELSE
-         CALL GaussLegendreNodesAndWeights(N1x, x1, w1x)
-         CALL GaussLegendreNodesAndWeights(N1y, y1, w1y)
-         CALL GaussLegendreNodesAndWeights(N1z, z1, w1z)
-         CALL GaussLegendreNodesAndWeights(N2x, x2, w2x)
-         CALL GaussLegendreNodesAndWeights(N2y, y2, w2y)
-         CALL GaussLegendreNodesAndWeights(N2z, z2, w2z)
-      END IF
-!
-!     -----------------------------
-!     Fill the restriction operator
-!     -----------------------------
-!
-      CALL Create3DInterpolationMatrix(rest % Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
-!
-!     ------------------------------
-!     Fill the prolongation operator
-!     ------------------------------
-!
-      CALL Create3DInterpolationMatrix(prol % Mat,N2x,N2y,N2z,N1x,N1y,N1z,x2,y2,z2,x1,y1,z1)
-      
-      ! All done
-      rest % Created = .TRUE.
-      prol % Created = .TRUE.
-      
-   END SUBROUTINE CreateInterpolationOperators
-!
+end module MultigridSolverClass
+
+!!! OLD STUFF
+      !!! class(Matrix_t), allocatable               :: A                     ! Jacobian matrix
+      !!! ! print *, sem % mesh % storage % Q 
+      !!! allocate(SparseBlockDiagMatrix_t :: this % A)
+      !!! print *, "No of elements: ", nelem
+      !!! print *, "Ok 1"
+      !!! call this % A % construct (num_of_Blocks = nelem)
+      !!! print *, "Ok 2"
+      !!! call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
+      !!! !call this % Jacobian % Compute (sem, nEqn, time, this % A, ComputeTimeDerivative, BlockDiagonalized = .TRUE.)
+      !!! print *, "No of blocks: ", this % A % num_of_Blocks
+      !!! select type(Mat => this % A)
+      !!!   type is(SparseBlockDiagMatrix_t)
+      !!!   do i = 1, Mat % num_of_Blocks
+      !!!     print *, Mat % Blocks(i) % Matrix % Cols(:)
+      !!!   end do
+      !!! end select
+
+!!! Printing
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!!
-!!    This function interpolates a vector U1 of the solution to the lower level (can be used for restriction or prolongation)
-!!
-!!    CALL: U2 = this % InterpolateSol(Prolongation(Nx(iEL),Ny(iEL),Nz(iEL)),U1)
-!!          
-   FUNCTION InterpolateSol(this,Interp,U1) RESULT(U2)
-      IMPLICIT NONE
-      !--------------------------------------------------------------
-      CLASS(MultigridSolver_t), TARGET, INTENT(INOUT) :: this  !<  Iterative solver class
-      REAL(KIND=RP)                                   :: Interp(:,:)
-      REAL(KIND=RP)           , TARGET, INTENT(IN)    :: U1(:) ! Vector to be projected
-      REAL(KIND=RP)           , TARGET                :: U2(SIZE(Interp,1)) ! Projected vector
-      !--------------------------------------------------------------
-      REAL(KIND=RP), POINTER :: U1_p(:)               ! U1 pointer
-      REAL(KIND=RP), POINTER :: U2_p(:)               ! U2 pointer
-      INTEGER      , POINTER :: N1x(:),N1y(:),N1z(:)  ! Pointers to element orders of (1)
-      INTEGER      , POINTER :: N2x(:),N2y(:),N2z(:)  ! Pointers to element orders of (2)
-      INTEGER                :: iEQ       ! Equation counter
-      INTEGER                :: Idx1      ! First index of the solution of this element ( - 1)
-      !--------------------------------------------------------------
-#if defined(NAVIERSTOKES)      
-      Idx1 = 0
-      
-      DO iEQ = 1, NCONS
-!~             U1_p => U1(Idx1+iEq::NCONS)
-!~             U2_p => U2()
-         
-         U2_p = MATMUL(Interp,U1_p)
-         
-      END DO
-!
-!     ------------
-!     Clean memory
-!     ------------
-!
-      NULLIFY(U1_p,U2_p,N1x,N1y,N1z,N2x,N2y,N2z)
-#endif      
-   END FUNCTION InterpolateSol
-   
-   !SUBROUTINE InterpolateJac
-END MODULE MultigridSolverClass
+!------------------------------------------------------
+! print *, "Rest X: ", Me  % RestX
+! print *, "Rest X size: ", size(Me  % RestX,1), size(Me  % RestX,2)
+! print *, "Rest Y: ", Me  % RestY
+! print *, "Rest Y size: ", size(Me  % RestY,1), size(Me  % RestY,2)
+! print *, "Rest Z: ", Me  % RestZ
+! print *, "Rest Z size: ", size(Me  % RestZ,1), size(Me  % RestZ,2)
+! print *, "Prol X: ", Child_p  % ProlX
+! print *, "Prol X size: ", size(Child_p  % ProlX,1), size(Child_p  % ProlX,2)
+! print *, "Prol Y: ", Child_p  % ProlY
+! print *, "Prol Y size: ", size(Child_p  % ProlY,1), size(Child_p  % ProlY,2)
+! print *, "Prol Z: ", Child_p  % ProlZ
+! print *, "Prol Z size: ", size(Child_p  % ProlZ,1), size(Child_p  % ProlZ,2)
+!------------------------------------------------------
+!! just rho:
+!print *, "-----------------------------------------------------------"
+!print *, " ----- RHO -----"
+!print *, "Fine"                                      
+!print *, this % p_sem % mesh % elements(iEl) % storage % Q(1,:,:,:)
+!print *, "Coarse"                                      
+!print *, child_p % p_sem % mesh % elements(iEl) % storage % Q(1,:,:,:)
+!print *, " ----- RHO U -----"
+!print *, "Fine"                                      
+!print *, this % p_sem % mesh % elements(iEl) % storage % Q(2,:,:,:)
+!print *, "Coarse"                                      
+!print *, child_p % p_sem % mesh % elements(iEl) % storage % Q(2,:,:,:)
+!print *, " ----- RHO V -----"
+!print *, "Fine"                                      
+!print *, this % p_sem % mesh % elements(iEl) % storage % Q(3,:,:,:)
+!print *, "Coarse"                                      
+!print *, child_p % p_sem % mesh % elements(iEl) % storage % Q(3,:,:,:)
+!print *, " ----- RHO W -----"
+!print *, "Fine"                                      
+!print *, this % p_sem % mesh % elements(iEl) % storage % Q(4,:,:,:)
+!print *, "Coarse"                                      
+!print *, child_p % p_sem % mesh % elements(iEl) % storage % Q(4,:,:,:)
+!print *, " ----- E -----"
+!print *, "Fine"                                      
+!print *, this % p_sem % mesh % elements(iEl) % storage % Q(5,:,:,:)
+!print *, "Coarse"                                      
+!print *, child_p % p_sem % mesh % elements(iEl) % storage % Q(5,:,:,:)
+!print *, "-----------------------------------------------------------"
+!------------------------------------------------------
+!       print *, "N_x fine: ", Nin(1), "N_x coarse: ", Nout(1)
+!       print *, "N_y fine: ", Nin(2), "N_y coarse: ", Nout(2)
+!       print *, "N_z fine: ", Nin(3), "N_z coarse: ", Nout(3)
+! 
+!       do l = 0, Nin(1)  ; do i = 0, Nout(1)
+!          print *, "x :: ", i
+!          print *, "y :: ", l
+!          print *, "R(x,y) :: ", InterpX (i,l)
+!       end do             ; end do
+!------------------------------------------------------
+!       print *, "We're here 8."
+!       print *, " R_x :: ", this % RestX, "size: ", size(this % RestX,1), " x ", size(this % RestX,2)
+!       print *, " R_y :: ", this % RestZ, "size: ", size(this % RestY,1), " x ", size(this % RestY,2)
+!       print *, " R_z :: ", this % RestY, "size: ", size(this % RestZ,1), " x ", size(this % RestZ,2)
+!------------------------------------------------------
+!------------------------------------------------------
+!------------------------------------------------------
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

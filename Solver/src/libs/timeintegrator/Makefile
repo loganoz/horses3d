@@ -12,6 +12,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/AnalyticalJacobian.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
+		./build_ns/GenericSmoother.o \
 		./build_ns/MultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
