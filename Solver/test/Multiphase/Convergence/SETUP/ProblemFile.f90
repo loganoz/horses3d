@@ -562,29 +562,29 @@ end module ProblemFileFunctions
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
-            CALL FTAssertEqual(expectedValue = saved_errors(1), &
-                               actualValue   = error(1), &
+            CALL FTAssertEqual(expectedValue = saved_errors(1)+1.0_RP, &
+                               actualValue   = error(1)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Concentration error")
 
 
-            CALL FTAssertEqual(expectedValue = saved_errors(2), &
-                               actualValue   = error(2), &
+            CALL FTAssertEqual(expectedValue = saved_errors(2)+1.0_RP, &
+                               actualValue   = error(2)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "X-Momentum error")
 
-            CALL FTAssertEqual(expectedValue = saved_errors(3), &
-                               actualValue   = error(3), &
+            CALL FTAssertEqual(expectedValue = saved_errors(3)+1.0_RP, &
+                               actualValue   = error(3)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Y-Momentum error")
 
-            CALL FTAssertEqual(expectedValue = saved_errors(4), &
-                               actualValue   = error(4), &
+            CALL FTAssertEqual(expectedValue = saved_errors(4)+1.0_RP, &
+                               actualValue   = error(4)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Z-Momentum error")
 
-            CALL FTAssertEqual(expectedValue = saved_errors(5), &
-                               actualValue   = error(5), &
+            CALL FTAssertEqual(expectedValue = saved_errors(5)+1.0_RP, &
+                               actualValue   = error(5)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Pressure error")
 
