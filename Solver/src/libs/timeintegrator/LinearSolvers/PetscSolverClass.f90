@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Fri Jul 19 12:59:07 2019
+!   @Last revision date: Thu Dec  5 19:42:53 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 09a29cdae6e15333eec4158cebda9e7bb2d70917
+!   @Last revision commit: b2a222da7caa5e69082f4e4c97752a1a5593f5a8
 !
 !//////////////////////////////////////////////////////
 !
@@ -117,8 +117,17 @@ module PetscSolverClass
       
       call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
+      if ( this % withMPI .and. (globalDimPrb /= MPI_Process % nprocs * DimPrb)) then
+         print*, "IMPORTANT WARNING (PetscSolverClass)"
+         print*,  "-> There is a problem (likely a BUG) when the MPI partitions don't \n",     &
+                 "    have the exact same number of degrees of freedom \n",                    &
+                 " -> This simulation will probably crash \n",                                 &
+                 " -> To make it work, make sure the number of partitions is a divisor \n",    &
+                 "    of the number of elements (of course, if all elements have the same DOFs) \n", &
+                 "            ... or fix the bug"
+      end if
+      
       MatrixShift => MatrixShiftFunc
-      this % p_sem => sem
       
       !Initialisation of the PETSc variables
       call PetscInitialize(PETSC_NULL_character,ierr)
@@ -127,6 +136,7 @@ module PetscSolverClass
       call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
       
       if ( present(sem) ) then
+         this % p_sem => sem
          call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
       end if
       
@@ -134,6 +144,7 @@ module PetscSolverClass
       
       if (this % withMPI) then ! Only possible if this % A is preallocated
          call MatCreateVecs(this % A % A, this % x, this % b,ierr) ; call CheckPetscErr(ierr,'error creating MPI Petsc vector')
+         
 !~         call VecCreateMPI(PETSC_COMM_WORLD,dimPrb,globalDimPrb,this % x,ierr)
 !~         call CheckPetscErr(ierr,'error creating MPI Petsc vector')
       else
@@ -190,12 +201,11 @@ module PetscSolverClass
          case ('Jacobi')
             
             call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
-            
          case ('ILU')
             
-            call PetscInitialize("ilu.petscrc",ierr)
-            call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
-            
+            print *, "Nothing done yet."
+            call PetscInitialize("ilu.petscrc",ierr) ! Fortran
+            call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
          case default
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'

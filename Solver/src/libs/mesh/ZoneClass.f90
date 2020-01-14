@@ -15,7 +15,7 @@ module ZoneClass
    use SMConstants
    use FaceClass              , only: Face
    use SharedBCModule         , only: zoneNameDictionary
-   use MeshTypes              , only: HMESH_INTERIOR
+   use MeshTypes              , only: HMESH_INTERIOR, HMESH_MPI
    use BoundaryConditions     , only: ConstructBoundaryConditions
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use Utilities              , only: toLower
@@ -171,7 +171,7 @@ module ZoneClass
 !        Iterate over all faces and add the face ID to the zone linked list it belongs
 !        -----------------------------------------------------------------------------
          do fID = 1, size(faces)
-            if (faces(fID) % FaceType == HMESH_INTERIOR) cycle
+            if (faces(fID) % FaceType == HMESH_INTERIOR .or. faces(fID) % FaceType == HMESH_MPI) cycle
             
             do zoneID = 1, no_of_markers
                if (trim(zoneNames(zoneID)) == trim(faces(fID) % boundaryName)) exit

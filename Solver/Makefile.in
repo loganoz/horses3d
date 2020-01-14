@@ -260,7 +260,7 @@ ADDONSFLAGS= FC='$(FC)' \
 
 all: header mkdirs horseslibs horses3d.ns horses3d.ins horses3d.ch horses3d.mu addons
 
-multiphase: header mkdirs horseslibs-mu horses3d.mu 
+mu: header mkdirs horseslibs-mu horses3d.mu 
 ns: header mkdirs horseslibs-ns horses3d.ns
 
 horses3d.ns: 

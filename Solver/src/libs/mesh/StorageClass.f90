@@ -4,9 +4,9 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Mon Aug  5 18:24:43 2019
+!   @Last revision date: Wed Dec  4 11:34:59 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 16994fcf37674654b5e0eef9236074835c272ffc
+!   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
 !
 !//////////////////////////////////////////////////////
 !
@@ -320,18 +320,32 @@ module StorageClass
          num_of_elems = size(Nx)
          allocate (self % elements(num_of_elems) )
       
-         if ( present(RKSteps_num) ) then
+         if ( present(RKSteps_num) .and. present(prevSol_num)) then
 !$omp parallel do schedule(runtime)
             do eID=1,  num_of_elems
                call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, RKSteps_num)
             end do
 !$omp end parallel do
-         else
+         elseif ( present(prevSol_num) ) then
 !$omp parallel do schedule(runtime)
             do eID=1,  num_of_elems
                call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, prevSol_num, 0)
             end do
 !$omp end parallel do
+         elseif ( present(RKSteps_num) ) then
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac, -1, RKSteps_num)
+            end do
+!$omp end parallel do
+         else
+!$omp parallel do schedule(runtime)
+            do eID=1,  num_of_elems
+               call self % elements(eID) % construct( Nx(eID), Ny(eID), Nz(eID), computeGradients, analyticalJac,-1,0)
+            end do
+!$omp end parallel do
+
+
          end if
          
       end subroutine SolutionStorage_Construct
@@ -1346,8 +1360,10 @@ module StorageClass
 !        -----------
          self % dFStar_dqF   = 0.0_RP
          self % dFStar_dqEl  = 0.0_RP
-         self % dFv_dGradQF  = 0.0_RP
-         self % dFv_dGradQEl = 0.0_RP
+         if (self % computeGradients) then
+            self % dFv_dGradQF  = 0.0_RP
+            self % dFv_dGradQEl = 0.0_RP
+         end if
          self % BCJac        = 0.0_RP
 #endif
       end subroutine

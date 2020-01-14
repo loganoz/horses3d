@@ -22,6 +22,7 @@
 \usepackage{algorithm,algpseudocode}
 \usepackage{epstopdf}
 \usepackage{tcolorbox}
+\usepackage{amssymb}
 \setmarginsrb{2cm}{2cm}{2cm}{2cm}{0cm}{0cm}{0cm}{0.5cm}%{left}{top}{right}{bottom}{headhgt}{}
 %\numberwithin{equation}{section}
 %Bibliography style:
@@ -31,6 +32,10 @@
 
 \definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
 \definecolor{mylilas}{RGB}{170,55,241}
+
+%% Some math definitions:
+\newcommand\norm[1]{\left\lVert#1\right\rVert}
+\def\Res{\pmb{\mathfrak{R}}}
 
 
 \title{\textbf{HORSES3D} \\ A \textbf{H}igh-\textbf{Or}der (DG) \textbf{S}pectral \textbf{E}lement \textbf{S}olver \\ \textbf{User Manual}}
@@ -164,17 +169,6 @@ $j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \si
 Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
   & -- \\ \hline
 
-Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of the geometry. This keyword must be followed by an equal number of lines in the control file that define the boundary conditions as follows: \ 
-
-\begin{center}
-\textit{boundaryName1 boundaryValue1 boundaryType1} \ 
-
-\textit{boundaryName2 boundaryValue2 boundaryType2} \
-
-\textit{...} 
-\end{center}
-& \textbf{Mandatory keyword} \\ \hline
-
 \multicolumn{3}{p{16.4cm}}{*  One of these keywords must be specified} \\
 
 \multicolumn{3}{p{16.4cm}}{** For Euler simulations, the user must specify either the CFL number or the time-step size. For Navier-Stokes simulations, the user must specify the CFL and DCFL numbers \textbf{or} the time-step size.}
@@ -182,7 +176,54 @@ Number of boundaries & \textit{INTEGER}: Specifies the number of boundaries of t
 \end{longtable}
 
 \section{Boundary conditions}
-Under construction.
+
+Juan's email (to be translated and adapted to the manual format):
+
+Hola Gente,
+
+He tenido que hacer unas modificaciones bastante importantes en las BCs. Era la única parte del código que estaba “a la antigua” y no programada a objetos. Esto hacía que no fueran muy customizables, y por ejemplo las controlábamos con el número ese que siempre vale 0.0 jajaja. Ahora cada condición de contorno tiene los parámetros que necesitas y se pueden customizar. Lo malo es que ningún control file de los que tenéis van a seguir funcionando, pero os escribo los cambios para que sepáis adaptarlos, en cualquier caso, podéis pedirme ayuda y os cuento.
+
+Los cambios del código son:
+
+\begin{itemize}
+
+\item Las condiciones de contorno se definen igual que los monitores, con los $\#$define en la parte final del control file. Para definir una condicion de contorno se hace:
+\begin{lstlisting}
+        #define boundary name
+             type = Inflow/Outflow/NoSlipWall/FreeSlipWall/Periodic/User-defined
+             parametro1 = #valor
+             parametro2 = #valor
+        #end
+\end{lstlisting}
+\item Los parámetros1, … dependen de la condición de contorno que toque. Si no se especifica nada, pues está como estaba antes. Dos cambios importantes:
+
+          · He unificado las NoSlipWall (adiabatica e isoterma) en una sola. Por defecto es adiabática.
+          · En las periódicas es obligatorio ahora indicar a qué boundary se acopla (lo cual supone poco esfuerzo y reduce el tiempo de búsqueda al código)
+\begin{lstlisting}
+                 #define boundary name
+                       type = Periodic
+                      coupled boundary = nombredelboundaryalqueseacopla
+                 #end
+\end{lstlisting}
+\item Se pueden definir más de una condición de contorno del tirón, por ejemplo si boundary1, boundary2 y boundary3 son inflows se puede hacer:
+\begin{lstlisting}
+                 #define boundary boundary1__boundary2__boundary3
+                         type = Inflow
+                 #end
+\end{lstlisting}
+     es decir, separado con dos guiones bajos.
+
+\item Por pantalla, donde aparecía la info de las zones y tal, también aparece qué BC tiene y cuáles son los parámetros.
+
+\item La BC outflowspecifyP la llamo simplemente Outflow. Más que nada por que antes había algunos ficheros de control con la BC Outflow y no existía, pero por defecto se mandaba a Inflow. Para evitar problemas, pues Outflow.
+
+\item Los archivos de condición de contorno están en /physics/common en lugar de cada uno su archivo. Esto es por que al final son todas iguales y si se añade una nueva es más facil agregar un nuevo archivo que hacerlo individualmente en cada ecuación.
+
+\item Los bcTypeDictionary bcValueDictionary desaparecen. Las BC están en el module physics/common/BoundaryConditions.f90 como variable global, se llama BCs y dentro aloja todas las condiciones de contorno (una por zona, y en el mismo orden de las zonas).
+
+\end{itemize}
+
+Creo que eso es todo, lamento si os supone mucho cambio en vuestros ficheros de control que estéis corriendo a día de hoy, y si rompo algo que no reflejen los test. Pero estos cambios eran necesarios para darle más versatilidad (por ejemplo en multifase el inflow necesita bastante customización, para definir caudales de cada fase y cosas así). Además, creo que el enfoque OOP va en la dirección del resto del código.
 
 
 \chapter{Restarting a Case}
@@ -269,8 +310,6 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit' for the BDF solvers and to 'rosenbrock' for Rosenbrock schemes. & 'explicit' \\ \hline
 
-jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath some threshold (see keyfords: blah and blah blah). This improves performance but can introduce big numerical errors for time-accurate simulations.  & .FALSE. \\ \hline
-
 linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
 				\begin{itemize}
 					\item 'petsc': PETSc library Krylov-Subspace methods. Available in serial, but use with care (PETSc is not thread-safe, so OpenMP is not recommended). Only available in parallel (MPI) for preallocated Jacobians (see next section).
@@ -280,12 +319,76 @@ linear solver           & \textit{CHARACTER}: Specifies the linear solver that h
 					\item 'matrix-free smooth': A matrix-free version of the previous solver. Only available with 'smoother=BlockJacobi'.
 				\end{itemize}
 										& 'petsc'  \\ \hline
+
+
+
+\end{longtable}
+
+\section{Keywords for the BDF Methods}
+
+The BDF methods implemented in HORSES3D use a Newton's method
+
+\begin{longtable}{|p{4cm}|p{9cm}|p{3.2cm}|}
+\caption{Keywords for the BDF solvers.} \label{tab:BDFkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the BDF solvers - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+bdf order             & \textit{INTEGER}: If present, the solver uses a BDF solver of the specified order. BDF1 - BDF5 are available, and BDF2 - BDF5 require constant time steps. & 1 \\ \hline
+
+jacobian by convergence & \textit{LOGICAL}: When .TRUE., the Jacobian is only computed when the convergence falls beneath a threshold (hard-coded). This improves performance.  & .FALSE. \\ \hline
+
+compute jacobian every & \textit{INTEGER}: Forces the Jacobian to be computed in an interval of iterations that is specified. & Inf \\ \hline
+
+%% Keywords fot the Newton's method
+
 print newton info       & \textit{LOGICAL}: If .TRUE., the information of the Newton iterations will be displayed. &  '.FALSE.'\\ \hline
 implicit adaptive dt  & \textit{LOGICAL}: Specifies if the time-step should be computed according to the convergence behavior of the Newton iterative method and the linear solver. & .FALSE. \\ \hline
-newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton method. &  $10^{-6}$ or for time-accurate simulations and  $MaxResidual \times 10^{-3}$ for steady-state simulations \\ \hline
-max newton iter    & \textit{INTEGER}: Maximum number of Newton iterationsfor BDF solver.  & 30 \\ \hline
-compute jacobian every & \textit{INTEGER}: Forces the Jacobian to be computed in an interval of iterations that is specified. & Inf \\ \hline
-bdf order             & \textit{INTEGER}: If present, the solver uses a BDF solver of the specified order. BDF1 - BDF5 are available, and BDF2 - BDF5 require constant time steps. & 1 \\ \hline
+
+newton tolerance   & \textit{REAL}: Specifies the tolerance for the Newton's method. &  $10^{-6}$ for time-accurate simulations, or $MaxResidual \times a$ for steady-state simulations, where $a$ is the keyword \textit{newton factor} \\ \hline
+
+newton max iter    & \textit{INTEGER}: Maximum number of Newton iterations for BDF solver.  & 30 \\ \hline
+
+linsolver max iter	& \textit{INTEGER}: Maximum number of iterations to be taken by the linear solver. This keyword only affects iterative linear solvers.		    & 500 \\ \hline
+
+newton factor 	& \textit{REAL}: In simulations that are not time-accurate, the tolerance of the Newton's method is a function of the residual: $MaxResidual \times a$, where $a$ is the specified value.	& $10^{-3}$	\\ \hline
+
+%% Keywords for the linear solver tolerance
+
+linsolver tol factor 	& \textit{REAL}: The linear solver tolerance is a function of the absolute error of the Newton's method: $tol=\norm{e}_{\infty}*a^i$, where $e$ is the absolute error of the Newton's method, $i$ is the Newton iteration number, and $a$ is the specified value.	& $0.5$	\\ \hline
+
+newton first norm  & \textit{REAL}: Specifies an assumed infinity norm of the absolute error of the Newton's method at the iteration $0$ of the time step $1$. 
+This can change the behavior of the first Newton iterative method because of the dependency of the linear system tolerance on the absolute error of the Newton's method (see keyword \textit{linsolver tol factor}).
+				   & $0.2$ \\ \hline 
+
+
+
+
+
+
+
+\end{longtable}
+
+\section{Keywords for the Rosenbrock-Type Implicit Runge-Kutta Methods}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the Rosenbrock schemes.} \label{tab:Rosenbrockkey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the Rosenbrock schemes - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+rosenbrock scheme	& \textit{CHARACTER}: Rosenbrock scheme to be used. Currently, only the \textit{RO6-6} is implemented.		    & -- \\ \hline
+
 \end{longtable}
 
 \section{Jacobian Specifications}
@@ -312,8 +415,8 @@ The Jacobian must be defined using a block of the form:
 
 type             & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
-					\item Numerical Jacobian: Uses coloring algorithm for computing Jacobian (only available with shared memory parallelization).
-					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws. 
+					\item Numerical Jacobian: Uses a coloring algorithm and a finite difference method to compute the DG Jacobian matrix (only available with shared memory parallelization).
+					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws, \textbf{BUT} only for the standard DGSEM (no split-form). 
 					\end{enumerate}
 										& \textbf{Mandatory Keyword} \\ \hline
 
@@ -322,9 +425,13 @@ print info      & \textit{LOGICAL}: Specifies the verbosity of the Jacobian subr
 preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated in preprocessing (.TRUE. - only available for advective/diffusive nonlinear conservation laws) or every time it is computed (.FALSE.)  & .FALSE. \\ \hline
 
 \end{longtable}
-.TRUE.=Preallocate / .FALSE.=Perform allocation every time the Jacobian is constructed
 
-\section{Multigrid}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{$p$-Multigrid}
+
+The code has an implementation of the Full Approximation Scheme (FAS) nonlinear $p$-multigrid method.
+The main keywords to use it are shown in Table \ref{tab:multigridKey}.
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{Keywords for the multigrid solver.} \label{tab:multigridKey} \\
@@ -337,6 +444,8 @@ preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated 
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword to activate the multigrid solvers. The value of it should be set to 'FAS' for the Full Approximation Scheme (FAS) nonlinear multigrid  solvers and to 'AnisFAS' for anisotropic FAS schemes. & 'explicit' \\ \hline
+
 
 multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
 
@@ -344,7 +453,42 @@ delta n          & \textit{INTEGER}: Interval of reduction of polynomial order f
 
 multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
    
-    &  &  \\ \hline
+mg sweeps    & \textit{INTEGER}: Number of smoothing sweeps to be taken. & 1* \\ \hline
+    
+mg sweeps pre    & \textit{INTEGER}: Number of pre-smoothing sweeps to be taken. & 1* \\ \hline
+    
+mg sweeps post    & \textit{INTEGER}: Number of post-smoothing sweeps to be taken. & 1* \\ \hline    
+
+mg sweeps coarsest   & \textit{INTEGER}: Number of pre- and post-smoothing sweeps to be taken on the coarsest multigrid level. & Average between pre-sweeps and post-sweeps \\ \hline
+
+mg smoother     & \textit{CHARACTER}: The smoothing technique to be used. It can be either RK3 (explicit pseudo time-stepping, i.e. no good for time-accurate simulations), BlockJacobi (implicit consistent time-stepping), or (matrix-free) GMRES (implicit consistent time-stepping). & RK3 \\ \hline
+
+%% FMG keywords
+
+fasfmg residual & \textit{REAL}: When this keyword is used, the code uses a full multigrid (FMG) method to obtain an initial condition for the simulation. 
+The initial condition has the specified residual.	& --	\\ \hline
+
+fasfmg save solutions & \textit{LOGICAL}: Save the solutions that are obtained at the different FMG levels. 
+Only usable when \textit{fasfmg residual} is used. 	& .FALSE.	\\ \hline
+
+%% Smoothing tuning keywords
+
+postsmooth option    & \textit{CHARACTER}: When this keyword is used, the code performs extra post-smoothing sweeps, so that the final residual after completing the post-smoothing is lower than the residual achieved by the pre-smoothing. The options are:\
+
+\begin{itemize}
+\item \textit{f-cycle}: Do the extra post-smoothing with an FMG cycle.
+\item \textit{smooth}: Do normal smoothing.
+\end{itemize}  & -- \\ \hline
+
+smooth fine & \textit{REAL}: Extra pre-smoothing is performed on a multigrid level of order $P$, until a residual is obtained $\norm{\tilde{\Res}^{P}}_{\infty} < \eta \norm{\tilde{\Res}^{N}}_{\infty}$, where $N$ is the polynomial order of the next (coarsest) grid, and $\eta$ is the specified value.	& --	\\ \hline
+
+max mg sweeps & \textit{INTEGER}: Maximum number of smoothing sweeps to be performed. This only makes sense if one uses the keywords \textit{postsmooth option} and/or \textit{smooth fine}.	& 10000	\\ \hline
+
+
+\multicolumn{3}{p{16.4cm}}{*  The user must specify \textit{mg sweeps pre} \textbf{and} \textit{mg sweeps post}, or \textit{mg sweeps}.} \\
+
+
+
 \end{longtable}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -355,7 +499,6 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
 #define p-adaptation
    Truncation error type = isolated
    truncation error      = 1.d-2
-   truncation error      = 1.d-4
    Nmax                  = [10,10,10]
    Nmin                  = [2 ,2 ,2 ]
    Conforming boundaries = [InnerCylinder,sphere]
@@ -469,7 +612,26 @@ A static p-adaptation procedure can be driven by a set of error estimations, whi
 
 \chapter{Monitors}
 
+The monitors are specified individually as blocks in the control file.
+The only general keyword that can be specified is explained in Table \ref{tab:monitorsKey}.
 
+
+
+\begin{table}[h]
+\caption{Keywords for monitors.} \label{tab:monitorsKey} 
+
+\begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+
+monitors flush interval 	& 
+			\textit{INTEGER}: Iteration interval to flush the monitor information to the monitor files. & 
+							100 \\ \hline
+
+\end{tabular}
+\end{table}
+
+\section{Residual Monitors}
 
 \section{Statistics Monitor}
 \begin{lstlisting}
@@ -512,7 +674,7 @@ A keyword preceded by @ is used in real-time to signalize the solver what it mus
 
 After reading the keyword, the solver performs the desired action and marks it with a star, e.g. @start*.
 
-\textbf{ATTENTION:} Real-time keywords may not work in parallel MPI computations. I depends on how the 
+\textbf{ATTENTION:} Real-time keywords may not work in parallel MPI computations. I depends on how the system is configured.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -746,45 +908,43 @@ The options comprise following flags:
 \multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
---output-order= 	& 
-			\textit{INTEGER}: Output order for equispaced nodes. The solution is interpolated in the desired number of points. & 
+-{}-output-order= 	& 
+			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. & 
 							Not Present \\ \hline
+							
+-{}-output-basis= 	& 
+			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  & 
+							\textit{Gauss}* \\ \hline
+							
+-{}-output-mode= 	& 
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-mesh} is defined).
+			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  & 
+							\textit{multizone} \\ \hline
+							
+-{}-output-variables= 	& 
+			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. & 
+							Q \\ \hline
 
---dimensionless 	& 
+-{}-dimensionless 	& 
 			Specifies that the output quantities must be dimensionless & 
 							Not Present  \\ \hline
 							
---partition-file= 	& 
+-{}-partition-file= 	& 
 			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
 							Not Present  \\ \hline
 							
---boundary-mesh= 	& 
+-{}-boundary-mesh= 	& 
 			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
 							Not Present  \\ \hline
-
+\multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
 
 \end{longtable}
 
 Additionally, depending on the type of solution file, the user can specify additional options.
 
-\subsection{Mesh}
+\subsection{Solution Files (*.hsol)} \label{PostProc:hsol}
 
-To visualize the mesh, the user needs to run the simulation first, which creates (*.bmesh) file. Then, simply:
-
-\begin{lstlisting}[language=bash]
-	$ horses2plt MeshFile.bmesh
-\end{lstlisting}
-
-If the mesh was created with Kopriva's SpecMesh, the better idea would be to use those tools to visalize the mesh right after it was created (see FIXME - ref to Kopriva guide).
-
-\subsection{Solution Files (*.hsol)}
-
-For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag:
-
-\begin{lstlisting}[language=bash]
-	--output-variables=
-\end{lstlisting}
-
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}. 
 The options are:
 
 \begin{multicols}{5}
@@ -817,6 +977,7 @@ The options are:
 \item $ThreeAxes$
 \item $Axes$
 \item $mpi\_rank$
+\item $eID$
 \item $gradV$
 \item $u\_x$
 \item $v\_x$
@@ -860,6 +1021,20 @@ Statistics files generate following variables by default:
 Under construction.
 
 \section{Merge statistics tool}
+
+Tool to merge several statistics files. The usage is the following:
+
+\begin{lstlisting}[language=bash]
+	$ horses.mergeStats *.hsol --initial-iteration=INTEGER --file-name=CHARACTER
+\end{lstlisting}
+
+Some remarks:
+\begin{itemize}
+\item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations. 
+\item Only constant time-stepping is supported.
+\item Dynamic p-adaptation is currently not supported.
+\end{itemize}
+
 
 \bibliography{../LaTeX/9_backmatter/library}
 

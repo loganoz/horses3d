@@ -4,16 +4,17 @@
 !   @File:    PhysicsStorage.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Thu Jul  5 12:34:56 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
+!   @Last revision date: Tue Nov 19 15:40:44 2019
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: 4a1cb0b60ba7214f9ea84015f2ec8b4c04526553
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 module PhysicsStorage
-   use SMConstants, only: RP, STD_OUT
+   use SMConstants     , only: RP, STD_OUT
    use Headers
+   use MPI_Process_Info, only: MPI_Process
 #ifdef FLOW
    use FluidData, only: refValues, thermodynamics
 #endif
@@ -50,6 +51,7 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
       enumerator :: CTD_IMEX_EXPLICIT, CTD_IMEX_IMPLICIT
 #endif
+      enumerator :: CTD_LAPLACIAN
       enumerator :: CTD_DUMMY
    end enum
 
@@ -130,7 +132,9 @@ module PhysicsStorage
 
       subroutine DescribePhysicsStorage_Common()
          implicit none
-
+         
+         if ( .not. MPI_Process % isRoot ) return 
+         
          call Section_Header("Loading common physics")
 
          write(STD_OUT,'(/,/)')
@@ -139,5 +143,13 @@ module PhysicsStorage
          write(STD_OUT,'(30X,A,A40,ES10.3,A)') "->" , "Reference time (s): "   , timeRef
 
       end subroutine DescribePhysicsStorage_Common
+
+      subroutine SetReferenceLength(Lref_)
+         implicit none
+         real(kind=RP), intent(in)  :: Lref_
+
+         Lref = Lref_
+
+      end subroutine SetReferenceLength
 
 end module PhysicsStorage

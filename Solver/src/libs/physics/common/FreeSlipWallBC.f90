@@ -467,19 +467,26 @@ module FreeSlipWallBCClass
 !        Local Variables
 !        ---------------
 !   
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-         INTEGER       :: k
+!         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
+!         INTEGER       :: k
+
+         U_x = -U_x
+         U_y = -U_y
+         U_z = -U_z
+         
 !   
-         DO k = 1, NCONS
-            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-            UTanx = U_x(k) - gradUNorm*nHat(1)
-            UTany = U_y(k) - gradUNorm*nHat(2)
-            UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-            U_x(k) = UTanx - gradUNorm*nHat(1)
-            U_y(k) = UTany - gradUNorm*nHat(2)
-            U_z(k) = UTanz - gradUNorm*nHat(3)
-         END DO
+!         DO k = 1, NCONS
+!
+!           OLD VERSION: SEEMS REMOVING THE NORMAL COMPONENT IS NOT ENOUGH
+!            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
+!            UTanx = U_x(k) - gradUNorm*nHat(1)
+!            UTany = U_y(k) - gradUNorm*nHat(2)
+!            UTanz = U_z(k) - gradUNorm*nHat(3)
+!   
+!            U_x(k) = UTanx - gradUNorm*nHat(1)
+!            U_y(k) = UTany - gradUNorm*nHat(2)
+!            U_z(k) = UTanz - gradUNorm*nHat(3)
+!         END DO
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif

@@ -63,7 +63,7 @@
             end associate
          end do
          
-         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., -1 )
+         call mesh % storage % construct (NDOF, Nvector, Nvector, Nvector, .TRUE., .FALSE. )
          DO eID = 1, nelem
             mesh % elements(eID) % storage => mesh % storage % elements(eID)
          END DO

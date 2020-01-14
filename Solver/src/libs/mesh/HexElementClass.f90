@@ -461,7 +461,7 @@
 !        ----------------------------------
          integer,       parameter   :: N_MAX_ITER = 50
          real(kind=RP), parameter   :: TOL = 1.0e-12_RP
-         integer,       parameter   :: STEP = 1.0_RP
+         real(kind=RP), parameter   :: STEP = 1.0_RP
          real(kind=RP), parameter   :: INSIDE_TOL = 1.0e-08_RP
          !-arguments-------------------------------------------------
          
@@ -520,7 +520,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      logical function HexElement_FindPointWithCoords(self, x, xi)
+      logical function HexElement_FindPointWithCoords(self, x, dir2D, xi)
 !
 !        **********************************************************
 !          
@@ -535,6 +535,7 @@
          implicit none
          class(Element),      intent(in)  :: self
          real(kind=RP),       intent(in)  :: x(NDIM)
+         integer,             intent(in)  :: dir2D
          real(kind=RP),       intent(out) :: xi(NDIM)
 !
 !        ----------------------------------
@@ -588,6 +589,7 @@
 !
 !           Stopping criteria: there are several
 !           ------------------------------------
+            F(dir2D) = 0.0_RP
             if ( maxval(abs(F)) .lt. TOL ) exit
             if ( abs(xi(1)) .ge. 2.5_RP ) exit
             if ( abs(xi(2)) .ge. 2.5_RP ) exit
@@ -605,6 +607,18 @@
                Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
                Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
             end do               ; end do             ; end do
+
+            if ( (all(abs(Jac(:,1)) .lt. epsilon(1.0_RP))) .and. (spAxi % N .eq. 0) ) then
+               Jac(dir2D,1) = 1.0_RP
+            end if
+
+            if ( all(abs(Jac(:,2)) .lt. epsilon(1.0_RP)) .and. (spAeta % N .eq. 0)) then
+               Jac(dir2D,2) = 1.0_RP
+            end if
+
+            if ( all(abs(Jac(:,3)) .lt. epsilon(1.0_RP)) .and. (spAzeta % N .eq. 0)) then
+               Jac(dir2D,3) = 1.0_RP
+            end if
 
             dx = solveThreeEquationLinearSystem( Jac , -F )
             xi = xi + STEP * dx

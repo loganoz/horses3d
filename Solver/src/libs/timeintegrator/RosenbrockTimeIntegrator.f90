@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    RosenbrockTimeIntegrator.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Wed Jul 17 11:53:00 2019
+!   @Last revision date: Thu Dec  5 17:31:40 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision commit: 1cfb3505b3f0568a0a62298c9b939c6a1cc54b4f
 !
 !//////////////////////////////////////////////////////
 !

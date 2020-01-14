@@ -22,6 +22,7 @@
          INTEGER      , PARAMETER         :: SP = SELECTED_REAL_KIND( SINGLE_DIGITS ) ! Single Real Kind
          INTEGER      , PARAMETER         :: CP = SELECTED_REAL_KIND( DIGITS )        ! Complex Kind
          REAL(KIND=RP), PARAMETER         :: PI = 3.141592653589793238462643_RP
+         REAL(KIND=RP), PARAMETER         :: DEG2RAD = PI / 180.0_RP
 
          character(len=1), parameter, private   :: SINGLE_CHARACTER = "a"
          integer      , parameter         :: SIZEOF_INT  = sizeof(integer)

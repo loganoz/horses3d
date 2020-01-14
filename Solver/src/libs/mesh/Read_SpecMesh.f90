@@ -311,6 +311,7 @@ MODULE Read_SpecMesh
 !        Set the mesh as 2D if requested
 !        -------------------------------
 !
+         self % dir2D_ctrl = dir2D
          if ( dir2D .ne. 0 ) then
             call SetMappingsToCrossProduct
             call self % CorrectOrderFor2DMesh(dir2D)

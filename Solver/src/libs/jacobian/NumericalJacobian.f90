@@ -83,7 +83,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized )
+   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode )
       !-------------------------------------------------------------------
       class(NumJacobian_t)      , intent(inout)          :: this
       type(DGSem),                intent(inout)          :: sem
@@ -93,6 +93,7 @@ contains
       procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative      !   
       real(kind=RP),   optional, intent(in)              :: eps_in
       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
+      integer, optional, intent(in)                      :: mode
       !-------------------------------------------------------------------
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
@@ -134,7 +135,8 @@ contains
 !        -> TODO: Define according to physics and discretization
 !        -------------------------------------------------------
 #if defined(CAHNHILLIARD)
-         num_of_neighbor_levels = 2
+         num_of_neighbor_levels = 4
+print*, "4 NEIGHBORS!!!!!!!!!!!!"
 #elif defined(NAVIERSTOKES)
          if (flowIsNavierStokes) then
             num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
@@ -258,7 +260,7 @@ contains
       call Matrix % Reset(ForceDiagonal = .TRUE.)
       
 #if defined(CAHNHILLIARD)
-      CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT)
+      CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
@@ -306,7 +308,7 @@ contains
 !           Compute the time derivative
 !           ---------------------------
 #if defined(CAHNHILLIARD)
-            CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IMEX_IMPLICIT )
+            CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif

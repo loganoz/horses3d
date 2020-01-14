@@ -121,7 +121,7 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
       implicit none
       !-arguments----------------------------------
       class(AnJacobian_t)      , intent(inout)     :: this
@@ -132,6 +132,7 @@ contains
       procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
+      integer        , optional, intent(in)        :: mode
 #if defined(NAVIERSTOKES)
       !--------------------------------------------
       integer :: nnz

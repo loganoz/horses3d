@@ -9,10 +9,10 @@ module Solution2PltModule
    private
    public   Solution2Plt, WriteBoundaryToTecplot
 
-#define PRECISION_FORMAT "(E13.5)"
+#define PRECISION_FORMAT "(E18.10)"
 
    contains
-      subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout)
+      subroutine Solution2Plt(meshName, solutionName, fixedOrder, basis, Nout, mode)
          use getTask
          use Headers
          implicit none  
@@ -21,10 +21,18 @@ module Solution2PltModule
          integer,          intent(in)     :: basis
          logical,          intent(in)     :: fixedOrder
          integer,          intent(in)     :: Nout(3)
+         integer,          intent(in)     :: mode
 
          write(STD_OUT,'(/)')
          call SubSection_Header("Job description")
-
+         
+         select case (mode)
+         case(MODE_FINITEELM)
+            write(STD_OUT,'(30X,A3,A)') "->", " Output mode: Tecplot FE"
+         case(MODE_MULTIZONE)
+            write(STD_OUT,'(30X,A3,A)') "->", " Output mode: Tecplot Multi-Zone"
+         end select
+         
          select case ( basis )
 
          case(EXPORT_GAUSS)
@@ -33,11 +41,11 @@ module Solution2PltModule
                write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points with fixed order"
                write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
                                                 Nout(1),",",Nout(2),",",Nout(3),"]."
-               call Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
+               call Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout, mode)
    
             else
                write(STD_OUT,'(30X,A3,A)') "->", " Export to Gauss points"
-               call Solution2Plt_GaussPoints(meshName, solutionName)
+               call Solution2Plt_GaussPoints(meshName, solutionName, mode)
 
             end if
 
@@ -46,7 +54,7 @@ module Solution2PltModule
             write(STD_OUT,'(30X,A3,A)') "->", " Export to homogeneous points"
             write(STD_OUT,'(30X,A,A30,I0,A,I0,A,I0,A)') "->" , "Output order: [",&
                                         Nout(1),",",Nout(2),",",Nout(3),"]."
-            call Solution2Plt_Homogeneous(meshName, solutionName, Nout)
+            call Solution2Plt_Homogeneous(meshName, solutionName, Nout, mode)
 
          end select
 
@@ -59,7 +67,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_GaussPoints(meshName, solutionName)
+      subroutine Solution2Plt_GaussPoints(meshName, solutionName, mode)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -67,6 +75,7 @@ module Solution2PltModule
          implicit none  
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
+         integer,          intent(in)     :: mode
 !
 !        ---------------
 !        Local variables
@@ -123,23 +132,33 @@ module Solution2PltModule
 
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
-!        Write each element zone
-!        -----------------------
-         do eID = 1, no_of_elements
-            associate ( e => mesh % elements(eID) )
+!        Write elements
+!        --------------
+         if ( mode == MODE_FINITEELM) then
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
+         else
+            do eID = 1, no_of_elements
+               associate ( e => mesh % elements(eID) )
 !
-!           Write the tecplot file
-!           ----------------------
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients) 
-            end associate
-         end do
+!              Write the tecplot file
+!              ----------------------
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients) 
+               end associate
+            end do
+         end if
 !
 !        Write boundaries
 !        ----------------
          if (hasBoundaries) then
-            do bID=1, size (mesh % boundaries)
-               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
-            end do
+            if ( mode == MODE_FINITEELM) then
+               do bID=1, size (mesh % boundaries)
+                  call WriteSingleBoundaryZoneToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            else
+               do bID=1, size (mesh % boundaries)
+                  call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            end if
          end if
 !
 !        Close the file
@@ -186,7 +205,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout)
+      subroutine Solution2Plt_GaussPoints_FixedOrder(meshName, solutionName, Nout, mode)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -195,6 +214,7 @@ module Solution2PltModule
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
          integer,          intent(in)     :: Nout(3)
+         integer,          intent(in)     :: mode
 !
 !        ---------------
 !        Local variables
@@ -270,19 +290,29 @@ module Solution2PltModule
 !
 !        Write elements
 !        --------------
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
+         if ( mode == MODE_FINITEELM) then
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
+         else
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
-            end associate
-         end do
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+               end associate
+            end do
+         end if
 !
 !        Write boundaries
 !        ----------------
          if (hasBoundaries) then
-            do bID=1, size (mesh % boundaries)
-               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
-            end do
+            if ( mode == MODE_FINITEELM) then
+               do bID=1, size (mesh % boundaries)
+                  call WriteSingleBoundaryZoneToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            else
+               do bID=1, size (mesh % boundaries)
+                  call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            end if
          end if
 !
 !        Close the file
@@ -352,7 +382,7 @@ module Solution2PltModule
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Solution2Plt_Homogeneous(meshName, solutionName, Nout)
+      subroutine Solution2Plt_Homogeneous(meshName, solutionName, Nout, mode)
          use Storage
          use NodalStorageClass
          use SharedSpectralBasis
@@ -361,6 +391,7 @@ module Solution2PltModule
          character(len=*), intent(in)     :: meshName
          character(len=*), intent(in)     :: solutionName
          integer,          intent(in)     :: Nout(3)
+         integer,          intent(in)     :: mode
 !
 !        ---------------
 !        Local variables
@@ -444,19 +475,29 @@ module Solution2PltModule
 !
 !        Write elements
 !        --------------
-         do eID = 1, mesh % no_of_elements
-            associate ( e => mesh % elements(eID) )
+         if ( mode == MODE_FINITEELM) then
+            call WriteSingleFluidZoneToTecplot(fid,mesh)
+         else
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
 
-            call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
-            end associate
-         end do
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+               end associate
+            end do
+         end if
 !
 !        Write boundaries
 !        ----------------
          if (hasBoundaries) then
-            do bID=1, size (mesh % boundaries)
-               call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
-            end do
+            if ( mode == MODE_FINITEELM) then
+               do bID=1, size (mesh % boundaries)
+                  call WriteSingleBoundaryZoneToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            else
+               do bID=1, size (mesh % boundaries)
+                  call WriteBoundaryToTecplot(fid, mesh % boundaries(bID), mesh % elements)
+               end do
+            end if
          end if
 
 !
@@ -546,6 +587,222 @@ module Solution2PltModule
 !     --------------
 !
 !/////////////////////////////////////////////////////////////////////////////
+!
+!     Writes a single fluid zone using the FE Tecplot format
+!     -> This format is more efficiently read by paraview and tecplot.
+!     ------------------------------------------------------
+      subroutine WriteSingleFluidZoneToTecplot(fid,mesh)
+         use Storage
+         use OutputVariables
+         implicit none
+         integer     , intent(in)        :: fid
+         type(Mesh_t), intent(inout)     :: mesh
+         !---------
+         integer :: numOfPoints  ! Number of plot points
+         integer :: numOfFElems  ! Number of FINITE elements
+         integer :: firstPoint(size(mesh % elements))
+         integer :: eID          ! Spectral (not finite) element counter
+         integer :: i, j, k
+         integer :: N(3)
+         integer :: corners(8)
+         character(len=LINE_LENGTH) :: formatout
+         !---------
+         
+!        Definitions
+!        -----------
+         formatout = getFormat() ! format for point data
+         
+         ! Count points and elements
+         numOfPoints   = product(mesh % elements(1) % Nout + 1)
+         numOfFElems   = product(mesh % elements(1) % Nout    )
+         firstPoint(1) = 1
+         do eID = 2, size(mesh % elements)
+            associate ( e => mesh % elements(eID) )
+            firstPoint(eID) = numOfPoints + 1
+            numOfPoints = numOfPoints + product(e % Nout + 1)
+            numOfFElems = numOfFElems + product(e % Nout    )
+            end associate
+         end do
+         
+         write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfFElems,' ET=BRICK, F=FEPOINT'
+         
+!        Write the points
+!        ----------------
+         do eID = 1, size(mesh % elements)
+            associate ( e => mesh % elements(eID) )
+            N = e % Nout
+            allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, mesh % hasGradients)
+            
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
+            end do                ; end do                ; end do
+            end associate
+         end do
+         
+!        Write the elems connectivity
+!        ----------------------------
+         do eID = 1, size(mesh % elements)
+            associate ( e => mesh % elements(eID) )
+            
+            do k = 0, e % Nout(3) - 1 ; do j = 0, e % Nout(2) - 1 ; do i = 0, e % Nout(1) - 1
+               corners =  [ ijk2localDOF(i,j,k  ,e%Nout), ijk2localDOF(i+1,j,k  ,e%Nout), ijk2localDOF(i+1,j+1,k  ,e%Nout), ijk2localDOF(i,j+1,k  ,e%Nout), &
+                            ijk2localDOF(i,j,k+1,e%Nout), ijk2localDOF(i+1,j,k+1,e%Nout), ijk2localDOF(i+1,j+1,k+1,e%Nout), ijk2localDOF(i,j+1,k+1,e%Nout)  ] + firstPoint(eID)
+               write(fid,*) corners
+            end do                    ; end do                    ; end do
+            
+            end associate
+         end do
+      end subroutine WriteSingleFluidZoneToTecplot
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------------------
+!     ijk2localDOF:
+!     Returns the local DOF index for an element in zero-based numbering
+!     ------------------------------------------------------------------
+      function ijk2localDOF(i,j,k,Nout) result(idx)
+         implicit none
+         
+         integer, intent(in)   :: i, j, k, Nout(3)
+         integer               :: idx
+         
+         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         IF (k < 0 .OR. k > Nout(3))     STOP 'error in ijk2local, k has wrong value'
+         
+         idx = k*(Nout(1)+1)*(Nout(2)+1) + j*(Nout(1)+1) + i
+      end function ijk2localDOF
+!
+!//////////////////////////////////////////////////////////////////////////////
+!
+!     Writes a single boundary zone using the FE Tecplot format
+!     -> This format is more efficiently read by paraview and tecplot.
+!     ------------------------------------------------------
+      subroutine WriteSingleBoundaryZoneToTecplot(fd,boundary, elements)
+         use Storage
+         use NodalStorageClass
+         use prolongMeshAndSolution
+         use OutputVariables
+         use SolutionFile
+         implicit none
+         !-arguments-------------------------------------------
+         integer         , intent(in) :: fd
+         type(Boundary_t), intent(in) :: boundary
+         type(Element_t) , intent(in) :: elements(:)
+         !-local-variables-------------------------------------
+         integer :: numOfPoints  ! Number of plot points
+         integer :: numOfFElems  ! Number of FINITE elements
+         integer :: fID, side
+         integer :: corners(4)
+         integer :: i,j,k
+         integer :: N(3)
+         integer :: firstPoint(boundary % no_of_faces)
+         integer :: Nf      (2,boundary % no_of_faces)
+         character(len=LINE_LENGTH) :: formatout
+         !-----------------------------------------------------
+         
+         formatout = getFormat()
+         
+         ! Count points and elements
+         numOfPoints   = 0
+         numOfFElems   = 0
+         
+         do fID = 1, boundary % no_of_faces
+            associate (e => elements( boundary % elements(fID) ))
+            side = boundary % elementSides(fID)
+            
+            select case (side)
+               case(1,2) ; Nf(:,fID) = [e % Nout(1), e % Nout(3)]
+               case(3,5) ; Nf(:,fID) = [e % Nout(1), e % Nout(2)]
+               case(4,6) ; Nf(:,fID) = [e % Nout(2), e % Nout(3)]
+            end select
+            
+            firstPoint(fID) = numOfPoints + 1
+            numOfPoints     = numOfPoints + product(Nf(:,fID)+1)
+            numOfFElems     = numOfFElems + product(Nf(:,fID)  )
+            end associate
+         end do
+         
+         write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &
+                                                  ',ET=QUADRILATERAL, F=FEPOINT, T="boundary_', trim(boundary % Name), '"'
+                  
+!        Write the points
+!        ----------------
+         do fID=1, boundary % no_of_faces
+            
+            associate (e => elements( boundary % elements(fID) ))
+            side = boundary % elementSides(fID)
+            N = e % Nout
+            select case (side)
+            
+               case(1)
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,0,k), e % outputVars(:,i,0,k)
+                  end do                ; end do
+                  
+               case(2)
+                  do k = 0, e % Nout(3)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,e % Nout(2),k), e % outputVars(:,i,e % Nout(2),k)
+                  end do                ; end do
+               
+               case(3)
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,0), e % outputVars(:,i,j,0)
+                  end do                ; end do
+                  
+               case(4)
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,e % Nout(1),j,k), e % outputVars(:,e % Nout(1),j,k)
+                  end do                ; end do
+                  
+               case(5)
+                  do j = 0, e % Nout(2)    ; do i = 0, e % Nout(1)
+                     write(fd,trim(formatout)) e % xOut(:,i,j,e % Nout(3)), e % outputVars(:,i,j,e % Nout(3))
+                  end do                ; end do
+                  
+               case(6)
+                  do k = 0, e % Nout(3)    ; do j = 0, e % Nout(2)
+                     write(fd,trim(formatout)) e % xOut(:,0,j,k), e % outputVars(:,0,j,k)
+                  end do                ; end do
+                  
+            end select
+            
+            end associate
+         end do
+         
+!        Write the elems connectivity
+!        ----------------------------
+         do fID = 1, boundary % no_of_faces
+            
+            do j = 0, Nf(2,fID) - 1 ; do i = 0, Nf(1,fID) - 1
+               corners =  [ ij2localDOF(i,j,Nf(:,fID)), ij2localDOF(i+1,j,Nf(:,fID)), ij2localDOF(i+1,j+1,Nf(:,fID)), ij2localDOF(i,j+1,Nf(:,fID)) ] + firstPoint(fID)
+               write(fd,*) corners
+            end do                  ; end do
+            
+         end do
+         
+      end subroutine WriteSingleBoundaryZoneToTecplot
+!
+!////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------
+!     ij2localDOF:
+!     Returns the local DOF index for a face in zero-based numbering
+!     --------------------------------------------------------------
+      function ij2localDOF(i,j,Nout) result(idx)
+         implicit none
+         
+         integer, intent(in)   :: i, j, Nout(2)
+         integer               :: idx
+         
+         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         
+         idx = j*(Nout(1)+1) + i
+      end function ij2localDOF
+!
+!//////////////////////////////////////////////////////////////////////////////
 !
       subroutine WriteElementToTecplot(fid,e,refs, hasGradients)
          use Storage

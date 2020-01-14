@@ -25,7 +25,7 @@ module VolumeIntegrals
 #endif
 
 #if defined(MULTIPHASE)
-   public ENTROPY_RATE
+   public ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL
 #endif
 
 #if defined(CAHNHILLIARD)
@@ -46,7 +46,7 @@ module VolumeIntegrals
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
 #if defined(MULTIPHASE)
-      enumerator :: ENTROPY_RATE
+      enumerator :: ENTROPY_RATE, ENTROPY_BALANCE, PHASE2_AREA, PHASE2_XCOG, PHASE2_XVEL
 #endif
 #if defined(CAHNHILLIARD)
       enumerator :: FREE_ENERGY
@@ -138,7 +138,7 @@ module VolumeIntegrals
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem, entr
+         real(kind=RP)           :: free_en, fchem, entr, area, rho
          real(kind=RP)           :: Strain(NDIM,NDIM)
          real(kind=RP)           :: mu
 
@@ -355,6 +355,25 @@ module VolumeIntegrals
             KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k) 
+            end do            ; end do           ; end do
+
+
+         case (ENTROPY_BALANCE)
+!
+!           ***********************************
+!              Computes the kinetic energy
+!              time derivative:
+!              K_t = (d/dt)\int \rho V^2 dV
+!           ***********************************
+!
+            KinEn = e % storage % QDot(IMC,:,:,:) * e % storage % mu(1,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOU,:,:,:)*e % storage % QDot(IMSQRHOU,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOV,:,:,:)*e % storage % QDot(IMSQRHOV,:,:,:)
+            KinEn = KinEn + e % storage % Q(IMSQRHOW,:,:,:)*e % storage % QDot(IMSQRHOW,:,:,:)
+            KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 
                mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
                Strain(1,1) = e % storage % U_x(IGU,i,j,k)
@@ -374,6 +393,28 @@ module VolumeIntegrals
                         + multiphase % M0 * (POW2(e % storage % U_x(IGMU,i,j,k)) + POW2(e % storage % U_y(IGMU,i,j,k)) + POW2(e % storage % U_z(IGMU,i,j,k)) ) )
 
             end do            ; end do           ; end do
+
+         case (PHASE2_AREA)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k))
+            end do            ; end do           ; end do
+
+         case (PHASE2_XCOG)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*e % geom % x(IX,i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k))
+            end do            ; end do           ; end do
+
+            val = val
+
+         case (PHASE2_XVEL)
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               rho = dimensionless % rho(1) * e % storage % Q(IMC,i,j,k) + dimensionless % rho(2) * (1.0_RP - e % storage % Q(IMC,i,j,k))
+               val = val + wx(i)*wy(j)*wz(k)*e % geom % jacobian(i,j,k)*e % storage % Q(IMSQRHOU,i,j,k)*(1.0_RP-e % storage % Q(IMC,i,j,k)) / sqrt(rho)
+            end do            ; end do           ; end do
+
 
 #endif
 #if defined(CAHNHILLIARD)            

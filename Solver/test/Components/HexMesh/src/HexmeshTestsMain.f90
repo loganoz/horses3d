@@ -8,8 +8,10 @@
 !////////////////////////////////////////////////////////////////////////
 !
       PROGRAM HexMeshTestsMain 
+         use SMConstants
          USE TestSuiteManagerClass
          use MPI_Process_Info
+         use PhysicsStorage, only: SetReferenceLength
          IMPLICIT NONE  
          TYPE(TestSuiteManager) :: testSuite
          INTEGER                :: numberOfFailures
@@ -20,6 +22,8 @@
          call MPI_Process % Init
          
          CALL testSuite % init()
+
+         call SetReferenceLength(1.0_RP)
          
          CALL testSuite % addTestSubroutineWithName(testSubroutine = testTwoBoxesMeshConstruction,&
                                                     testName = "Mesh Construction for Two Boxes")
