@@ -54,28 +54,29 @@ module MultigridSolverClass
 !
    type, extends(GenericLinSolver_t) :: MultigridSolver_t
 !-----Variables-----------------------------------------------------------
-      type(csrMat_t)                             :: A                     ! Matrix to solve
-      type(DenseBlockDiagMatrix_t), allocatable  :: Atmp                  ! tmp
-      type(BJSmooth_t),             allocatable  :: BJSmoother            ! smoother
-      real(kind=RP), dimension(:),  allocatable  :: x                     ! Solution vector
-      real(kind=RP), dimension(:),  allocatable  :: b                     ! Right hand side
-      real(kind=RP), dimension(:),  allocatable  :: r                     ! Residual
-      real(kind=RP)                              :: rnorm                 ! L2 norm of residual
-      real(kind=RP)                              :: tol                   ! Tolerance
-      real(kind=RP)                              :: maxiter               ! Max. # iterations
-      integer                                    :: MGlevel               ! Current level
-      integer                                    :: Nx                    ! Polynomial in X
-      integer                                    :: Ny                    ! Polynomial in Y
-      integer                                    :: Nz                    ! Polynomial in Z
-      type(MultigridSolver_t), pointer           :: Child                 ! Coarser level: MGlevel-1
-      type(MultigridSolver_t), pointer           :: Parent                ! Finer level: MGlevel+1
+      type(csrMat_t)                                :: A                     ! Matrix to solve
+      type(DenseBlockDiagMatrix_t),     allocatable :: Atmp                  ! tmp
+      type(BJSmooth_t)            ,     allocatable :: BJSmoother            ! smoother
+      real(kind=RP), dimension(:) ,     allocatable :: x                     ! Solution vector
+      real(kind=RP), dimension(:) ,     allocatable :: b                     ! Right hand side
+      real(kind=RP), dimension(:) ,     allocatable :: r                     ! Residual
+      real(kind=RP)                                 :: rnorm                 ! L2 norm of residual
+      real(kind=RP)                                 :: tol                   ! Tolerance
+      real(kind=RP)                                 :: maxiter               ! Max. # iterations
+      integer                                       :: MGlevel               ! Current level
+      integer                                       :: Nx                    ! Polynomial in X
+      integer                                       :: Ny                    ! Polynomial in Y
+      integer                                       :: Nz                    ! Polynomial in Z
+      type(MultigridSolver_t), pointer              :: Child                 ! Coarser level: MGlevel-1
+      type(MultigridSolver_t), pointer              :: Parent                ! Finer level: MGlevel+1
+      type(TemporaryElementStorage_t) , allocatable :: LocalStorage(:)       ! Storage
       ! 1D prolongation/restriction operators in each direction 
-      real(kind=RP), dimension(:,:), allocatable :: RestX(:,:)             
-      real(kind=RP), dimension(:,:), allocatable :: ProlX(:,:)             
-      real(kind=RP), dimension(:,:), allocatable :: RestY(:,:)             
-      real(kind=RP), dimension(:,:), allocatable :: ProlY(:,:)             
-      real(kind=RP), dimension(:,:), allocatable :: RestZ(:,:)             
-      real(kind=RP), dimension(:,:), allocatable :: ProlZ(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestX(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: ProlX(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestY(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: ProlY(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestZ(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: ProlZ(:,:)             
       ! these are only needed for coarse levels
       
    contains
@@ -97,6 +98,16 @@ module MultigridSolverClass
       procedure :: MG_Restriction
 
    end type MultigridSolver_t
+!
+!  ------------------------------------------------
+!  Local temporary element storage.
+!  ------------------------------------------------
+!
+   type :: TemporaryElementStorage_t
+!-----Variables-----------------------------------------------------------
+      real(kind=RP), dimension(:,:,:,:), allocatable :: X 
+      real(kind=RP), dimension(:,:,:,:), allocatable :: R 
+   end type TemporaryElementStorage_t
 !
 !  ----------------
 !  Module variables
@@ -226,6 +237,7 @@ contains
       call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
       call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
       ! MAINJAC
+      
 
       call MG_Levels_Construct(this,no_levels,controlVariables,nEqn)
       ! *********************************************************
@@ -243,7 +255,7 @@ contains
       class(FTValueDictionary), intent(in)            :: controlVariables                
 !-----Local-Variables-----------------------------------------------------------
       type(MultigridSolver_t), pointer  :: Child_p          ! Pointer to Child
-      integer                           :: i,j
+      integer                           :: i,j,k
       integer                           :: nnzs(nelem)
 
       ! character(len=*) :: meshFileName_
@@ -277,6 +289,16 @@ contains
       case default
          ERROR Stop "Shouldnt be here"
       end select 
+
+      ALLOCATE ( Me % LocalStorage(nelem))
+! !$omp parallel do private(Q1,Q2,Q3,Q4) schedule(runtime)
+      do k = 1, nelem
+         allocate(Me % LocalStorage(k) % X (nEqn,0:Me%Nx,0:Me%Ny,0:Me%Nz))
+         allocate(Me % LocalStorage(k) % R (nEqn,0:Me%Nx,0:Me%Ny,0:Me%Nz))
+         Me % LocalStorage(k) % X = 0._RP
+         Me % LocalStorage(k) % R = 0._RP
+      end do   
+! !$omp end parallel do
 
       ! Construct coarser level
       ! *********************************************************
@@ -404,18 +426,17 @@ contains
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,nEqn )
          print *, "   ... done. "
       end if
-      
-!~      ! Visualize RHS
-!~      open(1, file = 'b.txt', status = 'new')  
-!~      write(1,*) this % b  
-!~      close(1) 
-
-      !Error Stop "TBC Wojtek"
+    
+      ! ! Visualize RHS
+      ! open(1, file = 'b.txt', status = 'new')  
+      ! write(1,*) this % b  
+      ! close(1) 
+      ! Error Stop "TBC Wojtek"
 
       this % niter = 0
-      this % maxiter = 1
+      this % maxiter = 100
       this % converged = .false.
-      this % tol = 1e-12
+      this % tol = 1e-6
      
       this % x = 0.0_RP ! setting initial solution
       do while ( (.not. this % converged ) .and. (this % niter .lt. this % maxiter) )
@@ -427,7 +448,7 @@ contains
          end do 
          this % rnorm = norm2(this % r)
          this % niter = this % niter + 1
-         ! print *, "Cycle ", this % niter, ". Res: ", this % rnorm
+         print *, "Cycle ", this % niter, ". Res: ", this % rnorm
          if (this % rnorm < this % tol) this % converged = .true.
       end do
 
@@ -473,67 +494,76 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_ComputeJacobians(Me,lvl,ComputeTimeDerivative,Time,nEqn)
-     implicit none
-     type(MultigridSolver_t), target   :: Me
-     type(MultigridSolver_t) , pointer :: Child_p          ! Pointer to Child
-     procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-     integer, intent(in)               :: nEqn
-     integer, intent(in)               :: lvl
-     integer                           :: i,j
-     real(kind=RP)                     :: Time
+      use DenseMatUtilities
+      implicit none
+!-----Arguments---------------------------------------------------
+      type(MultigridSolver_t), target    :: Me
+      type(MultigridSolver_t) , pointer  :: Child_p          ! Pointer to Child
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      integer, intent(in)                :: nEqn
+      integer, intent(in)                :: lvl
+!-----Local-Variables---------------------------------------------
+      integer             :: i,j
+      real(kind=RP)       :: Time
+      character(len=1024) :: filename
 
 
-     call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % A, ComputeTimeDerivative)
-     select case (S_SMOOTHER)
-     case (S_POINTJAC)
-      print *, "It's allright"
-     case (S_BLOCKJAC)
-      call getDBDfromCSR(Me % A,Me % Atmp) ! Get Jacobian diag-blocks
-      call ComputeBlockPrec(Me % BJSmoother)
-!~      ! Visualization of CSR Jacobian
-!~      select case (lvl)
-!~      case (5)
-!~         call Me % A % Visualize("JacCSR5.txt") ! write Jacobian to a file
-!~      case (4)
-!~         call Me % A % Visualize("JacCSR4.txt") ! write Jacobian to a file
-!~      case (3)
-!~         call Me % A % Visualize("JacCSR3.txt") ! write Jacobian to a file
-!~      case (2)
-!~         call Me % A % Visualize("JacCSR2.txt") ! write Jacobian to a file
-!~      case (1)
-!~         call Me % A % Visualize("JacCSR1.txt") ! write Jacobian to a file
-!~      end select
+      call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % A, ComputeTimeDerivative)
+      select case (S_SMOOTHER)
+      case (S_POINTJAC)
+         print *, "It's allright"
+      case (S_BLOCKJAC)
+         call getDBDfromCSR(Me % A,Me % Atmp) ! Get Jacobian diag-blocks
+         call ComputeBlockPrec(Me % BJSmoother)
+
+
+!~         do i = 1, Me % BJSmoother % A_p % num_of_Blocks
+!~            ! Visualize Block matrix
+!~            write (filename,"(I2.2)") i
+!~            filename='mat'//trim(filename)//'.dat'
+!~            open(i, file = trim(filename), status = 'new')  
+!~            write(i,*) Me % BJSmoother % A_p % Blocks(i) % Matrix   
+!~            close(i) 
+!~ 
+!~            write (filename,"(I2.2)") i
+!~            filename='lum'//trim(filename)//'.dat'
+!~            open(i+100, file = filename, status = 'new')  
+!~            write(i+100,*) Me % BJSmoother % BlockPrec(i) % PLU   
+!~            close(i+100) 
 !~
-!~      ! Visualization of Jacobian blocks
-!~      call getCSRfromDBD(Me % Atmp,Me % A)
-!~      select case (lvl)
-!~      case (5)
-!~         call Me % A % Visualize("JacCSR55.txt") ! write Jacobian to a file
-!~      case (4)
-!~         call Me % A % Visualize("JacCSR44.txt") ! write Jacobian to a file
-!~      case (3)
-!~         call Me % A % Visualize("JacCSR33.txt") ! write Jacobian to a file
-!~      case (2)
-!~         call Me % A % Visualize("JacCSR22.txt") ! write Jacobian to a file
-!~      case (1)
-!~         call Me % A % Visualize("JacCSR11.txt") ! write Jacobian to a file
-!~      end select
-     case default
-      print *, "Shouldnt be here"
-     end select
+!~            write (filename,"(I2.2)") i
+!~            filename='lup'//trim(filename)//'.dat'
+!~            open(i+200, file = filename, status = 'new')  
+!~            write(i+200,*) Me % BJSmoother % BlockPrec(i) % LUpivots   
+!~            close(i+200) 
+!~         end do
+
+!~         ! Visualization of CSR Jacobian
+!~         write (filename,"(I2.2)") lvl
+!~         filename='JacFull_lvl'//trim(filename)//'.dat'
+!~         call Me % A % Visualize(filename) ! write Jacobian to a file
+!~
+!~         ! Visualization of Jacobian blocks
+!~         call getCSRfromDBD(Me % Atmp,Me % A)
+!~         write (filename,"(I2.2)") lvl
+!~         filename='JacBlocks_lvl'//trim(filename)//'.dat'
+!~         call Me % A % Visualize(filename) ! write Jacobian to a file
+      case default
+         print *, "Shouldnt be here"
+      end select
 
 
-     ! Compute on a coarser level
-     ! *********************************************************
-     if (lvl > 1) then
-      Child_p => Me % Child ! set local pointer to a child
-      Me % Child % Parent => Me ! set child's parent pointer to this level (Me)
-      print *, "Calling Jac restriction on lvl: ", lvl
-      call MG_Restriction(Me, nEqn, 'soljac')
-      ! recursive call
-      call MG_ComputeJacobians(Me % Child,lvl-1,ComputeTimeDerivative, Time, nEqn)
-     end if
-     ! *********************************************************
+      ! Compute on a coarser level
+      ! *********************************************************
+      if (lvl > 1) then
+         Child_p => Me % Child ! set local pointer to a child
+         Me % Child % Parent => Me ! set child's parent pointer to this level (Me)
+         print *, "Calling Jac restriction on lvl: ", lvl
+         call MG_Restriction(Me, nEqn, 'soljac')
+         ! recursive call
+         call MG_ComputeJacobians(Me % Child,lvl-1,ComputeTimeDerivative, Time, nEqn)
+      end if
+      ! *********************************************************
 
 
    end subroutine MG_ComputeJacobians
@@ -697,12 +727,12 @@ contains
       do iEl = 1, size(child_p % p_sem % mesh % elements)
          elsDOF(iEL) = child_p % p_sem % mesh  % elements(iEL) % storage % NDOF
       end do
-      call MG_Vec2El ( child_p % x, xe_c, Norigin , child_p % DimPrb, nEqn, elsDOF )
+      call MG_Vec2El ( child_p % x, child_p % LocalStorage , Norigin , child_p % DimPrb, nEqn, elsDOF , 'x' )
       !-----------------------------------------------------
 
       do iEl = 1, size(this % p_sem % mesh % elements)
-         call MG_Interp3DArrays(nEqn, Norigin, xe_c, &
-                                      Ndest, xe_f, &
+         call MG_Interp3DArrays(nEqn, Norigin, child_p % LocalStorage(iEl) % x , &
+                                      Ndest, this % LocalStorage(iEl) % x , &
                                       child_p % ProlX, child_p % ProlY, child_p % ProlZ )
       end do
 
@@ -711,7 +741,7 @@ contains
       do iEl = 1, size(this % p_sem % mesh % elements)
          elsDOF(iEL) = this % p_sem % mesh  % elements(iEL) % storage % NDOF
       end do
-      call MG_El2Vec ( xe_f, this % x, Ndest , this % DimPrb, nEqn, elsDOF )
+      call MG_El2Vec ( this % LocalStorage , this % x, Ndest , this % DimPrb, nEqn, elsDOF , 'x' )
       !-----------------------------------------------------
 
       this % x = x_org + this % x
@@ -737,6 +767,7 @@ contains
       integer, dimension(3)                           :: Norigin
       integer, dimension(3)                           :: Ndest
       integer, dimension(nelem)                       :: elsDOF
+      integer                                         :: i,j,k ! counters
       !-----------------------------------------------------
       real(kind=RP), dimension(nEqn,0:this%Nx, 0:this%Ny, 0:this%Nz)  :: re_f
       real(kind=RP), dimension(nEqn,0:this%Nx, 0:this%Ny, 0:this%Nz)  :: xe_f
@@ -757,17 +788,17 @@ contains
             do iEl = 1, size(this % p_sem % mesh % elements)
                elsDOF(iEL) = this % p_sem % mesh  % elements(iEL) % storage % NDOF
             end do
-            call MG_Vec2El ( this % x, xe_f, Norigin , this % DimPrb, nEqn, elsDOF )
-            call MG_Vec2El ( this % r, re_f, Norigin , this % DimPrb, nEqn, elsDOF )
+            call MG_Vec2El ( this % x, this % LocalStorage , Norigin , this % DimPrb, nEqn, elsDOF , 'x' )
+            call MG_Vec2El ( this % r, this % LocalStorage , Norigin , this % DimPrb, nEqn, elsDOF , 'r' )
             !-----------------------------------------------------
 
             do iEl = 1, size(this % p_sem % mesh % elements)
-               call MG_Interp3DArrays(nEqn, Norigin, xe_f, &
-                                            Ndest, xe_c, &
+               call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEL) % x , &
+                                            Ndest, child_p % LocalStorage(iEl) % x , &
                                             this % RestX, this % RestY, this % RestZ )
 
-               call MG_Interp3DArrays(nEqn, Norigin, re_f, &
-                                            Ndest, re_c, &
+               call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEl) % r , &
+                                            Ndest, child_p % LocalStorage(iEl) % r, &
                                             this % RestX, this % RestY, this % RestZ )
             end do
 
@@ -776,8 +807,8 @@ contains
             do iEl = 1, size(child_p % p_sem % mesh % elements)
                elsDOF(iEL) = child_p % p_sem % mesh  % elements(iEL) % storage % NDOF
             end do
-            call MG_El2Vec ( xe_c, child_p % x, Ndest , this % DimPrb, nEqn, elsDOF )
-            call MG_El2Vec ( re_c, child_p % r, Ndest , this % DimPrb, nEqn, elsDOF )
+            call MG_El2Vec ( child_p % LocalStorage , child_p % x, Ndest , this % DimPrb, nEqn, elsDOF , 'x' )
+            call MG_El2Vec ( child_p % LocalStorage , child_p % r, Ndest , this % DimPrb, nEqn, elsDOF , 'r')
             !-----------------------------------------------------
 
          case('soljac')
@@ -825,7 +856,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_Vec2El(vec,els,N,vecsize,nEqn,eldof)
+   subroutine MG_Vec2El(vec,els,N,vecsize,nEqn,eldof,var2interp)
       implicit none
       !---------------------------------------------------------------------
       integer,       dimension(3),                           intent(in)    :: N
@@ -833,7 +864,9 @@ contains
       integer,                                               intent(in)    :: nEqn
       integer,       dimension(nelem),                       intent(in)    :: eldof
       real(kind=RP), dimension(vecsize),                     intent(in)    :: vec
-      real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(inout) :: els
+      ! real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(inout) :: els
+      type(TemporaryElementStorage_t) , dimension(nelem)   , intent(inout) :: els
+      character(len=*)                                     , intent(in)    :: var2interp
       !---------------------------------------------------------------------
       integer :: eID, firstIdx, lastIdx ! counters
       !---------------------------------------------------------------------
@@ -841,7 +874,12 @@ contains
       firstIdx = 1
       do eID = 1, nelem
          lastIdx = firstIdx + eldof(eID) * nEqn
-         els(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape (vec (firstIdx:lastIdx-1),(/ nEqn, N(1)+1, N(2)+1, N(3)+1/))
+         select case (var2interp)
+         case ('x')
+            els(eID) % x(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape (vec (firstIdx:lastIdx-1),(/ nEqn, N(1)+1, N(2)+1, N(3)+1/))
+         case ('r')
+            els(eID) % r(1:nEqn,0:N(1),0:N(2),0:N(3)) = reshape (vec (firstIdx:lastIdx-1),(/ nEqn, N(1)+1, N(2)+1, N(3)+1/))
+         end select
          firstIdx = lastIdx
       end do
 
@@ -849,15 +887,17 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_El2Vec(els,vec,N,vecsize,nEqn,eldof)
+   subroutine MG_El2Vec(els,vec,N,vecsize,nEqn,eldof,var2interp)
       implicit none
       !---------------------------------------------------------------------
-      integer, dimension(3), intent(in)                                     :: N
-      integer, intent(in)                                                   :: vecsize
-      integer, intent(in)                                                   :: nEqn
-      integer, dimension(nelem), intent(in)                                 :: eldof
-      real(kind=RP), dimension(vecsize), intent(inout)                      :: vec
-      real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(in)     :: els
+      integer, dimension(3), intent(in)                                    :: N
+      integer, intent(in)                                                  :: vecsize
+      integer, intent(in)                                                  :: nEqn
+      integer, dimension(nelem), intent(in)                                :: eldof
+      real(kind=RP), dimension(vecsize), intent(inout)                     :: vec
+      ! real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(in)     :: els
+      type(TemporaryElementStorage_t) , dimension(nelem)   , intent(inout) :: els
+      character(len=*)                                     , intent(in)    :: var2interp
       !---------------------------------------------------------------------
       integer           :: eID, firstIdx, lastIdx ! counters
       !---------------------------------------------------------------------
@@ -865,7 +905,12 @@ contains
       firstIdx = 1
       do eID = 1, nelem
          lastIdx = firstIdx + eldof(eID) * nEqn
-         vec (firstIdx : lastIdx - 1) = reshape ( els , (/ eldof(eID) * nEqn /) )
+         select case (var2interp)
+         case ('x')
+            vec (firstIdx : lastIdx - 1) = reshape ( els(eID) % x(1:nEqn,0:N(1),0:N(2),0:N(3)) , (/ eldof(eID) * nEqn /) )
+         case ('r')
+            vec (firstIdx : lastIdx - 1) = reshape ( els(eID) % r(1:nEqn,0:N(1),0:N(2),0:N(3)) , (/ eldof(eID) * nEqn /) )
+         end select
          firstIdx = lastIdx
       end do
 
@@ -1086,13 +1131,25 @@ contains
       !-------------------------------------------------------------
       integer :: k      ! Counter
       !-------------------------------------------------------------
-!$omp parallel do schedule(runtime)
+
+      ! print *, "Start test"
+      ! print *, "---------------------------"
+      ! ! print *, this % A_p % Blocks(1) % Matrix
+      ! print *, "---------------------------"
+      ! this % A_p % Blocks(1) % Matrix = inverse(this % A_p % Blocks(1) % Matrix )
+      ! print *, "---------------------------"
+      ! ! print *, this % A_p % Blocks(1) % Matrix
+      ! print *, "---------------------------"
+      ! print *, "End test"
+      ! error stop "TBC"
+! !$omp parallel do schedule(runtime)
       do k=1, this % A_p % num_of_Blocks
+         ! this % A_p % Blocks(k) % Matrix = inverse( this % A_p % Blocks(k) % Matrix ) ! direct factorziation and save at the same place
          call ComputeLU (A        = this % A_p % Blocks(k) % Matrix, &
                          ALU      = this % BlockPrec(k) % PLU, &
                          LUpivots = this % BlockPrec(k) % LUpivots)
       end do
-!$omp end parallel do
+! !$omp end parallel do
       
    end subroutine ComputeBlockPrec
 !   
@@ -1102,9 +1159,6 @@ end module MultigridSolverClass
 
 !!! Printing
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!------------------------------------------------------
-!------------------------------------------------------
-!------------------------------------------------------
 !------------------------------------------------------
 !------------------------------------------------------
 !------------------------------------------------------

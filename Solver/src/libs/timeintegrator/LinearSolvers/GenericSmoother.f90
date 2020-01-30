@@ -138,38 +138,54 @@ contains
       ! real(kind=rp)                           :: rnorm            ! Residual norm
       !--------------------------------------------
 
-      print *, " we're doing ", SmoothIters, " smoothings!"
+      ! print *, " we're doing ", SmoothIters, " smoothings!"
 
-      ! ! print *, "--------------"
+      ! print *, "------- XXX --------"
+      ! print *, x
+      ! print *, "------- XXX --------"
+      ! print *, "------- BBB --------"
+      ! print *, b
+      ! print *, "------- BBB --------"
+      xtmp = 0.0_RP
       do i = 1, SmoothIters
 
          ! r = A*x
          r = CSR_MatVecMul( A, x ) ! CSR matrix product
-         xtmp = x
+         ! xtmp = x
 
          ! x = x + r/B 
-!$omp parallel do private(idx1,idx2) schedule(runtime)
+! !$omp parallel do private(idx1,idx2) schedule(runtime)
          do j=1, BJSmoother % A_p % num_of_Blocks
             idx1 = BJSmoother % A_p % BlockIdx(j)
             idx2 = BJSmoother % A_p % BlockIdx(j+1)-1
 
             r(idx1:idx2) = b(idx1:idx2) - r(idx1:idx2)
+
             ! print *, "Here we go again"
             ! print *, BJSmoother % BlockPrec(j) % PLU
             ! print *, BJSmoother % BlockPrec(j) % LUpivots
             ! error stop "ELO"
+
             call SolveLU(ALU      = BJSmoother % BlockPrec(j) % PLU, &
                          LUpivots = BJSmoother % BlockPrec(j) % LUpivots, &
                          x = xtmp(idx1:idx2), &
                          b = r   (idx1:idx2))
+
+
+            ! xtmp(idx1:idx2) =  matmul(BJSmoother % A_p % Blocks(j) % Matrix , r(idx1:idx2))
             
             x(idx1:idx2) = x(idx1:idx2) + xtmp(idx1:idx2)
          end do
-!$omp end parallel do
+! !$omp end parallel do
+         ! print *, x
 
 
          ! rnorm = norm2(r)       ! Saves relative tolerance (one iteration behind)
-         print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
+         ! print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
+         ! r = CSR_MatVecMul( A, x ) ! CSR matrix product
+         ! r = b - r
+         ! print*, "Iteration: ", i, " ; Norm after: ", norm2(r) 
+         ! error stop "HHHHHHHHHHHH"
       !    
       end do
       ! ! print *, "--------------"
