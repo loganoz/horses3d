@@ -1025,8 +1025,11 @@
 !     ---------------
 !
       REAL(KIND=RP) :: mu !! The diffusivity
+      real(kind=RP) :: tildeT
+
+      tildeT = T*TemperatureReNormalization_Sutherland
 !      
-      mu = (1._RP + tRatio)/(T + tRatio)*T*SQRT(T)
+      mu = (1._RP + S_div_TRef_Sutherland)/(T + S_div_TRef_Sutherland)*T*SQRT(T)
 
 
       END FUNCTION SutherlandsLaw
@@ -1041,7 +1044,7 @@
          real(kind=RP)             :: dMu_dQ(NCONS)
          !------------------------------------------
          
-         dMu_dQ = (1._RP + tRatio)/(T + tRatio) * sqrt(T) * (1.5_RP - T/(T + tRatio)) * TemperatureDeriv(Q)
+         dMu_dQ = (1._RP + S_div_TRef_Sutherland)/(T + S_div_TRef_Sutherland) * sqrt(T) * (1.5_RP - T/(T + S_div_TRef_Sutherland)) * TemperatureDeriv(Q)
          
       end function SutherlandsLawDeriv
 !

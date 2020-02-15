@@ -14,19 +14,23 @@
       Module Physics_NSKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY              = "mach number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY          = "reynolds number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY           = "prandtl number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: TURBULENT_PRANDTL_NUMBER_KEY = "turbulent prandtl number"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY            = "froude number"  
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY        = "gravity direction"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                = "aoa theta"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                  = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY           = "flow equations"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY      = "riemann solver"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY     = "lambda stabilization"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                 = "les model"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY        = "compute gradients"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_TEMPERATURE_KEY      = "reference temperature (k)"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_PRESSURE_KEY         = "reference pressure (pa)"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: MACH_NUMBER_KEY                = "mach number"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REYNOLDS_NUMBER_KEY            = "reynolds number"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: PRANDTL_NUMBER_KEY             = "prandtl number"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: TURBULENT_PRANDTL_NUMBER_KEY   = "turbulent prandtl number"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: FROUDE_NUMBER_KEY              = "froude number"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                  = "aoa theta"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                    = "aoa phi"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY             = "flow equations"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY        = "riemann solver"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY       = "lambda stabilization"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY          = "compute gradients"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_TEMPERATURE_KEY     = "sutherland temperature"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_REF_TEMPERATURE_KEY = "sutherland reference temperature"
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
@@ -77,7 +81,7 @@
      public    flowIsNavierStokes, NCONS, NGRAD
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
-     public    TScale, TRatio
+     public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
@@ -115,19 +119,10 @@
      INTEGER, PARAMETER       :: NPRIM = 7
      INTEGER, PARAMETER       :: IPIRHO = 1, IPU = 2, IPV = 3, IPW = 4, IPP = 5, IPT = 6, IPA2 = 7
 !
-!    --------------------------------------------
-!    The temperature scale in the Sutherland law:
-!    198.6 for temperatures in R, 110.3 for
-!    temperatures in K.
-!    --------------------------------------------
-!
-     REAL( KIND=RP ), protected :: TScale
-!
-!    ------------------------------------------------
-!    The ratio of the scale and reference tempartures
-!    ------------------------------------------------
-!
-     REAL( KIND=RP ), protected :: TRatio 
+     real(kind=RP), protected :: TRef_Sutherland   ! Sutherland's reference temperature
+     real(kind=RP), protected :: S_Sutherland      ! Sutherland's temperature
+     real(kind=RP), protected :: TemperatureReNormalization_Sutherland ! TRef/SutherlandsTRef
+     real(kind=RP), protected :: S_div_Tref_Sutherland
 !
 !    --------------------------
 !    Riemann solver definitions
@@ -168,7 +163,7 @@
 !
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
-                                    287.15_RP * 5.0_RP / 9.0_RP, & ! R                 ! J / (kg * °R) ... Why not Kelvin?
+                                                      287.15_RP, & ! R  ! J / (kg * °K)
                                                          1.4_RP, & ! gamma
                                                    sqrt(1.4_RP), & ! sqrtGamma
                                                 1.4_RP - 1.0_RP, & ! gammaMinus1         
@@ -180,9 +175,9 @@
                                      1.0_RP / (1.4_RP - 1.0_RP), & ! InvGammaMinus1
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
-     287.15_RP * 5.0_RP / 9.0_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
-              287.15_RP * 5.0_RP / 9.0_RP / ( 1.4_RP - 1.0_RP ), & ! cv
-                                                         0.0_RP  & ! Bulk viscosity ratio
+                       287.15_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+                                287.15_RP / ( 1.4_RP - 1.0_RP ), & ! cv
+                                                        0.0_RP  & ! Bulk viscosity ratio
 )
 !
 !    ========
@@ -331,9 +326,17 @@
 !     Set reference values
 !     ********************
 !
-      refValues_ % T = 520.0_RP     ! Rankine
+      if ( controlVariables % ContainsKey(REFERENCE_TEMPERATURE_KEY) ) then
+         refValues_ % T = controlVariables % DoublePrecisionValueForKey(REFERENCE_TEMPERATURE_KEY)
+      else
+         refValues_ % T = 520.0_RP*5.0_RP/9.0_RP     ! ≃ 288.88 K
+      end if
 
-      refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
+      if ( controlVariables % ContainsKey(REFERENCE_PRESSURE_KEY) ) then
+         refValues_ % rho = controlVariables % DoublePrecisionValueForKey(REFERENCE_PRESSURE_KEY) / (thermodynamics_ % R * refValues_ % T)
+      else
+         refValues_ % rho = 101325.0_RP / (thermodynamics_ % R * refValues_ % T)
+      end if
 
       refValues_ % V =   dimensionless_ % Mach &
                        * sqrt( thermodynamics_ % gamma * thermodynamics_ % R * refValues_ % T )
@@ -534,8 +537,20 @@
 !     Sutherland's law constants
 !     **************************
 !
-      TScale          = 198.6_RP
-      TRatio          = TScale/ refValues_ % T
+      if ( controlVariables % ContainsKey(SUTHERLAND_TEMPERATURE_KEY) ) then
+         S_Sutherland = controlVariables % DoublePrecisionValueForKey(SUTHERLAND_TEMPERATURE_KEY)
+      else
+         S_Sutherland = 198.6_RP*5.0_RP/9.0_RP ! ≃ 110.4
+      end if
+
+      if ( controlVariables % ContainsKey(SUTHERLAND_REF_TEMPERATURE_KEY) ) then
+         TRef_Sutherland = controlVariables % DoublePrecisionValueForKey(SUTHERLAND_REF_TEMPERATURE_KEY)
+      else
+         TRef_Sutherland = refValues_ % T
+      end if
+
+      S_div_TRef_Sutherland = S_Sutherland / TRef_Sutherland
+      TemperatureReNormalization_Sutherland = refValues_ % T / TRef_Sutherland      
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues

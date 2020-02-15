@@ -270,7 +270,7 @@ MODULE ManufacturedSolutions
            + pi*Cos(pi*z*wC(7))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
              rC(4)*Sin(pi*z*rC(7)))*(uC(1) + Sin(pi*x*uC(5))*uC(2) +     &
              Sin(pi*y*uC(6))*uC(3) + Sin(pi*z*uC(7))*uC(4))*wC(4)*wC(7) -     &
-          ((-2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*uC(5))*    &
+          ((-2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*uC(5))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -287,11 +287,11 @@ MODULE ManufacturedSolutions
                      rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*x*rC(5))*Cos(pi*x*uC(5))*rC(2)*rC(5)*    &
+             (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*Cos(pi*x*uC(5))*rC(2)*rC(5)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -300,22 +300,22 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*x*pC(5))*Cos(pi*x*uC(5))*pC(2)*pC(5)*    &
+             (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*Cos(pi*x*uC(5))*pC(2)*pC(5)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*uC(5))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*uC(5))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
@@ -332,11 +332,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (4*gammaM2*pi**2*(1 + tRatio)*    &
+             (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -345,11 +345,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*uC(5))*uC(2)*uC(5)**2)/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -358,11 +358,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*uC(6))*uC(3)*uC(6)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -371,11 +371,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*uC(7))*uC(4)*uC(7)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -392,11 +392,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -406,11 +406,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -418,11 +418,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -439,11 +439,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -460,11 +460,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -474,11 +474,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -486,11 +486,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -507,11 +507,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (2*gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -529,11 +529,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) +     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+             (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -544,11 +544,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+             (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -557,11 +557,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -579,7 +579,7 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))))/Re
@@ -614,7 +614,7 @@ MODULE ManufacturedSolutions
         + pi*Cos(pi*z*wC(7))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
           rC(4)*Sin(pi*z*rC(7)))*(vC(1) + Sin(pi*x*vC(5))*vC(2) +     &
           Sin(pi*y*vC(6))*vC(3) + Sin(pi*z*vC(7))*vC(4))*wC(4)*wC(7) -     &
-       (-((gammaM2*pi**2*(1 + tRatio)*    &
+       (-((gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                  pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -623,11 +623,11 @@ MODULE ManufacturedSolutions
                    rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*vC(5))*vC(2)*vC(5)**2)/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7)))))) -     &
-          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
@@ -644,11 +644,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                      pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7))))**2) -     &
-          (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+          (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -658,11 +658,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                 rC(4)*Sin(pi*z*rC(7)))**2*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+          (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -670,11 +670,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                     (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -691,11 +691,11 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*    &
              (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+          (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*vC(6))*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -712,11 +712,11 @@ MODULE ManufacturedSolutions
                   rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                      pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7))))**2) -     &
-          (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
+          (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -725,22 +725,22 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                 rC(4)*Sin(pi*z*rC(7)))**2*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
+          (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+          (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*vC(6))*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
@@ -757,11 +757,11 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*    &
              (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (4*gammaM2*pi**2*(1 + tRatio)*    &
+          (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -770,11 +770,11 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*vC(6))*vC(3)*vC(6)**2)/    &
            (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (gammaM2*pi**2*(1 + tRatio)*    &
+          (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -783,11 +783,11 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*vC(7))*vC(4)*vC(7)**2)/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
@@ -804,11 +804,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                      pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7))))**2) -     &
-          (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+          (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -818,11 +818,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                 rC(4)*Sin(pi*z*rC(7)))**2*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+          (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -830,11 +830,11 @@ MODULE ManufacturedSolutions
              (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
            ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                     (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -851,11 +851,11 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*    &
              (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) +     &
-          (2*gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (2*gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
@@ -873,11 +873,11 @@ MODULE ManufacturedSolutions
                pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
            (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                      pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7))))**2) +     &
-          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+          (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
              (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                pC(4)*Sin(pi*z*pC(7)))*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -888,11 +888,11 @@ MODULE ManufacturedSolutions
                pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
            (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                 rC(4)*Sin(pi*z*rC(7)))**2*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+          (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
              Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                    pC(4)*Sin(pi*z*pC(7))))/    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -901,11 +901,11 @@ MODULE ManufacturedSolutions
                pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
            (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))) -     &
-          (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+          (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
              (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                     (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -923,7 +923,7 @@ MODULE ManufacturedSolutions
                  rC(4)*Sin(pi*z*rC(7))))*    &
              (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                rC(4)*Sin(pi*z*rC(7)))*    &
-             (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                     pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7))))))/Re    
@@ -960,7 +960,7 @@ MODULE ManufacturedSolutions
           2*pi*Cos(pi*z*wC(7))*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
              rC(4)*Sin(pi*z*rC(7)))*wC(4)*    &
            (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) + Sin(pi*z*wC(7))*wC(4))*    &
-           wC(7) - (-((gammaM2*pi**2*(1 + tRatio)*    &
+           wC(7) - (-((gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                   (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                     pC(4)*Sin(pi*z*pC(7)))*    &
                   Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -969,11 +969,11 @@ MODULE ManufacturedSolutions
                       rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*wC(5))*wC(2)*wC(5)**2)/    &
                 ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7)))*    &
-                  (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                  (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                          pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7)))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -990,11 +990,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1004,11 +1004,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1016,11 +1016,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1037,11 +1037,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1050,11 +1050,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*wC(6))*wC(3)*wC(6)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1071,11 +1071,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1085,11 +1085,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1097,11 +1097,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1118,11 +1118,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*wC(7))*    &
+             (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*wC(7))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1139,11 +1139,11 @@ MODULE ManufacturedSolutions
                      rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*z*rC(7))*Cos(pi*z*wC(7))*rC(4)*rC(7)*    &
+             (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*Cos(pi*z*wC(7))*rC(4)*rC(7)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1152,22 +1152,22 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*z*pC(7))*Cos(pi*z*wC(7))*pC(4)*pC(7)*    &
+             (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*Cos(pi*z*wC(7))*pC(4)*pC(7)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*wC(7))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*wC(7))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
@@ -1184,11 +1184,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (4*gammaM2*pi**2*(1 + tRatio)*    &
+             (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1197,11 +1197,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*wC(7))*wC(4)*wC(7)**2)/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (2*gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (2*gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1219,11 +1219,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) +     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+             (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1234,11 +1234,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+             (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1247,11 +1247,11 @@ MODULE ManufacturedSolutions
                   pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
               (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1269,7 +1269,7 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))))/Re 
@@ -1279,7 +1279,7 @@ MODULE ManufacturedSolutions
 !     Energy equation Source term
 !     ---------------------------
 !
-      Q(5) = Q(5) -((-((gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+      Q(5) = Q(5) -((-((gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                    pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                  Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                        pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1295,12 +1295,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))**2)/    &
                ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))*    &
-                 (tRatio + (gammaM2*    &
+                 (S_div_TRef_Sutherland + (gammaM2*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7))))**2)) -     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1316,11 +1316,11 @@ MODULE ManufacturedSolutions
                      rC(4)*Sin(pi*z*rC(7))))**2)/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))**2) -     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1336,11 +1336,11 @@ MODULE ManufacturedSolutions
                      rC(4)*Sin(pi*z*rC(7))))**2)/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))**2) -     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                  pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1357,11 +1357,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1376,11 +1376,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1396,11 +1396,11 @@ MODULE ManufacturedSolutions
                    rC(4)*Sin(pi*z*rC(7))))*    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) -     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                  pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1417,11 +1417,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1436,11 +1436,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1456,11 +1456,11 @@ MODULE ManufacturedSolutions
                    rC(4)*Sin(pi*z*rC(7))))*    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) -     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                  pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1477,11 +1477,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))**2*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+            (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
                  (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1496,11 +1496,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1516,11 +1516,11 @@ MODULE ManufacturedSolutions
                    rC(4)*Sin(pi*z*rC(7))))*    &
                (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1545,11 +1545,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1574,11 +1574,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))) +     &
-            (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+            (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                  pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1603,7 +1603,7 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7)))))/    &
              ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                  rC(4)*Sin(pi*z*rC(7)))*    &
-               (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+               (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                       pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7))))))/((-1 + gamma)*Mach**2*Pr*Re))
@@ -1752,7 +1752,7 @@ MODULE ManufacturedSolutions
                    Sin(pi*z*wC(7))*wC(4))*wC(7))/2.)
           
       Q(5) = Q(5) -     &                                            ! The statement is separated here for ifort not to crash 
-          (-((gammaM2*pi**2*(1 + tRatio)*    &
+          (-((gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                   (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                     pC(4)*Sin(pi*z*pC(7)))*    &
                   Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1763,11 +1763,11 @@ MODULE ManufacturedSolutions
                     Sin(pi*z*uC(7))*uC(4))*uC(6)**2)/    &
                 ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                     rC(4)*Sin(pi*z*rC(7)))*    &
-                  (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                  (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                          pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7)))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1778,11 +1778,11 @@ MODULE ManufacturedSolutions
                   Sin(pi*z*uC(7))*uC(4))*uC(7)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1793,11 +1793,11 @@ MODULE ManufacturedSolutions
                   Sin(pi*z*vC(7))*vC(4))*vC(5)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1816,11 +1816,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1832,11 +1832,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1846,11 +1846,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1869,11 +1869,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*uC(6))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*uC(6))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1883,11 +1883,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -1906,11 +1906,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1922,11 +1922,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -1936,11 +1936,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1959,11 +1959,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*vC(5))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*vC(5))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1973,11 +1973,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*y*uC(6))*uC(3)*uC(6) + pi*Cos(pi*x*vC(5))*vC(2)*vC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -1988,11 +1988,11 @@ MODULE ManufacturedSolutions
                   Sin(pi*z*vC(7))*vC(4))*vC(7)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2003,11 +2003,11 @@ MODULE ManufacturedSolutions
                   Sin(pi*z*wC(7))*wC(4))*wC(5)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -2026,11 +2026,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2042,11 +2042,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2056,11 +2056,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2079,11 +2079,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*uC(7))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*uC(7))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2093,11 +2093,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -2116,11 +2116,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2132,11 +2132,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2146,11 +2146,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2169,11 +2169,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*x*wC(5))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*wC(5))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2183,11 +2183,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*uC(7))*uC(4)*uC(7) + pi*Cos(pi*x*wC(5))*wC(2)*wC(5)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*pi**2*(1 + tRatio)*    &
+             (gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2198,11 +2198,11 @@ MODULE ManufacturedSolutions
                   Sin(pi*z*wC(7))*wC(4))*wC(6)**2)/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -2221,11 +2221,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2237,11 +2237,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2251,11 +2251,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2274,11 +2274,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*z*vC(7))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*vC(7))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2288,11 +2288,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) -     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
@@ -2311,11 +2311,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                         pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                     (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7))))**2) -     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2327,11 +2327,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                    rC(4)*Sin(pi*z*rC(7)))**2*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                       pC(4)*Sin(pi*z*pC(7))))/    &
                   (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2341,11 +2341,11 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*(1 + tRatio)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+             (gammaM2*(1 + S_div_TRef_Sutherland)*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                   pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7)))*    &
                 (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                        (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2364,11 +2364,11 @@ MODULE ManufacturedSolutions
                     rC(4)*Sin(pi*z*rC(7))))*    &
                 (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
-             (gammaM2*pi*(1 + tRatio)*Cos(pi*y*wC(6))*    &
+             (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*wC(6))*    &
                 (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                   pC(4)*Sin(pi*z*pC(7)))*    &
                 Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2378,12 +2378,12 @@ MODULE ManufacturedSolutions
                 (pi*Cos(pi*z*vC(7))*vC(4)*vC(7) + pi*Cos(pi*y*wC(6))*wC(3)*wC(6)))/    &
               ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                   rC(4)*Sin(pi*z*rC(7)))*    &
-                (tRatio + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
+                (S_div_TRef_Sutherland + (gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) +     &
                        pC(3)*Sin(pi*y*pC(6)) + pC(4)*Sin(pi*z*pC(7))))/    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7))))) +     &
              pi*Cos(pi*x*uC(5))*uC(2)*uC(5)*    &
-              ((2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*uC(5))*    &
+              ((2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*uC(5))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2392,12 +2392,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2408,13 +2408,13 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))) +     &
              pi*Cos(pi*y*vC(6))*vC(3)*vC(6)*    &
-              ((2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+              ((2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*vC(6))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2423,12 +2423,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2439,13 +2439,13 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))) +     &
              pi*Cos(pi*z*wC(7))*wC(4)*wC(7)*    &
-              ((2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*wC(7))*    &
+              ((2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*wC(7))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2454,12 +2454,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2470,14 +2470,14 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))) +     &
              (uC(1) + Sin(pi*x*uC(5))*uC(2) + Sin(pi*y*uC(6))*uC(3) +     &
                 Sin(pi*z*uC(7))*uC(4))*    &
-              ((-2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*uC(5))*    &
+              ((-2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*uC(5))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2494,12 +2494,12 @@ MODULE ManufacturedSolutions
                         rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) -     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*x*rC(5))*Cos(pi*x*uC(5))*rC(2)*rC(5)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*Cos(pi*x*uC(5))*rC(2)*rC(5)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2508,24 +2508,24 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*x*pC(5))*Cos(pi*x*uC(5))*pC(2)*pC(5)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*Cos(pi*x*uC(5))*pC(2)*pC(5)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7))))*uC(2)*uC(5))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (gammaM2*pi*(1 + tRatio)*Cos(pi*x*uC(5))*    &
+                (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*uC(5))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
@@ -2542,12 +2542,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (4*gammaM2*pi**2*(1 + tRatio)*    &
+                (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2556,12 +2556,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*Sin(pi*x*uC(5))*uC(2)*uC(5)**2)/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2580,12 +2580,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) +     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2596,12 +2596,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*x*pC(5))*pC(2)*pC(5)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2610,12 +2610,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (gammaM2*(1 + tRatio)*    &
+                (gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*x*rC(5))*rC(2)*rC(5)*    &
@@ -2634,14 +2634,14 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))) +     &
              (vC(1) + Sin(pi*x*vC(5))*vC(2) + Sin(pi*y*vC(6))*vC(3) +     &
                 Sin(pi*z*vC(7))*vC(4))*    &
-              ((-2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+              ((-2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*vC(6))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2658,12 +2658,12 @@ MODULE ManufacturedSolutions
                         rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) -     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*Cos(pi*y*vC(6))*rC(3)*rC(6)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2672,24 +2672,24 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*Cos(pi*y*vC(6))*pC(3)*pC(6)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7))))*vC(3)*vC(6))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (gammaM2*pi*(1 + tRatio)*Cos(pi*y*vC(6))*    &
+                (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*vC(6))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
@@ -2706,12 +2706,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (4*gammaM2*pi**2*(1 + tRatio)*    &
+                (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2720,12 +2720,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*Sin(pi*y*vC(6))*vC(3)*vC(6)**2)/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2744,12 +2744,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) +     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2760,12 +2760,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*y*pC(6))*pC(3)*pC(6)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2774,12 +2774,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (gammaM2*(1 + tRatio)*    &
+                (gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*y*rC(6))*rC(3)*rC(6)*    &
@@ -2798,14 +2798,14 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7)))))) +     &
              (wC(1) + Sin(pi*x*wC(5))*wC(2) + Sin(pi*y*wC(6))*wC(3) +     &
                 Sin(pi*z*wC(7))*wC(4))*    &
-              ((-2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*wC(7))*    &
+              ((-2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*wC(7))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2822,12 +2822,12 @@ MODULE ManufacturedSolutions
                         rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) -     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*z*rC(7))*Cos(pi*z*wC(7))*rC(4)*rC(7)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*Cos(pi*z*wC(7))*rC(4)*rC(7)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2836,24 +2836,24 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*pi**2*(1 + tRatio)*Cos(pi*z*pC(7))*Cos(pi*z*wC(7))*pC(4)*pC(7)*    &
+                (2*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*Cos(pi*z*wC(7))*pC(4)*pC(7)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                        rC(4)*Sin(pi*z*rC(7))))*wC(4)*wC(7))/    &
                  ((rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (gammaM2*pi*(1 + tRatio)*Cos(pi*z*wC(7))*    &
+                (gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*wC(7))*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
@@ -2870,12 +2870,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (4*gammaM2*pi**2*(1 + tRatio)*    &
+                (4*gammaM2*pi**2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2884,12 +2884,12 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*Sin(pi*z*wC(7))*wC(4)*wC(7)**2)/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) +     &
-                (2*gammaM2*(1 + tRatio)*    &
+                (2*gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2908,12 +2908,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                          (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                            pC(4)*Sin(pi*z*pC(7))))/    &
                        (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                          rC(4)*Sin(pi*z*rC(7))))**2) +     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
@@ -2924,12 +2924,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                       rC(4)*Sin(pi*z*rC(7)))**2*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (2*gammaM2*pi*(1 + tRatio)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
+                (2*gammaM2*pi*(1 + S_div_TRef_Sutherland)*Cos(pi*z*pC(7))*pC(4)*pC(7)*    &
                    Sqrt((gammaM2*(pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                          pC(4)*Sin(pi*z*pC(7))))/    &
                      (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
@@ -2938,12 +2938,12 @@ MODULE ManufacturedSolutions
                      pi*Cos(pi*z*wC(7))*wC(4)*wC(7)))/    &
                  (3.*(rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                         rC(4)*Sin(pi*z*rC(7))))) -     &
-                (gammaM2*(1 + tRatio)*    &
+                (gammaM2*(1 + S_div_TRef_Sutherland)*    &
                    (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                      pC(4)*Sin(pi*z*pC(7)))*    &
                    (-((gammaM2*pi*Cos(pi*z*rC(7))*rC(4)*rC(7)*    &
@@ -2962,7 +2962,7 @@ MODULE ManufacturedSolutions
                        rC(4)*Sin(pi*z*rC(7))))*    &
                    (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
                      rC(4)*Sin(pi*z*rC(7)))*    &
-                   (tRatio + (gammaM2*    &
+                   (S_div_TRef_Sutherland + (gammaM2*    &
                         (pC(1) + pC(2)*Sin(pi*x*pC(5)) + pC(3)*Sin(pi*y*pC(6)) +     &
                           pC(4)*Sin(pi*z*pC(7))))/    &
                       (rC(1) + rC(2)*Sin(pi*x*rC(5)) + rC(3)*Sin(pi*y*rC(6)) +     &
