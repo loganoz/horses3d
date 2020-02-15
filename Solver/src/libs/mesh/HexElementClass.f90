@@ -589,7 +589,7 @@
 !
 !           Stopping criteria: there are several
 !           ------------------------------------
-            F(dir2D) = 0.0_RP
+            if ( dir2D .gt. 0 ) F(dir2D) = 0.0_RP
             if ( maxval(abs(F)) .lt. TOL ) exit
             if ( abs(xi(1)) .ge. 2.5_RP ) exit
             if ( abs(xi(2)) .ge. 2.5_RP ) exit
