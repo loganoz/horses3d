@@ -143,7 +143,7 @@ module EllipticBR1
          end do
 !$omp end do
 
-#ifdef _HAS_MPI
+#ifdef _HAS_MPI_
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
             call mesh % GatherMPIFacesSolution(nEqn)
