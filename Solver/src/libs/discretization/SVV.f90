@@ -267,7 +267,7 @@ module SpectralVanishingViscosity
          implicit none
          class(SVV_t) ,     intent (in)         :: self
          type(Element)                          :: e
-         procedure(EllipticFlux3D_f)            :: EllipticFlux
+         procedure(EllipticFlux_f)              :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -277,7 +277,7 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Uxf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Uyf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Uzf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: cartesianFlux      (1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)       :: cartesianFlux      (1:NCONS, 1:NDIM)
          real(kind=RP)       :: contravariantFluxF (1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -344,26 +344,27 @@ module SpectralVanishingViscosity
 !        Compute the flux
 !        ----------------
 !
-         call EllipticFlux( NCONS, NGRAD, e%Nxyz, e % storage % Q , Uxf, Uyf, Uzf, mu, beta, kappa, cartesianFlux )
 !
 !        ----------------------
 !        Get contravariant flux
 !        ----------------------
 !
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            contravariantFluxF(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
+            call EllipticFlux( NCONS, NGRAD, e % storage % Q(:,i,j,k), Uxf(:,i,j,k), Uyf(:,i,j,k), &
+                               Uzf(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux )
+            contravariantFluxF(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                             +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                             +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFluxF(:,i,j,k,IY) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
+            contravariantFluxF(:,i,j,k,IY) =    cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFluxF(:,i,j,k,IZ) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+            contravariantFluxF(:,i,j,k,IZ) =    cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                             +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                             +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
          end do               ; end do            ; end do
 !
@@ -406,7 +407,7 @@ module SpectralVanishingViscosity
          implicit none
          class(SVV_t)                :: self
          class(Face),   intent(in)   :: f
-         procedure(EllipticFlux2D_f) :: EllipticFlux
+         procedure(EllipticFlux_f)   :: EllipticFlux
          real(kind=RP), intent(in)   :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP), intent(in)   :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP), intent(in)   :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
@@ -429,7 +430,7 @@ module SpectralVanishingViscosity
          real(kind=RP)     :: Uxf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: Uyf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: Uzf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: flux_vec(NCONS,NDIM, 0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP)     :: flux_vec(NCONS,NDIM)
          real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: beta(0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP)     :: delta, Q2D
@@ -496,20 +497,15 @@ module SpectralVanishingViscosity
             end if
          end if
 !
-!        ------------
-!        Compute flux
-!        ------------
-!
-         call EllipticFlux(NCONS, NGRAD, f % Nf, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
-!
-!        -----------------
-!        Project to normal
-!        -----------------
+!        ----------------------------------
+!        Compute flux and project to normal
+!        ----------------------------------
 !
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            fluxF(:,i,j) =  flux_vec(:,IX,i,j) * f % geom % normal(IX,i,j) &
-                          + flux_vec(:,IY,i,j) * f % geom % normal(IY,i,j) &
-                          + flux_vec(:,IZ,i,j) * f % geom % normal(IZ,i,j) 
+            call EllipticFlux(NCONS, NGRAD, Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), mu(i,j), beta(i,j), kappa(i,j), flux_vec)
+            fluxF(:,i,j) =  flux_vec(:,IX) * f % geom % normal(IX,i,j) &
+                          + flux_vec(:,IY) * f % geom % normal(IY,i,j) &
+                          + flux_vec(:,IZ) * f % geom % normal(IZ,i,j) 
          end do               ; end do
 !
 !        ---------------

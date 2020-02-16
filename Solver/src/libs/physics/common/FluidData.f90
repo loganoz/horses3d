@@ -17,6 +17,8 @@ module FluidData
    use FluidData_iNS
 #elif defined(MULTIPHASE)
    use FluidData_MU
+#elif defined(RANSSA)
+   use FluidData_NS
 #endif
 #if defined(CAHNHILLIARD)
    use FluidData_CH

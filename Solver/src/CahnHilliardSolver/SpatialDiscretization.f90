@@ -109,7 +109,7 @@ module SpatialDiscretization
 
          end select
 
-         call CHDiscretization % Construct(controlVariables, CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, GetCHViscosity, ELLIPTIC_CH)
+         call CHDiscretization % Construct(controlVariables, ELLIPTIC_CH)
          call CHDiscretization % Describe
 !
 !        Compute wall distances
@@ -655,7 +655,7 @@ stop
 !
 !        Compute contravariant flux
 !        --------------------------
-         call CHDiscretization  % ComputeInnerFluxes (NCOMP, NCOMP, e , contravariantFlux  ) 
+         call CHDiscretization  % ComputeInnerFluxes (NCOMP, NCOMP, CHDivergenceFlux, GetCHViscosity, e , contravariantFlux  ) 
 !
 !        ************************
 !        Perform volume integrals
@@ -710,8 +710,9 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               call CHDiscretization % GetViscosity(0.0_RP, mu)
+               call GetCHViscosity(0.0_RP, mu)
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+                                                  EllipticFlux = CHDivergenceFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -757,8 +758,9 @@ stop
 !              Viscous fluxes
 !              --------------
 !      
-               call CHDiscretization % GetViscosity(0.0_RP, mu)
+               call GetCHViscosity(0.0_RP, mu)
                CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+                                                  EllipticFlux = CHDivergenceFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -846,8 +848,9 @@ stop
 !           Viscous fluxes
 !           --------------
 !   
-         call CHDiscretization % GetViscosity(0.0_RP, mu)
+         call GetCHViscosity(0.0_RP, mu)
          CALL CHDiscretization % RiemannSolver(nEqn = NCOMP, nGradEqn = NCOMP, &
+                                            EllipticFlux = CHDivergenceFlux, &
                                             f = f, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
                                             QRight = f % storage(2) % Q(:,i,j), &
@@ -882,7 +885,7 @@ stop
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , CHGradientValuesForQ_0D, CHGradientValuesForQ_3D)
+         call CHDiscretization % ComputeGradient( NCOMP, NCOMP, mesh , time , chGradientVariables)
 
       end subroutine DGSpatial_ComputeGradient
 !

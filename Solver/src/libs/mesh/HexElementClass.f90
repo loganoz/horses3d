@@ -337,7 +337,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues3D)
+      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues)
 !
 !        ****************************************************************
 !           This subroutine computes local gradients as:
@@ -350,7 +350,7 @@
          class(Element),   intent(inout)  :: self
          integer,          intent(in)     :: nEqn
          integer,          intent(in)     :: nGradEqn
-         procedure(GetGradientValues3D_f) :: GetGradientValues3D
+         procedure(GetGradientValues_f)   :: GetGradientValues
 !
 !        ---------------
 !        Local variables
@@ -373,9 +373,13 @@
 !        **********************
 !
 #ifdef MULTIPHASE
-         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U, self % storage % rho )
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k), self % storage % rho(i,j,k) )
+         end do         ; end do         ; end do
 #else
-         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U )
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k))
+         end do         ; end do         ; end do
 #endif
 
 #ifdef MULTIPHASE

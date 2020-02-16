@@ -9,7 +9,7 @@ module EllipticDiscretizationClass
    implicit none
 !
    private
-   public   EllipticDiscretization_t, EllipticFlux0D_f, EllipticFlux2D_f, EllipticFlux3D_f, GetViscosity_f
+   public   EllipticDiscretization_t, EllipticFlux_f, GetViscosity_f
    public   ELLIPTIC_NS, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
 
    public BaseClass_ComputeGradient
@@ -17,10 +17,6 @@ module EllipticDiscretizationClass
    type EllipticDiscretization_t
       integer                                        :: eqName
       real(kind=RP)                                  :: sigma = 1.0_RP
-      procedure(EllipticFlux0D_f), nopass, pointer   :: EllipticFlux0D
-      procedure(EllipticFlux2D_f), nopass, pointer   :: EllipticFlux2D
-      procedure(EllipticFlux3D_f), nopass, pointer   :: EllipticFlux3D
-      procedure(GetViscosity_f),   nopass, pointer   :: GetViscosity
       contains
          procedure      :: Construct                => BaseClass_Construct
          procedure      :: ComputeGradient           => BaseClass_ComputeGradient
@@ -38,7 +34,7 @@ module EllipticDiscretizationClass
    end type EllipticDiscretization_t
 
    abstract interface
-      pure subroutine EllipticFlux0D_f(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine EllipticFlux_f(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -51,40 +47,7 @@ module EllipticDiscretizationClass
          real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
-      end subroutine EllipticFlux0D_f
-
-      pure subroutine EllipticFlux2D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         integer,       intent(in)     :: nEqn, nGradEqn
-         integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
-      end subroutine EllipticFlux2D_f
-
-      pure subroutine EllipticFlux3D_f( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         integer,       intent(in)     :: nEqn, nGradEqn
-         integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
-      end subroutine EllipticFlux3D_f
-
+      end subroutine EllipticFlux_f
       pure subroutine GetViscosity_f(phi, mu)
          use SMConstants
          implicit none
@@ -101,7 +64,7 @@ module EllipticDiscretizationClass
    contains
 !  ========
 !
-      subroutine BaseClass_Construct(self, controlVariables, EllipticFlux0D, EllipticFlux2D, EllipticFlux3D, GetViscosity, eqName)
+      subroutine BaseClass_Construct(self, controlVariables, eqName)
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
@@ -110,20 +73,7 @@ module EllipticDiscretizationClass
          implicit none
          class(EllipticDiscretization_t)       :: self
          class(FTValueDictionary), intent(in)  :: controlVariables
-         procedure(EllipticFlux0D_f)           :: EllipticFlux0D
-         procedure(EllipticFlux2D_f)           :: EllipticFlux2D
-         procedure(EllipticFlux3D_f)           :: EllipticFlux3D
-         procedure(GetViscosity_f)             :: GetViscosity
          integer, intent(in)                   :: eqName
-!
-!        ----------------------------------------------------------
-!        Set the particular procedures to compute the elliptic flux
-!        ----------------------------------------------------------
-!
-         self % EllipticFlux0D => EllipticFlux0D
-         self % EllipticFlux2D => EllipticFlux2D
-         self % EllipticFlux3D => EllipticFlux3D
-         self % GetViscosity   => GetViscosity
 !
 !        Request the penalty parameter
 !        -----------------------------
@@ -168,7 +118,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_Describe
 
-      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D)
+      subroutine BaseClass_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients)
 !
 !        *****************************************************
 !           BaseClass computes Local Gradients by default
@@ -183,8 +133,7 @@ module EllipticDiscretizationClass
          integer,             intent(in)  :: nEqn, nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         procedure(GetGradientValues0D_f) :: GetGradients0D
-         procedure(GetGradientValues3D_f) :: GetGradients3D
+         procedure(GetGradientValues_f)   :: GetGradients
 !
 !        ---------------
 !        Local variables
@@ -194,13 +143,13 @@ module EllipticDiscretizationClass
 
 !$omp do schedule(runtime)
          do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients3D)
+            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients)
          end do
 !$omp end do
 
       end subroutine BaseClass_ComputeGradient
 
-      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients0D, GetGradients3D)
+      subroutine BaseClass_LiftGradients(self, nEqn, nGradEqn, mesh, time, GetGradients)
 !
 !        *****************************************************
 !        Lift gradients: do nothing here
@@ -214,17 +163,18 @@ module EllipticDiscretizationClass
          integer,             intent(in)  :: nEqn, nGradEqn
          class(HexMesh)                   :: mesh
          real(kind=RP),        intent(in) :: time
-         procedure(GetGradientValues0D_f) :: GetGradients0D
-         procedure(GetGradientValues3D_f) :: GetGradients3D
+         procedure(GetGradientValues_f)   :: GetGradients
 
       end subroutine BaseClass_LiftGradients
 
-      subroutine BaseClass_ComputeInnerFluxes( self, nEqn, nGradEqn, e, contravariantFlux )
+      subroutine BaseClass_ComputeInnerFluxes( self, nEqn, nGradEqn, EllipticFlux, GetViscosity, e, contravariantFlux )
          use ElementClass
          use PhysicsStorage
          implicit none
          class(EllipticDiscretization_t) ,  intent(in) :: self
          integer,                           intent(in) :: nEqn, nGradEqn
+         procedure(EllipticFlux_f)                     :: EllipticFlux
+         procedure(GetViscosity_f)                     :: GetViscosity
          type(Element)                                 :: e
          real(kind=RP)           ,  intent (out)       :: contravariantFlux(1:nEqn, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
@@ -371,7 +321,7 @@ module EllipticDiscretizationClass
 
       end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
-      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
+      subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, EllipticFlux, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
                                            mu, beta, kappa, nHat , dWall, &
 #ifdef MULTIPHASE
 sigma, & 
@@ -385,6 +335,7 @@ flux )
          class(EllipticDiscretization_t) :: self
          integer,       intent(in)       :: nEqn
          integer,       intent(in)       :: nGradEqn
+         procedure(EllipticFlux_f)       :: EllipticFlux
          class(Face),   intent(in)       :: f
          real(kind=RP), intent(in)       :: QLeft(nEqn)
          real(kind=RP), intent(in)       :: QRight(nEqn)
