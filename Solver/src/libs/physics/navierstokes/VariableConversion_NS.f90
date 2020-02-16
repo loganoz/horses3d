@@ -19,7 +19,8 @@ module VariableConversion_NS
 
    private
    public   Pressure, Temperature, TemperatureDeriv
-   public   NSGradientVariables0D_STATE, NSGradientVariables3D_STATE
+   public   NSGradientVariables_STATE
+   public   NSGradientVariables_ENTROPY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
 
@@ -123,7 +124,7 @@ module VariableConversion_NS
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine NSGradientVariables0D_STATE( nEqn, nGrad, Q, U, rho_ )
+      pure subroutine NSGradientVariables_STATE( nEqn, nGrad, Q, U, rho_ )
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -136,29 +137,22 @@ module VariableConversion_NS
 !     
          U = Q
 
-      end subroutine NSGradientVariables0D_STATE
+      end subroutine NSGradientVariables_STATE
 
-      pure subroutine NSGradientVariables3D_STATE( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
+      pure subroutine NSGradientVariables_ENTROPY( nEqn, nGrad, Q, U, rho_ )
          implicit none
-         integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
-         real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
+         integer, intent(in)        :: nEqn, nGrad
+         real(kind=RP), intent(in)  :: Q(nEqn)
+         real(kind=RP), intent(out) :: U(nGrad)
+         real(kind=RP), intent(in), optional :: rho_
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !     
-         integer     :: i, j, k
-
-         associate ( gammaM2 => dimensionless % gammaM2, &
-                     gammaMinus1 => thermodynamics % gammaMinus1 ) 
-      
          U = Q
-   
-         end associate
 
-      end subroutine NSGradientVariables3D_STATE
+      end subroutine NSGradientVariables_ENTROPY
 !
 ! /////////////////////////////////////////////////////////////////////
 !

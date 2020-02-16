@@ -39,7 +39,7 @@ module AnalyticalJacobian
 #if defined(NAVIERSTOKES)
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
-   use VariableConversion              , only: NSGradientVariables0D_STATE, NSGradientVariables3D_STATE
+   use VariableConversion              , only: NSGradientVariables_STATE
    use FluidData_NS, only: dimensionless
 #endif
 #ifdef _HAS_MPI_
@@ -217,7 +217,7 @@ contains
 !     ******************************************************************
 !
       if (flowIsNavierStokes) then
-         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientVariables0D_STATE, NSGradientVariables3D_STATE)
+         call ViscousDiscretization % ComputeGradient (nEqn, nEqn, sem % mesh, time, NSGradientVariables_STATE)
 #ifdef _HAS_MPI_
 !$omp single
          call sem % mesh % UpdateMPIFacesGradients(NGRAD)
@@ -789,6 +789,7 @@ contains
       
       call ViscousDiscretization % RiemannSolver ( NCONS, &
                                                    NCONS, &
+                                                   ViscousFlux_STATE, &
                                                    f, &
                                                    q , qr , &
                                                    Q_xL , Q_yL , Q_zL , &
@@ -827,6 +828,7 @@ contains
          
          call ViscousDiscretization % RiemannSolver ( NCONS, &
                                                       NCONS, &
+                                                      ViscousFlux_STATE, &
                                                       f, &
                                                       q , qr , &
                                                       Q_xL , Q_yL , Q_zL , &
@@ -872,6 +874,7 @@ contains
             
             call ViscousDiscretization % RiemannSolver ( NCONS, &
                                                          NCONS, &
+                                                         ViscousFlux_STATE, &
                                                          f, &
                                                          q , qr , &
                                                          Q_xL , Q_yL , Q_zL , &
