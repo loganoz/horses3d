@@ -104,7 +104,6 @@
          end associate
 
       end subroutine EulerFlux
-!
 !     -------------------------------------------------------------------------------
 !     Subroutine for computing the Jacobian of the inviscid flux when it has the form 
 !
