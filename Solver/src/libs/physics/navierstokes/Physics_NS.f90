@@ -38,8 +38,9 @@
       implicit none
 
       private
-      public  EulerFlux, ViscousFlux
-      public  ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
+      public  EulerFlux
+      public  ViscousFlux0D_STATE, ViscousFlux2D_STATE, ViscousFlux3D_STATE
+      public  ViscousFlux0D_withSGS, ViscousFlux2D_withSGS, ViscousFlux3D_withSGS
       public  EulerFlux0D, EulerFlux3D
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw, ViscousJacobian
@@ -47,11 +48,6 @@
      interface EulerFlux
          module procedure EulerFlux0D, EulerFlux3D
      end interface EulerFlux
-
-     interface ViscousFlux
-         module procedure ViscousFlux0D, ViscousFlux2D, ViscousFlux3D
-         module procedure ViscousFlux0D_withSGS, ViscousFlux3D_withSGS
-     end interface ViscousFlux
 !
 !     ========
       CONTAINS 
@@ -311,7 +307,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux0D(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux0D_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -373,9 +369,9 @@
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw * nablaT(IZ)
 
          ! with Pr = constant, dmudx = dkappadx
-      end subroutine ViscousFlux0D
+      end subroutine ViscousFlux0D_STATE
 
-      pure subroutine ViscousFlux2D( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux2D_STATE( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -448,9 +444,9 @@
 
          end associate
 
-      end subroutine ViscousFlux2D
+      end subroutine ViscousFlux2D_STATE
 
-      pure subroutine ViscousFlux3D( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+      pure subroutine ViscousFlux3D_STATE( nEqn, nGradEqn, N, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -525,7 +521,7 @@
 
          end associate
 
-      end subroutine ViscousFlux3D
+      end subroutine ViscousFlux3D_STATE
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -776,7 +772,7 @@
 !        --------------------------------------------------
          dMu_dQ    = SutherlandsLawDeriv(Q,T)
          
-         call ViscousFlux0D(NCONS, NCONS, Q, Q_x, Q_y, Q_z, dimensionless % mu, 0._RP, dimensionless % kappa, F)
+         call ViscousFlux0D_STATE(NCONS, NCONS, Q, Q_x, Q_y, Q_z, dimensionless % mu, 0._RP, dimensionless % kappa, F)
          F = F / sutherLaw
          
          df_dq(:,:,1) = df_dq(:,:,1) + outer_product(F(:,1),dMu_dQ)

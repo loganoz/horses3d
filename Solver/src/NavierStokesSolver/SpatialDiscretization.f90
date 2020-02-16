@@ -28,7 +28,7 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: NSGradientValuesForQ_0D, NSGradientValuesForQ_3D, GetNSViscosity
+      use VariableConversion, only: NSGradientVariables0D_STATE, NSGradientVariables3D_STATE, GetNSViscosity
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_
@@ -157,12 +157,12 @@ module SpatialDiscretization
 
                end select
 
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity, ELLIPTIC_NS)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D_STATE, ViscousFlux2D_STATE, ViscousFlux3D_STATE, GetNSViscosity, ELLIPTIC_NS)
                call ViscousDiscretization % Describe
       
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
-               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D, ViscousFlux2D, ViscousFlux3D, GetNSViscosity, ELLIPTIC_NS)
+               call ViscousDiscretization % Construct(controlVariables, ViscousFlux0D_STATE, ViscousFlux2D_STATE, ViscousFlux3D_STATE, GetNSViscosity, ELLIPTIC_NS)
                
             end if
 
@@ -304,7 +304,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , NSGradientValuesForQ_0D, NSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , NSGradientVariables0D_STATE, NSGradientVariables3D_STATE )
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -651,7 +651,7 @@ module SpatialDiscretization
          if ( .not. SVV % enabled ) then
             SVVcontravariantFlux = 0.0_RP
          else
-            call SVV % ComputeInnerFluxes(e, ViscousFlux3D, SVVContravariantFlux)
+            call SVV % ComputeInnerFluxes(e, ViscousFlux3D_STATE, SVVContravariantFlux)
          end if
 !
 !        ************************
@@ -738,7 +738,7 @@ module SpatialDiscretization
          if ( .not. SVV % enabled ) then
             SVVcontravariantFlux = 0.0_RP
          else
-            call SVV % ComputeInnerFluxes(e, ViscousFlux3D, SVVContravariantFlux)
+            call SVV % ComputeInnerFluxes(e, ViscousFlux3D_STATE, SVVContravariantFlux)
          end if
 !
 !        ************************
@@ -1174,7 +1174,7 @@ module SpatialDiscretization
 !
          if ( SVV % enabled ) then 
          CALL SVV % RiemannSolver(f = f, &
-                        EllipticFlux = ViscousFlux2D, &
+                        EllipticFlux = ViscousFlux2D_STATE, &
                               QLeft = f % storage(1) % Q, &
                              QRight = f % storage(2) % Q, &
                             U_xLeft = f % storage(1) % U_x, &
@@ -1265,7 +1265,7 @@ module SpatialDiscretization
 !        ----------
 !
          CALL SVV % RiemannSolver(f = f, &
-                            EllipticFlux = ViscousFlux2D, &
+                            EllipticFlux = ViscousFlux2D_STATE, &
                               QLeft = f % storage(1) % Q, &
                              QRight = f % storage(2) % Q, &
                             U_xLeft = f % storage(1) % U_x, &
@@ -1424,7 +1424,7 @@ module SpatialDiscretization
 !     ----------
 !
       CALL SVV % RiemannSolver(f = f, &
-                           EllipticFlux = ViscousFlux2D, &
+                           EllipticFlux = ViscousFlux2D_STATE, &
                            QLeft = f % storage(1) % Q, &
                           QRight = f % storage(2) % Q, &
                          U_xLeft = f % storage(1) % U_x, &
@@ -1469,7 +1469,7 @@ module SpatialDiscretization
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, NSGradientValuesForQ_0D, NSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, NSGradientVariables0D_STATE, NSGradientVariables3D_STATE)
 
       end subroutine DGSpatial_ComputeGradient
 

@@ -658,7 +658,7 @@ module EllipticIP
                                                            e % storage % U_z, &
                                                                 tauSGS, qSGS    )
 
-         call ViscousFlux(NCONS, NGRAD, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
+         call ViscousFlux3D_withSGS(NCONS, NGRAD, e%Nxyz, e % storage % Q , e % storage % U_x , e % storage % U_y , e % storage % U_z, mu, kappa, tauSGS, qSGS, cartesianFlux )
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
@@ -905,8 +905,8 @@ flux )
          mu    = dimensionless % mu
          kappa = dimensionless % kappa
          
-         call ViscousFlux(NCONS, NGRAD, QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
-         call ViscousFlux(NCONS, NGRAD, QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
+         call ViscousFlux0D_withSGS(NCONS, NGRAD, QLeft , U_xLeft , U_yLeft , U_zLeft , mu, kappa, tauSGS_L, qSGS_L, flux_vecL)
+         call ViscousFlux0D_withSGS(NCONS, NGRAD, QRight, U_xRight, U_yRight, U_zRight, mu, kappa, tauSGS_R, qSGS_R, flux_vecR)
          
          flux_vec = 0.5_RP * (flux_vecL + flux_vecR)
 !
