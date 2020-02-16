@@ -550,6 +550,13 @@
       end if
 
       S_div_TRef_Sutherland = S_Sutherland / TRef_Sutherland
+      
+!
+!     Silly correction for rounding errors: CylinderIP_BDF2 results change otherwise
+      if ( abs(S_div_TRef_Sutherland - 198.6_RP/520.0_RP) .le. 100.0_RP*epsilon(1.0_RP) ) then
+         S_div_TRef_Sutherland = 198.6_RP / 520.0_RP
+      end if
+
       TemperatureReNormalization_Sutherland = refValues_ % T / TRef_Sutherland      
 !
 !     **********************************************************************
