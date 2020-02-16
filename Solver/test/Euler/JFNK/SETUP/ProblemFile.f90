@@ -342,7 +342,7 @@
 #if defined(NAVIERSTOKES)
             INTEGER                            :: expectedIterations = 5
 !#ifdef HAS_MKL
-            REAL(KIND=RP)                      :: expectedResidual   = 1.3244516594568264E-011_RP
+            REAL(KIND=RP)                      :: expectedResidual   = 1.6257217794191102E-011_RP
 !#else
 !            REAL(KIND=RP)                      :: expectedResidual   = 3.1263880373444408E-013_RP
 !#endif
