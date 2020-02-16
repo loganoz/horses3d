@@ -24,13 +24,8 @@ module VariableConversion_MU
    implicit none
 
    private
-   public   mGradientValuesForQ
-   public   mGradientValuesForQ_0D, mGradientValuesForQ_3D
+   public   mGradientVariables
    public   GetmTwoFluidsViscosity, GetmOneFluidViscosity
-
-   interface mGradientValuesForQ
-       module procedure mGradientValuesForQ_0D , mGradientValuesForQ_3D
-   end interface mGradientValuesForQ
 
    contains
 !
@@ -41,7 +36,7 @@ module VariableConversion_MU
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine mGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
+      pure subroutine mGradientVariables( nEqn, nGrad, Q, U, rho_ )
 !
 !        --------------------------------------------------------------
 !        Returns all gradient variables EXCEPT the chemical potential,
@@ -64,32 +59,7 @@ module VariableConversion_MU
 
          U = [0.0_RP, invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q
 
-      end subroutine mGradientValuesForQ_0D
-
-      pure subroutine mGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
-         implicit none
-         integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
-         real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: i, j, k
-         real(kind=RP) :: invSqrtRho
-
-         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-            invSqrtRho = 1.0_RP / sqrt(rho_(i,j,k))
-!
-!           I made this an entire line just in case the compiler vectorizes it ?
-!           ------------------------------------------------------------------
-            U(:,i,j,k) = [0.0_RP, invSqrtRho, invSqrtRho, invSqrtRho, 1.0_RP] * Q(:,i,j,k)
-            
-         end do       ; end do       ; end do
-         
-      end subroutine mGradientValuesForQ_3D
+      end subroutine mGradientVariables
 
       pure subroutine GetmOneFluidViscosity(c, mu)
 !

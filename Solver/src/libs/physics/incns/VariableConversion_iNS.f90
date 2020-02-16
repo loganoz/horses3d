@@ -24,13 +24,8 @@ module VariableConversion_iNS
    implicit none
 
    private
-   public   iNSGradientValuesForQ
-   public   iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D
+   public   iNSGradientVariables
    public   GetiNSTwoFluidsViscosity, GetiNSOneFluidViscosity
-
-   interface iNSGradientValuesForQ
-       module procedure iNSGradientValuesForQ_0D , iNSGradientValuesForQ_3D
-   end interface iNSGradientValuesForQ
 
    contains
 !
@@ -41,7 +36,7 @@ module VariableConversion_iNS
 !! quantities of which the gradients will be taken.
 !---------------------------------------------------------------------
 !
-      pure subroutine iNSGradientValuesForQ_0D( nEqn, nGrad, Q, U, rho_ )
+      pure subroutine iNSGradientVariables(nEqn, nGrad, Q, U, rho_ )
          implicit none
          integer, intent(in)        :: nEqn, nGrad
          real(kind=RP), intent(in)  :: Q(nEqn)
@@ -63,34 +58,7 @@ module VariableConversion_iNS
          U(INSP)    = Q(INSP)
          U(INSRHO)  = -0.5_RP*(U(INSRHOU)*U(INSRHOU) + U(INSRHOV)*U(INSRHOV) + U(INSRHOW)*U(INSRHOW))
 
-      end subroutine iNSGradientValuesForQ_0D
-
-      pure subroutine iNSGradientValuesForQ_3D( nEqn, nGrad, Nx, Ny, Nz, Q, U, rho_ )
-         implicit none
-         integer,       intent(in)  :: nEqn, nGrad, Nx, Ny, Nz
-         real(kind=RP), intent(in)  :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out) :: U(1:nGrad, 0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer  :: i, j, k
-         real(kind=RP) :: rho, invRho
-
-         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-            rho = Q(INSRHO,i,j,k)
-            invRho = 1.0_RP / rho
-!
-!           I made this an entire line just in case the compiler vectorizes it ?
-!           ------------------------------------------------------------------
-            U(INSRHOU:INSP,i,j,k) = [invRho, invRho, invRho, 1.0_RP] * Q(INSRHOU:INSP,i,j,k)
-            U(INSRHO,i,j,k) = -0.5_RP * ( sum(POW2(U(INSRHOU:INSRHOW,i,j,k)) ) )
-            
-         end do       ; end do       ; end do
-         
-      end subroutine iNSGradientValuesForQ_3D
+      end subroutine iNSGradientVariables
 
       pure subroutine GetiNSOneFluidViscosity(phi, mu)
 !

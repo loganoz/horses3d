@@ -26,7 +26,7 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
+      use VariableConversion, only: iNSGradientVariables, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
@@ -61,6 +61,7 @@ module SpatialDiscretization
       end interface
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
+      procedure(GetViscosity_f), pointer, protected :: GetViscosity 
 !
 !     ========      
       CONTAINS 
@@ -150,14 +151,16 @@ module SpatialDiscretization
 
                end select
 
+               call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_iNS)
+               call ViscousDiscretization % Describe
+
                select case (thermodynamics % number_of_fluids)
                case(1)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSOneFluidViscosity, ELLIPTIC_iNS)
+                  GetViscosity => GetiNSOneFluidViscosity
                case(2)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSTwoFluidsViscosity, ELLIPTIC_iNS)
+                  GetViscosity => GetiNSTwoFluidsViscosity
                end select
 
-               call ViscousDiscretization % Describe
 !
 !        Compute wall distances
 !        ----------------------
@@ -295,7 +298,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NCONS, mesh , time, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NCONS, mesh , time, iNSGradientVariables)
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -567,11 +570,11 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux3D, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, iViscousFlux, GetViscosity, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -633,11 +636,11 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux3D, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, iViscousFlux, GetViscosity, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -710,8 +713,8 @@ module SpatialDiscretization
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
-               call ViscousDiscretization % GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
+               call GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
+               call GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
                mu = 0.5_RP * (muL + muR)
 !      
 !              --------------
@@ -719,6 +722,7 @@ module SpatialDiscretization
 !              --------------
 !      
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  EllipticFlux = iViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -790,9 +794,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+               call GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  EllipticFlux = iViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -888,9 +893,10 @@ module SpatialDiscretization
 !           Viscous fluxes
 !           --------------
 !   
-            call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+            call GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
             CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                               EllipticFlux = iViscousFlux, &
                                                f = f, &
                                                QLeft = f % storage(1) % Q(:,i,j), &
                                                QRight = f % storage(2) % Q(:,i,j), &
@@ -945,7 +951,7 @@ module SpatialDiscretization
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientVariables)
 
       end subroutine DGSpatial_ComputeGradient
 

@@ -21,7 +21,7 @@ module Physics_CH
       private
       public  CHDivergenceFlux, AddQuarticDWPDerivative, QuarticDWP
       public  Multiphase_AddChemFEDerivative
-      public  CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D, PoiseuilleFlow
+      public  PoiseuilleFlow
 !
 !     ---------
 !     Constants
@@ -30,9 +30,6 @@ module Physics_CH
       INTEGER, PARAMETER   :: WALL_BC = 1, RADIATION_BC = 2
       INTEGER              :: boundaryCondition(4), bcType
 
-     interface CHDivergenceFlux
-      module procedure CHDivergenceFlux0D, CHDivergenceFlux2D, CHDivergenceFlux3D
-     end interface CHDivergenceFlux
 !
 !     ========
       CONTAINS 
@@ -45,7 +42,7 @@ module Physics_CH
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine CHDivergenceFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine CHDivergenceFlux(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn, nGradEqn
          real(kind=RP), intent(in)  :: Q   (nEqn)
@@ -61,45 +58,7 @@ module Physics_CH
          F(1,IY) = U_y(1)
          F(1,IZ) = U_z(1)
 
-      end subroutine CHDivergenceFlux0D
-
-      pure subroutine CHDivergenceFlux2D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         implicit none
-         integer,          intent(in)  :: nEqn, nGradEqn
-         integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
-
-         F(1,IX,:,:) = U_x(1,:,:)
-         F(1,IY,:,:) = U_y(1,:,:)
-         F(1,IZ,:,:) = U_z(1,:,:)
-
-      end subroutine CHDivergenceFlux2D
-
-      pure subroutine CHDivergenceFlux3D(nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         implicit none
-         integer,          intent(in)  :: nEqn, nGradEqn
-         integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3),1:NDIM)
-
-         F(1,:,:,:,IX) = U_x(1,:,:,:)
-         F(1,:,:,:,IY) = U_y(1,:,:,:)
-         F(1,:,:,:,IZ) = U_z(1,:,:,:)
-
-      end subroutine CHDivergenceFlux3D
+      end subroutine CHDivergenceFlux
 
       elemental subroutine AddQuarticDWPDerivative(c, mu)
          implicit none
