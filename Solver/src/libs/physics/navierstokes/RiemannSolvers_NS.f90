@@ -151,9 +151,9 @@ module RiemannSolvers_NS
             AveragedStates => EntropyConservingAverage
             whichAverage = ENTROPYCONS_SPLIT
 
-         case (ENTROPYANDENERGYCONS_SPLIT)
-            AveragedStates => EntropyAndEnergyConservingAverage
-            whichAverage = ENTROPYANDENERGYCONS_SPLIT
+         case (CHANDRASEKAR_SPLIT)
+            AveragedStates => ChandrasekarAverage
+            whichAverage = CHANDRASEKAR_SPLIT
 
          case default
             print*, "Split form not recognized"
@@ -1741,7 +1741,7 @@ module RiemannSolvers_NS
 
       end subroutine EntropyConservingAverage
 
-      subroutine EntropyAndEnergyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+      subroutine ChandrasekarAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
          use SMConstants
          use Utilities, only: logarithmicMean
          implicit none
@@ -1790,6 +1790,6 @@ module RiemannSolvers_NS
 
          end associate
 
-      end subroutine EntropyAndEnergyConservingAverage
+      end subroutine ChandrasekarAverage
 
 end module RiemannSolvers_NS

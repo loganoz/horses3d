@@ -149,8 +149,21 @@ module VariableConversion_NS
 !        ---------------
 !        Local Variables
 !        ---------------
-!     
-         U = Q
+!
+         real(kind=RP)  :: invRho, p, invP, rhoV2
+            
+         invRho = 1.0_RP / Q(IRHO)
+         rhoV2 = (POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho
+         p = thermodynamics % gammaMinus1*(Q(IRHOE) - 0.5_RP*rhoV2)
+         invP = 1.0_RP / p
+
+         U(IRHO) =   (thermodynamics % gamma-(log(p) - thermodynamics % gamma*log(Q(IRHO))))*thermodynamics % invGammaMinus1 &
+                   - 0.5_RP*rhoV2*invP
+         U(IRHOU) = Q(IRHOU)*invP
+         U(IRHOV) = Q(IRHOV)*invP
+         U(IRHOW) = Q(IRHOW)*invP
+         U(IRHOE) = -Q(IRHO)*invP
+
 
       end subroutine NSGradientVariables_ENTROPY
 !

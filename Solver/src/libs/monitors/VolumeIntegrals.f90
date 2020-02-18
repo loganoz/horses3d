@@ -131,6 +131,7 @@ module VolumeIntegrals
 !
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
+         real(kind=RP)           :: EntropyVars(NCONS)
          real(kind=RP)           :: KinEn(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: U_x(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: U_y(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -251,20 +252,9 @@ module VolumeIntegrals
 !              Computes the specific entropy integral time derivative
 !           ************************************************************
 !
-            uvw = e % storage % Q(IRHOU,:,:,:) / e % storage % Q(IRHO,:,:,:)
-            KinEn = uvw * e % storage % QDot(IRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
-
-            uvw = e % storage % Q(IRHOV,:,:,:) / e % storage % Q(IRHO,:,:,:)
-            KinEn = KinEn + uvw * e % storage % QDot(IRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
-
-            uvw = e % storage % Q(IRHOW,:,:,:) / e % storage % Q(IRHO,:,:,:)
-            KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
-
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               p = Pressure( e % storage % Q )
-               dtP = thermodynamics % gammaMinus1 * ( e % storage % QDot(IRHOE,i,j,k) - KinEn(i,j,k) )
-               s   =  dtP/p - thermodynamics % gamma * e % storage % QDot(IRHO,i,j,k) / e % storage % Q(IRHO,i,j,k) 
-               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+               call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
+               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * dot_product(e % storage % QDot(:,i,j,k),EntropyVars)
             end do            ; end do           ; end do
          case ( INTERNAL_ENERGY )
             !

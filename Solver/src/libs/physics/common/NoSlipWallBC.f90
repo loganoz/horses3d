@@ -289,7 +289,7 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(inout) :: Q(NCONS)
 
-         Q(IRHOU:IRHOW) = 2.0_RP * self % vWall - Q(IRHOU:IRHOW)
+         Q(IRHOU:IRHOW) = 2.0_RP * Q(IRHO) * self % vWall - Q(IRHOU:IRHOW)
          Q(IRHOE) = Q(IRHOE) + self % kWallType*(Q(IRHO)*self % ewall-Q(IRHOE))
 
       end subroutine NoSlipWallBC_FlowState

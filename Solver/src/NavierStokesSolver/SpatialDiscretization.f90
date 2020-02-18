@@ -28,7 +28,7 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity
+      use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_

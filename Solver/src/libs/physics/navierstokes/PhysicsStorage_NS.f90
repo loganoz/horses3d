@@ -88,7 +88,7 @@
      public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
-     public    ENTROPYANDENERGYCONS_SPLIT
+     public    CHANDRASEKAR_SPLIT
       
      public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
      public    CheckPhysicsNSInputIntegrity
@@ -147,7 +147,7 @@
         enumerator :: STANDARD_SPLIT = 1, MORINISHI_SPLIT
         enumerator :: DUCROS_SPLIT, KENNEDYGRUBER_SPLIT
         enumerator :: PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
-        enumerator :: ENTROPYANDENERGYCONS_SPLIT
+        enumerator :: CHANDRASEKAR_SPLIT
      end enum
      integer            :: whichAverage               = -1
 !
