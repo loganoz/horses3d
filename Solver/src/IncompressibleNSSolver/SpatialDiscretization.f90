@@ -486,16 +486,6 @@ module SpatialDiscretization
                endif 
             end if
 
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
-               end do                  ; end do                ; end do
-               end associate
-            end do
-!$omp end do
-                        
       end subroutine ComputeNSTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////

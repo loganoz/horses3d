@@ -21,9 +21,10 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep
+   public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
 
    integer, protected :: eBDF_order = 3
+   logical, protected :: CTD_AFTER_STEPS = .false.
 !========
  CONTAINS
 !========
@@ -85,10 +86,8 @@ MODULE ExplicitMethods
          
       END DO
 !
-!     ***** Uncomment this line for good monitors time derivative
-#ifdef MULTIPHASE
-      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-#endif
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements
@@ -157,6 +156,10 @@ MODULE ExplicitMethods
          endif
       end do
 !$omp end parallel do
+
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
       
    end subroutine TakeRK5Step
 
@@ -191,8 +194,9 @@ MODULE ExplicitMethods
          END DO
 !$omp end parallel do
 
-!     ***** Uncomment this line for good monitors time derivative
-!      CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
    end subroutine TakeExplicitEulerStep
 
@@ -337,6 +341,11 @@ MODULE ExplicitMethods
 
 
    end subroutine TakeExplicitBDFStep
+
+   subroutine Enable_CTD_AFTER_STEPS()
+      implicit none
+      CTD_AFTER_STEPS = .true.
+   end subroutine Enable_CTD_AFTER_STEPS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

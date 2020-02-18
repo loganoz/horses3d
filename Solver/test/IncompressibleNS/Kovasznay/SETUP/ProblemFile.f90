@@ -21,6 +21,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
+#include "Includes.h"
 #if defined(NAVIERSTOKES)
 #define NNS NCONS
 #define NGRADNS NGRAD
@@ -275,6 +276,11 @@ end module ProblemFileFunctions
 !
             integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p, x(NDIM), eta
+            real(kind=RP)  :: lambda
+
+#ifdef INCNS
+
+            lambda = 0.5_RP*dimensionless_ % Re - sqrt(0.25*POW2(dimensionless_ % Re) + 4.0_RP * POW2(PI))
 !
 !           ------------------------------------------------------
 !           Incompressible Navier-Stokes default initial condition
@@ -286,12 +292,22 @@ end module ProblemFileFunctions
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   x = mesh % elements(eID) % geom % x(:,i,j,k)
-                  eta = -0.1_RP*cos(2.0_RP*PI*x(IZ))
-                  qq = 2.0_RP + tanh((x(IX)-2.0_RP-eta)/(0.01_RP))
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [qq, 0.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+               
+                  !u = 1.0_RP - exp(lambda*x(IX))*cos(2.0_RP*PI*x(IZ))
+                  !v = 0.0_RP
+                  !w = lambda/(2.0_RP*PI)*exp(lambda*x(IX))*sin(2.0_RP*PI*x(IZ))
+                  !p = 0.5_RP*(1.0_RP - exp(2.0_RP*lambda*x(IX)))
+                  u = 1.0_RP
+                  v = 0.0_RP
+                  w = 0.0_RP
+                  p = 1.0_RP
+
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, u, v, w, p]
                end do;        end do;        end do
                end associate
             end do
+
+#endif
 
          end subroutine UserDefinedInitialCondition
 #if defined(NAVIERSTOKES) || defined(INCNS)
@@ -312,6 +328,27 @@ end module ProblemFileFunctions
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
+
+            real(kind=RP)  :: u, v, w, p
+            real(kind=RP)  :: lambda
+
+#ifdef INCNS
+
+            lambda = 0.5_RP*dimensionless_ % Re - sqrt(0.25_RP*POW2(dimensionless_ % Re) + 4.0_RP * POW2(PI))
+            
+            u = 1.0_RP - exp(lambda*x(IX))*cos(2.0_RP*PI*x(IZ))
+            v = 0.0_RP
+            w = lambda/(2.0_RP*PI)*exp(lambda*x(IX))*sin(2.0_RP*PI*x(IZ))
+            p = 0.5_RP*(1.0_RP - exp(2.0_RP*lambda*x(IX)))
+
+            Q(INSRHO) = 1.0_RP
+            Q(INSRHOU) = u
+            Q(INSRHOV) = v
+            Q(INSRHOW) = w
+            Q(INSP)    = p
+
+#endif
+
          end subroutine UserDefinedState1
 
          subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
@@ -430,30 +467,101 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
-            real(kind=RP), parameter              :: saved_residuals(5) = [1.5156656663308099E-01_RP, &
-                                                                           3.2179273453453159E+00_RP, &
-                                                                           6.4963922577519663E-14_RP, &
-                                                                           1.8004588017044313E-09_RP, &
-                                                                           1.2546658191962379E+02_RP]
-            real(kind=RP), parameter           :: entropy = 4.4455986912016106E-06_RP
-            real(kind=RP), parameter           :: mass = 4.0_RP
-            CHARACTER(LEN=29)                  :: testName = "Incompressible Rayleigh-Taylor Instability"
+            integer  :: fiD
+!
+!           *****************
+!           Compute the error
+!           *****************
+!
+            CHARACTER(LEN=29)                  :: testName = "Kovasznay flow"
+            integer, parameter :: no_of_iters = 8576
+            real(kind=RP), parameter :: saved_errors(5) = [4.680065231034172E-005_RP, &
+                                                           5.544285953866849E-003_RP, &
+                                                           1.325973864324176E-016_RP, &
+                                                           1.327928160087569E-003_RP, &
+                                                           2.615218810244416E-002_RP]
+            real(kind=RP), parameter :: saved_residuals(5) = [9.998917630582582E-005_RP, &
+                                                              7.631756474779650E-005_RP, &
+                                                              8.632617389296513E-017_RP, &
+                                                              1.507050321425396E-006_RP, &
+                                                              5.465488357003778E-006_RP]
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+            integer       :: eID, i, j, k, N
+            real(kind=RP) :: rho, u, v, w, p, lambda
+            real(kind=RP) :: locErr(NCONS), L2Err(NCONS), Q(NCONS), x(NDIM)
+            real(kind=RP) :: wi, wj, wk, Jijk
+            real(kind=RP), parameter :: w_LGL(0:3) = [1.0_RP/6.0_RP, 5.0_RP/6.0_RP, 5.0_RP/6.0_RP, 1.0_RP/6.0_RP]
+
+#ifdef INCNS
+
+            lambda = 0.5_RP*dimensionless_ % Re - sqrt(0.25_RP*POW2(dimensionless_ % Re) + 4.0_RP * POW2(PI))
+
+            L2Err = 0.0_RP
+
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  x = mesh % elements(eID) % geom % X(:,i,j,k)
+
+                  rho = 1.0_RP
+                  u   = 1.0_RP - exp(lambda*x(IX))*cos(2.0_RP*PI*x(IZ))
+                  v   = 0.0_RP
+                  w   = lambda/(2.0_RP*PI)*exp(lambda*x(IX))*sin(2.0_RP*PI*x(IZ))
+                  p   = 0.5_RP*(1.0_RP - exp(2.0_RP*lambda*x(IX)))
+
+                  Q = mesh % elements(eID) % storage % q(:,i,j,k) 
+                  locErr = abs(Q-[rho, rho*u, rho*v, rho*w, p])**2
+
+                  wi = w_LGL(i)
+                  wj = w_LGL(j)
+                  wk = 2.0_RP
+                  Jijk = mesh % elements(eID) % geom % jacobian(i,j,k)
+
+                  L2Err = L2Err + wi*wj*wk*Jijk*locErr 
+
+               end do;        end do;        end do
+               N = Nx
+               end associate
+            end do
+
+            L2Err = sqrt(L2Err)
 
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            CALL FTAssertEqual(expectedValue = mass, &
-                               actualValue   = monitors % volumeMonitors(1) % Values(1,1), &
-                               tol           = 1.d-11, &
-                               msg           = "Mass")
+            CALL FTAssertEqual(expectedValue =  no_of_iters, &
+                               actualValue   =  iter, &
+                               msg           = "Number of time steps")
 
-            CALL FTAssertEqual(expectedValue = entropy, &
-                               actualValue   = monitors % volumeMonitors(2) % Values(1,1), &
+            
+            CALL FTAssertEqual(expectedValue = saved_errors(1)+1.0_RP, &
+                               actualValue   = L2Err(1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Entropy")
+                               msg           = "Density error")
+
+            CALL FTAssertEqual(expectedValue = saved_errors(2)+1.0_RP, &
+                               actualValue   = L2Err(2)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum error")
+
+            CALL FTAssertEqual(expectedValue = saved_errors(3)+1.0_RP, &
+                               actualValue   = L2Err(3)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum error")
+
+            CALL FTAssertEqual(expectedValue = saved_errors(4)+1.0_RP, &
+                               actualValue   = L2Err(4)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum error")
+
+            CALL FTAssertEqual(expectedValue = saved_errors(5)+1.0_RP, &
+                               actualValue   = L2Err(5)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Pressure error")
 
             CALL FTAssertEqual(expectedValue = saved_residuals(1)+1.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
@@ -496,6 +604,9 @@ end module ProblemFileFunctions
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
+
+#endif
+
 
 
          END SUBROUTINE UserDefinedFinalize

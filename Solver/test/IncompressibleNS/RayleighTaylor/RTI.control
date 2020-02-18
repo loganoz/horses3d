@@ -5,7 +5,7 @@
 !
 !-------------------------- Configuration:-
                           Mesh file name = ./MESH/RTI_128x16.mesh
-                      Solution file name = ./RESULTS/Skew2-Re1000/Skew2-Re1000.hsol
+                      Solution file name = ./RESULTS/Skew2-Re1000.hsol
               Save gradients to solution = .false.
                 2D mesh offset direction = y
                                  Restart = .false.
@@ -22,7 +22,7 @@
                        Compute gradients = .true.
 
 !------------------------- Discretization:-
-                        Polynomial order = 4
+                        Polynomial order = 6
                     Discretization nodes = Gauss  ! Gauss-Lobatto
                           Riemann solver = Exact
                       !beta0 coefficient = 0.0025
@@ -34,8 +34,8 @@
 
 !----------------------- Time integration:-
                         Time integration = Explicit   ! IMEX/Implicit
-                                     CFL = 1.5E-05
-                    Number of time steps = 1000
+                                      dt = 1.5E-05
+                    Number of time steps = 100
                          Output interval = 100
                    Convergence tolerance = 1.0e-10
                          Simulation type = time-accurate

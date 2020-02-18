@@ -286,9 +286,13 @@ end module ProblemFileFunctions
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   x = mesh % elements(eID) % geom % x(:,i,j,k)
-                  eta = -0.1_RP*cos(2.0_RP*PI*x(IZ))
-                  qq = 2.0_RP + tanh((x(IX)-2.0_RP-eta)/(0.01_RP))
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [qq, 0.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+
+                  u = sin(PI*x(IX)) * cos(PI*x(IY)) * cos(PI*x(IZ))
+                  v = -cos(PI*x(IX)) * sin(PI*x(IY)) * cos(PI*x(IZ))
+                  w = 0.0_RP
+
+                  p = 0.0625_RP*(cos(2.0_RP*PI*x(IX)) + cos(2.0_RP*PI*x(IY)))*(2.0_RP + cos(2.0_RP*PI*x(IZ)))
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, u, v, w, p] 
                end do;        end do;        end do
                end associate
             end do
@@ -409,8 +413,8 @@ end module ProblemFileFunctions
 !           --------------------------------------------------------
 !
             use SMConstants
-            use FTAssertions
             USE HexMeshClass
+            use FTAssertions
             use PhysicsStorage
             use FluidData
             use MonitorsClass
@@ -430,30 +434,31 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
-            real(kind=RP), parameter              :: saved_residuals(5) = [1.5156656663308099E-01_RP, &
-                                                                           3.2179273453453159E+00_RP, &
-                                                                           6.4963922577519663E-14_RP, &
-                                                                           1.8004588017044313E-09_RP, &
-                                                                           1.2546658191962379E+02_RP]
-            real(kind=RP), parameter           :: entropy = 4.4455986912016106E-06_RP
-            real(kind=RP), parameter           :: mass = 4.0_RP
-            CHARACTER(LEN=29)                  :: testName = "Incompressible Rayleigh-Taylor Instability"
+
+            CHARACTER(LEN=29)                  :: testName = "Incompressible TGV"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+            real(kind=RP), parameter :: saved_residuals(5) = [8.309042349736728E-004_RP, &
+                                                              0.416561235267411_RP, &  
+                                                              0.416561235266192_RP, &  
+                                                              0.787972913019971_RP, &
+                                                              0.832320263842121_RP]
 
+            real(kind=RP), parameter :: kin_en_rate = 8.592752774210996E-006_RP
+            real(kind=RP), parameter :: entropy_rate = 2.081668171172169E-017_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            CALL FTAssertEqual(expectedValue = mass, &
+            CALL FTAssertEqual(expectedValue = kin_en_rate, &
                                actualValue   = monitors % volumeMonitors(1) % Values(1,1), &
                                tol           = 1.d-11, &
-                               msg           = "Mass")
+                               msg           = "Kinetic energy rate")
 
-            CALL FTAssertEqual(expectedValue = entropy, &
+            CALL FTAssertEqual(expectedValue = entropy_rate, &
                                actualValue   = monitors % volumeMonitors(2) % Values(1,1), &
                                tol           = 1.d-11, &
-                               msg           = "Entropy")
+                               msg           = "Entropy rate")
 
             CALL FTAssertEqual(expectedValue = saved_residuals(1)+1.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
