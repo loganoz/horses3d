@@ -18,6 +18,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
+   public ENTROPY_BALANCE
 #endif
 
 #if defined(INCNS)
@@ -41,6 +42,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
+      enumerator :: ENTROPY_BALANCE
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -132,6 +134,7 @@ module VolumeIntegrals
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
          real(kind=RP)           :: EntropyVars(NCONS)
+         real(kind=RP)           :: ViscFlux(NCONS,NDIM)
          real(kind=RP)           :: KinEn(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: U_x(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: U_y(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -256,6 +259,22 @@ module VolumeIntegrals
                call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * dot_product(e % storage % QDot(:,i,j,k),EntropyVars)
             end do            ; end do           ; end do
+
+
+         case (ENTROPY_BALANCE)
+!
+!           ****************************************************************************
+!              Computes the specific entropy integral time derivative minus viscous work
+!           ****************************************************************************
+!
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
+               call ViscousFlux_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
+                                 e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
+                  sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
+            end do            ; end do           ; end do
+
          case ( INTERNAL_ENERGY )
             !
             !           ***********************************
