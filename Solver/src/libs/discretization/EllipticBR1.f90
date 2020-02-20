@@ -531,34 +531,24 @@ module EllipticBR1
 !        ---------------
 !
          integer       :: i, j, bcID
-         real(kind=RP) :: Uhat(nGradEqn), UL(nGradEqn), UR(nGradEqn)
+         real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: bvExt(nEqn)
-
-#if defined(INCNS) || defined(MULTIPHASE)
-         if ( trim(BCs(f % zone) % bc % BCType) /= "freeslipwall" ) then
-#endif
 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 
-            bvExt =  f % storage(1) % Q(:,i,j)
-   
-            call BCs(f % zone) % bc % StateForEqn( nEqn, &
-                                f % geom % x(:,i,j), &
-                                time               , &
-                                f % geom % normal(:,i,j)      , &
-                                bvExt              )
-!   
-!           -------------------
-!           u, v, w, T averages
-!           -------------------
-!   
 #ifdef MULTIPHASE
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j) )
-            call GetGradients(nEqn, nGradEqn, bvExt, UR, f % storage(1) % rho(i,j) )
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), uHat, f % storage(1) % rho(i,j))
 #else
-            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
-            call GetGradients(nEqn, nGradEqn, bvExt, UR )
+            call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), uHat)
 #endif
+   
+            call BCs(f % zone) % bc % GradVarsForEqn( nEqn,&
+                                nGradEqn,                  &
+                                f % geom % x(:,i,j),       &
+                                time               ,       &
+                                f % geom % normal(:,i,j),  &
+                                f % storage(1) % Q(:,i,j), &
+                                Uhat                         )
 
 #ifdef MULTIPHASE
             select case (self % eqName)
@@ -566,51 +556,15 @@ module EllipticBR1
 !
 !              The multiphase solver needs the Chemical potential as first entropy variable
 !              ----------------------------------------------------------------------------
-               UL(IGMU) = f % storage(1) % mu(1,i,j)
-               UR(IGMU) = f % storage(1) % mu(1,i,j)
+               uHat(IGMU) = f % storage(1) % mu(1,i,j)
             end select
 #endif
    
-            Uhat = 0.5_RP * (UL + UR) * f % geom % jacobian(i,j)
-            
-            f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
-            f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
-            f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
+            f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
+            f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)    
+            f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j) * f % geom % jacobian(i,j)
 
          end do ; end do   
-
-#if defined(INCNS) || defined(MULTIPHASE)
-         else
-!
-!           *****************************
-!           Set W* = W in free slip walls
-!           *****************************
-            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-#ifdef MULTIPHASE   
-               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL, f % storage(1) % rho(i,j) )
-#else
-               call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), UL)
-#endif
-
-#ifdef MULTIPHASE
-            select case (self % eqName)
-            case (ELLIPTIC_MU)
-!
-!              The multiphase solver needs the Chemical potential as first entropy variable
-!              ----------------------------------------------------------------------------
-               UL(IGMU) = f % storage(1) % mu(1,i,j)
-            end select
-#endif
-      
-               Uhat = UL * f % geom % jacobian(i,j)
-               
-               f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j)
-               f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j)
-               f % storage(1) % unStar(:,3,i,j) = Uhat * f % geom % normal(3,i,j)
-   
-            end do ; end do   
-         end if 
-#endif
 
       end subroutine BR1_ComputeBoundaryFlux
 !
@@ -787,17 +741,17 @@ flux )
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
-         !Q   = 0.5_RP * ( QLeft + QRight)
-         !U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         !U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         !U_z = 0.5_RP * ( U_zLeft + U_zRight)
+         Q   = 0.5_RP * ( QLeft + QRight)
+         U_x = 0.5_RP * ( U_xLeft + U_xRight)
+         U_y = 0.5_RP * ( U_yLeft + U_yRight)
+         U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
-         !call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
+         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
 
-         call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu, beta, kappa, fL)
-         call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu, beta, kappa, fR)
+         !call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu, beta, kappa, fL)
+         !call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu, beta, kappa, fR)
 
-         flux_vec = 0.5_RP * (fL + fR)
+         !flux_vec = 0.5_RP * (fL + fR)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
 
