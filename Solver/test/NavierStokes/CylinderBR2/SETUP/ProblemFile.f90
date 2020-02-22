@@ -333,13 +333,22 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [244.828044335958_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011_RP, 0E-011_RP, &
-                                                               0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 8.138282691985545E-009_RP
-            real(kind=RP), parameter           :: cd =  34.3760618315965_RP
-            real(kind=RP), parameter           :: cl = -5.754861880468809E-003_RP
+            real(kind=RP), parameter :: residuals(5) = [8.9105509981796995E+00_RP, &
+                                                        1.7925634109511094E+01_RP, &
+                                                        8.4567015249455216E-02_RP, &
+                                                        2.4077154019585777E+01_RP, &
+                                                        2.4285745593236672E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 8.4987556243596439E-09_RP
+            real(kind=RP), parameter           :: cd =  3.4267540322680190E+01_RP
+            real(kind=RP), parameter           :: cl = -5.5137759327035241E-03_RP
 !
+
+do i=1,5
+write(*,'(ES24.16,A)') monitors % residuals % values(i,1),"_RP, &"
+enddo
+write(*,'(ES24.16,A)') monitors % probes(1) % values(1), "_RP"
+write(*,'(ES24.16,A)') monitors % surfaceMonitors(1) % values(1), "_RP"
+write(*,'(ES24.16,A)') monitors % surfaceMonitors(2) % values(1), "_RP"
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager

@@ -333,14 +333,18 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [240.188670968464_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011_RP, 0E-011_RP, &
-                                                               0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 7.684066381315687E-009_RP
-            real(kind=RP), parameter           :: cd =  34.0644252455578_RP
-            real(kind=RP), parameter           :: cl = -8.935869658852624E-004_RP
+            real(kind=RP), parameter :: residuals(5) = [1.1867679739898541E+01_RP, &
+                                                        4.2784270883435056E+01_RP, &
+                                                        1.9830095914408025E-01_RP, &
+                                                        2.7407353740214457E+01_RP, &
+                                                        3.4447465355381888E+02_RP]
+
+            real(kind=RP), parameter           :: wake_u = 8.0254506785764428E-09_RP
+            real(kind=RP), parameter           :: cd =  4.1631880498032437E+01_RP
+            real(kind=RP), parameter           :: cl = -1.5073753354108987E-03_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
+
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -348,11 +352,6 @@
             CALL FTAssertEqual(expectedValue = iterations(N), &
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
-
-            CALL FTAssertEqual(expectedValue = 0.01_RP * residuals(N), &
-                               actualValue   = 0.01_RP * maxResidual, &
-                               tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
                                actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &

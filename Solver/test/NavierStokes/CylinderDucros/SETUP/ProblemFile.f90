@@ -336,10 +336,17 @@
             REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [264.963353564539_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 6.4277506128128369E-015_RP
-            real(kind=RP), parameter           :: cd =  35.4425305676684_RP
-            real(kind=RP), parameter           :: cl = 2.168171229131488E-003_RP
+            real(kind=RP), parameter :: residuals(5) = [9.4580516553623593E+00_RP, &
+                                                        2.4654262026865911E+01_RP, &
+                                                        2.1861409459121595E-01_RP, &
+                                                        2.7485591115885040E+01_RP, &
+                                                        2.6028881635411562E+02_RP]
+
+            real(kind=RP), parameter           :: wake_u = 6.1631541599642804E-15_RP
+            real(kind=RP), parameter           :: cd =  3.5295067869679336E+01_RP
+            real(kind=RP), parameter           :: cl = 2.3730327002589036E-03_RP
 !
+
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager

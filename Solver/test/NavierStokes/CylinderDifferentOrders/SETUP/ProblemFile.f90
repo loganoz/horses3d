@@ -339,11 +339,16 @@
                                                                   2.6449069291071635E+02_RP]
  
 
-            real(kind=RP), parameter           :: wake_u =  1.000221973893403E-011_RP
-            real(kind=RP), parameter           :: cd = 1.1701460311796804E+01_RP
-            real(kind=RP), parameter           :: cl = 1.5392070070952002E-05_RP
+            real(kind=RP), parameter :: residuals(5) = [9.5857553761192378E+00_RP, &
+                                                        2.0878911878664567E+01_RP, &
+                                                        4.7453288186116363E-13_RP, &
+                                                        2.8320609938717048E+01_RP, &
+                                                        2.6480274908068253E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 8.5477572976610902E-12_RP
+            real(kind=RP), parameter           :: cd = 1.1700720496844060E+01_RP
+            real(kind=RP), parameter           :: cl = 2.3529360343665928E-05_RP
             integer  :: i
-!
+
 
 
             CALL initializeSharedAssertionsManager

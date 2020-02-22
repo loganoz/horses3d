@@ -339,14 +339,13 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [5, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(5)      :: residuals = [1.3562155675444995E-01_RP, &
-                                                             3.1361555904523519E-01_RP, &
-                                                             1.5772720224521875E-13_RP, &
-                                                             3.8046363076630924E-01_RP, &
-                                                             3.5530614130302287E+00_RP]
-  
-            real(kind=RP), parameter           :: cd = 1.9104074851869299E+00_RP
-            real(kind=RP), parameter           :: cl = -1.1666346830452312E-04_RP
+            real(kind=RP), parameter :: residuals(5) = [1.4208529751161197E-01_RP, &
+                                                        3.5785852728844081E-01_RP, &
+                                                        1.7744310252587110E-13_RP, &
+                                                        3.8621330724730052E-01_RP, &
+                                                        3.7430312097644962E+00_RP]
+            real(kind=RP), parameter           :: cd = 1.9175485178103173E+00_RP
+            real(kind=RP), parameter           :: cl = -1.1543997019813901E-04_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

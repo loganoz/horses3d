@@ -512,12 +512,13 @@ end module ProblemFileFunctions
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Pipe"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter              :: residuals_saved(5) = [119.657779784393_RP, &
-                                                                           217.132861894267_RP, &
-                                                                           146.185105730316_RP, &     
-                                                                           796.067105868016_RP, &
-                                                                           72302.7003320121_RP]     
-            real(kind=RP), parameter              :: entropyRate_saved = -49.5860721717096_RP
+            real(kind=RP), parameter :: residuals_saved(5) = [1.1965777978439260E+02_RP, &
+                                                              2.1858135418241869E+02_RP, &
+                                                              1.4703228453817630E+02_RP, &
+                                                              8.6566794319272958E+02_RP, &
+                                                              7.2787702726661635E+04_RP]
+            real(kind=RP), parameter              :: entropyRate_saved = -4.9589636615210296E+01_RP
+            integer :: i
 
 
             CALL initializeSharedAssertionsManager
@@ -527,11 +528,6 @@ end module ProblemFileFunctions
                                actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Entropy-Rate")
-
-            CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Continuity Residual")
 
             CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
