@@ -292,7 +292,7 @@ module FreeSlipWallBCClass
       subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
 !
 !        ***********************************************************
-!           Remove all normal gradients
+!           Remove all normal gradients: it is not enough with removing the normal component!
 !        ***********************************************************
 !
          implicit none
@@ -311,17 +311,10 @@ module FreeSlipWallBCClass
 !   
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
          INTEGER       :: k
-!   
-         DO k = 1, NGRAD
-            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-            UTanx = U_x(k) - gradUNorm*nHat(1)
-            UTany = U_y(k) - gradUNorm*nHat(2)
-            UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-            U_x(k) = UTanx - gradUNorm*nHat(1)
-            U_y(k) = UTany - gradUNorm*nHat(2)
-            U_z(k) = UTanz - gradUNorm*nHat(3)
-         END DO
+
+         U_x = -U_x
+         U_y = -U_y
+         U_z = -U_z
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
@@ -391,16 +384,9 @@ module FreeSlipWallBCClass
          REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
          INTEGER       :: k
 !   
-         DO k = 1, NCONS
-            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-            UTanx = U_x(k) - gradUNorm*nHat(1)
-            UTany = U_y(k) - gradUNorm*nHat(2)
-            UTanz = U_z(k) - gradUNorm*nHat(3)
-   
-            U_x(k) = UTanx - gradUNorm*nHat(1)
-            U_y(k) = UTany - gradUNorm*nHat(2)
-            U_z(k) = UTanz - gradUNorm*nHat(3)
-         END DO
+         U_x = -U_x
+         U_y = -U_y
+         U_z = -U_z
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
