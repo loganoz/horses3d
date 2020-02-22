@@ -745,7 +745,7 @@ contains
       real(kind=RP), intent(out)      :: dF_dgradQ(NCONS,NCONS,NDIM)
       !--------------------------------------------
       real(kind=RP) :: newFlux (NCONS), flux(NCONS)
-      real(kind=RP) :: q(NCONS), buffer, qr(NCONS)
+      real(kind=RP) :: q(NCONS), buffer
       real(kind=RP) :: mu, beta, kappa
       real(kind=RP) :: gradQR(NCONS,NDIM)
       real(kind=RP),parameter :: eps = 1.e-8_RP
@@ -761,16 +761,8 @@ contains
       
       q = QL
 !
-!
 !     Get base flux
 !     -------------
-      qr=q
-      CALL BCs(zone) % bc % StateForEqn( NCONS, &
-                                      x, &
-                                      time, &
-                                      nHat, &
-                                      qr)
-                                      
       gradQR(:,1) = Q_xL
       gradQR(:,2) = Q_yL
       gradQR(:,3) = Q_zL
@@ -779,7 +771,7 @@ contains
                                         x, &
                                         time, &
                                         nHat, &
-                                        qr, &
+                                        q, &
                                         gradQR(:,1), &
                                         gradQR(:,2), &
                                         gradQR(:,3) )
@@ -791,7 +783,7 @@ contains
                                                    NCONS, &
                                                    ViscousFlux_STATE, &
                                                    f, &
-                                                   q , qr , &
+                                                   q , q , &
                                                    Q_xL , Q_yL , Q_zL , &
                                                    gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
                                                    mu, beta, kappa, &
@@ -803,13 +795,7 @@ contains
       do i = 1, NCONS
          buffer = q(i)
          q(i) = q(i) + eps
-         
-         qr = q
-         CALL BCs(zone) % bc % StateForEqn( NCONS, &
-                                      x, &
-                                      time, &
-                                      nHat, &
-                                      qr)
+
          gradQR(:,1) = Q_xL
          gradQR(:,2) = Q_yL
          gradQR(:,3) = Q_zL
@@ -818,7 +804,7 @@ contains
                                            x, &
                                            time, &
                                            nHat, &
-                                           qr, &
+                                           q, &
                                            gradQR(:,1), &
                                            gradQR(:,2), &
                                            gradQR(:,3) )
@@ -830,7 +816,7 @@ contains
                                                       NCONS, &
                                                       ViscousFlux_STATE, &
                                                       f, &
-                                                      q , qr , &
+                                                      q , q , &
                                                       Q_xL , Q_yL , Q_zL , &
                                                       gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
                                                       mu, beta, kappa, &
@@ -844,13 +830,6 @@ contains
 !
 !     Get contribution to dF_dgradQ
 !     -----------------------------
-      qr = q
-      CALL BCs(zone) % bc % StateForEqn( NCONS, &
-                                   x, &
-                                   time, &
-                                   nHat, &
-                                   qr)
-      
       do dir=1, NDIM
          do i = 1, NCONS
             
@@ -864,7 +843,7 @@ contains
                                               x, &
                                               time, &
                                               nHat, &
-                                              qr, &
+                                              q, &
                                               gradQR(:,1), &
                                               gradQR(:,2), &
                                               gradQR(:,3) )
@@ -876,7 +855,7 @@ contains
                                                          NCONS, &
                                                          ViscousFlux_STATE, &
                                                          f, &
-                                                         q , qr , &
+                                                         q , q , &
                                                          Q_xL , Q_yL , Q_zL , &
                                                          gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
                                                          mu, beta, kappa, &

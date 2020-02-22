@@ -1059,7 +1059,7 @@ module SpatialDiscretization
                                            f % geom % x(:,i,j), &
                                            time, &
                                            f % geom % normal(:,i,j), &
-                                           f % storage(2) % Q(:,i,j), &
+                                           f % storage(1) % Q(:,i,j), &
                                            f % storage(2) % U_x(:,i,j), &
                                            f % storage(2) % U_y(:,i,j), &
                                            f % storage(2) % U_z(:,i,j))
@@ -1074,7 +1074,7 @@ module SpatialDiscretization
                                             EllipticFlux = mViscousFlux, &
                                             f = f, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
-                                            QRight = f % storage(2) % Q(:,i,j), &
+                                            QRight = f % storage(1) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
                                             U_yLeft = f % storage(1) % U_y(:,i,j), &
                                             U_zLeft = f % storage(1) % U_z(:,i,j), &
@@ -1488,7 +1488,6 @@ module SpatialDiscretization
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j))
-
       end do               ; end do
 
       do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
@@ -1500,7 +1499,7 @@ module SpatialDiscretization
                                            f % geom % x(:,i,j), &
                                            time, &
                                            f % geom % normal(:,i,j), &
-                                           f % storage(2) % Q(:,i,j), &
+                                           f % storage(1) % Q(:,i,j), &
                                            f % storage(2) % U_x(:,i,j), &
                                            f % storage(2) % U_y(:,i,j), &
                                            f % storage(2) % U_z(:,i,j))
@@ -1518,7 +1517,7 @@ module SpatialDiscretization
                                             EllipticFlux = CHDivergenceFlux, &
                                             f = f, &
                                             QLeft = f % storage(1) % Q(:,i,j), &
-                                            QRight = f % storage(2) % Q(:,i,j), &
+                                            QRight = f % storage(1) % Q(:,i,j), &
                                             U_xLeft = f % storage(1) % U_x(:,i,j), &
                                             U_yLeft = f % storage(1) % U_y(:,i,j), &
                                             U_zLeft = f % storage(1) % U_z(:,i,j), &
