@@ -373,18 +373,18 @@
                                tol           = 1.d-11, &
                                msg           = "Final maximum residual")
 
-            CALL FTAssertEqual(expectedValue = wake_u , &
-                               actualValue   = monitors % probes(1) % values(1) , &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + wake_u , &
+                               actualValue   = 1.0_RP + monitors % probes(1) % values(1) , &
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
-            CALL FTAssertEqual(expectedValue = cd, &
-                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + cd, &
+                               actualValue   = 1.0_RP + monitors % surfaceMonitors(1) % values(1), &
                                tol           = 1.d-11, &
                                msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = cl  , &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) , &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + cl  , &
+                               actualValue   = 1.0_RP + monitors % surfaceMonitors(2) % values(1) , &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 

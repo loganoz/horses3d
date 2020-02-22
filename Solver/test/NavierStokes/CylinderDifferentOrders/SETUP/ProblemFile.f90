@@ -332,11 +332,6 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER      , parameter           :: iterations = 100
-            real(kind=RP), parameter           :: residuals(5) = [9.5716101929928463E+00_RP, &
-                                                                  2.0654543395693182E+01_RP, &
-                                                                  4.7453288186116363E-13_RP, &
-                                                                  2.8269816683092674E+01_RP, &
-                                                                  2.6449069291071635E+02_RP]
  
 
             real(kind=RP), parameter :: residuals(5) = [9.5857553761192378E+00_RP, &

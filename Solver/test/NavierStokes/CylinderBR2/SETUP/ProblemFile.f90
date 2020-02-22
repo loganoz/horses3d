@@ -343,12 +343,6 @@
             real(kind=RP), parameter           :: cl = -5.5137759327035241E-03_RP
 !
 
-do i=1,5
-write(*,'(ES24.16,A)') monitors % residuals % values(i,1),"_RP, &"
-enddo
-write(*,'(ES24.16,A)') monitors % probes(1) % values(1), "_RP"
-write(*,'(ES24.16,A)') monitors % surfaceMonitors(1) % values(1), "_RP"
-write(*,'(ES24.16,A)') monitors % surfaceMonitors(2) % values(1), "_RP"
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
@@ -358,10 +352,32 @@ write(*,'(ES24.16,A)') monitors % surfaceMonitors(2) % values(1), "_RP"
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
 
-            CALL FTAssertEqual(expectedValue = residuals(N), &
-                               actualValue   = maxResidual, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
                                actualValue   = monitors % probes(1) % values(1) + 1, &
