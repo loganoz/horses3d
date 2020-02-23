@@ -343,12 +343,12 @@
 !
 !#ifdef HAS_MKL  ! Version 18.0.2 (The LU routines that are used modify the residuals slightly)
             INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516591386489374_RP, 0E-011_RP, &
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [2.8412680759916249E+01_RP, 0E-011_RP, &
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -4.5352126045116551E-006_RP
-            real(kind=RP), parameter           :: cd = 4.8760727441949232_RP
-            real(kind=RP), parameter           :: cl = -5.8459936755461683E-005_RP
+            real(kind=RP), parameter           :: wake_u = -4.2931299782356282E-06_RP
+            real(kind=RP), parameter           :: cd = 4.8356536770553600E+00_RP
+            real(kind=RP), parameter           :: cl = 8.8155408149992454E-06_RP
 !~#else
 !~            INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
 !~            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516589371759036_RP, 0E-011_RP, &
@@ -373,18 +373,18 @@
                                tol           = 1.d-11, &
                                msg           = "Final maximum residual")
 
-            CALL FTAssertEqual(expectedValue = wake_u , &
-                               actualValue   = monitors % probes(1) % values(1) , &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + wake_u , &
+                               actualValue   = 1.0_RP + monitors % probes(1) % values(1) , &
                                tol           = 1.d-11, &
                                msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
-            CALL FTAssertEqual(expectedValue = cd, &
-                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + cd, &
+                               actualValue   = 1.0_RP + monitors % surfaceMonitors(1) % values(1), &
                                tol           = 1.d-11, &
                                msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = cl  , &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) , &
+            CALL FTAssertEqual(expectedValue = 1.0_RP + cl  , &
+                               actualValue   = 1.0_RP + monitors % surfaceMonitors(2) % values(1) , &
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 

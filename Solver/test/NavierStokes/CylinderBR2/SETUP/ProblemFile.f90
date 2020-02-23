@@ -333,15 +333,18 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [244.828044335958_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
-                                                               0E-011_RP, 0E-011_RP, &
-                                                               0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = 8.138282691985545E-009_RP
-            real(kind=RP), parameter           :: cd =  34.3760618315965_RP
-            real(kind=RP), parameter           :: cl = -5.754861880468809E-003_RP
-!
-            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
+            real(kind=RP), parameter :: residuals(5) = [8.9315016463278418E+00_RP, &
+                                                        1.7979860897047050E+01_RP, &
+                                                        1.8840316433239804E-01_RP, &
+                                                        2.4137547335692933E+01_RP, &
+                                                        2.4346391426341444E+02_RP]
 
+            real(kind=RP), parameter           :: wake_u = 8.4975741340859335E-09_RP
+            real(kind=RP), parameter           :: cd =  3.4267919578280534E+01_RP
+            real(kind=RP), parameter           :: cl = -5.5123288344400834E-03_RP
+!
+
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
@@ -349,10 +352,32 @@
                                actualValue   = iter, &
                                msg           = "Number of time steps to tolerance")
 
-            CALL FTAssertEqual(expectedValue = residuals(N), &
-                               actualValue   = maxResidual, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+
 
             CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
                                actualValue   = monitors % probes(1) % values(1) + 1, &
