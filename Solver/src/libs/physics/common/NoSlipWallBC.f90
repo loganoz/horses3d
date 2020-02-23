@@ -402,7 +402,8 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(in)    :: nHat(NDIM)
          real(kind=RP),       intent(inout) :: Q(NCONS)
 
-         Q(INSRHOU:INSRHOW) = -Q(INSRHOU:INSRHOW)
+         Q(INSRHOU:INSRHOW) = 2.0_RP*self % vWall-Q(INSRHOU:INSRHOW)
+!         Q(INSRHOU:INSRHOW) = -Q(INSRHOU:INSRHOW)
 
       end subroutine NoSlipWallBC_FlowState
 
@@ -419,7 +420,7 @@ module NoSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         U(INSRHOU:INSRHOW) = self % vWall
+         U(INSRHOU:INSRHOW) = self % vWall / Q(INSRHO)
    
       end subroutine NoSlipWallBC_FlowGradVars
 

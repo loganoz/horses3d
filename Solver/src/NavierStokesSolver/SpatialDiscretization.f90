@@ -1107,10 +1107,10 @@ module SpatialDiscretization
                                                     f % geom % x(:,i,j), &
                                                     time, &
                                                     f % geom % normal(:,i,j), &
-                                                    f % storage(2) % Q(:,i,j), &
-                                                    f % storage(2) % U_x(:,i,j), &
-                                                    f % storage(2) % U_y(:,i,j), &
-                                                    f % storage(2) % U_z(:,i,j), visc_flux(:,i,j))
+                                                    f % storage(1) % Q(:,i,j), &
+                                                    f % storage(1) % U_x(:,i,j), &
+                                                    f % storage(1) % U_y(:,i,j), &
+                                                    f % storage(1) % U_z(:,i,j), visc_flux(:,i,j))
 
                end do
             end do

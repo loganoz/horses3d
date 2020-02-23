@@ -20,6 +20,7 @@ module OutflowBCClass
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
    use FluidData
+   use VariableConversion
    implicit none
 !
 !  *****************************
@@ -477,10 +478,15 @@ module OutflowBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD)
 
-         call self % FlowState(x,t,nHat,U)
+         Q_aux = Q
+         call self % FlowState(x,t,nHat,Q_aux)
+         call mGradientVariables(NCONS, NGRAD, Q_aux, U_aux, dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC)))
+   
+         U_aux(1) = U(1)
 
-         U = 0.5_RP*(Q+U)
+         U = 0.5_RP*(U_aux+U)
 
       end subroutine OutflowBC_FlowGradVars
 

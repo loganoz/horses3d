@@ -541,14 +541,6 @@ module EllipticBR1
 #else
             call GetGradients(nEqn, nGradEqn, f % storage(1) % Q(:,i,j), uHat)
 #endif
-   
-            call BCs(f % zone) % bc % GradVarsForEqn( nEqn,&
-                                nGradEqn,                  &
-                                f % geom % x(:,i,j),       &
-                                time               ,       &
-                                f % geom % normal(:,i,j),  &
-                                f % storage(1) % Q(:,i,j), &
-                                Uhat                         )
 
 #ifdef MULTIPHASE
             select case (self % eqName)
@@ -559,6 +551,14 @@ module EllipticBR1
                uHat(IGMU) = f % storage(1) % mu(1,i,j)
             end select
 #endif
+   
+            call BCs(f % zone) % bc % GradVarsForEqn( nEqn,&
+                                nGradEqn,                  &
+                                f % geom % x(:,i,j),       &
+                                time               ,       &
+                                f % geom % normal(:,i,j),  &
+                                f % storage(1) % Q(:,i,j), &
+                                Uhat                         )
    
             f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
             f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)    
@@ -741,17 +741,17 @@ flux )
 !
 !>       Old implementation: 1st average, then compute
 !        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
+!         Q   = 0.5_RP * ( QLeft + QRight)
+!         U_x = 0.5_RP * ( U_xLeft + U_xRight)
+!         U_y = 0.5_RP * ( U_yLeft + U_yRight)
+!         U_z = 0.5_RP * ( U_zLeft + U_zRight)
 
-         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
+!         call EllipticFlux(nEqn, nGradEqn, Q,U_x,U_y,U_z, mu, beta, kappa, flux_vec)
 
-         !call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu, beta, kappa, fL)
-         !call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu, beta, kappa, fR)
+         call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu, beta, kappa, fL)
+         call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu, beta, kappa, fR)
 
-         !flux_vec = 0.5_RP * (fL + fR)
+         flux_vec = 0.5_RP * (fL + fR)
 
          flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ) 
 

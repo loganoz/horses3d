@@ -215,7 +215,7 @@ module FreeSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         call GetValueWithDefault(bcdict, "contact angle", 0.0_RP, ConstructFreeSlipWallBC % thetaw)
+         call GetValueWithDefault(bcdict, "contact angle", 90.0_RP, ConstructFreeSlipWallBC % thetaw)
 #endif
 
          close(fid)
@@ -241,7 +241,7 @@ module FreeSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle: ', self % thetaw
 #endif
          
       end subroutine FreeSlipWallBC_Describe
@@ -324,7 +324,12 @@ module FreeSlipWallBCClass
 !
 !        Set the temperature to interior/wall
 !        ------------------------------------
-         U(IRHOE) = self % a_grad*U(IRHOE) - self % b_grad*self % invTwall + self % c_grad*Q(IRHO)*self % eWall
+         ! TODO: update this!!!
+         !U(IRHOE) = self % a_grad*U(IRHOE) - self % b_grad*self % invTwall + self % c_grad*Q(IRHO)*self % eWall
+
+         call self % FlowState(x,t,nHat,U)
+
+         U = 0.5_RP*(Q+U)
 
       end subroutine FreeSlipWallBC_FlowGradVars
 
@@ -508,6 +513,7 @@ module FreeSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+
 
       end subroutine FreeSlipWallBC_FlowGradVars
 
