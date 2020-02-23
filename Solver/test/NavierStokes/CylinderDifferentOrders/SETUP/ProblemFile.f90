@@ -334,16 +334,14 @@
             INTEGER      , parameter           :: iterations = 100
  
 
-            real(kind=RP), parameter :: residuals(5) = [9.5857553761192378E+00_RP, &
-                                                        2.0878911878664567E+01_RP, &
-                                                        4.7453288186116363E-13_RP, &
-                                                        2.8320609938717048E+01_RP, &
-                                                        2.6480274908068253E+02_RP]
-            real(kind=RP), parameter           :: wake_u = 8.5477572976610902E-12_RP
-            real(kind=RP), parameter           :: cd = 1.1700720496844060E+01_RP
-            real(kind=RP), parameter           :: cl = 2.3529360343665928E-05_RP
-            integer  :: i
-
+            real(kind=RP), parameter :: residuals(5) = [9.5857966996709187E+00_RP, &
+                                                        2.0878940134087447E+01_RP, &
+                                                        3.8002598881431043E-01_RP, &
+                                                        2.8320563925071038E+01_RP, &
+                                                        2.6480424271668329E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 8.5458656832915366E-12_RP
+            real(kind=RP), parameter           :: cd = 1.1700725621833415E+01_RP
+            real(kind=RP), parameter           :: cl = 2.3527386517230298E-05_RP
 
 
             CALL initializeSharedAssertionsManager

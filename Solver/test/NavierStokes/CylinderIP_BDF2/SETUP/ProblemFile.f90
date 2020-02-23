@@ -343,12 +343,12 @@
 !
 !#ifdef HAS_MKL  ! Version 18.0.2 (The LU routines that are used modify the residuals slightly)
             INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.392113478589831_RP, 0E-011_RP, &
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [2.8412680759916249E+01_RP, 0E-011_RP, &
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: wake_u = -4.5304668471829038E-006_RP
-            real(kind=RP), parameter           :: cd = 4.8357396917443252_RP
-            real(kind=RP), parameter           :: cl = 8.6427294979651847E-006_RP
+            real(kind=RP), parameter           :: wake_u = -4.2931299782356282E-06_RP
+            real(kind=RP), parameter           :: cd = 4.8356536770553600E+00_RP
+            real(kind=RP), parameter           :: cl = 8.8155408149992454E-06_RP
 !~#else
 !~            INTEGER                            :: iterations(3:7) = [2, 0, 0, 0, 0]
 !~            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [28.516589371759036_RP, 0E-011_RP, &

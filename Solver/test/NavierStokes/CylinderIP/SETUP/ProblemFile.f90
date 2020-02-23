@@ -333,18 +333,16 @@
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [1.1867679739898541E+01_RP, &
-                                                        4.2784270883435056E+01_RP, &
-                                                        1.9830095914408025E-01_RP, &
-                                                        2.7407353740214457E+01_RP, &
-                                                        3.4447465355381888E+02_RP]
-
-            real(kind=RP), parameter           :: wake_u = 8.0254506785764428E-09_RP
-            real(kind=RP), parameter           :: cd =  4.1631880498032437E+01_RP
-            real(kind=RP), parameter           :: cl = -1.5073753354108987E-03_RP
+            real(kind=RP), parameter :: residuals(5) = [1.1886461384563582E+01_RP, &
+                                                        4.2796435298348051E+01_RP, &
+                                                        2.0477160036131772E-01_RP, &
+                                                        2.7406647924577360E+01_RP, &
+                                                        3.4505908635626719E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 8.0259599884881728E-09_RP
+            real(kind=RP), parameter           :: cd =  4.1632182915365732E+01_RP
+            real(kind=RP), parameter           :: cl = -1.5073833579020146E-03_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
-
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

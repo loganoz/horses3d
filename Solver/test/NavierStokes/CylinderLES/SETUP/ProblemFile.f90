@@ -339,15 +339,14 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd = 3.4792490908402044E+01_RP
-            real(kind=RP), parameter           :: cl = -1.3602420131064719E-04_RP
-            real(kind=RP), parameter           :: wake_u = 9.9888658244259399E-09_RP
-            real(kind=RP), parameter           :: res(5) = [7.6058358604202105E+00_RP, &
-                                                            1.5566813933306834E+01_RP, &
-                                                            6.9169252155381153E-02_RP, &
-                                                            2.0276295762638110E+01_RP, &
-                                                            2.0807360958862580E+02_RP]
-
+            real(kind=RP), parameter           :: cd = 3.4793066984237434E+01_RP
+            real(kind=RP), parameter           :: cl = -1.3598117972790646E-04_RP
+            real(kind=RP), parameter           :: wake_u = 9.9877204201415899E-09_RP
+            real(kind=RP), parameter           :: res(5) = [7.6312909903981732E+00_RP, &
+                                                            1.5625066995550682E+01_RP, &
+                                                            2.4316647483607085E-01_RP, &
+                                                            2.0333781087270637E+01_RP, &
+                                                            2.0876314216030934E+02_RP]
 #if defined(NAVIERSTOKES)
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

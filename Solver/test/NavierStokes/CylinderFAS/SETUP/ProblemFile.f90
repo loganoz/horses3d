@@ -339,18 +339,15 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [5, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [1.4208529751161197E-01_RP, &
-                                                        3.5785852728844081E-01_RP, &
-                                                        1.7744310252587110E-13_RP, &
-                                                        3.8621330724730052E-01_RP, &
-                                                        3.7430312097644962E+00_RP]
-            real(kind=RP), parameter           :: cd = 1.9175485178103173E+00_RP
-            real(kind=RP), parameter           :: cl = -1.1543997019813901E-04_RP
+            real(kind=RP), parameter :: residuals(5) = [1.1966265315451381E-01_RP, &
+                                                        2.7073152078352530E-01_RP, &
+                                                        7.2465975246498171E-03_RP, &
+                                                        3.6894926915985282E-01_RP, &
+                                                        3.1129352637453223E+00_RP]
+            real(kind=RP), parameter           :: cd = 1.9163358836728754E+00_RP
+            real(kind=RP), parameter           :: cl =-1.1921985112373079E-04_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
-
-
-
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

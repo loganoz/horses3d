@@ -333,15 +333,17 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [8.7660432983759016E+00_RP, &
-                                                        1.7491493452200327E+01_RP, &
-                                                        6.3732562118832959E-13_RP, &
-                                                        2.4148904840669161E+01_RP, &
-                                                        2.3927920357004186E+02_RP]
   
-            real(kind=RP), parameter           :: wake_u =1.1083333725080331E-08_RP
-            real(kind=RP), parameter           :: cd = 3.4480088381180565E+01_RP
-            real(kind=RP), parameter           :: cl = -4.1569482007286496E-04_RP
+            real(kind=RP), parameter :: residuals(5) = [8.7870403980964618E+00_RP, &
+                                                        1.7545557213674602E+01_RP, &
+                                                        1.9154485381885591E-01_RP, &
+                                                        2.4213366489212309E+01_RP, &
+                                                        2.3989654061674085E+02_RP]
+
+            real(kind=RP), parameter           :: wake_u =1.1081539552512372E-08_RP
+            real(kind=RP), parameter           :: cd = 3.4480571453631313E+01_RP
+            real(kind=RP), parameter           :: cl = -4.1566557809158411E-04_RP
+
 
 
 !
