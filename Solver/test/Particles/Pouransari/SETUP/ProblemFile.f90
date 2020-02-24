@@ -391,7 +391,7 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
-            REAL(KIND=RP)                      :: residuals       = 1450.8746131042258_RP !It uses random functions so I guess it depends on the compiler. 
+            REAL(KIND=RP)                      :: residuals       = 1450.8743207929117_RP !It uses random functions so I guess it depends on the compiler. 
 !The coded value if for Alderaan gfortran release. Bender intel 2015 release gives 1203.01565442056_RP
 
             CALL initializeSharedAssertionsManager
