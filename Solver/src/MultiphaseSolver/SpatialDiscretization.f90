@@ -548,6 +548,7 @@ module SpatialDiscretization
 !
 !$omp single
             call mesh % SetStorageToEqn(MU_BC)
+            call SetBoundaryConditionsEqn(MU_BC)
 !$omp end single
             call mesh % ProlongSolutionToFaces(NCOMP)
 !
@@ -567,6 +568,7 @@ module SpatialDiscretization
 
 !$omp single
             call mesh % SetStorageToEqn(NS_BC)
+            call SetBoundaryConditionsEqn(NS_BC)
 !$omp end single
 !
 !           -----------------------------------------

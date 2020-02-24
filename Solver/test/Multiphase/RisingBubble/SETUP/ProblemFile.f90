@@ -473,15 +473,15 @@ print*, "Entering IC"
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Rising Bubble"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter           :: area_saved = 0.202808072627805_RP
-            real(kind=RP), parameter           :: xcog_saved = 0.101404423704894_RP
-            real(kind=RP), parameter           :: risevel_saved =  3.840782230629542E-004_RP
-            real(kind=RP), parameter           :: residuals_saved(5) = [0.727987650256946_RP, &
-                                                                         4.14952282500894_RP, &
-                                                                         8.953757954409224E-014_RP, & 
-                                                                         3.26637666319001_RP, &
-                                                                         157.831304423058_RP]     
-            real(kind=RP), parameter           :: entropyRate_saved = -6.542211323392909E-003_RP
+            real(kind=RP), parameter           :: area_saved = 2.0280805425949214E-01_RP
+            real(kind=RP), parameter           :: xcog_saved = 1.0140441754564830E-01_RP
+            real(kind=RP), parameter           :: risevel_saved =  3.8407823048394762E-04_RP
+            real(kind=RP), parameter           :: residuals_saved(5) = [7.2798764748471467E-01_RP, &
+                                                                        4.1495228250435803E+00_RP, &
+                                                                        8.9537579555904704E-14_RP, &
+                                                                        3.2663420227766222E+00_RP, &
+                                                                        1.5783130449534988E+02_RP]
+            real(kind=RP), parameter           :: entropyRate_saved = -6.5422251656711682E-03_RP
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
