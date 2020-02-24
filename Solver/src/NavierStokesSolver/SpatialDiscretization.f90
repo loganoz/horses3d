@@ -1404,7 +1404,7 @@ module SpatialDiscretization
       CALL SVV % RiemannSolver(f = f, &
                            EllipticFlux = ViscousFlux_STATE, &
                            QLeft = f % storage(1) % Q, &
-                          QRight = f % storage(2) % Q, &
+                          QRight = f % storage(1) % Q, &
                          U_xLeft = f % storage(1) % U_x, &
                          U_yLeft = f % storage(1) % U_y, &
                          U_zLeft = f % storage(1) % U_z, &

@@ -452,12 +452,11 @@ end module ProblemFileFunctions
                                                                4.629708599445529E-003_RP, &
                                                                1.608568120479096E-016_RP, &
                                                                6.031400084549617E-003_RP, &
-                                                               7.706495926962388E-004_RP]
+                                                               7.7064957155759237E-04_RP]
             CHARACTER(LEN=29)                  :: testName = "Incompressible LidDrivenCavity"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: eID, i, j, k, eq, fid,N
-
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

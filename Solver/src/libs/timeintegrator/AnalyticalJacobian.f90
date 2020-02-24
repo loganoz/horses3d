@@ -761,16 +761,8 @@ contains
       
       q = QL
 !
-!
 !     Get base flux
 !     -------------
-      qr=q
-      CALL BCs(zone) % bc % StateForEqn( NCONS, &
-                                      x, &
-                                      time, &
-                                      nHat, &
-                                      qr)
-                                      
       gradQR(:,1) = Q_xL
       gradQR(:,2) = Q_yL
       gradQR(:,3) = Q_zL
