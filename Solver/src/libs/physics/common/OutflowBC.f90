@@ -473,19 +473,19 @@ module OutflowBCClass
          U_z(IGMU) = U_z(IGMU) - 2.0_RP * dmudn * nHat(IZ) 
 
          dudn = (U_x(IGU)*nHat(IX) + U_y(IGU)*nHat(IY) + U_z(IGU)*nHat(IZ))
-         U_x(IGU) = U_x(IGU) - 2.0_RP * dudn * nHat(IX)
-         U_y(IGU) = U_y(IGU) - 2.0_RP * dudn * nHat(IY) 
-         U_z(IGU) = U_z(IGU) - 2.0_RP * dudn * nHat(IZ) 
+         U_x(IGU) = -U_x(IGU) !- 2.0_RP * dudn * nHat(IX)
+         U_y(IGU) = -U_y(IGU) !- 2.0_RP * dudn * nHat(IY) 
+         U_z(IGU) = -U_z(IGU) !- 2.0_RP * dudn * nHat(IZ) 
 
          dvdn = (U_x(IGV)*nHat(IX) + U_y(IGV)*nHat(IY) + U_z(IGV)*nHat(IZ))
-         U_x(IGV) = U_x(IGV) - 2.0_RP * dvdn * nHat(IX)
-         U_y(IGV) = U_y(IGV) - 2.0_RP * dvdn * nHat(IY) 
-         U_z(IGV) = U_z(IGV) - 2.0_RP * dvdn * nHat(IZ) 
+         U_x(IGV) = -U_x(IGV) !- 2.0_RP * dvdn * nHat(IX)
+         U_y(IGV) = -U_y(IGV) !- 2.0_RP * dvdn * nHat(IY) 
+         U_z(IGV) = -U_z(IGV) !- 2.0_RP * dvdn * nHat(IZ) 
 
          dwdn = (U_x(IGW)*nHat(IX) + U_y(IGW)*nHat(IY) + U_z(IGW)*nHat(IZ))
-         U_x(IGW) = U_x(IGW) - 2.0_RP * dwdn * nHat(IX)
-         U_y(IGW) = U_y(IGW) - 2.0_RP * dwdn * nHat(IY) 
-         U_z(IGW) = U_z(IGW) - 2.0_RP * dwdn * nHat(IZ)
+         U_x(IGW) = -U_x(IGW) !- 2.0_RP * dwdn * nHat(IX)
+         U_y(IGW) = -U_y(IGW) !- 2.0_RP * dwdn * nHat(IY) 
+         U_z(IGW) = -U_z(IGW) !- 2.0_RP * dwdn * nHat(IZ)
 
       end subroutine OutflowBC_FlowNeumann
 #endif

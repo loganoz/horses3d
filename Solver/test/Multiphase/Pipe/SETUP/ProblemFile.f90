@@ -517,7 +517,7 @@ end module ProblemFileFunctions
                                                               1.4703228453817630E+02_RP, &
                                                               8.6566794319272958E+02_RP, &
                                                               7.2787702726661635E+04_RP]
-            real(kind=RP), parameter              :: entropyRate_saved = -4.9589636615210296E+01_RP
+            real(kind=RP), parameter              :: entropyRate_saved = -49.5777151766282_RP
             integer :: i
 
 
