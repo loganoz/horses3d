@@ -483,7 +483,7 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = saved_residuals(5)+1.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-10, &
                                msg           = "Pressure residual")
 
 

@@ -122,7 +122,6 @@
             type is (FreeSlipWallBC_t)
             bc % BCType = "freeslipwall"
             bc % isAdiabatic = .true.
-            bc % kWallType = 0.0_RP
             end select
          end do
          

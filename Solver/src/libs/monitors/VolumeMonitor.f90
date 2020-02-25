@@ -111,6 +111,7 @@ module VolumeMonitorClass
          case ("enstrophy")
          case ("entropy")
          case ("entropy rate")
+         case ("entropy balance")
          case ("internal energy")
          case ("mean velocity")
          case ("velocity") ; self % num_of_vars = 3
@@ -129,6 +130,7 @@ module VolumeMonitorClass
                print*, "   * Enstrophy"
                print*, "   * Entropy"
                print*, "   * Entropy rate"
+               print*, "   * Entropy balance"
                print*, "   * Internal energy"
                print*, "   * Mean velocity"
                print*, "   * Velocity"
@@ -274,6 +276,9 @@ module VolumeMonitorClass
 
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("entropy balance")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_BALANCE) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("internal energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, INTERNAL_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)            

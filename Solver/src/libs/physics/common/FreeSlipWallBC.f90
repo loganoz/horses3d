@@ -54,7 +54,11 @@ module FreeSlipWallBCClass
       logical           :: isAdiabatic
       real(kind=RP)     :: Twall
       real(kind=RP)     :: ewall       ! Wall internal energy
-      real(kind=RP)     :: kWallType
+      real(kind=RP)     :: invTwall
+      real(kind=RP)     :: a_grad
+      real(kind=RP)     :: b_grad
+      real(kind=RP)     :: c_grad
+      real(kind=RP)     :: d_grad
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP)     :: thetaw
@@ -64,6 +68,7 @@ module FreeSlipWallBCClass
          procedure         :: Describe          => FreeSlipWallBC_Describe
 #ifdef FLOW
          procedure         :: FlowState         => FreeSlipWallBC_FlowState
+         procedure         :: FlowGradVars      => FreeSlipWallBC_FlowGradVars
          procedure         :: FlowNeumann       => FreeSlipWallBC_FlowNeumann
 #endif
 #ifdef CAHNHILLIARD
@@ -189,18 +194,28 @@ module FreeSlipWallBCClass
 
          if ( trim(keyval) .eq. "adiabatic" ) then
             ConstructFreeSlipWallBC % isAdiabatic = .true.
-            ConstructFreeSlipWallBC % kWallType      = 0.0_RP   ! This is to avoid an "if" when setting the wall temp 
             ConstructFreeSlipWallBC % ewall = 0.0_RP
             ConstructFreeSlipWallBC % Twall = 0.0_RP
+            ConstructFreeSlipWallBC % invTwall = 0.0_RP
+         
+            ConstructFreeSlipWallBC % a_grad = 1.0_RP
+            ConstructFreeSlipWallBC % b_grad = 0.0_RP
+            ConstructFreeSlipWallBC % c_grad = 0.0_RP
+            ConstructFreeSlipWallBC % d_grad = 1.0_RP
          else
             ConstructFreeSlipWallBC % isAdiabatic = .false.
             call GetValueWithDefault(bcdict, "wall temperature" , refValues % T, ConstructFreeSlipWallBC % Twall     )
             ConstructFreeSlipWallBC % ewall = ConstructFreeSlipWallBC % Twall / (refValues % T*thermodynamics % gammaMinus1*dimensionless % gammaM2)
-            ConstructFreeSlipWallBC % kWallType = 1.0_RP
+            ConstructFreeSlipWallBC % invTwall = dimensionless % gammaM2*refValues % T / ConstructFreeSlipWallBC % Twall
+
+            ConstructFreeSlipWallBC % a_grad = 0.5_RP
+            ConstructFreeSlipWallBC % b_grad = 0.0_RP
+            ConstructFreeSlipWallBC % c_grad = 0.5_RP
+            ConstructFreeSlipWallBC % d_grad = 0.0_RP
          end if
 #endif
 #ifdef CAHNHILLIARD
-         call GetValueWithDefault(bcdict, "contact angle", 0.0_RP, ConstructFreeSlipWallBC % thetaw)
+         call GetValueWithDefault(bcdict, "contact angle", 90.0_RP, ConstructFreeSlipWallBC % thetaw)
 #endif
 
          close(fid)
@@ -226,7 +241,7 @@ module FreeSlipWallBCClass
          end if
 #endif
 #ifdef CAHNHILLIARD
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle coef: ', self % thetaw
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Wall contact angle: ', self % thetaw
 #endif
          
       end subroutine FreeSlipWallBC_Describe
@@ -285,36 +300,70 @@ module FreeSlipWallBCClass
 
          Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * qNorm * nHat
 
-         Q(IRHOE) = Q(IRHOE) + self % kWallType*(Q(IRHO)*self % ewall-Q(IRHOE))
-
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        *****************************************************************
+!           Only set the temperature, velocity is Neumann, use interior!
+!        *****************************************************************
+!
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in)    :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: rhou_n
+!
+!        Set the temperature to interior/wall
+!        ------------------------------------
+         ! TODO: update this!!!
+         !U(IRHOE) = self % a_grad*U(IRHOE) - self % b_grad*self % invTwall + self % c_grad*Q(IRHO)*self % eWall
+
+         call self % FlowState(x,t,nHat,U)
+
+         U = 0.5_RP*(Q+U)
+
+      end subroutine FreeSlipWallBC_FlowGradVars
+
+      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
 !
 !        ***********************************************************
-!           Remove all normal gradients: it is not enough with removing the normal component!
+!           In momentum, free slip is Neumann. In temperature, 
+!           depends on the adiabatic/isothermal choice
 !        ***********************************************************
 !
          implicit none
-         class(FreeSlipWallBC_t),   intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NGRAD)
-         real(kind=RP),       intent(inout) :: U_y(NGRAD)
-         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         class(FreeSlipWallBC_t),   intent(in) :: self
+         real(kind=RP),       intent(in)       :: x(NDIM)
+         real(kind=RP),       intent(in)       :: t
+         real(kind=RP),       intent(in)       :: nHat(NDIM)
+         real(kind=RP),       intent(in)       :: Q(NCONS)
+         real(kind=RP),       intent(in)       :: U_x(NGRAD)
+         real(kind=RP),       intent(in)       :: U_y(NGRAD)
+         real(kind=RP),       intent(in)       :: U_z(NGRAD)
+         real(kind=RP),       intent(inout)    :: flux(NCONS)
 !
 !        ---------------
 !        Local Variables
 !        ---------------
 !   
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-         INTEGER       :: k
+         real(kind=RP)  :: viscWork
 
-         U_x = -U_x
-         U_y = -U_y
-         U_z = -U_z
+         if ( self % isAdiabatic ) then
+            flux = 0.0_RP
+         else
+            viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
+            flux(IRHO:IRHOW) = 0.0_RP
+            flux(IRHOE) = flux(IRHOE)-viscWork
+         end if
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
@@ -366,27 +415,40 @@ module FreeSlipWallBCClass
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        **************************************************************
+!           Use the interior velocity: Neumann BC!
+!        **************************************************************
+!
          implicit none
          class(FreeSlipWallBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NCONS)
-         real(kind=RP),       intent(inout) :: U_y(NCONS)
-         real(kind=RP),       intent(inout) :: U_z(NCONS)
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+
+      end subroutine FreeSlipWallBC_FlowGradVars
+
+      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
 !
-!        ---------------
-!        Local Variables
-!        ---------------
-!   
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-         INTEGER       :: k
-!   
-         U_x = -U_x
-         U_y = -U_y
-         U_z = -U_z
+!        ***************************************************************
+!           Set homogeneous Neumann BCs everywhere
+!        ***************************************************************
+!        
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(in)      :: U_x(NCONS)
+         real(kind=RP),       intent(in)      :: U_y(NCONS)
+         real(kind=RP),       intent(in)      :: U_z(NCONS)
+         real(kind=RP),       intent(inout)   :: flux(NCONS)
+
+         flux = 0.0_RP
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
@@ -438,41 +500,36 @@ module FreeSlipWallBCClass
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        **************************************************************
+!           Use the interior velocity: Neumann BC!
+!        **************************************************************
+!
          implicit none
          class(FreeSlipWallBC_t),  intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NCONS)
-         real(kind=RP),       intent(inout) :: U_y(NCONS)
-         real(kind=RP),       intent(inout) :: U_z(NCONS)
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!   
-!         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!         INTEGER       :: k
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
 
-         U_x = -U_x
-         U_y = -U_y
-         U_z = -U_z
-         
-!   
-!         DO k = 1, NCONS
-!
-!           OLD VERSION: SEEMS REMOVING THE NORMAL COMPONENT IS NOT ENOUGH
-!            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-!            UTanx = U_x(k) - gradUNorm*nHat(1)
-!            UTany = U_y(k) - gradUNorm*nHat(2)
-!            UTanz = U_z(k) - gradUNorm*nHat(3)
-!   
-!            U_x(k) = UTanx - gradUNorm*nHat(1)
-!            U_y(k) = UTany - gradUNorm*nHat(2)
-!            U_z(k) = UTanz - gradUNorm*nHat(3)
-!         END DO
+
+      end subroutine FreeSlipWallBC_FlowGradVars
+
+      subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(FreeSlipWallBC_t),  intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(in)      :: U_x(NCONS)
+         real(kind=RP),       intent(in)      :: U_y(NCONS)
+         real(kind=RP),       intent(in)      :: U_z(NCONS)
+         real(kind=RP),       intent(inout)   :: flux(NCONS)
+      
+         flux = 0.0_RP
 
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
@@ -494,20 +551,33 @@ module FreeSlipWallBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine FreeSlipWallBC_PhaseFieldState
 
-      subroutine FreeSlipWallBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine FreeSlipWallBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)    :: self
+         class(FreeSlipWallBC_t),  intent(in) :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!  
+         real(kind=RP), parameter   :: MIN_ = 1.0e-1_RP
+         real(kind=RP)              :: prod
+         real(kind=RP)              :: prod12, prod13, prod23, c3
 
-         U_x = self % thetaw * nHat(1)
-         U_y = self % thetaw * nHat(2)
-         U_z = self % thetaw * nHat(3)
+         prod = Q(1) * (1.0_RP - Q(1))
+
+         if ( prod .le. MIN_ ) then
+            prod = 0.0_RP
+         end if
+
+         flux = -4.0_RP * multiphase % invEps * cos(DEG2RAD*self % thetaw) * prod 
 
       end subroutine FreeSlipWallBC_PhaseFieldNeumann
 
@@ -520,21 +590,21 @@ module FreeSlipWallBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine FreeSlipWallBC_ChemPotState
 
-      subroutine FreeSlipWallBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine FreeSlipWallBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)    :: self
+         class(FreeSlipWallBC_t),  intent(in) :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
 
       end subroutine FreeSlipWallBC_ChemPotNeumann
+
 #endif
 end module FreeSlipWallBCClass

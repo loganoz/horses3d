@@ -744,10 +744,10 @@ contains
       real(kind=RP), intent(out)      :: dF_dQ(NCONS,NCONS)
       real(kind=RP), intent(out)      :: dF_dgradQ(NCONS,NCONS,NDIM)
       !--------------------------------------------
-      real(kind=RP) :: newFlux (NCONS), flux(NCONS)
-      real(kind=RP) :: q(NCONS), buffer
+      real(kind=RP) :: newFlux (NCONS), flux(NCONS), fv_3d(NCONS,NDIM)
+      real(kind=RP) :: q(NCONS), buffer, qr(NCONS)
       real(kind=RP) :: mu, beta, kappa
-      real(kind=RP) :: gradQR(NCONS,NDIM)
+      real(kind=RP) :: gradQL(NCONS,NDIM)
       real(kind=RP),parameter :: eps = 1.e-8_RP
       integer :: i, dir
       !--------------------------------------------
@@ -763,64 +763,43 @@ contains
 !
 !     Get base flux
 !     -------------
-      gradQR(:,1) = Q_xL
-      gradQR(:,2) = Q_yL
-      gradQR(:,3) = Q_zL
+      gradQL(:,1) = Q_xL
+      gradQL(:,2) = Q_yL
+      gradQL(:,3) = Q_zL
       
-      CALL BCs(f % zone) % bc % FlowNeumann(&
-                                        x, &
-                                        time, &
-                                        nHat, &
-                                        q, &
-                                        gradQR(:,1), &
-                                        gradQR(:,2), &
-                                        gradQR(:,3) )
+!
+!     Compute the viscous flux
+!     ------------------------
+      call ViscousFlux_STATE(NCONS,NCONS,q,Q_xL,Q_yL,Q_zL,mu,beta,kappa,fv_3d)
+      flux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
+      CALL BCs(f % zone) % bc % FlowNeumann( & 
+                                    x,       & 
+                                    time,    & 
+                                    nHat,    & 
+                                    q,       & 
+                                    Q_xL,    & 
+                                    Q_yL,    & 
+                                    Q_zL,    & 
+                                    flux )
       
-      
-      
-      
-      call ViscousDiscretization % RiemannSolver ( NCONS, &
-                                                   NCONS, &
-                                                   ViscousFlux_STATE, &
-                                                   f, &
-                                                   q , q , &
-                                                   Q_xL , Q_yL , Q_zL , &
-                                                   gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
-                                                   mu, beta, kappa, &
-                                                   nHat , dWall, flux )
-         
 !
 !     Get contribution to dF_dq
 !     -------------------------
       do i = 1, NCONS
          buffer = q(i)
          q(i) = q(i) + eps
-
-         gradQR(:,1) = Q_xL
-         gradQR(:,2) = Q_yL
-         gradQR(:,3) = Q_zL
          
-         CALL BCs(f % zone) % bc % FlowNeumann(&
-                                           x, &
-                                           time, &
-                                           nHat, &
-                                           q, &
-                                           gradQR(:,1), &
-                                           gradQR(:,2), &
-                                           gradQR(:,3) )
-         
-         
-         
-         
-         call ViscousDiscretization % RiemannSolver ( NCONS, &
-                                                      NCONS, &
-                                                      ViscousFlux_STATE, &
-                                                      f, &
-                                                      q , q , &
-                                                      Q_xL , Q_yL , Q_zL , &
-                                                      gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
-                                                      mu, beta, kappa, &
-                                                      nHat , dWall, newFlux )
+         call ViscousFlux_STATE(NCONS,NCONS,q,Q_xL,Q_yL,Q_zL,mu,beta,kappa,fv_3d)
+         newflux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
+         CALL BCs(f % zone) % bc % FlowNeumann( & 
+                                       x,       & 
+                                       time,    & 
+                                       nHat,    & 
+                                       q,       & 
+                                       Q_xL,    & 
+                                       Q_yL,    & 
+                                       Q_zL,    & 
+                                       newflux )
          
          dF_dQ(:,i) =  dF_dQ(:,i) - (newFlux-flux)/eps
          
@@ -832,36 +811,23 @@ contains
 !     -----------------------------
       do dir=1, NDIM
          do i = 1, NCONS
-            
-            gradQR(:,1) = Q_xL
-            gradQR(:,2) = Q_yL
-            gradQR(:,3) = Q_zL
-            
-            gradQR(i,dir) = gradQR(i,dir) + eps
-            
-            CALL BCs(f % zone) % bc % FlowNeumann(&
-                                              x, &
-                                              time, &
-                                              nHat, &
-                                              q, &
-                                              gradQR(:,1), &
-                                              gradQR(:,2), &
-                                              gradQR(:,3) )
-            
-            
-            
-            
-            call ViscousDiscretization % RiemannSolver ( NCONS, &
-                                                         NCONS, &
-                                                         ViscousFlux_STATE, &
-                                                         f, &
-                                                         q , q , &
-                                                         Q_xL , Q_yL , Q_zL , &
-                                                         gradQR(:,1) , gradQR(:,2) , gradQR(:,3) , &
-                                                         mu, beta, kappa, &
-                                                         nHat , dWall, newFlux )
-            
-            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps
+            buffer = gradQL(i,dir)
+            gradQL(i,dir) = gradQL(i,dir) + eps
+
+            call ViscousFlux_STATE(NCONS,NCONS,q,gradQL(:,1),gradQL(:,2),gradQL(:,3),mu,beta,kappa,fv_3d)
+            newflux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
+            CALL BCs(f % zone) % bc % FlowNeumann( & 
+                                       x,       & 
+                                       time,    & 
+                                       nHat,    & 
+                                       q,       & 
+                                       gradQL(:,1), & 
+                                       gradQL(:,2), & 
+                                       gradQL(:,3), & 
+                                       newflux )
+
+            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps 
+            gradQL(i,dir) = buffer
             
          end do
       end do

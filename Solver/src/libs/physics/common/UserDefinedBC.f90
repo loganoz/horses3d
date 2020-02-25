@@ -54,6 +54,7 @@ module UserDefinedBCClass
          procedure         :: Destruct          => UserDefinedBC_Destruct
 #ifdef FLOW
          procedure         :: FlowState         => UserDefinedBC_FlowState
+         procedure         :: FlowGradVars      => UserDefinedBC_FlowGradVars
          procedure         :: FlowNeumann       => UserDefinedBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -254,34 +255,79 @@ module UserDefinedBCClass
    
       end subroutine UserDefinedBC_FlowState
 
-      subroutine UserDefinedBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine UserDefinedBC_FlowGradVars(self, x, t, nHat, Q, U)
          implicit none
-         class(UserDefinedBC_t),   intent(in)    :: self
-         real(kind=RP),       intent(in)    :: x(NDIM)
-         real(kind=RP),       intent(in)    :: t
-         real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NGRAD)
-         real(kind=RP),       intent(inout) :: U_y(NGRAD)
-         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         class(UserDefinedBC_t),   intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(inout)   :: U(NGRAD)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
          interface
-            subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+            subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
+               use SMConstants
+               use PhysicsStorage
+               use FluidData
+               implicit none
+               real(kind=RP), intent(in)          :: x(NDIM)
+               real(kind=RP), intent(in)          :: t
+               real(kind=RP), intent(in)          :: nHat(NDIM)
+               real(kind=RP), intent(in)          :: Q(NCONS)
+               real(kind=RP), intent(inout)       :: U(NGRAD)
+               type(Thermodynamics_t), intent(in) :: thermodynamics_
+               type(Dimensionless_t),  intent(in) :: dimensionless_
+               type(RefValues_t),      intent(in) :: refValues_
+            end subroutine UserDefinedGradVars1
+         end interface
+
+         select case(self % udf_no)
+         case(1)
+            call UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics, dimensionless, refValues)
+         case default
+            print*, "Unrecognized UDF number for boundary", self % bname
+         end select
+   
+      end subroutine UserDefinedBC_FlowGradVars
+
+      subroutine UserDefinedBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(UserDefinedBC_t),   intent(in) :: self
+         real(kind=RP),       intent(in)      :: x(NDIM)
+         real(kind=RP),       intent(in)      :: t
+         real(kind=RP),       intent(in)      :: nHat(NDIM)
+         real(kind=RP),       intent(in)      :: Q(NCONS)
+         real(kind=RP),       intent(in)      :: U_x(NGRAD)
+         real(kind=RP),       intent(in)      :: U_y(NGRAD)
+         real(kind=RP),       intent(in)      :: U_z(NGRAD)
+         real(kind=RP),       intent(inout)   :: flux(NCONS)
+         interface
+            subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
             implicit none
-            real(kind=RP), intent(in)     :: x(NDIM)
-            real(kind=RP), intent(in)     :: t
-            real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRAD)
-            real(kind=RP), intent(inout)  :: U_y(NGRAD)
-            real(kind=RP), intent(inout)  :: U_z(NGRAD)
+            real(kind=RP), intent(in)    :: x(NDIM)
+            real(kind=RP), intent(in)    :: t
+            real(kind=RP), intent(in)    :: nHat(NDIM)
+            real(kind=RP), intent(in)    :: Q(NCONS)
+            real(kind=RP), intent(in)    :: U_x(NGRAD)
+            real(kind=RP), intent(in)    :: U_y(NGRAD)
+            real(kind=RP), intent(in)    :: U_z(NGRAD)
+            real(kind=RP), intent(inout) :: flux(NCONS)
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
             end subroutine UserDefinedNeumann1
          end interface
 
          select case(self % udf_no)
          case(1)
-            call UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
+            call UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics, dimensionless, refValues)
          case default
             print*, "Unrecognized UDF number for boundary", self % bname
          end select
@@ -306,20 +352,20 @@ module UserDefinedBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine UserDefinedBC_PhaseFieldState
 
-      subroutine UserDefinedBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine UserDefinedBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(UserDefinedBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
+
       end subroutine UserDefinedBC_PhaseFieldNeumann
 
       subroutine UserDefinedBC_ChemPotState(self, x, t, nHat, Q)
@@ -331,20 +377,20 @@ module UserDefinedBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine UserDefinedBC_ChemPotState
 
-      subroutine UserDefinedBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine UserDefinedBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(UserDefinedBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
+
       end subroutine UserDefinedBC_ChemPotNeumann
 #endif
 end module UserDefinedBCClass

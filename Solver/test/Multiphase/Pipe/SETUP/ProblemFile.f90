@@ -80,36 +80,53 @@ module ProblemFileFunctions
       end subroutine UserDefinedInitialCondition_f
 #ifdef FLOW
       subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-!
-!           -------------------------------------------------
-!           Used to define an user defined boundary condition
-!           -------------------------------------------------
-!
          use SMConstants
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP), intent(in)     :: x(NDIM)
-         real(kind=RP), intent(in)     :: t
-         real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: Q(NCONS)
-         type(Thermodynamics_t),    intent(in)  :: thermodynamics_
-         type(Dimensionless_t),     intent(in)  :: dimensionless_
-         type(RefValues_t),         intent(in)  :: refValues_
+         real(kind=RP)  :: x(NDIM)
+         real(kind=RP)  :: t
+         real(kind=RP)  :: nHat(NDIM)
+         real(kind=RP)  :: Q(NCONS)
+         type(Thermodynamics_t), intent(in)  :: thermodynamics_
+         type(Dimensionless_t),  intent(in)  :: dimensionless_
+         type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedNeumann_f(x, t, nHat, U_x, U_y, U_z)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP), intent(in)     :: x(NDIM)
-         real(kind=RP), intent(in)     :: t
-         real(kind=RP), intent(in)     :: nHat(NDIM)
-         real(kind=RP), intent(inout)  :: U_x(NGRAD)
-         real(kind=RP), intent(inout)  :: U_y(NGRAD)
-         real(kind=RP), intent(inout)  :: U_z(NGRAD)
+         real(kind=RP), intent(in)          :: x(NDIM)
+         real(kind=RP), intent(in)          :: t
+         real(kind=RP), intent(in)          :: nHat(NDIM)
+         real(kind=RP), intent(in)          :: Q(NCONS)
+         real(kind=RP), intent(inout)       :: U(NGRAD)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
+      end subroutine UserDefinedGradVars_f
+
+
+      subroutine UserDefinedNeumann_f(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
+         use SMConstants
+         use PhysicsStorage
+         use FluidData
+         implicit none
+         real(kind=RP), intent(in)    :: x(NDIM)
+         real(kind=RP), intent(in)    :: t
+         real(kind=RP), intent(in)    :: nHat(NDIM)
+         real(kind=RP), intent(in)    :: Q(NCONS)
+         real(kind=RP), intent(in)    :: U_x(NGRAD)
+         real(kind=RP), intent(in)    :: U_y(NGRAD)
+         real(kind=RP), intent(in)    :: U_z(NGRAD)
+         real(kind=RP), intent(inout) :: flux(NCONS)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
       end subroutine UserDefinedNeumann_f
+
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -128,7 +145,11 @@ module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
+#ifdef CAHNHILLIARD
+,multiphase_ &
+#endif
+)
          use SMConstants
          USE HexMeshClass
          use FluidData
@@ -141,6 +162,9 @@ module ProblemFileFunctions
          type(Thermodynamics_t), intent(in)  :: thermodynamics_
          type(Dimensionless_t),  intent(in)  :: dimensionless_
          type(RefValues_t),      intent(in)  :: refValues_
+#ifdef CAHNHILLIARD
+         type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
       end subroutine UserDefinedSourceTermNS_f
 #endif
 !
@@ -315,11 +339,6 @@ end module ProblemFileFunctions
          end subroutine UserDefinedInitialCondition
 #ifdef FLOW
          subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
-!
-!           -------------------------------------------------
-!           Used to define an user defined boundary condition
-!           -------------------------------------------------
-!
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -364,51 +383,70 @@ end module ProblemFileFunctions
 
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
-!
-!           --------------------------------------------------------
-!           Used to define a Neumann user defined boundary condition
-!           --------------------------------------------------------
-!
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
             implicit none
-            real(kind=RP), intent(in)     :: x(NDIM)
-            real(kind=RP), intent(in)     :: t
-            real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(NGRAD)
-            real(kind=RP), intent(inout)  :: U_y(NGRAD)
-            real(kind=RP), intent(inout)  :: U_z(NGRAD)
-            REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
+            real(kind=RP), intent(in)          :: x(NDIM)
+            real(kind=RP), intent(in)          :: t
+            real(kind=RP), intent(in)          :: nHat(NDIM)
+            real(kind=RP), intent(in)          :: Q(NCONS)
+            real(kind=RP), intent(inout)       :: U(NGRAD)
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            real(kind=RP)  :: Q_aux(NCONS), rho, U_aux(NCONS)
 
 #ifdef MULTIPHASE
+         
+            Q_aux = Q
 !
-!
-!        Remove the normal component of the density gradient
-!        ---------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(IGMU) + nHat(2)*U_y(IGMU)+ nHat(3)*U_z(IGMU)
-         UTanx = U_x(IGMU) - gradUNorm*nHat(1)
-         UTany = U_y(IGMU) - gradUNorm*nHat(2)
-         UTanz = U_z(IGMU) - gradUNorm*nHat(3)
+!           Compute the state
+!           -----------------
+            call UserDefinedState1(x, t, nHat, Q_aux, thermodynamics_, dimensionless_, refValues_)
 
-         U_x(IGMU) = UTanx - gradUNorm*nHat(1)
-         U_y(IGMU) = UTany - gradUNorm*nHat(2)
-         U_z(IGMU) = UTanz - gradUNorm*nHat(3)
 !
-!        Remove the normal component of the pressure gradient
-!        ----------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(IGP) + nHat(2)*U_y(IGP)+ nHat(3)*U_z(IGP)
-         UTanx = U_x(IGP) - gradUNorm*nHat(1)
-         UTany = U_y(IGP) - gradUNorm*nHat(2)
-         UTanz = U_z(IGP) - gradUNorm*nHat(3)
+!           Get the entropy variables
+!           -------------------------
+            rho = dimensionless_ % rho(1)*Q_aux(IMC) + dimensionless_ % rho(2)*(1.0_RP - Q_aux(IMC))
 
-         U_x(IGP) = UTanx - gradUNorm*nHat(1)
-         U_y(IGP) = UTany - gradUNorm*nHat(2)
-         U_z(IGP) = UTanz - gradUNorm*nHat(3)
-        
+            U_aux(IGMU)     = U(IGMU)
+            U_aux(IMSQRHOU) = Q_aux(IMSQRHOU) / sqrt(rho)             
+            U_aux(IMSQRHOV) = Q_aux(IMSQRHOV) / sqrt(rho)             
+            U_aux(IMSQRHOW) = Q_aux(IMSQRHOW) / sqrt(rho)             
+            U_aux(IMP)      = Q_aux(IMP)
+
+            U = 0.5_RP * (U_aux + U)
+
 #endif
+         end subroutine UserDefinedGradVars1
 
+         subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            use PhysicsStorage
+            use FluidData
+            implicit none
+            real(kind=RP), intent(in)    :: x(NDIM)
+            real(kind=RP), intent(in)    :: t
+            real(kind=RP), intent(in)    :: nHat(NDIM)
+            real(kind=RP), intent(in)    :: Q(NCONS)
+            real(kind=RP), intent(in)    :: U_x(NGRAD)
+            real(kind=RP), intent(in)    :: U_y(NGRAD)
+            real(kind=RP), intent(in)    :: U_z(NGRAD)
+            real(kind=RP), intent(inout) :: flux(NCONS)
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
+
+#ifdef MULTIPHASE
+            flux(IGMU) = 0.0_RP
+#endif
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -435,7 +473,11 @@ end module ProblemFileFunctions
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
+#ifdef CAHNHILLIARD
+, multiphase_ &
+#endif
+)
 !
 !           --------------------------------------------
 !           Called to apply source terms to the equation
@@ -453,6 +495,9 @@ end module ProblemFileFunctions
             type(Thermodynamics_t), intent(in)  :: thermodynamics_
             type(Dimensionless_t),  intent(in)  :: dimensionless_
             type(RefValues_t),      intent(in)  :: refValues_
+#ifdef CAHNHILLIARD
+            type(Multiphase_t),     intent(in)  :: multiphase_
+#endif
 !
 !           ---------------
 !           Local variables
@@ -488,11 +533,11 @@ end module ProblemFileFunctions
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
             use MonitorsClass
-            use FTAssertions
             IMPLICIT NONE
             CLASS(HexMesh)                        :: mesh
             REAL(KIND=RP)                         :: time

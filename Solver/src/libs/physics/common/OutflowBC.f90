@@ -20,6 +20,7 @@ module OutflowBCClass
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
    use FluidData
+   use VariableConversion
    implicit none
 !
 !  *****************************
@@ -57,6 +58,7 @@ module OutflowBCClass
          procedure         :: Describe          => OutflowBC_Describe
 #ifdef FLOW
          procedure         :: FlowState         => OutflowBC_FlowState
+         procedure         :: FlowGradVars      => OutflowBC_FlowGradVars
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -294,31 +296,39 @@ module OutflowBCClass
 
       end subroutine OutflowBC_FlowState
 
-      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        **************************************************************
+!        **************************************************************
+!
          implicit none
-         class(OutflowBC_t),   intent(in)    :: self
+         class(OutflowBC_t),  intent(in)    :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+
+         call self % FlowState(x,t,nHat,U)
+
+         U = 0.5_RP*(Q+U)
+
+      end subroutine OutflowBC_FlowGradVars
+
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(OutflowBC_t),   intent(in)   :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NGRAD)
-         real(kind=RP),       intent(inout) :: U_y(NGRAD)
-         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 
-         INTEGER :: k
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-
-         DO k = 1, NGRAD
-            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-            UTanx = U_x(k) - gradUNorm*nHat(1)
-            UTany = U_y(k) - gradUNorm*nHat(2)
-            UTanz = U_z(k) - gradUNorm*nHat(3)
-      
-            U_x(k) = UTanx - gradUNorm*nHat(1)
-            U_y(k) = UTany - gradUNorm*nHat(2)
-            U_z(k) = UTanz - gradUNorm*nHat(3)
-         END DO
-
+         flux = 0.0_RP
+         
       end subroutine OutflowBC_FlowNeumann
 #endif
 !
@@ -367,16 +377,36 @@ module OutflowBCClass
 
       end subroutine OutflowBC_FlowState
 
-      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        **************************************************************
+!        **************************************************************
+!
+         implicit none
+         class(OutflowBC_t),  intent(in)       :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+
+         call self % FlowState(x,t,nHat,U)
+
+         U = 0.5_RP*(Q+U)
+
+      end subroutine OutflowBC_FlowGradVars
+
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(OutflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NCONS)
-         real(kind=RP),       intent(inout) :: U_y(NCONS)
-         real(kind=RP),       intent(inout) :: U_z(NCONS)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NCONS)
+         real(kind=RP),       intent(in)    :: U_y(NCONS)
+         real(kind=RP),       intent(in)    :: U_z(NCONS)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 !
 !        ---------------
 !        Local variables
@@ -384,25 +414,7 @@ module OutflowBCClass
 !
          real(kind=RP) :: drhodn, dudn, dvdn, dwdn
 
-         drhodn = (U_x(INSRHO)*nHat(IX) + U_y(INSRHO)*nHat(IY) + U_z(INSRHO)*nHat(IZ))
-         U_x(INSRHO) = U_x(INSRHO) - 2.0_RP * drhodn * nHat(IX)
-         U_y(INSRHO) = U_y(INSRHO) - 2.0_RP * drhodn * nHat(IY) 
-         U_z(INSRHO) = U_z(INSRHO) - 2.0_RP * drhodn * nHat(IZ) 
-
-         dudn = (U_x(INSRHOU)*nHat(IX) + U_y(INSRHOU)*nHat(IY) + U_z(INSRHOU)*nHat(IZ))
-         U_x(INSRHOU) = U_x(INSRHOU) - 2.0_RP * dudn * nHat(IX)
-         U_y(INSRHOU) = U_y(INSRHOU) - 2.0_RP * dudn * nHat(IY) 
-         U_z(INSRHOU) = U_z(INSRHOU) - 2.0_RP * dudn * nHat(IZ) 
-
-         dvdn = (U_x(INSRHOV)*nHat(IX) + U_y(INSRHOV)*nHat(IY) + U_z(INSRHOV)*nHat(IZ))
-         U_x(INSRHOV) = U_x(INSRHOV) - 2.0_RP * dvdn * nHat(IX)
-         U_y(INSRHOV) = U_y(INSRHOV) - 2.0_RP * dvdn * nHat(IY) 
-         U_z(INSRHOV) = U_z(INSRHOV) - 2.0_RP * dvdn * nHat(IZ) 
-
-         dwdn = (U_x(INSRHOW)*nHat(IX) + U_y(INSRHOW)*nHat(IY) + U_z(INSRHOW)*nHat(IZ))
-         U_x(INSRHOW) = U_x(INSRHOW) - 2.0_RP * dwdn * nHat(IX)
-         U_y(INSRHOW) = U_y(INSRHOW) - 2.0_RP * dwdn * nHat(IY) 
-         U_z(INSRHOW) = U_z(INSRHOW) - 2.0_RP * dwdn * nHat(IZ)
+         flux = 0.0_RP
 
       end subroutine OutflowBC_FlowNeumann
 #endif
@@ -454,38 +466,43 @@ module OutflowBCClass
 
       end subroutine OutflowBC_FlowState
 
-      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
+!
+!        **************************************************************
+!        **************************************************************
+!
+         implicit none
+         class(OutflowBC_t),  intent(in)    :: self
+         real(kind=RP),          intent(in)    :: x(NDIM)
+         real(kind=RP),          intent(in)    :: t
+         real(kind=RP),          intent(in)    :: nHat(NDIM)
+         real(kind=RP),          intent(in)    :: Q(NCONS)
+         real(kind=RP),          intent(inout) :: U(NGRAD)
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD)
+
+         Q_aux = Q
+         call self % FlowState(x,t,nHat,Q_aux)
+         call mGradientVariables(NCONS, NGRAD, Q_aux, U_aux, dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC)))
+   
+         U_aux(1) = U(1)
+
+         U = 0.5_RP*(U_aux+U)
+
+      end subroutine OutflowBC_FlowGradVars
+
+      subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(OutflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NCONS)
-         real(kind=RP),       intent(inout) :: U_y(NCONS)
-         real(kind=RP),       intent(inout) :: U_z(NCONS)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NCONS)
+         real(kind=RP),       intent(in)    :: U_y(NCONS)
+         real(kind=RP),       intent(in)    :: U_z(NCONS)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 
-         real(kind=RP) :: dmudn, dudn, dvdn, dwdn
-
-         dmudn = (U_x(IGMU)*nHat(IX) + U_y(IGMU)*nHat(IY) + U_z(IGMU)*nHat(IZ))
-         U_x(IGMU) = U_x(IGMU) - 2.0_RP * dmudn * nHat(IX)
-         U_y(IGMU) = U_y(IGMU) - 2.0_RP * dmudn * nHat(IY) 
-         U_z(IGMU) = U_z(IGMU) - 2.0_RP * dmudn * nHat(IZ) 
-
-         dudn = (U_x(IGU)*nHat(IX) + U_y(IGU)*nHat(IY) + U_z(IGU)*nHat(IZ))
-         U_x(IGU) = -U_x(IGU) !- 2.0_RP * dudn * nHat(IX)
-         U_y(IGU) = -U_y(IGU) !- 2.0_RP * dudn * nHat(IY) 
-         U_z(IGU) = -U_z(IGU) !- 2.0_RP * dudn * nHat(IZ) 
-
-         dvdn = (U_x(IGV)*nHat(IX) + U_y(IGV)*nHat(IY) + U_z(IGV)*nHat(IZ))
-         U_x(IGV) = -U_x(IGV) !- 2.0_RP * dvdn * nHat(IX)
-         U_y(IGV) = -U_y(IGV) !- 2.0_RP * dvdn * nHat(IY) 
-         U_z(IGV) = -U_z(IGV) !- 2.0_RP * dvdn * nHat(IZ) 
-
-         dwdn = (U_x(IGW)*nHat(IX) + U_y(IGW)*nHat(IY) + U_z(IGW)*nHat(IZ))
-         U_x(IGW) = -U_x(IGW) !- 2.0_RP * dwdn * nHat(IX)
-         U_y(IGW) = -U_y(IGW) !- 2.0_RP * dwdn * nHat(IY) 
-         U_z(IGW) = -U_z(IGW) !- 2.0_RP * dwdn * nHat(IZ)
+         flux = 0.0_RP
 
       end subroutine OutflowBC_FlowNeumann
 #endif
@@ -508,21 +525,20 @@ module OutflowBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine OutflowBC_PhaseFieldState
 
-      subroutine OutflowBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine OutflowBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(OutflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
-
+         flux = 0.0_RP
+   
       end subroutine OutflowBC_PhaseFieldNeumann
 
       subroutine OutflowBC_ChemPotState(self, x, t, nHat, Q)
@@ -534,20 +550,19 @@ module OutflowBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine OutflowBC_ChemPotState
 
-      subroutine OutflowBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine OutflowBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(OutflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
 
       end subroutine OutflowBC_ChemPotNeumann
 #endif

@@ -77,9 +77,9 @@ module HyperbolicSplitForm
             self % ComputeVolumetricSharpFlux => EntropyConserving_VolumetricSharpFlux
             splitType = ENTROPYCONS_SPLIT
 
-         case ( "entropy and energy conserving")
-            self % ComputeVolumetricSharpFlux => EntropyAndEnergyConserving_VolumetricSharpFlux
-            splitType = ENTROPYANDENERGYCONS_SPLIT
+         case ( "chandrasekar")
+            self % ComputeVolumetricSharpFlux => Chandrasekar_VolumetricSharpFlux
+            splitType = CHANDRASEKAR_SPLIT
 
          case default
             if ( MPI_Process % isRoot ) then   
@@ -91,7 +91,7 @@ module HyperbolicSplitForm
             write(STD_OUT,'(A)') "  * Kennedy-Gruber"
             write(STD_OUT,'(A)') "  * Pirozzoli"
             write(STD_OUT,'(A)') "  * Entropy conserving"
-            write(STD_OUT,'(A)') "  * Entropy and energy conserving"
+            write(STD_OUT,'(A)') "  * Chandrasekar"
             errorMessage(STD_OUT)
             stop 
             end if
@@ -154,8 +154,8 @@ module HyperbolicSplitForm
          case (ENTROPYCONS_SPLIT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Entropy conserving"
 
-         case (ENTROPYANDENERGYCONS_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Entropy and energy conserving"
+         case (CHANDRASEKAR_SPLIT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Chandrasekar"
 
          end select
 
@@ -748,7 +748,7 @@ module HyperbolicSplitForm
 
       end subroutine EntropyConserving_VolumetricSharpFlux
 
-      subroutine EntropyAndEnergyConserving_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine Chandrasekar_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
          use SMConstants
          use PhysicsStorage
          use Utilities, only: logarithmicMean
@@ -830,7 +830,7 @@ module HyperbolicSplitForm
 
          end associate
 
-      end subroutine EntropyAndEnergyConserving_VolumetricSharpFlux
+      end subroutine Chandrasekar_VolumetricSharpFlux
 #elif defined(INCNS)
       subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
          use SMConstants
