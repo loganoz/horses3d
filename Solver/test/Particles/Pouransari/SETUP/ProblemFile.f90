@@ -127,10 +127,6 @@
 
                   x = mesh % elements(eID) % geom % x(:, i, j, k)
 
-                  call random_number(u)
-                  call random_number(v)
-                  call random_number(w)
-
                   v = 1.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
                   !u = 1.0_RP
                   u = 0.0_RP !( u - 0.5_RP )    !v * (u*2 - 1)*0.3_RP
@@ -149,25 +145,6 @@
             end do
 
             end associate
-#endif
-!
-!           ---------------------------------------
-!           Cahn-Hilliard default initial condition
-!           ---------------------------------------
-!
-#if defined(CAHNHILLIARD)
-            call random_seed()
-         
-            do eid = 1, mesh % no_of_elements
-               associate( Nx => mesh % elements(eid) % Nxyz(1), &
-                          Ny => mesh % elements(eid) % Nxyz(2), &
-                          Nz => mesh % elements(eid) % Nxyz(3) )
-               associate(e => mesh % elements(eID) % storage)
-               call random_number(e % c) 
-               e % c = 2.0_RP * (e % c - 0.5_RP)
-               end associate
-               end associate
-            end do
 #endif
 
          end subroutine UserDefinedInitialCondition
@@ -219,10 +196,6 @@
             !    do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
 
             !       x = mesh % elements(eID) % geom % x(:, i, j, k)
-
-                  call random_number(u)
-                  call random_number(v)
-                  call random_number(w)
 
                   v = 1.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
                   !u = 1.0_RP
@@ -391,7 +364,7 @@
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
-            REAL(KIND=RP)                      :: residuals       = 1450.8743207929117_RP !It uses random functions so I guess it depends on the compiler. 
+            REAL(KIND=RP)                      :: residuals       = 1665.3684043986541_RP !It uses random functions so I guess it depends on the compiler. 
 !The coded value if for Alderaan gfortran release. Bender intel 2015 release gives 1203.01565442056_RP
 
             CALL initializeSharedAssertionsManager

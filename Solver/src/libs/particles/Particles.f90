@@ -489,7 +489,8 @@ subroutine InjectParticles( self, mesh  )
     ! Injection temperature
     T = self % injection % T
     
-!$omp do schedule(runtime) private(k, pos)
+!!!!$omp do schedule(runtime) private(k, pos)
+!$omp single
     do i = self % injection % injected, self % injection % injected + self % injection % number
 
         do k = 1,3
@@ -524,7 +525,8 @@ subroutine InjectParticles( self, mesh  )
         call self % particle(i+1) % set_temp ( T )      
 
     enddo 
-!$omp end do 
+!$omp end single
+!!!!!$omp end do 
     self % injection % injected = self % injection % injected + self % injection % number
 
 #endif
