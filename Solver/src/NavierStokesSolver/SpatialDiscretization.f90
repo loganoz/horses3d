@@ -453,22 +453,6 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-! May be in the future
-! !
-! !        Add gravity
-! !        ***********
-! !
-! !$omp do schedule(runtime) private(i,j,k)
-!          do eID = 1, mesh % no_of_elements
-!             associate(e => mesh % elements(eID))
-!             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-!                e % storage % S_NS(IRHOU:IRHOW,i,j,k) = e % storage % S_NS(IRHOU:IRHOW,i,j,k) + &
-!                                                    e % storage % Q(IRHO,i,j,k) * &
-!                                  dimensionless % invFr2 * dimensionless % gravity_dir
-!             end do                ; end do                ; end do
-!             end associate
-!          end do
-! !$omp end do
 !
 !           Add Particles source
 !           ********************

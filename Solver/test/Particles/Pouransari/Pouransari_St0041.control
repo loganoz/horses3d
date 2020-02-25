@@ -1,7 +1,7 @@
 Flow equations        = "NS"
 mesh file name        = "MESH/PouransariChannel.mesh"
 Polynomial order      = 2
-Number of time steps  = 200
+Number of time steps  = 50
 Output Interval       = 10
 Convergence tolerance = 1.d-10
 cfl                   = 0.8
