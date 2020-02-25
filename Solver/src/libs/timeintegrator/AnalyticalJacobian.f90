@@ -747,7 +747,7 @@ contains
       real(kind=RP) :: newFlux (NCONS), flux(NCONS), fv_3d(NCONS,NDIM)
       real(kind=RP) :: q(NCONS), buffer, qr(NCONS)
       real(kind=RP) :: mu, beta, kappa
-      real(kind=RP) :: gradQR(NCONS,NDIM)
+      real(kind=RP) :: gradQL(NCONS,NDIM)
       real(kind=RP),parameter :: eps = 1.e-8_RP
       integer :: i, dir
       !--------------------------------------------
@@ -763,9 +763,9 @@ contains
 !
 !     Get base flux
 !     -------------
-      gradQR(:,1) = Q_xL
-      gradQR(:,2) = Q_yL
-      gradQR(:,3) = Q_zL
+      gradQL(:,1) = Q_xL
+      gradQL(:,2) = Q_yL
+      gradQL(:,3) = Q_zL
       
 !
 !     Compute the viscous flux
@@ -811,25 +811,23 @@ contains
 !     -----------------------------
       do dir=1, NDIM
          do i = 1, NCONS
-            gradQR(:,1) = Q_xL
-            gradQR(:,2) = Q_yL
-            gradQR(:,3) = Q_zL
-            
-            gradQR(i,dir) = gradQR(i,dir) + eps
+            buffer = gradQL(i,dir)
+            gradQL(i,dir) = gradQL(i,dir) + eps
 
-            call ViscousFlux_STATE(NCONS,NCONS,q,gradQR(:,1),gradQR(:,2),gradQR(:,3),mu,beta,kappa,fv_3d)
+            call ViscousFlux_STATE(NCONS,NCONS,q,gradQL(:,1),gradQL(:,2),gradQL(:,3),mu,beta,kappa,fv_3d)
             newflux = fv_3d(:,IX)*nHat(IX) + fv_3d(:,IY)*nHat(IY) + fv_3d(:,IZ)*nHat(IZ)
             CALL BCs(f % zone) % bc % FlowNeumann( & 
                                        x,       & 
                                        time,    & 
                                        nHat,    & 
                                        q,       & 
-                                       Q_xL,    & 
-                                       Q_yL,    & 
-                                       Q_zL,    & 
+                                       gradQL(:,1), & 
+                                       gradQL(:,2), & 
+                                       gradQL(:,3), & 
                                        newflux )
 
-            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps
+            dF_dgradQ(:,i,dir) = (newFlux-flux)/eps 
+            gradQL(i,dir) = buffer
             
          end do
       end do
