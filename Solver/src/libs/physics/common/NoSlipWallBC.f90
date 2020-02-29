@@ -279,7 +279,10 @@ module NoSlipWallBCClass
 !        *************************************************************
 !           Compute the state variables for a general wall
 !
-!           · Cancel out normal velocity
+!           · SHOULD BE: Cancel out normal velocity
+!           · It cancels the whole velocity because otherwise the IP won't work
+!              I need to update the IP (and the analytical Jacobian) to this new
+!              whole BC approach.
 !        *************************************************************
 !
          implicit none
@@ -290,6 +293,10 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(inout) :: Q(NCONS)
 
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
+!
+!        This boundary condition should be
+!        ---------------------------------
+!        Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
 
       end subroutine NoSlipWallBC_FlowState
 
@@ -297,15 +304,6 @@ module NoSlipWallBCClass
 !
 !        **************************************************************
 !              Computes the set of gradient variables U* at the wall
-!
-!           I used the general form:
-!              d Q(IRHO)*self % vWall + (1-d)*(-U(5))*self % vWall
-!              a U(5) + b(-1/Twall)+c rho eWall
-!           With values:
-!              State/adia: a=1, b=0, c=0, d=1
-!              State/iso:  a=0.5, b=0, c=0.5, d=1
-!              Entro/adia: a=1, b=0, c=0, d=0
-!              Entro/iso:  a=0, b=1, c=0, d=0
 !        **************************************************************
 !
          implicit none
@@ -330,8 +328,7 @@ module NoSlipWallBCClass
       
          Q_aux(IRHO) = Q(IRHO)
          Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
-!         Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
-         Q_aux(IRHOE) = Q(IRHOE) ! TODO CHANGE THIS
+         Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
 
          call GetGradients(NCONS, NGRAD, Q_aux, U)
 
@@ -363,9 +360,7 @@ module NoSlipWallBCClass
          viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
          heatFlux = flux(IRHOE) - viscWork
 
-!        TODO replace THIS line
-         !flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-         flux(IRHOE) = viscWork
+         flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
 
       end subroutine NoSlipWallBC_FlowNeumann
 #endif

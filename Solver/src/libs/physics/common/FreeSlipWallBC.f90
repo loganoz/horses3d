@@ -315,7 +315,7 @@ module FreeSlipWallBCClass
          real(kind=RP)  :: Q_aux(NCONS)
 
          Q_aux(IRHO) = Q(IRHO)
-         Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - sum(Q(IRHOU:IRHOW)*nHat)*nHat ! TODO REMOVE THIS
+         Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW)
          Q_aux(IRHOE) = Q(IRHOE) + self % wallType*(Q(IRHO)*self % eWall+0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO)-Q(IRHOE))
 
          call GetGradients(NCONS, NGRAD, Q_aux, U)
