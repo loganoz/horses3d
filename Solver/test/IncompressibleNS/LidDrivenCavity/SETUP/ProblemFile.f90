@@ -448,15 +448,16 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            real(kind=RP), parameter  :: saved_residuals(5) = [5.694170536064966E-004_RP, &
-                                                               4.629708599445529E-003_RP, &
-                                                               1.608568120479096E-016_RP, &
-                                                               6.031400084549617E-003_RP, &
-                                                               7.7064957155759237E-04_RP]
+            real(kind=RP), parameter  :: saved_residuals(5) = [5.694170535891494E-004_RP, &
+                                                               4.629708599491412E-003_RP, &
+                                                               1.337960998085075E-016_RP, &
+                                                               6.061897975095937E-003_RP, &
+                                                               8.297728217021577E-003_RP    ]
             CHARACTER(LEN=29)                  :: testName = "Incompressible LidDrivenCavity"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: eID, i, j, k, eq, fid,N
+
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

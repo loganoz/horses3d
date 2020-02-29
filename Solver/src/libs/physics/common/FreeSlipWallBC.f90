@@ -14,6 +14,7 @@
 module FreeSlipWallBCClass
    use SMConstants
    use PhysicsStorage
+   use VariableConversion, only: GetGradientValues_f
    use FileReaders,            only: controlFileName
    use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
@@ -55,10 +56,7 @@ module FreeSlipWallBCClass
       real(kind=RP)     :: Twall
       real(kind=RP)     :: ewall       ! Wall internal energy
       real(kind=RP)     :: invTwall
-      real(kind=RP)     :: a_grad
-      real(kind=RP)     :: b_grad
-      real(kind=RP)     :: c_grad
-      real(kind=RP)     :: d_grad
+      real(kind=RP)     :: wallType    ! 0/Adia 1/Isothermal
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP)     :: thetaw
@@ -197,21 +195,13 @@ module FreeSlipWallBCClass
             ConstructFreeSlipWallBC % ewall = 0.0_RP
             ConstructFreeSlipWallBC % Twall = 0.0_RP
             ConstructFreeSlipWallBC % invTwall = 0.0_RP
-         
-            ConstructFreeSlipWallBC % a_grad = 1.0_RP
-            ConstructFreeSlipWallBC % b_grad = 0.0_RP
-            ConstructFreeSlipWallBC % c_grad = 0.0_RP
-            ConstructFreeSlipWallBC % d_grad = 1.0_RP
+            ConstructFreeSlipWallBC % wallType = 0.0_RP
          else
             ConstructFreeSlipWallBC % isAdiabatic = .false.
             call GetValueWithDefault(bcdict, "wall temperature" , refValues % T, ConstructFreeSlipWallBC % Twall     )
             ConstructFreeSlipWallBC % ewall = ConstructFreeSlipWallBC % Twall / (refValues % T*thermodynamics % gammaMinus1*dimensionless % gammaM2)
             ConstructFreeSlipWallBC % invTwall = dimensionless % gammaM2*refValues % T / ConstructFreeSlipWallBC % Twall
-
-            ConstructFreeSlipWallBC % a_grad = 0.5_RP
-            ConstructFreeSlipWallBC % b_grad = 0.0_RP
-            ConstructFreeSlipWallBC % c_grad = 0.5_RP
-            ConstructFreeSlipWallBC % d_grad = 0.0_RP
+            ConstructFreeSlipWallBC % wallType = 1.0_RP
          end if
 #endif
 #ifdef CAHNHILLIARD
@@ -302,7 +292,7 @@ module FreeSlipWallBCClass
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
 !
 !        *****************************************************************
 !           Only set the temperature, velocity is Neumann, use interior!
@@ -315,21 +305,20 @@ module FreeSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          real(kind=RP)  :: rhou_n
-!
-!        Set the temperature to interior/wall
-!        ------------------------------------
-         ! TODO: update this!!!
-         !U(IRHOE) = self % a_grad*U(IRHOE) - self % b_grad*self % invTwall + self % c_grad*Q(IRHO)*self % eWall
+         real(kind=RP)  :: Q_aux(NCONS)
 
-         call self % FlowState(x,t,nHat,U)
+         Q_aux(IRHO) = Q(IRHO)
+         Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - sum(Q(IRHOU:IRHOW)*nHat)*nHat ! TODO REMOVE THIS
+         Q_aux(IRHOE) = Q(IRHOE) + self % wallType*(Q(IRHO)*self % eWall+0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO)-Q(IRHOE))
 
-         U = 0.5_RP*(Q+U)
+         call GetGradients(NCONS, NGRAD, Q_aux, U)
 
       end subroutine FreeSlipWallBC_FlowGradVars
 
@@ -355,16 +344,13 @@ module FreeSlipWallBCClass
 !        Local Variables
 !        ---------------
 !   
-         real(kind=RP)  :: viscWork
+         real(kind=RP)  :: viscWork, heatFlux
 
-         if ( self % isAdiabatic ) then
-            flux = 0.0_RP
-         else
-            viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
-            flux(IRHO:IRHOW) = 0.0_RP
-            flux(IRHOE) = flux(IRHOE)-viscWork
-         end if
-
+         viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
+         heatFlux = flux(IRHOE) - viscWork
+         flux(IRHO:IRHOW) = 0.0_RP
+         flux(IRHOE) = self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
+         
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
 !
@@ -407,27 +393,26 @@ module FreeSlipWallBCClass
 !
          vn = sum(Q(INSRHOU:INSRHOW)*nHat)
 
-         Q(INSRHO)  = Q(INSRHO)
-         Q(INSRHOU) = Q(INSRHOU) - 2.0_RP * vn * nHat(IX)
-         Q(INSRHOV) = Q(INSRHOV) - 2.0_RP * vn * nHat(IY)
-         Q(INSRHOW) = Q(INSRHOW) - 2.0_RP * vn * nHat(IZ)
-         Q(INSP)    = Q(INSP)
+         Q(INSRHO)          = Q(INSRHO)
+         Q(INSRHOU:INSRHOW) = Q(INSRHOU:INSRHOW) - 2.0_RP * vn * nHat
+         Q(INSP)            = Q(INSP)
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
 !
 !        **************************************************************
 !           Use the interior velocity: Neumann BC!
 !        **************************************************************
 !
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)    :: self
+         class(FreeSlipWallBC_t),  intent(in)  :: self
          real(kind=RP),          intent(in)    :: x(NDIM)
          real(kind=RP),          intent(in)    :: t
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 
       end subroutine FreeSlipWallBC_FlowGradVars
 
@@ -500,21 +485,20 @@ module FreeSlipWallBCClass
 
       end subroutine FreeSlipWallBC_FlowState
 
-      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine FreeSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
 !
 !        **************************************************************
 !           Use the interior velocity: Neumann BC!
 !        **************************************************************
 !
          implicit none
-         class(FreeSlipWallBC_t),  intent(in)    :: self
+         class(FreeSlipWallBC_t),  intent(in)  :: self
          real(kind=RP),          intent(in)    :: x(NDIM)
          real(kind=RP),          intent(in)    :: t
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
-
-
+         procedure(GetGradientValues_f)        :: GetGradients
       end subroutine FreeSlipWallBC_FlowGradVars
 
       subroutine FreeSlipWallBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
@@ -528,7 +512,7 @@ module FreeSlipWallBCClass
          real(kind=RP),       intent(in)      :: U_y(NCONS)
          real(kind=RP),       intent(in)      :: U_z(NCONS)
          real(kind=RP),       intent(inout)   :: flux(NCONS)
-      
+
          flux = 0.0_RP
 
       end subroutine FreeSlipWallBC_FlowNeumann

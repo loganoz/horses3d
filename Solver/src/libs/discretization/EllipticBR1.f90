@@ -558,7 +558,7 @@ module EllipticBR1
                                 time               ,       &
                                 f % geom % normal(:,i,j),  &
                                 f % storage(1) % Q(:,i,j), &
-                                Uhat                         )
+                                Uhat, GetGradients           )
    
             f % storage(1) % unStar(:,1,i,j) = Uhat * f % geom % normal(1,i,j) * f % geom % jacobian(i,j)
             f % storage(1) % unStar(:,2,i,j) = Uhat * f % geom % normal(2,i,j) * f % geom % jacobian(i,j)    

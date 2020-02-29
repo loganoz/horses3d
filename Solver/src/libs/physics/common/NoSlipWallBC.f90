@@ -21,6 +21,7 @@ module NoSlipWallBCClass
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
    use Utilities, only: toLower, almostEqual
+   use VariableConversion, only: GetGradientValues_f
    implicit none
 !
 !  *****************************
@@ -55,10 +56,7 @@ module NoSlipWallBCClass
       real(kind=RP)     :: Twall
       real(kind=RP)     :: invTwall
       real(kind=RP)     :: ewall       ! Wall internal energy
-      real(kind=RP)     :: a_grad
-      real(kind=RP)     :: b_grad
-      real(kind=RP)     :: c_grad
-      real(kind=RP)     :: d_grad
+      real(kind=RP)     :: wallType
 #endif
 #ifdef FLOW
       real(kind=RP)     :: vWall(NDIM)
@@ -200,21 +198,14 @@ module NoSlipWallBCClass
             ConstructNoSlipWallBC % ewall = 0.0_RP
             ConstructNoSlipWallBC % Twall = 0.0_RP
             ConstructNoSlipWallBC % invTwall = 0.0_RP
+            ConstructNoSlipWallBC % wallType = 0.0_RP
          
-            ConstructNoSlipWallBC % a_grad = 1.0_RP
-            ConstructNoSlipWallBC % b_grad = 0.0_RP
-            ConstructNoSlipWallBC % c_grad = 0.0_RP
-            ConstructNoSlipWallBC % d_grad = 1.0_RP
          else
             ConstructNoSlipWallBC % isAdiabatic = .false.
             call GetValueWithDefault(bcdict, "wall temperature" , refValues % T, ConstructNoSlipWallBC % Twall)
             ConstructNoSlipWallBC % ewall = ConstructNoSlipWallBC % Twall / (refValues % T*thermodynamics % gammaMinus1*dimensionless % gammaM2)
             ConstructNoSlipWallBC % invTwall = dimensionless % gammaM2*refValues % T / ConstructNoSlipWallBC % Twall
-
-            ConstructNoSlipWallBC % a_grad = 0.5_RP
-            ConstructNoSlipWallBC % b_grad = 0.0_RP
-            ConstructNoSlipWallBC % c_grad = 0.5_RP
-            ConstructNoSlipWallBC % d_grad = 0.0_RP
+            ConstructNoSlipWallBC % wallType = 1.0_RP
          end if
 #endif
 #ifdef FLOW
@@ -288,7 +279,7 @@ module NoSlipWallBCClass
 !        *************************************************************
 !           Compute the state variables for a general wall
 !
-!           · Wall velocity is set to -v_interior
+!           · Cancel out normal velocity
 !        *************************************************************
 !
          implicit none
@@ -298,11 +289,11 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(inout) :: Q(NCONS)
 
-         Q(IRHOU:IRHOW) = - Q(IRHOU:IRHOW)
+         Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
 
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
 !
 !        **************************************************************
 !              Computes the set of gradient variables U* at the wall
@@ -324,18 +315,25 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-!
-!        Set the velocity to the wall vel. State: rho*vWall / Entropy: rho*vWall/p (U(5)=-rho/p)
-!        --------------------------------
-         U(IRHOU:IRHOW) = self % vWall*(self % d_grad*Q(IRHO)-(1.0_RP-self % d_grad)*U(IRHOE))
-!
-!        Set the temperature to interior/wall
-         U(IRHOE) = self % a_grad*U(IRHOE) - self % b_grad*self % invTwall + self % c_grad*Q(IRHO)*self % eWall
+         real(kind=RP)  :: Q_aux(NCONS)
+         real(kind=RP)  :: e_int
+         real(kind=RP)  :: invRho
+
+         invRho = 1.0_RP / Q(IRHO)
+         e_int = invRho*(Q(IRHOE) - 0.5_RP*invRho*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW))))
+      
+         Q_aux(IRHO) = Q(IRHO)
+         Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
+!         Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
+         Q_aux(IRHOE) = Q(IRHOE) ! TODO CHANGE THIS
+
+         call GetGradients(NCONS, NGRAD, Q_aux, U)
 
       end subroutine NoSlipWallBC_FlowGradVars
 
@@ -360,18 +358,14 @@ module NoSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: invRho, u, v, w
-         
-         if (self % isAdiabatic) then
-            
-            invRho = 1._RP / Q(IRHO)
-            u = Q(IRHOU) * invRho
-            v = Q(IRHOV) * invRho
-            w = Q(IRHOW) * invRho
+         real(kind=RP)  :: viscWork, heatFlux
 
-            flux(IRHOE) = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
-            
-         end if
+         viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
+         heatFlux = flux(IRHOE) - viscWork
+
+!        TODO replace THIS line
+         !flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
+         flux(IRHOE) = viscWork
 
       end subroutine NoSlipWallBC_FlowNeumann
 #endif
@@ -402,12 +396,11 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(in)    :: nHat(NDIM)
          real(kind=RP),       intent(inout) :: Q(NCONS)
 
-         Q(INSRHOU:INSRHOW) = 2.0_RP*self % vWall-Q(INSRHOU:INSRHOW)
-!         Q(INSRHOU:INSRHOW) = -Q(INSRHOU:INSRHOW)
+         Q(INSRHOU:INSRHOW) = -Q(INSRHOU:INSRHOW)
 
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
          real(kind=RP),          intent(in)    :: x(NDIM)
@@ -415,12 +408,13 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         U(INSRHOU:INSRHOW) = self % vWall / Q(INSRHO)
+         U(INSRHOU:INSRHOW) = self % vWall
    
       end subroutine NoSlipWallBC_FlowGradVars
 
@@ -440,8 +434,6 @@ module NoSlipWallBCClass
          real(kind=RP),       intent(in)    :: U_y(NCONS)
          real(kind=RP),       intent(in)    :: U_z(NCONS)
          real(kind=RP),       intent(inout) :: flux(NCONS)
-
-
       end subroutine NoSlipWallBC_FlowNeumann
 #endif
 !
@@ -475,7 +467,7 @@ module NoSlipWallBCClass
 
       end subroutine NoSlipWallBC_FlowState
 
-      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(NoSlipWallBC_t),  intent(in)    :: self
          real(kind=RP),          intent(in)    :: x(NDIM)
@@ -483,6 +475,7 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(in)    :: Q(NCONS)
          real(kind=RP),          intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)        :: GetGradients
 !
 !        ---------------
 !        Local variables
