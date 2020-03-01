@@ -214,7 +214,7 @@ module EllipticIP
 !
          integer :: Nx, Ny, Nz
          integer :: i, j, k
-         integer :: eID , fID , dimID , eqID, fIDs(6)
+         integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        *********************************
 !        Volume loops and prolong to faces
@@ -243,31 +243,28 @@ module EllipticIP
 !        Compute interface solution of non-shared faces
 !        **********************************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_INTERIOR) 
-               call IP_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients) 
-            
-            case (HMESH_BOUNDARY) 
-               call IP_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients) 
- 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)
+            call IP_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
+!$omp end do 
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call IP_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
 !$omp end do 
 !
 !        **********************
 !        Compute face integrals
 !        **********************
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID))
-            if ( e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
-            end associate
+!$omp do schedule(runtime) private(eID) 
+         do iEl = 1, size(mesh % elements_sequential)
+            eID = mesh % elements_sequential(iEl)
+            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
 !
@@ -275,6 +272,7 @@ module EllipticIP
 !        Wait for MPI faces
 !        ******************
 !
+#ifdef _HAS_MPI_
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
             call mesh % GatherMPIFacesSolution(nEqn)
@@ -285,30 +283,24 @@ module EllipticIP
 !        Compute MPI interface solutions
 !        *******************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_MPI) 
-               call IP_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients) 
- 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_mpi)
+            fID = mesh % faces_mpi(iFace)
+            call IP_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
 !$omp end do 
 !
 !        **************************************************
 !        Compute face integrals for elements with MPI faces
 !        **************************************************
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID))
-            if ( .not. e % hasSharedFaces ) cycle
-            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, e, mesh)
-            end associate
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1, size(mesh % elements_mpi)
+            eID = mesh % elements_mpi(iEl)
+            call IP_ComputeGradientFaceIntegrals(self,nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
+#endif
 
       end subroutine IP_ComputeGradient
 !

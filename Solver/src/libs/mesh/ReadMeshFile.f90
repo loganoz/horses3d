@@ -16,7 +16,7 @@ module ReadMeshFile
    use Read_HDF5Mesh_HOPR
    use Read_SpecMesh
    use HexMeshClass
-   use MeshTypes           , only: SPECMESH, HOPRMESH
+   use MeshTypes           , only: SPECMESH, HOPRMESH, HMESH_INTERIOR, HMESH_BOUNDARY, HMESH_MPI
    use FileReadingUtilities, only: getFileExtension
    implicit none
 
@@ -37,7 +37,10 @@ contains
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
       integer                    :: nelem
-      integer                    :: eID
+      integer                    :: eID, fID
+      integer                    :: no_interior_faces, no_boundary_faces, no_mpi_faces
+      integer                    :: no_sequential_elems, no_mpi_elems
+      integer                    :: aux_array(1:3)
       !---------------------------------------------------------------
       
       ext = getFileExtension(trim(filename))
@@ -54,6 +57,77 @@ contains
       do eID=1, self % no_of_elements
          self % NDOF = self % NDOF + product(self % elements(eID) % Nxyz + 1)
       end do
+!
+!     ******************************************************************************
+!     Create three arrays that contain the fIDs of interior, mpi, and boundary faces
+!     ******************************************************************************
+!
+      self % no_of_faces = size(self % faces)
+
+      no_interior_faces = 0
+      no_boundary_faces = 0
+      no_mpi_faces      = 0
+
+      aux_array = 0
+      do fID = 1, self % no_of_faces
+         aux_array(self % faces(fID) % faceType) = aux_array(self % faces(fID) % faceType) + 1
+      end do
+
+      no_interior_faces = aux_array(HMESH_INTERIOR)
+      no_mpi_faces      = aux_array(HMESH_MPI)
+      no_boundary_faces = aux_array(HMESH_BOUNDARY)
+
+      allocate(self % faces_interior(no_interior_faces))
+      allocate(self % faces_mpi     (no_mpi_faces     ))
+      allocate(self % faces_boundary(no_boundary_faces))
+
+      no_interior_faces = 0
+      no_boundary_faces = 0
+      no_mpi_faces      = 0
+      do fID = 1, self % no_of_faces
+         select case (self % faces(fID) % faceType)
+         case(HMESH_INTERIOR)
+            no_interior_faces = no_interior_faces + 1
+            self % faces_interior(no_interior_faces) = fID
+
+         case(HMESH_MPI)
+            no_mpi_faces = no_mpi_faces + 1
+            self % faces_mpi(no_mpi_faces) = fID
+
+         case(HMESH_BOUNDARY)
+            no_boundary_faces = no_boundary_faces + 1
+            self % faces_boundary(no_boundary_faces) = fID
+
+         end select
+      end do
+
+      no_sequential_elems = 0
+      no_mpi_elems = 0
+
+      do eID = 1, self % no_of_elements
+         if (self % elements(eID) % hasSharedFaces) then
+            no_mpi_elems = no_mpi_elems + 1 
+         else
+            no_sequential_elems = no_sequential_elems + 1 
+         end if
+      end do
+
+      allocate(self % elements_sequential(no_sequential_elems))
+      allocate(self % elements_mpi(no_mpi_elems))
+      
+      no_sequential_elems = 0
+      no_mpi_elems = 0
+
+      do eID = 1, self % no_of_elements
+         if (self % elements(eID) % hasSharedFaces) then
+            no_mpi_elems = no_mpi_elems + 1 
+            self % elements_mpi(no_mpi_elems) = eID
+         else
+            no_sequential_elems = no_sequential_elems + 1 
+            self % elements_sequential(no_sequential_elems) = eID
+         end if
+      end do
+
    end subroutine constructMeshFromFile
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
