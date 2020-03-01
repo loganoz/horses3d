@@ -141,7 +141,7 @@ module EllipticBR2
 !
          integer :: Nx, Ny, Nz
          integer :: i, j, k
-         integer :: eID , fID , dimID , eqID, fIDs(6)
+         integer :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        ***********************
 !        Compute local gradients
@@ -170,31 +170,28 @@ module EllipticBR2
 !        Compute interface solution of non-shared faces
 !        **********************************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_INTERIOR) 
-               call BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients) 
-            
-            case (HMESH_BOUNDARY) 
-               call BR2_GradientInterfaceSolutionBoundary(f, nEqn, nGradEqn, time, GetGradients) 
- 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)
+            call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
+!$omp end do 
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call BR2_GradientInterfaceSolutionBoundary(mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
 !$omp end do 
 !
 !        **********************
 !        Compute face integrals
 !        **********************
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID))
-            if ( e % hasSharedFaces ) cycle
-            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
-            end associate 
+!$omp do schedule(runtime) private(eID) 
+         do iEl = 1, size(mesh % elements_sequential)
+            eID = mesh % elements_sequential(iEl)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
 !
@@ -212,27 +209,21 @@ module EllipticBR2
 !        Compute MPI interface solutions
 !        *******************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_MPI) 
-               call BR2_GradientInterfaceSolutionMPI(f, nEqn, nGradEqn, GetGradients) 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_mpi)
+            fID = mesh % faces_mpi(iFace)
+            call BR2_GradientInterfaceSolutionMPI(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
 !$omp end do 
 !
 !        **************************************************
 !        Compute face integrals for elements with MPI faces
 !        **************************************************
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
-            associate(e => mesh % elements(eID))
-            if ( .not. e % hasSharedFaces ) cycle
-            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, e, mesh)
-            end associate
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1, size(mesh % elements_mpi)
+            eID = mesh % elements_mpi(iEl)
+            call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
 

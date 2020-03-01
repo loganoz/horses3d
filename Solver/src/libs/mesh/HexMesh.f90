@@ -60,9 +60,15 @@ MODULE HexMeshClass
          integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
+         integer                                   :: no_of_faces
          integer                                   :: dt_restriction = DT_FIXED     ! Time step restriction of last step (DT_FIXED -initial value-, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
          integer                                   :: NDOF
+         integer,                     allocatable  :: faces_interior(:)
+         integer,                     allocatable  :: faces_mpi(:)
+         integer,                     allocatable  :: faces_boundary(:)
+         integer,                     allocatable  :: elements_sequential(:)
+         integer,                     allocatable  :: elements_mpi(:)
          integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored

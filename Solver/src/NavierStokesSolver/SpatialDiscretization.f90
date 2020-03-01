@@ -333,7 +333,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl
 !
 !        ****************
 !        Volume integrals
@@ -349,29 +349,28 @@ module SpatialDiscretization
 !        Compute Riemann solver of non-shared faces
 !        ******************************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, size(mesh % faces) 
-            associate( f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_INTERIOR) 
-               CALL computeElementInterfaceFlux( f ) 
- 
-            case (HMESH_BOUNDARY) 
-               CALL computeBoundaryFlux(f, t) 
- 
-            end select 
-            end associate 
-         end do 
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)
+            call computeElementInterfaceFlux(mesh % faces(fID))
+         end do
+!$omp end do 
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call computeBoundaryFlux(mesh % faces(fID), t)
+         end do
 !$omp end do 
 !
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, size(mesh % elements) 
+!$omp do schedule(runtime) private(i,j,k,eID)
+         do iEl = 1, size(mesh % elements_sequential)
+            eID = mesh % elements_sequential(iEl)
             associate(e => mesh % elements(eID)) 
-            if ( e % hasSharedFaces ) cycle
             call TimeDerivative_FacesContribution(e, t, mesh) 
  
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
@@ -399,25 +398,21 @@ module SpatialDiscretization
 !           Compute Riemann solver of shared faces
 !           **************************************
 !
-!$omp do schedule(runtime) 
-            do fID = 1, size(mesh % faces) 
-               associate( f => mesh % faces(fID)) 
-               select case (f % faceType) 
-               case (HMESH_MPI) 
-                  CALL computeMPIFaceFlux( f ) 
-               end select 
-               end associate 
-            end do 
+!$omp do schedule(runtime) private(fID)
+            do iFace = 1, size(mesh % faces_mpi)
+               fID = mesh % faces_mpi(iFace)
+               call computeMPIFaceFlux(mesh % faces(fID))
+            end do
 !$omp end do 
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
 ! 
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, size(mesh % elements) 
+!$omp do schedule(runtime) private(i,j,k,eID)
+            do iEl = 1, size(mesh % elements_mpi)
+               eID = mesh % elements_mpi(iEl)
                associate(e => mesh % elements(eID)) 
-               if ( .not. e % hasSharedFaces ) cycle
                call TimeDerivative_FacesContribution(e, t, mesh) 
    
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 

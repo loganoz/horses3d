@@ -77,7 +77,7 @@ module EllipticBR1
 !        ---------------
 !
          integer                :: i, j, k
-         integer                :: eID , fID , dimID , eqID, fIDs(6)
+         integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        ************
 !        Volume loops
@@ -93,25 +93,24 @@ module EllipticBR1
 !        Compute Riemann solvers of non-shared faces
 !        *******************************************
 !
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_INTERIOR) 
-               call BR1_ComputeElementInterfaceAverage(self, f, nEqn, nGradEqn, GetGradients) 
-            
-            case (HMESH_BOUNDARY) 
-               call BR1_ComputeBoundaryFlux(self, f, nEqn, nGradEqn, time, GetGradients) 
- 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)
+            call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
+!$omp end do 
+
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_boundary)
+            fID = mesh % faces_boundary(iFace)
+            call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         end do
 !$omp end do 
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
+!$omp do schedule(runtime) private(eID)
+         do iEl = 1, size(mesh % elements_sequential)
+            eID = mesh % elements_sequential(iEl)
             associate(e => mesh % elements(eID))
-            if ( e % hasSharedFaces ) cycle
 !
 !           Add the surface integrals
 !           -------------------------
@@ -149,22 +148,17 @@ module EllipticBR1
          end if
 !$omp end single
 
-!$omp do schedule(runtime) 
-         do fID = 1, SIZE(mesh % faces) 
-            associate(f => mesh % faces(fID)) 
-            select case (f % faceType) 
-            case (HMESH_MPI) 
-               call BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn, GetGradients) 
- 
-            end select 
-            end associate 
-         end do            
+!$omp do schedule(runtime) private(fID)
+         do iFace = 1, size(mesh % faces_mpi)
+            fID = mesh % faces_mpi(iFace)
+            call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+         end do
 !$omp end do 
 !
-!$omp do schedule(runtime) 
-         do eID = 1, size(mesh % elements) 
+!$omp do schedule(runtime) private(eID) 
+         do iEl = 1, size(mesh % elements_mpi)
+            eID = mesh % elements_mpi(iEl)
             associate(e => mesh % elements(eID))
-            if ( .not. e % hasSharedFaces ) cycle
 !
 !           Add the surface integrals
 !           -------------------------
