@@ -285,7 +285,7 @@ module GenericBoundaryConditionClass
          call GetGradients(NCONS,NGRAD,Q_aux, U_aux)
 #endif
 
-         U_aux = 0.5_RP * (U_aux + U)
+         U = 0.5_RP * (U_aux + U)
 
       end subroutine GenericBC_FlowGradVars
 
