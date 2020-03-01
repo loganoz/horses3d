@@ -355,9 +355,13 @@ module NoSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: viscWork, heatFlux
+         real(kind=RP)  :: viscWork, heatFlux, invRho, u, v, w
 
-         viscWork = (flux(IRHOU)*Q(IRHOU)+flux(IRHOV)*Q(IRHOV)+flux(IRHOW)*Q(IRHOW))/Q(IRHO)
+         invRho = 1.0_RP / Q(IRHO)
+         u      = invRho * Q(IRHOU)
+         v      = invRho * Q(IRHOV)
+         w      = invRho * Q(IRHOW)
+         viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
          heatFlux = flux(IRHOE) - viscWork
 
          flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
