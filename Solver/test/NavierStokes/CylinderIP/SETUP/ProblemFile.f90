@@ -556,14 +556,14 @@ end module ProblemFileFunctions
 !           ------------------------------------------------
 !
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [1.1886461384563582E+01_RP, &
-                                                        4.2796435298348051E+01_RP, &
-                                                        2.0477160036131772E-01_RP, &
-                                                        2.7406647924577360E+01_RP, &
-                                                        3.4505908635626719E+02_RP]
-            real(kind=RP), parameter           :: wake_u = 8.0259599884881728E-09_RP
-            real(kind=RP), parameter           :: cd =  4.1632182915365732E+01_RP
-            real(kind=RP), parameter           :: cl = -1.5073833579020146E-03_RP
+            real(kind=RP), parameter :: residuals(5) = [  8.2374879363448539E+00_RP, &
+                                                          3.7936823935546542E+01_RP, &
+                                                          1.5394486878254571E-01_RP, &
+                                                          2.4481366234488725E+01_RP, &
+                                                          2.2515000434272847E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 8.0400149338013901E-09_RP
+            real(kind=RP), parameter           :: cd =  3.9873101495434206E+01_RP
+            real(kind=RP), parameter           :: cl = -5.9974378623905977E-04_RP
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

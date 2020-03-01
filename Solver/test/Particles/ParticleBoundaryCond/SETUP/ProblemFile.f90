@@ -93,16 +93,18 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
+         use VariableConversion, only: GetGradientValues_f
          implicit none
          real(kind=RP), intent(in)          :: x(NDIM)
          real(kind=RP), intent(in)          :: t
          real(kind=RP), intent(in)          :: nHat(NDIM)
          real(kind=RP), intent(in)          :: Q(NCONS)
          real(kind=RP), intent(inout)       :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
          type(Thermodynamics_t), intent(in) :: thermodynamics_
          type(Dimensionless_t),  intent(in) :: dimensionless_
          type(RefValues_t),      intent(in) :: refValues_
@@ -411,16 +413,18 @@ end module ProblemFileFunctions
 #endif       
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
+            use VariableConversion, only: GetGradientValues_f
             implicit none
             real(kind=RP), intent(in)          :: x(NDIM)
             real(kind=RP), intent(in)          :: t
             real(kind=RP), intent(in)          :: nHat(NDIM)
             real(kind=RP), intent(in)          :: Q(NCONS)
             real(kind=RP), intent(inout)       :: U(NGRAD)
+            procedure(GetGradientValues_f)     :: GetGradients
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
