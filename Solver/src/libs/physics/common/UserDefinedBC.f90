@@ -20,6 +20,7 @@ module UserDefinedBCClass
    use Utilities, only: toLower, almostEqual
    use GenericBoundaryConditionClass
    use FluidData
+   use VariableConversion, only: GetGradientValues_f
    implicit none
 !
 !  *****************************
@@ -255,7 +256,7 @@ module UserDefinedBCClass
    
       end subroutine UserDefinedBC_FlowState
 
-      subroutine UserDefinedBC_FlowGradVars(self, x, t, nHat, Q, U)
+      subroutine UserDefinedBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(UserDefinedBC_t),   intent(in) :: self
          real(kind=RP),       intent(in)      :: x(NDIM)
@@ -263,22 +264,25 @@ module UserDefinedBCClass
          real(kind=RP),       intent(in)      :: nHat(NDIM)
          real(kind=RP),       intent(in)      :: Q(NCONS)
          real(kind=RP),       intent(inout)   :: U(NGRAD)
+         procedure(GetGradientValues_f)       :: GetGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          interface
-            subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
+            subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
                use SMConstants
                use PhysicsStorage
                use FluidData
+               use VariableConversion, only: GetGradientValues_f
                implicit none
                real(kind=RP), intent(in)          :: x(NDIM)
                real(kind=RP), intent(in)          :: t
                real(kind=RP), intent(in)          :: nHat(NDIM)
                real(kind=RP), intent(in)          :: Q(NCONS)
                real(kind=RP), intent(inout)       :: U(NGRAD)
+               procedure(GetGradientValues_f)     :: GetGradients
                type(Thermodynamics_t), intent(in) :: thermodynamics_
                type(Dimensionless_t),  intent(in) :: dimensionless_
                type(RefValues_t),      intent(in) :: refValues_
@@ -287,7 +291,7 @@ module UserDefinedBCClass
 
          select case(self % udf_no)
          case(1)
-            call UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics, dimensionless, refValues)
+            call UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics, dimensionless, refValues)
          case default
             print*, "Unrecognized UDF number for boundary", self % bname
          end select

@@ -557,14 +557,16 @@ end module ProblemFileFunctions
             INTEGER      , parameter           :: iterations = 100
  
 
-            real(kind=RP), parameter :: residuals(5) = [9.5857966996709187E+00_RP, &
-                                                        2.0878940134087447E+01_RP, &
-                                                        3.8002598881431043E-01_RP, &
-                                                        2.8320563925071038E+01_RP, &
-                                                        2.6480424271668329E+02_RP]
-            real(kind=RP), parameter           :: wake_u = 8.5458656832915366E-12_RP
-            real(kind=RP), parameter           :: cd = 1.1700725621833415E+01_RP
-            real(kind=RP), parameter           :: cl = 2.3527386517230298E-05_RP
+            real(kind=RP), parameter :: residuals(5) = [  9.5806843438686187E+00_RP, &
+                                                          2.0804409295398674E+01_RP, &
+                                                          3.7668643984422062E-01_RP, &
+                                                          2.8294967351713780E+01_RP, &
+                                                          2.6470701404383522E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 7.0747155905975756E-12_RP
+            real(kind=RP), parameter           :: cd = 1.1700328564058855E+01_RP
+            real(kind=RP), parameter           :: cl = 2.1473915366776453E-05_RP
+            integer   :: i
+
 
 
             CALL initializeSharedAssertionsManager

@@ -557,16 +557,15 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
   
-            real(kind=RP), parameter :: residuals(5) = [8.7870403980964618E+00_RP, &
-                                                        1.7545557213674602E+01_RP, &
-                                                        1.9154485381885591E-01_RP, &
-                                                        2.4213366489212309E+01_RP, &
-                                                        2.3989654061674085E+02_RP]
+            real(kind=RP), parameter :: residuals(5) = [  8.8131236945814528E+00_RP, &
+                                                          1.7608842235281383E+01_RP, &
+                                                          1.9037561113983942E-01_RP, &
+                                                          2.4301350366038736E+01_RP, &
+                                                          2.4063782918050856E+02_RP]
 
-            real(kind=RP), parameter           :: wake_u =1.1081539552512372E-08_RP
-            real(kind=RP), parameter           :: cd = 3.4480571453631313E+01_RP
-            real(kind=RP), parameter           :: cl = -4.1566557809158411E-04_RP
-
+            real(kind=RP), parameter           :: wake_u = 1.0965310170722376E-08_RP
+            real(kind=RP), parameter           :: cd = 3.4573345430036312E+01_RP
+            real(kind=RP), parameter           :: cl = -4.6800323823958934E-04_RP
 
 
 !

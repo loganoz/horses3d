@@ -14,6 +14,7 @@
 module InflowBCClass
    use SMConstants
    use PhysicsStorage
+   use VariableConversion, only: GetGradientValues_f
    use FileReaders,            only: controlFileName
    use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
@@ -77,7 +78,6 @@ module InflowBCClass
          procedure         :: Describe          => InflowBC_Describe
 #if defined(NAVIERSTOKES) || defined(INCNS)
          procedure         :: FlowState         => InflowBC_FlowState
-         procedure         :: FlowGradVars      => InflowBC_FlowGradVars
          procedure         :: FlowNeumann       => InflowBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -369,25 +369,6 @@ module InflowBCClass
 
       end subroutine InflowBC_FlowState
 
-      subroutine InflowBC_FlowGradVars(self, x, t, nHat, Q, U)
-!
-!        **************************************************************
-!        **************************************************************
-!
-         implicit none
-         class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-
-         call self % FlowState(x,t,nHat,U)
-
-         U = 0.5_RP*(Q+U)
-
-      end subroutine InflowBC_FlowGradVars
-
       subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
 !
 !        *******************************************
@@ -442,25 +423,6 @@ module InflowBCClass
          Q(INSRHOW) = Q(INSRHO)*w
 
       end subroutine InflowBC_FlowState
-
-      subroutine InflowBC_FlowGradVars(self, x, t, nHat, Q, U)
-!
-!        **************************************************************
-!        **************************************************************
-!
-         implicit none
-         class(InflowBC_t),  intent(in)    :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-
-         call self % FlowState(x,t,nHat,U)
-
-         U = 0.5_RP*(Q+U)
-
-      end subroutine InflowBC_FlowGradVars
 
       subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none

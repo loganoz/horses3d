@@ -58,7 +58,6 @@ module OutflowBCClass
          procedure         :: Describe          => OutflowBC_Describe
 #ifdef FLOW
          procedure         :: FlowState         => OutflowBC_FlowState
-         procedure         :: FlowGradVars      => OutflowBC_FlowGradVars
          procedure         :: FlowNeumann       => OutflowBC_FlowNeumann
 #endif
 #if defined(CAHNHILLIARD)
@@ -296,25 +295,6 @@ module OutflowBCClass
 
       end subroutine OutflowBC_FlowState
 
-      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
-!
-!        **************************************************************
-!        **************************************************************
-!
-         implicit none
-         class(OutflowBC_t),  intent(in)    :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-
-         call self % FlowState(x,t,nHat,U)
-
-         U = 0.5_RP*(Q+U)
-
-      end subroutine OutflowBC_FlowGradVars
-
       subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(OutflowBC_t),   intent(in)   :: self
@@ -376,25 +356,6 @@ module OutflowBCClass
          end if
 
       end subroutine OutflowBC_FlowState
-
-      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
-!
-!        **************************************************************
-!        **************************************************************
-!
-         implicit none
-         class(OutflowBC_t),  intent(in)       :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-
-         call self % FlowState(x,t,nHat,U)
-
-         U = 0.5_RP*(Q+U)
-
-      end subroutine OutflowBC_FlowGradVars
 
       subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
@@ -465,30 +426,6 @@ module OutflowBCClass
 
 
       end subroutine OutflowBC_FlowState
-
-      subroutine OutflowBC_FlowGradVars(self, x, t, nHat, Q, U)
-!
-!        **************************************************************
-!        **************************************************************
-!
-         implicit none
-         class(OutflowBC_t),  intent(in)    :: self
-         real(kind=RP),          intent(in)    :: x(NDIM)
-         real(kind=RP),          intent(in)    :: t
-         real(kind=RP),          intent(in)    :: nHat(NDIM)
-         real(kind=RP),          intent(in)    :: Q(NCONS)
-         real(kind=RP),          intent(inout) :: U(NGRAD)
-         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD)
-
-         Q_aux = Q
-         call self % FlowState(x,t,nHat,Q_aux)
-         call mGradientVariables(NCONS, NGRAD, Q_aux, U_aux, dimensionless % rho(1)*Q(IMC) + dimensionless % rho(2)*(1.0_RP - Q(IMC)))
-   
-         U_aux(1) = U(1)
-
-         U = 0.5_RP*(U_aux+U)
-
-      end subroutine OutflowBC_FlowGradVars
 
       subroutine OutflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
