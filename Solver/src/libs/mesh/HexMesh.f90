@@ -185,7 +185,13 @@ MODULE HexMeshClass
 !        ----------------
 !
          call self % storage % destruct
-         
+
+         safedeallocate(self % elements_sequential)
+         safedeallocate(self % elements_mpi)
+         safedeallocate(self % faces_interior)
+         safedeallocate(self % faces_mpi)
+         safedeallocate(self % faces_boundary)         
+
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -3911,6 +3917,25 @@ slavecoord:             DO l = 1, 4
          to % elements(eID) % storage => to % storage % elements(eID)
       end do
 !$omp end parallel do
+
+      safedeallocate(to % elements_sequential)
+      safedeallocate(to % elements_mpi       )
+      safedeallocate(to % faces_interior     )
+      safedeallocate(to % faces_mpi          )
+      safedeallocate(to % faces_boundary     )
+
+      allocate(to % elements_sequential(size(from % elements_sequential)))
+      allocate(to % elements_mpi       (size(from % elements_mpi       )))
+      allocate(to % faces_interior     (size(from % faces_interior     )))
+      allocate(to % faces_mpi          (size(to % faces_mpi            )))
+      allocate(to % faces_boundary     (size(from % faces_boundary     )))
+
+      to % elements_sequential = from % elements_sequential
+      to % elements_mpi        = from % elements_mpi
+      to % faces_interior      = from % faces_interior
+      to % faces_mpi           = to % faces_mpi
+      to % faces_boundary      = from % faces_boundary
+
       
    end subroutine HexMesh_Assign
 END MODULE HexMeshClass
