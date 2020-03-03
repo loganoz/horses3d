@@ -43,11 +43,33 @@
       public  ViscousFlux_withSGS
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw, ViscousJacobian
+      public  GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
+      public  grad_vars, SetGradientVariables
+
+      enum, bind(C)
+         enumerator :: GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
+      end enum
+
+      integer, protected :: grad_vars = GRADVARS_STATE
 !
 !     ========
       CONTAINS 
 !     ========
 !
+      subroutine SetGradientVariables(grad_vars_)
+         implicit none
+         integer, intent(in)  :: grad_vars_
+
+         select case(grad_vars_)
+         case(GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY)
+            grad_vars = grad_vars_
+         case default
+            print*, "Unrecognized option"
+            errorMessage(STD_OUT)   
+            stop  
+         end select
+
+      end subroutine SetGradientVariables
 !     
 !
 !//////////////////////////////////////////////////////////////////////////////

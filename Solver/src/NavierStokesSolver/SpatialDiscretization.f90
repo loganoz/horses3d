@@ -28,7 +28,8 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY
+      use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
+                                    GetGradientValues_f
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_
@@ -65,6 +66,9 @@ module SpatialDiscretization
       procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
       procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
       procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
+
+      procedure(GetGradientValues_f),           pointer :: GetGradients
+      procedure(EllipticFlux_f),                pointer :: ViscousFlux
    
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
@@ -90,6 +94,8 @@ module SpatialDiscretization
 !
          character(len=LINE_LENGTH)       :: inviscidDiscretizationName
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
+         character(len=*), parameter      :: gradient_variables_key = "gradient variables"
+         character(len=LINE_LENGTH)       :: gradient_variables
          
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
@@ -127,6 +133,46 @@ module SpatialDiscretization
    !        Initialize viscous discretization
    !        ---------------------------------         
             if ( flowIsNavierStokes ) then
+               if ( controlVariables % ContainsKey(gradient_variables_key) ) then   
+                  gradient_variables = controlVariables % StringValueForKey(gradient_variables_key, LINE_LENGTH)   
+                  call toLower(gradient_variables)
+
+                  select case (trim(gradient_variables))
+                  case ("state")
+                     call SetGradientVariables(GRADVARS_STATE)
+                     GetGradients => NSGradientVariables_STATE
+                     ViscousFlux  => ViscousFlux_STATE
+   
+                  case ("entropy")
+                     call SetGradientVariables(GRADVARS_ENTROPY)
+                     GetGradients => NSGradientVariables_ENTROPY
+                     ViscousFlux  => ViscousFlux_ENTROPY
+
+                  case ("energy")
+                     call SetGradientVariables(GRADVARS_ENERGY)
+!                     GetGradients => NSGradientVariables_ENERGY
+!                     ViscousFlux  => ViscousFlux_ENERGY
+
+                  case default
+                     print*, 'Entropy variables "',trim(gradient_variables),'" are not currently implemented'
+                     write(STD_OUT,'(A)') "Implemented options are:"
+                     write(STD_OUT,'(A)') "  * State"
+                     write(STD_OUT,'(A)') "  * Entropy"
+                     write(STD_OUT,'(A)') "  * Energy"
+                     errorMessage(STD_OUT)
+                     stop
+                  end select
+
+               else
+!
+!                 Set state as default option
+!                 ---------------------------
+                  call SetGradientVariables(GRADVARS_STATE)
+                  GetGradients => NSGradientVariables_STATE
+                  ViscousFlux  => ViscousFlux_STATE
+
+               end if
+
                if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
                   print*, "Input file is missing entry for keyword: viscous discretization"
                   errorMessage(STD_OUT)
@@ -245,7 +291,7 @@ module SpatialDiscretization
 !        -----------------
 !
          if ( computeGradients ) then
-            CALL DGSpatial_ComputeGradient(mesh , time)
+            call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, GetGradients)
          end if
 
 #ifdef _HAS_MPI_
@@ -304,7 +350,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , NSGradientVariables_STATE)
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NGRAD, mesh , time , GetGradients)
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -354,7 +400,7 @@ module SpatialDiscretization
             fID = mesh % faces_interior(iFace)
             call computeElementInterfaceFlux(mesh % faces(fID))
          end do
-!$omp end do 
+!$omp end do nowait
 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
@@ -615,7 +661,7 @@ module SpatialDiscretization
 !
 !           Without LES model
 !           -----------------
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux_STATE, GetNSViscosity, e, viscousContravariantFlux) 
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux) 
 
          else
 !
@@ -630,7 +676,7 @@ module SpatialDiscretization
          if ( .not. SVV % enabled ) then
             SVVcontravariantFlux = 0.0_RP
          else
-            call SVV % ComputeInnerFluxes(e, ViscousFlux_STATE, SVVContravariantFlux)
+            call SVV % ComputeInnerFluxes(e, ViscousFlux, SVVContravariantFlux)
          end if
 !
 !        ************************
@@ -702,7 +748,7 @@ module SpatialDiscretization
 !
 !           Without LES model
 !           -----------------
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux_STATE, GetNSViscosity, e , viscousContravariantFlux) 
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
 
          else
 !
@@ -717,7 +763,7 @@ module SpatialDiscretization
          if ( .not. SVV % enabled ) then
             SVVcontravariantFlux = 0.0_RP
          else
-            call SVV % ComputeInnerFluxes(e, ViscousFlux_STATE, SVVContravariantFlux)
+            call SVV % ComputeInnerFluxes(e, ViscousFlux, SVVContravariantFlux)
          end if
 !
 !        ************************
@@ -805,7 +851,7 @@ module SpatialDiscretization
 !                    --------------
 !      
                      CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                        EllipticFlux = ViscousFlux_STATE, &
+                                                        EllipticFlux = ViscousFlux, &
                                                         f = f, &
                                                         QLeft = f % storage(1) % Q(:,i,j), &
                                                         QRight = f % storage(2) % Q(:,i,j), &
@@ -910,7 +956,7 @@ module SpatialDiscretization
 !                    --------------
 !      
                      CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                        EllipticFlux = ViscousFlux_STATE, &
+                                                        EllipticFlux = ViscousFlux, &
                                                         f = f, &
                                                         QLeft = f % storage(1) % Q(:,i,j), &
                                                         QRight = f % storage(2) % Q(:,i,j), &
@@ -1037,7 +1083,7 @@ module SpatialDiscretization
                   mu    = dimensionless % mu + f % storage(1) % mu_art(1,i,j)
                   beta  = f % storage(1) % mu_art(2,i,j)
                   kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
-                  call ViscousFlux_STATE(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
+                  call ViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
                                                f % storage(1) % U_x(:,i,j), &
                                                f % storage(1) % U_y(:,i,j), &
                                                f % storage(1) % U_z(:,i,j), &
@@ -1139,7 +1185,7 @@ module SpatialDiscretization
 !
          if ( SVV % enabled ) then 
          CALL SVV % RiemannSolver(f = f, &
-                        EllipticFlux = ViscousFlux_STATE, &
+                        EllipticFlux = ViscousFlux, &
                               QLeft = f % storage(1) % Q, &
                              QRight = f % storage(2) % Q, &
                             U_xLeft = f % storage(1) % U_x, &
@@ -1167,7 +1213,7 @@ module SpatialDiscretization
                kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  EllipticFlux = ViscousFlux_STATE, &
+                                                  EllipticFlux = ViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -1231,7 +1277,7 @@ module SpatialDiscretization
 !        ----------
 !
          CALL SVV % RiemannSolver(f = f, &
-                            EllipticFlux = ViscousFlux_STATE, &
+                            EllipticFlux = ViscousFlux, &
                               QLeft = f % storage(1) % Q, &
                              QRight = f % storage(2) % Q, &
                             U_xLeft = f % storage(1) % U_x, &
@@ -1259,7 +1305,7 @@ module SpatialDiscretization
                kappa = dimensionless % kappa + f % storage(1) % mu_art(3,i,j)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  EllipticFlux = ViscousFlux_STATE, &
+                                                  EllipticFlux = ViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -1354,7 +1400,7 @@ module SpatialDiscretization
 !                    --------------
 !      
                      CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                        EllipticFlux = ViscousFlux_STATE, &
+                                                        EllipticFlux = ViscousFlux, &
                                                         f = f, &
                                                         QLeft = f % storage(1) % Q(:,i,j), &
                                                         QRight = f % storage(2) % Q(:,i,j), &
@@ -1381,7 +1427,7 @@ module SpatialDiscretization
 !     ----------
 !
       CALL SVV % RiemannSolver(f = f, &
-                           EllipticFlux = ViscousFlux_STATE, &
+                           EllipticFlux = ViscousFlux, &
                            QLeft = f % storage(1) % Q, &
                           QRight = f % storage(1) % Q, &
                          U_xLeft = f % storage(1) % U_x, &
@@ -1420,16 +1466,6 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine DGSpatial_ComputeGradient( mesh , time)
-         use HexMeshClass
-         implicit none
-         type(HexMesh)                  :: mesh
-         real(kind=RP),      intent(in) :: time
-
-         call ViscousDiscretization % ComputeGradient( NCONS, NGRAD, mesh , time, NSGradientVariables_STATE)
-
-      end subroutine DGSpatial_ComputeGradient
-
       subroutine ComputeArtificialViscosity(mesh)
          use ArtificialViscosity
          implicit none
