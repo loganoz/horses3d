@@ -209,6 +209,12 @@ module SpatialDiscretization
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
+!
+!              Set state as default option
+!              ---------------------------
+               call SetGradientVariables(GRADVARS_STATE)
+               GetGradients => NSGradientVariables_STATE
+               ViscousFlux  => ViscousFlux_STATE
                
             end if
 
@@ -744,26 +750,31 @@ module SpatialDiscretization
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         if ( .not. LESModel % active ) then
-!
-!           Without LES model
-!           -----------------
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
-
+         if (flowIsNavierStokes) then
+            if ( .not. LESModel % active ) then
+!   
+!              Without LES model
+!              -----------------
+               call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
+   
+            else
+!   
+!              With LES model
+!              --------------
+               call ViscousDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
+   
+            end if
+!   
+!           Compute the SVV dissipation
+!           ---------------------------
+            if ( .not. SVV % enabled ) then
+               SVVcontravariantFlux = 0.0_RP
+            else
+               call SVV % ComputeInnerFluxes(e, ViscousFlux, SVVContravariantFlux)
+            end if
          else
-!
-!           With LES model
-!           --------------
-            call ViscousDiscretization  % ComputeInnerFluxesWithSGS ( e , viscousContravariantFlux  ) 
-
-         end if
-!
-!        Compute the SVV dissipation
-!        ---------------------------
-         if ( .not. SVV % enabled ) then
+            viscousContravariantFlux = 0.0_RP
             SVVcontravariantFlux = 0.0_RP
-         else
-            call SVV % ComputeInnerFluxes(e, ViscousFlux, SVVContravariantFlux)
          end if
 !
 !        ************************

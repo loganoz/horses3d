@@ -314,14 +314,13 @@
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations      = 2634
-            real(kind=RP), parameter           :: internal_energy = 2.0642897273056465E+05_RP
-            real(kind=RP), parameter           :: energy_source   = 7.4421859816977287E+00_RP
-            real(kind=RP), parameter :: residuals(5) = [1.7506741973221563E-05_RP, &
-                                                        8.1646729311071896E-06_RP, &
-                                                        7.5600107772768579E-06_RP, &
-                                                        6.2317118291370385E-06_RP, &
-                                                        7.4459740984063032E+00_RP]
-
+            real(kind=RP), parameter           :: internal_energy = 2.0642897273056462E+05_RP
+            real(kind=RP), parameter           :: energy_source   = 7.4421859816977154E+00_RP
+            real(kind=RP), parameter :: residuals(5) = [ 1.7506738281571858E-05_RP, &
+                                                         8.1649057617530559E-06_RP, &
+                                                         7.5600107772770281E-06_RP, &
+                                                         6.2326431517128525E-06_RP, &
+                                                         7.4459739718121396E+00_RP]
 
 
             CALL initializeSharedAssertionsManager
