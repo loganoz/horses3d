@@ -410,7 +410,8 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 
-               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
+               mu = max(min(e % storage % Q(IMC,i,j,k),1.0_RP),0.0_RP)
+               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*mu
                Strain(1,1) = e % storage % U_x(IGU,i,j,k)
                Strain(2,2) = e % storage % U_y(IGV,i,j,k)
                Strain(3,3) = e % storage % U_z(IGW,i,j,k)

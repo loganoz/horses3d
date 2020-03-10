@@ -337,7 +337,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues)
+      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues, set_mu)
 !
 !        ****************************************************************
 !           This subroutine computes local gradients as:
@@ -351,6 +351,7 @@
          integer,          intent(in)     :: nEqn
          integer,          intent(in)     :: nGradEqn
          procedure(GetGradientValues_f)   :: GetGradientValues
+         logical,          intent(in)     :: set_mu
 !
 !        ---------------
 !        Local variables
@@ -383,9 +384,10 @@
 #endif
 
 #ifdef MULTIPHASE
+!
 !        The multiphase solver needs the Chemical potential as first entropy variable
 !        ----------------------------------------------------------------------------
-         U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
+         if ( set_mu ) U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
 #endif
 !
 !        ************

@@ -52,6 +52,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
+            ./NavierStokes/EntropyConservingTest \
 	    ./NavierStokes/FlatPlate \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \

@@ -291,49 +291,82 @@ end module ProblemFileFunctions
 !           local variables
 !           ---------------
 !
+            integer        :: eid, i, j, k
+            real(kind=RP)  :: qq, u, v, w, p
+#if defined(NAVIERSTOKES)
+            real(kind=RP)  :: Q(NCONS), phi, theta
+#endif
 
-            real(kind=RP), parameter :: x0 = -0.262053844469162_RP 
-            real(kind=RP), parameter :: Vmax1 = 11.0561751684845_RP
-            real(kind=RP), parameter :: Vmax2 = 1.05617516848446_RP
-            real(kind=RP), parameter :: interface_width = 0.0424_RP
-
-            integer :: i, j, k, eID
-            real(kind=RP) :: x(NDIM), c, u, v, w, p, rho, sqrtRho
-
-#ifdef MULTIPHASE
-
+!
 !           ---------------------------------------
 !           Navier-Stokes default initial condition
 !           ---------------------------------------
 !
+#if defined(NAVIERSTOKES)
+            associate ( gammaM2 => dimensionless_ % gammaM2, &
+                        gamma => thermodynamics_ % gamma )
+            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
+            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
+      
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  
-                  x =  mesh%elements(eID)%geom%x(:,i,j,k)
-                  c = 0.5_RP + 0.5_RP * tanh( ( x(1) - x0 + &
-                           (interface_width/10 * sin ( 10 * x(3) ) + &
-                           interface_width/10 * sin ( 20 * x(2) ) ) ) / interface_width )
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*cos(phi)
+                  v  = qq*sin(theta)*cos(phi)
+                  w  = qq*sin(phi)
+      
+                  q(1) = 1.0_RP
+                  p    = 1.0_RP/(gammaM2)
+                  q(2) = q(1)*u
+                  q(3) = q(1)*v
+                  q(4) = q(1)*w
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
 
-                  rho = dimensionless_ % rho(1) * c + dimensionless_ % rho(2) * (1.0_RP-c)
-                  sqrtRho = sqrt(rho)
-                  
-                  u = 0._RP
-                  v = 0._RP
-           
-                  w = Vmax1 * c + Vmax2 * ( 1.0_RP - c )
-                  w = w * ( 1._RP - 4.0_RP*( x(1)*x(1) + x(2)*x(2) ))  
-
-                  p = 0.0_RP
-                  
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [c,sqrtRho*u,sqrtRho*v,sqrtRho*w, p]
-
+                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
                end do;        end do;        end do
                end associate
             end do
 
+            end associate
+#endif
+!
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
+
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#ifdef CAHNHILLIARD
+            call random_seed()
+         
+            do eid = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eid) % Nxyz(1), &
+                          Ny => mesh % elements(eid) % Nxyz(2), &
+                          Nz => mesh % elements(eid) % Nxyz(3) )
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               end associate
+               end associate
+            end do
 #endif
 
          end subroutine UserDefinedInitialCondition
@@ -350,84 +383,21 @@ end module ProblemFileFunctions
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
-!
-!           ---------------
-!           Local variables         
-!           ---------------
-!
-            real(kind=RP), parameter :: x0 = -0.262053844469162_RP 
-            real(kind=RP), parameter :: Vmax1 = 11.0561751684845_RP
-            real(kind=RP), parameter :: Vmax2 = 1.05617516848446_RP
-
-            real(kind=RP)  :: c, u, v, w, p, rho, sqrtRho
-
-#ifdef MULTIPHASE
-
-            c = 0.5_RP * (1.0_RP + tanh((x(IX)-x0)/0.0424_RP))
-
-            rho = dimensionless_ % rho(1)*c + dimensionless_ % rho(2)*(1.0_RP - c)
-
-            sqrtRho = sqrt(rho)
-
-            u = 0.0_RP
-            v = 0.0_RP
-
-            w = Vmax1 * c + Vmax2 * (1.0_RP - c)
-            w = w*(1.0_RP - 4.0_RP * (x(IX)*x(IX)+x(IY)*x(IY)))
-
-            p = Q(IMP)
-
-            Q = [c,sqrtRho*u, sqrtRho*v, sqrtRho*w, p]
-
-#endif
-
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
-            use VariableConversion, only: GetGradientValues_f
             implicit none
             real(kind=RP), intent(in)          :: x(NDIM)
             real(kind=RP), intent(in)          :: t
             real(kind=RP), intent(in)          :: nHat(NDIM)
             real(kind=RP), intent(in)          :: Q(NCONS)
             real(kind=RP), intent(inout)       :: U(NGRAD)
-            procedure(GetGradientValues_f)     :: GetGradients
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
-!
-!           ---------------
-!           Local variables
-!           ---------------
-!
-            real(kind=RP)  :: Q_aux(NCONS), rho, U_aux(NCONS)
-
-#ifdef MULTIPHASE
-         
-            Q_aux = Q
-!
-!           Compute the state
-!           -----------------
-            call UserDefinedState1(x, t, nHat, Q_aux, thermodynamics_, dimensionless_, refValues_)
-
-!
-!           Get the entropy variables
-!           -------------------------
-            rho = dimensionless_ % rho(1)*Q(IMC) + dimensionless_ % rho(2)*(1.0_RP - Q(IMC))
-            rho = max(min(rho,dimensionless_ % rho_max), dimensionless_ % rho_min)
-
-            U_aux(IGMU)     = U(IGMU)
-            U_aux(IMSQRHOU) = Q_aux(IMSQRHOU) / sqrt(rho)             
-            U_aux(IMSQRHOV) = Q_aux(IMSQRHOV) / sqrt(rho)             
-            U_aux(IMSQRHOW) = Q_aux(IMSQRHOW) / sqrt(rho)             
-            U_aux(IMP)      = Q_aux(IMP)
-
-            U = 0.5_RP * (U_aux + U)
-
-#endif
          end subroutine UserDefinedGradVars1
 
          subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
@@ -446,10 +416,6 @@ end module ProblemFileFunctions
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
-
-#ifdef MULTIPHASE
-            flux(IGMU) = 0.0_RP
-#endif
          end subroutine UserDefinedNeumann1
 #endif
 !
@@ -557,50 +523,113 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
-            CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Pipe"
+
+!
+!           ---------------
+!           Local variables
+!           ---------------
+!
+            CHARACTER(LEN=29)                  :: testName           = "Re 200 Cylinder"
+            REAL(KIND=RP)                      :: maxError
+            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
+            INTEGER                            :: eID
+            INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter :: residuals_saved(5) = [1.1965777978439260E+02_RP, &
-                                                              2.1858135418241869E+02_RP, &
-                                                              1.4703228453817630E+02_RP, &
-                                                              8.6566794319272958E+02_RP, &
-                                                              7.2787702726661635E+04_RP]
-            real(kind=RP), parameter              :: entropyRate_saved = -49.5777151766282_RP
-            integer :: i
+!
+!           -----------------------------------------------------------------------------------------
+!           Expected solutions. 
+!           InnerCylinder 0.0 NoSlipAdiabaticWall
+!           Front 0.0 Inflow
+!           bottom 0.0 FreeSlipWall
+!           top 0.0 FreeSlipWall
+!           Back 0.0 Inflow
+!           Left 0.0 Inflow
+!           Right 0.0 OutflowSpecifyP 
+!           -----------------------------------------------------------------------------------------
+!
+!
+!           ------------------------------------------------
+!           Expected Solutions: Wall conditions on the sides
+!           Number of iterations are for CFL of 0.3, for
+!           the roe solver and mach = 0.3
+!           ------------------------------------------------
+!
+#if defined(NAVIERSTOKES)
+            INTEGER                            :: iterations = 100
+  
+            real(kind=RP), parameter :: residuals(5) = [23.2925417313183_RP, &
+                                                        87.3787200956217_RP, &
+                                                        2.313833759899472E-011_RP, &
+                                                        105.867590056256_RP, &
+                                                        739.936119108963_RP]
+            real(kind=RP), parameter           :: wake_u = 1.843611830572780E-014_RP
+            real(kind=RP), parameter           :: cd = 32.1674066039609_RP
+            real(kind=RP), parameter           :: cl = 5.977266960588423E-004_RP
+            real(kind=RP), parameter           :: entr_bal = -4.755282970387926E-013_RP
+            real(kind=RP), parameter           :: entr_rate = -3.509463377483787E-004_RP
 
+!
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
+
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
             
-            CALL FTAssertEqual(expectedValue = entropyRate_saved+1.0_RP, &
-                               actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
-                               msg           = "Entropy-Rate")
+            CALL FTAssertEqual(expectedValue = iterations, &
+                               actualValue   = iter, &
+                               msg           = "Number of time steps to tolerance")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
+            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Continuity Residual")
+                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(2)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1)+100.0_RP, &
+            CALL FTAssertEqual(expectedValue = cd, &
+                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
                                tol           = 1.d-11, &
-                               msg           = "X-Momentum Residual")
+                               msg           = "Drag coefficient")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(3)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1)+100.0_RP, &
+            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Y-Momentum Residual")
+                               msg           = "Lift coefficient")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(4)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1)+100.0_RP, &
+            CALL FTAssertEqual(expectedValue = entr_bal + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(1,1) + 1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Z-Momentum Residual")
+                               msg           = "Entropy balance")
 
-            CALL FTAssertEqual(expectedValue = residuals_saved(5)+100.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1)+100.0_RP, &
+            CALL FTAssertEqual(expectedValue = entr_rate + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Energy Residual")
+                               msg           = "Entropy rate")
+
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
@@ -617,8 +646,7 @@ end module ProblemFileFunctions
             
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
-
-
+#endif
 
 
          END SUBROUTINE UserDefinedFinalize
