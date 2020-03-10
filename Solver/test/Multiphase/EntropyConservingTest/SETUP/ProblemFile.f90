@@ -560,12 +560,13 @@ end module ProblemFileFunctions
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Pipe"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter :: residuals_saved(5) = [115.279163488786_RP, &
-                                                              218.587148493799_RP, &
-                                                              147.034918533523_RP, &
-                                                              865.653084759232_RP, &
-                                                              72786.6199585908_RP ]
-            real(kind=RP), parameter              :: entropyRate_saved = -49.5776095754848_RP
+            real(kind=RP), parameter :: residuals_saved(5) = [  7.1078517814708857E+02_RP, &
+                                                                4.6255275185794417E+03_RP, &
+                                                                2.9389166901520975E+03_RP, &
+                                                                2.3915958051890513E+04_RP, &
+                                                                3.3733487700380390E+06_RP]
+            real(kind=RP), parameter              :: entropyRate_saved =-7.8535366149447299E+01_RP
+            real(kind=RP), parameter              :: entropyBal_saved = 1.8474111129762605E-13_RP
             integer :: i
 
             CALL initializeSharedAssertionsManager
@@ -575,6 +576,11 @@ end module ProblemFileFunctions
                                actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
                                msg           = "Entropy-Rate")
+
+            CALL FTAssertEqual(expectedValue = entropyBal_saved+1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(2) % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Entropy-Balance")
 
             CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+100.0_RP, &
