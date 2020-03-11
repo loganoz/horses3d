@@ -108,6 +108,7 @@ module VolumeMonitorClass
          select case ( trim ( self % variable ) )
          case ("kinetic energy")
          case ("kinetic energy rate")
+         case ("kinetic energy balance")
          case ("enstrophy")
          case ("entropy")
          case ("entropy rate")
@@ -127,6 +128,7 @@ module VolumeMonitorClass
                print*, "Options available are:"
                print*, "   * Kinetic energy"
                print*, "   * Kinetic energy rate"
+               print*, "   * Kinetic energy balance"
                print*, "   * Enstrophy"
                print*, "   * Entropy"
                print*, "   * Entropy rate"
@@ -267,6 +269,9 @@ module VolumeMonitorClass
 
          case ("kinetic energy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+   
+         case ("kinetic energy balance")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_BALANCE) / ScalarVolumeIntegral(mesh, VOLUME)
    
          case ("enstrophy")
             self % values(1,bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)

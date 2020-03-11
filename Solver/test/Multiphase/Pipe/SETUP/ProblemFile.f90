@@ -416,7 +416,8 @@ end module ProblemFileFunctions
 !
 !           Get the entropy variables
 !           -------------------------
-            rho = dimensionless_ % rho(1)*Q_aux(IMC) + dimensionless_ % rho(2)*(1.0_RP - Q_aux(IMC))
+            rho = dimensionless_ % rho(1)*Q(IMC) + dimensionless_ % rho(2)*(1.0_RP - Q(IMC))
+            rho = max(min(rho,dimensionless_ % rho_max), dimensionless_ % rho_min)
 
             U_aux(IGMU)     = U(IGMU)
             U_aux(IMSQRHOU) = Q_aux(IMSQRHOU) / sqrt(rho)             
@@ -559,14 +560,13 @@ end module ProblemFileFunctions
             CHARACTER(LEN=29)                  :: testName           = "Multiphase:: Pipe"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-            real(kind=RP), parameter :: residuals_saved(5) = [1.1965777978439260E+02_RP, &
-                                                              2.1858135418241869E+02_RP, &
-                                                              1.4703228453817630E+02_RP, &
-                                                              8.6566794319272958E+02_RP, &
-                                                              7.2787702726661635E+04_RP]
-            real(kind=RP), parameter              :: entropyRate_saved = -49.5777151766282_RP
+            real(kind=RP), parameter :: residuals_saved(5) = [115.279163488786_RP, &
+                                                              218.587148493799_RP, &
+                                                              147.034918533523_RP, &
+                                                              865.653084759232_RP, &
+                                                              72786.6199585908_RP ]
+            real(kind=RP), parameter              :: entropyRate_saved = -49.5776095754848_RP
             integer :: i
-
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

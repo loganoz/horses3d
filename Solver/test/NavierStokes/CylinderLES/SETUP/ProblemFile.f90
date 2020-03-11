@@ -536,23 +536,15 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd = 3.4894757016002316E+01_RP
-            real(kind=RP), parameter           :: cl = -1.8687527977334639E-04_RP
-            real(kind=RP), parameter           :: wake_u = 9.8891405054292084E-09_RP
-            real(kind=RP), parameter           :: res(5) = [  7.6491262735056944E+00_RP, &
-                                                              1.5673788431395312E+01_RP, &
-                                                              2.4023209346109614E-01_RP, &
-                                                              2.0394771913654758E+01_RP, &
-                                                              2.0928611783457200E+02_RP]
+            real(kind=RP), parameter           :: cd = 3.4894756560932528E+01_RP
+            real(kind=RP), parameter           :: cl = -1.8687579210663330E-04_RP
+            real(kind=RP), parameter           :: wake_u = 9.8891435609904662E-09_RP
+            real(kind=RP), parameter           :: res(5) = [  7.6491275845671263E+00_RP, &
+                                                              1.5673776758850247E+01_RP, &
+                                                              2.4023164200384164E-01_RP, &
+                                                              2.0394775587873852E+01_RP, &
+                                                              2.0928616759121243E+02_RP]
 #if defined(NAVIERSTOKES)
-write(*,'(A)',advance="no") "["
-do i = 1, 4
-write(*,'(ES24.16,A)') monitors % residuals % values(i,1),"_RP, &"
-end do
-write(*,'(ES24.16,A)') monitors % residuals % values(5,1),"_RP]"
-write(*,'(ES24.16,A)') monitors % probes(1) % values(1),"_RP"
-write(*,'(ES24.16,A)') monitors % surfaceMonitors(1) % values(1),"_RP"
-write(*,'(ES24.16,A)') monitors % surfaceMonitors(2) % values(1),"_RP"
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

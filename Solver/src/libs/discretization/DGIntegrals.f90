@@ -263,6 +263,7 @@ module DGIntegrals
          volInt_y = 0.0_RP
          volInt_z = 0.0_RP
 
+#ifdef MULTIPHASE
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
             volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IX,l,j,k) * U(:,l,j,k)
             volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IY,l,j,k) * U(:,l,j,k)
@@ -280,6 +281,27 @@ module DGIntegrals
             volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,l) * U(:,i,j,l)
             volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,l) * U(:,i,j,l)
          end do             ; end do               ; end do                ; end do
+#else
+         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IX,i,j,k) * U(:,l,j,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IY,i,j,k) * U(:,l,j,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAxi % hatD(i,l) * e % geom % jGradXi(IZ,i,j,k) * U(:,l,j,k)
+         end do               ; end do                ; end do             ; end do
+
+         do k = 0, e%Nxyz(3)   ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IX,i,j,k) * U(:,i,l,k)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IY,i,j,k) * U(:,i,l,k)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAeta % hatD(j,l) * e % geom % jGradEta(IZ,i,j,k) * U(:,i,l,k)
+         end do               ; end do                ; end do    ; end do
+ 
+         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+            volInt_x(:,i,j,k) = volInt_x(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IX,i,j,k) * U(:,i,j,l)
+            volInt_y(:,i,j,k) = volInt_y(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IY,i,j,k) * U(:,i,j,l)
+            volInt_z(:,i,j,k) = volInt_z(:,i,j,k) + spAzeta % hatD(k,l) * e % geom % jGradZeta(IZ,i,j,k) * U(:,i,j,l)
+         end do             ; end do               ; end do                ; end do
+
+#endif
+
          
          end associate
       end subroutine VectorWeakIntegrals_StdVolumeGreen

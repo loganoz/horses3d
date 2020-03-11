@@ -223,7 +223,7 @@ module EllipticIP
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients)
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
 !
 !           Prolong to faces
 !           ----------------

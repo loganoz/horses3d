@@ -557,14 +557,15 @@ end module ProblemFileFunctions
             INTEGER      , parameter           :: iterations = 100
  
 
-            real(kind=RP), parameter :: residuals(5) = [  9.5806843438686187E+00_RP, &
-                                                          2.0804409295398674E+01_RP, &
-                                                          3.7668643984422062E-01_RP, &
-                                                          2.8294967351713780E+01_RP, &
-                                                          2.6470701404383522E+02_RP]
-            real(kind=RP), parameter           :: wake_u = 7.0747155905975756E-12_RP
-            real(kind=RP), parameter           :: cd = 1.1700328564058855E+01_RP
-            real(kind=RP), parameter           :: cl = 2.1473915366776453E-05_RP
+            real(kind=RP), parameter :: residuals(5) = [ 9.5806856005342933E+00_RP, &
+                                                         2.0804408993372231E+01_RP, &
+                                                         3.7668665836122439E-01_RP, &
+                                                         2.8294964263463125E+01_RP, &
+                                                         2.6470704194989690E+02_RP]
+
+            real(kind=RP), parameter           :: wake_u = 7.0745334553937767E-12_RP
+            real(kind=RP), parameter           :: cd = 1.1700328563228789E+01_RP
+            real(kind=RP), parameter           :: cl = 2.1473912634295544E-05_RP
             integer   :: i
 
 

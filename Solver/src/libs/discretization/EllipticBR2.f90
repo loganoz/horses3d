@@ -150,7 +150,7 @@ module EllipticBR2
 !$omp do schedule(runtime)
          do eID = 1, size(mesh % elements)
             associate( e => mesh % elements(eID) )
-            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients)
+            call e % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, .false.)
 !
 !           Prolong to faces
 !           ----------------
@@ -175,7 +175,7 @@ module EllipticBR2
             fID = mesh % faces_interior(iFace)
             call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
          end do
-!$omp end do 
+!$omp end do nowait
 
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)

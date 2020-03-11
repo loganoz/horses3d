@@ -93,18 +93,16 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
-         use VariableConversion, only: GetGradientValues_f
          implicit none
          real(kind=RP), intent(in)          :: x(NDIM)
          real(kind=RP), intent(in)          :: t
          real(kind=RP), intent(in)          :: nHat(NDIM)
          real(kind=RP), intent(in)          :: Q(NCONS)
          real(kind=RP), intent(inout)       :: U(NGRAD)
-         procedure(GetGradientValues_f)     :: GetGradients
          type(Thermodynamics_t), intent(in) :: thermodynamics_
          type(Dimensionless_t),  intent(in) :: dimensionless_
          type(RefValues_t),      intent(in) :: refValues_
@@ -298,7 +296,6 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
-            real(kind=RP)  :: x(3) 
 
 !
 !           ---------------------------------------
@@ -316,13 +313,10 @@ end module ProblemFileFunctions
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-
-                  x = mesh % elements(eID) % geom % x(:, i, j, k)
-
-                  v = 1.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
-                  !u = 1.0_RP
-                  u = 0.0_RP !( u - 0.5_RP )    !v * (u*2 - 1)*0.3_RP
-                  w = 0.0_RP !( w - 0.5_RP )    !v * (w*2 - 1)*0.3_RP
+                  qq = 1.0_RP
+                  u  = qq*cos(theta)*cos(phi)
+                  v  = qq*sin(theta)*cos(phi)
+                  w  = qq*sin(phi)
       
                   q(1) = 1.0_RP
                   p    = 1.0_RP/(gammaM2)
@@ -338,7 +332,42 @@ end module ProblemFileFunctions
 
             end associate
 #endif
+!
+!           ------------------------------------------------------
+!           Incompressible Navier-Stokes default initial condition
+!           ------------------------------------------------------
+!
+#if defined(INCNS)
+            do eID = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eID) % Nxyz(1), &
+                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Nz => mesh % elements(eID) % Nxyz(3) )
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+               end do;        end do;        end do
+               end associate
+            end do
+#endif
 
+!
+!           ---------------------------------------
+!           Cahn-Hilliard default initial condition
+!           ---------------------------------------
+!
+#ifdef CAHNHILLIARD
+            call random_seed()
+         
+            do eid = 1, mesh % no_of_elements
+               associate( Nx => mesh % elements(eid) % Nxyz(1), &
+                          Ny => mesh % elements(eid) % Nxyz(2), &
+                          Nz => mesh % elements(eid) % Nxyz(3) )
+               associate(e => mesh % elements(eID) % storage)
+               call random_number(e % c) 
+               e % c = 2.0_RP * (e % c - 0.5_RP)
+               end associate
+               end associate
+            end do
+#endif
 
          end subroutine UserDefinedInitialCondition
 #ifdef FLOW
@@ -354,86 +383,21 @@ end module ProblemFileFunctions
             type(Thermodynamics_t),    intent(in)  :: thermodynamics_
             type(Dimensionless_t),     intent(in)  :: dimensionless_
             type(RefValues_t),         intent(in)  :: refValues_
-!
-!           ---------------
-!           local variables
-!           ---------------
-!
-            integer        :: eid, i, j, k
-            real(kind=RP)  :: qq, u, v, w, p
-#if defined(NAVIERSTOKES)
-            real(kind=RP)  :: phi, theta
-#endif
-
-!
-!           ---------------------------------------
-!           Navier-Stokes default initial condition
-!           ---------------------------------------
-!
-#if defined(NAVIERSTOKES)
-            associate ( gammaM2 => dimensionless_ % gammaM2, &
-                        gamma => thermodynamics_ % gamma )
-            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
-            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
-      
-            ! do eID = 1, mesh % no_of_elements
-            !    associate( Nx => mesh % elements(eID) % Nxyz(1), &
-            !               ny => mesh % elemeNts(eID) % nxyz(2), &
-            !               Nz => mesh % elements(eID) % Nxyz(3) )
-            !    do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-
-            !       x = mesh % elements(eID) % geom % x(:, i, j, k)
-
-                  v = 1.0_RP !* (1.0_RP - x(3)**2) !+ ( v - 0.5_RP) * (1.0_RP - x(3)**2) !* (1 + (v*2 - 1) * 0.6_RP)
-                  !u = 1.0_RP
-                  u = 0.0_RP !( u - 0.5_RP )    !v * (u*2 - 1)*0.3_RP
-                  w = 0.0_RP !( w - 0.5_RP )    !v * (w*2 - 1)*0.3_RP
-      
-                  q(1) = 1.0_RP
-                  p    = 1.0_RP/(gammaM2)
-                  q(2) = q(1)*u
-                  q(3) = q(1)*v
-                  q(4) = q(1)*w
-                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
-
-            !      mesh % elements(eID) % storage % q(:,i,j,k) = q 
-            !    end do;        end do;        end do
-            !    end associate
-            ! end do
-
-            end associate
-#endif       
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
-            use VariableConversion, only: GetGradientValues_f
             implicit none
             real(kind=RP), intent(in)          :: x(NDIM)
             real(kind=RP), intent(in)          :: t
             real(kind=RP), intent(in)          :: nHat(NDIM)
             real(kind=RP), intent(in)          :: Q(NCONS)
             real(kind=RP), intent(inout)       :: U(NGRAD)
-            procedure(GetGradientValues_f)     :: GetGradients
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
             type(RefValues_t),      intent(in) :: refValues_
-
-#ifdef NAVIERSTOKES
-            real(kind=RP) :: Q_aux(NCONS), U_aux(NCONS)
-
-            Q_aux = Q
-!
-!           Compute the state
-!           -----------------
-            call UserDefinedState1(x, t, nHat, Q_aux, thermodynamics_, dimensionless_, refValues_)
-
-            U = 0.5_RP * (Q_aux + U)
-
-#endif
-
          end subroutine UserDefinedGradVars1
 
          subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
@@ -512,8 +476,7 @@ end module ProblemFileFunctions
 !
 !           Usage example
 !           -------------
-!           S(:) = x(1) + x(2) + x(3) + time 
-            S = 0.0_RP
+!           S(:) = x(1) + x(2) + x(3) + time
    
          end subroutine UserDefinedSourceTermNS
 #endif
@@ -560,45 +523,135 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
+
 !
 !           ---------------
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=38)                  :: testName           = "Rebound and periodicity for particles."
+            CHARACTER(LEN=29)                  :: testName           = "Energy conserving test"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
+!
+!           -----------------------------------------------------------------------------------------
+!           Expected solutions. 
+!           InnerCylinder 0.0 NoSlipAdiabaticWall
+!           Front 0.0 Inflow
+!           bottom 0.0 FreeSlipWall
+!           top 0.0 FreeSlipWall
+!           Back 0.0 Inflow
+!           Left 0.0 Inflow
+!           Right 0.0 OutflowSpecifyP 
+!           -----------------------------------------------------------------------------------------
+!
+!
+!           ------------------------------------------------
+!           Expected Solutions: Wall conditions on the sides
+!           Number of iterations are for CFL of 0.3, for
+!           the roe solver and mach = 0.3
+!           ------------------------------------------------
+!
 #if defined(NAVIERSTOKES)
-            REAL(KIND=RP)                      :: residuals       = 1665.3684047109043_RP !It uses random functions so I guess it depends on the compiler. 
-!The coded value if for Alderaan gfortran release. Bender intel 2015 release gives 1203.01565442056_RP
+            INTEGER                            :: iterations = 100
+  
+            real(kind=RP), parameter :: residuals(5) = [ 2.3304195767647801E+01_RP, &
+                                                         8.6527547523889226E+01_RP, &
+                                                         2.2773481615188567E-11_RP, &
+                                                         1.0911142794630962E+02_RP, &
+                                                         7.3826800285951879E+02_RP]
+            real(kind=RP), parameter           :: wake_u = 1.8855186166064400E-14_RP
+            real(kind=RP), parameter           :: cd = 3.5639906955353368E+01_RP
+            real(kind=RP), parameter           :: cl = 6.5594747614117210E-04_RP
+            real(kind=RP), parameter           :: entr_bal = -1.6358071214905144E-15_RP
+            real(kind=RP), parameter           :: entr_rate = -1.3381623397027353E-01_RP
+
+!write(STD_OUT,'(A)',advance="no") "["
+!do i = 1, 4
+!write(STD_OUT,'(ES24.16,A)') monitors % residuals % values(i,1), "_RP, &"
+!enddo
+!write(STD_OUT,'(ES24.16,A)') monitors % residuals % values(5,1), "_RP]"
+!write(STD_OUT,'(ES24.16,A)') monitors % probes(1) % values(1), "_RP"
+!write(STD_OUT,'(ES24.16,A)') monitors % surfaceMonitors(1) % values(1), "_RP"
+!write(STD_OUT,'(ES24.16,A)') monitors % surfaceMonitors(2) % values(1), "_RP"
+!write(STD_OUT,'(ES24.16,A)') monitors % volumeMonitors(1) % values(1,1), "_RP"
+!write(STD_OUT,'(ES24.16,A)') monitors % volumeMonitors(2) % values(1,1), "_RP"
+
+!
+            N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            CALL FTAssertEqual(expectedValue = residuals, &
-                               actualValue   = maxResidual, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+            
+            CALL FTAssertEqual(expectedValue = iterations, &
+                               actualValue   = iter, &
+                               msg           = "Number of time steps to tolerance")
+
+            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
+                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
+
+            CALL FTAssertEqual(expectedValue = cd, &
+                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+                               tol           = 1.d-11, &
+                               msg           = "Drag coefficient")
+
+            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
+                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Lift coefficient")
+
+            CALL FTAssertEqual(expectedValue = entr_bal + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(1) % values(1,1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy balance")
+
+            CALL FTAssertEqual(expectedValue = entr_rate + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy rate")
 
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case checks the residual after 200 iterations."
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected if particle model is modified."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."
-               WRITE(6,*) "NOTE: Failure is expected if compiler version or architecture changes."
-               WRITE(6,*) "      This test case uses random functions for the injection of the particles."
-               WRITE(6,*) "      The coded residual is for Alderaan gfortrans Release configuration."    
-               WRITE(6,*) " Bender intel 2015 residual 1203.01565442056_RP"       
-               STOP 99
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
+               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+                STOP 99
             END IF 
             WRITE(6,*)
             

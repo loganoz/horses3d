@@ -6,7 +6,7 @@ module VolumeIntegrals
    use ElementClass
    use HexMeshClass
    use FluidData
-   use NodalStorageClass, only: NodalStorage
+   use NodalStorageClass, only: NodalStorage, NodalStorage_t
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -16,7 +16,7 @@ module VolumeIntegrals
    public   VOLUME
 
 #if defined(NAVIERSTOKES)
-   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY, VELOCITY
+   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
    public ENTROPY_BALANCE
 #endif
@@ -40,7 +40,7 @@ module VolumeIntegrals
    enum, bind(C)
       enumerator :: VOLUME  
 #if defined(NAVIERSTOKES)
-      enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE
+      enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
       enumerator :: ENTROPY_BALANCE
 #endif
@@ -140,6 +140,11 @@ module VolumeIntegrals
          real(kind=RP)           :: U_y(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: U_z(NDIM,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: uvw(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: inv_rho(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: p_3d(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: grad_Mp(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: M_grad_p(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
          real(kind=RP)           :: free_en, fchem, entr, area, rho
@@ -207,8 +212,54 @@ module VolumeIntegrals
             uvw = e % storage % Q(IRHOW,:,:,:) / e % storage % Q(IRHO,:,:,:)
             KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
+            
+
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
+            end do            ; end do           ; end do
+
+         case ( KINETIC_ENERGY_BALANCE )
+!
+!           ***************************************************
+!              Computes the kinetic energy
+!              balance: will also work the for Pirozzoli scheme
+!              with energy gradient variables.
+!           ***************************************************
+!
+            inv_rho = 1.0_RP / e % storage % Q(IRHO,:,:,:)
+            uvw = e % storage % Q(IRHOU,:,:,:) * inv_rho 
+            KinEn = uvw * e % storage % QDot(IRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+
+            uvw = e % storage % Q(IRHOV,:,:,:) * inv_rho 
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+
+            uvw = e % storage % Q(IRHOW,:,:,:) * inv_rho 
+            KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
+!
+!           I also need the pressure work
+!           -----------------------------
+            p_3d = thermodynamics % gammaMinus1*(e % storage % Q(IRHOE,:,:,:) &
+                     - 0.5_RP*(POW2(e % storage % Q(IRHOU,:,:,:)) + POW2(e % storage % Q(IRHOV,:,:,:)) + &
+                               POW2(e % storage % Q(IRHOW,:,:,:)))*inv_rho)
+!
+!           This correction term is because the split-form scheme will compute the pressure terms with de-aliased metrics, so I need 
+!           to replicate that de-aliasing: 0.5<u,M∇p> + 0.5<u,∇(Mp)> = <u,∇(Mp)> + 0.5(<u,M∇p-∇(Mp)>).
+!           The first term is computed as <-p,M∇·u>, using the gradients, that already contain the surface term.
+!           ------------------------------------------------------------------------------------------------------------------------
+            call GetPressureLocalGradient(Nel, p_3d, e % geom % jGradXi, e % geom % jGradEta, e % geom % jGradZeta, grad_Mp, M_grad_p)
+
+            correction_term = 0.5_RP * (  e % storage % Q(IRHOU,:,:,:)*(M_grad_p(IX,:,:,:)-grad_Mp(IX,:,:,:)) &
+                                        + e % storage % Q(IRHOV,:,:,:)*(M_grad_p(IY,:,:,:)-grad_Mp(IY,:,:,:)) &
+                                        + e % storage % Q(IRHOW,:,:,:)*(M_grad_p(IZ,:,:,:)-grad_Mp(IZ,:,:,:)))*inv_rho
+
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               call ViscousFlux_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
+                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+
+               val = val + wx(i) * wy(j) * wz(k) * (e % geom % jacobian(i,j,k) * ( kinEn(i,j,k) + & 
+                     sum(ViscFlux(2:4,1)*e % storage % U_x(2:4,i,j,k)+ViscFlux(2:4,2)*e % storage % U_y(2:4,i,j,k)+ViscFlux(2:4,3)*e % storage % U_z(2:4,i,j,k)) & 
+                   - p_3d(i,j,k)*(e % storage % U_x(IRHOU,i,j,k) + e % storage % U_y(IRHOV,i,j,k) + e % storage % U_z(IRHOW,i,j,k))) &
+                   + correction_term(i,j,k))
             end do            ; end do           ; end do
 
 
@@ -267,13 +318,36 @@ module VolumeIntegrals
 !              Computes the specific entropy integral time derivative minus viscous work
 !           ****************************************************************************
 !
-            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
-               call ViscousFlux_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
-                                 e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
-               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
-                  sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
-            end do            ; end do           ; end do
+            select case(grad_vars)
+            case(GRADVARS_STATE)
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
+                  call ViscousFlux_STATE(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
+                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                  val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
+                     sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
+               end do            ; end do           ; end do
+            
+            case(GRADVARS_ENTROPY)
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
+                  call ViscousFlux_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
+                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                  val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
+                     sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
+               end do            ; end do           ; end do
+
+            case(GRADVARS_ENERGY)
+               do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+                  call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
+                  call ViscousFlux_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
+                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                  val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
+                     sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
+               end do            ; end do           ; end do
+
+            end select
+
 
          case ( INTERNAL_ENERGY )
             !
@@ -384,7 +458,8 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
 
-               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*e % storage % Q(IMC,i,j,k)
+               mu = max(min(e % storage % Q(IMC,i,j,k),1.0_RP),0.0_RP)
+               mu = dimensionless % mu(2) + (dimensionless % mu(1) - dimensionless % mu(2))*mu
                Strain(1,1) = e % storage % U_x(IGU,i,j,k)
                Strain(2,2) = e % storage % U_y(IGV,i,j,k)
                Strain(3,3) = e % storage % U_z(IGW,i,j,k)
@@ -585,4 +660,47 @@ module VolumeIntegrals
          
          end associate
       end function VectorVolumeIntegral_Local
+
+      subroutine GetPressureLocalGradient(N, p, Ja_xi, Ja_eta, Ja_zeta, grad_Mp, M_grad_p)
+         implicit none
+         integer, intent(in)        :: N(3)
+         real(kind=RP), intent(in)  :: p(0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(in)  :: Ja_xi(1:NDIM,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(in)  :: Ja_eta(1:NDIM,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(in)  :: Ja_zeta(1:NDIM,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(out) :: grad_Mp(1:NDIM,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(out) :: M_grad_p(1:NDIM,0:N(1),0:N(2),0:N(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: i, j, k, l
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
+
+         grad_Mp = 0.0_RP
+         M_grad_p = 0.0_RP
+         do k = 0, N(3)   ; do j = 0, N(2) ; do l = 0, N(1) ; do i = 0, N(1)
+            grad_Mp(:,i,j,k)  = grad_Mp(:,i,j,k)  + p(l,j,k) * Ja_xi(:,l,j,k) * spAxi % D(i,l)
+            M_grad_p(:,i,j,k) = M_grad_p(:,i,j,k) + p(l,j,k) * Ja_xi(:,i,j,k) * spAxi % D(i,l)
+         end do           ; end do         ; end do         ; end do
+
+         do k = 0, N(3)   ; do l = 0, N(2) ; do j = 0, N(2) ; do i = 0, N(1)
+            grad_Mp(:,i,j,k)  = grad_Mp(:,i,j,k)  + p(i,l,k) * Ja_eta(:,i,l,k) * spAeta % D(j,l)
+            M_grad_p(:,i,j,k) = M_grad_p(:,i,j,k) + p(i,l,k) * Ja_eta(:,i,j,k) * spAeta % D(j,l)
+         end do           ; end do         ; end do         ; end do
+
+         do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            grad_Mp(:,i,j,k)  = grad_Mp(:,i,j,k)  + p(i,j,l) * Ja_zeta(:,i,j,l) * spAzeta % D(k,l)
+            M_grad_p(:,i,j,k) = M_grad_p(:,i,j,k) + p(i,j,l) * Ja_zeta(:,i,j,k) * spAzeta % D(k,l)
+         end do           ; end do         ; end do         ; end do
+         
+         nullify (spAxi, spAeta, spAzeta)
+
+      end subroutine GetPressureLocalGradient
+
 end module VolumeIntegrals

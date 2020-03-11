@@ -140,12 +140,24 @@ module EllipticDiscretizationClass
 !        ---------------
 !
          integer  :: eID
+         logical  :: set_mu
+
+#ifdef MULTIPHASE
+         select case (self % eqName)
+         case(ELLIPTIC_MU)
+            set_mu = .true.
+         case default
+            set_mu = .false.
+         end select
+#else
+         set_mu = .false.
+#endif
 
 !$omp do schedule(runtime)
-         do eID = 1, mesh % no_of_elements
-            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients)
+         do eID = 1 , size(mesh % elements)
+            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
          end do
-!$omp end do
+!$omp end do nowait
 
       end subroutine BaseClass_ComputeGradient
 
