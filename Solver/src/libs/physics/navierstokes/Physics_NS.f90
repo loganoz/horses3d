@@ -39,7 +39,7 @@
 
       private
       public  EulerFlux
-      public  ViscousFlux_STATE, ViscousFlux_ENTROPY
+      public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  ViscousFlux_withSGS
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw, ViscousJacobian
@@ -394,8 +394,65 @@
          F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
          F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * sutherLaw * nablaT(IZ)
 
-         ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux_ENTROPY
+
+      pure subroutine ViscousFlux_ENERGY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+         implicit none
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
+         real(kind=RP), intent(in)  :: Q   (1:nEqn     )
+         real(kind=RP), intent(in)  :: Q_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
+         real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
+         real(kind=RP), intent(in)  :: kappa
+         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                    :: T , sutherLaw
+         real(kind=RP)                    :: divV, p_div_rho
+         real(kind=RP)                    :: u(NDIM)
+         real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
+
+         invRho  = 1.0_RP / Q(IRHO)
+         p_div_rho = thermodynamics % gammaMinus1*invRho*(Q(IRHOE)-0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho)
+
+         u_x = Q_x(IRHOU:IRHOW)
+         u_y = Q_y(IRHOU:IRHOW) 
+         u_z = Q_z(IRHOU:IRHOW)
+         
+         nablaT(IX) = Q_x(IRHOE)
+         nablaT(IY) = Q_y(IRHOE)
+         nablaT(IZ) = Q_z(IRHOE)
+         
+         T = dimensionless % gammaM2 * p_div_rho
+         sutherLaw = SutherlandsLaw(T)
+
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
+
+         F(IRHO,IX)  = 0.0_RP
+         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
+         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) 
+         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa * sutherLaw * nablaT(IX) 
+
+         F(IRHO,IY) = 0.0_RP
+         F(IRHOU,IY) = F(IRHOV,IX) 
+         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa * sutherLaw * nablaT(IY)
+
+         F(IRHO,IZ) = 0.0_RP
+         F(IRHOU,IZ) = F(IRHOW,IX) 
+         F(IRHOV,IZ) = F(IRHOW,IY) 
+         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * sutherLaw * nablaT(IZ)
+
+      end subroutine ViscousFlux_ENERGY
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

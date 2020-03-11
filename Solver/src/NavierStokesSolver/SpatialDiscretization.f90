@@ -29,7 +29,7 @@ module SpatialDiscretization
       use ParticlesClass
       use FluidData
       use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
-                                    GetGradientValues_f
+                                    GetGradientValues_f, NSGradientVariables_ENERGY
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef _HAS_MPI_
@@ -150,8 +150,8 @@ module SpatialDiscretization
 
                   case ("energy")
                      call SetGradientVariables(GRADVARS_ENERGY)
-!                     GetGradients => NSGradientVariables_ENERGY
-!                     ViscousFlux  => ViscousFlux_ENERGY
+                     GetGradients => NSGradientVariables_ENERGY
+                     ViscousFlux  => ViscousFlux_ENERGY
 
                   case default
                      print*, 'Entropy variables "',trim(gradient_variables),'" are not currently implemented'

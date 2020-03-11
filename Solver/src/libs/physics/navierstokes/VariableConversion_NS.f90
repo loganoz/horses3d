@@ -21,6 +21,7 @@ module VariableConversion_NS
    public   Pressure, Temperature, TemperatureDeriv
    public   NSGradientVariables_STATE
    public   NSGradientVariables_ENTROPY
+   public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
 
@@ -166,6 +167,31 @@ module VariableConversion_NS
 
 
       end subroutine NSGradientVariables_ENTROPY
+
+      pure subroutine NSGradientVariables_ENERGY( nEqn, nGrad, Q, U, rho_ )
+         implicit none
+         integer, intent(in)        :: nEqn, nGrad
+         real(kind=RP), intent(in)  :: Q(nEqn)
+         real(kind=RP), intent(out) :: U(nGrad)
+         real(kind=RP), intent(in), optional :: rho_
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+         real(kind=RP)  :: invRho, p, rhoV2
+            
+         invRho = 1.0_RP / Q(IRHO)
+         rhoV2 = (POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho
+         p = thermodynamics % gammaMinus1*(Q(IRHOE) - 0.5_RP*rhoV2)
+
+         U(IRHO)  = Q(IRHO)                             ! density (only to have it)
+         U(IRHOU) = Q(IRHOU)*invRho                     ! x-velocity
+         U(IRHOV) = Q(IRHOV)*invRho                     ! y-velocity
+         U(IRHOW) = Q(IRHOW)*invRho                     ! z-velocity
+         U(IRHOE) = dimensionless % gammaM2 * p*invRho  ! Temperature
+
+      end subroutine NSGradientVariables_ENERGY
 !
 ! /////////////////////////////////////////////////////////////////////
 !
