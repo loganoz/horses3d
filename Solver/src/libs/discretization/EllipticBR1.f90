@@ -58,6 +58,17 @@ module EllipticBR1
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","BR1"
          write(STD_OUT,'(30X,A,A30,F6.3)') "->","Penalty parameter: ",self % sigma
 
+#ifdef NAVIERSTOKES
+         select case (self % eqName)
+         case (ELLIPTIC_NS)
+            select case (grad_vars)
+            case(GRADVARS_STATE);   write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","State"
+            case(GRADVARS_ENTROPY); write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Entropy"
+            case(GRADVARS_ENERGY);  write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Energy"
+            end select
+         end select
+#endif
+
       end subroutine BR1_Describe
 
       subroutine BR1_ComputeGradient(self, nEqn, nGradEqn, mesh, time, GetGradients)

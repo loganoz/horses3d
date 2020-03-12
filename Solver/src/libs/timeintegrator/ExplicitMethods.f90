@@ -87,7 +87,7 @@ MODULE ExplicitMethods
       END DO
 !
 !     To obtain the updated residuals
-      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
 
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements

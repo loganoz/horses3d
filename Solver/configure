@@ -43,6 +43,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/Benchmark \
 	    ./Euler/JFNK \
 	    ./Euler/TaylorGreenKEPEC \
+            ./NavierStokes/Convergence \
+            ./NavierStokes/Convergence_energy \
+            ./NavierStokes/Convergence_entropy \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderFAS \
             ./NavierStokes/CylinderAnisFAS \

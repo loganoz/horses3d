@@ -420,6 +420,7 @@
 
          invRho  = 1.0_RP / Q(IRHO)
          p_div_rho = thermodynamics % gammaMinus1*invRho*(Q(IRHOE)-0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho)
+         u = Q(IRHOU:IRHOW)*invRho
 
          u_x = Q_x(IRHOU:IRHOW)
          u_y = Q_y(IRHOU:IRHOW) 
