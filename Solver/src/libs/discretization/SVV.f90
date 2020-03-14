@@ -297,7 +297,6 @@ module SpectralVanishingViscosity
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
                    spA_eta  => NodalStorage(e % Nxyz(2)), &
                    spA_zeta => NodalStorage(e % Nxyz(3))) 
-
 !
 !        -----------------
 !        Compute the Hflux
@@ -317,18 +316,16 @@ module SpectralVanishingViscosity
 !        -----------------------
          Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
          Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            do l = 0, e % Nxyz(1)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
                Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
                Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
                Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
-            end do
-         end do                ; end do                ; end do
+         end do                ; end do                ; end do                ; end do
 !
 !        Perform filtering in eta Hf -> Hf_aux
 !        ------------------------
          Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
             Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
             Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
@@ -337,7 +334,7 @@ module SpectralVanishingViscosity
 !        Perform filtering in zeta Hf_aux -> Hf
 !        -------------------------
          Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
             Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
             Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
@@ -769,6 +766,21 @@ module SpectralVanishingViscosity
          real(kind=RP)  :: normLk(0:N)
 
          if ( self % filters(N) % Constructed ) return
+
+         if ( N .eq. 0 ) then
+            self % filters(N) % N = N
+            allocate(self % filters(N) % Q(0:N,0:N))
+            select case (self % filterType)
+            case(HPASS_FILTER)
+               self % filters(N) % Q = 1.0_RP
+            case(LPASS_FILTER)
+               self % filters(N) % Q = 0.0_RP
+            end select
+
+            self % filters(N) % constructed = .true.
+            return
+         end if
+            
 !
 !        Get the evaluation of Legendre polynomials at the interpolation nodes
 !        ---------------------------------------------------------------------

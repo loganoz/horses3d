@@ -1407,7 +1407,7 @@ module SpatialDiscretization
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
 
-               visc_flux = visc_flux + SVV_flux
+               visc_flux(:,i,j) = visc_flux(:,i,j) + SVV_flux(:,i,j)
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
