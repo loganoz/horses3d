@@ -45,14 +45,15 @@ module SpectralVanishingViscosity
 !
 !  Filter types
 !  ------------
-   integer, parameter :: HPASS_FILTER = 0
-   integer, parameter :: LPASS_FILTER = 1
+   enum, bind(C)
+      enumerator :: HPASS_FILTER, LPASS_FILTER
+   end enum
 !
 !  Filter shapes
 !  -------------
-   integer, parameter :: POW_FILTER   = 0 ! Moura et al. (2016)
-   integer, parameter :: SHARP_FILTER = 1 ! VMS-like
-   integer, parameter :: EXP_FILTER   = 2 ! Maday et al. (1993)
+   enum, bind(C)
+      enumerator :: POW_FILTER, SHARP_FILTER, EXP_FILTER
+   end enum
    
    type FilterMatrices_t
       logical                    :: constructed = .false.
@@ -72,7 +73,6 @@ module SpectralVanishingViscosity
       contains
          procedure      :: ConstructFilter    => SVV_ConstructFilter
          procedure      :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
-         procedure      :: RiemannSolver      => SVV_RiemannSolver
          procedure      :: describe           => SVV_Describe
          procedure      :: destruct           => SVV_destruct
    end type SVV_t
@@ -259,281 +259,490 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
+      subroutine SVV_ComputeInnerFluxes(self, mesh, e, contravariantFlux)
          use ElementClass
          use PhysicsStorage
          use Physics
          use LESModels
          implicit none
-         class(SVV_t) ,     intent (in)         :: self
+         class(SVV_t)                           :: self
+         type(HexMesh)                          :: mesh
          type(Element)                          :: e
-         procedure(EllipticFlux_f)              :: EllipticFlux
          real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)       :: Uxf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: Uyf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: Uzf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: cartesianFlux      (1:NCONS, 1:NDIM)
-         real(kind=RP)       :: contravariantFluxF (1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         integer             :: i, j, k, l, fIDs(6)
          real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         integer             :: i, j, k, ii, jj, kk
-         real(kind=RP)       :: Q3D, delta
+         real(kind=RP)       :: Hx(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hy(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hz(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hxf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hyf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hzf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hxf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hyf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: Hzf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP)       :: cartesianFlux(1:NCONS, 1:NDIM)
+         real(kind=RP)       :: SVV_diss
+
+         mu    = self % muSVV
+
+         associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
+                   Qy => self % filters(e % Nxyz(2)) % Q, &
+                   Qz => self % filters(e % Nxyz(3)) % Q    )
+
+         associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
+                   spA_eta  => NodalStorage(e % Nxyz(2)), &
+                   spA_zeta => NodalStorage(e % Nxyz(3))) 
+
 !
+!        -----------------
+!        Compute the Hflux
+!        -----------------
+!
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+           Hx(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)*mu(i,j,k)) * e % storage % U_x(:,i,j,k)
+           Hy(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)*mu(i,j,k)) * e % storage % U_y(:,i,j,k)
+           Hz(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)*mu(i,j,k)) * e % storage % U_z(:,i,j,k)
+         end do                ; end do                ; end do
+!
+!        ----------------
+!        Filter the Hflux
+!        ----------------
+!
+!        Perform filtering in xi Hf_aux -> Hf
+!        -----------------------
+         Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
+         Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            do l = 0, e % Nxyz(1)
+               Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
+               Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
+               Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
+            end do
+         end do                ; end do                ; end do
+!
+!        Perform filtering in eta Hf -> Hf_aux
+!        ------------------------
+         Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+            Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
+            Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
+            Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
+         end do                ; end do                ; end do                ; end do
+!
+!        Perform filtering in zeta Hf_aux -> Hf
 !        -------------------------
-!        Compute the SVV viscosity
-!        -------------------------
-!
-         if (self % muIsSmagorinsky) then
-!
-!           (1+Psvv) * muSmag
-!           -----------------
-            delta = (e % geom % Volume / product(e % Nxyz + 1) ) ** (1._RP / 3._RP)
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               call Smagorinsky % ComputeViscosity ( delta, e % geom % dWall(i,j,k), e % storage % Q  (:,i,j,k) &
-                                                                                   , e % storage % U_x(:,i,j,k) &
-                                                                                   , e % storage % U_y(:,i,j,k) &
-                                                                                   , e % storage % U_z(:,i,j,k) &
-                                                                                   , mu(i,j,k) )
-               mu(i,j,k) = mu(i,j,k)! * (1._RP + self % Psvv)
-            end do                ; end do                ; end do
-         else
-!
-!           Fixed value
-!           -----------
-            mu    = self % muSVV !/ maxval(e % Nxyz+1)
-         end if
-
-         beta  = 0.0_RP
-         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
-!
-!        --------------------
-!        Filter the gradients
-!        --------------------
-!
-         if (.not. self % postFiltering) then
-            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
-                      Qy => self % filters(e % Nxyz(2)) % Q, &
-                      Qz => self % filters(e % Nxyz(3)) % Q    )
-
-            Uxf = 0.0_RP   ; Uyf = 0.0_RP    ; Uzf = 0.0_RP
-            do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-               do kk = 0, e % Nxyz(3)  ; do jj = 0, e % Nxyz(2)   ; do ii = 0, e % Nxyz(1)
-                  Q3D = Qx(ii,i) * Qy(jj,j) * Qz(kk,k)
-                  Uxf(:,ii,jj,kk) = Uxf(:,ii,jj,kk) + Q3D * e % storage % U_x(:,i,j,k)
-                  Uyf(:,ii,jj,kk) = Uyf(:,ii,jj,kk) + Q3D * e % storage % U_y(:,i,j,k)
-                  Uzf(:,ii,jj,kk) = Uzf(:,ii,jj,kk) + Q3D * e % storage % U_z(:,i,j,k)
-               end do                 ; end do                  ; end do
-            end do                  ; end do                   ; end do
-
-            end associate
-            
-            if (self % filterType == LPASS_FILTER) then
-               Uxf = e % storage % U_x - Uxf
-               Uyf = e % storage % U_y - Uyf
-               Uzf = e % storage % U_z - Uzf
-            end if
+         Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+            Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
+            Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
+            Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
+         end do                ; end do                ; end do                ; end do
+         
+         if (self % filterType == LPASS_FILTER) then
+            Hxf = Hx - Hxf
+            Hyf = Hy - Hyf
+            Hzf = Hz - Hzf
          end if
 !
 !        ----------------
 !        Compute the flux
 !        ----------------
 !
-!
-!        ----------------------
-!        Get contravariant flux
-!        ----------------------
-!
+         SVV_diss = 0.0_RP
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            call EllipticFlux( NCONS, NGRAD, e % storage % Q(:,i,j,k), Uxf(:,i,j,k), Uyf(:,i,j,k), &
-                               Uzf(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux )
-            contravariantFluxF(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+            call Hflux_physical_dissipation_ENERGY( NCONS, NGRAD, e % storage % Q(:,i,j,k), Hxf(:,i,j,k), Hyf(:,i,j,k), &
+                               Hzf(:,i,j,k), 1.0_RP, 0.0_RP, cartesianFlux )
+   
+            SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * (sum(cartesianFlux(2:4,IX)*Hx(2:4,i,j,k) + &
+                                                                                          cartesianFlux(2:4,IY)*Hy(2:4,i,j,k) + & 
+                                                                                          cartesianFlux(2:4,IZ)*Hz(2:4,i,j,k)))
+
+            cartesianFlux = sqrt(mu(i,j,k) * e % geom % invJacobian(i,j,k)) * cartesianFlux
+            contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
                                              +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFluxF(:,i,j,k,IY) =    cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
                                              +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
                                              +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFluxF(:,i,j,k,IZ) =    cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+            contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
                                              +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
                                              +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
          end do               ; end do            ; end do
-!
-!        ----------------------
-!        Post-filtering ?
-!        ----------------------
-!
-         if (self % postFiltering) then
-            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
-                      Qy => self % filters(e % Nxyz(2)) % Q, &
-                      Qz => self % filters(e % Nxyz(3)) % Q    )
 
-            contravariantFlux = 0._RP
-            do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
-               do kk = 0, e % Nxyz(3)  ; do jj = 0, e % Nxyz(2)   ; do ii = 0, e % Nxyz(1)
-                  Q3D = Qx(ii,i) * Qy(jj,j) * Qz(kk,k)
-                  contravariantFlux(:,ii,jj,kk,IX) = contravariantFlux(:,ii,jj,kk,IX) + Q3D * contravariantFluxF(:,i,j,k,IX)
-                  contravariantFlux(:,ii,jj,kk,IY) = contravariantFlux(:,ii,jj,kk,IY) + Q3D * contravariantFluxF(:,i,j,k,IY)
-                  contravariantFlux(:,ii,jj,kk,IZ) = contravariantFlux(:,ii,jj,kk,IZ) + Q3D * contravariantFluxF(:,i,j,k,IZ)
-               end do                 ; end do                  ; end do
-            end do                  ; end do                   ; end do
+         e % storage % SVV_diss = SVV_diss
+!
+!        --------------------
+!        Prolong to the faces
+!        --------------------
+!
+         fIDs = e % faceIDs
+         call e % ProlongHfluxToFaces(NCONS, contravariantFlux, &
+                                   mesh % faces(fIDs(1)),&
+                                   mesh % faces(fIDs(2)),&
+                                   mesh % faces(fIDs(3)),&
+                                   mesh % faces(fIDs(4)),&
+                                   mesh % faces(fIDs(5)),&
+                                   mesh % faces(fIDs(6))   )
 
-            end associate
-            
-            if (self % filterType == LPASS_FILTER) then
-               contravariantFlux = contravariantFluxF - contravariantFlux
-            end if
-         else
-            contravariantFlux = contravariantFluxF
-         end if
+
+         end associate
+         end associate
          
       end subroutine SVV_ComputeInnerFluxes
-
-      subroutine SVV_RiemannSolver ( self, f, EllipticFlux, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
-         use SMConstants
-         use PhysicsStorage
-         use Physics
-         use FaceClass
-         use LESModels
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!        Library with H fluxes
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Hflux_diagonal_dissipation(NCONS, NGRAD, Q, Hx, Hy, Hz, mu, alpha, F)
          implicit none
-         class(SVV_t)                :: self
-         class(Face),   intent(in)   :: f
-         procedure(EllipticFlux_f)   :: EllipticFlux
-         real(kind=RP), intent(in)   :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(in)   :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), intent(out)  :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+         integer, intent(in)        :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Hx(NGRAD)
+         real(kind=RP), intent(in)  :: Hy(NGRAD)
+         real(kind=RP), intent(in)  :: Hz(NGRAD)
+         real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: alpha
+         real(kind=RP), intent(out) :: F(NCONS, NDIM)
+
+         F(:,IX) = Hx
+         F(:,IY) = Hy
+         F(:,IZ) = Hz
+
+      end subroutine Hflux_diagonal_dissipation
+
+      subroutine Hflux_physical_dissipation_ENERGY(NCONS, NGRAD, Q, Hx, Hy, Hz, mu, alpha, F)
+         implicit none
+         integer, intent(in)        :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Hx(NGRAD)
+         real(kind=RP), intent(in)  :: Hy(NGRAD)
+         real(kind=RP), intent(in)  :: Hz(NGRAD)
+         real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: alpha
+         real(kind=RP), intent(out) :: F(NCONS, NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer           :: i, j, ii, jj
-         real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
-         real(kind=RP)     :: U_x(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_y(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: U_z(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uxf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uyf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: Uzf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: beta(0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP)     :: delta, Q2D
-         real(kind=RP)     :: fluxF(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-!
-!        Interface averages
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
-!
-!        -------------------------
-!        Compute the SVV viscosity
-!        -------------------------
-!
-         if (self % muIsSmagorinsky) then
-!
-!           (1+Psvv) * muSmag
-!           -----------------
-            delta = sqrt(f % geom % surface / product(f % Nf + 1) )
-            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-               call Smagorinsky % ComputeViscosity ( delta, f % geom % dWall(i,j), Q  (:,i,j) &
-                                                                                 , U_x(:,i,j) &
-                                                                                 , U_y(:,i,j) &
-                                                                                 , U_z(:,i,j) &
-                                                                                 , mu(i,j) )
-               mu(i,j) = mu(i,j) !* (1._RP + self % Psvv)
-            end do                ; end do
-         else
-!
-!           Fixed value
-!           -----------
-            mu    = self % muSVV !/ maxval(f % Nf+1)
-         end if
-         
-         beta  = 0.0_RP
-         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
-!
-!        --------------------
-!        Filter the gradients
-!        --------------------
-!
-         if (.not. self % postFiltering) then
-            associate(Qx => self % filters(f % Nf(1)) % Q, & 
-                      Qy => self % filters(f % Nf(2)) % Q   )
+         real(kind=RP)  :: invRho, divV, u(NDIM)
+         real(kind=RP)  :: kappa
 
-            Uxf = 0.0_RP   ; Uyf = 0.0_RP    ; Uzf = 0.0_RP
-            
-            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
-               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
-                  Q2D = Qx(ii,i) * Qy(jj,j) 
-                  Uxf(:,ii,jj) = Uxf(:,ii,jj) + Q2D * U_x(:,i,j)
-                  Uyf(:,ii,jj) = Uyf(:,ii,jj) + Q2D * U_y(:,i,j)
-                  Uzf(:,ii,jj) = Uzf(:,ii,jj) + Q2D * U_z(:,i,j)
-               end do                  ; end do
-            end do                   ; end do
-            end associate
-            
-            if (self % filterType == LPASS_FILTER) then
-               Uxf = U_x - Uxf
-               Uyf = U_y - Uyf
-               Uzf = U_z - Uzf
-            end if
-         end if
-!
-!        ----------------------------------
-!        Compute flux and project to normal
-!        ----------------------------------
-!
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            call EllipticFlux(NCONS, NGRAD, Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), mu(i,j), beta(i,j), kappa(i,j), flux_vec)
-            fluxF(:,i,j) =  flux_vec(:,IX) * f % geom % normal(IX,i,j) &
-                          + flux_vec(:,IY) * f % geom % normal(IY,i,j) &
-                          + flux_vec(:,IZ) * f % geom % normal(IZ,i,j) 
-         end do               ; end do
-!
-!        ---------------
-!        Filter the flux
-!        ---------------
-!
-         if (self % postFiltering) then
-            associate(Qx => self % filters(f % Nf(1)) % Q, & 
-                      Qy => self % filters(f % Nf(2)) % Q   )
+         kappa = mu * dimensionless % kappa * dimensionless % Re 
+  
+         invRho  = 1.0_RP / Q(IRHO)
+         u = Q(IRHOU:IRHOW)*invRho
 
-            flux = 0.0_RP
-            
-            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
-               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
-                  Q2D = Qx(ii,i) * Qy(jj,j) 
-                  flux(:,ii,jj) = flux(:,ii,jj) + Q2D * fluxF(:,i,j)
-               end do                  ; end do
-            end do                   ; end do
-            end associate
-            
-            if (self % filterType == LPASS_FILTER) then
-               flux = fluxF - flux
-            end if
-         else
-            flux = fluxF
-         end if
+         divV = Hx(IX) + Hy(IY) + Hz(IZ)
 
-      end subroutine SVV_RiemannSolver
+         F(IRHO,IX)  = 0.0_RP
+         F(IRHOU,IX) = mu * (2.0_RP * Hx(IRHOU) - 2.0_RP/3.0_RP * divV ) 
+         F(IRHOV,IX) = mu * ( Hx(IRHOV) + Hy(IRHOU) ) 
+         F(IRHOW,IX) = mu * ( Hx(IRHOW) + Hz(IRHOU) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IRHOU) + F(IRHOV,IX) * u(IRHOV) + F(IRHOW,IX) * u(IRHOW) + kappa * Hx(IRHOE) 
+
+         F(IRHO,IY) = 0.0_RP
+         F(IRHOU,IY) = F(IRHOV,IX) 
+         F(IRHOV,IY) = mu * (2.0_RP * Hy(IRHOV) - 2.0_RP / 3.0_RP * divV )
+         F(IRHOW,IY) = mu * ( Hy(IRHOW) + Hz(IRHOV) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IRHOU) + F(IRHOV,IY) * u(IRHOV) + F(IRHOW,IY) * u(IRHOW) + kappa * Hy(IRHOE)
+
+         F(IRHO,IZ) = 0.0_RP
+         F(IRHOU,IZ) = F(IRHOW,IX) 
+         F(IRHOV,IZ) = F(IRHOW,IY) 
+         F(IRHOW,IZ) = mu * ( 2.0_RP * Hz(IRHOW) - 2.0_RP / 3.0_RP * divV ) 
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IRHOU) + F(IRHOV,IZ) * u(IRHOV) + F(IRHOW,IZ) * u(IRHOW) + kappa * Hz(IRHOE)
+
+      end subroutine Hflux_physical_dissipation_ENERGY
+
+!      subroutine SVV_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
+!         use ElementClass
+!         use PhysicsStorage
+!         use Physics
+!         use LESModels
+!         implicit none
+!         class(SVV_t) ,     intent (in)         :: self
+!         type(Element)                          :: e
+!         procedure(EllipticFlux_f)              :: EllipticFlux
+!         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+!!
+!!        ---------------
+!!        Local variables
+!!        ---------------
+!!
+!         real(kind=RP)       :: Uxf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         real(kind=RP)       :: Uyf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         real(kind=RP)       :: Uzf(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         real(kind=RP)       :: cartesianFlux      (1:NCONS, 1:NDIM)
+!         real(kind=RP)       :: contravariantFluxF (1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+!         real(kind=RP)       :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         real(kind=RP)       :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+!         integer             :: i, j, k, ii, jj, kk
+!         real(kind=RP)       :: Q3D, delta
+!!
+!!        -------------------------
+!!        Compute the SVV viscosity
+!!        -------------------------
+!!
+!         if (self % muIsSmagorinsky) then
+!!
+!!           (1+Psvv) * muSmag
+!!           -----------------
+!            delta = (e % geom % Volume / product(e % Nxyz + 1) ) ** (1._RP / 3._RP)
+!            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!               call Smagorinsky % ComputeViscosity ( delta, e % geom % dWall(i,j,k), e % storage % Q  (:,i,j,k) &
+!                                                                                   , e % storage % U_x(:,i,j,k) &
+!                                                                                   , e % storage % U_y(:,i,j,k) &
+!                                                                                   , e % storage % U_z(:,i,j,k) &
+!                                                                                   , mu(i,j,k) )
+!               mu(i,j,k) = mu(i,j,k)! * (1._RP + self % Psvv)
+!            end do                ; end do                ; end do
+!         else
+!!
+!!           Fixed value
+!!           -----------
+!            mu    = self % muSVV !/ maxval(e % Nxyz+1)
+!         end if
+!
+!         beta  = 0.0_RP
+!         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
+!!
+!!        --------------------
+!!        Filter the gradients
+!!        --------------------
+!!
+!         if (.not. self % postFiltering) then
+!            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
+!                      Qy => self % filters(e % Nxyz(2)) % Q, &
+!                      Qz => self % filters(e % Nxyz(3)) % Q    )
+!
+!            Uxf = 0.0_RP   ; Uyf = 0.0_RP    ; Uzf = 0.0_RP
+!            do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
+!               do kk = 0, e % Nxyz(3)  ; do jj = 0, e % Nxyz(2)   ; do ii = 0, e % Nxyz(1)
+!                  Q3D = Qx(ii,i) * Qy(jj,j) * Qz(kk,k)
+!                  Uxf(:,ii,jj,kk) = Uxf(:,ii,jj,kk) + Q3D * e % storage % U_x(:,i,j,k)
+!                  Uyf(:,ii,jj,kk) = Uyf(:,ii,jj,kk) + Q3D * e % storage % U_y(:,i,j,k)
+!                  Uzf(:,ii,jj,kk) = Uzf(:,ii,jj,kk) + Q3D * e % storage % U_z(:,i,j,k)
+!               end do                 ; end do                  ; end do
+!            end do                  ; end do                   ; end do
+!
+!            end associate
+!            
+!            if (self % filterType == LPASS_FILTER) then
+!               Uxf = e % storage % U_x - Uxf
+!               Uyf = e % storage % U_y - Uyf
+!               Uzf = e % storage % U_z - Uzf
+!            end if
+!         end if
+!!
+!!        ----------------
+!!        Compute the flux
+!!        ----------------
+!!
+!!
+!!        ----------------------
+!!        Get contravariant flux
+!!        ----------------------
+!!
+!         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
+!            call EllipticFlux( NCONS, NGRAD, e % storage % Q(:,i,j,k), Uxf(:,i,j,k), Uyf(:,i,j,k), &
+!                               Uzf(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux )
+!            contravariantFluxF(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+!                                             +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+!                                             +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+!
+!
+!            contravariantFluxF(:,i,j,k,IY) =    cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+!                                             +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+!                                             +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+!
+!
+!            contravariantFluxF(:,i,j,k,IZ) =    cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+!                                             +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+!                                             +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+!
+!         end do               ; end do            ; end do
+!!
+!!        ----------------------
+!!        Post-filtering ?
+!!        ----------------------
+!!
+!         if (self % postFiltering) then
+!            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
+!                      Qy => self % filters(e % Nxyz(2)) % Q, &
+!                      Qz => self % filters(e % Nxyz(3)) % Q    )
+!
+!            contravariantFlux = 0._RP
+!            do k = 0, e % Nxyz(3)  ; do j = 0, e % Nxyz(2)   ; do i = 0, e % Nxyz(1)
+!               do kk = 0, e % Nxyz(3)  ; do jj = 0, e % Nxyz(2)   ; do ii = 0, e % Nxyz(1)
+!                  Q3D = Qx(ii,i) * Qy(jj,j) * Qz(kk,k)
+!                  contravariantFlux(:,ii,jj,kk,IX) = contravariantFlux(:,ii,jj,kk,IX) + Q3D * contravariantFluxF(:,i,j,k,IX)
+!                  contravariantFlux(:,ii,jj,kk,IY) = contravariantFlux(:,ii,jj,kk,IY) + Q3D * contravariantFluxF(:,i,j,k,IY)
+!                  contravariantFlux(:,ii,jj,kk,IZ) = contravariantFlux(:,ii,jj,kk,IZ) + Q3D * contravariantFluxF(:,i,j,k,IZ)
+!               end do                 ; end do                  ; end do
+!            end do                  ; end do                   ; end do
+!
+!            end associate
+!            
+!            if (self % filterType == LPASS_FILTER) then
+!               contravariantFlux = contravariantFluxF - contravariantFlux
+!            end if
+!         else
+!            contravariantFlux = contravariantFluxF
+!         end if
+!         
+!      end subroutine SVV_ComputeInnerFluxes
+
+!      subroutine SVV_RiemannSolver ( self, f, EllipticFlux, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
+!         use SMConstants
+!         use PhysicsStorage
+!         use Physics
+!         use FaceClass
+!         use LESModels
+!         implicit none
+!         class(SVV_t)                :: self
+!         class(Face),   intent(in)   :: f
+!         procedure(EllipticFlux_f)   :: EllipticFlux
+!         real(kind=RP), intent(in)   :: QLeft(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: QRight (NCONS, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_xLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_yLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_zLeft(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_xRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_yRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(in)   :: U_zRight(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP), intent(out)  :: flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+!!
+!!        ---------------
+!!        Local variables
+!!        ---------------
+!!
+!         integer           :: i, j, ii, jj
+!         real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
+!         real(kind=RP)     :: U_x(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: U_y(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: U_z(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: Uxf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: Uyf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: Uzf(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: flux_vec(NCONS,NDIM)
+!         real(kind=RP)     :: mu(0:f % Nf(1), 0:f % Nf(2)), kappa(0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: beta(0:f % Nf(1), 0:f % Nf(2))
+!         real(kind=RP)     :: delta, Q2D
+!         real(kind=RP)     :: fluxF(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+!!
+!!        Interface averages
+!!        ------------------
+!         Q   = 0.5_RP * ( QLeft + QRight)
+!         U_x = 0.5_RP * ( U_xLeft + U_xRight)
+!         U_y = 0.5_RP * ( U_yLeft + U_yRight)
+!         U_z = 0.5_RP * ( U_zLeft + U_zRight)
+!!
+!!        -------------------------
+!!        Compute the SVV viscosity
+!!        -------------------------
+!!
+!         if (self % muIsSmagorinsky) then
+!!
+!!           (1+Psvv) * muSmag
+!!           -----------------
+!            delta = sqrt(f % geom % surface / product(f % Nf + 1) )
+!            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+!               call Smagorinsky % ComputeViscosity ( delta, f % geom % dWall(i,j), Q  (:,i,j) &
+!                                                                                 , U_x(:,i,j) &
+!                                                                                 , U_y(:,i,j) &
+!                                                                                 , U_z(:,i,j) &
+!                                                                                 , mu(i,j) )
+!               mu(i,j) = mu(i,j) !* (1._RP + self % Psvv)
+!            end do                ; end do
+!         else
+!!
+!!           Fixed value
+!!           -----------
+!            mu    = self % muSVV !/ maxval(f % Nf+1)
+!         end if
+!         
+!         beta  = 0.0_RP
+!         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
+!!
+!!        --------------------
+!!        Filter the gradients
+!!        --------------------
+!!
+!         if (.not. self % postFiltering) then
+!            associate(Qx => self % filters(f % Nf(1)) % Q, & 
+!                      Qy => self % filters(f % Nf(2)) % Q   )
+!
+!            Uxf = 0.0_RP   ; Uyf = 0.0_RP    ; Uzf = 0.0_RP
+!            
+!            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
+!               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
+!                  Q2D = Qx(ii,i) * Qy(jj,j) 
+!                  Uxf(:,ii,jj) = Uxf(:,ii,jj) + Q2D * U_x(:,i,j)
+!                  Uyf(:,ii,jj) = Uyf(:,ii,jj) + Q2D * U_y(:,i,j)
+!                  Uzf(:,ii,jj) = Uzf(:,ii,jj) + Q2D * U_z(:,i,j)
+!               end do                  ; end do
+!            end do                   ; end do
+!            end associate
+!            
+!            if (self % filterType == LPASS_FILTER) then
+!               Uxf = U_x - Uxf
+!               Uyf = U_y - Uyf
+!               Uzf = U_z - Uzf
+!            end if
+!         end if
+!!
+!!        ----------------------------------
+!!        Compute flux and project to normal
+!!        ----------------------------------
+!!
+!         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+!            call EllipticFlux(NCONS, NGRAD, Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), mu(i,j), beta(i,j), kappa(i,j), flux_vec)
+!            fluxF(:,i,j) =  flux_vec(:,IX) * f % geom % normal(IX,i,j) &
+!                          + flux_vec(:,IY) * f % geom % normal(IY,i,j) &
+!                          + flux_vec(:,IZ) * f % geom % normal(IZ,i,j) 
+!         end do               ; end do
+!!
+!!        ---------------
+!!        Filter the flux
+!!        ---------------
+!!
+!         if (self % postFiltering) then
+!            associate(Qx => self % filters(f % Nf(1)) % Q, & 
+!                      Qy => self % filters(f % Nf(2)) % Q   )
+!
+!            flux = 0.0_RP
+!            
+!            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
+!               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
+!                  Q2D = Qx(ii,i) * Qy(jj,j) 
+!                  flux(:,ii,jj) = flux(:,ii,jj) + Q2D * fluxF(:,i,j)
+!               end do                  ; end do
+!            end do                   ; end do
+!            end associate
+!            
+!            if (self % filterType == LPASS_FILTER) then
+!               flux = fluxF - flux
+!            end if
+!         else
+!            flux = fluxF
+!         end if
+!
+!      end subroutine SVV_RiemannSolver
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////
 !

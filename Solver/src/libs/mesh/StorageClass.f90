@@ -86,6 +86,7 @@ module StorageClass
       real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
+      real(kind=RP)                        :: SVV_diss
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -169,6 +170,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
+      real(kind=RP), dimension(:,:,:),     allocatable :: Hflux
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW
@@ -851,6 +853,8 @@ module StorageClass
             self % U_yNS = 0.0_RP
             self % U_zNS = 0.0_RP
          end if
+
+         self % SVV_diss = 0.0_RP
 #endif
 
 #ifdef CAHNHILLIARD
@@ -1314,6 +1318,11 @@ module StorageClass
          self % mu_art = 0.0_RP
 #endif
 
+#ifdef NAVIERSTOKES
+         allocate(self % Hflux(NCONS,0:Nf(1), 0:Nf(2)))
+         self % Hflux = 0.0_RP
+#endif
+
 #ifdef CAHNHILLIARD
          self % c     = 0.0_RP
          self % c_x   = 0.0_RP
@@ -1415,6 +1424,8 @@ module StorageClass
          self % U_x    => NULL() ; self % U_y => NULL() ; self % U_z => NULL()
          self % unStar => NULL()
          self % fStar  => NULL()
+
+         safedeallocate(self % Hflux)
 
       end subroutine FaceStorage_Destruct
 #ifdef FLOW

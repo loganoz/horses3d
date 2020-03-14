@@ -262,6 +262,8 @@ module VolumeIntegrals
                    + correction_term(i,j,k))
             end do            ; end do           ; end do
 
+            val = val + e % storage % SVV_diss
+
 
          case ( ENSTROPHY )
 !
