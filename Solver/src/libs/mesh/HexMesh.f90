@@ -1676,7 +1676,7 @@ slavecoord:             DO l = 1, 4
                   rightDir = any (self % dir2D == [IZ, IXZ, IYZ, IXYZ] )
             end select
             if (.not. rightDir) then
-              print*, "The mesh does not seem to be 2D for the selected direction"
+               print*, "The mesh does not seem to be 2D for the selected direction"
                errorMessage(STD_OUT)
                return
             end if
