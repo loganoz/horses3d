@@ -1641,16 +1641,17 @@ slavecoord:             DO l = 1, 4
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_CorrectOrderFor2DMesh(self, dir2D)
+      subroutine HexMesh_CorrectOrderFor2DMesh(self, dir2D,order_)
          implicit none
          class(HexMesh),   intent(inout) :: self
          integer,          intent(in)    :: dir2D
+         integer, intent(in), optional   :: order_
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: eID, nID, no_of_orientedNodes
+         integer  :: eID, nID, no_of_orientedNodes, order
          integer  :: face1Nodes(NODES_PER_FACE)
          integer  :: face2Nodes(NODES_PER_FACE)
          logical  :: rightDir
@@ -1658,6 +1659,12 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
+
+         if ( present(order_) ) then
+            order = order_
+         else
+            order = 0
+         end if
 
          if (self % meshIs2D) then
             select case (dir2D)
@@ -1669,7 +1676,7 @@ slavecoord:             DO l = 1, 4
                   rightDir = any (self % dir2D == [IZ, IXZ, IYZ, IXYZ] )
             end select
             if (.not. rightDir) then
-               print*, "The mesh does not seem to be 2D for the selected direction"
+              print*, "The mesh does not seem to be 2D for the selected direction"
                errorMessage(STD_OUT)
                return
             end if
@@ -1683,14 +1690,14 @@ slavecoord:             DO l = 1, 4
             
             select case (e % globDir(dir2D))
                case (IX)
-                  e % Nxyz(1) = 0
-                  self % Nx(eID) = 0
+                  e % Nxyz(1) = order
+                  self % Nx(eID) = order
                case (IY)
-                  e % Nxyz(2) = 0
-                  self % Ny(eID) = 0
+                  e % Nxyz(2) = order
+                  self % Ny(eID) = order
                case (IZ)
-                  e % Nxyz(3) = 0
-                  self % Nz(eID) = 0
+                  e % Nxyz(3) = order
+                  self % Nz(eID) = order
             end select
 
             end associate

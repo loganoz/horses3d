@@ -314,7 +314,7 @@ MODULE Read_SpecMesh
          self % dir2D_ctrl = dir2D
          if ( dir2D .ne. 0 ) then
             call SetMappingsToCrossProduct
-            call self % CorrectOrderFor2DMesh(dir2D)
+            call self % CorrectOrderFor2DMesh(dir2D,1)
          end if
 !
 !        ------------------------------
@@ -329,6 +329,15 @@ MODULE Read_SpecMesh
 !
          call self % ConstructGeometry()
          CLOSE( fUnit )
+!
+!        -------------------------------
+!        Set the mesh as 2D if requested
+!        -------------------------------
+!
+         if ( dir2D .ne. 0 ) then
+            call self % CorrectOrderFor2DMesh(dir2D,0)
+         end if
+
 !
 !        ---------------------------------
 !        Describe mesh and prepare for I/O
@@ -920,7 +929,7 @@ MODULE Read_SpecMesh
 !
          if ( dir2D .ne. 0 ) then
             call SetMappingsToCrossProduct
-            call self % CorrectOrderFor2DMesh(dir2D)
+            call self % CorrectOrderFor2DMesh(dir2D,1)
          end if
 !
 !        ------------------------------
@@ -934,6 +943,11 @@ MODULE Read_SpecMesh
 !        ---------------------------------------
 !
          call self % ConstructGeometry()
+
+         if ( dir2D .ne. 0 ) then
+            call self % CorrectOrderFor2DMesh(dir2D,0)
+         end if
+
 
          CLOSE( fUnit )
 !
