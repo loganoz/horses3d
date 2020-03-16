@@ -294,6 +294,8 @@
             dimensionless_ % kappa = 0.0_RP
 
          end if
+
+         dimensionless_ % mu_to_kappa = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Pr)
       END IF 
 !
 !     **************************************

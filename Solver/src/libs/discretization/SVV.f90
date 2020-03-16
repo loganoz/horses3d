@@ -62,14 +62,17 @@ module SpectralVanishingViscosity
    end type FilterMatrices_t
 
    type  SVV_t
-      logical                :: enabled
-      logical                :: muIsSmagorinsky = .FALSE.
-      integer                :: filterType
-      integer                :: filterShape
-      real(kind=RP)          :: muSVV,    sqrt_muSVV
-      real(kind=RP)          :: alphaSVV, sqrt_alphaSVV
-      real(kind=RP)          :: Psvv
-      type(FilterMatrices_t) :: filters(0:Nmax)
+      logical                                     :: enabled
+      logical                                     :: muIsSmagorinsky = .FALSE.
+      integer                                     :: filterType
+      integer                                     :: filterShape
+      integer, allocatable                        :: entropy_indexes(:)
+      real(kind=RP)                               :: muSVV,    sqrt_muSVV
+      real(kind=RP)                               :: alphaSVV, sqrt_alphaSVV
+      real(kind=RP)                               :: Psvv
+      type(FilterMatrices_t)                      :: filters(0:Nmax)
+      procedure(Compute_Hflux_f), nopass, pointer :: Compute_Hflux
+      procedure(Compute_SVV_f),   nopass, pointer :: Compute_SVV
       contains
          procedure      :: ConstructFilter    => SVV_ConstructFilter
          procedure      :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
@@ -79,6 +82,29 @@ module SpectralVanishingViscosity
 
    type(SVV_t), protected    :: SVV
    type(Smagorinsky_t)       :: Smagorinsky
+
+   abstract interface
+      subroutine Compute_SVV_f(NCONS, NGRAD, Q, Hx, Hy, Hz, sqrt_mu, sqrt_alpha, F)
+         use SMConstants, only: RP, NDIM
+         implicit none
+         integer, intent(in)        :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Hx(NCONS)
+         real(kind=RP), intent(in)  :: Hy(NCONS)
+         real(kind=RP), intent(in)  :: Hz(NCONS)
+         real(kind=RP), intent(in)  :: sqrt_mu
+         real(kind=RP), intent(in)  :: sqrt_alpha
+         real(kind=RP), intent(out) :: F(NCONS, NDIM)
+      end subroutine Compute_SVV_f
+      subroutine Compute_Hflux_f(NCONS, NGRAD, Q, Ux, Uy, Uz, sqrt_mu, sqrt_alpha, Hx, Hy, Hz)
+         use SMConstants, only: RP, NDIM
+         implicit none
+         integer,       intent(in)  :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS), Ux(NGRAD), Uy(NGRAD), Uz(NGRAD)
+         real(kind=RP), intent(in)  :: sqrt_mu, sqrt_alpha
+         real(kind=RP), intent(out) :: Hx(NCONS), Hy(NCONS), Hz(NCONS)
+      end subroutine Compute_Hflux_f
+   end interface
 !
 !  ========
    contains
@@ -195,7 +221,6 @@ module SpectralVanishingViscosity
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
-            
             self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
 
          else
@@ -216,6 +241,30 @@ module SpectralVanishingViscosity
             call self % ConstructFilter(Nxyz(3))
             end associate
          end do
+!
+!        --------------------------------------
+!        Select the appropriate HFlux functions
+!        --------------------------------------
+!
+         select case (grad_vars)
+         case(GRADVARS_ENTROPY)
+            self % Compute_Hflux => Hflux_physical_dissipation_ENTROPY
+            self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
+            allocate(self % entropy_indexes(5))
+            self % entropy_indexes = [1,2,3,4,5]
+
+         case(GRADVARS_ENERGY)   
+            self % Compute_Hflux => Hflux_physical_dissipation_ENERGY
+            self % Compute_SVV   => SVV_physical_dissipation_ENERGY
+            allocate(self % entropy_indexes(3))
+            self % entropy_indexes = [2,3,4]
+
+         case default
+            write(STD_OUT,*) "ERROR. SVV only configured for Energy or Entropy gradient variables"
+            errorMessage(STD_OUT)
+            stop
+         end select
+            
 
       end subroutine InitializeSVV
 !
@@ -230,31 +279,28 @@ module SpectralVanishingViscosity
          if (.not. MPI_Process % isRoot) return
          
          write(STD_OUT,'(/)')
-         call Subsection_Header("Spectral vanishing viscosity (SVV)")
+         call Subsection_Header("Spectral Vanishing Viscosity (SVV)")
          
          if (this % muIsSmagorinsky) then
-            write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
+            write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
          else
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","viscosity: ", this % muSVV
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","alpha viscosity: ", this % alphaSVV
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity: ", this % muSVV
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV
          end if
          
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
          select case (this % filterType)
-            case (LPASS_FILTER)
-               write(STD_OUT,'(30X,A,A30,A)') "->","filter type: ", 'low-pass'
-            case (HPASS_FILTER)
-               write(STD_OUT,'(30X,A,A30,A)') "->","filter type: ", 'high-pass'
+            case (LPASS_FILTER) ; write(STD_OUT,'(A)') 'low-pass'
+            case (HPASS_FILTER) ; write(STD_OUT,'(A)') 'high-pass'
          end select
          
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter shape: "
          select case (this % filterShape)
-            case (POW_FILTER)
-               write(STD_OUT,'(30X,A,A30,A)') "->","filter shape: ", 'power kernel'
-            case (EXP_FILTER)
-               write(STD_OUT,'(30X,A,A30,A)') "->","filter shape: ", 'exponential kernel'
-            case (SHARP_FILTER)
-               write(STD_OUT,'(30X,A,A30,A)') "->","filter shape: ", 'sharp kernel'
+            case (POW_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
+            case (EXP_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
+            case (SHARP_FILTER) ; write(STD_OUT,'(A)') 'sharp kernel'
          end select
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","filter cutoff: ", this % Psvv
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Filter cutoff: ", this % Psvv
          
       end subroutine SVV_Describe
 !
@@ -307,7 +353,7 @@ module SpectralVanishingViscosity
 !        -----------------
 !
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-           call Hflux_physical_dissipation_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
+           call self % Compute_Hflux(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
                                                 e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), &
                                                 sqrt_mu(i,j,k), sqrt_alpha(i,j,k), Hx(:,i,j,k), Hy(:,i,j,k), Hz(:,i,j,k))
    
@@ -360,14 +406,17 @@ module SpectralVanishingViscosity
 !
          SVV_diss = 0.0_RP
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            call SVV_physical_dissipation_ENERGY( NCONS, NGRAD, e % storage % Q(:,i,j,k), Hxf(:,i,j,k), Hyf(:,i,j,k), &
+            call self % Compute_SVV( NCONS, NGRAD, e % storage % Q(:,i,j,k), Hxf(:,i,j,k), Hyf(:,i,j,k), &
                                Hzf(:,i,j,k), sqrt_mu(i,j,k), sqrt_alpha(i,j,k), cartesianFlux )
 
-            SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * (sum(cartesianFlux(2:4,IX)*Hx(2:4,i,j,k) + &
-                                                                                          cartesianFlux(2:4,IY)*Hy(2:4,i,j,k) + & 
-                                                                                          cartesianFlux(2:4,IZ)*Hz(2:4,i,j,k))) / sqrt_mu(i,j,k)
-
             cartesianFlux = sqrt(e % geom % invJacobian(i,j,k)) * cartesianFlux
+
+            SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * &
+                        (sum(e % storage % U_x(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IX) + &
+                             e % storage % U_y(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IY) + & 
+                             e % storage % U_z(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IZ))) * e % geom % jacobian(i,j,k)
+
+
 
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
@@ -430,7 +479,7 @@ module SpectralVanishingViscosity
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: invRho, u, v, w, p_div_rho, sqrt_mu_T, mu_to_kappa
+         real(kind=RP) :: invRho, u, v, w, p_div_rho, sqrt_mu_T
 
          Hx = sqrt_mu*Ux 
          Hy = sqrt_mu*Uy 
@@ -494,7 +543,7 @@ module SpectralVanishingViscosity
          p_div_rho = thermodynamics % gammaMinus1*(invRho * Q(IRHOE)-0.5_RP*(u*u+v*v+w*w))
          sqrt_mu_T = sqrt_mu*sqrt(p_div_rho)
 
-         mu_to_kappa_gammaM2 = dimensionless % kappa * dimensionless % Re * dimensionless % gammaM2
+         mu_to_kappa_gammaM2 = dimensionless % mu_to_kappa * dimensionless % gammaM2
 
          Hx(IRHO)  = Ux(IRHO)
          Hx(IRHOU) = Ux(IRHOU) + u*Ux(IRHOE) - 0.5_RP*(Uy(IRHOV) + v*Uy(IRHOE) + Uz(IRHOW) + w*Uz(IRHOE))
@@ -546,7 +595,7 @@ module SpectralVanishingViscosity
          real(kind=RP)  :: invRho, divV, u(NDIM)
          real(kind=RP)  :: kappa
 
-         kappa = sqrt_mu * dimensionless % kappa * dimensionless % Re 
+         kappa = sqrt_mu * dimensionless % mu_to_kappa
   
          invRho  = 1.0_RP / Q(IRHO)
          u = Q(IRHOU:IRHOW)*invRho

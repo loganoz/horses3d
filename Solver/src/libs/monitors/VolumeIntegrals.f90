@@ -339,6 +339,8 @@ module VolumeIntegrals
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
 
+               val = val + e % storage % SVV_diss
+
             case(GRADVARS_ENERGY)
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
@@ -349,6 +351,7 @@ module VolumeIntegrals
                end do            ; end do           ; end do
 
             end select
+
 
 
          case ( INTERNAL_ENERGY )
