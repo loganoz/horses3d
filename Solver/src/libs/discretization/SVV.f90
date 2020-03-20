@@ -248,8 +248,11 @@ module SpectralVanishingViscosity
 !
          select case (grad_vars)
          case(GRADVARS_ENTROPY)
-            self % Compute_Hflux => Hflux_physical_dissipation_ENTROPY
-            self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
+!            self % Compute_Hflux => Hflux_physical_dissipation_ENTROPY
+!            self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
+
+            self % Compute_Hflux => Hflux_GuermondPopov_ENTROPY
+            self % Compute_SVV   => SVV_GuermondPopov_ENTROPY
             allocate(self % entropy_indexes(5))
             self % entropy_indexes = [1,2,3,4,5]
 
@@ -335,10 +338,12 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Hzf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: cartesianFlux(1:NCONS, 1:NDIM)
          real(kind=RP)       :: cf2(1:NCONS, 1:NDIM)
-         real(kind=RP)       :: SVV_diss
+         real(kind=RP)       :: SVV_diss, delta
 
          sqrt_mu    = self % sqrt_muSVV
          sqrt_alpha = self % sqrt_alphaSVV
+
+         delta = (e % geom % volume)**(1.0_RP/3.0_RP) / (maxval(e % Nxyz) + 1.0_RP)
 
          associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
                    Qy => self % filters(e % Nxyz(2)) % Q, &
@@ -410,6 +415,9 @@ module SpectralVanishingViscosity
                                Hzf(:,i,j,k), sqrt_mu(i,j,k), sqrt_alpha(i,j,k), cartesianFlux )
 
             cartesianFlux = sqrt(e % geom % invJacobian(i,j,k)) * cartesianFlux
+!
+!           Scale it with the mesh size
+!           ---------------------------
 
             SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * &
                         (sum(e % storage % U_x(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IX) + &
@@ -570,6 +578,96 @@ module SpectralVanishingViscosity
          Hz(IRHOE) = Hz(IRHOE)*sqrt_mu*mu_to_kappa_gammaM2*p_div_rho
 
       end subroutine Hflux_physical_dissipation_ENTROPY
+
+      subroutine Hflux_GuermondPopov_ENTROPY(NCONS, NGRAD, Q, Ux, Uy, Uz, sqrt_mu, sqrt_alpha, Hx, Hy, Hz)
+!
+!        ***************************************************************************************
+!
+!           This Hflux is computed from the LU decomposition of the Guermond-Popov fluxes. 
+!        If FGP = Lᵀ·D·L∇U, then Hflux = √D*L∇U, with
+!     
+!        D = diag(αρ  µp  µp/2  µp/2  αρ | αρ  0  µp  µp/2  αρ  | αρ  0  0  µp  αρ),
+!
+!        and
+!     
+!            |---------------------|-----------------------|-----------------------|
+!            | 1   u   v   w   e   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   1   0   0   u   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   1   0   v   |   0   1   0   0   u   |   0   0   0   0   0   |   
+!            | 0   0   0   1   w   |   0   0   0   0   0   |   0   1   0   0   u   |   
+!            | 0   0   0   0   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |   1   u   v   w   e   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!        L = | 0   0   0   0   0   |   0   0   1   0   v   |   0   0   0   0   0   |   
+!            | 0   0   0   0   0   |   0   0   0   1   w   |   0   0   1   0   v   |   
+!            | 0   0   0   0   0   |   0   0   0   0   Λ   |   0   0   0   0   0   |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   1   u   v   w   e   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   1   w   |   
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   Λ   |   
+!            |---------------------|-----------------------|-----------------------|
+!
+!        Λ=(p/ρ)/√(γ-1)
+!
+!        Only the non-constants are taken into the sqrt of (D). (e.g. µp/2 -> 1/2 √(µp) )
+!     
+!        ***************************************************************************************
+!
+         implicit none
+         integer,    intent(in)     :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS), Ux(NGRAD), Uy(NGRAD), Uz(NGRAD)
+         real(kind=RP), intent(in)  :: sqrt_mu, sqrt_alpha
+         real(kind=RP), intent(out) :: Hx(NCONS), Hy(NCONS), Hz(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: invRho, u, v, w, p_div_rho, lambda
+         real(kind=RP), parameter :: inv_sqrt_gamma_minus_1 = 1.0_RP / sqrt(1.4_RP-1.0_RP)
+         real(kind=RP) :: sqrt_alpha_rho, sqrt_mu_p
+
+         invRho = 1.0_RP / Q(IRHO)
+
+         u = Q(IRHOU) * invRho
+         v = Q(IRHOV) * invRho
+         w = Q(IRHOW) * invRho
+
+         p_div_rho = thermodynamics % gammaMinus1*(invRho * Q(IRHOE)-0.5_RP*(u*u+v*v+w*w))
+         lambda = inv_sqrt_gamma_minus_1*p_div_rho
+
+         sqrt_alpha_rho = sqrt_alpha*sqrt(Q(IRHO))
+         sqrt_mu_p      = sqrt_mu*sqrt(p_div_rho*Q(IRHO))
+
+         Hx(IRHO)  = invRho*sum(Q*Ux)
+         Hx(IRHOU) = Ux(IRHOU) + u*Ux(IRHOE) 
+         Hx(IRHOV) = Ux(IRHOV) + v*Ux(IRHOE) + Uy(IRHOU) + u*Uy(IRHOE)
+         Hx(IRHOW) = Ux(IRHOW) + w*Ux(IRHOE) + Uz(IRHOU) + u*Uz(IRHOE)
+         Hx(IRHOE) = lambda*Ux(IRHOE)
+
+         Hy(IRHO)  = invRho*sum(Q*Uy)
+         Hy(IRHOU) = 0.0_RP
+         Hy(IRHOV) = Uy(IRHOV) + v*Uy(IRHOE) 
+         Hy(IRHOW) = Uy(IRHOW) + w*Uy(IRHOE) + Uz(IRHOV) + v*Uz(IRHOE)
+         Hy(IRHOE) = lambda*Uy(IRHOE)
+
+         Hz(IRHO)  = invRho*sum(Q*Uz)
+         Hz(IRHOU) = 0.0_RP
+         Hz(IRHOV) = 0.0_RP
+         Hz(IRHOW) = Uz(IRHOW) + w*Uz(IRHOE)
+         Hz(IRHOE) = lambda*Uz(IRHOE)
+!
+!        Scale with sqrt(D)
+!        ------------------
+         Hx = Hx*[sqrt_alpha_rho, sqrt_mu_p, 0.5_RP*sqrt_mu_p, 0.5_RP*sqrt_mu_p, sqrt_alpha_rho]
+         Hy = Hy*[sqrt_alpha_rho, 0.0_RP   , sqrt_mu_p       , 0.5_RP*sqrt_mu_p, sqrt_alpha_rho]
+         Hz = Hz*[sqrt_alpha_rho, 0.0_RP   , 0.0_RP          , sqrt_mu_p       , sqrt_alpha_rho]
+
+      end subroutine Hflux_GuermondPopov_ENTROPY
+
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -709,6 +807,97 @@ module SpectralVanishingViscosity
          F(IRHOE,IZ) = -0.5_RP*w*Hx_sqrtD(IRHOU) + u*Hx_sqrtD(IRHOW) - w*Hy_sqrtD(IRHOV) + v*Hy_sqrtD(IRHOW) + Hz_sqrtD(IRHOE)
 
       end subroutine SVV_physical_dissipation_ENTROPY
+
+      subroutine SVV_GuermondPopov_ENTROPY(NCONS, NGRAD, Q, Hx, Hy, Hz, sqrt_mu, sqrt_alpha, F)
+!
+!        ***************************************************************************************
+!
+!           We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
+!
+!        Recall that in D we took away the constants (to avoid innecesary sqrts) 
+!     
+!        D = diag(αρ  µp  µp  µp  αρ | αρ  0  µp  µp  αρ  | αρ  0  0  µp  αρ),
+!
+!        and
+!     
+!            |---------------------|-----------------------|-----------------------|
+!            | 1   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | u   1   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | v   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | w   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | e   u   v   w   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |   1   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   1   0   0   |   u   0   0   0   0   |   0   0   0   0   0   |
+!        Lᵀ= | 0   0   0   0   0   |   v   0   1   0   0   |   0   0   0   0   0   |   
+!            | 0   0   0   0   0   |   w   0   0   1   0   |   0   0   0   0   0   |   
+!            | 0   0   u   0   0   |   e   0   v   w   Λ   |   0   0   0   0   0   |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   1   0   0   0   0   |
+!            | 0   0   0   1   0   |   0   0   0   0   0   |   u   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   1   0   |   v   0   0   0   0   |   
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   w   0   0   1   0   |   
+!            | 0   0   0   u   0   |   0   0   0   v   0   |   e   0   0   w   Λ   |   
+!            |---------------------|-----------------------|-----------------------|
+!
+!        ***************************************************************************************
+!
+
+         implicit none
+         integer, intent(in)        :: NCONS, NGRAD
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Hx(NCONS)
+         real(kind=RP), intent(in)  :: Hy(NCONS)
+         real(kind=RP), intent(in)  :: Hz(NCONS)
+         real(kind=RP), intent(in)  :: sqrt_mu
+         real(kind=RP), intent(in)  :: sqrt_alpha
+         real(kind=RP), intent(out) :: F(NCONS, NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)            :: Hx_sqrtD(NCONS), Hy_sqrtD(NCONS), Hz_sqrtD(NCONS)
+         real(kind=RP)            :: invRho, u, v, w, p_div_rho, lambda, e
+         real(kind=RP)            :: sqrt_alpha_rho, sqrt_mu_p
+         real(kind=RP), parameter :: inv_sqrt_gamma_minus_1 = 1.0_RP / sqrt(1.4_RP-1.0_RP)
+
+         invRho = 1.0_RP / Q(IRHO)
+
+         u = Q(IRHOU) * invRho
+         v = Q(IRHOV) * invRho
+         w = Q(IRHOW) * invRho
+         e = Q(IRHOE) * invRho
+
+         p_div_rho = thermodynamics % gammaMinus1*(invRho * Q(IRHOE)-0.5_RP*(u*u+v*v+w*w))
+         lambda = inv_sqrt_gamma_minus_1*p_div_rho
+
+         sqrt_alpha_rho = sqrt_alpha*sqrt(Q(IRHO))
+         sqrt_mu_p      = sqrt_mu*sqrt(p_div_rho*Q(IRHO))
+
+         Hx_sqrtD = Hx*[sqrt_alpha_rho, sqrt_mu_p, sqrt_mu_p, sqrt_mu_p, sqrt_alpha_rho]
+         Hy_sqrtD = Hy*[sqrt_alpha_rho, 0.0_RP   , sqrt_mu_p, sqrt_mu_p, sqrt_alpha_rho]
+         Hy_sqrtD = Hy*[sqrt_alpha_rho, 0.0_RP   , 0.0_RP   , sqrt_mu_p, sqrt_alpha_rho]
+
+         F(IRHO,IX)  = Hx_sqrtD(IRHO)
+         F(IRHOU,IX) = u*Hx_sqrtD(IRHO) + Hx_sqrtD(IRHOU)
+         F(IRHOV,IX) = v*Hx_sqrtD(IRHO) + Hx_sqrtD(IRHOV)
+         F(IRHOW,IX) = w*Hx_sqrtD(IRHO) + Hx_sqrtD(IRHOW)
+         F(IRHOE,IX) = e*Hx_sqrtD(IRHO) + u*Hx_sqrtD(IRHOU) + v*Hx_sqrtD(IRHOV) + w*Hx_sqrtD(IRHOW) + lambda*Hx_sqrtD(IRHOE)
+
+         F(IRHO,IY)  = Hy_sqrtD(IRHO)
+         F(IRHOU,IY) = u*Hy_sqrtD(IRHO) + Hx_sqrtD(IRHOV)
+         F(IRHOV,IY) = v*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOV)
+         F(IRHOW,IY) = w*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
+         F(IRHOE,IY) = e*Hy_sqrtD(IRHO) + v*Hy_sqrtD(IRHOV) + w*Hy_sqrtD(IRHOW) + lambda*Hy_sqrtD(IRHOE)
+         
+         F(IRHO,IZ)  = Hz_sqrtD(IRHO)
+         F(IRHOU,IZ) = u*Hz_sqrtD(IRHO) + Hx_sqrtD(IRHOW)
+         F(IRHOV,IZ) = v*Hz_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
+         F(IRHOW,IZ) = w*Hz_sqrtD(IRHO) + Hz_sqrtD(IRHOW)
+         F(IRHOE,IZ) = e*Hz_sqrtD(IRHO) + w*Hz_sqrtD(IRHOW) + lambda*Hz_sqrtD(IRHOE)
+
+      end subroutine SVV_GuermondPopov_ENTROPY
 
 !      subroutine SVV_ComputeInnerFluxes( self , e , EllipticFlux, contravariantFlux )
 !         use ElementClass
