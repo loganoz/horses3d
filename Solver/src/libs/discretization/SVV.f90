@@ -36,12 +36,13 @@ module SpectralVanishingViscosity
 !
 !  Keywords
 !  --------
-   character(len=*), parameter  :: SVV_KEY          = "enable svv"
-   character(len=*), parameter  :: SVV_MU_KEY       = "svv viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_KEY    = "svv alpha viscosity"
-   character(len=*), parameter  :: SVV_CUTOFF_KEY   = "svv filter cutoff"
-   character(len=*), parameter  :: FILTER_SHAPE_KEY = "svv filter shape"
-   character(len=*), parameter  :: FILTER_TYPE_KEY  = "svv filter type"
+   character(len=*), parameter  :: SVV_KEY               =  "enable svv"
+   character(len=*), parameter  :: SVV_MU_KEY            =  "svv viscosity"
+   character(len=*), parameter  :: SVV_ALPHA_KEY         =  "svv alpha viscosity"
+   character(len=*), parameter  :: SVV_CUTOFF_KEY        =  "svv filter cutoff"
+   character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
+   character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
+   character(len=*), parameter  :: DISSIPATION_TYPE_KEY  =  "svv dissipation type"
 !
 !  Filter types
 !  ------------
@@ -53,6 +54,12 @@ module SpectralVanishingViscosity
 !  -------------
    enum, bind(C)
       enumerator :: POW_FILTER, SHARP_FILTER, EXP_FILTER
+   end enum
+!
+!  Dissipation types
+!  -----------------
+   enum, bind(C)
+      enumerator :: PHYSICAL_DISS, GUERMOND_DISS
    end enum
    
    type FilterMatrices_t
@@ -66,6 +73,7 @@ module SpectralVanishingViscosity
       logical                                     :: muIsSmagorinsky = .FALSE.
       integer                                     :: filterType
       integer                                     :: filterShape
+      integer                                     :: diss_type
       integer, allocatable                        :: entropy_indexes(:)
       real(kind=RP)                               :: muSVV,    sqrt_muSVV
       real(kind=RP)                               :: alphaSVV, sqrt_alphaSVV
@@ -76,7 +84,7 @@ module SpectralVanishingViscosity
       contains
          procedure      :: ConstructFilter    => SVV_ConstructFilter
          procedure      :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
-         procedure      :: describe           => SVV_Describe
+         procedure      :: Describe           => SVV_Describe
          procedure      :: destruct           => SVV_destruct
    end type SVV_t
 
@@ -124,7 +132,7 @@ module SpectralVanishingViscosity
 !        ---------------
 !
          integer     :: eID
-         character(len=LINE_LENGTH) :: mu
+         character(len=LINE_LENGTH) :: mu, filter_type
 !
 !        -------------------------
 !        Check if SVV is requested
@@ -183,7 +191,9 @@ module SpectralVanishingViscosity
 !        --------------
 !
          if ( controlVariables % containsKey(FILTER_TYPE_KEY) ) then
-            select case ( trim(controlVariables % stringValueForKey(FILTER_TYPE_KEY,LINE_LENGTH)) )
+            filter_type = controlVariables % StringValueForKey(FILTER_TYPE_KEY,LINE_LENGTH)
+            call tolower(filter_type)
+            select case ( trim(filter_type) )
                case ("low-pass" ) ; self % filterType = LPASS_FILTER
                case ("high-pass") ; self % filterType = HPASS_FILTER
                case default
@@ -201,7 +211,9 @@ module SpectralVanishingViscosity
 !        ---------------
 !
          if ( controlVariables % containsKey(FILTER_SHAPE_KEY) ) then
-            select case ( trim(controlVariables % stringValueForKey(FILTER_SHAPE_KEY,LINE_LENGTH)) )
+            filter_type = controlVariables % StringValueForKey(FILTER_SHAPE_KEY, LINE_LENGTH)
+            call tolower(filter_type)
+            select case ( trim(filter_type) )
                case ("power")       ; self % filterShape = POW_FILTER
                case ("sharp")       ; self % filterShape = SHARP_FILTER
                case ("exponential") ; self % filterShape = EXP_FILTER
@@ -217,7 +229,7 @@ module SpectralVanishingViscosity
          end if
 !
 !        -------------------------
-!        Get the SVV kernel cutoff: the cutoff is later multiplied by sqrt(N)
+!        Get the SVV kernel cutoff  
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
@@ -227,10 +239,6 @@ module SpectralVanishingViscosity
             self % Psvv = 1.0_RP
 
          end if
-!
-!        Display the configuration
-!        -------------------------
-         call self % describe
 !
 !        Construct the filters
 !        ---------------------
@@ -246,28 +254,65 @@ module SpectralVanishingViscosity
 !        Select the appropriate HFlux functions
 !        --------------------------------------
 !
-         select case (grad_vars)
-         case(GRADVARS_ENTROPY)
-!            self % Compute_Hflux => Hflux_physical_dissipation_ENTROPY
-!            self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
+         if ( controlVariables % ContainsKey(DISSIPATION_TYPE_KEY) ) then
+            mu = controlVariables % StringValueForKey(DISSIPATION_TYPE_KEY, LINE_LENGTH)
+            call tolower(mu)
 
-            self % Compute_Hflux => Hflux_GuermondPopov_ENTROPY
-            self % Compute_SVV   => SVV_GuermondPopov_ENTROPY
-            allocate(self % entropy_indexes(5))
-            self % entropy_indexes = [1,2,3,4,5]
+            select case (trim(mu))
+            case ("physical") ; self % diss_type = PHYSICAL_DISS
+            case ("guermond") ; self % diss_type = GUERMOND_DISS
+            case default
+               write(STD_OUT,*) 'ERROR. SVV dissipation type not recognized. Options are:'
+               write(STD_OUT,*) '   * Physical'
+               write(STD_OUT,*) '   * Guermond'
+               errorMessage(STD_OUT)
+               stop
+            end select
+         else
+            self % diss_type = PHYSICAL_DISS
+      
+         end if
+         
+         select case (self % diss_type)
+         case (PHYSICAL_DISS)
+            select case (grad_vars)
+            case(GRADVARS_ENTROPY)
+               self % Compute_Hflux => Hflux_physical_dissipation_ENTROPY
+               self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
+               allocate(self % entropy_indexes(5))
+               self % entropy_indexes = [1,2,3,4,5]
+   
+            case(GRADVARS_ENERGY)   
+               self % Compute_Hflux => Hflux_physical_dissipation_ENERGY
+               self % Compute_SVV   => SVV_physical_dissipation_ENERGY
+               allocate(self % entropy_indexes(3))
+               self % entropy_indexes = [2,3,4]
+   
+            case default
+               write(STD_OUT,*) "ERROR. SVV with physical dissipation is only configured for Energy or Entropy gradient variables"
+               errorMessage(STD_OUT)
+               stop
+            end select
 
-         case(GRADVARS_ENERGY)   
-            self % Compute_Hflux => Hflux_physical_dissipation_ENERGY
-            self % Compute_SVV   => SVV_physical_dissipation_ENERGY
-            allocate(self % entropy_indexes(3))
-            self % entropy_indexes = [2,3,4]
+         case (GUERMOND_DISS)
+            select case (grad_vars)
+            case(GRADVARS_ENTROPY)
+               self % Compute_Hflux => Hflux_GuermondPopov_ENTROPY
+               self % Compute_SVV   => SVV_GuermondPopov_ENTROPY
+               allocate(self % entropy_indexes(5))
+               self % entropy_indexes = [1,2,3,4,5]
 
-         case default
-            write(STD_OUT,*) "ERROR. SVV only configured for Energy or Entropy gradient variables"
-            errorMessage(STD_OUT)
-            stop
+            case default
+               write(STD_OUT,*) "ERROR. SVV with Guermond-Popov (2014) dissipation is only configured for Entropy gradient variables"
+               errorMessage(STD_OUT)
+               stop
+            end select
          end select
-            
+!
+!        Display the configuration
+!        -------------------------
+         call self % Describe
+
 
       end subroutine InitializeSVV
 !
@@ -283,6 +328,13 @@ module SpectralVanishingViscosity
          
          write(STD_OUT,'(/)')
          call Subsection_Header("Spectral Vanishing Viscosity (SVV)")
+
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Dissipation type: "
+         select case (this % diss_type)
+            case (PHYSICAL_DISS)   ; write(STD_OUT,'(A)') 'Physical'
+            case (GUERMOND_DISS)   ; write(STD_OUT,'(A)') 'Guermond'
+         end select
+
          
          if (this % muIsSmagorinsky) then
             write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
@@ -417,7 +469,6 @@ module SpectralVanishingViscosity
 !
 !           Scale it with the mesh size
 !           ---------------------------
-
             SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * &
                         (sum(e % storage % U_x(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IX) + &
                              e % storage % U_y(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IY) + & 
@@ -1245,12 +1296,12 @@ module SpectralVanishingViscosity
             
             case (SHARP_FILTER)
                sharpCutOff = nint(self % Psvv)
-               if (sharpCutOff >= N) then
-                  write(STD_OUT) 'ERROR :: sharp cut-off must be lower than N'
-                  stop
-               end if
+
                filterCoefficients = 0._RP
-               filterCoefficients(sharpCutOff+1:N) = 1._RP
+      
+               do k = 0, N
+                  if ( k >= sharpCutOff ) filterCoefficients(k) = 1.0_RP
+               end do
                
             case (EXP_FILTER)
                filterCoefficients = 0._RP
@@ -1259,6 +1310,7 @@ module SpectralVanishingViscosity
                end do
                
          end select
+print*, filterCoefficients
          
          if (self % filterType == LPASS_FILTER) then
             filterCoefficients = 1._RP - filterCoefficients

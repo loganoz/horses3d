@@ -17,7 +17,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
    public ENTROPY_BALANCE
 #endif
 
@@ -42,7 +42,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
-      enumerator :: ENTROPY_BALANCE
+      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -352,7 +352,8 @@ module VolumeIntegrals
 
             end select
 
-
+         case (SVV_DISSIPATION)
+            val = val + e % storage % SVV_diss
 
          case ( INTERNAL_ENERGY )
             !
