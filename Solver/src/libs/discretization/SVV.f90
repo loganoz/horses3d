@@ -337,7 +337,6 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Hyf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hzf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: cartesianFlux(1:NCONS, 1:NDIM)
-         real(kind=RP)       :: cf2(1:NCONS, 1:NDIM)
          real(kind=RP)       :: SVV_diss, delta
 
          sqrt_mu    = self % sqrt_muSVV
@@ -877,7 +876,7 @@ module SpectralVanishingViscosity
 
          Hx_sqrtD = Hx*[sqrt_alpha_rho, sqrt_mu_p, sqrt_mu_p, sqrt_mu_p, sqrt_alpha_rho]
          Hy_sqrtD = Hy*[sqrt_alpha_rho, 0.0_RP   , sqrt_mu_p, sqrt_mu_p, sqrt_alpha_rho]
-         Hy_sqrtD = Hy*[sqrt_alpha_rho, 0.0_RP   , 0.0_RP   , sqrt_mu_p, sqrt_alpha_rho]
+         Hz_sqrtD = Hz*[sqrt_alpha_rho, 0.0_RP   , 0.0_RP   , sqrt_mu_p, sqrt_alpha_rho]
 
          F(IRHO,IX)  = Hx_sqrtD(IRHO)
          F(IRHOU,IX) = u*Hx_sqrtD(IRHO) + Hx_sqrtD(IRHOU)
@@ -889,13 +888,13 @@ module SpectralVanishingViscosity
          F(IRHOU,IY) = u*Hy_sqrtD(IRHO) + Hx_sqrtD(IRHOV)
          F(IRHOV,IY) = v*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOV)
          F(IRHOW,IY) = w*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
-         F(IRHOE,IY) = e*Hy_sqrtD(IRHO) + v*Hy_sqrtD(IRHOV) + w*Hy_sqrtD(IRHOW) + lambda*Hy_sqrtD(IRHOE)
+         F(IRHOE,IY) = e*Hy_sqrtD(IRHO) + u*Hx_sqrtD(IRHOV) + v*Hy_sqrtD(IRHOV) + w*Hy_sqrtD(IRHOW) + lambda*Hy_sqrtD(IRHOE)
          
          F(IRHO,IZ)  = Hz_sqrtD(IRHO)
          F(IRHOU,IZ) = u*Hz_sqrtD(IRHO) + Hx_sqrtD(IRHOW)
          F(IRHOV,IZ) = v*Hz_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
          F(IRHOW,IZ) = w*Hz_sqrtD(IRHO) + Hz_sqrtD(IRHOW)
-         F(IRHOE,IZ) = e*Hz_sqrtD(IRHO) + w*Hz_sqrtD(IRHOW) + lambda*Hz_sqrtD(IRHOE)
+         F(IRHOE,IZ) = e*Hz_sqrtD(IRHO) + u*Hx_sqrtD(IRHOW) + v*Hy_sqrtD(IRHOW) + w*Hz_sqrtD(IRHOW) + lambda*Hz_sqrtD(IRHOE)
 
       end subroutine SVV_GuermondPopov_ENTROPY
 

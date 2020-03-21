@@ -319,7 +319,7 @@ module NoSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: Q_aux(NCONS)
+         real(kind=RP)  :: Q_aux(NCONS), U1
          real(kind=RP)  :: e_int
          real(kind=RP)  :: invRho
 
@@ -330,7 +330,11 @@ module NoSlipWallBCClass
          Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
          Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
 
+         U1 = U(IRHO)
+
          call GetGradients(NCONS, NGRAD, Q_aux, U)
+
+         U(IRHO) = U1
 
       end subroutine NoSlipWallBC_FlowGradVars
 
@@ -364,6 +368,7 @@ module NoSlipWallBCClass
          viscWork = u*flux(IRHOU) + v*flux(IRHOV) + w*flux(IRHOW)
          heatFlux = flux(IRHOE) - viscWork
 
+         flux(IRHO)  = 0.0_RP
          flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
 
       end subroutine NoSlipWallBC_FlowNeumann

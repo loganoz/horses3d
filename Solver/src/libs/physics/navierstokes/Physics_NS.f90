@@ -41,6 +41,7 @@
       public  EulerFlux
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  ViscousFlux_withSGS
+      public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
       public  getStressTensor, SutherlandsLaw, ViscousJacobian
       public  GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
@@ -454,6 +455,137 @@
          F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * sutherLaw * nablaT(IZ)
 
       end subroutine ViscousFlux_ENERGY
+
+      pure subroutine GuermondPopovFlux_ENTROPY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
+!
+!        //////////////////////////////////////////////////////////////////////////////
+!
+!           Implementation of the Guermond-Popov fluxes (2014): "Viscous 
+!           Regularization of the Euler Equations and Entropy Principles"
+!
+!           The fluxes are:
+!
+!              FGP = κ[ ∇ρ, u∇ρ, v∇ρ, w∇ρ,∇(ρe_i) + 0.5|v|²∇ρ] + μρ[0, ∇ˢv,v·∇ˢv]
+!
+!           where ρe_i=p/(γ-1) is the internal energy.
+!
+!           Because there is no reason to do othersise, we use κ=μ.
+!
+!           In the gradient of the entropy variables, the fluxes are: FGP = (κρB_κ+μpB_μ/2)G
+!     
+!            |---------------------|-----------------------|-----------------------|
+!            | 1  u   v   w   e    |  0   0   0   0   0    |  0   0   0   0   0    |
+!            | u  uu  uv  uw  eu   |  0   0   0   0   0    |  0   0   0   0   0    |
+!            | v  uv  vv  vw  ev   |  0   0   0   0   0    |  0   0   0   0   0    |   
+!            | w  uw  vw  ww  ew   |  0   0   0   0   0    |  0   0   0   0   0    |   
+!            | e  eu  ev  ew ee+ΛΛ |  0   0   0   0   0    |  0   0   0   0   0    |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |  1   u   v   w   e    |  0   0   0   0   0    |
+!            | 0   0   0   0   0   |  u   uu  uv  uw  eu   |  0   0   0   0   0    |
+!       B_κ= | 0   0   0   0   0   |  v   uv  vv  vw  ev   |  0   0   0   0   0    |   
+!            | 0   0   0   0   0   |  w   uw  vw  ww  ew   |  0   0   0   0   0    |   
+!            | 0   0   0   0   0   |  e   eu  ev  ew ee+ΛΛ |  0   0   0   0   0    |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  1   u   v   w   e    |
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  u   uu  uv  uw  eu   |
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  v   uv  vv  vw  ev   |   
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  w   uw  vw  ww  ew   |   
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  e   eu  ev  ew ee+ΛΛ |   
+!            |---------------------|-----------------------|-----------------------|
+!
+!        Λ=(p/ρ)/√(γ-1)
+!
+!        and
+!     
+!            |---------------------|-----------------------|-----------------------|
+!            | 0  0   0   0   0    |  0   0   0   0   0    |  0   0   0   0   0    |
+!            | 0  2   0   0   2u   |  0   0   0   0   0    |  0   0   0   0   0    |
+!            | 0  0   1   0   v    |  0   1   0   0   u    |  0   0   0   0   0    |   
+!            | 0  0   0   1   w    |  0   0   0   0   0    |  0   1   0   0   u    |   
+!            | 0  2u  v   w uu+vt² |  0   v   0   0   uv   |  0   w   0   0   uw   |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |  0   0   0   0   0    |   0   0   0   0   0   |
+!            | 0   0   1   0   v   |  0   1   0   0   u    |   0   0   0   0   0   |
+!       B_μ= | 0   0   0   0   0   |  v   0   2   0   2v   |   0   0   0   0   0   |   
+!            | 0   0   0   0   0   |  w   0   0   1   w    |   0   0   1   0   v   |   
+!            | 0   0   u   0   uv  |  e   u   2v  w vv+vt² |   0   0   w   0   vw  |   
+!            |---------------------|-----------------------|-----------------------|
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  0   0   0   0   0    |
+!            | 0   0   0   1   w   |  0   0   0   0   0    |  0   1   0   0   u    |
+!            | 0   0   0   0   0   |  0   0   1   0   w    |  v   0   1   0   v    |   
+!            | 0   0   0   0   0   |  0   0   0   0   0    |  w   0   0   2   2w   |   
+!            | 0   0   0   u   uw  |  0   0   v   0   vw   |  e   u   v  2w ww+vt² |   
+!            |---------------------|-----------------------|-----------------------|
+!
+!        where vt²=uu+vv+ww.
+!
+         implicit none
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: nGradEqn
+         real(kind=RP), intent(in)  :: Q   (1:nEqn     )
+         real(kind=RP), intent(in)  :: Q_x (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
+         real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
+         real(kind=RP), intent(in)  :: mu
+         real(kind=RP), intent(in)  :: beta
+         real(kind=RP), intent(in)  :: kappa
+         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: invRho, p_div_rho, u(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), e
+         real(kind=RP) :: grad_rho(NDIM)
+
+         invRho  = 1.0_RP / Q(IRHO)
+         p_div_rho = thermodynamics % gammaMinus1*invRho*(Q(IRHOE)-0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho)
+
+         u = Q(IRHOU:IRHOW)*invRho
+         u_x = p_div_rho * (Q_x(IRHOU:IRHOW) + u*Q_x(IRHOE))
+         u_y = p_div_rho * (Q_y(IRHOU:IRHOW) + u*Q_y(IRHOE))
+         u_z = p_div_rho * (Q_z(IRHOU:IRHOW) + u*Q_z(IRHOE))
+
+         e = Q(IRHOE)*invRho
+
+         grad_rho(IX) = sum(Q*Q_x)
+         grad_rho(IY) = sum(Q*Q_y)
+         grad_rho(IZ) = sum(Q*Q_z)
+!
+!        Add the part related to ∇ˢv
+         F(IRHO, IX) = 0.0_RP
+         F(IRHOU,IX) = Q(IRHO)*u_x(IX)
+         F(IRHOV,IX) = Q(IRHO)*0.5_RP*(u_x(IY)+u_y(IX))
+         F(IRHOW,IX) = Q(IRHO)*0.5_RP*(u_x(IZ)+u_z(IX))
+         F(IRHOE,IX) = F(IRHOU,IX)*u(IX) + F(IRHOV,IX)*u(IY) + F(IRHOW,IX)*u(IZ)
+
+         F(IRHO, IY) = 0.0_RP
+         F(IRHOU,IY) = F(IRHOV,IX)
+         F(IRHOV,IY) = Q(IRHO)*u_y(IY)
+         F(IRHOW,IY) = Q(IRHO)*0.5_RP*(u_y(IZ)+u_z(IY))
+         F(IRHOE,IY) = F(IRHOU,IY)*u(IX) + F(IRHOV,IY)*u(IY) + F(IRHOW,IY)*u(IZ)
+
+         F(IRHO, IZ) = 0.0_RP
+         F(IRHOU,IZ) = F(IRHOW,IX)
+         F(IRHOV,IZ) = F(IRHOW,IY)
+         F(IRHOW,IZ) = Q(IRHO)*u_z(IZ)
+         F(IRHOE,IZ) = F(IRHOU,IZ)*u(IX) + F(IRHOV,IZ)*u(IY) + F(IRHOW,IZ)*u(IZ)
+
+!
+!        Add the part related to ∇ρ
+         F(:,IX)     = F(:,IX) + grad_rho(IX)*[1.0_RP,u(IX),u(IY),u(IZ),e]
+         F(IRHOE,IX) = F(IRHOE,IX) + Q(IRHO)*p_div_rho*p_div_rho*dimensionless % cv*Q_x(IRHOE)
+
+         F(:,IY)     = F(:,IY) + grad_rho(IY)*[1.0_RP,u(IX),u(IY),u(IZ),e]
+         F(IRHOE,IY) = F(IRHOE,IY) + Q(IRHO)*p_div_rho*p_div_rho*dimensionless % cv*Q_y(IRHOE)
+
+         F(:,IZ)     = F(:,IZ) + grad_rho(IZ)*[1.0_RP,u(IX),u(IY),u(IZ),e]
+         F(IRHOE,IZ) = F(IRHOE,IZ) + Q(IRHO)*p_div_rho*p_div_rho*dimensionless % cv*Q_z(IRHOE)
+!
+!        Multiply by μ 
+         F = mu*F
+
+      end subroutine GuermondPopovFlux_ENTROPY
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
