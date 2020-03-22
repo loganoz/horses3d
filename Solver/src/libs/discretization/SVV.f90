@@ -1254,13 +1254,7 @@ module SpectralVanishingViscosity
          if ( N .eq. 0 ) then
             self % filters(N) % N = N
             allocate(self % filters(N) % Q(0:N,0:N))
-            select case (self % filterType)
-            case(HPASS_FILTER)
-               self % filters(N) % Q = 1.0_RP
-            case(LPASS_FILTER)
-               self % filters(N) % Q = 0.0_RP
-            end select
-
+            self % filters(N) % Q = 1.0_RP
             self % filters(N) % constructed = .true.
             return
          end if
