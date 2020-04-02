@@ -203,7 +203,6 @@ module PetscSolverClass
             call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
          case ('ILU')
             
-            call PetscInitialize("ilu.petscrc",ierr) 
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
          case default
          

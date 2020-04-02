@@ -46,7 +46,17 @@ module MultigridSolverClass
    implicit none
    
    private
-   public MultigridSolver_t
+   public MultigridSolver_t, TemporaryElementStorage_t
+!
+!  ------------------------------------------------
+!  Local temporary element storage.
+!  ------------------------------------------------
+!
+   type :: TemporaryElementStorage_t
+!-----Variables-----------------------------------------------------------
+      real(kind=RP), dimension(:,:,:,:), allocatable :: X 
+      real(kind=RP), dimension(:,:,:,:), allocatable :: R 
+   end type TemporaryElementStorage_t
 !
 !  ------------------------------------------------
 !  Multigrid type (Linear Solver class extension)
@@ -77,7 +87,13 @@ module MultigridSolverClass
       real(kind=RP), dimension(:,:) ,   allocatable :: ProlY(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: RestZ(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: ProlZ(:,:)             
-      ! these are only needed for coarse levels
+      ! 3D prolongation/restriction operators in each direction 
+      real(kind=RP), dimension(:,:) ,   allocatable :: Rest3D(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: Prol3D(:,:)             
+      ! test for the Jacobian 
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestJacX(:,:)
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestJacY(:,:)
+      real(kind=RP), dimension(:,:) ,   allocatable :: RestJacZ(:,:)
       
    contains
 !-----Subroutines-----------------------------------------------------------
@@ -92,22 +108,14 @@ module MultigridSolverClass
       procedure :: SetRHSValues         => MG_SetRHSValues 
       procedure :: MG_CreateProlongationOperator
       procedure :: MG_CreateRestrictionOperator
+      !procedure :: MG_Create3DProlongationMatrix
+      !procedure :: MG_Create3DRestrictionMatrix
       !procedure :: prolong              => MG_Prolongation
       !procedure :: restrict             => MG_Restriction
       procedure :: MG_Prolongation
       procedure :: MG_Restriction
 
    end type MultigridSolver_t
-!
-!  ------------------------------------------------
-!  Local temporary element storage.
-!  ------------------------------------------------
-!
-   type :: TemporaryElementStorage_t
-!-----Variables-----------------------------------------------------------
-      real(kind=RP), dimension(:,:,:,:), allocatable :: X 
-      real(kind=RP), dimension(:,:,:,:), allocatable :: R 
-   end type TemporaryElementStorage_t
 !
 !  ----------------
 !  Module variables
@@ -170,17 +178,17 @@ contains
             ! Levels in X
             pc = controlVariables % StringValueForKey("define levels x",LINE_LENGTH)
             do i = 1, len_trim(pc)
-              read(pc(i:i),'(i)') MG_levels_x(i)
+              read(pc(i:i),'(i1)') MG_levels_x(i)
             end do
             ! Levels in Y
             pc = controlVariables % StringValueForKey("define levels y",LINE_LENGTH)
             do i = 1, len_trim(pc)
-              read(pc(i:i),'(i)') MG_levels_y(i)
+              read(pc(i:i),'(i1)') MG_levels_y(i)
             end do
             ! Levels in Z
             pc = controlVariables % StringValueForKey("define levels z",LINE_LENGTH)
             do i = 1, len_trim(pc)
-              read(pc(i:i),'(i)') MG_levels_z(i)
+              read(pc(i:i),'(i1)') MG_levels_z(i)
             end do
         else
             ERROR stop ':: FIXME: Need to finish this.'
@@ -242,6 +250,7 @@ contains
       call MG_Levels_Construct(this,no_levels,controlVariables,nEqn)
       ! *********************************************************
 
+
    end subroutine MG_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -289,6 +298,8 @@ contains
       case default
          ERROR Stop "Shouldnt be here"
       end select 
+
+
 
       ALLOCATE ( Me % LocalStorage(nelem))
 ! !$omp parallel do private(Q1,Q2,Q3,Q4) schedule(runtime)
@@ -360,10 +371,22 @@ contains
         allocate (Child_p % ProlY(0:Me%Ny,0:Child_p%Ny)             )
         allocate (Me  % RestZ(0:Child_p%Nz,0:Me%Nz)                 )
         allocate (Child_p % ProlZ(0:Me%Nz,0:Child_p%Nz)             )
+        ! Test for the Jacobian
+        allocate (Me  % RestJacX(0:Child_p%Nx,0:Me%Nx)                 )
+        allocate (Me  % RestJacY(0:Child_p%Nx,0:Me%Nx)                 )
+        allocate (Me  % RestJacZ(0:Child_p%Nx,0:Me%Nx)                 )
+
+        ! 3D Prolongation restriction operators
+        ! *********************************************************
+        allocate (Me      % Rest3D( 1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) ), 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ) )  )
+        allocate (Child_p % Prol3D( 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ), 1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) ) )  )
+        ! allocate (Child_p % Prol3D(0:Me%Nx,0:Child_p%Nx)  )
 
         print *, "My interpolation matrices: "
-        ! call MG_CreateRestrictionOperator  ( Me , .true.)
-        call MG_CreateRestrictionOperator  ( Me )
+        call MG_CreateRestrictionOperator  ( Me , .true.)
+        ! call MG_CreateRestrictionOperator  ( Me , .false.)
+        ! call MG_CreateRestrictionOperator  ( Me )
+        print *, "Level: ", lvl
         call MG_CreateProlongationOperator ( Child_p )
 
         ! *********************************************************
@@ -412,7 +435,9 @@ contains
       class(csrMat_t), pointer                        :: pA
       integer                                         :: niter
       real(kind=rp)                                   :: tmpsize
-      integer                                         :: i, j
+      integer                                         :: i, j, k
+      character(len=1024)                             :: filename
+      logical                                         :: file_exists
 
       if ( present(ComputeA)) then
          if (ComputeA) then
@@ -426,7 +451,59 @@ contains
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,nEqn )
          print *, "   ... done. "
       end if
-    
+
+      ! ! some printing 
+      ! print *, "Elements Q: "
+      ! print *, "-----------------------------"
+      ! do k = 1, nelem 
+      !    print *, k, " out of ", nelem
+      !    print *, this % p_sem % mesh % elements(k) % storage % Q
+      ! end do
+      ! print *, "-----------------------------"
+      ! print *, "Global Q: "
+      ! print *, "-----------------------------"
+      ! print *, this % p_sem % mesh % storage % Q 
+      ! print *, "-----------------------------"
+
+
+      call this % child % p_sem % mesh % storage % local2globalq (this % child % p_sem % mesh % storage % NDOF)
+      ! print *, this % p_sem % mesh % storage % NDOF
+      ! print *, this % child % p_sem % mesh % storage % NDOF
+      open(66, file = 'Q_tot.dat')
+      write(66,'(1E19.11)') this % child % p_sem % mesh % storage % Q
+      close(66) 
+
+      open(67, file = 'Q_els.dat')
+      do k = 1, nelem 
+         write(67,*) "Element ", k
+         write(67,'(1E19.11)') this % child % p_sem % mesh % elements(k) % storage % Q
+      end do
+      close(67) 
+
+      print *, "Q1"
+      print *, this % child % p_sem % mesh % elements(1) % storage % Q(1,:,:,:)
+      print *, "Q2"
+      print *, this % child % p_sem % mesh % elements(1) % storage % Q(2,:,:,:)
+      print *, "Q3"
+      print *, this % child % p_sem % mesh % elements(1) % storage % Q(3,:,:,:)
+      print *, "Q4"
+      print *, this % child % p_sem % mesh % elements(1) % storage % Q(4,:,:,:)
+      print *, "Q5"
+      print *, this % child % p_sem % mesh % elements(1) % storage % Q(5,:,:,:)
+
+      print *, size(this%Rest3D,1), size(this%Rest3D,2)
+      print *, size(this%child%Prol3D,1), size(this%child%Prol3D,2)
+      
+      open(69, file = 'Prol3D.dat')
+      write(69,'(1E19.11)') this % child % Prol3D 
+      close(69) 
+
+      open(70, file = 'Rest3D.dat')
+      write(70,'(1E19.11)') this % Rest3D 
+      close(70) 
+
+      ! error STOP "TBC Wojtek"
+
       ! ! Visualize RHS
       ! open(1, file = 'b.txt', status = 'new')  
       ! write(1,*) this % b  
@@ -434,7 +511,7 @@ contains
       ! Error Stop "TBC Wojtek"
 
       this % niter = 0
-      this % maxiter = 100
+      this % maxiter = 30
       this % converged = .false.
       this % tol = 1e-6
      
@@ -452,7 +529,7 @@ contains
          if (this % rnorm < this % tol) this % converged = .true.
       end do
 
-      ! ERROR stop ':: TBC Wojtek'
+      ERROR stop ':: TBC Wojtek'
    end subroutine MG_Solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -483,6 +560,7 @@ contains
 
          call MG_Restriction( Me, nEqn, 'solres' ) ! Restrict to a coarse grid
          Me % child % b = Me % child % r
+         Me % child % x = 0.0_RP
          call MG_VCycle( Me % Child, lvl-1, nEqn )
 
          call MG_Prolongation( Me, nEqn )
@@ -537,7 +615,7 @@ contains
 !~            write(i+200,*) Me % BJSmoother % BlockPrec(i) % LUpivots   
 !~            close(i+200) 
 !~         end do
-
+!~
 !~         ! Visualization of CSR Jacobian
 !~         write (filename,"(I2.2)") lvl
 !~         filename='JacFull_lvl'//trim(filename)//'.dat'
@@ -575,44 +653,62 @@ contains
       implicit none
       !-----------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      integer              :: Norigin ! Destination polynomial order
-      integer              :: Ndest   ! Destination polynomial order
-      type(NodalStorage_t) :: spAo    ! Origin nodal storage
-      type(NodalStorage_t) :: spAd    ! Destination nodal storage
+      integer              :: x_Norigin ! Destination polynomial order X
+      integer              :: x_Ndest   ! Destination polynomial order X
+      type(NodalStorage_t) :: x_spAo    ! Origin nodal storage X
+      type(NodalStorage_t) :: x_spAd    ! Destination nodal storage X
+      integer              :: y_Norigin ! Destination polynomial order Y
+      integer              :: y_Ndest   ! Destination polynomial order Y
+      type(NodalStorage_t) :: y_spAo    ! Origin nodal storage Y
+      type(NodalStorage_t) :: y_spAd    ! Destination nodal storage Y
+      integer              :: z_Norigin ! Destination polynomial order Z
+      integer              :: z_Ndest   ! Destination polynomial order Z
+      type(NodalStorage_t) :: z_spAo    ! Origin nodal storage Z
+      type(NodalStorage_t) :: z_spAd    ! Destination nodal storage Z
       !-----------------------------------------------------
 
-      ! X direction
+      x_Norigin  = this % Nx
+      x_Ndest    = this % parent % Nx
+      y_Norigin  = this % Ny
+      y_Ndest    = this % parent % Ny
+      z_Norigin  = this % Nz
+      z_Ndest    = this % parent % Nz
       !-----------------------------------------------------
-      Norigin  = this % Nx
-      Ndest    = this % parent % Nx
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlX)
-      call spAo % destruct
-      call spAd % destruct
+      call x_spAo % construct(this % p_sem % mesh % nodeType, x_Norigin)
+      call x_spAd % construct(this % p_sem % mesh % nodeType, x_Ndest  )
+      call y_spAo % construct(this % p_sem % mesh % nodeType, y_Norigin)
+      call y_spAd % construct(this % p_sem % mesh % nodeType, y_Ndest  )
+      call z_spAo % construct(this % p_sem % mesh % nodeType, z_Norigin)
+      call z_spAd % construct(this % p_sem % mesh % nodeType, z_Ndest  )
+
+
+      ! X directin
+      !-----------------------------------------------------
+      call PolynomialInterpolationMatrix(x_Norigin, x_Ndest, x_spAo % x, x_spAo % wb, x_spAd % x, this % ProlX)
       !-----------------------------------------------------
 
       ! Y direction
       !-----------------------------------------------------
-      Norigin  = this % Ny
-      Ndest    = this % parent % Ny
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlY)
-      call spAo % destruct
-      call spAd % destruct
+      call PolynomialInterpolationMatrix(y_Norigin, y_Ndest, y_spAo % x, y_spAo % wb, y_spAd % x, this % ProlY)
       !-----------------------------------------------------
 
       ! Z direction
       !-----------------------------------------------------
-      Norigin  = this % Nz
-      Ndest    = this % parent % Nz
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % ProlZ)
-      call spAo % destruct
-      call spAd % destruct
+      call PolynomialInterpolationMatrix(z_Norigin, z_Ndest, z_spAo % x, z_spAo % wb, z_spAd % x, this % ProlZ)
       !-----------------------------------------------------
+
+      ! 3D
+      !-----------------------------------------------------
+      call MG_Create3DProlongationMatrix(this % Prol3D, x_Norigin, y_Norigin, z_Norigin, x_Ndest, y_Ndest, z_Ndest, &
+       x_spAo % x, y_spAo % x, z_spAo % x , x_spAd % x, y_spAd % x, z_spAd % x)
+      !-----------------------------------------------------
+
+      call x_spAo % destruct
+      call x_spAd % destruct
+      call y_spAo % destruct
+      call y_spAd % destruct
+      call z_spAo % destruct
+      call z_spAd % destruct
    end subroutine MG_CreateProlongationOperator
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -622,72 +718,93 @@ contains
       implicit none
       !-----------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      integer              :: Norigin ! Destination polynomial order
-      integer              :: Ndest   ! Destination polynomial order
-      type(NodalStorage_t) :: spAo    ! Origin nodal storage
-      type(NodalStorage_t) :: spAd    ! Destination nodal storage
+      integer              :: x_Norigin ! x Destination polynomial order
+      integer              :: x_Ndest   ! x Destination polynomial order
+      type(NodalStorage_t) :: x_spAo    ! x Origin nodal storage
+      type(NodalStorage_t) :: x_spAd    ! x Destination nodal storage
+      integer              :: y_Norigin ! y Destination polynomial order
+      integer              :: y_Ndest   ! y Destination polynomial order
+      type(NodalStorage_t) :: y_spAo    ! y Origin nodal storage
+      type(NodalStorage_t) :: y_spAd    ! y Destination nodal storage
+      integer              :: z_Norigin ! z Destination polynomial order
+      integer              :: z_Ndest   ! z Destination polynomial order
+      type(NodalStorage_t) :: z_spAo    ! z Origin nodal storage
+      type(NodalStorage_t) :: z_spAd    ! z Destination nodal storage
       logical, optional, intent(in) :: Rweighted    ! flag for weighted restriction operator 
       ! only for restriction
       real(kind=RP), allocatable    :: Rtmp(:,:)
       integer                       :: i,j
       !-----------------------------------------------------
+      x_Norigin  = this % Nx
+      x_Ndest    = this % child % Nx
+      y_Norigin  = this % Ny
+      y_Ndest    = this % child % Ny
+      z_Norigin  = this % Nz
+      z_Ndest    = this % child % Nz
+
+      !-----------------------------------------------------
+      call x_spAo % construct(this % p_sem % mesh % nodeType, x_Norigin)
+      call x_spAd % construct(this % p_sem % mesh % nodeType, x_Ndest  )
+      call y_spAo % construct(this % p_sem % mesh % nodeType, y_Norigin)
+      call y_spAd % construct(this % p_sem % mesh % nodeType, y_Ndest  )
+      call z_spAo % construct(this % p_sem % mesh % nodeType, z_Norigin)
+      call z_spAd % construct(this % p_sem % mesh % nodeType, z_Ndest  )
 
       ! X direction
       !-----------------------------------------------------
-      Norigin  = this % Nx
-      Ndest    = this % child % Nx
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      allocate (Rtmp(0:Norigin,0:Ndest))
-      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      allocate (Rtmp(0:x_Norigin,0:x_Ndest))
+      call PolynomialInterpolationMatrix(x_Ndest, x_Norigin, x_spAd % x, x_spAd % wb, x_spAo % x, Rtmp)
       this % RestX = transpose(Rtmp)
       deallocate (Rtmp)
+      this % RestJacX = this % RestX 
       if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, Norigin ; do i = 0, Ndest
-            this % RestX(i,j) = this % RestX(i,j) * spAo % w(j) / spAd % w(i)
+         do j = 0, x_Norigin ; do i = 0, x_Ndest
+            this % RestJacX(i,j) = this % RestJacX(i,j) * x_spAo % w(j) / x_spAd % w(i)
          end do            ; end do
       end if
-      call spAo % destruct
-      call spAd % destruct
       !-----------------------------------------------------
 
       ! Y direction
       !-----------------------------------------------------
-      Norigin  = this % Ny
-      Ndest    = this % child % Ny
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      allocate (Rtmp(0:Norigin,0:Ndest))
-      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      allocate (Rtmp(0:y_Norigin,0:y_Ndest))
+      call PolynomialInterpolationMatrix(y_Ndest, y_Norigin, y_spAd % x, y_spAd % wb, y_spAo % x, Rtmp)
       this % RestY = transpose(Rtmp)
       deallocate (Rtmp)
+      this % RestJacY = this % RestY
       if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, Norigin ; do i = 0, Ndest
-            this % RestY(i,j) = this % RestY(i,j) * spAo % w(j) / spAd % w(i)
+         do j = 0, y_Norigin ; do i = 0, y_Ndest
+            this % RestJacY(i,j) = this % RestJacY(i,j) * y_spAo % w(j) / y_spAd % w(i)
          end do            ; end do
       end if
-      call spAo % destruct
-      call spAd % destruct
       !-----------------------------------------------------
 
       ! Z direction
       !-----------------------------------------------------
-      Norigin  = this % Nz
-      Ndest    = this % child % Nz
-      call spAo % construct(this % p_sem % mesh % nodeType, Norigin)
-      call spAd % construct(this % p_sem % mesh % nodeType, Ndest  )
-      allocate (Rtmp(0:Norigin,0:Ndest))
-      call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Rtmp)
+      allocate (Rtmp(0:z_Norigin,0:z_Ndest))
+      call PolynomialInterpolationMatrix(z_Ndest, z_Norigin, z_spAd % x, z_spAd % wb, z_spAo % x, Rtmp)
       this % RestZ = transpose(Rtmp)
       deallocate (Rtmp)
+      this % RestJacZ = this % RestZ
       if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, Norigin ; do i = 0, Ndest
-            this % RestZ(i,j) = this % RestZ(i,j) * spAo % w(j) / spAd % w(i)
+         do j = 0, z_Norigin ; do i = 0, z_Ndest
+            this % RestJacZ(i,j) = this % RestJacZ(i,j) * z_spAo % w(j) / z_spAd % w(i)
          end do            ; end do
       end if
-      call spAo % destruct
-      call spAd % destruct
       !-----------------------------------------------------
+
+      ! 3D
+      !-----------------------------------------------------
+      call MG_Create3DRestrictionMatrix(this % Rest3D, x_Norigin, y_Norigin, z_Norigin, x_Ndest, y_Ndest, z_Ndest, &
+       x_spAo % x, y_spAo % x, z_spAo % x , x_spAd % x, y_spAd % x, z_spAd % x, &
+       x_spAo % w, y_spAo % w, z_spAo % w , x_spAd % w, y_spAd % w, z_spAd % w, Rweighted)
+      !-----------------------------------------------------
+
+      call x_spAo % destruct
+      call x_spAd % destruct
+      call y_spAo % destruct
+      call y_spAd % destruct
+      call z_spAo % destruct
+      call z_spAd % destruct
 
    end subroutine MG_CreateRestrictionOperator
 !
@@ -795,11 +912,13 @@ contains
             do iEl = 1, size(this % p_sem % mesh % elements)
                call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEL) % x , &
                                             Ndest, child_p % LocalStorage(iEl) % x , &
-                                            this % RestX, this % RestY, this % RestZ )
+                                            this % RestJacX, this % RestJacY, this % RestJacZ )
+                                            !this % RestX, this % RestY, this % RestZ )
 
                call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEl) % r , &
                                             Ndest, child_p % LocalStorage(iEl) % r, &
-                                            this % RestX, this % RestY, this % RestZ )
+                                            this % RestJacX, this % RestJacY, this % RestJacZ )
+                                            !this % RestX, this % RestY, this % RestZ )
             end do
 
             ! Elements to Vec
@@ -816,7 +935,8 @@ contains
             do iEl = 1, size(this % p_sem % mesh % elements)
                call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % Q, &
                                             Ndest, child_p % p_sem % mesh % elements(iEl) % storage % Q, &
-                                            this % RestX, this % RestY, this % RestZ )
+                                            this % RestJacX, this % RestJacY, this % RestJacZ )
+                                            !this % RestX, this % RestY, this % RestZ )
             end do
 
       end select
@@ -853,6 +973,178 @@ contains
       end do             ; end do
 
    end subroutine MG_Interp3DArrays
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_Create3DProlongationMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+      implicit none
+!
+!     -----------------------------------------------------------
+!     Creates a 3D Lagrange interpolation matrix from a grid with 
+!     coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination).
+!     Original version by : David Kopriva
+!     This version by     : Wojciech Laskwoski
+!     -----------------------------------------------------------
+!
+      real(kind=rp)               ,intent(inout) :: Mat((N2x + 1) * (N2y + 1) * (N2z + 1),(N1x + 1) * (N1y + 1) * (N1z + 1)) !<>  
+      integer                     ,intent(in)    :: N1x,N1y,N1z  !<  Origin order
+      integer                     ,intent(in)    :: N2x,N2y,N2z  !<  Destination order
+      real(kind=rp), dimension(:) ,intent(in)    :: x1(0:N1x),y1(0:N1y),z1(0:N1z)     !<  Nodes in origin
+      real(kind=rp), dimension(:) ,intent(in)    :: x2(0:N2x),y2(0:N2y),z2(0:N2z)     !<  Nodes in destination
+      !----------------------------------------------------------
+      integer :: i,j,k,l,m,n      ! Coordinate counters
+      integer :: r,s              ! Matrix index counters
+      ! integer :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
+      !----------------------------------------------------------
+      
+      ! NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
+      ! NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
+      ! ALLOCATE(Mat(NDOFEL2,NDOFEL1))
+
+      ! print *, "max row: ", N2x + N2y*(N2x + 1) + N2z*(N2x + 1)*(N2y + 1) + 1
+      ! print *, "max col: ", N1x + N1y*(N1x + 1) + N1z*(N1x + 1)*(N1y + 1) + 1 
+      ! print *, N2x, N2y, N2z
+      ! print *, N1x, N1y, N1z
+
+      do k=0, N1z
+         do j=0, N1y
+            do i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               do n=0, N2z
+                  do m=0, N2y
+                     do l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        ! print *, "i: ", s, " j: ", r, " val: ", MG_LagrangeInterpolationNoBar(x2(l),N1x,x1,i) * &
+                        ! MG_LagrangeInterpolationNoBar(y2(m),N1y,y1,j) * MG_LagrangeInterpolationNoBar(z2(n),N1z,z1,k)
+
+                        Mat(s,r) =  MG_LagrangeInterpolationNoBar(x2(l),N1x,x1,i) * &
+                                    MG_LagrangeInterpolationNoBar(y2(m),N1y,y1,j) * &
+                                    MG_LagrangeInterpolationNoBar(z2(n),N1z,z1,k)
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
+
+   end subroutine MG_Create3DProlongationMatrix
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_Create3DRestrictionMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z,Rweighted)
+      implicit none
+!
+!     -----------------------------------------------------------
+!     Creates an L2-3D Lagrange interpolation matrix from a grid  
+!     with coordinates x1, y1, z1 (origin) to a grid with coordinates
+!     x2, y2, z2 (destination)
+!     -----------------------------------------------------------
+!
+      ! real(kind=rp)               ,intent(inout) :: Mat((N1x + 1) * (N1y + 1) * (N1z + 1),(N2x + 1) * (N2y + 1) * (N2z + 1)) !<>
+      real(kind=rp)               ,intent(inout) :: Mat((N2x + 1) * (N2y + 1) * (N2z + 1),(N1x + 1) * (N1y + 1) * (N1z + 1)) !<>  
+      integer                     ,intent(in)    :: N1x,N1y,N1z  !<  Origin order
+      integer                     ,intent(in)    :: N2x,N2y,N2z  !<  Destination order
+      real(kind=rp), dimension(:) ,intent(in)    :: x1 (0:N1x),y1 (0:N1y),z1 (0:N1z)     !<  Nodes in origin
+      real(kind=rp), dimension(:) ,intent(in)    :: x2 (0:N2x),y2 (0:N2y),z2 (0:N2z)     !<  Nodes in destination
+      real(kind=rp), dimension(:) ,intent(in)    :: w1x(0:N1x),w1y(0:N1y),w1z(0:N1z)     !<  Weights in origin
+      real(kind=rp), dimension(:) ,intent(in)    :: w2x(0:N2x),w2y(0:N2y),w2z(0:N2z)     !<  Weights in destination
+      logical                     ,intent(in)    :: Rweighted !<  flag
+      !----------------------------------------------------------
+      integer       :: i,j,k,l,m,n      ! Coordinate counters
+      integer       :: r,s              ! Matrix index counters
+      real(kind=rp) :: MASSterm         ! 
+      !----------------------------------------------------------
+      
+      ! print *, size(Mat,1), size(Mat,2)
+      ! print *, Mat(27,125)
+      ! error stop "Wojtek"
+      ! Create S matrix and store it directly in "Mat"
+      do k=0, N1z
+         do j=0, N1y
+            do i=0, N1x
+               r = i + j*(N1x + 1) + k*(N1x + 1)*(N1y + 1) + 1            ! Column index
+               do n=0, N2z
+                  do m=0, N2y
+                     do l=0, N2x
+                        s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+                        
+                        Mat(s,r) = MG_LagrangeInterpolationNoBar(x1(i),N2x,x2,l) * &
+                                   MG_LagrangeInterpolationNoBar(y1(j),N2y,y2,m) * &
+                                   MG_LagrangeInterpolationNoBar(z1(k),N2z,z2,n) 
+                        if ( Rweighted ) Mat(s,r) = Mat(s,r) * w1x(i) * w1y(j) * w1z(k) 
+
+                     end do
+                  end do
+               end do
+            end do
+         end do
+      end do
+      
+      if ( Rweighted ) then
+         ! Create Mass matrix and finish computing interpolation operator
+         do n=0, N2z
+            do m=0, N2y
+               do l=0, N2x
+                  s = l + m*(N2x + 1) + n*(N2x + 1)*(N2y + 1) + 1   ! Row index
+      
+                  MASSterm = w2x(l) * w2y(m) * w2z(n)
+
+                  ! Matrix Multiplication I = M⁻¹S (taking advantage of the diagonal matrix)
+                  Mat(s,:) = Mat(s,:) / MASSterm
+               end do
+            end do
+         end do
+      end if
+      
+   end subroutine MG_Create3DRestrictionMatrix
+!
+!     ////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------------------------------------------
+!!    Compute the value of the interpolant WITHOUT using the barycentric formula
+!     --------------------------------------------------------------------------
+!
+   FUNCTION MG_LagrangeInterpolationNoBar( x, N, nodes, j) RESULT(l)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      use Utilities, only: almostEqual
+      REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
+      REAL(KIND=RP)                 :: x     !<  Point of evaluation of interpolant
+      INTEGER                       :: N     !<  Polynomial order  
+      REAL(KIND=RP), DIMENSION(0:N) :: nodes !<  Nodes of Lagrange interpolation
+      INTEGER                       :: j     !<  Index of polynomial to be found
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      INTEGER                       :: i
+      REAL(KIND=RP)                 :: numerator, denominator
+      REAL(KIND=RP), DIMENSION(0:N) :: values
+      !-----------------------------------------------------------------------------
+      
+      values      = 0.0_RP
+      values(j)   = 1.0_RP
+      numerator   = 1.0_RP
+      denominator = 1.0_RP
+
+      DO i = 0, N
+         IF( AlmostEqual( x, nodes(i) ) )    THEN
+            l = values(i)
+            RETURN 
+         ELSE IF (j.ne.i) THEN
+         numerator   = numerator*(x - nodes(i))    
+         denominator = denominator*(nodes(j) - nodes(i))
+         END IF 
+      END DO
+      l = numerator/denominator
+
+   END FUNCTION MG_LagrangeInterpolationNoBar      
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1160,7 +1452,28 @@ end module MultigridSolverClass
 !!! Printing
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !------------------------------------------------------
+      ! inquire(file="Q_tot.dat", exist=file_exists)
+      ! if (file_exists) then 
+      !    open(66, file = 'Q_tot.dat', status = 'old')
+      ! else
+      !    open(66, file = 'Q_tot.dat', status = 'new')
+      ! end if
 !------------------------------------------------------
+      ! print *, "N1x: ", N1x
+      ! print *, "N1y: ", N1y
+      ! print *, "N1z: ", N1z
+
+      ! print *, "N2x: ", N2x
+      ! print *, "N2y: ", N2y
+      ! print *, "N2z: ", N2z
+
+      ! print *, "x1: ", x1
+      ! print *, "y1: ", y1
+      ! print *, "z1: ", z1
+
+      ! print *, "x2: ", x2
+      ! print *, "y2: ", y2
+      ! print *, "z2: ", z2
 !------------------------------------------------------
 !------------------------------------------------------
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

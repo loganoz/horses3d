@@ -181,7 +181,7 @@ contains
 
 
          ! rnorm = norm2(r)       ! Saves relative tolerance (one iteration behind)
-         ! print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
+         print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
          ! r = CSR_MatVecMul( A, x ) ! CSR matrix product
          ! r = b - r
          ! print*, "Iteration: ", i, " ; Norm after: ", norm2(r) 
@@ -213,7 +213,7 @@ contains
       allocate (this % BlockPrec(this % A_p % num_of_blocks))
       DO k = 1, this % A_p % num_of_blocks
          ndofelm = this % A_p % BlockSizes(k)
-         print *, "counter is ", k, ". NDOF is ", ndofelm
+         ! print *, "counter is ", k, ". NDOF is ", ndofelm
          allocate (this % BlockPrec(k) % PLU(ndofelm,ndofelm) )
          allocate (this % BlockPrec(k) % LUpivots   (ndofelm) )
       end do
