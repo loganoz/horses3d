@@ -110,10 +110,12 @@ module MultigridSolverClass
       procedure :: MG_CreateRestrictionOperator
       !procedure :: MG_Create3DProlongationMatrix
       !procedure :: MG_Create3DRestrictionMatrix
-      !procedure :: prolong              => MG_Prolongation
-      !procedure :: restrict             => MG_Restriction
-      procedure :: MG_Prolongation
-      procedure :: MG_Restriction
+      !procedure :: prolong              => MG_1DProlongation
+      !procedure :: restrict             => MG_1DRestriction
+      procedure :: MG_1DProlongation
+      procedure :: MG_1DRestriction
+      procedure :: MG_3DProlongation
+      procedure :: MG_3DRestriction
 
    end type MultigridSolver_t
 !
@@ -491,17 +493,18 @@ contains
       print *, "Q5"
       print *, this % child % p_sem % mesh % elements(1) % storage % Q(5,:,:,:)
 
-      print *, size(this%Rest3D,1), size(this%Rest3D,2)
-      print *, size(this%child%Prol3D,1), size(this%child%Prol3D,2)
+      ! print *, size(this%Rest3D,1), size(this%Rest3D,2)
+      ! print *, size(this%child%Prol3D,1), size(this%child%Prol3D,2)
       
-      open(69, file = 'Prol3D.dat')
-      write(69,'(1E19.11)') this % child % Prol3D 
-      close(69) 
+      ! open(69, file = 'Prol3D.dat')
+      ! write(69,'(1E19.11)') this % child % Prol3D 
+      ! close(69) 
 
-      open(70, file = 'Rest3D.dat')
-      write(70,'(1E19.11)') this % Rest3D 
-      close(70) 
+      ! open(70, file = 'Rest3D.dat')
+      ! write(70,'(1E19.11)') this % Rest3D 
+      ! close(70) 
 
+      ! call MG_3DProlongation( this, nEqn ) 
       ! error STOP "TBC Wojtek"
 
       ! ! Visualize RHS
@@ -558,12 +561,17 @@ contains
             Me % r(i) = Me % b(i) - Me % r(i)
          end do 
 
-         call MG_Restriction( Me, nEqn, 'solres' ) ! Restrict to a coarse grid
+         ! call MG_1DRestriction( Me, nEqn, 'solres' ) ! Restrict to a coarse grid
+         call MG_3DRestriction( Me, nEqn ) ! Restrict to a coarse grid
+
          Me % child % b = Me % child % r
          Me % child % x = 0.0_RP
          call MG_VCycle( Me % Child, lvl-1, nEqn )
 
-         call MG_Prolongation( Me, nEqn )
+         ! call MG_1DProlongation( Me, nEqn )
+         call MG_3DProlongation( Me, nEqn )
+
+         ! error stop "Wojtek"
 
          call Smooth( Me % A, Me % x, Me % b, Me % DimPrb, pos_smooths(lvl), S_SMOOTHER, Me % BJSmoother) ! Post smoothing
       end if 
@@ -637,7 +645,7 @@ contains
          Child_p => Me % Child ! set local pointer to a child
          Me % Child % Parent => Me ! set child's parent pointer to this level (Me)
          print *, "Calling Jac restriction on lvl: ", lvl
-         call MG_Restriction(Me, nEqn, 'soljac')
+         call MG_1DRestriction(Me, nEqn, 'soljac')
          ! recursive call
          call MG_ComputeJacobians(Me % Child,lvl-1,ComputeTimeDerivative, Time, nEqn)
       end if
@@ -682,17 +690,17 @@ contains
       call z_spAd % construct(this % p_sem % mesh % nodeType, z_Ndest  )
 
 
-      ! X directin
+      ! 1D X directin
       !-----------------------------------------------------
       call PolynomialInterpolationMatrix(x_Norigin, x_Ndest, x_spAo % x, x_spAo % wb, x_spAd % x, this % ProlX)
       !-----------------------------------------------------
 
-      ! Y direction
+      ! 1D Y direction
       !-----------------------------------------------------
       call PolynomialInterpolationMatrix(y_Norigin, y_Ndest, y_spAo % x, y_spAo % wb, y_spAd % x, this % ProlY)
       !-----------------------------------------------------
 
-      ! Z direction
+      ! 1D Z direction
       !-----------------------------------------------------
       call PolynomialInterpolationMatrix(z_Norigin, z_Ndest, z_spAo % x, z_spAo % wb, z_spAd % x, this % ProlZ)
       !-----------------------------------------------------
@@ -750,7 +758,7 @@ contains
       call z_spAo % construct(this % p_sem % mesh % nodeType, z_Norigin)
       call z_spAd % construct(this % p_sem % mesh % nodeType, z_Ndest  )
 
-      ! X direction
+      ! 1D X direction
       !-----------------------------------------------------
       allocate (Rtmp(0:x_Norigin,0:x_Ndest))
       call PolynomialInterpolationMatrix(x_Ndest, x_Norigin, x_spAd % x, x_spAd % wb, x_spAo % x, Rtmp)
@@ -764,7 +772,7 @@ contains
       end if
       !-----------------------------------------------------
 
-      ! Y direction
+      ! 1D Y direction
       !-----------------------------------------------------
       allocate (Rtmp(0:y_Norigin,0:y_Ndest))
       call PolynomialInterpolationMatrix(y_Ndest, y_Norigin, y_spAd % x, y_spAd % wb, y_spAo % x, Rtmp)
@@ -778,7 +786,7 @@ contains
       end if
       !-----------------------------------------------------
 
-      ! Z direction
+      ! 1D Z direction
       !-----------------------------------------------------
       allocate (Rtmp(0:z_Norigin,0:z_Ndest))
       call PolynomialInterpolationMatrix(z_Ndest, z_Norigin, z_spAd % x, z_spAd % wb, z_spAo % x, Rtmp)
@@ -810,7 +818,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_Prolongation(this,nEqn)
+   subroutine MG_1DProlongation(this,nEqn)
       !
       !---------------------------------------------------------------------
       ! Prolong a 3D array.
@@ -864,11 +872,11 @@ contains
       this % x = x_org + this % x
       deallocate( x_org )
 
-   end subroutine MG_Prolongation
+   end subroutine MG_1DProlongation
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_Restriction(this, nEqn, r_vars)
+   subroutine MG_1DRestriction(this, nEqn, r_vars)
       !
       !---------------------------------------------------------------------
       ! Restrict a 3D array..
@@ -941,7 +949,215 @@ contains
 
       end select
 
-   end subroutine MG_Restriction
+   end subroutine MG_1DRestriction
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_3DProlongation(this,nEqn)
+      !
+      !---------------------------------------------------------------------
+      ! Prolong a 3D array.
+      !---------------------------------------------------------------------
+      !
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      class(MultigridSolver_t), pointer               :: child_p
+      real(kind=RP), dimension(:,:), pointer          :: P_p
+      integer                         , intent(in)    :: nEqn
+      integer                                         :: iEl
+      integer, dimension(3)                           :: Norigin
+      integer, dimension(3)                           :: Ndest
+      integer, dimension(nelem)                       :: elsDOF
+      !-----------------------------------------------------
+      integer                                         :: i,j,k,l
+      integer                                         :: size_el_f, size_el_c ! size of the element excluding for Neqn=1
+      real(kind=RP), dimension(:), allocatable        :: x_org
+      !-----------------------------------------------------
+
+      child_p => this % child
+      P_p => child_p % Prol3D 
+
+      Norigin = (/ child_p % Nx, child_p % Ny, child_p % Nz /)
+      Ndest = (/ this % Nx, this % Ny, this % Nz /)
+      allocate ( x_org(this % DimPrb) ) 
+
+      size_el_f = (Ndest(1)+1) * (Ndest(2)+1) * (Ndest(3)+1)
+      size_el_c = (Norigin(1)+1) * (Norigin(2)+1) * (Norigin(3)+1)
+
+      ! allocate ( tmp_c( Neqn * size_el_c ) )
+      ! allocate ( tmp_f( Neqn * size_el_f ) )
+      ! allocate ( tmp( size_el_c ) )
+
+      x_org = this % x 
+
+      ! this % x = this % x + P * child_p % x
+
+
+      ! print *, "size_el_f" , size_el_f
+      ! print *, "size_el_c" , size_el_c
+
+      this % x = 0.0_RP
+      do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+         l = 1
+         do i = 1, size_el_f*Neqn, Neqn ! loop over the fine grid vector size 
+            j = i + size_el_f*Neqn * (iEl-1)
+            do k = 0, (Neqn - 1)
+               this % x (j+k) = dot_product(P_p(l,:),child_p % x ( (1 + (size_el_c*Neqn)*(iEl-1) + k) : ((size_el_c*Neqn)*iEl + k) : Neqn ))
+               ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+            end do
+            l = l + 1
+         end do
+      end do
+
+      ! open(81, file = 'x3D.dat')
+      ! write(81,'(1E19.11)') this % x 
+      ! close(81) 
+
+      ! this % x = 0.0_RP
+      ! ! Vec to Elements
+      ! !-----------------------------------------------------
+      ! do iEl = 1, size(child_p % p_sem % mesh % elements)
+      !    elsDOF(iEL) = child_p % p_sem % mesh  % elements(iEL) % storage % NDOF
+      ! end do
+      ! call MG_Vec2El ( child_p % x, child_p % LocalStorage , Norigin , child_p % DimPrb, nEqn, elsDOF , 'x' )
+      ! !-----------------------------------------------------
+
+      ! do iEl = 1, size(this % p_sem % mesh % elements)
+      !    call MG_Interp3DArrays(nEqn, Norigin, child_p % LocalStorage(iEl) % x , &
+      !                                 Ndest, this % LocalStorage(iEl) % x , &
+      !                                 child_p % ProlX, child_p % ProlY, child_p % ProlZ )
+      ! end do
+
+      ! ! Elements to Vec
+      ! !-----------------------------------------------------
+      ! do iEl = 1, size(this % p_sem % mesh % elements)
+      !    elsDOF(iEL) = this % p_sem % mesh  % elements(iEL) % storage % NDOF
+      ! end do
+      ! call MG_El2Vec ( this % LocalStorage , this % x, Ndest , this % DimPrb, nEqn, elsDOF , 'x' )
+      ! !-----------------------------------------------------
+      
+      ! open(82, file = 'x1D.dat')
+      ! write(82,'(1E19.11)') this % x 
+      ! close(82) 
+
+      ! TBC
+      this % x = x_org + this % x
+
+      deallocate( x_org )
+      ! deallocate( tmp_f )
+      ! deallocate( tmp_c )
+      ! deallocate( tmp )
+
+   end subroutine MG_3DProlongation
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_3DRestriction(this, nEqn )
+      !
+      !---------------------------------------------------------------------
+      ! Restrict a 3D array..
+      !---------------------------------------------------------------------
+      !
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      class(MultigridSolver_t), pointer               :: child_p
+      real(kind=RP), dimension(:,:), pointer          :: R_p
+      integer                         , intent(in)    :: nEqn
+      integer                                         :: iEl
+      integer, dimension(3)                           :: Norigin
+      integer, dimension(3)                           :: Ndest
+      integer, dimension(nelem)                       :: elsDOF
+      integer                                         :: i,j,k,l ! counters
+      !-----------------------------------------------------
+      integer                                         :: size_el_f, size_el_c ! size of the element excluding for Neqn=1
+      real(kind=RP), dimension(:), allocatable        :: x_org
+      !-----------------------------------------------------
+
+      child_p => this % child
+      R_p => this % Rest3D 
+      Norigin = (/ this % Nx, this % Ny, this % Nz /)
+      Ndest = (/ child_p % Nx, child_p % Ny, child_p % Nz /)
+
+      size_el_c = (Ndest(1)+1) * (Ndest(2)+1) * (Ndest(3)+1)
+      size_el_f = (Norigin(1)+1) * (Norigin(2)+1) * (Norigin(3)+1)
+
+
+      ! child % x = R * this % x
+      ! child % r = R * this % r
+
+
+      do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+         l = 1
+         do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
+            j = i + size_el_c*Neqn * (iEl-1)
+            do k = 0, (Neqn - 1)
+               child_p % x (j+k) = dot_product(R_p(l,:),this % x ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
+               ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+            end do
+            l = l + 1
+         end do
+      end do
+
+      do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+         l = 1
+         do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
+            j = i + size_el_c*Neqn * (iEl-1)
+            do k = 0, (Neqn - 1)
+               child_p % r (j+k) = dot_product(R_p(l,:),this % r ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
+               ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+            end do
+            l = l + 1
+         end do
+      end do
+
+      ! select case(r_vars)
+
+      !    case('solres')
+
+      !       ! Vec to Elements
+      !       !-----------------------------------------------------
+      !       do iEl = 1, size(this % p_sem % mesh % elements)
+      !          elsDOF(iEL) = this % p_sem % mesh  % elements(iEL) % storage % NDOF
+      !       end do
+      !       call MG_Vec2El ( this % x, this % LocalStorage , Norigin , this % DimPrb, nEqn, elsDOF , 'x' )
+      !       call MG_Vec2El ( this % r, this % LocalStorage , Norigin , this % DimPrb, nEqn, elsDOF , 'r' )
+      !       !-----------------------------------------------------
+
+      !       do iEl = 1, size(this % p_sem % mesh % elements)
+      !          call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEL) % x , &
+      !                                       Ndest, child_p % LocalStorage(iEl) % x , &
+      !                                       this % RestJacX, this % RestJacY, this % RestJacZ )
+      !                                       !this % RestX, this % RestY, this % RestZ )
+
+      !          call MG_Interp3DArrays(nEqn, Norigin, this % LocalStorage(iEl) % r , &
+      !                                       Ndest, child_p % LocalStorage(iEl) % r, &
+      !                                       this % RestJacX, this % RestJacY, this % RestJacZ )
+      !                                       !this % RestX, this % RestY, this % RestZ )
+      !       end do
+
+      !       ! Elements to Vec
+      !       !-----------------------------------------------------
+      !       do iEl = 1, size(child_p % p_sem % mesh % elements)
+      !          elsDOF(iEL) = child_p % p_sem % mesh  % elements(iEL) % storage % NDOF
+      !       end do
+      !       call MG_El2Vec ( child_p % LocalStorage , child_p % x, Ndest , this % DimPrb, nEqn, elsDOF , 'x' )
+      !       call MG_El2Vec ( child_p % LocalStorage , child_p % r, Ndest , this % DimPrb, nEqn, elsDOF , 'r')
+      !       !-----------------------------------------------------
+
+      !    case('soljac')
+
+      !       do iEl = 1, size(this % p_sem % mesh % elements)
+      !          call MG_Interp3DArrays(nEqn, Norigin, this % p_sem % mesh % elements(iEl) % storage % Q, &
+      !                                       Ndest, child_p % p_sem % mesh % elements(iEl) % storage % Q, &
+      !                                       this % RestJacX, this % RestJacY, this % RestJacZ )
+      !                                       !this % RestX, this % RestY, this % RestZ )
+      !       end do
+
+      ! end select
+
+   end subroutine MG_3DRestriction
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    subroutine MG_Interp3DArrays(Nvars, Nin, inArray, Nout, outArray, InterpX, InterpY, InterpZ )
@@ -1476,4 +1692,104 @@ end module MultigridSolverClass
       ! print *, "z2: ", z2
 !------------------------------------------------------
 !------------------------------------------------------
+! !
+! !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+! !
+!    subroutine MG_3DProlongation(this,nEqn)
+!       !
+!       !---------------------------------------------------------------------
+!       ! Prolong a 3D array.
+!       !---------------------------------------------------------------------
+!       !
+!       implicit none
+!       !-----------------------------------------------------
+!       class(MultigridSolver_t), target, intent(inout) :: this
+!       class(MultigridSolver_t), pointer               :: child_p
+!       real(kind=RP), dimension(:,:), pointer          :: P_p
+!       integer                         , intent(in)    :: nEqn
+!       integer                                         :: iEl
+!       integer, dimension(3)                           :: Norigin
+!       integer, dimension(3)                           :: Ndest
+!       integer, dimension(nelem)                       :: elsDOF
+!       !-----------------------------------------------------
+!       integer                                         :: i,j,k,l
+!       integer                                         :: size_el_f, size_el_c ! size of the element excluding for Neqn=1
+!       real(kind=RP), dimension(:), allocatable        :: x_org
+!       !-----------------------------------------------------
+! 
+!       child_p => this % child
+!       P_p => child_p % Prol3D 
+! 
+!       Norigin = (/ child_p % Nx, child_p % Ny, child_p % Nz /)
+!       Ndest = (/ this % Nx, this % Ny, this % Nz /)
+!       allocate ( x_org(this % DimPrb) ) 
+! 
+!       size_el_f = (Ndest(1)+1) * (Ndest(2)+1) * (Ndest(3)+1)
+!       size_el_c = (Norigin(1)+1) * (Norigin(2)+1) * (Norigin(3)+1)
+! 
+!       ! allocate ( tmp_c( Neqn * size_el_c ) )
+!       ! allocate ( tmp_f( Neqn * size_el_f ) )
+!       ! allocate ( tmp( size_el_c ) )
+! 
+!       x_org = this % x 
+! 
+!       ! this % x = this % x + P * child_p % x
+! 
+! 
+!       ! print *, "size_el_f" , size_el_f
+!       ! print *, "size_el_c" , size_el_c
+! 
+!       this % x = 0.0_RP
+!       do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+!          l = 1
+!          do i = 1, size_el_f*Neqn, Neqn ! loop over the fine grid vector size 
+!             j = i + size_el_f*Neqn * (iEl-1)
+!             do k = 0, (Neqn - 1)
+!                this % x (j+k) = dot_product(P_p(l,:),child_p % x ( (1 + (size_el_c*Neqn)*(iEl-1) + k) : ((size_el_c*Neqn)*iEl + k) : Neqn ))
+!                ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+!             end do
+!             l = l + 1
+!          end do
+!       end do
+! 
+!       ! open(81, file = 'x3D.dat')
+!       ! write(81,'(1E19.11)') this % x 
+!       ! close(81) 
+! 
+!       ! this % x = 0.0_RP
+!       ! ! Vec to Elements
+!       ! !-----------------------------------------------------
+!       ! do iEl = 1, size(child_p % p_sem % mesh % elements)
+!       !    elsDOF(iEL) = child_p % p_sem % mesh  % elements(iEL) % storage % NDOF
+!       ! end do
+!       ! call MG_Vec2El ( child_p % x, child_p % LocalStorage , Norigin , child_p % DimPrb, nEqn, elsDOF , 'x' )
+!       ! !-----------------------------------------------------
+! 
+!       ! do iEl = 1, size(this % p_sem % mesh % elements)
+!       !    call MG_Interp3DArrays(nEqn, Norigin, child_p % LocalStorage(iEl) % x , &
+!       !                                 Ndest, this % LocalStorage(iEl) % x , &
+!       !                                 child_p % ProlX, child_p % ProlY, child_p % ProlZ )
+!       ! end do
+! 
+!       ! ! Elements to Vec
+!       ! !-----------------------------------------------------
+!       ! do iEl = 1, size(this % p_sem % mesh % elements)
+!       !    elsDOF(iEL) = this % p_sem % mesh  % elements(iEL) % storage % NDOF
+!       ! end do
+!       ! call MG_El2Vec ( this % LocalStorage , this % x, Ndest , this % DimPrb, nEqn, elsDOF , 'x' )
+!       ! !-----------------------------------------------------
+!       
+!       ! open(82, file = 'x1D.dat')
+!       ! write(82,'(1E19.11)') this % x 
+!       ! close(82) 
+! 
+!       ! TBC
+!       this % x = x_org + this % x
+! 
+!       deallocate( x_org )
+!       ! deallocate( tmp_f )
+!       ! deallocate( tmp_c )
+!       ! deallocate( tmp )
+! 
+!    end subroutine MG_3DProlongation
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
