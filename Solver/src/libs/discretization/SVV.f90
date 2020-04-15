@@ -66,9 +66,14 @@ module SpectralVanishingViscosity
       logical                    :: constructed = .false.
       integer                    :: N
       real(kind=RP), allocatable :: Q(:,:)
+      real(kind=RP), allocatable :: F(:,:)
+      real(kind=RP), allocatable :: B(:,:)
+      contains
+         procedure :: Recompute => FilterMatrices_Recompute
    end type FilterMatrices_t
 
    type  SVV_t
+      logical                                     :: automatic_Psvv
       logical                                     :: enabled
       logical                                     :: muIsSmagorinsky = .FALSE.
       integer                                     :: filterType
@@ -233,10 +238,19 @@ module SpectralVanishingViscosity
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
-            self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
+            if ( trim(controlVariables % StringValueForKey(SVV_CUTOFF_KEY,LINE_LENGTH)) .eq. "automatic") then
+               self % automatic_Psvv = .true.
+               self % Psvv = 0.0_RP
+
+            else
+               self % automatic_Psvv = .false.
+               self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
+
+            end if
 
          else
-            self % Psvv = 1.0_RP
+            self % automatic_Psvv = .true.
+            self % Psvv = 0.0_RP
 
          end if
 !
@@ -355,7 +369,12 @@ module SpectralVanishingViscosity
             case (EXP_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
             case (SHARP_FILTER) ; write(STD_OUT,'(A)') 'sharp kernel'
          end select
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Filter cutoff: ", this % Psvv
+
+         if (this % automatic_Psvv) then
+            write(STD_OUT,'(30X,A,A30,A)') "->","Filter cutoff: ", "automatic"
+         else
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Filter cutoff: ", this % Psvv
+         end if
          
       end subroutine SVV_Describe
 !
@@ -376,7 +395,7 @@ module SpectralVanishingViscosity
 !        Local variables
 !        ---------------
 !
-         integer             :: i, j, k, l, fIDs(6)
+         integer             :: i, j, k, l, fIDs(6), i_f, fID
          real(kind=RP)       :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hx(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -390,15 +409,84 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Hzf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: cartesianFlux(1:NCONS, 1:NDIM)
          real(kind=RP)       :: SVV_diss, delta
+         real(kind=RP)       :: rho_ratio, Psvv, rho_jump, area, volume, rho_L2
+         real(kind=RP)       :: Qx(0:e % Nxyz(1),0:e % Nxyz(1))
+         real(kind=RP)       :: Qy(0:e % Nxyz(2),0:e % Nxyz(2))
+         real(kind=RP)       :: Qz(0:e % Nxyz(3),0:e % Nxyz(3))
 
          sqrt_mu    = self % sqrt_muSVV
          sqrt_alpha = self % sqrt_alphaSVV
 
          delta = (e % geom % volume)**(1.0_RP/3.0_RP) / (maxval(e % Nxyz) + 1.0_RP)
+!
+!        -----------------------------------------
+!        Compute the highest mode intensity of rho
+!        -----------------------------------------
+!
+         if ( self % automatic_Psvv ) then
+             rho_jump = 0.0_RP
+             area = 0.0_RP
+             do i_f = 1, 6
+                fID = e % faceIDs(i_f)
+                associate(f => mesh % faces(fID))
+                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                   rho_jump = rho_jump + NodalStorage(f % Nf(1)) % w(i)*NodalStorage(f % Nf(2)) % w(j)*abs(f % storage(1) % Q(IRHO,i,j) - f % storage(2) % Q(IRHO,i,j))*f % geom % jacobian(i,j)
+                   area     = area     + NodalStorage(f % Nf(1)) % w(i)*NodalStorage(f % Nf(2)) % w(j)*f % geom % jacobian(i,j)
+                end do               ; end do
+                end associate
+             end do
+                
+             rho_L2 = 0.0_RP
+             volume = 0.0_RP
+             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                rho_L2 = rho_L2 + NodalStorage(e % Nxyz(1)) % w(i) * NodalStorage(e % Nxyz(2)) % w(j) * NodalStorage(e % Nxyz(3)) % w(k) * e % geom % jacobian(i,j,k) * POW2(e % storage % Q(IRHO,i,j,k)) 
+                volume = volume + NodalStorage(e % Nxyz(1)) % w(i) * NodalStorage(e % Nxyz(2)) % w(j) * NodalStorage(e % Nxyz(3)) % w(k) * e % geom % jacobian(i,j,k)
+             end do                ; end do                ; end do
+             rho_L2 = sqrt(rho_L2) / volume
 
-         associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
-                   Qy => self % filters(e % Nxyz(2)) % Q, &
-                   Qz => self % filters(e % Nxyz(3)) % Q    )
+             Psvv = rho_jump / (area * rho_L2)
+!            rho_ratio = maxval(e % storage % Q(IRHO,:,:,:)) / minval(e % storage % Q(IRHO,:,:,:))
+!   
+!            if (rho_ratio < 1.2_RP) then
+!               Psvv = 5.0_RP
+!   
+!            elseif ( rho_ratio < 2.0_RP ) then
+!               Psvv = 10.0**(-10.0_RP/8.0_RP*log10(5.0_RP)*(rho_ratio-1.2_RP) + log10(5.0_RP))
+!   
+!            elseif ( rho_ratio < 3.0_RP ) then
+!               Psvv = 10.0**(-log10(5.0_RP)*(rho_ratio-2.0_RP))
+!   
+!            else
+!               Psvv = 0.0_RP ! 0.2_RP
+!   
+!            end if
+
+            if ( e % Nxyz(1) > 0 ) then
+               call self % filters(e % Nxyz(1)) % Recompute(Psvv, self % filtertype,Qx)
+            else
+               Qx = self % filters(e % Nxyz(1)) % Q
+            end if
+
+            if ( e % Nxyz(2) > 0 ) then
+               call self % filters(e % Nxyz(2)) % Recompute(Psvv, self % filtertype,Qy)
+            else
+               Qy = self % filters(e % Nxyz(2)) % Q
+            end if
+             
+            if ( e % Nxyz(3) > 0 ) then
+               call self % filters(e % Nxyz(3)) % Recompute(Psvv, self % filtertype,Qz)
+            else
+               Qz = self % filters(e % Nxyz(3)) % Q
+            end if
+
+            e % Psvv = Psvv
+
+         else
+            e % Psvv = self % Psvv
+            Qx = self % filters(e % Nxyz(1)) % Q
+            Qy = self % filters(e % Nxyz(2)) % Q
+            Qz = self % filters(e % Nxyz(3)) % Q
+         end if
 
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
                    spA_eta  => NodalStorage(e % Nxyz(2)), &
@@ -508,7 +596,6 @@ module SpectralVanishingViscosity
                                    mesh % faces(fIDs(6))   )
 
 
-         end associate
          end associate
          
       end subroutine SVV_ComputeInnerFluxes
@@ -1254,7 +1341,11 @@ module SpectralVanishingViscosity
          if ( N .eq. 0 ) then
             self % filters(N) % N = N
             allocate(self % filters(N) % Q(0:N,0:N))
+            allocate(self % filters(N) % F(0:N,0:N))
+            allocate(self % filters(N) % B(0:N,0:N))
             self % filters(N) % Q = 1.0_RP
+            self % filters(N) % F = 1.0_RP
+            self % filters(N) % B = 1.0_RP
             self % filters(N) % constructed = .true.
             return
          end if
@@ -1304,7 +1395,6 @@ module SpectralVanishingViscosity
                end do
                
          end select
-print*, filterCoefficients
          
          if (self % filterType == LPASS_FILTER) then
             filterCoefficients = 1._RP - filterCoefficients
@@ -1314,11 +1404,16 @@ print*, filterCoefficients
 !        ----------------------------
          self % filters(N) % N = N
          allocate(self % filters(N) % Q(0:N,0:N))
+         allocate(self % filters(N) % F(0:N,0:N))
+         allocate(self % filters(N) % B(0:N,0:N))
 
          self % filters(N) % Q = 0.0_RP
          do k = 0, N ; do j = 0, N  ; do i = 0, N
             self % filters(N) % Q(i,j) = self % filters(N) % Q(i,j) + Modal2Nodal(i,k) * filterCoefficients(k) * Nodal2Modal(k,j)
          end do      ; end do       ; end do
+
+         self % filters(N) % F = Nodal2Modal
+         self % filters(N) % B = Modal2Nodal
 
          self % filters(N) % constructed = .true.
 
@@ -1336,6 +1431,34 @@ print*, filterCoefficients
          !if (this % muIsSmagorinsky) call Smagorinsky % destruct
          
       end subroutine SVV_destruct
+
+      subroutine FilterMatrices_Recompute(self,Psvv, type_, Q)
+         implicit none
+         class(FilterMatrices_t)   :: self
+         real(kind=RP), intent(in) :: Psvv
+         integer,       intent(in) :: type_
+         real(kind=RP), intent(out) :: Q(0:self % N,0:self % N)
+         integer :: i,j,k
+         real(kind=RP)  :: filterCoefficients(0:self % N)
+
+         if (Psvv > 100.0_RP ) then
+            filterCoefficients = 0.0_RP
+         else
+            do k = 0, self % N
+               filterCoefficients(k) = (real(k, kind=RP) / self % N + 1.0e-12_RP) ** Psvv
+            end do
+         end if
+
+         if ( type_ == LPASS_FILTER) then
+            filterCoefficients = 1._RP - filterCoefficients
+         end if
+
+         Q = 0.0_RP
+         do k = 0, self % N ; do j = 0, self % N  ; do i = 0, self % N
+            Q(i,j) = Q(i,j) + self % B(i,k) * filterCoefficients(k) * self % F(k,j)
+         end do      ; end do       ; end do
+
+      end subroutine FilterMatrices_Recompute
       
 end module SpectralVanishingViscosity
 #endif
