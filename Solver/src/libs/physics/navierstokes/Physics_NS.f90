@@ -40,37 +40,14 @@
       private
       public  EulerFlux
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
-      public  ViscousFlux_withSGS
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
-      public  getStressTensor, SutherlandsLaw, ViscousJacobian
-      public  GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
-      public  grad_vars, SetGradientVariables
-
-      enum, bind(C)
-         enumerator :: GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
-      end enum
-
-      integer, protected :: grad_vars = GRADVARS_STATE
+      public  getStressTensor, ViscousJacobian
 !
 !     ========
       CONTAINS 
 !     ========
 !
-      subroutine SetGradientVariables(grad_vars_)
-         implicit none
-         integer, intent(in)  :: grad_vars_
-
-         select case(grad_vars_)
-         case(GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY)
-            grad_vars = grad_vars_
-         case default
-            print*, "Unrecognized option"
-            errorMessage(STD_OUT)   
-            stop  
-         end select
-
-      end subroutine SetGradientVariables
 !     
 !
 !//////////////////////////////////////////////////////////////////////////////
@@ -291,7 +268,6 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)                    :: T , sutherLaw
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
          real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
@@ -312,28 +288,25 @@
          nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
          nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
          
-         T     = Temperature(Q)
-         sutherLaw = SutherlandsLaw(T)
-
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) 
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
-         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * nablaT(IX) 
+         F(IRHOU,IX) = mu  * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
+         F(IRHOV,IX) = mu  * ( U_x(IY) + U_y(IX) ) 
+         F(IRHOW,IX) = mu  * ( U_x(IZ) + U_z(IX) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa  * nablaT(IX) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
-         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * nablaT(IY)
+         F(IRHOV,IY) = mu  * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOW,IY) = mu  * ( U_y(IZ) + U_z(IY) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa  * nablaT(IY)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw * nablaT(IZ)
+         F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa  * nablaT(IZ)
 
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux_STATE
@@ -355,7 +328,6 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)                    :: T , sutherLaw
          real(kind=RP)                    :: divV, p_div_rho
          real(kind=RP)                    :: u(NDIM)
          real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
@@ -372,28 +344,25 @@
          nablaT(IY) = dimensionless % gammaM2*POW2(p_div_rho)*Q_y(IRHOE)
          nablaT(IZ) = dimensionless % gammaM2*POW2(p_div_rho)*Q_z(IRHOE)
          
-         T = dimensionless % gammaM2 * p_div_rho
-         sutherLaw = SutherlandsLaw(T)
-
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) 
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
-         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa * sutherLaw * nablaT(IX) 
+         F(IRHOU,IX) = mu  * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
+         F(IRHOV,IX) = mu  * ( U_x(IY) + U_y(IX) ) 
+         F(IRHOW,IX) = mu  * ( U_x(IZ) + U_z(IX) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa  * nablaT(IX) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
-         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa * sutherLaw * nablaT(IY)
+         F(IRHOV,IY) = mu  * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOW,IY) = mu  * ( U_y(IZ) + U_z(IY) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa  * nablaT(IY)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * sutherLaw * nablaT(IZ)
+         F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa  * nablaT(IZ)
 
       end subroutine ViscousFlux_ENTROPY
 
@@ -414,7 +383,6 @@
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)                    :: T , sutherLaw
          real(kind=RP)                    :: divV, p_div_rho
          real(kind=RP)                    :: u(NDIM)
          real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
@@ -431,28 +399,25 @@
          nablaT(IY) = Q_y(IRHOE)
          nablaT(IZ) = Q_z(IRHOE)
          
-         T = dimensionless % gammaM2 * p_div_rho
-         sutherLaw = SutherlandsLaw(T)
-
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) 
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) 
-         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa * sutherLaw * nablaT(IX) 
+         F(IRHOU,IX) = mu  * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
+         F(IRHOV,IX) = mu  * ( U_x(IY) + U_y(IX) ) 
+         F(IRHOW,IX) = mu  * ( U_x(IZ) + U_z(IX) ) 
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa  * nablaT(IX) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) 
-         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa * sutherLaw * nablaT(IY)
+         F(IRHOV,IY) = mu  * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOW,IY) = mu  * ( U_y(IZ) + U_z(IY) ) 
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa  * nablaT(IY)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * sutherLaw * nablaT(IZ)
+         F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa  * nablaT(IZ)
 
       end subroutine ViscousFlux_ENERGY
 
@@ -848,98 +813,6 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux_withSGS(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, kappa, tauSGS, qSGS, F)
-         implicit none
-         integer,       intent(in)  :: nEqn
-         integer,       intent(in)  :: nGradEqn
-         real(kind=RP), intent(in)  :: Q   (1:nEqn     )
-         real(kind=RP), intent(in)  :: Q_x (1:nGradEqn)
-         real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
-         real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
-         real(kind=RP), intent(in)  :: mu
-         real(kind=RP), intent(in)  :: kappa
-         real(kind=RP), intent(in)  :: tauSGS(NDIM, NDIM)
-         real(kind=RP), intent(in)  :: qSGS(NDIM)
-         real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)                    :: T , sutherLaw
-         real(kind=RP)                    :: divV
-         real(kind=RP)                    :: u , v , w
-         real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
-
-         invRho  = 1.0_RP / Q(IRHO)
-
-         u = Q(IRHOU) * invRho
-         v = Q(IRHOV) * invRho
-         w = Q(IRHOW) * invRho
-         
-         uDivRho = [u * invRho, v * invRho, w * invRho]
-         
-         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
-         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
-         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
-         
-         nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
-         nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
-         nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
-         
-         T     = Temperature(Q)
-         sutherLaw = SutherlandsLaw(T)
-
-         divV = U_x(IX) + U_y(IY) + U_z(IZ)
-
-         F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu * sutherLaw * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) - tauSGS(1,1)
-         F(IRHOV,IX) = mu * sutherLaw * ( U_x(IY) + U_y(IX) ) - tauSGS(2,1)
-         F(IRHOW,IX) = mu * sutherLaw * ( U_x(IZ) + U_z(IX) ) - tauSGS(3,1)
-         F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa * sutherLaw * nablaT(IX) - qSGS(1)
-
-         F(IRHO,IY) = 0.0_RP
-         F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu * sutherLaw * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) - tauSGS(2,2)
-         F(IRHOW,IY) = mu * sutherLaw * ( U_y(IZ) + U_z(IY) ) - tauSGS(3,2)
-         F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa * sutherLaw * nablaT(IY) - qSGS(2)
-
-         F(IRHO,IZ) = 0.0_RP
-         F(IRHOU,IZ) = F(IRHOW,IX) 
-         F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu * sutherLaw * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) - tauSGS(3,3)
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa * sutherLaw * nablaT(IZ) - qSGS(3)
-
-      end subroutine ViscousFlux_withSGS
-!
-!---------------------------------------------------------------------
-!! Compute the molecular diffusivity by way of Sutherland's law
-!---------------------------------------------------------------------
-!
-      PURE FUNCTION SutherlandsLaw(T) RESULT(mu)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), INTENT(IN) :: T !! The temperature
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: mu !! The diffusivity
-      real(kind=RP) :: tildeT
-
-      tildeT = T*TemperatureReNormalization_Sutherland
-!      
-      mu = (1._RP + S_div_TRef_Sutherland)/(tildeT + S_div_TRef_Sutherland)*tildeT*SQRT(tildeT)
-
-
-      END FUNCTION SutherlandsLaw
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
       pure function SutherlandsLawDeriv(Q,T) result(dMu_dQ)
          implicit none
          !-arguments--------------------------------
@@ -971,30 +844,59 @@
          real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM)
 
          associate ( mu0 => dimensionless % mu )
-         
-         invRho  = 1._RP / Q(IRHO)
-         invRho2 = invRho * invRho
-         
-         uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
-         
-         u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
-         u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
-         u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
-         
-         T     = Temperature(Q)
-         muOfT = SutherlandsLaw(T)
 
-         divV = U_x(IX) + U_y(IY) + U_z(IZ)
+         select case(grad_vars)
+         case(GRADVARS_STATE)
 
-         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
-         tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
-         tau(IX,IZ) = tau(IZ,IX)
-         tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+            invRho  = 1._RP / Q(IRHO)
+            invRho2 = invRho * invRho
+            
+            uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
+            
+            u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
+            u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
+            u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
+            
+            T     = Temperature(Q)
+            muOfT = SutherlandsLaw(T)
+   
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
+   
+            tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+            tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
+            tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
+            tau(IX,IY) = tau(IY,IX)
+            tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+            tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
+            tau(IX,IZ) = tau(IZ,IX)
+            tau(IY,IZ) = tau(IZ,IY)
+            tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+
+         case(GRADVARS_ENERGY)
+
+            u_x = Q_x(IRHOU:IRHOW)
+            u_y = Q_y(IRHOU:IRHOW)
+            u_z = Q_z(IRHOU:IRHOW)
+   
+            T     = Temperature(Q)
+            muOfT = SutherlandsLaw(T)
+   
+            divV = U_x(IX) + U_y(IY) + U_z(IZ)
+   
+            tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+            tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
+            tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
+            tau(IX,IY) = tau(IY,IX)
+            tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+            tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
+            tau(IX,IZ) = tau(IZ,IX)
+            tau(IY,IZ) = tau(IZ,IY)
+            tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+
+         end select
+
+
+
 
          end associate
 

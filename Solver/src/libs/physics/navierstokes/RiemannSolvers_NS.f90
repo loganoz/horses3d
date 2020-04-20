@@ -108,6 +108,9 @@ module RiemannSolvers_NS
          case ( RIEMANN_VISCOUSNS )
             RiemannSolver => ViscousNSRiemannSolver
 
+         case ( RIEMANN_UDISS)
+            RiemannSolver => u_dissRiemannSolver
+
          case default
             print*, "Undefined choice of Riemann Solver."
             print*, "Options available are:"
@@ -117,6 +120,7 @@ module RiemannSolvers_NS
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
             print*, "   * Lax-Friedrichs"
+            print*, "   * u-diss"
             print*, "   * Rusanov"
             print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
@@ -1138,6 +1142,91 @@ module RiemannSolvers_NS
          end associate
          
       END SUBROUTINE LxFRiemannSolver
+
+      SUBROUTINE u_dissRiemannSolver( QLeft, QRight, nHat, t1, t2, flux ) 
+         implicit none 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+!
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
+         real(kind=RP)  :: QLRot(5), QRRot(5)
+         real(kind=RP)  :: invRhoL, invRhoR
+         real(kind=RP)  :: lambda, stab(5)
+
+         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+!
+!        Rotate the variables to the face local frame using normal and tangent vectors
+!        -----------------------------------------------------------------------------
+         rhoL = QLeft(1)                  ; rhoR = QRight(1)
+         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
+
+         rhouL = QLeft(2)  * nHat(1) + QLeft(3)  * nHat(2) + QLeft(4)  * nHat(3)
+         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
+         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
+
+         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+
+         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
+         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+
+         aL = sqrt(gamma * pL * invRhoL)
+         aR = sqrt(gamma * pR * invRhoR)
+!
+!        Eigenvalues: lambda = max(|uL|,|uR|) 
+!        -----------
+         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR))
+!
+!        ****************
+!        Compute the flux
+!        ****************
+!
+!        Perform the average using the averaging function
+!        ------------------------------------------------
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+!
+!        Compute the Lax-Friedrichs stabilization
+!        ----------------------------------------
+         stab = 0.5_RP * lambda * (QRRot - QLRot)
+!
+!        Compute the flux: apply the lambda stabilization here.
+!        ----------------
+         flux = flux - lambdaStab * stab
+!
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
+!
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+
+         end associate
+         
+      END SUBROUTINE u_dissRiemannSolver
+
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !

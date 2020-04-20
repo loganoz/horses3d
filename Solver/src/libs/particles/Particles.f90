@@ -355,8 +355,7 @@ end subroutine IntegrateParticles
 subroutine AddSourceParticles( self, iP, e, time, thermodynamics_, dimensionless_, refValues_ )
     USE ElementClass
 #if defined(NAVIERSTOKES)
-    use Physics,            only : sutherlandsLaw
-    use VariableConversion, only : temperature 
+    use VariableConversion, only : temperature, sutherlandsLaw
 #endif
     IMPLICIT NONE
     class(Particles_t)      , intent(in)    :: self

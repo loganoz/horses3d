@@ -272,8 +272,10 @@ module Storage
                   
                   ! Following block works for NS, CH, NSCH and iNS .... but not iNSCH: change 5 by 6 to use iNSCH (NS won't work) 
                   if (NVARS .ge. 5) then 
-                     call getVelocityGradients  ( e % Nsol, e % Q, e % Q_x(1:5,:,:,:), e % Q_y(1:5,:,:,:), e % Q_z(1:5,:,:,:), &
-                                                                   e % U_x(1:3,:,:,:), e % U_y(1:3,:,:,:), e % U_z(1:3,:,:,:) )
+                     do k = 0,e % Nsol(3) ; do j = 0, e % Nsol(2) ; do i = 0, e % Nsol(1)
+                        call getVelocityGradients(e % Q(:,i,j,k), e % Q_x(1:5,i,j,k), e % Q_y(1:5,i,j,k), e % Q_z(1:5,i,j,k), &
+                                                  e % U_x(1:3,i,j,k), e % U_y(1:3,i,j,k), e % U_z(1:3,i,j,k) )
+                     end do               ; end do                ; end do
                      if (NVARS == 6) then
                         e % U_x(6,:,:,:) = e % Q_x(6,:,:,:)
                         e % U_y(6,:,:,:) = e % Q_y(6,:,:,:)

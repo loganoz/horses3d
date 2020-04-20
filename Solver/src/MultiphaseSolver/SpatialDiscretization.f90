@@ -865,7 +865,8 @@ module SpatialDiscretization
                                                   U_xRight = UxR, &
                                                   U_yRight = UyR, &
                                                   U_zRight = UzR, &
-                                                  mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
+                                                  mu_left  = [1.0_RP, multiphase % M0_star, 0.0_RP], &
+                                                  mu_right = [1.0_RP, multiphase % M0_star, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
@@ -960,7 +961,8 @@ module SpatialDiscretization
                                                   U_xRight = UxR, &
                                                   U_yRight = UyR, &
                                                   U_zRight = UzR, &
-                                                  mu   = 1.0_RP, beta = multiphase % M0_star, kappa = 0.0_RP, &
+                                                  mu_left  = [1.0_RP, multiphase % M0_star, 0.0_RP], &
+                                                  mu_right = [1.0_RP, multiphase % M0_star, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
@@ -1370,7 +1372,8 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   sigma = [1.0_RP], &
@@ -1419,7 +1422,8 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   sigma = [1.0_RP], &

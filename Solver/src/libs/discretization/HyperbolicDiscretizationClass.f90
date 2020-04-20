@@ -159,6 +159,9 @@ module HyperbolicDiscretizationClass
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
 
+         case (RIEMANN_UDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
+
 #elif defined(INCNS)
          case (RIEMANN_CENTRAL)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"

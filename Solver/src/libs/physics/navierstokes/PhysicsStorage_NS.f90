@@ -43,6 +43,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME    ="u-diss"
 
          !PARTICLES 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
@@ -85,13 +86,15 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
+     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS, RIEMANN_UDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    CHANDRASEKAR_SPLIT
       
      public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
      public    CheckPhysicsNSInputIntegrity
+     public    GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
+     public    grad_vars, SetGradientVariables
 !
 !    ----------------------------
 !    Either NavierStokes or Euler
@@ -124,19 +127,26 @@
      real(kind=RP), protected :: TemperatureReNormalization_Sutherland ! TRef/SutherlandsTRef
      real(kind=RP), protected :: S_div_Tref_Sutherland
 !
+!    --------------------------------
+!    Choice of the gradient variables
+!    --------------------------------
+!
+     enum, bind(C)
+        enumerator :: GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
+     end enum
+     integer, protected :: grad_vars = GRADVARS_STATE
+
+!
 !    --------------------------
 !    Riemann solver definitions
 !    --------------------------
 !
-     integer, parameter :: RIEMANN_ROE        = 0
-     integer, parameter :: RIEMANN_LXF        = 1
-     integer, parameter :: RIEMANN_RUSANOV    = 2
-     integer, parameter :: RIEMANN_STDROE     = 4
-     integer, parameter :: RIEMANN_CENTRAL    = 5
-     integer, parameter :: RIEMANN_ROEPIKE    = 6
-     integer, parameter :: RIEMANN_LOWDISSROE = 7
-     integer, parameter :: RIEMANN_VISCOUSNS  = 8
-     integer, parameter :: RIEMANN_MATRIXDISS = 9
+     enum, bind(C)
+        enumerator :: RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV
+        enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
+        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
+        enumerator :: RIEMANN_UDISS
+     end enum
      integer, protected :: whichRiemannSolver = -1
 !
 !    -----------------------------
@@ -449,6 +459,9 @@
 
          case(VISCOUSNS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_VISCOUSNS
+
+         case(UDISS_SOLVER_NAME)
+            whichRiemannSolver = RIEMANN_UDISS
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -462,6 +475,7 @@
             print*, "   * Low dissipation Roe"
             print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
+            print*, "   * u-diss"
             errorMessage(STD_OUT)
             stop
          end select 
@@ -663,6 +677,22 @@
          END DO  
          
       END SUBROUTINE CheckPhysicsNSInputIntegrity
+
+      subroutine SetGradientVariables(grad_vars_)
+         implicit none
+         integer, intent(in)  :: grad_vars_
+
+         select case(grad_vars_)
+         case(GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY)
+            grad_vars = grad_vars_
+         case default
+            print*, "Unrecognized option"
+            errorMessage(STD_OUT)   
+            stop  
+         end select
+
+      end subroutine SetGradientVariables
+
 !
 !    **********       
      END MODULE PhysicsStorage_NS

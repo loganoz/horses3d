@@ -23,10 +23,6 @@ module EllipticBR1
          procedure      :: LiftGradients             => BR1_LiftGradients
          procedure      :: ComputeInnerFluxes        => BR1_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BR1_RiemannSolver
-#if defined(NAVIERSTOKES)
-         procedure      :: ComputeInnerFluxesWithSGS => BR1_ComputeInnerFluxesWithSGS
-         procedure      :: RiemannSolverWithSGS      => BR1_RiemannSolverWithSGS
-#endif
          procedure      :: Describe => BR1_Describe
    end type BassiRebay1_t
 !
@@ -458,10 +454,9 @@ module EllipticBR1
          integer             :: i, j, k
 
 #if defined(NAVIERSTOKES)
-         mu = dimensionless % mu + e % storage % mu_art(1,:,:,:)
-         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
-                               POW2( dimensionless % Mach) * dimensionless % Pr ) * dimensionless % mu + e % storage % mu_art(3,:,:,:)
-         beta  = e % storage % mu_art(2,:,:,:)
+         mu = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = 0.0_RP
 
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -502,68 +497,9 @@ module EllipticBR1
          end do               ; end do            ; end do
 
       end subroutine BR1_ComputeInnerFluxes
-#if defined(NAVIERSTOKES)
-      subroutine BR1_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
-         use ElementClass
-         use PhysicsStorage
-         use Physics
-         use LESModels
-         implicit none
-         class(BassiRebay1_t) ,     intent (in) :: self
-         type(Element)                          :: e
-         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP) :: delta
-         real(kind=RP) :: cartesianFlux(1:NCONS, 1:NDIM)
-         real(kind=RP) :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP) :: kappa(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP) :: tauSGS(1:NDIM,1:NDIM)
-         real(kind=RP) :: qSGS(1:NDIM)
-         integer       :: i, j, k
 
-         mu = dimensionless % mu
-         kappa = dimensionless % kappa
-!
-!        Compute subgrid-scale modelling tensor   
-!        --------------------------------------
-         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-
-         do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
-            call LESModel % ComputeSGSTensor(delta, e % geom % dWall(i,j,k), &
-                                                           e % storage % Q(:,i,j,k), &
-                                                           e % storage % U_x(:,i,j,k), &
-                                                           e % storage % U_y(:,i,j,k), &
-                                                           e % storage % U_z(:,i,j,k), &
-                                                                tauSGS, qSGS    )
-
-            call ViscousFlux_withSGS(NCONS, NGRAD, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , &
-                                     e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), mu(i,j,k), kappa(i,j,k), tauSGS, qSGS, cartesianFlux)
-
-
-            contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
-
-
-            contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
-
-
-            contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
-
-         end do               ; end do            ; end do
-
-      end subroutine BR1_ComputeInnerFluxesWithSGS
-#endif
       subroutine BR1_RiemannSolver ( self , nEqn, nGradEqn, EllipticFlux, f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                           mu, beta, kappa, nHat , dWall, &
+                                           mu_left, mu_right, nHat , dWall, &
 #ifdef MULTIPHASE
 sigma, & 
 #endif
@@ -586,7 +522,7 @@ flux )
          real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
-         real(kind=RP), intent(in)       :: mu, beta, kappa
+         real(kind=RP), intent(in)       :: mu_left(3), mu_right(3)
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
 #ifdef MULTIPHASE
@@ -602,8 +538,8 @@ flux )
          real(kind=RP)     :: flux_vec(nEqn,NDIM), fL(nEqn,NDIM), fR(nEqn,NDIM)
          real(kind=RP)     :: sigma0
 
-         call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu, beta, kappa, fL)
-         call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu, beta, kappa, fR)
+         call EllipticFlux(nEqn, nGradEqn, QLeft, U_xLeft, U_yLeft, U_zLeft, mu_left(1), mu_left(2), mu_left(3), fL)
+         call EllipticFlux(nEqn, nGradEqn, QRight, U_xRight, U_yRight, U_zRight, mu_right(1), mu_right(2), mu_right(3), fR)
 
          flux_vec = 0.5_RP * (fL + fR)
 
@@ -615,57 +551,4 @@ flux )
 #endif
 
       end subroutine BR1_RiemannSolver
-#if defined(NAVIERSTOKES)
-      subroutine BR1_RiemannSolverWithSGS ( self , f, QLeft , QRight , U_xLeft , U_yLeft , U_zLeft , U_xRight , U_yRight , U_zRight , &
-                                            nHat , dWall, flux )
-         use SMConstants
-         use PhysicsStorage
-         use Physics
-         use FaceClass
-         use LESModels
-         implicit none
-         class(BassiRebay1_t)            :: self
-         class(Face),   intent(in)       :: f
-         real(kind=RP), dimension(NCONS) :: QLeft
-         real(kind=RP), dimension(NCONS) :: QRight
-         real(kind=RP), dimension(NGRAD) :: U_xLeft
-         real(kind=RP), dimension(NGRAD) :: U_yLeft
-         real(kind=RP), dimension(NGRAD) :: U_zLeft
-         real(kind=RP), dimension(NGRAD) :: U_xRight
-         real(kind=RP), dimension(NGRAD) :: U_yRight
-         real(kind=RP), dimension(NGRAD) :: U_zRight
-         real(kind=RP), dimension(NDIM)  :: nHat
-         real(kind=RP)                   :: dWall
-         real(kind=RP), dimension(NCONS) :: flux
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)     :: Q(NCONS) , U_x(NGRAD) , U_y(NGRAD) , U_z(NGRAD)
-         real(kind=RP)     :: flux_vec(NCONS,NDIM)
-         real(kind=RP)     :: mu, kappa, tauSGS(NDIM, NDIM), qSGS(NDIM), delta
-
-!
-!>       Old implementation: 1st average, then compute
-!        ------------------
-         Q   = 0.5_RP * ( QLeft + QRight)
-         U_x = 0.5_RP * ( U_xLeft + U_xRight)
-         U_y = 0.5_RP * ( U_yLeft + U_yRight)
-         U_z = 0.5_RP * ( U_zLeft + U_zRight)
-!
-!        Compute subgrid-scale modelling tensor   
-!        --------------------------------------
-         delta = sqrt(f % geom % surface / product(f % Nf + 1))
-         call LESModel % ComputeSGSTensor(delta, dWall, Q, U_x, U_y, U_z, tauSGS, qSGS) 
-
-         mu    = dimensionless % mu
-         kappa = dimensionless % kappa
-
-         call ViscousFlux_withSGS(NCONS, NGRAD, Q,U_x,U_y,U_z, mu, kappa, tauSGS, qSGS, flux_vec)
-
-         flux = flux_vec(:,IX) * nHat(IX) + flux_vec(:,IY) * nHat(IY) + flux_vec(:,IZ) * nHat(IZ)
-
-      end subroutine BR1_RiemannSolverWithSGS
-#endif
 end module EllipticBR1

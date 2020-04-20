@@ -25,10 +25,8 @@ module EllipticDiscretizationClass
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
 #if defined(NAVIERSTOKES)
-         procedure      :: ComputeInnerFluxesWithSGS => BaseClass_ComputeInnerFluxesWithSGS
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
-         procedure      :: RiemannSolverWithSGS      => BaseClass_RiemannSolverWithSGS
 #endif
          procedure      :: Describe                  => BaseClass_Describe
    end type EllipticDiscretization_t
@@ -317,24 +315,9 @@ module EllipticDiscretizationClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BaseClass_ComputeInnerFluxesWithSGS( self , e , contravariantFlux )
-         use ElementClass
-         use PhysicsStorage
-         implicit none
-         class(EllipticDiscretization_t) ,  intent (in)   :: self
-         type(Element)                           :: e
-         real(kind=RP)           ,  intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-!
-!        ---------------------------
-!        The base class does nothing
-!        ---------------------------
-!
-         contravariantFlux = 0.0_RP
-
-      end subroutine BaseClass_ComputeInnerFluxesWithSGS
 #endif
       subroutine BaseClass_RiemannSolver ( self, nEqn, nGradEqn, EllipticFlux, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                           mu, beta, kappa, nHat , dWall, &
+                                           mu_left, mu_right, nHat , dWall, &
 #ifdef MULTIPHASE
 sigma, & 
 #endif
@@ -357,7 +340,8 @@ flux )
          real(kind=RP), intent(in)       :: U_xRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_yRight(nGradEqn)
          real(kind=RP), intent(in)       :: U_zRight(nGradEqn)
-         real(kind=RP), intent(in)       :: mu, beta, kappa
+         real(kind=RP), intent(in)       :: mu_left(3)
+         real(kind=RP), intent(in)       :: mu_right(3)
          real(kind=RP), intent(in)       :: nHat(NDIM)
          real(kind=RP), intent(in)       :: dWall
 #ifdef MULTIPHASE
@@ -372,33 +356,4 @@ flux )
          flux = 0.0_RP
 
       end subroutine BaseClass_RiemannSolver
-#if defined(NAVIERSTOKES)
-      subroutine BaseClass_RiemannSolverWithSGS ( self, f, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, &
-                                                  nHat, dWall, flux )
-         use SMConstants
-         use PhysicsStorage
-         use FaceClass
-         implicit none
-         class(EllipticDiscretization_t) :: self
-         class(Face),   intent(in)       :: f
-         real(kind=RP), dimension(NCONS) :: QLeft
-         real(kind=RP), dimension(NCONS) :: QRight
-         real(kind=RP), dimension(NGRAD) :: U_xLeft
-         real(kind=RP), dimension(NGRAD) :: U_yLeft
-         real(kind=RP), dimension(NGRAD) :: U_zLeft
-         real(kind=RP), dimension(NGRAD) :: U_xRight
-         real(kind=RP), dimension(NGRAD) :: U_yRight
-         real(kind=RP), dimension(NGRAD) :: U_zRight
-         real(kind=RP), dimension(NDIM)  :: nHat
-         real(kind=RP)                   :: dWall
-         real(kind=RP), dimension(NCONS) :: flux
-!
-!        ---------------------------
-!        The base class does nothing
-!        ---------------------------
-!
-         flux = 0.0_RP
-
-      end subroutine BaseClass_RiemannSolverWithSGS
-#endif
 end module EllipticDiscretizationClass

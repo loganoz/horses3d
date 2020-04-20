@@ -271,13 +271,18 @@ module VolumeIntegrals
 !           Computes the flow enstrophy
 !           ***************************
 !
-            call getVelocityGradients(e % Nxyz, e % storage % Q,e % storage % U_x,e % storage % U_y,e % storage % U_z, U_x, U_y, U_z)
-            
-            KinEn =   POW2( U_y(IZ,:,:,:) - U_z(IY,:,:,:) ) &
-                    + POW2( U_z(IX,:,:,:) - U_x(IZ,:,:,:) ) &
-                    + POW2( U_x(IY,:,:,:) - U_y(IX,:,:,:) )
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               call getVelocityGradients(e % storage % Q(:,i,j,k),&
+                                         e % storage % U_x(:,i,j,k), &
+                                         e % storage % U_y(:,i,j,k), &
+                                         e % storage % U_z(:,i,j,k), &
+                                         U_x(:,i,j,k), U_y(:,i,j,k), U_z(:,i,j,k))
+            
+               KinEn =   POW2( U_y(IZ,i,j,k) - U_z(IY,i,j,k) ) &
+                       + POW2( U_z(IX,i,j,k) - U_x(IZ,i,j,k) ) &
+                       + POW2( U_x(IY,i,j,k) - U_y(IX,i,j,k) )
+
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
             end do            ; end do           ; end do
 

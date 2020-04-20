@@ -722,7 +722,8 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
@@ -770,7 +771,8 @@ stop
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = flux(:,i,j) )
