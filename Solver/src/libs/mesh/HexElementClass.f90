@@ -65,6 +65,7 @@
 !     Main hex-element type
 !     ---------------------
       TYPE Element
+         real(kind=RP)                   :: Psvv
          logical                         :: hasSharedFaces
          integer                         :: dir2D
          integer                         :: globDir(3)        ! If the global coordinate (GLOBAL) is aligned with the local coordinate (REFERENCE): globDir(GLOBAL) = REFERENCE 
