@@ -220,6 +220,7 @@ module SpatialDiscretization
                call SetGradientVariables(GRADVARS_STATE)
                GetGradients => NSGradientVariables_STATE
                ViscousFlux  => ViscousFlux_STATE
+               call set_getVelocityGradients(GRADVARS_STATE)
                
             end if
 

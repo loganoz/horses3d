@@ -840,8 +840,8 @@
 !        ---------------
 !
          real(kind=RP) :: T , muOfT
-         real(kind=RP) :: divV
-         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM)
+         real(kind=RP) :: divV, p_div_rho
+         real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM), u(NDIM)
 
          associate ( mu0 => dimensionless % mu )
 
@@ -857,46 +857,37 @@
             u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
             u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
             
-            T     = Temperature(Q)
-            muOfT = SutherlandsLaw(T)
-   
-            divV = U_x(IX) + U_y(IY) + U_z(IZ)
-   
-            tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-            tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
-            tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
-            tau(IX,IY) = tau(IY,IX)
-            tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-            tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
-            tau(IX,IZ) = tau(IZ,IX)
-            tau(IY,IZ) = tau(IZ,IY)
-            tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
-
          case(GRADVARS_ENERGY)
-
             u_x = Q_x(IRHOU:IRHOW)
             u_y = Q_y(IRHOU:IRHOW)
             u_z = Q_z(IRHOU:IRHOW)
    
-            T     = Temperature(Q)
-            muOfT = SutherlandsLaw(T)
+
+         case(GRADVARS_ENTROPY)
+            invRho  = 1.0_RP / Q(IRHO)
+            p_div_rho = thermodynamics % gammaMinus1*invRho*(Q(IRHOE)-0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))*invRho)
    
-            divV = U_x(IX) + U_y(IY) + U_z(IZ)
-   
-            tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-            tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
-            tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
-            tau(IX,IY) = tau(IY,IX)
-            tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-            tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
-            tau(IX,IZ) = tau(IZ,IX)
-            tau(IY,IZ) = tau(IZ,IY)
-            tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+            u = Q(IRHOU:IRHOW)*invRho
+            u_x = p_div_rho * (Q_x(IRHOU:IRHOW) + u*Q_x(IRHOE))
+            u_y = p_div_rho * (Q_y(IRHOU:IRHOW) + u*Q_y(IRHOE))
+            u_z = p_div_rho * (Q_z(IRHOU:IRHOW) + u*Q_z(IRHOE))
 
          end select
 
+         T     = Temperature(Q)
+         muOfT = SutherlandsLaw(T)
 
+         divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
+         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
+         tau(IX,IY) = tau(IY,IX)
+         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
+         tau(IX,IZ) = tau(IZ,IX)
+         tau(IY,IZ) = tau(IZ,IY)
+         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
          end associate
 

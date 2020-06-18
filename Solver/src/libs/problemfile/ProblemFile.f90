@@ -84,13 +84,13 @@ module ProblemFileFunctions
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP)  :: x(NDIM)
-         real(kind=RP)  :: t
-         real(kind=RP)  :: nHat(NDIM)
-         real(kind=RP)  :: Q(NCONS)
-         type(Thermodynamics_t), intent(in)  :: thermodynamics_
-         type(Dimensionless_t),  intent(in)  :: dimensionless_
-         type(RefValues_t),      intent(in)  :: refValues_
+         real(kind=RP), intent(in)          :: x(NDIM)
+         real(kind=RP), intent(in)          :: t
+         real(kind=RP), intent(in)          :: nHat(NDIM)
+         real(kind=RP), intent(inout)       :: Q(NCONS)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
       end subroutine UserDefinedState_f
 
       subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)

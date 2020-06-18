@@ -546,10 +546,9 @@ module EllipticBR2
 #if (!defined(CAHNHILLIARD))
 
 #if defined(NAVIERSTOKES)
-         mu = dimensionless % mu !+ e % storage % mu_art(1,:,:,:)
-         kappa = 1.0_RP / ( thermodynamics % gammaMinus1 * &
-                               POW2( dimensionless % Mach) * dimensionless % Pr ) * dimensionless % mu !+ e % storage % mu_art(3,:,:,:)
-         beta  = 0.0_RP ! e % storage % mu_art(2,:,:,:)
+         mu = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = 0.0_RP
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      

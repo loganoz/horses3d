@@ -254,7 +254,7 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                call ViscousFlux_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
-                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                                    e % storage % U_z(:,i,j,k), e % storage % mu_ns(1,i,j,k), 0.0_RP, e % storage % mu_ns(2,i,j,k), ViscFlux)
 
                val = val + wx(i) * wy(j) * wz(k) * (e % geom % jacobian(i,j,k) * ( kinEn(i,j,k) + & 
                      sum(ViscFlux(2:4,1)*e % storage % U_x(2:4,i,j,k)+ViscFlux(2:4,2)*e % storage % U_y(2:4,i,j,k)+ViscFlux(2:4,3)*e % storage % U_z(2:4,i,j,k)) & 
@@ -330,7 +330,7 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
                   call ViscousFlux_STATE(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
-                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                                    e % storage % U_z(:,i,j,k), e % storage % mu_ns(1,i,j,k), 0.0_RP, e % storage % mu_ns(2,i,j,k), ViscFlux)
                   val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
@@ -339,7 +339,7 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
                   call ViscousFlux_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
-                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                                    e % storage % U_z(:,i,j,k), e % storage % mu_ns(1,i,j,k), 0.0_RP, e % storage % mu_ns(2,i,j,k), ViscFlux)
                   val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
@@ -350,7 +350,7 @@ module VolumeIntegrals
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
                   call ViscousFlux_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
-                                    e % storage % U_z(:,i,j,k), dimensionless % mu, 0.0_RP, dimensionless % kappa, ViscFlux)
+                                    e % storage % U_z(:,i,j,k), e % storage % mu_ns(1,i,j,k), 0.0_RP, e % storage % mu_ns(2,i,j,k), ViscFlux)
                   val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do

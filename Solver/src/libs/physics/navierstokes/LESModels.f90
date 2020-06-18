@@ -10,12 +10,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module LESModels
    use SMConstants
@@ -265,7 +259,7 @@ module LESModels
 !        ------------------------------------------
          LS = this % CS * delta
          LS = this % ComputeWallEffect(LS,dWall)
-         muSmag = POW2(LS) * normS
+         muSmag = Q(IRHO) * POW2(LS) * normS
          
       end subroutine Smagorinsky_ComputeViscosity
 !

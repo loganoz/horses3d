@@ -564,8 +564,8 @@ end module ProblemFileFunctions
                                                           1.0767476753496668E+02_RP, &
                                                           7.7066863114976661E+02_RP]
             real(kind=RP), parameter           :: wake_u = 1.6680552562875707E-14_RP
-            real(kind=RP), parameter           :: cd = 3.5763023092307868E+01_RP
-            real(kind=RP), parameter           :: cl = 6.7102601300561560E-04_RP
+            real(kind=RP), parameter           :: cd = 3.5801576759972349E+01_RP
+            real(kind=RP), parameter           :: cl = 7.1731887843551334E-04_RP
             real(kind=RP), parameter           :: entr_bal = -1.6399730139900661E-15_RP
             real(kind=RP), parameter           :: entr_rate = -1.3377302251066867E-01_RP
 

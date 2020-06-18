@@ -21,6 +21,13 @@ Inviscid Discretization                = Split-form
 Split form                             = Chandrasekar
 Viscous Discretization                 = BR1
 compute time derivative after timestep = .true.
+!enable SVV = .true.
+!svv viscosity = 0.005
+!SVV dissipation type = Guermond
+!svv alpha viscosity = 0.005
+!svv filter type = High-pass
+!svv filter shape = Sharp
+!svv filter cutoff = 2.0
 
 #define boundary InnerCylinder
   type = NoSlipWall
@@ -79,6 +86,11 @@ compute time derivative after timestep = .true.
    Name = En-rate
    Variable = Entropy rate
 #end
+
+!#define volume monitor 3
+!   Name = SVV
+!   Variable = SVV dissipation
+!#end
 
 #define probe 1
    Name = wake_u
