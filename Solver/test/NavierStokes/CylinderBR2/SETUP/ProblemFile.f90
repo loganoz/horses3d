@@ -556,16 +556,16 @@ end module ProblemFileFunctions
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
-            real(kind=RP), parameter :: residuals(5) = [  8.9538063241147210E+00_RP, &
-                                                          1.8054389450528078E+01_RP, &
-                                                          1.8897832526703492E-01_RP, &
-                                                          2.4223050147519025E+01_RP, &
-                                                          2.4412689447150854E+02_RP]
+            real(kind=RP), parameter :: residuals(5) = [ 8.94947477740774_RP, &
+                                                         18.0524814828053_RP, &
+                                                        0.188804475468846_RP, &
+                                                         24.2331142737927_RP, &
+                                                         244.034603817743_RP ]
 
-            real(kind=RP), parameter           :: wake_u = 8.3814319621947634E-09_RP
-            real(kind=RP), parameter           :: cd =  3.4305532186954430E+01_RP
-            real(kind=RP), parameter           :: cl = -5.5912046128199222E-03_RP
-!
+
+            real(kind=RP), parameter           :: wake_u = 8.381270411983929E-009_RP
+            real(kind=RP), parameter           :: cd =  34.3031214698872_RP
+            real(kind=RP), parameter           :: cl = -5.536320494302416E-003_RP
 
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
             CALL initializeSharedAssertionsManager

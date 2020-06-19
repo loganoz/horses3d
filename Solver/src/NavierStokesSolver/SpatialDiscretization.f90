@@ -408,64 +408,32 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
+         end if
 
-!$omp do schedule(runtime) private(i,j)
-            do fID = 1, size(mesh % faces)
-               associate(f => mesh % faces(fID))
-               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-                  call get_laminar_mu_kappa(f % storage(1) % Q(:,i,j), f % storage(1) % mu_NS(1,i,j), f % storage(1) % mu_NS(2,i,j))
-                  call get_laminar_mu_kappa(f % storage(2) % Q(:,i,j), f % storage(2) % mu_NS(1,i,j), f % storage(2) % mu_NS(2,i,j))
-               end do              ; end do         
+
+         if ( LESModel % active) then
+!$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
+            do eID = 1, size(mesh % elements)
+               associate(e => mesh % elements(eID))
+               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
+                                                                                   e % storage % U_x(:,i,j,k), &
+                                                                                   e % storage % U_y(:,i,j,k), &
+                                                                                   e % storage % U_z(:,i,j,k), &
+                                                                                   mu_smag)
+                  e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
+                  e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+               end do                ; end do                ; end do
                end associate
             end do
 !$omp end do
-
-            if ( LESModel % active) then
-!$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
-               do eID = 1, size(mesh % elements)
-                  associate(e => mesh % elements(eID))
-                  delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-                  do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                     call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
-                                                                                      e % storage % U_x(:,i,j,k), &
-                                                                                      e % storage % U_y(:,i,j,k), &
-                                                                                      e % storage % U_z(:,i,j,k), &
-                                                                                      mu_smag)
-                     e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
-                     e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
-                  end do                ; end do                ; end do
-                  end associate
-               end do
-!$omp end do
-
-!$omp do schedule(runtime) private(i,j,delta,mu_smag)
-               do fID = 1, size(mesh % faces)
-                  associate(f => mesh % faces(fID))
-   
-                  delta = sqrt(f % geom % surface / product(f % Nf + 1))
-                  do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(1) % Q(:,i,j),   &
-                                                                                    f % storage(1) % U_x(:,i,j), &
-                                                                                    f % storage(1) % U_y(:,i,j), &
-                                                                                    f % storage(1) % U_z(:,i,j), &
-                                                                                    mu_smag)
-                     f % storage(1) % mu_NS(1,i,j) = f % storage(1) % mu_NS(1,i,j) + mu_smag
-                     f % storage(1) % mu_NS(2,i,j) = f % storage(1) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
-   
-                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(2) % Q(:,i,j),   &
-                                                                                    f % storage(2) % U_x(:,i,j), &
-                                                                                    f % storage(2) % U_y(:,i,j), &
-                                                                                    f % storage(2) % U_z(:,i,j), &
-                                                                                    mu_smag)
-                     f % storage(2) % mu_NS(1,i,j) = f % storage(2) % mu_NS(1,i,j) + mu_smag
-                     f % storage(2) % mu_NS(2,i,j) = f % storage(2) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
-   
-                  end do              ; end do         
-                  end associate
-               end do
-!$omp end do
-            end if
-         end if
+      end if
+!
+!        Compute viscosity at interior and boundary faces
+!        ------------------------------------------------
+         call compute_viscosity_at_faces(size(mesh % faces_interior), mesh % faces_interior, mesh)
+         call compute_viscosity_at_faces(size(mesh % faces_boundary), mesh % faces_boundary, mesh)
 !
 !        ****************
 !        Volume integrals
@@ -525,6 +493,10 @@ module SpatialDiscretization
                call mesh % GatherMPIFacesSolution(NCONS)
             end if          
 !$omp end single
+!
+!           Compute viscosity at MPI faces
+!           ------------------------------
+            call compute_viscosity_at_faces(size(mesh % faces_mpi), mesh % faces_mpi, mesh)
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -640,6 +612,65 @@ module SpatialDiscretization
 !$omp end do
 
       end subroutine TimeDerivative_ComputeQDot
+   
+      subroutine compute_viscosity_at_faces(no_of_faces, face_ids, mesh)
+         implicit none
+         integer, intent(in)           :: no_of_faces
+         integer, intent(in)           :: face_ids(no_of_faces)
+         class(HexMesh), intent(inout) :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: iFace, i, j
+         real(kind=RP) :: delta, mu_smag
+
+         if (flowIsNavierStokes) then
+!$omp do schedule(runtime) private(i,j)
+            do iFace = 1, no_of_faces
+               associate(f => mesh % faces(face_ids(iFace)))
+               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  call get_laminar_mu_kappa(f % storage(1) % Q(:,i,j), f % storage(1) % mu_NS(1,i,j), f % storage(1) % mu_NS(2,i,j))
+                  call get_laminar_mu_kappa(f % storage(2) % Q(:,i,j), f % storage(2) % mu_NS(1,i,j), f % storage(2) % mu_NS(2,i,j))
+               end do              ; end do         
+               end associate
+            end do
+!$omp end do
+         end if
+
+         if ( LESModel % Active ) then
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+            do iFace = 1, no_of_faces
+               associate(f => mesh % faces(face_ids(iFace)))
+
+               delta = sqrt(f % geom % surface / product(f % Nf + 1))
+               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(1) % Q(:,i,j),   &
+                                                                                 f % storage(1) % U_x(:,i,j), &
+                                                                                 f % storage(1) % U_y(:,i,j), &
+                                                                                 f % storage(1) % U_z(:,i,j), &
+                                                                                 mu_smag)
+                  f % storage(1) % mu_NS(1,i,j) = f % storage(1) % mu_NS(1,i,j) + mu_smag
+                  f % storage(1) % mu_NS(2,i,j) = f % storage(1) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
+
+                  call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(2) % Q(:,i,j),   &
+                                                                                 f % storage(2) % U_x(:,i,j), &
+                                                                                 f % storage(2) % U_y(:,i,j), &
+                                                                                 f % storage(2) % U_z(:,i,j), &
+                                                                                 mu_smag)
+                  f % storage(2) % mu_NS(1,i,j) = f % storage(2) % mu_NS(1,i,j) + mu_smag
+                  f % storage(2) % mu_NS(2,i,j) = f % storage(2) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
+
+               end do              ; end do         
+               end associate
+            end do
+!$omp end do
+         end if
+
+
+
+      end subroutine compute_viscosity_at_faces
 !
 !////////////////////////////////////////////////////////////////////////
 !
