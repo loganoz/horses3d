@@ -56,6 +56,7 @@ module InflowBCClass
       real(kind=RP)              :: v
       real(kind=RP)              :: rho
       real(kind=RP)              :: p
+      real(kind=RP)              :: TurbIntensity
 #endif
 #if defined(INCNS)
       real(kind=RP)              :: AoAPhi
@@ -126,6 +127,7 @@ module InflowBCClass
 !                 AoATheta         = #value
 !                 density          = #value        (only in monophase)
 !                 pressure         = #value        (only in compressible NS)
+!                 TurbIntensity    = #value        (only in compressible NS)
 !                 multiphase type  = mixed/layered
 !                 phase 1 layer x  > #value
 !                 phase 1 layer y  > #value
@@ -198,12 +200,14 @@ module InflowBCClass
          call GetValueWithDefault(bcdict, "mach"    , dimensionless % Mach                   , ConstructInflowBC % v       )
          call GetValueWithDefault(bcdict, "aoaphi"  , refValues % AoAPhi                     , ConstructInflowBC % AoAPhi  )
          call GetValueWithDefault(bcdict, "aoatheta", refValues % AoATheta                   , ConstructInflowBC % AoATheta)
+         call GetValueWithDefault(bcdict, "TurbIntensity", 0.0_RP                            , ConstructInflowBC % TurbIntensity)
 
          ConstructInflowBC % p        = ConstructInflowBC % p / refValues % p
          ConstructInflowBC % rho      = ConstructInflowBC % rho / refValues % rho
          ConstructInflowBC % v        = ConstructInflowBC % v * sqrt(thermodynamics % gamma * ConstructInflowBC % p / ConstructInflowBC % rho)
          ConstructInflowBC % AoATheta = ConstructInflowBC % AoATheta * PI / 180.0_RP
          ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
+         ConstructInflowBC % TurbIntensity   = ConstructInflowBC % TurbIntensity / 100.0_RP
 
 #elif defined(INCNS)
          call GetValueWithDefault(bcdict, "velocity", refValues % v, ConstructInflowBC % v)
@@ -290,6 +294,9 @@ module InflowBCClass
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Density: ', self % rho * refValues % rho
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaPhi: ', self % AoAPhi * 180.0_RP / PI
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
+
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Max. Vel. Fluct. in % (from TurbIntensity): ', (self % TurbIntensity)
+         
 #elif defined(INCNS)
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
 #if (!defined(CAHNHILLIARD))
@@ -351,14 +358,24 @@ module InflowBCClass
 !        ---------------
 !
          real(kind=RP) :: qq, u, v, w
+         real(kind=RP) :: u_prime, v_prime, w_prime
+
          associate ( gammaM2 => dimensionless % gammaM2, &
                      gamma => thermodynamics % gamma )
-         
+!        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctiation with max turb
+                     call random_seed
+                     call random_number(u_prime)
+                     call random_number(v_prime)
+                     call random_number(w_prime)
+
+                     u_prime = (2.0_RP*u_prime - 1.0_RP)*self % TurbIntensity * u
+                     v_prime = (2.0_RP*v_prime - 1.0_RP)*self % TurbIntensity * v
+                     w_prime = (2.0_RP*w_prime - 1.0_RP)*self % TurbIntensity * w
          qq = self % v
-         u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
-         v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
-         w  = qq*SIN(self % AoAphi)
-         
+         u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)+u_prime
+         v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)+v_prime
+         w  = qq*SIN(self % AoAphi)+w_prime
+
          Q(1) = self % rho
          Q(2) = Q(1)*u
          Q(3) = Q(1)*v

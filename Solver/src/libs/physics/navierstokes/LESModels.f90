@@ -59,6 +59,15 @@ module LESModels
          procedure          :: ComputeViscosity   => Smagorinsky_ComputeViscosity
    end type Smagorinsky_t
 
+   type, extends(LESModel_t)  :: WALE_t
+      real(kind=RP)  :: Cw
+      contains
+         procedure          :: Initialize         => WALE_Initialize
+         procedure          :: Describe           => WALE_Describe
+         procedure          :: ComputeViscosity   => WALE_ComputeViscosity
+   end type WALE_t
+
+
    class(LESModel_t), allocatable   :: LESModel
 
    contains
@@ -87,11 +96,15 @@ module LESModels
             case ("smagorinsky")
                if (.not. allocated(model)) allocate(Smagorinsky_t  :: model)
 
+            case ("wale")
+               if (.not. allocated(model)) allocate(WALE_t  :: model)
+
             case default
                write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * None (default)"
                print*, "   * Smagorinsky"
+               print*, "   * Wale"
                errorMessage(STD_OUT)
                stop
 
@@ -118,10 +131,15 @@ module LESModels
                model % WallModel             = LINEAR_WALLMODEL
                model % requiresWallDistances = .true.
 
+            case ("Wale")
+               model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
+
             case default
                write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * Linear (default)"
+               print*, "   * Wale"
                print*, "   * None"
                errorMessage(STD_OUT)
                stop
@@ -167,7 +185,7 @@ module LESModels
          
       end function LESModel_ComputeWallEffect
 
-      pure subroutine LESModel_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, muSmag)
+      pure subroutine LESModel_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
          implicit none
          !-arguments---------------------------------------------
          class(LESModel_t), intent(in)    :: this
@@ -177,7 +195,7 @@ module LESModels
          real(kind=RP), intent(in)           :: Q_x(NGRAD)
          real(kind=RP), intent(in)           :: Q_y(NGRAD)
          real(kind=RP), intent(in)           :: Q_z(NGRAD)
-         real(kind=RP), intent(out)          :: muSmag
+         real(kind=RP), intent(out)          :: mu
 
       end subroutine LESModel_ComputeViscosity
       
@@ -218,7 +236,7 @@ module LESModels
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, muSmag)
+      pure subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
          implicit none
          !-arguments---------------------------------------------
          class(Smagorinsky_t), intent(in)    :: this
@@ -228,7 +246,7 @@ module LESModels
          real(kind=RP), intent(in)           :: Q_x(NGRAD)
          real(kind=RP), intent(in)           :: Q_y(NGRAD)
          real(kind=RP), intent(in)           :: Q_z(NGRAD)
-         real(kind=RP), intent(out)          :: muSmag
+         real(kind=RP), intent(out)          :: mu
          !-local-variables---------------------------------------
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: normS, kappa, LS
@@ -259,7 +277,7 @@ module LESModels
 !        ------------------------------------------
          LS = this % CS * delta
          LS = this % ComputeWallEffect(LS,dWall)
-         muSmag = Q(IRHO) * POW2(LS) * normS
+         mu = Q(IRHO) * POW2(LS) * normS
          
       end subroutine Smagorinsky_ComputeViscosity
 !
@@ -284,5 +302,129 @@ module LESModels
          end select
          
       end subroutine Smagorinsky_Describe
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+!           WALE turbulence model: Wall-Adapting Local Eddy-Viscosity (WALE) Model
+!           -----------------------
+!            0.55≤Cw≤0.60
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine WALE_Initialize(self, controlVariables)
+         implicit none
+         class(WALE_t)                     :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         self % active                = .true.
+
+         if ( controlVariables % containsKey(LESIntensityKey) ) then
+            self % Cw = controlVariables % doublePrecisionValueForKey(LESIntensityKey)
+
+         else
+            self % Cw = 0.325_RP      
+
+         end if
+
+      end subroutine WALE_Initialize
+
+      pure subroutine WALE_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         implicit none
+         !-arguments---------------------------------------------
+         class(WALE_t), intent(in)    :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: mu
+         !-local-variables---------------------------------------
+         real(kind=RP)  :: S(NDIM, NDIM)
+         real(kind=RP)  :: Sd(NDIM, NDIM)
+         real(kind=RP)  :: normS, normSd, divV, kappa, LS
+         real(kind=RP)  :: U_x(NDIM)
+         real(kind=RP)  :: U_y(NDIM)
+         real(kind=RP)  :: U_z(NDIM)
+         integer        :: m
+         !-------------------------------------------------------
+         
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         
+!
+!        Compute symmetric part of the deformation tensor
+!        ------------------------------------------------
+         S(:,1) = U_x(1:3)
+         S(:,2) = U_y(1:3)
+         S(:,3) = U_z(1:3)
+
+         S(1,:) = S(1,:) + U_x(1:3)
+         S(2,:) = S(2,:) + U_y(1:3)
+         S(3,:) = S(3,:) + U_z(1:3)
+
+         S = 0.5_RP * S
+
+         divV = S(1,1) + S(2,2) + S(3,3)
+
+!        Compute the norm of S
+!        --------------------- 
+         normS =  sum(S*S)
+
+!        Remove the volumetric deformation tensor with squared gradients
+!        ----------------------------------------
+	 do m = 1, 3 
+         Sd(m,1) = POW2(U_x(m))
+         Sd(m,2) = POW2(U_y(m))
+         Sd(m,3) = POW2(U_z(m))
+	 end do  
+
+	 do m = 1, 3
+         Sd(1,m) = Sd(1,m) + POW2(U_x(m))
+         Sd(2,m) = Sd(2,m) + POW2(U_y(m))
+         Sd(3,m) = Sd(3,m) + POW2(U_z(m))
+	 end do 
+
+         Sd = 0.5_RP * Sd
+
+	      Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * POW2(divV)
+         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * POW2(divV)
+         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * POW2(divV)
+
+!        Compute the norm of Sd
+!        --------------------- 
+         normSd =  sum(Sd*Sd)
+!
+!        Compute viscosity and thermal conductivity
+!        ------------------------------------------
+         LS = min(this % Cw * delta, dWall * K_VONKARMAN)
+         LS = this % ComputeWallEffect(LS,dWall)
+         
+         mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
+         
+      end subroutine WALE_ComputeViscosity
+
+      subroutine WALE_Describe(self)
+         implicit none
+         class(WALE_t),   intent(in)  :: self
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,*)
+         call SubSection_Header("LES Model")
+         write(STD_OUT,'(30X,A,A30,A)') "->","LES model: ","Wale"
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","LES model intensity: ", self % Cw
+         
+         select case (self % WallModel)
+            case(NO_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Wale"
+            case(LINEAR_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model wiht Wale -> deactivate"
+         end select
+         
+      end subroutine WALE_Describe
 
 end module LESModels
