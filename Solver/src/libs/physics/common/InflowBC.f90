@@ -367,14 +367,21 @@ module InflowBCClass
                      call random_number(u_prime)
                      call random_number(v_prime)
                      call random_number(w_prime)
-
-                     u_prime = (2.0_RP*u_prime - 1.0_RP)*self % TurbIntensity * u
-                     v_prime = (2.0_RP*v_prime - 1.0_RP)*self % TurbIntensity * v
-                     w_prime = (2.0_RP*w_prime - 1.0_RP)*self % TurbIntensity * w
+!        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctiation with max turb
+                     call random_seed
+                     call random_number(u_prime)
+                     call random_number(v_prime)
+                     call random_number(w_prime)
          qq = self % v
-         u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)+u_prime
-         v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)+v_prime
-         w  = qq*SIN(self % AoAphi)+w_prime
+         u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
+         v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
+         w  = qq*SIN(self % AoAphi)
+         u_prime = (2.0_RP*u_prime - 1.0_RP)*self % TurbIntensity * u
+         v_prime = (2.0_RP*v_prime - 1.0_RP)*self % TurbIntensity * v
+         w_prime = (2.0_RP*w_prime - 1.0_RP)*self % TurbIntensity * w
+         u  = u+u_prime
+         v  = v+v_prime
+         w  = w+w_prime
 
          Q(1) = self % rho
          Q(2) = Q(1)*u
