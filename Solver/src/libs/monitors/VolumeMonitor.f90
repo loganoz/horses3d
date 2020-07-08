@@ -108,9 +108,12 @@ module VolumeMonitorClass
          select case ( trim ( self % variable ) )
          case ("kinetic energy")
          case ("kinetic energy rate")
+         case ("kinetic energy balance")
          case ("enstrophy")
          case ("entropy")
          case ("entropy rate")
+         case ("entropy balance")
+         case ("svv dissipation")
          case ("internal energy")
          case ("mean velocity")
          case ("velocity") ; self % num_of_vars = 3
@@ -126,9 +129,12 @@ module VolumeMonitorClass
                print*, "Options available are:"
                print*, "   * Kinetic energy"
                print*, "   * Kinetic energy rate"
+               print*, "   * Kinetic energy balance"
                print*, "   * Enstrophy"
                print*, "   * Entropy"
                print*, "   * Entropy rate"
+               print*, "   * Entropy balance"
+               print*, "   * SVV dissipation"
                print*, "   * Internal energy"
                print*, "   * Mean velocity"
                print*, "   * Velocity"
@@ -266,6 +272,9 @@ module VolumeMonitorClass
          case ("kinetic energy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
    
+         case ("kinetic energy balance")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY_BALANCE) / ScalarVolumeIntegral(mesh, VOLUME)
+   
          case ("enstrophy")
             self % values(1,bufferPosition) = 0.5_RP * ScalarVolumeIntegral(mesh, ENSTROPHY) / ScalarVolumeIntegral(mesh, VOLUME)
 
@@ -274,6 +283,12 @@ module VolumeMonitorClass
 
          case ("entropy rate")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_RATE) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("entropy balance")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_BALANCE) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("svv dissipation")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, SVV_DISSIPATION) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("internal energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, INTERNAL_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)            

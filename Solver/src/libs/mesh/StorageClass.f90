@@ -83,9 +83,10 @@ module StorageClass
       real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term      
-      real(kind=RP),           allocatable :: mu_art(:,:,:,:)      ! (mu, beta, kappa) artificial
+      real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
+      real(kind=RP)                        :: SVV_diss
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -169,13 +170,14 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
+      real(kind=RP), dimension(:,:,:),     allocatable :: Hflux
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:),       allocatable :: rho
-      real(kind=RP), dimension(:,:,:),     allocatable :: mu_art
+      real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -788,7 +790,7 @@ module StorageClass
             ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          end if
          
-         allocate( self % mu_art(3,0:Nx,0:Ny,0:Nz) )
+         allocate( self % mu_NS(2,0:Nx,0:Ny,0:Nz) )
          
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
          
@@ -844,13 +846,15 @@ module StorageClass
          self % QNS    = 0.0_RP
          self % QDotNS = 0.0_RP
          self % rho    = 0.0_RP
-         self % mu_art = 0.0_RP
+         self % mu_NS  = 0.0_RP
          
          if (computeGradients) then
             self % U_xNS = 0.0_RP
             self % U_yNS = 0.0_RP
             self % U_zNS = 0.0_RP
          end if
+
+         self % SVV_diss = 0.0_RP
 #endif
 
 #ifdef CAHNHILLIARD
@@ -931,7 +935,7 @@ module StorageClass
          to % S_NS   = from % S_NS
          to % S_NSP  = from % S_NSP
          
-         to % mu_art    = from % mu_art
+         to % mu_NS     = from % mu_NS 
          to % stats     = from % stats
          
          if (to % anJacobian) then
@@ -1019,7 +1023,7 @@ module StorageClass
             safedeallocate(self % U_yNS)
             safedeallocate(self % U_zNS)
          end if
-         safedeallocate(self % mu_art)
+         safedeallocate(self % mu_NS)
          safedeallocate(self % rho)
          
          !if (self % anJacobian) then ! Not needed since there's only one variable (= one if)
@@ -1267,7 +1271,7 @@ module StorageClass
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
-         allocate( self % mu_art    (3,0:Nf(1),0:Nf(2)) )
+         allocate( self % mu_NS     (2,0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1311,7 +1315,12 @@ module StorageClass
             self % U_zNS = 0.0_RP
          end if
          self % rho    = 0.0_RP
-         self % mu_art = 0.0_RP
+         self % mu_NS  = 0.0_RP
+#endif
+
+#ifdef NAVIERSTOKES
+         allocate(self % Hflux(NCONS,0:Nf(1), 0:Nf(2)))
+         self % Hflux = 0.0_RP
 #endif
 
 #ifdef CAHNHILLIARD
@@ -1382,7 +1391,7 @@ module StorageClass
             safedeallocate(self % U_yNS)
             safedeallocate(self % U_zNS)
          end if
-         safedeallocate(self % mu_art)
+         safedeallocate(self % mu_NS)
          safedeallocate(self % rho )
          
          self % anJacobian      = .FALSE.
@@ -1415,6 +1424,8 @@ module StorageClass
          self % U_x    => NULL() ; self % U_y => NULL() ; self % U_z => NULL()
          self % unStar => NULL()
          self % fStar  => NULL()
+
+         safedeallocate(self % Hflux)
 
       end subroutine FaceStorage_Destruct
 #ifdef FLOW
@@ -1535,7 +1546,7 @@ module StorageClass
             to % U_zNS = from % U_zNS
          end if
          to % rho = from % rho
-         to % mu_art = from % mu_art
+         to % mu_NS  = from % mu_NS 
          
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF

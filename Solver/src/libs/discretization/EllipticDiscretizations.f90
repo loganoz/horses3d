@@ -19,7 +19,7 @@ module EllipticDiscretizations
    implicit none
 
    private
-   public   EllipticFlux0D_f, EllipticFlux3D_f
+   public   EllipticFlux_f, GetViscosity_f
    public   EllipticDiscretization_t, BassiRebay1_t, BassiRebay2_t, InteriorPenalty_t
    public   SIPG, IIPG, NIPG
    public   ELLIPTIC_NS, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU

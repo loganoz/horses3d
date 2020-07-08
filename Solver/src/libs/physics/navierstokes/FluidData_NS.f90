@@ -69,6 +69,7 @@ module FluidData_NS
       real(kind=RP)        :: Fr
       real(kind=RP)        :: mu
       real(kind=RP)        :: kappa
+      real(kind=RP)        :: mu_to_kappa
       real(kind=RP)        :: Mach
       real(kind=RP)        :: gammaM2
       real(kind=RP)        :: invFr2
@@ -149,6 +150,7 @@ module FluidData_NS
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % mu              = dimensionless_ % mu
          dimensionless % kappa           = dimensionless_ % kappa
+         dimensionless % mu_to_kappa     = dimensionless_ % mu_to_kappa
          dimensionless % Mach            = dimensionless_ % Mach
          dimensionless % gammaM2         = dimensionless_ % gammaM2
          dimensionless % invFr2 = dimensionless_ % invFr2

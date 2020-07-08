@@ -156,6 +156,13 @@ print*, "Method selected: RK5"
 
          end if
 
+         if ( controlVariables % ContainsKey("compute time derivative after timestep") ) then
+            if ( controlVariables % LogicalValueForKey("compute time derivative after timestep") ) then
+               call Enable_CTD_AFTER_STEPS
+               call Enable_CTD_AFTER_STEPS_IMEX
+            end if
+         end if 
+
 !
 !        ------------------------------------
 !        Integrator-dependent initializarions

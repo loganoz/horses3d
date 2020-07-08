@@ -315,19 +315,46 @@
 
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations = 1000
-            REAL(KIND=RP)                      :: residuals = 1.0395804761325150E-005_RP
+            real(kind=RP), parameter    :: residuals(5) = [4.1583311395443637E-08_RP, &
+                                                           4.3469691820867089E-07_RP, &
+                                                           4.3470099494843221E-07_RP, &
+                                                           1.4381825510287783E-06_RP, &
+                                                           1.0395822872791377E-05_RP]
+
                                                               
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
             
+
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+
             CALL FTAssertEqual(expectedValue = iterations, &
                                actualValue   = iter, &
                                msg           = "Number of iterations")
-
-            CALL FTAssertEqual(expectedValue = residuals, &
-                               actualValue   = maxResidual, &
-                               tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    

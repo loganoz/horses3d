@@ -65,6 +65,7 @@
 !     Main hex-element type
 !     ---------------------
       TYPE Element
+         real(kind=RP)                   :: Psvv
          logical                         :: hasSharedFaces
          integer                         :: dir2D
          integer                         :: globDir(3)        ! If the global coordinate (GLOBAL) is aligned with the local coordinate (REFERENCE): globDir(GLOBAL) = REFERENCE 
@@ -91,10 +92,11 @@
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
+            procedure   :: ProlongHfluxToFaces     => HexElement_ProlongHfluxToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
-            procedure   :: copy => HexElement_Assign
-            generic     :: assignment(=) => copy
+            procedure   :: copy                    => HexElement_Assign
+            generic     :: assignment(=)           => copy
       END TYPE Element 
             
       CONTAINS 
@@ -334,10 +336,61 @@
          call fT   % AdaptGradientsToFace(nGradEqn, N(1), N(2), UxT , UyT , UzT , self % faceSide(ETOP   ))
 
       end subroutine HexElement_ProlongGradientsToFaces
+
+      subroutine HexElement_ProlongHFluxToFaces(self, nEqn, Hflux, fFR, fBK, fBOT, fR, fT, fL)
+         use FaceClass
+         implicit none
+         class(Element),   intent(in)    :: self
+         integer,          intent(in)    :: nEqn
+         real(kind=RP) ,   intent(in)    :: Hflux(1:NCONS, 0:self%Nxyz(1), 0:self%Nxyz(2), 0:self%Nxyz(3), 1:NDIM)
+         class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                                                              :: i, j, k, l, N(3)
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: HFR, HBK
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: HBOT, HT
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: HL, HR
+         type(NodalStorage_t), pointer                                        :: spAxi, spAeta, spAzeta
+         
+         N = self % Nxyz
+         spAxi   => NodalStorage(N(1))
+         spAeta  => NodalStorage(N(2))
+         spAzeta => NodalStorage(N(3))
+!
+!        *************************
+!        Prolong solution to faces
+!        *************************
+!
+         HL   = 0.0_RP     ; HR   = 0.0_RP
+         HFR  = 0.0_RP     ; HBK  = 0.0_RP
+         HBOT = 0.0_RP     ; HT   = 0.0_RP
+         
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            HL  (:,j,k) = HL  (:,j,k) - Hflux(:,i,j,k,IX) * spAxi   % v(i,LEFT  )
+            HR  (:,j,k) = HR  (:,j,k) + Hflux(:,i,j,k,IX) * spAxi   % v(i,RIGHT )
+            HFR (:,i,k) = HFR (:,i,k) - Hflux(:,i,j,k,IY) * spAeta  % v(j,FRONT )
+            HBK (:,i,k) = HBK (:,i,k) + Hflux(:,i,j,k,IY) * spAeta  % v(j,BACK  )
+            HBOT(:,i,j) = HBOT(:,i,j) - Hflux(:,i,j,k,IZ) * spAzeta % v(k,BOTTOM)
+            HT  (:,i,j) = HT  (:,i,j) + Hflux(:,i,j,k,IZ) * spAzeta % v(k,TOP   )
+         end do                   ; end do                   ; end do
+         nullify (spAxi, spAeta, spAzeta)
+         
+         call fL   % AdaptHfluxToFace(nEqn, N(2), N(3), HL   , self % faceSide(ELEFT  ))
+         call fR   % AdaptHfluxToFace(nEqn, N(2), N(3), HR   , self % faceSide(ERIGHT ))
+         call fFR  % AdaptHfluxToFace(nEqn, N(1), N(3), HFR  , self % faceSide(EFRONT ))
+         call fBK  % AdaptHfluxToFace(nEqn, N(1), N(3), HBK  , self % faceSide(EBACK  ))
+         call fBOT % AdaptHfluxToFace(nEqn, N(1), N(2), HBOT , self % faceSide(EBOTTOM))
+         call fT   % AdaptHfluxToFace(nEqn, N(1), N(2), HT   , self % faceSide(ETOP   ))
+
+      end subroutine HexElement_ProlongHFluxToFaces
+
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues3D)
+      subroutine HexElement_ComputeLocalGradient(self, nEqn, nGradEqn, GetGradientValues, set_mu)
 !
 !        ****************************************************************
 !           This subroutine computes local gradients as:
@@ -350,7 +403,8 @@
          class(Element),   intent(inout)  :: self
          integer,          intent(in)     :: nEqn
          integer,          intent(in)     :: nGradEqn
-         procedure(GetGradientValues3D_f) :: GetGradientValues3D
+         procedure(GetGradientValues_f)   :: GetGradientValues
+         logical,          intent(in)     :: set_mu
 !
 !        ---------------
 !        Local variables
@@ -373,15 +427,20 @@
 !        **********************
 !
 #ifdef MULTIPHASE
-         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U, self % storage % rho )
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k), self % storage % rho(i,j,k) )
+         end do         ; end do         ; end do
 #else
-         call GetGradientValues3D(nEqn, nGradEqn, N(1), N(2), N(3), self % storage % Q, U )
+         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+            call GetGradientValues(nEqn, nGradEqn, self % storage % Q(:,i,j,k), U(:,i,j,k))
+         end do         ; end do         ; end do
 #endif
 
 #ifdef MULTIPHASE
+!
 !        The multiphase solver needs the Chemical potential as first entropy variable
 !        ----------------------------------------------------------------------------
-         U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
+         if ( set_mu ) U(IGMU,:,:,:) = self % storage % mu(1,:,:,:)
 #endif
 !
 !        ************
@@ -589,7 +648,7 @@
 !
 !           Stopping criteria: there are several
 !           ------------------------------------
-            F(dir2D) = 0.0_RP
+            if ( dir2D .gt. 0 ) F(dir2D) = 0.0_RP
             if ( maxval(abs(F)) .lt. TOL ) exit
             if ( abs(xi(1)) .ge. 2.5_RP ) exit
             if ( abs(xi(2)) .ge. 2.5_RP ) exit

@@ -10,12 +10,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module LESModels
    use SMConstants
@@ -52,11 +46,8 @@ module LESModels
       integer  :: WallModel
       contains
          procedure            :: Initialize         => LESModel_Initialize
-         generic              :: ComputeSGSTensor   => ComputeSGSTensor0D, ComputeSGSTensor2D, ComputeSGSTensor3D
-         procedure, private   :: ComputeSGSTensor3D => LESModel_ComputeSGSTensor3D
-         procedure, private   :: ComputeSGSTensor2D => LESModel_ComputeSGSTensor2D
-         procedure, private   :: ComputeSGSTensor0D => LESModel_ComputeSGSTensor0D
          procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
+         procedure            :: ComputeViscosity   => LESModel_ComputeViscosity
          procedure            :: Describe           => LESModel_Describe
    end type LESModel_t
 
@@ -64,12 +55,18 @@ module LESModels
       real(kind=RP)  :: CS
       contains
          procedure          :: Initialize         => Smagorinsky_Initialize
-         procedure, private :: ComputeSGSTensor3D => Smagorinsky_ComputeSGSTensor3D
-         procedure, private :: ComputeSGSTensor2D => Smagorinsky_ComputeSGSTensor2D
-         procedure, private :: ComputeSGSTensor0D => Smagorinsky_ComputeSGSTensor0D
          procedure          :: Describe           => Smagorinsky_Describe
          procedure          :: ComputeViscosity   => Smagorinsky_ComputeViscosity
    end type Smagorinsky_t
+
+   type, extends(LESModel_t)  :: WALE_t
+      real(kind=RP)  :: Cw
+      contains
+         procedure          :: Initialize         => WALE_Initialize
+         procedure          :: Describe           => WALE_Describe
+         procedure          :: ComputeViscosity   => WALE_ComputeViscosity
+   end type WALE_t
+
 
    class(LESModel_t), allocatable   :: LESModel
 
@@ -99,11 +96,15 @@ module LESModels
             case ("smagorinsky")
                if (.not. allocated(model)) allocate(Smagorinsky_t  :: model)
 
+            case ("wale")
+               if (.not. allocated(model)) allocate(WALE_t  :: model)
+
             case default
                write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * None (default)"
                print*, "   * Smagorinsky"
+               print*, "   * Wale"
                errorMessage(STD_OUT)
                stop
 
@@ -130,10 +131,15 @@ module LESModels
                model % WallModel             = LINEAR_WALLMODEL
                model % requiresWallDistances = .true.
 
+            case ("Wale")
+               model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
+
             case default
                write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * Linear (default)"
+               print*, "   * Wale"
                print*, "   * None"
                errorMessage(STD_OUT)
                stop
@@ -166,59 +172,6 @@ module LESModels
 
       end subroutine LESModel_Initialize
 
-      subroutine LESModel_ComputeSGSTensor3D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(LESModel_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         integer,       intent(in)     :: N(3)
-         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q  (NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2), 0:N(3))
-           
-         tau = 0.0_RP
-         qSGS= 0.0_RP
-
-      end subroutine LESModel_ComputeSGSTensor3D
-
-      subroutine LESModel_ComputeSGSTensor2D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(LESModel_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         integer,       intent(in)     :: N(2)
-         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q(NCONS, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2))
-           
-         tau = 0.0_RP
-         qSGS= 0.0_RP
-
-      end subroutine LESModel_ComputeSGSTensor2D
-
-      subroutine LESModel_ComputeSGSTensor0D(self, delta, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(LESModel_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: Q(NCONS)
-         real(kind=RP), intent(in)     :: Q_x(NGRAD)
-         real(kind=RP), intent(in)     :: Q_y(NGRAD)
-         real(kind=RP), intent(in)     :: Q_z(NGRAD)
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
-         real(kind=RP), intent(out)    :: qSGS(NDIM)
-
-         tau = 0.0_RP
-         qSGS= 0.0_RP
-
-      end subroutine LESModel_ComputeSGSTensor0D
-      
       pure real(kind=RP) function LESModel_ComputeWallEffect (self,LS,dWall)
          implicit none
          class(LESModel_t), intent(in) :: self
@@ -231,6 +184,20 @@ module LESModels
          end select
          
       end function LESModel_ComputeWallEffect
+
+      pure subroutine LESModel_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         implicit none
+         !-arguments---------------------------------------------
+         class(LESModel_t), intent(in)    :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: mu
+
+      end subroutine LESModel_ComputeViscosity
       
       subroutine LESModel_Describe(self)
          implicit none
@@ -266,226 +233,10 @@ module LESModels
          end if
 
       end subroutine Smagorinsky_Initialize
-
-      subroutine Smagorinsky_ComputeSGSTensor3D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(Smagorinsky_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         integer,       intent(in)     :: N(3)
-         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q  (NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2), 0:N(3))
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer     :: i, j, k
-         real(kind=RP)  :: S(NDIM, NDIM)
-         real(kind=RP)  :: normS, divV, mu, kappa, LS
-         real(kind=RP) :: U_x(NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP) :: U_y(NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP) :: U_z(NDIM, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP) :: nablaT(NDIM, 0:N(1), 0:N(2), 0:N(3))
-         
-         call getVelocityGradients  (N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
-         call getTemperatureGradient(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
-
-         do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
-!
-!           Compute symmetric part of the deformation tensor
-!           ------------------------------------------------
-            S(:,1) = U_x(1:3, i, j, k)
-            S(:,2) = U_y(1:3, i, j, k)
-            S(:,3) = U_z(1:3, i, j, k)
-
-            S(1,:) = S(1,:) + U_x(1:3,i,j,k)
-            S(2,:) = S(2,:) + U_y(1:3,i,j,k)
-            S(3,:) = S(3,:) + U_z(1:3,i,j,k)
-
-            S = 0.5_RP * S
-
-            divV = S(1,1) + S(2,2) + S(3,3)
-!
-!           Compute the norm of S
-!           --------------------- 
-            normS = sqrt( 2.0_RP * sum(S*S) )
-!
-!           Compute viscosity and thermal conductivity
-!           ------------------------------------------
-            LS = self % CS * delta
-            LS = self % ComputeWallEffect(LS,dWall(i,j,k))
-            
-            mu = POW2(LS) * normS
-            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
-!
-!           Remove the volumetric deformation tensor
-!           ----------------------------------------
-            S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
-            S(2,2) = S(2,2) - 1.0_RP / 3.0_RP * divV
-            S(3,3) = S(3,3) - 1.0_RP / 3.0_RP * divV
-!
-!           Compute the SGS tensor and heat flux
-!           ------------------------------------
-            tau(:,:,i,j,k) = -2.0_RP * mu * S
-
-            qSGS(1,i,j,k) = -kappa * nablaT(IX,i,j,k)
-            qSGS(2,i,j,k) = -kappa * nablaT(IY,i,j,k)
-            qSGS(3,i,j,k) = -kappa * nablaT(IZ,i,j,k)
-
-         end do         ; end do          ; end do
-         
-      end subroutine Smagorinsky_ComputeSGSTensor3D
-
-      subroutine Smagorinsky_ComputeSGSTensor2D(self, delta, N, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(Smagorinsky_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         integer,       intent(in)     :: N(2)
-         real(kind=RP), intent(in)     :: dWall(0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q(NCONS, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_x(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_y(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(in)     :: Q_z(NGRAD, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM, 0:N(1), 0:N(2))
-         real(kind=RP), intent(out)    :: qSGS(NDIM, 0:N(1), 0:N(2))
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer       :: i, j
-         real(kind=RP) :: S(NDIM, NDIM)
-         real(kind=RP) :: normS, divV, mu, kappa, LS
-         real(kind=RP) :: U_x(NDIM, 0:N(1), 0:N(2))
-         real(kind=RP) :: U_y(NDIM, 0:N(1), 0:N(2))
-         real(kind=RP) :: U_z(NDIM, 0:N(1), 0:N(2))
-         real(kind=RP) :: nablaT(NDIM, 0:N(1), 0:N(2))
-         
-         call getVelocityGradients  (N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
-         call getTemperatureGradient(N,Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
-         
-         do j = 0, N(2)  ; do i = 0, N(1)
-!
-!           Compute symmetric part of the deformation tensor
-!           ------------------------------------------------
-            S(:,1) = U_x(1:3, i, j)
-            S(:,2) = U_y(1:3, i, j)
-            S(:,3) = U_z(1:3, i, j)
-
-            S(1,:) = S(1,:) + U_x(1:3,i,j)
-            S(2,:) = S(2,:) + U_y(1:3,i,j)
-            S(3,:) = S(3,:) + U_z(1:3,i,j)
-
-            S = 0.5_RP * S
-
-            divV = S(1,1) + S(2,2) + S(3,3)
-!
-!           Compute the norm of S
-!           --------------------- 
-            normS = sqrt( 2.0_RP * sum(S*S) )
-!
-!           Compute viscosity and thermal conductivity
-!           ------------------------------------------
-            LS = min(self % CS * delta, dWall(i,j) * K_VONKARMAN)
-            LS = self % ComputeWallEffect(LS,dWall(i,j))
-            
-            mu = POW2(LS) * normS
-            kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
-!
-!           Remove the volumetric deformation tensor
-!           ----------------------------------------
-            S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
-            S(2,2) = S(2,2) - 1.0_RP / 3.0_RP * divV
-            S(3,3) = S(3,3) - 1.0_RP / 3.0_RP * divV
-!
-!           Compute the SGS tensor and heat flux
-!           ------------------------------------
-            tau(:,:,i,j) = -2.0_RP * mu * S
-
-            qSGS(1,i,j) = -kappa * nablaT(IX,i,j)
-            qSGS(2,i,j) = -kappa * nablaT(IY,i,j)
-            qSGS(3,i,j) = -kappa * nablaT(IZ,i,j)
-
-         end do          ; end do
-         
-      end subroutine Smagorinsky_ComputeSGSTensor2D
-
-      subroutine Smagorinsky_ComputeSGSTensor0D(self, delta, dWall, Q, Q_x, Q_y, Q_z, tau, qSGS)
-         implicit none
-         class(Smagorinsky_t), intent(in) :: self
-         real(kind=RP), intent(in)     :: delta
-         real(kind=RP), intent(in)     :: dWall
-         real(kind=RP), intent(in)     :: Q(NCONS)
-         real(kind=RP), intent(in)     :: Q_x(NGRAD)
-         real(kind=RP), intent(in)     :: Q_y(NGRAD)
-         real(kind=RP), intent(in)     :: Q_z(NGRAD)
-         real(kind=RP), intent(out)    :: tau(NDIM, NDIM)
-         real(kind=RP), intent(out)    :: qSGS(NDIM)
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         real(kind=RP)  :: S(NDIM, NDIM)
-         real(kind=RP)  :: normS, divV, mu, kappa, LS
-         real(kind=RP) :: U_x(NDIM)
-         real(kind=RP) :: U_y(NDIM)
-         real(kind=RP) :: U_z(NDIM)
-         real(kind=RP) :: nablaT(NDIM)
-         
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
-         call getTemperatureGradient(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z,nablaT)
-!
-!        Compute symmetric part of the deformation tensor
-!        ------------------------------------------------
-         S(:,1) = U_x(1:3)
-         S(:,2) = U_y(1:3)
-         S(:,3) = U_z(1:3)
-
-         S(1,:) = S(1,:) + U_x(1:3)
-         S(2,:) = S(2,:) + U_y(1:3)
-         S(3,:) = S(3,:) + U_z(1:3)
-
-         S = 0.5_RP * S
-
-         divV = S(1,1) + S(2,2) + S(3,3)
-!
-!        Compute the norm of S
-!        --------------------- 
-         normS = sqrt( 2.0_RP * sum(S*S) )
-!
-!        Compute viscosity and thermal conductivity
-!        ------------------------------------------
-         LS = min(self % CS * delta, dWall * K_VONKARMAN)
-         LS = self % ComputeWallEffect(LS,dWall)
-         
-         mu = POW2(LS) * normS
-         kappa = mu / (thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
-!
-!        Remove the volumetric deformation tensor
-!        ----------------------------------------
-         S(1,1) = S(1,1) - 1.0_RP / 3.0_RP * divV
-         S(2,2) = S(2,2) - 1.0_RP / 3.0_RP * divV
-         S(3,3) = S(3,3) - 1.0_RP / 3.0_RP * divV
-!
-!        Compute the SGS tensor
-!        ----------------------
-         tau = -2.0_RP * mu * S
-
-         qSGS(1) = -kappa * nablaT(IX)
-         qSGS(2) = -kappa * nablaT(IY)
-         qSGS(3) = -kappa * nablaT(IZ)
-
-      end subroutine Smagorinsky_ComputeSGSTensor0D
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, muSmag)
+      pure subroutine Smagorinsky_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
          implicit none
          !-arguments---------------------------------------------
          class(Smagorinsky_t), intent(in)    :: this
@@ -495,7 +246,7 @@ module LESModels
          real(kind=RP), intent(in)           :: Q_x(NGRAD)
          real(kind=RP), intent(in)           :: Q_y(NGRAD)
          real(kind=RP), intent(in)           :: Q_z(NGRAD)
-         real(kind=RP), intent(out)          :: muSmag
+         real(kind=RP), intent(out)          :: mu
          !-local-variables---------------------------------------
          real(kind=RP)  :: S(NDIM, NDIM)
          real(kind=RP)  :: normS, kappa, LS
@@ -504,8 +255,7 @@ module LESModels
          real(kind=RP)  :: U_z(NDIM)
          !-------------------------------------------------------
          
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
-         
+         call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
 !
 !        Compute symmetric part of the deformation tensor
 !        ------------------------------------------------
@@ -525,8 +275,9 @@ module LESModels
 !
 !        Compute viscosity and thermal conductivity
 !        ------------------------------------------
-         LS = min(this % CS * delta, dWall * K_VONKARMAN)
-         muSmag = POW2(LS) * normS
+         LS = this % CS * delta
+         LS = this % ComputeWallEffect(LS,dWall)
+         mu = Q(IRHO) * POW2(LS) * normS
          
       end subroutine Smagorinsky_ComputeViscosity
 !
@@ -551,5 +302,129 @@ module LESModels
          end select
          
       end subroutine Smagorinsky_Describe
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+!           WALE turbulence model: Wall-Adapting Local Eddy-Viscosity (WALE) Model
+!           -----------------------
+!            0.55≤Cw≤0.60
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine WALE_Initialize(self, controlVariables)
+         implicit none
+         class(WALE_t)                     :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         self % active                = .true.
+
+         if ( controlVariables % containsKey(LESIntensityKey) ) then
+            self % Cw = controlVariables % doublePrecisionValueForKey(LESIntensityKey)
+
+         else
+            self % Cw = 0.325_RP      
+
+         end if
+
+      end subroutine WALE_Initialize
+
+      pure subroutine WALE_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         implicit none
+         !-arguments---------------------------------------------
+         class(WALE_t), intent(in)    :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: mu
+         !-local-variables---------------------------------------
+         real(kind=RP)  :: S(NDIM, NDIM)
+         real(kind=RP)  :: Sd(NDIM, NDIM)
+         real(kind=RP)  :: normS, normSd, divV, kappa, LS
+         real(kind=RP)  :: U_x(NDIM)
+         real(kind=RP)  :: U_y(NDIM)
+         real(kind=RP)  :: U_z(NDIM)
+         integer        :: m
+         !-------------------------------------------------------
+         
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         
+!
+!        Compute symmetric part of the deformation tensor
+!        ------------------------------------------------
+         S(:,1) = U_x(1:3)
+         S(:,2) = U_y(1:3)
+         S(:,3) = U_z(1:3)
+
+         S(1,:) = S(1,:) + U_x(1:3)
+         S(2,:) = S(2,:) + U_y(1:3)
+         S(3,:) = S(3,:) + U_z(1:3)
+
+         S = 0.5_RP * S
+
+         divV = S(1,1) + S(2,2) + S(3,3)
+
+!        Compute the norm of S
+!        --------------------- 
+         normS =  sum(S*S)
+
+!        Remove the volumetric deformation tensor with squared gradients
+!        ----------------------------------------
+	 do m = 1, 3 
+         Sd(m,1) = POW2(U_x(m))
+         Sd(m,2) = POW2(U_y(m))
+         Sd(m,3) = POW2(U_z(m))
+	 end do  
+
+	 do m = 1, 3
+         Sd(1,m) = Sd(1,m) + POW2(U_x(m))
+         Sd(2,m) = Sd(2,m) + POW2(U_y(m))
+         Sd(3,m) = Sd(3,m) + POW2(U_z(m))
+	 end do 
+
+         Sd = 0.5_RP * Sd
+
+	      Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * POW2(divV)
+         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * POW2(divV)
+         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * POW2(divV)
+
+!        Compute the norm of Sd
+!        --------------------- 
+         normSd =  sum(Sd*Sd)
+!
+!        Compute viscosity and thermal conductivity
+!        ------------------------------------------
+         LS = min(this % Cw * delta, dWall * K_VONKARMAN)
+         LS = this % ComputeWallEffect(LS,dWall)
+         
+         mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
+         
+      end subroutine WALE_ComputeViscosity
+
+      subroutine WALE_Describe(self)
+         implicit none
+         class(WALE_t),   intent(in)  :: self
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,*)
+         call SubSection_Header("LES Model")
+         write(STD_OUT,'(30X,A,A30,A)') "->","LES model: ","Wale"
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","LES model intensity: ", self % Cw
+         
+         select case (self % WallModel)
+            case(NO_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Wale"
+            case(LINEAR_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model wiht Wale -> deactivate"
+         end select
+         
+      end subroutine WALE_Describe
 
 end module LESModels

@@ -159,6 +159,9 @@ module HyperbolicDiscretizationClass
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
 
+         case (RIEMANN_UDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
+
 #elif defined(INCNS)
          case (RIEMANN_CENTRAL)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
@@ -198,7 +201,7 @@ module HyperbolicDiscretizationClass
          implicit none
          class(HyperbolicDiscretization_t), intent(in)  :: self
          type(Element),           intent(in)  :: e
-         procedure(HyperbolicFlux3D_f)        :: HyperbolicFlux
+         procedure(HyperbolicFlux0D_f)        :: HyperbolicFlux
          real(kind=RP),           intent(out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -206,25 +209,25 @@ module HyperbolicDiscretizationClass
 !        ---------------
 !
          integer            :: i, j, k
-         real(kind=RP)      :: cartesianFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
+         real(kind=RP)      :: cartesianFlux(1:NCONS, 1:NDIM)
 
-         call HyperbolicFlux( e%Nxyz, e % storage % Q, cartesianFlux, e % storage % rho)
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
+            call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), e % storage % rho(i,j,k))
          
-            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,i,j,k,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradXi(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                             + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                             + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradEta(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IY) =   cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                             + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                             + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,i,j,k,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             + cartesianFlux(:,i,j,k,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IZ) =   cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                             + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                             + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
          end do               ; end do                ; end do
 

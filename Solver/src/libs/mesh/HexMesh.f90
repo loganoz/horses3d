@@ -60,9 +60,15 @@ MODULE HexMeshClass
          integer                                   :: nodeType
          integer                                   :: no_of_elements
          integer                                   :: no_of_allElements
+         integer                                   :: no_of_faces
          integer                                   :: dt_restriction = DT_FIXED     ! Time step restriction of last step (DT_FIXED -initial value-, DT_DIFF or DT_CONV)
          integer      , dimension(:), allocatable  :: Nx, Ny, Nz
          integer                                   :: NDOF
+         integer,                     allocatable  :: faces_interior(:)
+         integer,                     allocatable  :: faces_mpi(:)
+         integer,                     allocatable  :: faces_boundary(:)
+         integer,                     allocatable  :: elements_sequential(:)
+         integer,                     allocatable  :: elements_mpi(:)
          integer, allocatable                      :: HOPRnodeIDs(:)
          character(len=LINE_LENGTH)                :: meshFileName
          type(SolutionStorage_t)                   :: storage              ! Here the solution and its derivative are stored
@@ -179,7 +185,13 @@ MODULE HexMeshClass
 !        ----------------
 !
          call self % storage % destruct
-         
+
+         safedeallocate(self % elements_sequential)
+         safedeallocate(self % elements_mpi)
+         safedeallocate(self % faces_interior)
+         safedeallocate(self % faces_mpi)
+         safedeallocate(self % faces_boundary)         
+
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -1629,16 +1641,17 @@ slavecoord:             DO l = 1, 4
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexMesh_CorrectOrderFor2DMesh(self, dir2D)
+      subroutine HexMesh_CorrectOrderFor2DMesh(self, dir2D,order_)
          implicit none
          class(HexMesh),   intent(inout) :: self
          integer,          intent(in)    :: dir2D
+         integer, intent(in), optional   :: order_
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer  :: eID, nID, no_of_orientedNodes
+         integer  :: eID, nID, no_of_orientedNodes, order
          integer  :: face1Nodes(NODES_PER_FACE)
          integer  :: face2Nodes(NODES_PER_FACE)
          logical  :: rightDir
@@ -1646,6 +1659,12 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)  :: xNodesF1(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: xNodesF2(NDIM,NODES_PER_FACE)
          real(kind=RP)  :: dx(NDIM,NODES_PER_FACE)
+
+         if ( present(order_) ) then
+            order = order_
+         else
+            order = 0
+         end if
 
          if (self % meshIs2D) then
             select case (dir2D)
@@ -1671,14 +1690,14 @@ slavecoord:             DO l = 1, 4
             
             select case (e % globDir(dir2D))
                case (IX)
-                  e % Nxyz(1) = 0
-                  self % Nx(eID) = 0
+                  e % Nxyz(1) = order
+                  self % Nx(eID) = order
                case (IY)
-                  e % Nxyz(2) = 0
-                  self % Ny(eID) = 0
+                  e % Nxyz(2) = order
+                  self % Ny(eID) = order
                case (IZ)
-                  e % Nxyz(3) = 0
-                  self % Nz(eID) = 0
+                  e % Nxyz(3) = order
+                  self % Nz(eID) = order
             end select
 
             end associate
@@ -2486,7 +2505,7 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 3*e % offsetIO*SIZEOF_RP
-            call writeArray(fID, e % geom % x*Lref, position=pos)
+            call writeArray(fID, e % geom % x(:,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))*Lref, position=pos)
             end associate
          end do
          close(fid)
@@ -3905,6 +3924,25 @@ slavecoord:             DO l = 1, 4
          to % elements(eID) % storage => to % storage % elements(eID)
       end do
 !$omp end parallel do
+
+      safedeallocate(to % elements_sequential)
+      safedeallocate(to % elements_mpi       )
+      safedeallocate(to % faces_interior     )
+      safedeallocate(to % faces_mpi          )
+      safedeallocate(to % faces_boundary     )
+
+      allocate(to % elements_sequential(size(from % elements_sequential)))
+      allocate(to % elements_mpi       (size(from % elements_mpi       )))
+      allocate(to % faces_interior     (size(from % faces_interior     )))
+      allocate(to % faces_mpi          (size(to % faces_mpi            )))
+      allocate(to % faces_boundary     (size(from % faces_boundary     )))
+
+      to % elements_sequential = from % elements_sequential
+      to % elements_mpi        = from % elements_mpi
+      to % faces_interior      = from % faces_interior
+      to % faces_mpi           = to % faces_mpi
+      to % faces_boundary      = from % faces_boundary
+
       
    end subroutine HexMesh_Assign
 END MODULE HexMeshClass

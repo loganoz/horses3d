@@ -108,6 +108,9 @@ module RiemannSolvers_NS
          case ( RIEMANN_VISCOUSNS )
             RiemannSolver => ViscousNSRiemannSolver
 
+         case ( RIEMANN_UDISS)
+            RiemannSolver => u_dissRiemannSolver
+
          case default
             print*, "Undefined choice of Riemann Solver."
             print*, "Options available are:"
@@ -117,6 +120,7 @@ module RiemannSolvers_NS
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
             print*, "   * Lax-Friedrichs"
+            print*, "   * u-diss"
             print*, "   * Rusanov"
             print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
@@ -151,9 +155,9 @@ module RiemannSolvers_NS
             AveragedStates => EntropyConservingAverage
             whichAverage = ENTROPYCONS_SPLIT
 
-         case (ENTROPYANDENERGYCONS_SPLIT)
-            AveragedStates => EntropyAndEnergyConservingAverage
-            whichAverage = ENTROPYANDENERGYCONS_SPLIT
+         case (CHANDRASEKAR_SPLIT)
+            AveragedStates => ChandrasekarAverage
+            whichAverage = CHANDRASEKAR_SPLIT
 
          case default
             print*, "Split form not recognized"
@@ -398,13 +402,15 @@ module RiemannSolvers_NS
 !        ---------------
 !
          integer        :: i, j, k
-         real(kind=RP)  :: QLRot(5), QRRot(5), VL(NPRIM), VR(NPRIM), aL, aR, betaL, betaR
-         real(kind=RP)  :: SL(5), SR(5)
+         real(kind=RP)  :: QLRot(5), QRRot(5), betaL, betaR
+         real(kind=RP)  :: EVL(5), EVR(5)
          real(kind=RP)  :: dQ(5)
-         real(kind=RP)  :: a, h
+         real(kind=RP)  :: a_bar, h_bar
          real(kind=RP)  :: R1(5,5), T(5), Lambda(5)
          real(kind=RP)  :: stab(5)
          real(kind=RP)  :: rhoLogMean, betaLogMean, pMean, uMean, vMean, wMean, V2abs
+         real(kind=RP)  :: uL, vL, wL, uR, vR, wR, vtotL, vtotR, pL, pR
+         real(kind=RP)  :: invRhoL, invRhoR
 
          associate(gm1 => thermodynamics % gammaMinus1, gamma => thermodynamics % gamma, &
                    invGamma => thermodynamics % invGamma, cp => thermodynamics % GammaDivGammaMinus1, &
@@ -427,51 +433,52 @@ module RiemannSolvers_NS
 
          QLRot(5) = QLeft(5) ; QRRot(5) = QRight(5)                
 !
-!        ***************************
-!        Compute primitive variables
-!        ***************************
-!
-         call getPrimitiveVariables(QLRot, VL)
-         call getPrimitiveVariables(QRRot, VR)
-
-         aL = sqrt(VL(IPA2))  ; aR = sqrt(VR(IPA2))
-!
 !        *************************
 !        Compute Entropy variables
 !        *************************
 !
-         call getEntropyVariables(QLRot, VL(IPP), VL(IPIRHO), SL)
-         call getEntropyVariables(QRRot, VR(IPP), VR(IPIRHO), SR)
-         betaL = 0.5_RP * QLRot(IRHO) / VL(IPP)    ; betaR = 0.5_RP * QRRot(IRHO) / VR(IPP)
+         call NSGradientVariables_ENTROPY(NCONS,NGRAD,QLRot,EVL)
+         call NSGradientVariables_ENTROPY(NCONS,NGRAD,QRRot,EVR)
+
+         invRhoL = 1.0_RP / QLRot(IRHO) ; invrhoR = 1.0_RP / QRRot(IRHO)
+         uL      = QLRot(IRHOU)*invRhoL ; uR      = QRRot(IRHOU)*invRhoR
+         vL      = QLRot(IRHOV)*invRhoL ; vR      = QRRot(IRHOV)*invRhoR
+         wL      = QLRot(IRHOW)*invRhoL ; wR      = QRRot(IRHOW)*invRhoR
+         vtotL   = uL*uL + vL*vL + wL*wL; vtotR   = uR*uR + vR*vR + wR*wR
+
+         pL      = gm1*(QLRot(IRHOE)-0.5_RP*QLRot(IRHO)*vtotL)
+         pR      = gm1*(QRRot(IRHOE)-0.5_RP*QRRot(IRHO)*vtotR)
+
+         betaL   = -0.5_RP*EVL(IRHOE) ; betaR = -0.5_RP*EVR(IRHOE)
+
          call logarithmicMean(betaL      , betaR      , betaLogMean)
          call logarithmicMean(QLRot(IRHO), QRRot(IRHO), rhoLogMean)
 
-         pMean = AVERAGE(VL(IPP), VR(IPP))
-         a     = sqrt(gamma * pMean / rhoLogMean)
-         uMean = AVERAGE(VL(IPU), VR(IPU))
-         vMean = AVERAGE(VL(IPV), VR(IPV))
-         wMean = AVERAGE(VL(IPW), VR(IPW))
+         pMean = 0.5_RP*(QLRot(IRHO)+QRRot(IRHO))/(betaL + betaR)
+         a_bar = sqrt(gamma * pMean / rhoLogMean)
+         uMean = AVERAGE(uL, uR)
+         vMean = AVERAGE(vL, vR)
+         wMean = AVERAGE(wL, wR)
          v2Abs =   2.0_RP * ( POW2(uMean) + POW2(vMean) + POW2(wMean) )      &
-                 - 0.5_RP * (  POW2(VL(IPU)) + POW2(VL(IPV)) + POW2(VL(IPW))  & 
-                             + POW2(VR(IPU)) + POW2(VR(IPV)) + POW2(VR(IPW)) )
+                 - 0.5_RP * ( vtotL + vtotR )
 
-         h     = 0.5_RP * ( cp / betaLogMean + v2Abs ) 
+         h_bar = 0.5_RP * ( cp / betaLogMean + v2Abs ) 
 !
 !        ***********************
 !        Compute the eigenvalues
 !        ***********************
 !
-         lambda(1)   = abs(uMean - a)
-         lambda(2:4) = abs(uMean    )
-         lambda(5)   = abs(uMean + a)
+         lambda(1)   = abs(uMean - a_bar)
+         lambda(2:4) = abs(uMean        )
+         lambda(5)   = abs(uMean + a_bar)
 !
 !        Eigenvectors
 !        ------------
-         R1(:, 1) = (/ 1.0_RP, uMean-a, vMean , wMean , h-uMean*a    /) 
-         R1(:, 2) = (/ 1.0_RP, uMean  , vMean , wMean , 0.5_RP*V2abs /) 
-         R1(:, 3) = (/ 0.0_RP, 0.0_RP , 1.0_RP, 0.0_RP, vMean        /) 
-         R1(:, 4) = (/ 0.0_RP, 0.0_RP , 0.0_RP, 1.0_RP, wMean        /) 
-         R1(:, 5) = (/ 1.0_RP, uMean+a, vMean , wMean , h+uMean*a    /) 
+         R1(:, 1) = (/ 1.0_RP, uMean-a_bar, vMean , wMean , h_bar-uMean*a_bar/) 
+         R1(:, 2) = (/ 1.0_RP, uMean      , vMean , wMean , 0.5_RP*V2abs     /) 
+         R1(:, 3) = (/ 0.0_RP, 0.0_RP     , 1.0_RP, 0.0_RP, vMean            /) 
+         R1(:, 4) = (/ 0.0_RP, 0.0_RP     , 0.0_RP, 1.0_RP, wMean            /) 
+         R1(:, 5) = (/ 1.0_RP, uMean+a_bar, vMean , wMean , h_bar+uMean*a_bar/) 
 !
 !        Intensities
 !        -----------
@@ -487,7 +494,7 @@ module RiemannSolvers_NS
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         call AveragedStates(QLRot, QRRot, VL(IPP), VR(IPP), VL(IPIRHO), VR(IPIRHO), flux)
+         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
 !        Compute the Roe stabilization
 !        -----------------------------
@@ -506,7 +513,7 @@ module RiemannSolvers_NS
          stab = 0.0_RP
          do i = 1, 5
             do j = 1, 5 ; do k = 1, 5
-               stab(i) = stab(i) + 0.5_RP * R1(i,j) * lambda(j) * T(j) * R1(k,j) * (SR(k) - SL(k))
+               stab(i) = stab(i) + 0.5_RP * R1(i,j) * lambda(j) * T(j) * R1(k,j) * (EVR(k) - EVL(k))
             end do      ; end do
          end do
 !
@@ -1135,6 +1142,91 @@ module RiemannSolvers_NS
          end associate
          
       END SUBROUTINE LxFRiemannSolver
+
+      SUBROUTINE u_dissRiemannSolver( QLeft, QRight, nHat, t1, t2, flux ) 
+         implicit none 
+!
+!        ---------
+!        Arguments
+!        ---------
+!
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: nHat(1:NDIM)
+         real(kind=RP), intent(in)       :: t1(1:NDIM)
+         real(kind=RP), intent(in)       :: t2(1:NDIM)
+         real(kind=RP), intent(out)      :: flux(1:NCONS)
+!
+!        ---------------
+!        Local Variables
+!        ---------------
+!
+!
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
+         real(kind=RP)  :: QLRot(5), QRRot(5)
+         real(kind=RP)  :: invRhoL, invRhoR
+         real(kind=RP)  :: lambda, stab(5)
+
+         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
+!
+!        Rotate the variables to the face local frame using normal and tangent vectors
+!        -----------------------------------------------------------------------------
+         rhoL = QLeft(1)                  ; rhoR = QRight(1)
+         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
+
+         rhouL = QLeft(2)  * nHat(1) + QLeft(3)  * nHat(2) + QLeft(4)  * nHat(3)
+         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
+
+         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
+         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
+
+         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
+         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
+
+         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
+         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
+
+         rhoeL = QLeft(5) ; rhoeR = QRight(5)                
+
+         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
+         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
+
+         aL = sqrt(gamma * pL * invRhoL)
+         aR = sqrt(gamma * pR * invRhoR)
+!
+!        Eigenvalues: lambda = max(|uL|,|uR|) 
+!        -----------
+         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR))
+!
+!        ****************
+!        Compute the flux
+!        ****************
+!
+!        Perform the average using the averaging function
+!        ------------------------------------------------
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
+!
+!        Compute the Lax-Friedrichs stabilization
+!        ----------------------------------------
+         stab = 0.5_RP * lambda * (QRRot - QLRot)
+!
+!        Compute the flux: apply the lambda stabilization here.
+!        ----------------
+         flux = flux - lambdaStab * stab
+!
+!        ************************************************
+!        Return momentum equations to the cartesian frame
+!        ************************************************
+!
+         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
+
+         end associate
+         
+      END SUBROUTINE u_dissRiemannSolver
+
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1741,7 +1833,7 @@ module RiemannSolvers_NS
 
       end subroutine EntropyConservingAverage
 
-      subroutine EntropyAndEnergyConservingAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
+      subroutine ChandrasekarAverage(QLeft,QRight, pL, pR, invRhoL, invRhoR, flux)
          use SMConstants
          use Utilities, only: logarithmicMean
          implicit none
@@ -1790,6 +1882,6 @@ module RiemannSolvers_NS
 
          end associate
 
-      end subroutine EntropyAndEnergyConservingAverage
+      end subroutine ChandrasekarAverage
 
 end module RiemannSolvers_NS

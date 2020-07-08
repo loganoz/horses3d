@@ -1,0 +1,73 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/UnitCube4x4.mesh
+                      Solution file name = RESULTS/Convergence.hsol
+              Save gradients to solution = .false.
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+                          Flow equations = "NS"
+                             Mach number = 0.3
+                         Reynolds number = 10.0
+                               AOA theta = 0.0
+                                 AOA phi = 90.0
+
+!------------------------- Discretization:-
+                        Polynomial order = 7
+                    Discretization nodes = Gauss
+                          Riemann solver = Roe
+                  Viscous discretization = BR1  
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                                     CFL = 0.5
+                                    dCFL = 100000.0
+  Compute time derivative after timestep = .true.
+                    Number of time steps = 1000000.0
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 1.0
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 1000000   ! 1.0
+
+!-------------------- Boundary conditions:-
+#define boundary Front
+   type = periodic
+   coupled boundary = Back
+#end
+ 
+#define boundary bottom
+    type = periodic
+    coupled boundary = top
+#end
+ 
+#define boundary top
+    type = periodic
+    coupled boundary = bottom
+#end
+ 
+#define boundary Back
+    type = periodic
+    coupled boundary = Front
+#end
+ 
+#define boundary Left
+    type = periodic
+    coupled boundary = Right
+#end
+ 
+#define boundary Right
+    type = periodic
+    coupled boundary = Left
+#end
+
+#define volume monitor 1
+   name = entr-rate
+   variable = entropy rate
+#end

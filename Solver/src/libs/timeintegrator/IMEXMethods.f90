@@ -28,10 +28,12 @@ MODULE IMEXMethods
    implicit none
    
    PRIVATE                          
-   PUBLIC TakeIMEXStep
+   PUBLIC TakeIMEXStep, Enable_CTD_AFTER_STEPS_IMEX
    
    real(kind=RP) :: time               ! Time at the beginning of each inner(!) time step
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
+
+   logical, protected :: CTD_AFTER_STEPS = .false.
 !
 !  ========
    contains
@@ -359,7 +361,7 @@ MODULE IMEXMethods
 !
 !     The "good" residuals CTD call
 !     -----------------------------
-      call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IGNORE_MODE)
+      if ( CTD_AFTER_STEPS) call ComputeTimeDerivative(sem % mesh, sem % particles, tk, CTD_IGNORE_MODE)
 
 #endif
    end subroutine TakeIMEXBDF2Step_MU
@@ -519,6 +521,12 @@ MODULE IMEXMethods
       Ashift = 0.0_RP
       
    end function Laplacian_MatrixShift
+
+   subroutine Enable_CTD_AFTER_STEPS_IMEX()
+      implicit none
+      CTD_AFTER_STEPS = .true.
+   end subroutine Enable_CTD_AFTER_STEPS_IMEX
+
 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

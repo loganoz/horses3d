@@ -14,6 +14,7 @@
 module InflowBCClass
    use SMConstants
    use PhysicsStorage
+   use VariableConversion, only: GetGradientValues_f
    use FileReaders,            only: controlFileName
    use FileReadingUtilities,   only: GetKeyword, GetValueAsString, PreprocessInputLine
    use FTValueDictionaryClass, only: FTValueDictionary
@@ -55,6 +56,7 @@ module InflowBCClass
       real(kind=RP)              :: v
       real(kind=RP)              :: rho
       real(kind=RP)              :: p
+      real(kind=RP)              :: TurbIntensity
 #endif
 #if defined(INCNS)
       real(kind=RP)              :: AoAPhi
@@ -125,6 +127,7 @@ module InflowBCClass
 !                 AoATheta         = #value
 !                 density          = #value        (only in monophase)
 !                 pressure         = #value        (only in compressible NS)
+!                 TurbIntensity    = #value        (only in compressible NS)
 !                 multiphase type  = mixed/layered
 !                 phase 1 layer x  > #value
 !                 phase 1 layer y  > #value
@@ -197,12 +200,14 @@ module InflowBCClass
          call GetValueWithDefault(bcdict, "mach"    , dimensionless % Mach                   , ConstructInflowBC % v       )
          call GetValueWithDefault(bcdict, "aoaphi"  , refValues % AoAPhi                     , ConstructInflowBC % AoAPhi  )
          call GetValueWithDefault(bcdict, "aoatheta", refValues % AoATheta                   , ConstructInflowBC % AoATheta)
+         call GetValueWithDefault(bcdict, "TurbIntensity", 0.0_RP                            , ConstructInflowBC % TurbIntensity)
 
          ConstructInflowBC % p        = ConstructInflowBC % p / refValues % p
          ConstructInflowBC % rho      = ConstructInflowBC % rho / refValues % rho
          ConstructInflowBC % v        = ConstructInflowBC % v * sqrt(thermodynamics % gamma * ConstructInflowBC % p / ConstructInflowBC % rho)
          ConstructInflowBC % AoATheta = ConstructInflowBC % AoATheta * PI / 180.0_RP
          ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
+         ConstructInflowBC % TurbIntensity   = ConstructInflowBC % TurbIntensity / 100.0_RP
 
 #elif defined(INCNS)
          call GetValueWithDefault(bcdict, "velocity", refValues % v, ConstructInflowBC % v)
@@ -289,6 +294,9 @@ module InflowBCClass
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Density: ', self % rho * refValues % rho
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaPhi: ', self % AoAPhi * 180.0_RP / PI
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
+
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Max. Vel. Fluct. in % (from TurbIntensity): ', (self % TurbIntensity)
+         
 #elif defined(INCNS)
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
 #if (!defined(CAHNHILLIARD))
@@ -350,14 +358,31 @@ module InflowBCClass
 !        ---------------
 !
          real(kind=RP) :: qq, u, v, w
+         real(kind=RP) :: u_prime, v_prime, w_prime
+
          associate ( gammaM2 => dimensionless % gammaM2, &
                      gamma => thermodynamics % gamma )
-         
+!        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctiation with max turb
+                     call random_seed
+                     call random_number(u_prime)
+                     call random_number(v_prime)
+                     call random_number(w_prime)
+!        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctiation with max turb
+                     call random_seed
+                     call random_number(u_prime)
+                     call random_number(v_prime)
+                     call random_number(w_prime)
          qq = self % v
          u  = qq*cos(self % AoAtheta)*COS(self % AoAphi)
          v  = qq*sin(self % AoAtheta)*COS(self % AoAphi)
          w  = qq*SIN(self % AoAphi)
-         
+         u_prime = (2.0_RP*u_prime - 1.0_RP)*self % TurbIntensity * u
+         v_prime = (2.0_RP*v_prime - 1.0_RP)*self % TurbIntensity * v
+         w_prime = (2.0_RP*w_prime - 1.0_RP)*self % TurbIntensity * w
+         u  = u+u_prime
+         v  = v+v_prime
+         w  = w+w_prime
+
          Q(1) = self % rho
          Q(2) = Q(1)*u
          Q(3) = Q(1)*v
@@ -368,30 +393,24 @@ module InflowBCClass
 
       end subroutine InflowBC_FlowState
 
-      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+!
+!        *******************************************
+!        Cancel out the viscous flux at the inlet
+!        *******************************************
+!
          implicit none
          class(InflowBC_t),   intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NGRAD)
-         real(kind=RP),       intent(inout) :: U_y(NGRAD)
-         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
 
-         INTEGER :: k
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-
-         DO k = 1, NGRAD
-            gradUNorm =  nHat(1)*U_x(k) + nHat(2)*U_y(k) + nHat(3)*U_z(k)
-            UTanx = U_x(k) - gradUNorm*nHat(1)
-            UTany = U_y(k) - gradUNorm*nHat(2)
-            UTanz = U_z(k) - gradUNorm*nHat(3)
-      
-            U_x(k) = UTanx - gradUNorm*nHat(1)
-            U_y(k) = UTany - gradUNorm*nHat(2)
-            U_z(k) = UTanz - gradUNorm*nHat(3)
-         END DO
+         flux = 0.0_RP
 
       end subroutine InflowBC_FlowNeumann
 #endif
@@ -418,7 +437,6 @@ module InflowBCClass
 !
          real(kind=RP)  :: rho, u, v, w, vel
 
-#if (!defined(CAHNHILLIARD))
          u = self % v * cos(self % AoAtheta) * cos(self % AoAphi)
          v = self % v * sin(self % AoAtheta) * cos(self % AoAphi)
          w = self % v * sin(self % AoAphi)
@@ -427,90 +445,22 @@ module InflowBCClass
          Q(INSRHOU) = Q(INSRHO)*u
          Q(INSRHOV) = Q(INSRHO)*v
          Q(INSRHOW) = Q(INSRHO)*w
-#else
-         if ( self % isLayered ) then
-            if (self % isXLimited) then
-               if ( x(IX) > self % xLim ) then
-                  rho = dimensionless % rho(1)
-                  vel = self % phase1Vel 
-               else
-                  rho = dimensionless % rho(2)
-                  vel = self % phase2Vel 
-               end if
-            elseif ( self % isYLimited) then
-               if ( x(IY) > self % yLim ) then
-                  rho = dimensionless % rho(1)
-                  vel = self % phase1Vel 
-               else
-                  rho = dimensionless % rho(2)
-                  vel = self % phase2Vel 
-               end if
-            elseif ( self % isZLimited) then
-               if ( x(IZ) > self % zLim ) then
-                  rho = dimensionless % rho(1)
-                  vel = self % phase1Vel 
-               else
-                  rho = dimensionless % rho(2)
-                  vel = self % phase2Vel 
-               end if
-            end if
-         else
-            rho = 0.5_RP * (dimensionless % rho(1) + dimensionless % rho(2))
-            vel = self % v
-         end if
-
-         u = vel * cos(self % AoAtheta) * cos(self % AoAphi)
-         v = vel * sin(self % AoAtheta) * cos(self % AoAphi)
-         w = vel * sin(self % AoAphi)
-
-         Q(INSRHO)  = rho
-         Q(INSRHOU) = Q(INSRHO)*u
-         Q(INSRHOV) = Q(INSRHO)*v
-         Q(INSRHOW) = Q(INSRHO)*w
-#endif
 
       end subroutine InflowBC_FlowState
 
-      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine InflowBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
-         class(InflowBC_t),  intent(in)    :: self
+         class(InflowBC_t),  intent(in)     :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NCONS)
-         real(kind=RP),       intent(inout) :: U_y(NCONS)
-         real(kind=RP),       intent(inout) :: U_z(NCONS)
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-!
-         REAL(KIND=RP) :: gradUNorm, UTanx, UTany, UTanz
-!
-!
-!        Remove the normal component of the density gradient
-!        ---------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSRHO) + nHat(2)*U_y(INSRHO)+ nHat(3)*U_z(INSRHO)
-         UTanx = U_x(INSRHO) - gradUNorm*nHat(1)
-         UTany = U_y(INSRHO) - gradUNorm*nHat(2)
-         UTanz = U_z(INSRHO) - gradUNorm*nHat(3)
-   
-         U_x(INSRHO) = UTanx - gradUNorm*nHat(1)
-         U_y(INSRHO) = UTany - gradUNorm*nHat(2)
-         U_z(INSRHO) = UTanz - gradUNorm*nHat(3)
-!
-!        Remove the normal component of the pressure gradient
-!        ----------------------------------------------------
-         gradUNorm =  nHat(1)*U_x(INSP) + nHat(2)*U_y(INSP)+ nHat(3)*U_z(INSP)
-         UTanx = U_x(INSP) - gradUNorm*nHat(1)
-         UTany = U_y(INSP) - gradUNorm*nHat(2)
-         UTanz = U_z(INSP) - gradUNorm*nHat(3)
-   
-         U_x(INSP) = UTanx - gradUNorm*nHat(1)
-         U_y(INSP) = UTany - gradUNorm*nHat(2)
-         U_z(INSP) = UTanz - gradUNorm*nHat(3)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NCONS)
+         real(kind=RP),       intent(in)    :: U_y(NCONS)
+         real(kind=RP),       intent(in)    :: U_z(NCONS)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
+
+         flux = 0.0_RP
 
       end subroutine InflowBC_FlowNeumann
 #endif
@@ -532,20 +482,19 @@ module InflowBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine InflowBC_PhaseFieldState
 
-      subroutine InflowBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine InflowBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(InflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
 
       end subroutine InflowBC_PhaseFieldNeumann
 
@@ -558,20 +507,19 @@ module InflowBCClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine InflowBC_ChemPotState
 
-      subroutine InflowBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine InflowBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(InflowBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
 
-         U_x = 0.0_RP
-         U_y = 0.0_RP
-         U_z = 0.0_RP
+         flux = 0.0_RP
 
       end subroutine InflowBC_ChemPotNeumann
 #endif

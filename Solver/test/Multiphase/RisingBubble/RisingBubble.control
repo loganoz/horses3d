@@ -37,9 +37,10 @@
 
 !----------------------- Time integration:-
                         Time integration = IMEX
+  Compute time derivative after timestep = .true.
                                       dt = 0.5e-5
                     Number of time steps = 100
-                         Output interval = 1
+                         Output interval = 10
                    Convergence tolerance = 1.0e-10
                          Simulation type = time-accurate
                               Final time = 2.1

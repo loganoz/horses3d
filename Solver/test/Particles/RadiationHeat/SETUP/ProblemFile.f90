@@ -314,9 +314,14 @@
             LOGICAL                            :: success
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations      = 2634
-            REAL(KIND=RP)                      :: residuals       = 7.4459747668846799_RP
-            real(kind=RP), parameter           :: internal_energy = 206428.97273031820_RP
-            real(kind=RP), parameter           :: energy_source   = 7.44218598169772_RP
+            real(kind=RP), parameter           :: internal_energy = 2.0642897273056462E+05_RP
+            real(kind=RP), parameter           :: energy_source   = 7.4421859816977154E+00_RP
+            real(kind=RP), parameter :: residuals(5) = [ 1.7506738281571858E-05_RP, &
+                                                         8.1649057617530559E-06_RP, &
+                                                         7.5600107772770281E-06_RP, &
+                                                         6.2326431517128525E-06_RP, &
+                                                         7.4459739718121396E+00_RP]
+
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -325,10 +330,31 @@
                                actualValue   = iter, &
                                msg           = "Number of time steps to t=0.1")
 
-            CALL FTAssertEqual(expectedValue = residuals, &
-                               actualValue   = maxResidual, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Final maximum residual")
+                               msg           = "Continuity residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
 
             CALL FTAssertEqual(expectedValue = internal_energy, &
                                actualValue   = monitors % volumeMonitors(1) % values(1,1), &

@@ -409,6 +409,7 @@ end module ProblemFileFunctions
 !           --------------------------------------------------------
 !
             use SMConstants
+            use FTAssertions
             USE HexMeshClass
             use PhysicsStorage
             use FluidData
@@ -429,10 +430,73 @@ end module ProblemFileFunctions
             type(Monitor_t),        intent(in)    :: monitors
             real(kind=RP),             intent(in) :: elapsedTime
             real(kind=RP),             intent(in) :: CPUTime
+            real(kind=RP), parameter              :: saved_residuals(5) = [1.5156656663308099E-01_RP, &
+                                                                           3.2179273453453159E+00_RP, &
+                                                                           6.4963922577519663E-14_RP, &
+                                                                           1.8004588017044313E-09_RP, &
+                                                                           1.2546658191962379E+02_RP]
+            real(kind=RP), parameter           :: entropy = 4.4455986912016106E-06_RP
+            real(kind=RP), parameter           :: mass = 4.0_RP
+            CHARACTER(LEN=29)                  :: testName = "Incompressible Rayleigh-Taylor Instability"
+            TYPE(FTAssertionsManager), POINTER :: sharedManager
+            LOGICAL                            :: success
 
-print*, monitors % residuals % values(:,1)
-print*, "Expected result:"
-print*,"1.0944807566052193E-003   3.0000397084432553        9.1274327288985059E-020   1.7024165851786582E-017   1.8241345944369998"
+
+            CALL initializeSharedAssertionsManager
+            sharedManager => sharedAssertionsManager()
+
+            CALL FTAssertEqual(expectedValue = mass, &
+                               actualValue   = monitors % volumeMonitors(1) % Values(1,1), &
+                               tol           = 1.d-11, &
+                               msg           = "Mass")
+
+            CALL FTAssertEqual(expectedValue = entropy, &
+                               actualValue   = monitors % volumeMonitors(2) % Values(1,1), &
+                               tol           = 1.d-11, &
+                               msg           = "Entropy")
+
+            CALL FTAssertEqual(expectedValue = saved_residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Density residual")
+
+            CALL FTAssertEqual(expectedValue = saved_residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "X-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = saved_residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Y-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = saved_residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = saved_residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Pressure residual")
+
+
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+   
+            IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
+               WRITE(6,*) testName, " ... Passed"
+               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+            ELSE
+               WRITE(6,*) testName, " ... Failed"
+               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
+               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+                STOP 99
+            END IF 
+            WRITE(6,*)
+            
+            CALL finalizeSharedAssertionsManager
+            CALL detachSharedAssertionsManager
+
 
          END SUBROUTINE UserDefinedFinalize
 !

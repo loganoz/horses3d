@@ -43,6 +43,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./Euler/Benchmark \
 	    ./Euler/JFNK \
 	    ./Euler/TaylorGreenKEPEC \
+            ./NavierStokes/Convergence \
+            ./NavierStokes/Convergence_energy \
+            ./NavierStokes/Convergence_entropy \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderFAS \
             ./NavierStokes/CylinderAnisFAS \
@@ -52,12 +55,18 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
+            ./NavierStokes/EntropyConservingTest \
+            ./NavierStokes/EnergyConservingTest \
 	    ./NavierStokes/FlatPlate \
 	    ./NavierStokes/TaylorGreen \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \
 	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions \
-            ./IncompressibleNS/Poiseuille \
+            ./IncompressibleNS/Convergence \
+            ./IncompressibleNS/Kovasznay \
+            ./IncompressibleNS/TaylorGreen \
+            ./IncompressibleNS/LidDrivenCavity \
+            ./IncompressibleNS/RayleighTaylor \
 	    ./CahnHilliard/SpinodalDecomposition \
 	    ./CahnHilliard/TJokisaari \
 	    ./CahnHilliard/Bubble \
@@ -65,6 +74,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./iNSCH/RisingBubble \
             ./iNSCH/TJokisaari \
 	    ./Multiphase/Convergence \
+	    ./Multiphase/EntropyConservingTest \
 	    ./Multiphase/RisingBubble \
 	    ./Multiphase/Pipe \
 		./Particles/FreeFall \

@@ -83,13 +83,14 @@
          type(MappedGeometryFace)        :: geom
          type(FaceStorage_t)             :: storage(2)
          contains
-            procedure   :: Construct => ConstructFace
-            procedure   :: Destruct  => DestructFace
-            procedure   :: Print     => PrintFace
-            procedure   :: LinkWithElements      => Face_LinkWithElements
-            procedure   :: AdaptSolutionToFace   => Face_AdaptSolutionToFace
-            procedure   :: AdaptGradientsToFace   => Face_AdaptGradientsToFace
-            procedure   :: ProjectFluxToElements => Face_ProjectFluxToElements
+            procedure   :: Construct                     => ConstructFace
+            procedure   :: Destruct                      => DestructFace
+            procedure   :: Print                         => PrintFace
+            procedure   :: LinkWithElements              => Face_LinkWithElements
+            procedure   :: AdaptSolutionToFace           => Face_AdaptSolutionToFace
+            procedure   :: AdaptGradientsToFace          => Face_AdaptGradientsToFace
+            procedure   :: AdaptHfluxToFace              => Face_AdaptHfluxToFace
+            procedure   :: ProjectFluxToElements         => Face_ProjectFluxToElements
             procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
 #if defined(NAVIERSTOKES)
             procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
@@ -489,6 +490,90 @@
       end select
 
    end subroutine Face_AdaptGradientsToFace
+
+   subroutine Face_AdaptHfluxToFace(self, nEqn, Nelx, Nely, Hn_e, side)
+      use MappedGeometryClass
+      implicit none
+      class(Face),   intent(inout)  :: self
+      integer,       intent(in)     :: nEqn
+      integer,       intent(in)     :: Nelx, Nely
+      real(kind=RP), intent(in)     :: Hn_e(1:nEqn, 0:Nelx, 0:Nely)
+      integer,       intent(in)     :: side
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer       :: i, j, k, l, m, ii, jj
+      real(kind=RP) :: Hn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+
+      select case (side)
+      case(1)
+         associate(Hf => self % storage(1) % Hflux)
+         select case ( self % projectionType(1) )
+         case (0)
+            Hf = Hn_e
+         case (1)
+            Hf = 0.0_RP
+            do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)
+               Hf(:,i,j) = Hf(:,i,j) + Tset(self % NfLeft(1), self % Nf(1)) % T(i,l) * Hn_e(:,l,j)
+            end do                  ; end do                   ; end do
+            
+         case (2)
+            Hf = 0.0_RP
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               Hf(:,i,j) = Hf(:,i,j) + Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) * Hn_e(:,i,l)
+            end do                  ; end do                   ; end do
+   
+         case (3)
+            Hf = 0.0_RP
+            do l = 0, self % NfLeft(2)  ; do j = 0, self % Nf(2)   
+               do m = 0, self % NfLeft(1) ; do i = 0, self % Nf(1)
+                  Hf(:,i,j) = Hf(:,i,j) +   Tset(self % NfLeft(1), self % Nf(1)) % T(i,m) &
+                                            * Tset(self % NfLeft(2), self % Nf(2)) % T(j,l) &
+                                            * Hn_e(:,m,l)
+               end do                 ; end do
+            end do                  ; end do
+         end select
+         end associate
+      case(2)
+         associate( Hf => self % storage(2) % Hflux )
+         do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
+            call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+            Hn_e_rot(:,i,j) = Hn_e(:,ii,jj) 
+         end do                        ; end do
+
+         select case ( self % projectionType(2) )
+         case (0)
+            Hf = Hn_e_rot
+         case (1)
+            Hf = 0.0_RP
+            do j = 0, self % Nf(2)  ; do l = 0, self % NfRight(1)   ; do i = 0, self % Nf(1)
+               Hf(:,i,j) = Hf(:,i,j) + Tset(self % NfRight(1), self % Nf(1)) % T(i,l) * Hn_e_rot(:,l,j)
+            end do                  ; end do                   ; end do
+            
+         case (2)
+            Hf = 0.0_RP
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   ; do i = 0, self % Nf(1)
+               Hf(:,i,j) = Hf(:,i,j) + Tset(self % NfRight(2), self % Nf(2)) % T(j,l) * Hn_e_rot(:,i,l)
+            end do                  ; end do                   ; end do
+   
+         case (3)
+            Hf = 0.0_RP
+            do l = 0, self % NfRight(2)  ; do j = 0, self % Nf(2)   
+               do m = 0, self % NfRight(1) ; do i = 0, self % Nf(1)
+                  Hf(:,i,j) = Hf(:,i,j) +   Tset(self % NfRight(1), self % Nf(1)) % T(i,m) &
+                                            * Tset(self % NfRight(2), self % Nf(2)) % T(j,l) &
+                                            * Hn_e_rot(:,m,l)
+               end do                 ; end do
+            end do                  ; end do
+         end select
+
+         Hf = -Hf
+         end associate
+      end select
+
+   end subroutine Face_AdaptHfluxToFace
 
    subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements)
       use MappedGeometryClass

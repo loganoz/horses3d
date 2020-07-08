@@ -23,16 +23,7 @@
 
       private
       public  iEulerFlux, iViscousFlux, iEulerXFlux
-      public  iViscousFlux0D, iViscousFlux2D, iViscousFlux3D
-      public  iEulerFlux0D, iEulerFlux3D
 
-     interface iEulerFlux
-         module procedure iEulerFlux0D, iEulerFlux3D
-     end interface iEulerFlux
-
-     interface iViscousFlux
-         module procedure iViscousFlux0D, iViscousFlux2D, iViscousFlux3D
-     end interface iViscousFlux
 !
 !     ========
       CONTAINS 
@@ -45,7 +36,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iEulerFlux0D(Q, F, rho_)
+      pure subroutine iEulerFlux(Q, F, rho_)
          implicit none
          real(kind=RP), intent(in)   :: Q(1:NCONS)
          real(kind=RP), intent(out)  :: F(1:NCONS, 1:NDIM)
@@ -85,7 +76,7 @@
          F(INSRHOW,IZ) = invRho*Q(INSRHOW)*Q(INSRHOW) + Q(INSP)
          F(INSP   ,IZ) = thermodynamics % rho0c02 * invRho * Q(INSRHOW)
       
-      end subroutine iEulerFlux0D
+      end subroutine iEulerFlux
 
       pure subroutine iEulerXFlux(Q, F)
          implicit none
@@ -111,52 +102,6 @@
          F(INSP   ) = thermodynamics % rho0c02 * invRho * Q(INSRHOU)
       
       end subroutine iEulerXFlux
-
-      pure subroutine iEulerFlux3D(N, Q, F, rho_)
-         implicit none
-         integer,       intent(in)  :: N(3)
-         real(kind=RP), intent(in)  :: Q(1:NCONS,0:N(1),0:N(2),0:N(3))
-         real(kind=RP), intent(out) :: F(1:NCONS,0:N(1),0:N(2),0:N(3),1:NDIM)
-         real(kind=RP), intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer                 :: i, j, k
-         real(kind=RP)           :: rho, invRho
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            rho = (Q(INSRHO,i,j,k))
-            invRho = 1.0_RP / rho
-!   
-!           X-Flux
-!           ------         
-            F(INSRHO ,i,j,k, IX) = Q(INSRHOU,i,j,k)
-            F(INSRHOU,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOU,i,j,k) + Q(INSP,i,j,k)
-            F(INSRHOV,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k, IX) = invRho*Q(INSRHOU,i,j,k)*Q(INSRHOW,i,j,k)
-            F(INSP   ,i,j,k, IX) = thermodynamics % rho0c02 * invRho * Q(INSRHOU,i,j,k)
-!   
-!           Y-Flux
-!           ------
-            F(INSRHO ,i,j,k, IY) = Q(INSRHOV,i,j,k)
-            F(INSRHOU,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOV,i,j,k) + Q(INSP,i,j,k)
-            F(INSRHOW,i,j,k, IY) = invRho*Q(INSRHOV,i,j,k)*Q(INSRHOW,i,j,k)
-            F(INSP   ,i,j,k, IY) = thermodynamics % rho0c02 * invRho * Q(INSRHOV,i,j,k)
-!   
-!           Z-Flux
-!           ------
-            F(INSRHO ,i,j,k, IZ) = Q(INSRHOW,i,j,k)
-            F(INSRHOU,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k, IZ) = invRho*Q(INSRHOW,i,j,k)*Q(INSRHOW,i,j,k) + Q(INSP,i,j,k)
-            F(INSP   ,i,j,k, IZ) = thermodynamics % rho0c02 * invRho * Q(INSRHOW,i,j,k)
-   
-         end do   ; end do          ; end do
-
-      end subroutine iEulerFlux3D
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -165,7 +110,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine iViscousFlux0D(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
+      pure subroutine iViscousFlux(nEqn, nGradEqn, Q, U_x, U_y, U_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -196,92 +141,7 @@
          F(INSRHOW,IZ) = 2.0_RP * mu * U_z(INSRHOW)
          F(INSP,IZ) = 0.0_RP
 
-      end subroutine iViscousFlux0D
-
-      pure subroutine iViscousFlux2D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         implicit none
-         integer,       intent(in)  :: nEqn
-         integer,       intent(in)  :: nGradEqn
-         integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 1:NDIM, 0:N(1), 0:N(2))
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer       :: i , j
-
-         do j = 0, N(2) ; do i = 0, N(1)
-            F(INSRHO,IX,i,j)  = 0.0_RP
-            F(INSRHOU,IX,i,j) = 2.0_RP * mu(i,j) * U_x(INSRHOU,i,j)
-            F(INSRHOV,IX,i,j) = mu(i,j) * (U_x(INSRHOV,i,j) + U_y(INSRHOU,i,j))
-            F(INSRHOW,IX,i,j) = mu(i,j) * (U_x(INSRHOW,i,j) + U_z(INSRHOU,i,j))
-            F(INSP,IX,i,j) = 0.0_RP
-   
-            F(INSRHO,IY,i,j)  = 0.0_RP
-            F(INSRHOU,IY,i,j) = F(INSRHOV,IX,i,j)
-            F(INSRHOV,IY,i,j) = 2.0_RP * mu(i,j) * U_y(INSRHOV,i,j)
-            F(INSRHOW,IY,i,j) = mu(i,j) * (U_y(INSRHOW,i,j) + U_z(INSRHOV,i,j))
-            F(INSP,IY,i,j) = 0.0_RP
-   
-            F(INSRHO,IZ,i,j)  = 0.0_RP
-            F(INSRHOU,IZ,i,j) = F(INSRHOW,IX,i,j)
-            F(INSRHOV,IZ,i,j) = F(INSRHOW,IY,i,j)
-            F(INSRHOW,IZ,i,j) = 2.0_RP * mu(i,j) * U_z(INSRHOW,i,j)
-            F(INSP,IZ,i,j) = 0.0_RP
-         end do    ; end do
-
-      end subroutine iViscousFlux2D
-
-      pure subroutine iViscousFlux3D( nEqn, nGradEqn, N, Q, U_x, U_y, U_z, mu, beta, kappa, F)
-         implicit none
-         integer,       intent(in)  :: nEqn
-         integer,       intent(in)  :: nGradEqn
-         integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:nEqn, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: U_x(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_y(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: U_z(1:nGradEqn, 0:N(1), 0:N(2), 0:N(3) )
-         real(kind=RP),    intent(in)  :: mu  (0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: beta(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(in)  :: kappa(0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:nEqn, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         integer       :: i , j , k
-
-         do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            F(INSRHO,i,j,k,IX)  = 0.0_RP
-            F(INSRHOU,i,j,k,IX) = 2.0_RP * mu(i,j,k) * U_x(INSRHOU,i,j,k)
-            F(INSRHOV,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOV,i,j,k) + U_y(INSRHOU,i,j,k))
-            F(INSRHOW,i,j,k,IX) = mu(i,j,k) * (U_x(INSRHOW,i,j,k) + U_z(INSRHOU,i,j,k))
-            F(INSP,i,j,k,IX) = 0.0_RP
-   
-            F(INSRHO,i,j,k,IY)  = 0.0_RP
-            F(INSRHOU,i,j,k,IY) = F(INSRHOV,i,j,k,IX)
-            F(INSRHOV,i,j,k,IY) = 2.0_RP * mu(i,j,k) * U_y(INSRHOV,i,j,k)
-            F(INSRHOW,i,j,k,IY) = mu(i,j,k) * (U_y(INSRHOW,i,j,k) + U_z(INSRHOV,i,j,k))
-            F(INSP,i,j,k,IY) = 0.0_RP
-   
-            F(INSRHO,i,j,k,IZ)  = 0.0_RP
-            F(INSRHOU,i,j,k,IZ) = F(INSRHOW,i,j,k,IX)
-            F(INSRHOV,i,j,k,IZ) = F(INSRHOW,i,j,k,IY)
-            F(INSRHOW,i,j,k,IZ) = 2.0_RP * mu(i,j,k) * U_z(INSRHOW,i,j,k)
-            F(INSP,i,j,k,IZ) = 0.0_RP
-         end do      ; end do    ; end do
-
-      end subroutine iViscousFlux3D
-
+      end subroutine iViscousFlux
    END Module Physics_iNS
 !@mark -
 !

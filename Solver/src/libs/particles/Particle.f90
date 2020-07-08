@@ -288,7 +288,7 @@ end subroutine
 !
 subroutine particle_integrate ( self, mesh, dt, St, Nu, phim, I0, gammaDiv3cvpdivcvStPr, minbox, maxbox , bcbox ) 
 #if defined(NAVIERSTOKES)
-    use Physics,   only : sutherlandsLaw
+    use VariableConversion,   only : sutherlandsLaw
     use FluidData, only : dimensionless
 #endif
     implicit none

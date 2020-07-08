@@ -26,7 +26,7 @@ module SpatialDiscretization
       use DGSEMClass
       use ParticlesClass
       use FluidData
-      use VariableConversion, only: iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
+      use VariableConversion, only: iNSGradientVariables, GetiNSOneFluidViscosity, GetiNSTwoFluidsViscosity
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
@@ -61,6 +61,7 @@ module SpatialDiscretization
       end interface
       
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
+      procedure(GetViscosity_f), pointer, protected :: GetViscosity 
 !
 !     ========      
       CONTAINS 
@@ -150,14 +151,16 @@ module SpatialDiscretization
 
                end select
 
+               call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_iNS)
+               call ViscousDiscretization % Describe
+
                select case (thermodynamics % number_of_fluids)
                case(1)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSOneFluidViscosity, ELLIPTIC_iNS)
+                  GetViscosity => GetiNSOneFluidViscosity
                case(2)
-                  call ViscousDiscretization % Construct(controlVariables, iViscousFlux0D, iViscousFlux2D, iViscousFlux3D, GetiNSTwoFluidsViscosity, ELLIPTIC_iNS)
+                  GetViscosity => GetiNSTwoFluidsViscosity
                end select
 
-               call ViscousDiscretization % Describe
 !
 !        Compute wall distances
 !        ----------------------
@@ -295,7 +298,7 @@ module SpatialDiscretization
 !        -----------------------------------------------------
 !
          if ( computeGradients ) then
-            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NCONS, mesh , time, iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D )
+            CALL BaseClass_ComputeGradient( ViscousDiscretization, NCONS, NCONS, mesh , time, iNSGradientVariables)
 !
 !           The prolongation is usually done in the viscous methods, but not in the BaseClass
 !           ---------------------------------------------------------------------------------
@@ -483,16 +486,6 @@ module SpatialDiscretization
                endif 
             end if
 
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
-               end do                  ; end do                ; end do
-               end associate
-            end do
-!$omp end do
-                        
       end subroutine ComputeNSTimeDerivative
 !
 !////////////////////////////////////////////////////////////////////////
@@ -567,11 +560,11 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux3D, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, iViscousFlux, GetViscosity, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -633,11 +626,11 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux3D, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , iEulerFlux, inviscidContravariantFlux ) 
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, e , viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NCONS, iViscousFlux, GetViscosity, e , viscousContravariantFlux) 
 !
 !        ************************
 !        Perform volume integrals
@@ -710,8 +703,8 @@ module SpatialDiscretization
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
-               call ViscousDiscretization % GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
+               call GetViscosity(f % storage(1) % Q(INSRHO,i,j), muL)
+               call GetViscosity(f % storage(2) % Q(INSRHO,i,j), muR)
                mu = 0.5_RP * (muL + muR)
 !      
 !              --------------
@@ -719,6 +712,7 @@ module SpatialDiscretization
 !              --------------
 !      
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  EllipticFlux = iViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -728,7 +722,8 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -790,9 +785,10 @@ module SpatialDiscretization
 !              Viscous fluxes
 !              --------------
 !      
-               call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+               call GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
                CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  EllipticFlux = iViscousFlux, &
                                                   f = f, &
                                                   QLeft = f % storage(1) % Q(:,i,j), &
                                                   QRight = f % storage(2) % Q(:,i,j), &
@@ -802,7 +798,8 @@ module SpatialDiscretization
                                                   U_xRight = f % storage(2) % U_x(:,i,j), &
                                                   U_yRight = f % storage(2) % U_y(:,i,j), &
                                                   U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
+                                                  mu_left  = [mu, 0.0_RP, 0.0_RP], &
+                                                  mu_right = [mu, 0.0_RP, 0.0_RP], &
                                                   nHat = f % geom % normal(:,i,j) , &
                                                   dWall = f % geom % dWall(i,j), &
                                                   flux  = visc_flux(:,i,j) )
@@ -850,7 +847,7 @@ module SpatialDiscretization
 !
       INTEGER                         :: i, j
       INTEGER, DIMENSION(2)           :: N
-      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      REAL(KIND=RP)                   :: inv_flux(NCONS), fv_3d(NCONS,NDIM)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu
@@ -869,63 +866,41 @@ module SpatialDiscretization
 
       end do               ; end do
 
-      if ( .true. ) then
-         do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-            f % storage(2) % U_x(:,i,j) = f % storage(1) % U_x(:,i,j)
-            f % storage(2) % U_y(:,i,j) = f % storage(1) % U_y(:,i,j)
-            f % storage(2) % U_z(:,i,j) = f % storage(1) % U_z(:,i,j)
+      do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+         call GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
 
-            CALL BCs(f % zone) % bc % FlowNeumann(&
-                                              f % geom % x(:,i,j), &
-                                              time, &
-                                              f % geom % normal(:,i,j), &
-                                              f % storage(2) % Q(:,i,j), &
-                                              f % storage(2) % U_x(:,i,j), &
-                                              f % storage(2) % U_y(:,i,j), &
-                                              f % storage(2) % U_z(:,i,j))
-!   
-!           --------------
-!           Viscous fluxes
-!           --------------
-!   
-            call ViscousDiscretization % GetViscosity(f % storage(1) % Q(INSRHO,i,j), mu)
+         call iViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
+                                       f % storage(1) % U_x(:,i,j), &
+                                       f % storage(1) % U_y(:,i,j), &
+                                       f % storage(1) % U_z(:,i,j), &
+                                       mu, 0.0_RP, 0.0_RP, fv_3d)
 
-            CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
-                                               f = f, &
-                                               QLeft = f % storage(1) % Q(:,i,j), &
-                                               QRight = f % storage(2) % Q(:,i,j), &
-                                               U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                               U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                               U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                               U_xRight = f % storage(2) % U_x(:,i,j), &
-                                               U_yRight = f % storage(2) % U_y(:,i,j), &
-                                               U_zRight = f % storage(2) % U_z(:,i,j), &
-                                               mu   = mu, beta = 0.0_RP, kappa = 0.0_RP, &
-                                               nHat = f % geom % normal(:,i,j) , &
-                                               dWall = f % geom % dWall(i,j), &
-                                               flux  = visc_flux(:,i,j) )
+         visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
+                            + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
+                            + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
 
-         end do               ; end do
-      else
-         visc_flux = 0.0_RP
-
-      end if
-
-      DO j = 0, f % Nf(2)
-         DO i = 0, f % Nf(1)
+         CALL BCs(f % zone) % bc % FlowNeumann(&
+                  f % geom % x(:,i,j),         & 
+                  time,                        & 
+                  f % geom % normal(:,i,j),    & 
+                  f % storage(1) % Q(:,i,j),   & 
+                  f % storage(1) % U_x(:,i,j), & 
+                  f % storage(1) % U_y(:,i,j), & 
+                  f % storage(1) % U_z(:,i,j), & 
+                  visc_flux(:,i,j)              )
 !
-!           Hyperbolic part
-!           -------------
-            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                               QRight = f % storage(2) % Q(:,i,j), &   
-                               nHat   = f % geom % normal(:,i,j), &
-                               t1     = f % geom % t1(:,i,j), &
-                               t2     = f % geom % t2(:,i,j), &
-                               flux   = inv_flux)
+!        Hyperbolic part
+!        -------------
+         CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                            QRight = f % storage(2) % Q(:,i,j), &   
+                            nHat   = f % geom % normal(:,i,j), &
+                            t1     = f % geom % t1(:,i,j), &
+                            t2     = f % geom % t2(:,i,j), &
+                            flux   = inv_flux)
 
-            fStar(:,i,j) = (inv_flux - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
-         END DO   
-      END DO   
+         fStar(:,i,j) = (inv_flux - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
+
+      end do               ; end do
 
       call f % ProjectFluxToElements(NCONS, fStar, (/1, HMESH_NONE/))
 
@@ -945,7 +920,7 @@ module SpatialDiscretization
          type(HexMesh)                  :: mesh
          real(kind=RP),      intent(in) :: time
 
-         call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientValuesForQ_0D, iNSGradientValuesForQ_3D)
+         call ViscousDiscretization % ComputeGradient( NCONS, NCONS, mesh , time , iNSGradientVariables)
 
       end subroutine DGSpatial_ComputeGradient
 

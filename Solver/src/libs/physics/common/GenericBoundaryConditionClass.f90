@@ -15,6 +15,8 @@ module GenericBoundaryConditionClass
    use SMConstants
    use PhysicsStorage
    use FTValueDictionaryClass, only: FTValueDictionary
+   use VariableConversion, only: GetGradientValues_f
+   use FluidData
    implicit none
 !
 !  *****************************
@@ -60,6 +62,7 @@ module GenericBoundaryConditionClass
          procedure         :: GetPeriodicPair   => GenericBC_GetPeriodicPair
 #ifdef FLOW
          procedure         :: FlowState         => GenericBC_FlowState
+         procedure         :: FlowGradVars      => GenericBC_FlowGradVars
          procedure         :: FlowNeumann       => GenericBC_FlowNeumann
 #endif
 #ifdef CAHNHILLIARD
@@ -69,6 +72,7 @@ module GenericBoundaryConditionClass
          procedure         :: ChemPotNeumann    => GenericBC_ChemPotNeumann
 #endif
          procedure         :: StateForEqn
+         procedure         :: GradVarsForEqn
          procedure         :: NeumannForEqn
    end type GenericBC_t
 !
@@ -164,7 +168,7 @@ module GenericBoundaryConditionClass
 
       end subroutine StateForEqn
 
-      subroutine NeumannForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine GradVarsForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
          integer,             intent(in)    :: nEqn
@@ -172,29 +176,63 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(nEqn)
-         real(kind=RP),       intent(inout) :: U_x(nGradEqn)
-         real(kind=RP),       intent(inout) :: U_y(nGradEqn)
-         real(kind=RP),       intent(inout) :: U_z(nGradEqn)
+         real(kind=RP),       intent(in)    :: Q(nEqn)
+         real(kind=RP),       intent(inout) :: U(nGradEqn)
+         procedure(GetGradientValues_f)     :: GetGradients
 
 #ifndef CAHNHILLIARD
-         call self % FlowNeumann(x, t, nHat, Q, U_x, U_y, U_z)
+         call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
 
 #else
          select case(self % currentEqn)
 #ifdef FLOW
          case(NS_BC)
-            call self % FlowNeumann(x, t, nHat, Q, U_x, U_y, U_z)
+            call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
 #endif
          case(C_BC)
-            call self % PhaseFieldNeumann(x, t, nHat, Q, U_x, U_y, U_z)
+            call self % PhaseFieldState(x, t, nHat, U)
    
          case(MU_BC)
-            call self % ChemPotNeumann(x, t, nHat, Q, U_x, U_y, U_z)
+            call self % ChemPotState(x, t, nHat, U)
 
          end select
 #endif
 
+      end subroutine GradVarsForEqn
+
+      subroutine NeumannForEqn(self, nEqn, nGradEqn, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         integer,             intent(in)    :: nEqn
+         integer,             intent(in)    :: nGradEqn
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(nEqn)
+         real(kind=RP),       intent(in)    :: U_x(nGradEqn)
+         real(kind=RP),       intent(in)    :: U_y(nGradEqn)
+         real(kind=RP),       intent(in)    :: U_z(nGradEqn)
+         real(kind=RP),       intent(inout) :: flux(nEqn)
+
+#ifdef CAHNHILLIARD
+         select case(self % currentEqn)
+         case(C_BC)
+            call self % PhaseFieldNeumann(x, t, nHat, Q, U_x, U_y, U_z, flux)
+   
+         case(MU_BC)
+            call self % ChemPotNeumann(x, t, nHat, Q, U_x, U_y, U_z, flux)
+
+         case default
+            print*, "Unexpected equation choice"
+            errorMessage(STD_OUT)
+            stop
+
+         end select
+#else
+         print*, "This function is only supported for Cahn-Hilliard"
+         errorMessage(STD_OUT)
+         stop
+#endif
       end subroutine NeumannForEqn
 !
 !////////////////////////////////////////////////////////////////////////////
@@ -214,16 +252,54 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: Q(NCONS)
       end subroutine GenericBC_FlowState
 
-      subroutine GenericBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine GenericBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCONS)
-         real(kind=RP),       intent(inout) :: U_x(NGRAD)
-         real(kind=RP),       intent(inout) :: U_y(NGRAD)
-         real(kind=RP),       intent(inout) :: U_z(NGRAD)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(inout) :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)  :: Q_aux(NCONS), U_aux(NGRAD), rho
+
+         Q_aux = Q
+         U_aux = U
+
+         call self % FlowState(x,t,nHat,Q_aux)
+
+#ifdef MULTIPHASE
+!
+!        Set the chemical potential to the interior
+!        ------------------------------------------
+         rho = dimensionless % rho(1) * Q_aux(IMC) + dimensionless % rho(2) * (1.0_RP-Q_aux(IMC))
+         rho = min(max(rho, dimensionless % rho_min),dimensionless % rho_max)
+         call GetGradients(NCONS,NGRAD,Q_aux, U_aux, rho)
+         U_aux(IGMU) = U(IGMU)
+#else
+         call GetGradients(NCONS,NGRAD,Q_aux, U_aux)
+#endif
+
+         U = 0.5_RP * (U_aux + U)
+
+      end subroutine GenericBC_FlowGradVars
+
+      subroutine GenericBC_FlowNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
+         implicit none
+         class(GenericBC_t),  intent(in)    :: self
+         real(kind=RP),       intent(in)    :: x(NDIM)
+         real(kind=RP),       intent(in)    :: t
+         real(kind=RP),       intent(in)    :: nHat(NDIM)
+         real(kind=RP),       intent(in)    :: Q(NCONS)
+         real(kind=RP),       intent(in)    :: U_x(NGRAD)
+         real(kind=RP),       intent(in)    :: U_y(NGRAD)
+         real(kind=RP),       intent(in)    :: U_z(NGRAD)
+         real(kind=RP),       intent(inout) :: flux(NCONS)
       end subroutine GenericBC_FlowNeumann
 #endif
 !
@@ -244,16 +320,17 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine GenericBC_PhaseFieldState
 
-      subroutine GenericBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine GenericBC_PhaseFieldNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
       end subroutine GenericBC_PhaseFieldNeumann
 
       subroutine GenericBC_ChemPotState(self, x, t, nHat, Q)
@@ -265,16 +342,17 @@ module GenericBoundaryConditionClass
          real(kind=RP),       intent(inout) :: Q(NCOMP)
       end subroutine GenericBC_ChemPotState
 
-      subroutine GenericBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z)
+      subroutine GenericBC_ChemPotNeumann(self, x, t, nHat, Q, U_x, U_y, U_z, flux)
          implicit none
          class(GenericBC_t),  intent(in)    :: self
          real(kind=RP),       intent(in)    :: x(NDIM)
          real(kind=RP),       intent(in)    :: t
          real(kind=RP),       intent(in)    :: nHat(NDIM)
-         real(kind=RP),       intent(inout) :: Q(NCOMP)
-         real(kind=RP),       intent(inout) :: U_x(NCOMP)
-         real(kind=RP),       intent(inout) :: U_y(NCOMP)
-         real(kind=RP),       intent(inout) :: U_z(NCOMP)
+         real(kind=RP),       intent(in)    :: Q(NCOMP)
+         real(kind=RP),       intent(in)    :: U_x(NCOMP)
+         real(kind=RP),       intent(in)    :: U_y(NCOMP)
+         real(kind=RP),       intent(in)    :: U_z(NCOMP)
+         real(kind=RP),       intent(inout) :: flux(NCOMP)
       end subroutine GenericBC_ChemPotNeumann
 #endif
 

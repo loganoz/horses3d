@@ -25,23 +25,14 @@ module VariableConversion
    implicit none
 
    abstract interface
-      subroutine GetGradientValues0D_f(nEqn, nGradEqn, Q, U, rho_)
+      subroutine GetGradientValues_f(nEqn, nGradEqn, Q, U, rho_)
          use SMConstants, only: RP
          implicit none
          integer, intent(in)                 :: nEqn, nGradEqn
          real(kind=RP), intent(in)           :: Q(nEqn)
          real(kind=RP), intent(out)          :: U(nGradEqn)
          real(kind=RP), intent(in), optional :: rho_
-      end subroutine GetGradientValues0D_f
-
-      subroutine GetGradientValues3D_f(nEqn, nGradEqn, Nx, Ny, Nz, Q, U, rho_)
-         use SMConstants, only: RP
-         implicit none
-         integer,    intent(in)              :: nEqn, nGradEqn, Nx, Ny, Nz
-         real(kind=RP), intent(in)           :: Q(1:nEqn,  0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(out)          :: U(1:nGradEqn, 0:Nx, 0:Ny, 0:Nz)
-         real(kind=RP), intent(in), optional :: rho_(0:Nx, 0:Ny, 0:Nz)
-      end subroutine GetGradientValues3D_f
+      end subroutine GetGradientValues_f
    end interface
 
    contains
