@@ -5,6 +5,7 @@ module MatrixClass
    use SparseBlockDiagonalMatrixClass
    use LinkedListMatrixClass
    use StaticCondensedMatrixClass
+   use MatrixFreeClass
    implicit none
    
 end module MatrixClass

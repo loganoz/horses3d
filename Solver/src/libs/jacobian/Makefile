@@ -20,6 +20,7 @@ LIBOBJS_NS = ./build_ns/JacobianDefinitions.o \
 			    ./build_ns/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ns/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ns/StaticCondensedMatrixClass.o \
+			    ./build_ns/MatrixFreeClass.o \
 			    ./build_ns/MatrixClass.o \
 				  ./build_ns/JacobianComputerClass.o \
 				./build_ns/NumericalJacobian.o
@@ -33,6 +34,7 @@ LIBOBJS_iNS = ./build_ins/JacobianDefinitions.o \
 			    ./build_ins/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ins/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ins/StaticCondensedMatrixClass.o \
+			    ./build_ins/MatrixFreeClass.o \
 			    ./build_ins/MatrixClass.o \
 				  ./build_ins/JacobianComputerClass.o \
 				./build_ins/NumericalJacobian.o
@@ -48,6 +50,7 @@ LIBOBJS_CH = ./build_ch/JacobianDefinitions.o \
 			    ./build_ch/DenseBlockDiagonalMatrixClass.o \
 			    ./build_ch/SparseBlockDiagonalMatrixClass.o \
 			    ./build_ch/StaticCondensedMatrixClass.o \
+			    ./build_ch/MatrixFreeClass.o \
 			    ./build_ch/MatrixClass.o \
 				  ./build_ch/JacobianComputerClass.o \
 				./build_ch/NumericalJacobian.o
@@ -61,6 +64,7 @@ LIBOBJS_MU = ./build_mu/JacobianDefinitions.o \
 			    ./build_mu/DenseBlockDiagonalMatrixClass.o \
 			    ./build_mu/SparseBlockDiagonalMatrixClass.o \
 			    ./build_mu/StaticCondensedMatrixClass.o \
+			    ./build_mu/MatrixFreeClass.o \
 			    ./build_mu/MatrixClass.o \
 				  ./build_mu/JacobianComputerClass.o \
 				./build_mu/NumericalJacobian.o

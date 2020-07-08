@@ -112,7 +112,7 @@ contains
          ! print *, "--------------"
 
          ! rnorm = norm2(r)       ! Saves relative tolerance (one iteration behind)
-         print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
+         ! print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
          
       end do
       ! print *, "--------------"
@@ -181,7 +181,7 @@ contains
 
 
          ! rnorm = norm2(r)       ! Saves relative tolerance (one iteration behind)
-         print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
+         ! print*, "Iteration: ", i, " ; Norm: ", norm2(r) 
          ! r = CSR_MatVecMul( A, x ) ! CSR matrix product
          ! r = b - r
          ! print*, "Iteration: ", i, " ; Norm after: ", norm2(r) 
