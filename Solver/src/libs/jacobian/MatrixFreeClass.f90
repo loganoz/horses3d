@@ -138,28 +138,31 @@ module MatrixFreeClass
       !-local-variables-----------------------------------------
       ! real(kind=RP) :: eps, shift
       real(kind=RP) :: eps
+      real(kind=RP) :: eps_mach
       real(kind=RP) :: L2x
       integer       :: i,j
       !---------------------------------------------------------
       
       ! TEST for different eps
       !---------------------------------------------------------
-!~      L2x = norm2(x)
-!~      eps = 1e-7_RP * (1._RP + norm2(x) )
-!~      if (L2x < 1e-12) then 
-!~         Ax = 0.0_RP
-!~      else 
-!~         do i = 1 , 8
-!~            Ax = 0.0_RP
-!~            eps = eps * 10 
-!~            Ax = ( MF_p_F(p_sem, DimPrb, Ur + x * eps, dt + timesolve, ComputeTimeDerivative) - F_Ur)/ eps + shift * x  ! First Order 
-!~            do j = 1 , DimPrb
-!~               Ax(j) = b(j) - Ax(j)
-!~            end do 
-!~            print *, "Eps: ", eps, " L2: ", norm2(Ax)
-!~
-!~         end do 
-!~      end if
+      L2x = norm2(x)
+      eps_mach = 1e-15
+      ! eps = 1e-7_RP * (1._RP + norm2(x) )
+      if (L2x < 1e-12) then 
+         Ax = 0.0_RP
+      else 
+         do i = 1 , 16
+            Ax = 0.0_RP
+            eps_mach = eps_mach * 10 
+            eps = sqrt(1._RP + eps_mach * norm2(p_sem % mesh % storage % Q) ) / norm2(x)
+            Ax = ( MF_p_F(p_sem, DimPrb, Ur + x * eps, dt + timesolve, ComputeTimeDerivative) - F_Ur)/ eps + shift * x  ! First Order 
+            do j = 1 , DimPrb
+               Ax(j) = b(j) - Ax(j)
+            end do 
+            print *, "Eps: ", eps, "Eps_{mach}: ", eps_mach ," L2: ", norm2(Ax)
+
+         end do 
+      end if
    end subroutine MF_Test
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -41,9 +41,9 @@ module MultigridSolverClass
    use NumericalJacobian      , only: NumJacobian_t
    use AnalyticalJacobian     , only: AnJacobian_t
    use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
-   use GenericSmoother
    use StopWatchClass
    use DenseMatUtilities
+   ! use GenericSmoother
 
    implicit none
 
@@ -63,6 +63,36 @@ module MultigridSolverClass
    integer, parameter ::  KSP_PRECONDITIONER_NONE = 0
    integer, parameter ::  KSP_PRECONDITIONER_BJ = 1
    integer, parameter ::  KSP_PRECONDITIONER_PMG = 2
+
+   integer, parameter :: S_NOTDEF     = 0
+   integer, parameter :: S_POINTJAC   = 1
+   integer, parameter :: S_BLOCKJAC   = 2
+   integer, parameter :: S_ILU        = 3
+   integer, parameter :: S_BILU       = 4
+!
+!  ------------------------------------------------
+!  Smoother
+!  ------------------------------------------------
+!
+   type :: BJSmooth_t
+!-----Variables-----------------------------------------------------------
+      class(DenseBlockDiagMatrix_t), pointer :: A_p           ! pointer to Block-Jacobian matrix
+      type(BlockPrec_t), allocatable         :: BlockPrec(:)
+   contains
+!-----Subroutines-----------------------------------------------------------
+      procedure                                  :: Construct => MGS_ConstructBlockJacobi
+      procedure                                  :: Destruct  => MGS_DestructBlockJacobi
+   end type BJSmooth_t
+!
+!  ------------------------------------------------
+!  Blocks For Smoother
+!  ------------------------------------------------
+!
+   type :: BlockPrec_t
+!-----Variables-----------------------------------------------------------
+      real(KIND=RP), dimension(:,:), allocatable :: PLU        ! LU factorization of elemental preconditioner matrix
+      integer      , dimension(:)  , allocatable :: LUpivots   ! LU pivots
+   end type BlockPrec_t
 !
 !  ------------------------------------------------
 !  Local temporary element storage.
@@ -100,8 +130,6 @@ module MultigridSolverClass
 !-----Variables-----------------------------------------------------------
       type(KSPForMG_t)                              :: KSP                   ! KSP 
       type(csrMat_t)                                :: A                     ! Matrix to solve
-      type(csrMat_t)                                :: RAP                   ! Matrix to test
-      type(DenseBlockDiagMatrix_t),     allocatable :: Atmp                  ! tmp
       type(BJSmooth_t)            ,     allocatable :: BJSmoother            ! smoother
       real(kind=RP), dimension(:) ,     allocatable :: x                     ! Solution vector
       real(kind=RP), dimension(:) ,     allocatable :: b                     ! Right hand side
@@ -167,6 +195,7 @@ module MultigridSolverClass
       procedure :: MG_PrecVec
       procedure :: MG_BJsmooth
       procedure :: MG_PJsmooth
+      procedure :: MG_smooth
 
       ! Interpolation routines
       procedure :: MG_CreateProlongationOperator
@@ -357,16 +386,8 @@ contains
       this % Ny = MG_levels_y(no_levels)
       this % Nz = MG_levels_z(no_levels)
 
-      ! MAINJAC
-      ! call this % A % construct(num_of_Rows = DimPrb, withMPI = .false.)
-      call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
-      call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
-
-      ! call this % RAP % construct(num_of_Rows = DimPrb, withMPI = .false.) ! DELETE
-      ! allocate (this % Afull (DimPrb, DimPrb) ) ! DELETE
-      ! MAINJAC
-
-      
+      ! call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
+      ! call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
 
       call MG_Levels_Construct(this,no_levels,controlVariables,nEqn)
       ! *********************************************************
@@ -405,21 +426,13 @@ contains
       allocate ( Me % F_Ur(Me % DimPrb) ) 
 
       ! Construct smoother
+      ! Allocate smoother
       select case (S_SMOOTHER) 
       case (S_POINTJAC)
          print *, "We're doing PJ"
       case (S_BLOCKJAC)
-         ! Allocate and construct Block-Jacobian matrix
-         allocate (Me % Atmp)
-         call Me % Atmp % construct (num_of_Blocks = Me % p_sem % mesh % no_of_elements)
-         do j=1,nelem
-             nnzs(j) = nEqn*(Me%Nx+1)*(Me%Ny+1)*(Me%Nz+1) 
-         end do
-         call Me % Atmp % PreAllocate (nnzs=nnzs)
-
-         ! Allocate smoother
          allocate ( Me % BJSmoother )
-         call Me % BJSmoother % Construct ( Me % Atmp )
+         call Me % BJSmoother % Construct ( Me % p_sem, Me % Nx, Me % Nx, Me % Ny, nEqn )
       case default
          ERROR Stop "Shouldnt be here"
       end select 
@@ -435,6 +448,20 @@ contains
          Me % LocalStorage(k) % R = 0._RP
       end do   
 ! !$omp end parallel do
+
+
+      ! Jacobian
+      select case (S_MATCOMP)
+         case (JACOBIANCOMP_MB) 
+            call Me % A % Construct(num_of_Rows = Me % DimPrb, withMPI = .false.)
+            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % A)
+         case (JACOBIANCOMP_MF)
+            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % BJSmoother % A_p)
+         case default
+           ERROR Stop "MultigridSolver :: Select MATCOMOP."
+      end select
+
+! 
 
       ! Construct coarser level
       ! *********************************************************
@@ -471,23 +498,23 @@ contains
         print *, " ************************** "
         ! *********************************************************
 
-        ! Construct Jacobian on coarse level
-        ! *********************************************************
-        call Child_p % A % construct(num_of_Rows = Child_p % DimPrb, withMPI = .false.)
-        call Child_p % RAP % construct(num_of_Rows = Child_p % DimPrb, withMPI = .false.) ! DELETE
-        ! allocate (child_p % Afull (child_p % DimPrb, child_p % DimPrb) ) ! DELETE
+        ! ! Construct Jacobian on coarse level
+        ! ! *********************************************************
+        ! call Child_p % A % construct(num_of_Rows = Child_p % DimPrb, withMPI = .false.)
+        ! ! call Child_p % RAP % construct(num_of_Rows = Child_p % DimPrb, withMPI = .false.) ! DELETE
+        ! ! allocate (child_p % Afull (child_p % DimPrb, child_p % DimPrb) ) ! DELETE
 
-        JacobianComputation = GetJacobianFlag()
-        print *, "Jacobian Type: ", JacobianComputation
-        select case (JacobianComputation)
-          case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Child_p % Jacobian)
-          case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Child_p % Jacobian)
-          case default
-             ERROR stop 'Invalid jacobian type. FIXME: '
-        end select
+        ! JacobianComputation = GetJacobianFlag()
+        ! print *, "Jacobian Type: ", JacobianComputation
+        ! select case (JacobianComputation)
+        !   case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Child_p % Jacobian)
+        !   case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Child_p % Jacobian)
+        !   case default
+        !      ERROR stop 'Invalid jacobian type. FIXME: '
+        ! end select
 
-        call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn)
-        call Child_p % Jacobian % configure(Child_p % p_sem % mesh, nEqn, Child_p % A)
+        ! call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn)
+        ! call Child_p % Jacobian % configure(Child_p % p_sem % mesh, nEqn, Child_p % A)
         ! call Child_p % A % Visualize("JacC.txt") ! write Jacobian to a file
         ! *********************************************************
 
@@ -530,6 +557,16 @@ contains
         ! close(90) 
 
         ! *********************************************************
+        ! coarse Jacobian
+         JacobianComputation = GetJacobianFlag()
+         print *, "Jacobian Type: ", JacobianComputation
+         select case (JacobianComputation)
+           case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Child_p % Jacobian)
+           case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Child_p % Jacobian)
+           case default
+              ERROR stop 'Invalid jacobian type. FIXME: '
+         end select
+         call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn)
 
         ! call MG_Create1elCSRInterpolationMats (Me,Neqn) ! DELETE
         ! recursive call
@@ -601,15 +638,16 @@ contains
       ! this % dt = dt
       ! this % timesolve = time
 
+
       if ( present(ComputeA)) then
          if (ComputeA) then
-            print *, "Computing Jacobian... "
+            print *, "Computing Jacobian 1... "
             call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
             print *, "   ... done. "
             ComputeA = .FALSE.
          end if
       else
-         print *, "Computing Jacobian... "
+         print *, "Computing Jacobian 2... "
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
          print *, "   ... done. "
       end if
@@ -726,11 +764,11 @@ contains
       this % converged = .false.
       this % tol = 1e-10
 
-      call Stopwatch % CreateNewEvent ("bj iteration")
-      call Stopwatch % CreateNewEvent ("restrict")
-      call Stopwatch % CreateNewEvent ("prolong")
-      call Stopwatch % CreateNewEvent ("cycle")
-      call Stopwatch % CreateNewEvent ("pmg")
+      ! call Stopwatch % CreateNewEvent ("bj iteration")
+      ! call Stopwatch % CreateNewEvent ("restrict")
+      ! call Stopwatch % CreateNewEvent ("prolong")
+      ! call Stopwatch % CreateNewEvent ("cycle")
+      ! call Stopwatch % CreateNewEvent ("pmg")
 
       ! call Stopwatch % Start("pmg")
 
@@ -814,7 +852,7 @@ contains
          ! this % b = this % b / norm2(this % b)
 
 
-         call this % MG_JacVec(this % r,this % x,ComputeTimeDerivative,0)
+         call this % MG_JacVec(this % r,this % x,ComputeTimeDerivative,S_MATCOMP)
          ! print *, "MB bez b   ", norm2(this % r)
          do i = 1 , this % DimPrb
             this % r(i) = this % b(i) - this % r(i)
@@ -1027,7 +1065,8 @@ contains
          ! smoothing on the coarsest level
          ! call Stopwatch % Start("bj iteration")
          ! call Smooth( Me % A, Me % x, Me % b, Me % DimPrb, pre_smooths(lvl) , S_SMOOTHER, Me % BJSmoother)
-         call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
+         call MG_smooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
+         ! call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
          ! call MG_PJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
 
          ! call Stopwatch % Pause("bj iteration")
@@ -1047,7 +1086,8 @@ contains
 
          ! call Stopwatch % Start("bj iteration")
          ! call Smooth( Me % A, Me % x, Me % b, Me % DimPrb, pre_smooths(lvl) , S_SMOOTHER, Me % BJSmoother) ! Pre smoothing
-         call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
+         call MG_smooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
+         ! call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
          ! call MG_PJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
          ! call Stopwatch % Pause("bj iteration")
 
@@ -1090,7 +1130,8 @@ contains
          ! call MG_1DProlongation( Me, nEqn )
 
          ! call Smooth( Me % A, Me % x, Me % b, Me % DimPrb, pos_smooths(lvl), S_SMOOTHER, Me % BJSmoother) ! Post smoothing
-         call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pos_smooths(lvl), ComputeTimeDerivative)
+         call MG_smooth(Me,Me % x,Me % b, Me % DimPrb , pos_smooths(lvl), ComputeTimeDerivative)
+         ! call MG_BJsmooth(Me,Me % x,Me % b, Me % DimPrb , pos_smooths(lvl), ComputeTimeDerivative)
          ! call MG_PJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
       end if 
    end subroutine MG_VCycle
@@ -1112,16 +1153,42 @@ contains
       integer             :: i,j
       character(len=1024) :: filename
 
-      print *, "dt: ", dt
-      call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % A, ComputeTimeDerivative)
-      call Me % SetOperatorDt(dt)
+
+      select case (S_MATCOMP)
+      case (JACOBIANCOMP_MB)
+         call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % A, ComputeTimeDerivative)
+         call Me % SetOperatorDt(dt)
+      case (JACOBIANCOMP_MF)
+         call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % BJSmoother % A_p, ComputeTimeDerivative, BlockDiagonalized=.TRUE.)
+         call Me % SetOperatorDt(dt)
+         call Me % BJSmoother % A_p % shift( MatrixShift(dt) )
+         ! call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
+      end select 
+
+
       select case (S_SMOOTHER)
       case (S_POINTJAC)
          print *, "It's allright"
       case (S_BLOCKJAC)
-         call getDBDfromCSR(Me % A,Me % Atmp) ! Get Jacobian diag-blocks
-         call ComputeBlockPrec(Me % BJSmoother)
 
+         select case (S_MATCOMP)
+         case (JACOBIANCOMP_MB)
+            call getDBDfromCSR(Me % A,Me % BJSmoother % A_p) ! Get Jacobian diag-blocks
+            call ComputeBlockPrec(Me % BJSmoother)
+         case (JACOBIANCOMP_MF)
+            call ComputeBlockPrec(Me % BJSmoother)
+            ! print *, "We good?"
+            ! call Me % BJSmoother % A_p % shift( MatrixShift(dt) )
+            ! call Me % BJSmoother % A_p % FactorizeBlocks_LU(Me % BJSmoother % A_p)
+         end select 
+
+!~         ! Visualize Block matrix
+!~         write (filename,"(I2.2)") 1
+!~         filename='matinv'//trim(filename)//'.dat'
+!~         open(2, file = trim(filename), status = 'new')  
+!~         write(2,"(1E19.11)") Me % BJSmoother % A_p % Blocks(1) % Matrix
+!~         close(2) 
+!~         error stop "WOJTEKTBC"
 
 !~         do i = 1, Me % BJSmoother % A_p % num_of_Blocks
 !~            ! Visualize Block matrix
@@ -1184,7 +1251,6 @@ contains
       end if
       ! *********************************************************
 
-
    end subroutine MG_ComputeJacobians
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1234,6 +1300,33 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine MG_smooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+      use DenseMatUtilities
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
+      real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
+      integer,          intent(in)                    :: n                     ! System siz
+      integer,          intent(in)                    :: SmoothIters           ! # of iterations
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
+!-----Local-Variables---------------------------------------------
+      real(kind=rp)                           :: tmp(n)            ! tmp solution vector
+      integer                                 :: i,j, idx1, idx2 ! Counters
+
+      select case (S_SMOOTHER)
+         case (S_NOTDEF)
+            ERROR stop 'GenericSmoother :: Wrong smoother type'
+         case (S_POINTJAC)
+            call MG_PJsmooth(this,x,b,n, SmoothIters, ComputeTimeDerivative)
+         case (S_BLOCKJAC)
+            call MG_BJsmooth(this,x,b,n, SmoothIters, ComputeTimeDerivative)
+      end select 
+
+   end subroutine MG_smooth
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    subroutine MG_BJsmooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
       use DenseMatUtilities
       implicit none
@@ -1259,7 +1352,7 @@ contains
             idx2 = this%BJSmoother % A_p % BlockIdx(i+1)-1
             this % r(idx1:idx2) = b(idx1:idx2) - this % r(idx1:idx2)
          end do
-         ! print *, "Iter: ", j, "res: ", norm2(this % r)
+         print *, "Iter: ", j, "res: ", norm2(this % r)
 
          do i=1, this%BJSmoother % A_p % num_of_Blocks
             idx1 = this%BJSmoother % A_p % BlockIdx(i)
@@ -1298,6 +1391,7 @@ contains
             ! print *, j, A % Values(A % Diag(j))
             ! print *, j, x(j)
          end do
+         print *, "Iter: ", j, "res: ", norm2(this % r)
       end do
 
    end subroutine MG_PJsmooth
@@ -2591,6 +2685,50 @@ contains
       
    end subroutine ComputeBlockPrec
 !   
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MGS_ConstructBlockJacobi(this,p_sem,Nx,Ny,Nz,nEqn)
+      implicit none
+!-----Arguments---------------------------------------------------
+      class(BJSmooth_t)            , intent(inout)      :: this                     ! Matrix to solve
+      type(DGSem)                  , intent(in)         :: p_sem
+      integer                      , intent(in)         :: Nx              
+      integer                      , intent(in)         :: Ny              
+      integer                      , intent(in)         :: Nz              
+      integer                      , intent(in)         :: nEqn              
+!-----Local-Variables---------------------------------------------
+      integer :: k,j            ! Counters
+      integer :: ndofelm        ! Dummies
+      integer :: nnzs(nelem)
+      !--------------------------------------------
+
+      allocate (this % A_p)
+      call this % A_p % construct (num_of_Blocks = p_sem % mesh % no_of_elements)
+      do j=1,p_sem % mesh % no_of_elements
+          nnzs(j) = nEqn*(Nx+1)*(Ny+1)*(Nz+1) 
+      end do
+      call this % A_p % PreAllocate (nnzs=nnzs)
+
+      allocate (this % BlockPrec(this % A_p % num_of_blocks))
+      DO k = 1, this % A_p % num_of_blocks
+         ndofelm = this % A_p % BlockSizes(k)
+         ! print *, "counter is ", k, ". NDOF is ", ndofelm
+         allocate (this % BlockPrec(k) % PLU(ndofelm,ndofelm) )
+         allocate (this % BlockPrec(k) % LUpivots   (ndofelm) )
+      end do
+   end subroutine MGS_ConstructBlockJacobi
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MGS_DestructBlockJacobi(this)
+      implicit none
+!-----Arguments---------------------------------------------------
+      class(BJSmooth_t), intent(inout)             :: this                     ! Matrix to solve
+!-----Local-Variables---------------------------------------------
+      integer                                 :: i,j              ! Counters
+      !--------------------------------------------
+   end subroutine MGS_DestructBlockJacobi
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 end module MultigridSolverClass
