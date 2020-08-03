@@ -127,8 +127,17 @@ contains
 !
       
       call Stopwatch % Start("Numerical Jacobian construction")
-      
-      if (isfirst) then   
+
+      if (.NOT. isfirst) then 
+         deallocate(nbr)
+         deallocate(Nx)
+         deallocate(Ny)
+         deallocate(Nz)
+         deallocate(used)
+         deallocate(ndofcol)
+         deallocate(QDot0)
+         deallocate(Q0)
+      end if
          nelm = size(sem % mesh % elements)
 !
 !        Define the number of needed neighbors
@@ -218,7 +227,6 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
          
          ! All initializations done!
          isfirst = .FALSE.
-      end if !(isfirst)
 !
 !     ---------------------------------------------
 !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)

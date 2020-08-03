@@ -154,9 +154,12 @@ module MultigridSolverClass
       real(kind=RP), dimension(:,:) ,   allocatable :: ProlY(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: RestZ(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: ProlZ(:,:)             
-      ! 3D prolongation/restriction operators 
+      ! 3D prolongation/restriction operators (1 el, 1 eq)
       real(kind=RP), dimension(:,:) ,   allocatable :: Rest3D(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: Prol3D(:,:)             
+      ! 3D prolongation/restriction operators (1 el, nEqn eq)
+      real(kind=RP), dimension(:,:) ,   allocatable :: nRest3D(:,:)             
+      real(kind=RP), dimension(:,:) ,   allocatable :: nProl3D(:,:)             
       ! 3D mat prolongation/restriction operators size of 1 block-element 
       type(csrMat_t) :: Rest1elCSR            
       type(csrMat_t) :: Prol1elCSR             
@@ -535,6 +538,10 @@ contains
         ! *********************************************************
         allocate (Me      % Rest3D( 1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) ), 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ) )  )
         allocate (Child_p % Prol3D( 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ), 1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) ) )  )
+        allocate (Me      % nRest3D( 1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) ) * nEqn, & 
+                                        1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) )* nEqn )  )
+        allocate (Child_p % nProl3D( 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ) * nEqn, & 
+                                        1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) * nEqn ) )  )
         ! allocate (Child_p % Prol3D(0:Me%Nx,0:Child_p%Nx)  )
 
         print *, "My interpolation matrices: "
