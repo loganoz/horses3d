@@ -63,6 +63,7 @@ module MultigridSolverClass
    integer, parameter ::  KSP_PRECONDITIONER_NONE = 0
    integer, parameter ::  KSP_PRECONDITIONER_BJ = 1
    integer, parameter ::  KSP_PRECONDITIONER_PMG = 2
+   integer, parameter ::  KSP_PRECONDITIONER_PJ = 3
 
    integer, parameter :: S_NOTDEF     = 0
    integer, parameter :: S_POINTJAC   = 1
@@ -136,7 +137,7 @@ module MultigridSolverClass
       real(kind=RP), dimension(:) ,     allocatable :: r                     ! Residual
       real(kind=RP)                                 :: rnorm                 ! L2 norm of residual
       real(kind=RP)                                 :: tol                   ! Tolerance
-      real(kind=RP)                                 :: maxiter               ! Max. # iterations
+      integer                                       :: maxiter               ! Max. # iterations
       real(kind=RP)                                 :: Ashift                ! Jacobian recompute
       integer                                       :: MGlevel               ! Current level
       integer                                       :: Nx                    ! Polynomial in X
@@ -147,6 +148,7 @@ module MultigridSolverClass
       type(TemporaryElementStorage_t) , allocatable :: LocalStorage(:)       ! Storage
       real(kind=RP)                                 :: timesolve             ! Time at the solution
       real(kind=RP)                                 :: dt                    ! dt for the solution
+      real(kind=RP), dimension(:) ,     allocatable :: resvec                ! array for the residual
       ! 1D prolongation/restriction operators in each direction 
       real(kind=RP), dimension(:,:) ,   allocatable :: RestX(:,:)             
       real(kind=RP), dimension(:,:) ,   allocatable :: ProlX(:,:)             
@@ -321,6 +323,11 @@ contains
              S_SMOOTHER = S_BLOCKJAC 
              S_PRECONDITIONER = KSP_PRECONDITIONER_BJ
              print *, 'Solver :: GMRES-BJ'
+           case ('gmres-pj')
+             S_SOLVER = SOLVER_GMRES_PMG
+             S_SMOOTHER = S_POINTJAC 
+             S_PRECONDITIONER = KSP_PRECONDITIONER_PJ
+             print *, 'Solver :: GMRES-PJ'
            case ('pmg-none')
              S_SOLVER = SOLVER_PMG_NONE
              !S_PRECONDITIONER = KSP_PRECONDITIONER_NONE
@@ -767,9 +774,12 @@ contains
       ! Error Stop "TBC Wojtek"
 
       this % niter = 0
-      this % maxiter = 3000
+      this % maxiter = maxiter
       this % converged = .false.
-      this % tol = 1e-10
+      this % tol = tol 
+
+      allocate( this % resvec(maxiter))
+      this % resvec = 0._RP
 
       ! call Stopwatch % CreateNewEvent ("bj iteration")
       ! call Stopwatch % CreateNewEvent ("restrict")
@@ -803,24 +813,29 @@ contains
 
       solver_type = S_SOLVER
       this % x = 0.0_RP ! setting initial solution
-      !call Stopwatch % Start("pmg") 
+      ! call Stopwatch % Start("pmg") 
       select case (solver_type)
          case (SOLVER_PMG_NONE)
-            call this % MG_Solve_MB_PMG_NONE(nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+            call this % MG_Solve_MB_PMG_NONE(nEqn, nGradEqn, ComputeTimeDerivative, this % tol, this % maxiter, time, dt, ComputeA)
          case (SOLVER_GMRES_PMG)
-            call this % MG_KSP_Construct(this % DimPrb,100)
-            call this % MG_Solve_MB_GMRES_PMG(nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+            call this % MG_KSP_Construct(this % DimPrb, this % maxiter)
+            call this % MG_Solve_MB_GMRES_PMG(nEqn, nGradEqn, ComputeTimeDerivative, this % tol, this % maxiter, time, dt, ComputeA)
+            call this % MG_KSP_Destruct(this % DimPrb)
       end select 
 
 
+      print *, "No iterations: ", this % niter-2
+      print *, "Residual history: "
+      write(*,"(ES14.7)") this % resvec(1:this%niter-1)
       ! open(1, file = 'x.txt')  
       ! write(1,'(1E19.11)') this % x 
       ! close(1) 
       ! Error Stop "TBC Wojtek"
-      !call Stopwatch % pause("pmg")
-      !print *, " Solver time: ", Stopwatch % lastelapsedtime("pmg")
+      ! call Stopwatch % pause("pmg")
+      ! print *, " Solver time: ", Stopwatch % lastelapsedtime("pmg")
 
       !ERROR stop ':: TBC Wojtek'
+      deallocate( this % resvec )
    end subroutine MG_Solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -867,8 +882,9 @@ contains
          ! call Stopwatch % Start("pmg")
 
          this % rnorm = norm2(this % r)
+         this % resvec(this % niter) = this % rnorm
          this % niter = this % niter + 1
-         print *, "MB ", this % niter, ". Res: ", this % rnorm
+         ! print *, "Iter ", this % niter, ". Res: ", this % rnorm
          if (this % rnorm < this % tol) this % converged = .true.
          ! call Stopwatch % pause("cycle")
          ! print *, " Cycle time: ", Stopwatch % lastelapsedtime("cycle")
@@ -964,6 +980,18 @@ contains
                ! w = Az
                !W = CSR_MatVecMul( this % A, Z(:,j) ) 
                call this % MG_JacVec(W,Z(:,j),ComputeTimeDerivative,S_MATCOMP)
+            case (KSP_PRECONDITIONER_PJ)
+               select case (S_MATCOMP)
+                  case (JACOBIANCOMP_MB)
+                     do i=1, size(this % b, 1)
+                        Z(i,j) = 2._RP/3._RP * V(i,j) / this % A % Values(this % A % Diag(i))
+                        ! print *, "i: ", i, " val: ", this % A % Values(this % A % Diag(i))
+                     end do
+                  case (JACOBIANCOMP_MF)
+                     ERROR STOP "Matrix-free not implemented for Point-Jacobi prec."
+                  case default  
+               end select
+               call this % MG_JacVec(W,Z(:,j),ComputeTimeDerivative,S_MATCOMP)
             case default ! PC_NONE
          end select
 
@@ -1011,9 +1039,10 @@ contains
          H(j,j) = cc(j) * H(j,j) + ss(j) * H(j+1,j) 
          ! this%rnorm = ABS(g(j+1))
          this%rnorm = ABS(g(j+1)) / rhsnorm
+         this % resvec(j) = this % rnorm
+         ! print *, "iter: ", this % niter, " r: ", this % rnorm 
          this%niter = this%niter + 1
 
-         print *, "Krylov iteration: ",  j, ". Res: ", this % rnorm
          if (this%rnorm .LT. this%tol) then
             this%CONVERGED = .TRUE.
             m = j
@@ -1359,7 +1388,7 @@ contains
             idx2 = this%BJSmoother % A_p % BlockIdx(i+1)-1
             this % r(idx1:idx2) = b(idx1:idx2) - this % r(idx1:idx2)
          end do
-         print *, "Iter: ", j, "res: ", norm2(this % r)
+         ! print *, "Iter: ", j, "res: ", norm2(this % r)
 
          do i=1, this%BJSmoother % A_p % num_of_Blocks
             idx1 = this%BJSmoother % A_p % BlockIdx(i)
@@ -2243,17 +2272,17 @@ contains
       write(90,'(1E19.11)') this % Rest3D
       close(90) 
 
-      write (filename,"(I2.2)") this % Nx
-      filename='P_glo'//trim(filename)//'.dat'
-      open(90, file = filename)
-      write(90,'(1E19.11)') child_p % Pfull
-      close(90) 
+      ! write (filename,"(I2.2)") this % Nx
+      ! filename='P_glo'//trim(filename)//'.dat'
+      ! open(90, file = filename)
+      ! write(90,'(1E19.11)') child_p % Pfull
+      ! close(90) 
 
-      write (filename,"(I2.2)") this % Nx
-      filename='R_glo'//trim(filename)//'.dat'
-      open(90, file = filename)
-      write(90,'(1E19.11)') this % Rfull
-      close(90) 
+      ! write (filename,"(I2.2)") this % Nx
+      ! filename='R_glo'//trim(filename)//'.dat'
+      ! open(90, file = filename)
+      ! write(90,'(1E19.11)') this % Rfull
+      ! close(90) 
 
       deallocate( P1el )
       deallocate( R1el )

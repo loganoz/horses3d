@@ -18,7 +18,7 @@
 #endif
 module PetscSolverClass
    use GenericLinSolverClass
-   use MatrixClass            , only: PETSCMatrix_t
+   use MatrixClass   
    use SMConstants
    use DGSEMClass             , only: DGSem, computetimederivative_f
    use MPI_Process_Info       , only: MPI_Process
@@ -130,6 +130,9 @@ module PetscSolverClass
       MatrixShift => MatrixShiftFunc
       
       !Initialisation of the PETSc variables
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-ksp_gmres_restart","100",ierr)
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-ksp_gmres_modifiedgramschmidt","true",ierr)
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-pc_bjacobi_blocks",size(sem % mesh % elements),ierr)
       call PetscInitialize(PETSC_NULL_character,ierr)
 
 !     PETSc matrix A 
@@ -204,6 +207,10 @@ module PetscSolverClass
          case ('ILU')
             
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
+         case ('Block-Jacobi2')
+
+            call PCSetType(this%pc,PCBJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
+            call PCBJacobiSetTotalBlocks(this % pc, size(this % Jacobian % ndofelm_l), this % Jacobian % ndofelm_l(1), ierr) ; call CheckPetscErr(ierr, 'error in PCBJacobiSetBlocks')
          case default
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
@@ -235,6 +242,9 @@ module PetscSolverClass
       PetscInt     , optional                               :: maxiter
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                  :: ierr
+      PetscInt                                        :: nresvec=500
+      PetscReal ,dimension(500)                       :: resvec
+      type(csrMat_t) :: Afull ! to save matrix
       !---------------------------------------------------------------------
       
       if ( present(ComputeA)) then
@@ -251,6 +261,9 @@ module PetscSolverClass
          
          call this % SetPreconditioner
       end if
+
+      ! call this % A % GetCSRMatrix (Afull)
+      ! call Afull % Visualize('Afull_f.txt') ! visualize
       
       ! Set , if given, solver tolerance and max number of iterations
       if (PRESENT(tol)) then
@@ -265,18 +278,37 @@ module PetscSolverClass
          this%maxiter = PETSC_DEFAULT_integer
       end if
       
-      call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
+      ! call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr) ! OLD
+      call KSPSetTolerances(this%ksp,this % tol,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr) ! laskwj fix
       call CheckPetscErr(ierr, 'error in KSPSetTolerances')
       
       ! Set initial guess to P⁻¹b
       call KSPSetInitialGuessKnoll(this%ksp,PETSC_TRUE,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetInitialGuessKnoll')
+
+      ! set vector for residual history
+      call KSPSetResidualHistory(this%ksp,resvec,nresvec,PETSC_TRUE,ierr)
+      call CheckPetscErr(ierr, 'error in KSPSetResidualHistory')
+
+      ! set different type of solver other than GMRES
+      call KSPSetType(this % ksp,KSPGMRES,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
+      ! call KSPSetType(this % ksp,KSPRICHARDSON,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
       
       call KSPSolve(this%ksp,this%b,this%x,ierr)               ; call CheckPetscErr(ierr, 'error in KSPSolve')
+
+      ! get residual vector
+      call KSPGetResidualHistory(this%ksp,resvec,nresvec,ierr)
+      call CheckPetscErr(ierr, 'error in KSPGetResidualHistory')
       
       call KSPGetIterationNumber(this%ksp,this%niter,ierr)     ; call CheckPetscErr(ierr,'error in KSPGetIterationNumber')
 !~       call KSPGetResidualNorm(this%ksp, this%residual, ierr)   ; call CheckPetscErr(ierr,'error in KSPGetResidualNorm')
 !~       call VecNorm(this%x,NORM_INFINITY,this%xnorm,ierr)       ; call CheckPetscErr(ierr,'error in VecNorm')
+
+!~      ! print stuff 
+!~      print *, "No iterations: ", this % niter
+!~      print *, "Residual history: "
+!~      write(*,"(ES14.7)") resvec(1:this%niter)
+
       if (this%niter < maxiter) then
          this%converged = .TRUE.
       else

@@ -412,7 +412,8 @@ contains
 !     -----------
       DO newtonit = 1, MaxNewtonIter
          
-         linsolver_tol = norm * ( LinSolTolFactor**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         ! linsolver_tol = norm * ( LinSolTolFactor**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         linsolver_tol = 1e-10
          
          call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          
@@ -420,6 +421,9 @@ contains
          call linsolver%solve( nEqn=NCONS, nGradEqn=NGRAD, tol = linsolver_tol, maxiter=maxLinSolIter, time= t, dt=dt, &
                               ComputeTimeDerivative = ComputeTimeDerivative, computeA = computeA)        ! Solve (J-I/dt)·x = (Q_r- U_n)/dt - Qdot_r
          call Stopwatch % Pause("BDF Newton-Solve")
+
+         ! print *, " Solver time: ", Stopwatch % lastelapsedtime("BDF Newton-Solve")
+         ! error stop "DONE"
          
          if (.NOT. linsolver%converged .and. Adaptive_dt) then                           ! If linsolver did not converge, return converged=false
             converged = .FALSE.
