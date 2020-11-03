@@ -4,9 +4,7 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sun Aug  4 19:18:48 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
+!   @Last revision author: Wojciech Laskowski 
 !
 !//////////////////////////////////////////////////////
 !
@@ -3447,6 +3445,7 @@ slavecoord:             DO l = 1, 4
       integer :: bdf_order, eID, fID, RKSteps_num
       logical :: Face_St
       character(len=LINE_LENGTH) :: time_int
+      logical :: modal_storage
       !-----------------------------------------------------------
       
       if ( present(Face_Storage) ) then
@@ -3479,7 +3478,17 @@ slavecoord:             DO l = 1, 4
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
+
+      if ( controlVariables % containsKey("modal storage")) then
+         modal_storage = controlVariables % logicalValueForKey("modal storage")
+         if ( modal_storage ) then 
+            call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num, .true. )
+         else 
+            call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
+         end if
+      else 
+         call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
+      end if
 
 !     Construct faces' storage
 !     ------------------------

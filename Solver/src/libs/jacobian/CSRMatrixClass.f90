@@ -5,8 +5,7 @@
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
 !   @Last revision date: Wed Jul 17 11:52:23 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
+!   @Last revision author: Wojciech Laskowski 
 !
 !//////////////////////////////////////////////////////
 !
@@ -57,6 +56,8 @@ MODULE CSRMatrixClass
       procedure :: MatAdd                    => CSR_MatAdd
 !      procedure                           :: SetFirstIdx => CSR_SetFirstIdx
       procedure :: PreAllocateWithStructure => CSR_PreAllocateWithStructure
+      procedure :: ForwSub                => CSR_ForwardSubstitution
+      procedure :: BackSub                => CSR_BackwardSubstitution
    END TYPE
    !-----------------------------------------------------------------------------   
    
@@ -1085,4 +1086,117 @@ MODULE CSRMatrixClass
       call this % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine CSR_ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Routine to compute forward substitution for CSR matrices.
+!  By: Wojciech Laskowski
+!  ---------------------------------------------------------
+   subroutine CSR_ForwardSubstitution(this, b, y, n)
+      implicit none
+!
+!  ----------------
+!  Arguments:
+!  ----------------
+!
+      class(csrMat_t), intent(in)    :: this
+      real(kind=RP)  , intent(in)    :: b(n)
+      integer        , intent(in)    :: n
+      real(kind=RP)  , intent(inout) :: y(n)
+!
+!  ----------------
+!  Local Variables:
+!  ----------------
+!
+      real(kind=RP) :: s
+      integer       :: i,j
+!  ---------------------------------------------------------
+      associate(rows => this % rows, cols => this % cols, vals => this % values)
+         y = 0.0_RP
+         y(1) = b(1)
+
+         ! print *, "i=1", "b=" ,b(1), "y=", y(1)
+
+         do i=2,n
+            s = b(i)
+            j=0
+            do while ( cols(rows(i)+j) .lt. i)
+               ! print *, "s: ", s
+               ! print *, "vals: ", vals(rows(i)+j)
+               ! print *, "y: ", y(cols(rows(i)+j))
+               s = s - vals(rows(i)+j) * y(cols(rows(i)+j))
+               j = j + 1
+            end do
+            ! print *, "i = ", i, ", j = ", j
+            ! print *, cols(size(cols,1)) 
+            ! print *, "cols(rows(i)+j+1) = ", cols(rows(i)+j+1)
+            ! print *, y(cols(rows(i)+j+1)) 
+            if (i<n) then
+               s = s - y(cols(rows(i)+j+1))
+            end if
+            y(i) = s
+            ! print *, "i=",i, "b=" ,b(i), "y=", y(i)
+         end do
+
+      end associate
+      ! error stop
+   end subroutine CSR_ForwardSubstitution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Routine to compute forward substitution for CSR matrices.
+!  By: Wojciech Laskowski
+!  ---------------------------------------------------------
+   subroutine CSR_BackwardSubstitution(this, y, x, n)
+      implicit none
+!
+!  ----------------
+!  Arguments:
+!  ----------------
+!
+      class(csrMat_t), intent(in)    :: this
+      real(kind=RP)  , intent(in)    :: y(n)
+      integer        , intent(in)    :: n
+      real(kind=RP)  , intent(inout) :: x(n)
+!
+!  ----------------
+!  Local Variables:
+!  ----------------
+!
+      real(kind=RP) :: s
+      integer       :: i,j
+!  ---------------------------------------------------------
+      associate(rows => this % rows, cols => this % cols, vals => this % values)
+         x = 0.0
+         ! print *, y(n-2),y(n-1),y(n)
+         ! print *,vals(size(vals,1)-2),vals(size(vals,1)-1),vals(size(vals,1))
+         x(n) = y(n) / vals(size(vals,1))
+
+         do i = n-1,1,-1
+            s = y(i)
+            j=1
+            do while ( (cols(rows(i+1)-j) .ge. i) )
+               ! print *, " i= ", i, " j= ", j
+               ! print *, " val= ", vals(rows(i+1)-j), " col= ", cols(rows(i+1)-j)
+               ! print *, " x= ", x(cols(rows(i+1)-j))
+               s = s - vals(rows(i+1)-j) * x(cols(rows(i+1)-j))
+               j = j + 1
+               if ( rows(i+1)-j .lt. 1) then
+                   exit
+               end if 
+            end do
+            ! print *, "rows(i+1)-j+1: ", rows(i+1)-j+1
+            ! print *, "s: ", s, " vals(rows(i+1)-j+1): ", vals(rows(i+1)-j+1)
+            x(i) = s / vals(rows(i+1)-j+1)
+            ! print *, "i =",i, "y =" ,y(i), "x =", x(i)
+         end do
+         x(1) = s / vals(1)
+
+      end associate
+   end subroutine CSR_BackwardSubstitution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 END MODULE CSRMatrixClass

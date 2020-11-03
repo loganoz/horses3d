@@ -250,6 +250,8 @@ module PetscSolverClass
       if ( present(ComputeA)) then
          if (ComputeA) then
             call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+            ! call this % A % GetCSRMatrix (Afull)
+            ! call Afull % Visualize('Afull_f.txt') ! visualize
             call this % SetOperatorDt(dt)
             ComputeA = .FALSE.
             
@@ -257,6 +259,8 @@ module PetscSolverClass
          end if
       else 
          call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+         ! call this % A % GetCSRMatrix (Afull)
+         ! call Afull % Visualize('Afull_f.txt') ! visualize
          call this % SetOperatorDt(dt)
          
          call this % SetPreconditioner

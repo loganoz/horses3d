@@ -44,6 +44,7 @@ module MultigridSolverClass
    use StopWatchClass
    use DenseMatUtilities
    ! use GenericSmoother
+#include "Includes.h"
 
    implicit none
 
@@ -64,6 +65,7 @@ module MultigridSolverClass
    integer, parameter ::  KSP_PRECONDITIONER_BJ = 1
    integer, parameter ::  KSP_PRECONDITIONER_PMG = 2
    integer, parameter ::  KSP_PRECONDITIONER_PJ = 3
+   integer, parameter ::  KSP_PRECONDITIONER_ILU = 4
 
    integer, parameter :: S_NOTDEF     = 0
    integer, parameter :: S_POINTJAC   = 1
@@ -72,7 +74,20 @@ module MultigridSolverClass
    integer, parameter :: S_BILU       = 4
 !
 !  ------------------------------------------------
-!  Smoother
+!  ILU smoother
+!  ------------------------------------------------
+!
+   type :: ILUSmooth_t
+!-----Variables-----------------------------------------------------------
+      type(csrMat_t) :: A ! ILU matrix
+   contains
+!-----Subroutines-----------------------------------------------------------
+      procedure                                  :: Construct => MGS_ConstructILU
+      procedure                                  :: Destruct  => MGS_DestructILU
+   end type ILUSmooth_t
+!
+!  ------------------------------------------------
+!  Block-Jacobi smoother
 !  ------------------------------------------------
 !
    type :: BJSmooth_t
@@ -131,7 +146,8 @@ module MultigridSolverClass
 !-----Variables-----------------------------------------------------------
       type(KSPForMG_t)                              :: KSP                   ! KSP 
       type(csrMat_t)                                :: A                     ! Matrix to solve
-      type(BJSmooth_t)            ,     allocatable :: BJSmoother            ! smoother
+      type(BJSmooth_t)            ,     allocatable :: BJSmoother            ! BJ smoother
+      type(ILUSmooth_t)           ,     allocatable :: ILUSmoother           ! ILU smoother
       real(kind=RP), dimension(:) ,     allocatable :: x                     ! Solution vector
       real(kind=RP), dimension(:) ,     allocatable :: b                     ! Right hand side
       real(kind=RP), dimension(:) ,     allocatable :: r                     ! Residual
@@ -199,6 +215,7 @@ module MultigridSolverClass
       procedure :: MG_JacVec
       procedure :: MG_PrecVec
       procedure :: MG_BJsmooth
+      procedure :: MG_ILUsmooth
       procedure :: MG_PJsmooth
       procedure :: MG_smooth
 
@@ -315,13 +332,17 @@ contains
              print *, 'Solver :: PMG-NONE'
            case ('gmres-pmg')
              S_SOLVER = SOLVER_GMRES_PMG
-             S_SMOOTHER = S_BLOCKJAC 
              S_PRECONDITIONER = KSP_PRECONDITIONER_PMG
              print *, 'Solver :: GMRES-PMG'
            case ('gmres-bj')
              S_SOLVER = SOLVER_GMRES_PMG
              S_SMOOTHER = S_BLOCKJAC 
              S_PRECONDITIONER = KSP_PRECONDITIONER_BJ
+             print *, 'Solver :: GMRES-BJ'
+           case ('gmres-ilu')
+             S_SOLVER = SOLVER_GMRES_PMG
+             S_SMOOTHER = S_ILU 
+             S_PRECONDITIONER = KSP_PRECONDITIONER_ILU
              print *, 'Solver :: GMRES-BJ'
            case ('gmres-pj')
              S_SOLVER = SOLVER_GMRES_PMG
@@ -359,6 +380,8 @@ contains
              print *, 'GenericSmoother :: WARNING p. Jacobi smoother is not suitable for DGSEM Jacobians'
            case ('block-jacobi')
              S_SMOOTHER = S_BLOCKJAC
+           case ('ilu')
+             S_SMOOTHER = S_ILU
            case default
              ERROR Stop "MultigridSolver :: Wrong smoother "
         end select
@@ -435,18 +458,34 @@ contains
       allocate ( Me % Ur(Me % DimPrb) ) 
       allocate ( Me % F_Ur(Me % DimPrb) ) 
 
+      ! Jacobian
+      select case (S_MATCOMP)
+         case (JACOBIANCOMP_MB) 
+            call Me % A % Construct(num_of_Rows = Me % DimPrb, withMPI = .false.)
+            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % A)
+         case (JACOBIANCOMP_MF)
+            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % BJSmoother % A_p)
+         case default
+           ERROR Stop "MultigridSolver :: Select MATCOMOP."
+      end select
+
       ! Construct smoother
       ! Allocate smoother
+      print *, "Allocate smoothers..."
       select case (S_SMOOTHER) 
       case (S_POINTJAC)
-         print *, "We're doing PJ"
       case (S_BLOCKJAC)
          allocate ( Me % BJSmoother )
          call Me % BJSmoother % Construct ( Me % p_sem, Me % Nx, Me % Ny, Me % Nz, nEqn )
+      case (S_ILU)
+         allocate ( Me % ILUsmoother )
+         ! call Me % ILUSmoother % Construct (Me % DimPrb) 
+         ! print *, "sizes:", size(Me % A % Rows,1), size(Me % A % Cols,1), size(Me % A % Values,1)
+         ! call Me % ILUSmoother % Construct (Me % A) 
       case default
-         ERROR Stop "Shouldnt be here"
+         ERROR Stop "Error! No smoother set."
       end select 
-
+      print *, "   allocated!"
 
 
       ALLOCATE ( Me % LocalStorage(nelem))
@@ -460,16 +499,6 @@ contains
 ! !$omp end parallel do
 
 
-      ! Jacobian
-      select case (S_MATCOMP)
-         case (JACOBIANCOMP_MB) 
-            call Me % A % Construct(num_of_Rows = Me % DimPrb, withMPI = .false.)
-            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % A)
-         case (JACOBIANCOMP_MF)
-            call Me % Jacobian % Configure (Me % p_sem % mesh, nEqn, Me % BJSmoother % A_p)
-         case default
-           ERROR Stop "MultigridSolver :: Select MATCOMOP."
-      end select
 
 ! 
 
@@ -552,8 +581,8 @@ contains
         ! allocate (Child_p % Prol3D(0:Me%Nx,0:Child_p%Nx)  )
 
         print *, "My interpolation matrices: "
-        call MG_CreateRestrictionOperator  ( Me , .true.)
-        ! call MG_CreateRestrictionOperator  ( Me , .false.)
+        ! call MG_CreateRestrictionOperator  ( Me , .true.)
+        call MG_CreateRestrictionOperator  ( Me , .false.)
         ! call MG_CreateRestrictionOperator  ( Me )
         print *, "Level: ", lvl
         call MG_CreateProlongationOperator ( Child_p )
@@ -812,7 +841,8 @@ contains
 
 
       solver_type = S_SOLVER
-      this % x = 0.0_RP ! setting initial solution
+      ! this % x = 0.0_RP ! setting initial solution
+      this % x = this % p_sem % mesh % storage % Q ! setting initial solution
       ! call Stopwatch % Start("pmg") 
       select case (solver_type)
          case (SOLVER_PMG_NONE)
@@ -918,7 +948,7 @@ contains
       real(kind=rp), optional                         :: dt
       logical      , optional , intent(inout)         :: ComputeA
       !---------------------------------------------------------------------
-      real(kind=RP), dimension(:) ,     allocatable   :: x0 
+      real(kind=RP), dimension(:) ,     allocatable   :: x0,tmp_ilu 
       !class(csrMat_t), pointer                        :: pA
       integer                                         :: niter
       real(kind=rp)                                   :: tmpsize
@@ -930,6 +960,7 @@ contains
       real(kind = RP)                                 :: rhsnorm 
      
       allocate (x0(this%DimPrb))
+      allocate (tmp_ilu(this%DimPrb))
 
       associate ( V => this % KSP % V, H => this % KSP % H, &
                   W => this % KSP % W, Y => this % KSP % Y, &
@@ -962,6 +993,7 @@ contains
                call this % SetRHS (V(:,j))
                this % x = 0.0_RP
                call MG_VCycle( this, no_levels, nEqn, ComputeTimeDerivative)
+               ! call MG_FMGCycle( this, no_levels, nEqn, ComputeTimeDerivative)
                Z(:,j) = this % x
                ! w = Az
                !W = CSR_MatVecMul( this % A, Z(:,j) ) 
@@ -980,6 +1012,12 @@ contains
                ! w = Az
                !W = CSR_MatVecMul( this % A, Z(:,j) ) 
                call this % MG_JacVec(W,Z(:,j),ComputeTimeDerivative,S_MATCOMP)
+            case (KSP_PRECONDITIONER_ILU)
+               ! z = M^{-1}v
+               call this % ILUsmoother % A % ForwSub(V(:,j) , tmp_ilu, this%DimPrb)
+               call this % ILUsmoother % A % BackSub(tmp_ilu, Z(:,j) , this%DimPrb)
+               ! w = Az
+               call this % MG_JacVec(W, Z(:,j), ComputeTimeDerivative, S_MATCOMP)
             case (KSP_PRECONDITIONER_PJ)
                select case (S_MATCOMP)
                   case (JACOBIANCOMP_MB)
@@ -1040,7 +1078,7 @@ contains
          ! this%rnorm = ABS(g(j+1))
          this%rnorm = ABS(g(j+1)) / rhsnorm
          this % resvec(j) = this % rnorm
-         ! print *, "iter: ", this % niter, " r: ", this % rnorm 
+         print *, "iter: ", this % niter, " r: ", this % rnorm 
          this%niter = this%niter + 1
 
          if (this%rnorm .LT. this%tol) then
@@ -1081,6 +1119,7 @@ contains
       end associate
 
       deallocate (x0)
+      deallocate (tmp_ilu)
 
    end subroutine MG_Solve_MB_GMRES_PMG
 !
@@ -1146,7 +1185,7 @@ contains
 
 
          ! call MG_1DRestriction( Me, nEqn, 'solres' ) ! Restrict to a coarse grid
-         call MG_3DRestriction( Me, nEqn ) ! Restrict to a coarse grid
+         call MG_3DRestriction( Me, nEqn ,.true.,.true.,.false.) ! Restrict to a coarse grid
 
          Me % child % b = Me % child % r
 
@@ -1171,6 +1210,56 @@ contains
          ! call MG_PJsmooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
       end if 
    end subroutine MG_VCycle
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------
+!  Recursive subroutine to perform a full multigrid cycle
+!  ------------------------------------------------------
+   recursive subroutine MG_FMGCycle(Me,lvl,nEqn,ComputeTimeDerivative)
+      implicit none
+      !----------------------------------------------------------------------------
+      type(MultigridSolver_t), target    :: Me
+      type(MultigridSolver_t) , pointer  :: Child_p          ! Pointer to Child
+      integer, intent(in)                :: lvl
+      integer, intent(in)                :: nEqn
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      !----------------------------------------------------------------------------
+      integer        :: iEl, iEQ             ! Element and equation counters
+      integer        :: N1(3), N2(3)
+      real(kind=RP)  :: maxResidual(NCONS)   ! Maximum residual in each equation
+      integer        :: counter              ! Iteration counter
+      character(len=LINE_LENGTH) :: FMGFile
+      !----------------------------------------------------------------------------
+!
+!     ------------------------------------------
+!     At the beginning, go to the coarsest level
+!        (the initial condition must be passed)
+!     ------------------------------------------
+!
+      if (lvl > 1) then
+         call MG_3DRestriction( Me, nEqn ,.true.,.true.,.true.) ! Restrict to a coarse grid
+         call MG_FMGCycle( Me % Child, lvl-1, nEqn ,ComputeTimeDerivative)
+      end if
+!
+!     ----------------------
+!     Perform a V-Cycle here
+!     ----------------------
+!
+      if (lvl > 1 ) then
+         call MG_VCycle( Me , lvl, nEqn ,ComputeTimeDerivative)
+      else
+         call MG_smooth(Me,Me % x,Me % b, Me % DimPrb , pre_smooths(lvl), ComputeTimeDerivative)
+      end if
+!
+!     --------------------------------------------------
+!     If not on finest, Interpolate to next (finer) grid
+!     --------------------------------------------------
+! 
+      if (lvl < no_levels) then
+         call MG_3DProlongation( Me % Parent, nEqn )
+      end if
+   end subroutine MG_FMGCycle
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1205,6 +1294,10 @@ contains
       select case (S_SMOOTHER)
       case (S_POINTJAC)
          print *, "It's allright"
+      case (S_ILU)
+         call Me % ILUSmoother % Construct (Me % A) 
+         ! call ComputeILU(Me % ILUsmoother, Me % A)
+         call ComputeILU(Me % ILUsmoother)
       case (S_BLOCKJAC)
 
          select case (S_MATCOMP)
@@ -1357,6 +1450,8 @@ contains
             call MG_PJsmooth(this,x,b,n, SmoothIters, ComputeTimeDerivative)
          case (S_BLOCKJAC)
             call MG_BJsmooth(this,x,b,n, SmoothIters, ComputeTimeDerivative)
+         case (S_ILU)
+            call MG_ILUsmooth(this,x,b,n, SmoothIters, ComputeTimeDerivative)
       end select 
 
    end subroutine MG_smooth
@@ -1431,6 +1526,49 @@ contains
       end do
 
    end subroutine MG_PJsmooth
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MG_ILUsmooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+      use DenseMatUtilities
+      implicit none
+      !-----------------------------------------------------
+      class(MultigridSolver_t), target, intent(inout) :: this
+      real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
+      real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
+      integer,          intent(in)                    :: n                     ! System siz
+      integer,          intent(in)                    :: SmoothIters           ! # of iterations
+      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
+!-----Local-Variables---------------------------------------------
+      real(kind=rp), dimension(:), allocatable :: tmp1, tmp2 ! tmp solution vector
+      integer                                  :: i,j, idx1, idx2  ! Counters
+
+      allocate(tmp1(n))
+      allocate(tmp2(n))
+      do j = 1, SmoothIters
+         tmp1 = 0.0_RP
+         call this % MG_JacVec(this % r, x, ComputeTimeDerivative, S_MATCOMP)
+         this % r = b - this % r
+
+         ! write(*,'(1E19.11)') this % r 
+
+         call this % ILUsmoother % A % ForwSub(this % r, tmp2, n)
+         call this % ILUsmoother % A % BackSub(tmp2    , tmp1, n)
+         x = x + tmp1
+
+         ! print *, "YYY"
+         ! write(*,'(1E19.11)') tmp2 
+         ! print *, "XXX"
+         ! write(*,'(1E19.11)') tmp1 
+         ! call this % MG_JacVec(this % r, x, ComputeTimeDerivative, S_MATCOMP)
+         ! this % r = b - this % r
+         ! print *, "Res: ", norm2(this % r)
+         ! error stop "HAYIA"
+      end do
+      deallocate(tmp1)
+      deallocate(tmp2)
+
+   end subroutine MG_ILUsmooth
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1795,7 +1933,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine MG_3DRestriction(this, nEqn )
+   subroutine MG_3DRestriction(this, nEqn , do_x, do_r, do_b)
       !
       !---------------------------------------------------------------------
       ! Restrict a 3D array..
@@ -1804,6 +1942,9 @@ contains
       implicit none
       !-----------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+      logical                         , intent(in)    :: do_x
+      logical                         , intent(in)    :: do_r
+      logical                         , intent(in)    :: do_b
       class(MultigridSolver_t), pointer               :: child_p
       real(kind=RP), dimension(:,:), pointer          :: R_p
       integer                         , intent(in)    :: nEqn
@@ -1828,32 +1969,51 @@ contains
 
       ! child % x = R * this % x
       ! child % r = R * this % r
+      ! child % b = R * this % b
 
       ! call Stopwatch % Start("restrict")
 
-      do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
-         l = 1
-         do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
-            j = i + size_el_c*Neqn * (iEl-1)
-            do k = 0, (Neqn - 1)
-               child_p % x (j+k) = dot_product(R_p(l,:),this % x ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
-               ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+      if (do_x) then
+         do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+            l = 1
+            do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
+               j = i + size_el_c*Neqn * (iEl-1)
+               do k = 0, (Neqn - 1)
+                  child_p % x (j+k) = dot_product(R_p(l,:),this % x ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
+                  ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+               end do
+               l = l + 1
             end do
-            l = l + 1
          end do
-      end do
+      end if
 
-      do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
-         l = 1
-         do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
-            j = i + size_el_c*Neqn * (iEl-1)
-            do k = 0, (Neqn - 1)
-               child_p % r (j+k) = dot_product(R_p(l,:),this % r ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
-               ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+      if (do_r) then
+         do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+            l = 1
+            do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
+               j = i + size_el_c*Neqn * (iEl-1)
+               do k = 0, (Neqn - 1)
+                  child_p % r (j+k) = dot_product(R_p(l,:),this % r ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
+                  ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+               end do
+               l = l + 1
             end do
-            l = l + 1
          end do
-      end do
+      end if
+
+      if (do_b) then
+         do iEl = 1, size(child_p % p_sem % mesh % elements) ! loop over the elements
+            l = 1
+            do i = 1, size_el_c*Neqn, Neqn ! loop over the fine grid vector size 
+               j = i + size_el_c*Neqn * (iEl-1)
+               do k = 0, (Neqn - 1)
+                  child_p % b (j+k) = dot_product(R_p(l,:),this % b ( (1 + (size_el_f*Neqn)*(iEl-1) + k) : ((size_el_f*Neqn)*iEl + k) : Neqn ))
+                  ! print *, j+k, l, 1 + (size_el_c*Neqn)*(iEl-1) + k
+               end do
+               l = l + 1
+            end do
+         end do
+      end if
 
       ! call Stopwatch % Pause("restrict")
       ! print *," restrict: ", Stopwatch % lastelapsedtime("restrict")
@@ -2746,7 +2906,7 @@ contains
       call this % A_p % PreAllocate (nnzs=nnzs)
 
       allocate (this % BlockPrec(this % A_p % num_of_blocks))
-      DO k = 1, this % A_p % num_of_blocks
+      do k = 1, this % A_p % num_of_blocks
          ndofelm = this % A_p % BlockSizes(k)
          allocate (this % BlockPrec(k) % PLU(ndofelm,ndofelm) )
          allocate (this % BlockPrec(k) % LUpivots   (ndofelm) )
@@ -2763,6 +2923,82 @@ contains
       integer                                 :: i,j              ! Counters
       !--------------------------------------------
    end subroutine MGS_DestructBlockJacobi
+!   
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MGS_ConstructILU(this,A)
+      implicit none
+!-----Arguments---------------------------------------------------
+      class(ILUSmooth_t)            , intent(inout)   :: this ! Matrix to solve
+      type(csrMat_t)                , intent(in)      :: A
+!-----Local-Variables---------------------------------------------
+      !--------------------------------------------
+#ifdef HAS_MKL
+      call this % A % constructWithCSRArrays  (A % Rows, A % Cols, A % Values)
+#else
+      error stop "ILU smoother needs MKL."
+#endif
+   end subroutine MGS_ConstructILU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine MGS_DestructILU(this)
+      implicit none
+!-----Arguments---------------------------------------------------
+      class(ILUSmooth_t), intent(inout)             :: this                     ! Matrix to solve
+!-----Local-Variables---------------------------------------------
+      integer                                 :: i,j              ! Counters
+      !--------------------------------------------
+   end subroutine MGS_DestructILU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputeILU(this)
+      implicit none
+!-----Arguments---------------------------------------------------
+      class(ILUSmooth_t)            , intent(inout)   :: this                     ! Matrix to solve
+      ! type(csrMat_t)                , intent(in)      :: A
+!-----Local-Variables---------------------------------------------
+      real(kind=rp), allocatable  :: bilu0(:) ! tmp array containing values of factorised matrix
+      real(kind=rp)               :: dpar(128)
+      integer                     :: ipar(128) 
+      integer                     :: ierr 
+      !--------------------------------------------
+      ! TBD:
+      real(kind=RP), dimension(5)   :: b = (/ 1.0 ,3.0, 4.0, -10.0, 21.0 /)
+      real(kind=RP), dimension(5)   :: x = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
+      real(kind=RP), dimension(5)   :: y = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
+      real(kind=RP), dimension(5,5) :: A
+      integer, dimension(:), allocatable  :: rows,cols
+      real(kind=RP), dimension(:), allocatable  :: vals,bilu_test
+
+      type(csrMat_t) :: Atmp
+
+#ifdef HAS_MKL
+      ! initialisation
+      ipar(2)  = 6
+      ipar(6)  = 1
+      ipar(31) = 0
+
+      dpar(31) = 1.e-16
+      dpar(32) = 1.e-10
+
+      print *, "Doing ILU..."
+      allocate(bilu0(size(this % A % Values,1)))
+      call dcsrilu0  ( this % A % num_of_Rows, this % A % Values, this % A % Rows, this % A % Cols, bilu0 , ipar , dpar , ierr )
+      if (ierr .ne. 0) then
+         print *, "Error in dscrilu0, ierr: ", ierr
+      endif
+
+      ! call this % A % Visualize('Przed.dat')
+      this % A % Values = bilu0
+      ! call this % A % Visualize('Po.dat')
+      ! error stop "kappa hej"
+      deallocate(bilu0)
+#else
+      error stop "ILU smoother needs MKL."
+#endif
+   end subroutine ComputeILU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -2771,6 +3007,34 @@ end module MultigridSolverClass
 !!! Printing
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !------------------------------------------------------
+!       print *, "Doing test..."
+!       allocate(cols(15))
+!       allocate(rows(6))
+!       allocate(vals(15))
+!       allocate(bilu_test(15))
+! 
+!       rows = (/ 0,3,6,9,12,15 /)
+!       rows = rows + 1
+!       cols = (/ 1,2,5,1,2,3,2,3,4,3,4,5,1,4,5/)
+!       vals = (/ 10.0, -2.0, 4.0, 4.0, 11.0, 5.0, -5.0, 8.0, 1.0, -4.0, 12.0, -9.0, 1.0, 1.0 ,6.0 /)
+!       ! vals = (/ 10.0, -2.0, 4.0, 0.4, 11.8, 5.0, -0.4237, 10.1186, 1.0, -0.3953, 12.3953, -9.0, 0.1, 0.0807, 6.3261 /)
+! 
+!       call dcsrilu0  ( 5, vals, rows, cols, bilu_test , ipar , dpar , ierr )
+! 
+!       print *, bilu_test
+! 
+!       print *, "   ... done!"
+! 
+!       print *, "ANOTHER ONE!"
+! 
+!       call Atmp % constructWithCSRArrays  (rows, cols, bilu_test)
+! 
+!       call Atmp % ForwSub (b,y,5)
+!       print *, y
+!       call Atmp % BackSub (y,x,5)
+!       print *, x
+! 
+!       error stop "HAYIA"
 !------------------------------------------------------
 !------------------------------------------------------
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

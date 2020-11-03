@@ -412,8 +412,8 @@ contains
 !     -----------
       DO newtonit = 1, MaxNewtonIter
          
-         ! linsolver_tol = norm * ( LinSolTolFactor**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
-         linsolver_tol = 1e-10
+         linsolver_tol = norm * ( LinSolTolFactor**(newtonit) )   ! Use another expression? 0.25?                   ! Nastase approach ("High-order discontinuous Galerkin methods using an hp-multigrid approach")
+         ! linsolver_tol = 1e-12
          
          call ComputeRHS(sem, t, dt, linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
          

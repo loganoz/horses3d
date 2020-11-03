@@ -7,6 +7,7 @@
 !
 !      Third order RK integrator for DG approximation to conservation
 !      laws in 2D
+!      @Last revision author: Wojciech Laskowski 
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -333,7 +334,7 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
-      integer                       :: k
+      integer                       :: k,i,j
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -398,11 +399,47 @@ print*, "Method selected: RK5"
          IF (maxval(maxResidual) <= Tol )  THEN
             if (MPI_Process % isRoot) then
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
+#if defined(NAVIERSTOKES)            
+               ! print *, "NDOF: ", sem % mesh % storage % NDOF * NCONS
+               if ( .not. allocated(sem % mesh % storage % QNS  ) ) then 
+                  print *, "Zaalokowano."
+                  allocate(sem % mesh % storage % QNS(sem % mesh % storage % NDOF * NCONS))
+               end if 
+               call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF * NCONS)
+               open(1, file = 'sol.txt')  
+               write(1,'(1E19.11)') sem % mesh % storage % QNS  
+               close(1)
+               print *, "Sol saved."
+#endif
             end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
             return
          END IF
       end if
+
+#if defined(NAVIERSTOKES)            
+      ! print *, "NDOF: ", sem % mesh % storage % NDOF * NCONS
+      if ( .not. allocated(sem % mesh % storage % QNS  ) ) then 
+         print *, "Zaalokowano."
+         allocate(sem % mesh % storage % QNS(sem % mesh % storage % NDOF * NCONS))
+      end if 
+      call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF * NCONS)
+      open(1, file = 'sol_ini.txt')  
+      write(1,'(1E19.11)') sem % mesh % storage % QNS  
+      close(1)
+      print *, "Sol_ini saved."
+      print *, "------------------------------------------------"
+      print *, "Checking Qdot(sol_ini)"
+      if ( .not. allocated(sem % mesh % storage % QdotNS  ) ) then 
+         print *, "Zaalokowano."
+         allocate(sem % mesh % storage % QdotNS(sem % mesh % storage % NDOF * NCONS))
+      end if 
+      call sem % mesh % storage % local2GlobalQdot (sem % mesh % storage % NDOF * NCONS)
+      open(13, file = 'Rn_sol_ini.txt')  
+      write(13,'(1E19.11)') sem % mesh % storage % QdotNS  
+      close(13)
+      ! error stop "Wait"
+#endif
 !
 !     -----------------
 !     Integrate in time
@@ -502,7 +539,17 @@ print*, "Method selected: RK5"
 
          endif 
 
+      ! call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF)
+      ! open(1, file = 'sol.txt', status = 'replace')  
+      ! write(1,'(1E19.11)') sem % mesh % storage % QNS 
+      ! close(1)
 
+      ! call ComputeModalForm( sem % mesh % storage % QNS, sem % mesh % storage % Qhat, NCONS, size(sem % mesh % elements), &
+      !    sem % mesh % elements(1) % storage % Nxyz(1), &
+      !    sem % mesh % elements(1) % storage % Nxyz(2), &
+      !    sem % mesh % elements(1) % storage % Nxyz(3) )
+
+      ! error stop "Solution saved!"
 #endif
 !
 !        Print monitors
@@ -534,11 +581,25 @@ print*, "Method selected: RK5"
          sem % numberOfTimeSteps = k + 1
       END DO
 
+#if defined(NAVIERSTOKES)            
+      call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF)
+      open(1, file = 'sol.txt', status = 'replace')  
+      write(1,'(1E19.11)') sem % mesh % storage % QNS 
+      close(1)
+      print *, "Solution saved!"
+
+      call ComputeModalForm( sem % mesh % storage % QNS, sem % mesh % storage % Qhat, NCONS, size(sem % mesh % elements), &
+         sem % mesh % elements(1) % storage % Nxyz(1), &
+         sem % mesh % elements(1) % storage % Nxyz(2), &
+         sem % mesh % elements(1) % storage % Nxyz(3) )
+#endif
+
 !
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
+         call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients) ! laskwj
       end if
       
       sem % maxResidual       = maxval(maxResidual)

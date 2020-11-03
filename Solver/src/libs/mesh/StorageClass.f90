@@ -5,8 +5,7 @@
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
 !   @Last revision date: Wed Dec  4 11:34:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
+!   @Last revision author: Wojciech Laskowski 
 !
 !//////////////////////////////////////////////////////
 !
@@ -134,6 +133,7 @@ module StorageClass
       real(kind=RP),                 pointer     :: Q(:)
       real(kind=RP),                 pointer     :: QDot(:)
       real(kind=RP),                 pointer     :: PrevQ(:,:)
+      real(kind=RP), dimension(:)  , allocatable :: Qhat                       ! modal Q
 #ifdef FLOW
       real(kind=RP), dimension(:)  , allocatable :: QdotNS
       real(kind=RP), dimension(:)  , allocatable :: QNS
@@ -272,7 +272,7 @@ module StorageClass
 !     -------------------------------------------------------
 !     The global solution arrays are only allocated if needed
 !     -------------------------------------------------------
-      subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num)
+      subroutine SolutionStorage_Construct(self, NDOF, Nx, Ny, Nz, computeGradients, analyticalJac, prevSol_num, RKSteps_num, allocQhat)
          implicit none
          !-arguments---------------------------------------------
          class(SolutionStorage_t), target, intent(inout) :: self
@@ -282,6 +282,7 @@ module StorageClass
          logical                 , intent(in)    :: analyticalJac                      !<  Create storage for analytical Jacobian?
          integer, optional       , intent(in)    :: prevSol_num
          integer, optional       , intent(in)    :: RKSteps_num
+         logical, optional       , intent(in)    :: allocQhat                          !< Allocate space for modal Q
          !-local-variables---------------------------------------
          integer :: k, eID, num_of_elems
          !-------------------------------------------------------
@@ -348,6 +349,12 @@ module StorageClass
 !$omp end parallel do
 
 
+         end if
+
+         if ( present(allocQhat) ) then 
+            if ( allocQhat .and. (.not. allocated(self % Qhat) ) ) then
+               allocate ( self % Qhat (NCONS*NDOF) )
+            end if
          end if
          
       end subroutine SolutionStorage_Construct
@@ -656,6 +663,10 @@ module StorageClass
          if ( allocated(self % elements) ) then
             call self % elements % destruct
             deallocate (self % elements)
+         end if
+
+         if ( allocated(self % Qhat) ) then
+            safedeallocate(self % Qhat)
          end if
          
       end subroutine SolutionStorage_Destruct
