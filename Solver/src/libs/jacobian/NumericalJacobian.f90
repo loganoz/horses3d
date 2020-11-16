@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Sun Aug  4 16:39:45 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Mon Nov 16 18:49:24 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: c05e3c92c9c273d1ec4f68bca621f9b56c2a9511
 !
 !//////////////////////////////////////////////////////
 !
@@ -140,6 +140,7 @@ contains
       end if
 
          nelm = size(sem % mesh % elements)
+
 !
 !        Define the number of needed neighbors
 !        -> TODO: Define according to physics and discretization

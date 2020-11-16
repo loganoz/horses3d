@@ -4,8 +4,8 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Wed Jul 17 11:52:23 2019
-!   @Last revision author: Wojciech Laskowski 
+!   @Last revision date: Mon Nov 16 18:49:20 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
 !
@@ -1168,6 +1168,7 @@ MODULE CSRMatrixClass
       real(kind=RP) :: s
       integer       :: i,j
 !  ---------------------------------------------------------
+
       associate(rows => this % rows, cols => this % cols, vals => this % values)
          x = 0.0
          ! print *, y(n-2),y(n-1),y(n)

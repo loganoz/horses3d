@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Oct 15 14:43:11 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
+!   @Last revision date: Mon Nov 16 18:49:22 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: c05e3c92c9c273d1ec4f68bca621f9b56c2a9511
 !
 !//////////////////////////////////////////////////////
 !
@@ -50,6 +50,7 @@ MODULE ColorsClass
          
          allcolored = .false.
          ncolored = 0
+
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
          ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"
