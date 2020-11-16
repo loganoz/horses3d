@@ -4,7 +4,7 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision author: Wojciech Laskowski 
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
 !
@@ -3478,7 +3478,6 @@ slavecoord:             DO l = 1, 4
       
 !     Construct global and elements' storage
 !     --------------------------------------
-
       if ( controlVariables % containsKey("modal storage")) then
          modal_storage = controlVariables % logicalValueForKey("modal storage")
          if ( modal_storage ) then 

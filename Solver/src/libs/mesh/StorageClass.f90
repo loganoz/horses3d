@@ -4,8 +4,8 @@
 !   @File:    StorageClass.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Dec  4 11:34:59 2019
-!   @Last revision author: Wojciech Laskowski 
+!   @Last revision date: Mon Nov 16 18:56:23 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
 !
@@ -133,7 +133,7 @@ module StorageClass
       real(kind=RP),                 pointer     :: Q(:)
       real(kind=RP),                 pointer     :: QDot(:)
       real(kind=RP),                 pointer     :: PrevQ(:,:)
-      real(kind=RP), dimension(:)  , allocatable :: Qhat                       ! modal Q
+      real(kind=RP), dimension(:)  , allocatable :: Qhat                       ! modal solution storage
 #ifdef FLOW
       real(kind=RP), dimension(:)  , allocatable :: QdotNS
       real(kind=RP), dimension(:)  , allocatable :: QNS
