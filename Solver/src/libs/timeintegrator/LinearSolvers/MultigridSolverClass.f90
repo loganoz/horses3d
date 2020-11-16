@@ -1,8 +1,8 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    PetscSolverClass.f90
-!   @Author:  Wojciech Laskowski (am.rueda@upm.es)
+!   @File:    MultigridSolverClass.f90
+!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: 2019-11-06 17:003:00 +0100
 !   @Last revision date: Mon Nov 16 18:23:19 2020
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
@@ -11,8 +11,6 @@
 !//////////////////////////////////////////////////////
 !
 !  Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid.
-!
-!//////////////////////////////////////////////////////
 !
 !  Control variables:  
 !  no_levels :: number of MG levels, IF NOT (no_levels = 2)        
