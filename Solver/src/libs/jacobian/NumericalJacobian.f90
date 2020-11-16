@@ -138,6 +138,7 @@ contains
          deallocate(QDot0)
          deallocate(Q0)
       end if
+
          nelm = size(sem % mesh % elements)
 !
 !        Define the number of needed neighbors

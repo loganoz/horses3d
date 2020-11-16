@@ -50,7 +50,6 @@ MODULE ColorsClass
          
          allcolored = .false.
          ncolored = 0
-
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
          ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"

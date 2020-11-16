@@ -303,7 +303,7 @@ MODULE CSRMatrixClass
             end do
          end do
       else
-         ! TODO: This can be improved...
+         ! TODO: This can be improved.
          do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
             do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                
