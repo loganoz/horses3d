@@ -1,7 +1,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    MKLPardisoSolverClass.f90
+!   @File:    PetscSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
 !   @Last revision date: Mon Nov 16 18:23:19 2020
@@ -10,7 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!      Class for solving linear systems using the Krylov Subspace Methods of PETSc library
+!   Class for solving linear systems using the Krylov Subspace Methods of PETSc library
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef HAS_PETSC
@@ -265,8 +265,6 @@ module PetscSolverClass
          
          call this % SetPreconditioner
       end if
-
-      ! error stop "kappahej"
 
       ! call this % A % GetCSRMatrix (Afull)
       ! call Afull % Visualize('Afull_f.txt') ! visualize

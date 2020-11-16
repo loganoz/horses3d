@@ -1,20 +1,24 @@
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      MultigridSolverClass.f90
-!      Created: Wed Nov 6 17:45:26 CET 2019
-!      Version: 1.0 (Wed Nov 6 17:45:26 CET 2019)
-!      Author: Wojciech Laskowski (wj.laskowski@upm.es) based on an old, unfinished routine by Andrés Rueda (XXXXX - last commit before deleting)
+!//////////////////////////////////////////////////////
 !
-!      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid.
+!   @File:    PetscSolverClass.f90
+!   @Author:  Wojciech Laskowski (am.rueda@upm.es)
+!   @Created: 2019-11-06 17:003:00 +0100
+!   @Last revision date: Mon Nov 16 18:23:19 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: e167ddc6103906fe80427eb398a39e010103ffd6
 !
-!      Control variables:  
-!      no_levels :: number of MG levels, IF NOT (no_levels = 2)        
-!      define levels x :: hard define N on each level, IF NOT \Delta N_{x} = 1
-!      define levels y ...
-!      define levels z ...
+!//////////////////////////////////////////////////////
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!  Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid.
 !
+!//////////////////////////////////////////////////////
+!
+!  Control variables:  
+!  no_levels :: number of MG levels, IF NOT (no_levels = 2)        
+!  define levels x :: hard define N on each level, IF NOT \Delta N_{x} = 1
+!  define levels y ...
+!  define levels z ...
 !  ----------------
 !  TODO:
 !  ----------------
@@ -26,7 +30,7 @@
 !  3. Add more smoothers - so far only diag-jacobi implemented.
 !  ----------------
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 module MultigridSolverClass
    use GenericLinSolverClass
    use CSRMatrixClass
