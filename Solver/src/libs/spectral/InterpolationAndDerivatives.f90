@@ -1,10 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      InterpolationAndDerivatives.f90
-!      Created: 2009-12-15 15:36:24 -0500 
-!      By: David Kopriva  
+!   @File: InterpolationAndDerivatives.f90
+!   @Author: David Kopriva 
+!   @Created: 2009-12-15 15:36:24 -0500 
+!   @Last revision date: Mon Nov 16 18:59:14 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: aa4100e92ebd683f1b552ae650d462216d926ac0
 !
+!//////////////////////////////////////////////////////
 !
 !      Contains:
 !               
@@ -26,7 +30,6 @@
 !                  ALGORITHM 19: MXVDerivative
 !                  ALGORITHM 106: TransposeMatrixMultiply
 !               as SUBROUTINE MatrixMultiplyDeriv( f, fDeriv, D, N, transp )
-!   @Last revision author: Wojciech Laskowski 
 !
 !      
 !////////////////////////////////////////////////////////////////////////
