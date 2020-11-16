@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug  4 16:39:54 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Mon Nov 16 18:41:44 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 593266ec2508cb6526f711070f90c80389b85cd4
 !
 !//////////////////////////////////////////////////////
 !
@@ -1550,7 +1550,7 @@ contains
       
       ! Nodal storage
       ! --------------------------------------
-      ! This doesn't work since ifort ver. 19.1
+      ! This doesn't work since ifort ver. 19.1!
       ! --------------------------------------
       ! spA_plus  = NodalStorage(e_plus  % Nxyz)
       ! spA_minus = NodalStorage(e_minus % Nxyz)
