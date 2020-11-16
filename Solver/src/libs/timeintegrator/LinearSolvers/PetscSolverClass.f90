@@ -4,9 +4,9 @@
 !   @File:    MKLPardisoSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Thu Dec  5 19:42:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b2a222da7caa5e69082f4e4c97752a1a5593f5a8
+!   @Last revision date: Mon Nov 16 18:23:19 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: e167ddc6103906fe80427eb398a39e010103ffd6
 !
 !//////////////////////////////////////////////////////
 !
@@ -265,6 +265,8 @@ module PetscSolverClass
          
          call this % SetPreconditioner
       end if
+
+      ! error stop "kappahej"
 
       ! call this % A % GetCSRMatrix (Afull)
       ! call Afull % Visualize('Afull_f.txt') ! visualize
