@@ -10,9 +10,11 @@
 !
 !//////////////////////////////////////////////////////
 !
-!  Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid.
+!  Class for solving a linear system obtained from implicit time discretization. 
 !
-!  Control variables:  
+!  Usage:
+!
+!  Variables for the control file:  
 !  no_levels :: number of MG levels, IF NOT (no_levels = 2)        
 !  define levels x :: hard define N on each level, IF NOT \Delta N_{x} = 1
 !  define levels y ...
@@ -263,6 +265,9 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Construct(this,DimPrb,globalDimPrb,nEqn,controlVariables,sem,MatrixShiftFunc)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t),  intent(inout), target :: this
@@ -273,23 +278,23 @@ contains
       type(DGSem), target                  , optional  :: sem
       procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
       procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
-!-----Local-Variables-----------------------------------------------------------
-      character(len=LINE_LENGTH)                 :: pc
-      integer                                    :: i
-      real(kind=RP)                              :: tmp_1
+!-----Local-Variables-----------------------------------------------------
+      character(len=LINE_LENGTH) :: pc
+      integer                    :: i
+      real(kind=RP)              :: tmp_1
+!  -----------------------------------------------------------------------
 
       ! Check dims, MPI and allocate Jacobian
       call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       MatrixShift => MatrixShiftFunc ! FIXME: ask whether we need this 
 
-!     ***********************************         
 !     Set variables from controlVariables
-!     ***********************************
+!     --------------------------------------------------------------------
       if (.not. present(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
       if (present(controlVariables)) then 
 
-        ! Multigrid coarse grids
-        ! *********************************************************
+        ! Read # of multigrid coarse grids
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("multigrid levels") ) then
             no_levels = controlVariables % integerValueForKey("multigrid levels")
         else
@@ -302,7 +307,10 @@ contains
         allocate(MG_levels_z(no_levels))
         allocate(pre_smooths(no_levels))
         allocate(pos_smooths(no_levels))
+!       ------------------------------------------------------------------
 
+        ! Read user-specified polynomial order on each level
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("multigrid levels") ) then
             ! Levels in X
             pc = controlVariables % StringValueForKey("define levels x",LINE_LENGTH)
@@ -320,12 +328,12 @@ contains
               read(pc(i:i),'(i1)') MG_levels_z(i)
             end do
         else
-            ERROR stop ':: FIXME: Need to finish this.'
+            ERROR stop ':: FIXME: Default multigrid levels NOT defined.' ! TODO
         end if
-        ! *********************************************************
+!       ------------------------------------------------------------------
 
-        ! Solver type
-        ! *********************************************************
+        ! Read type of solver and preconditioner 
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("multigrid type") ) then
         select case ( trim( controlVariables % StringValueForKey("multigrid type",LINE_LENGTH) ) )
            case ('gmres-none')
@@ -359,9 +367,10 @@ contains
              ERROR Stop "MultigridSolver :: Wrong solver "
         end select
         end if
+!       ------------------------------------------------------------------
 
-        ! Mat based/mat free
-        ! *********************************************************
+        ! Sepcify the version of the solver (matrix-based or matrix-free) 
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("jacobian assembly") ) then
         select case ( trim( controlVariables % StringValueForKey("jacobian assembly",LINE_LENGTH) ) )
            case ('matrix-free')
@@ -372,9 +381,10 @@ contains
              ERROR Stop "MultigridSolver :: Wrong jacobian assemble key"
         end select
         end if
+!       ------------------------------------------------------------------
 
         ! Smoother
-        ! *********************************************************
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("smoother") ) then
         select case ( trim( controlVariables % StringValueForKey("smoother",LINE_LENGTH) ) )
            case ('point-jacobi')
@@ -388,7 +398,10 @@ contains
              ERROR Stop "MultigridSolver :: Wrong smoother "
         end select
         end if
+!       ------------------------------------------------------------------
 
+        ! Specify number of pre- and post-smoothing operations
+!       ------------------------------------------------------------------
         if ( controlVariables % containsKey("pre smooths") ) then
           pc = controlVariables % StringValueForKey("pre smooths",LINE_LENGTH)
           pre_smooths = getnosmooths(pc,no_levels)
@@ -400,50 +413,48 @@ contains
           pos_smooths = getnosmooths(pc,no_levels)
         print *, "No of post-smoothing operations: ", pos_smooths
         end if
-        ! *********************************************************
+!       ------------------------------------------------------------------
       end if 
-      nelem = size(sem % mesh % elements)
+!     --------------------------------------------------------------------
 
+      nelem = size(sem % mesh % elements)
       this % p_sem => sem ! this is for generic linear solver class
-      ! this % sem_lvl => sem ! this is for local sem on each level
       this % DimPrb = DimPrb
 
+      ! TODO: nicer output
       print *, "My fine mesh: "
-      print *, " ************************** "
+      print *, " =============================== "
       print *, "Mesh total DOF: ", this % p_sem % mesh % NDOF
       print *, "DimPrb: ", this % DimPrb 
-      print *, " ************************** "
+      print *, " =============================== "
   
       ! Construct initial variables for the finest level and call recursive constructor
-      ! *********************************************************
       this % MGlevel = no_levels
       this % Nx = MG_levels_x(no_levels)
       this % Ny = MG_levels_y(no_levels)
       this % Nz = MG_levels_z(no_levels)
-
-      ! call this % A % construct(num_of_Rows = DimPrb, num_of_TotalRows = globalDimPrb)
-      ! call this % Jacobian % Configure (sem % mesh, nEqn, this % A)
-
       call MG_Levels_Construct(this,no_levels,controlVariables,nEqn)
-      ! *********************************************************
-
 
    end subroutine MG_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_Levels_Construct(Me,lvl,controlVariables,nEqn)
+!  ---------------------------------------------------------
+!  Recursive suplement to the multigrid constructor. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments-----------------------------------------------------------
       type(MultigridSolver_t),  intent(inout), target :: Me
       integer,                  intent(in)            :: nEqn
       integer,                  intent(in)            :: lvl
       class(FTValueDictionary), intent(in)            :: controlVariables                
-!-----Local-Variables-----------------------------------------------------------
-      type(MultigridSolver_t), pointer  :: Child_p          ! Pointer to Child
-      integer                           :: i,j,k
-      integer                           :: nnzs(nelem)
-      character(len=1024)                             :: filename
+!-----Local-Variables-----------------------------------------------------
+      type(MultigridSolver_t), pointer :: Child_p          ! Pointer to Child
+      integer                          :: i,j,k
+      integer                          :: nnzs(nelem)
+      character(len=1024)              :: filename
+!  -----------------------------------------------------------------------
 
       ! character(len=*) :: meshFileName_
       !integer, allocatable              :: Nx(:), Ny(:), Nz(:)
@@ -631,8 +642,13 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Destruct(this)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
      implicit none
+!-----Arguments-----------------------------------------------------------
      class(MultigridSolver_t), intent(inout) :: this
+!  -----------------------------------------------------------------------
 
      call this % A % destruct
 
@@ -644,10 +660,16 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_UpdateInfo(this, lvl, dt, time)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       real(kind=rp),                    intent(in)    :: time
       real(kind=rp),                    intent(in)    :: dt
       integer,                          intent(in)    :: lvl
+!  -----------------------------------------------------------------------
 
       this % dt = dt
       this % timesolve = time
@@ -660,24 +682,29 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Solve(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      class(MultigridSolver_t), target, intent(inout) :: this
-      type(MultigridSolver_t) , pointer               :: pMG     
-      integer,       intent(in)                       :: nEqn, nGradEqn
-      procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-      real(kind=rp), optional                         :: tol
-      integer      , optional                         :: maxiter
-      real(kind=rp), optional                         :: time
-      real(kind=rp), optional                         :: dt
-      logical      , optional , intent(inout)         :: ComputeA
-      !---------------------------------------------------------------------
-      class(csrMat_t), pointer                        :: pA
-      integer                                         :: niter
-      real(kind=rp)                                   :: tmpsize
-      integer                                         :: i, j, k
-      character(len=1024)                             :: filename
-      logical                                         :: file_exists
-      integer                                         :: solver_type             
+!-----Arguments-----------------------------------------------------------
+      class(MultigridSolver_t), target   , intent(inout) :: this
+      type(MultigridSolver_t) , pointer                  :: pMG     
+      integer                            , intent(in)    :: nEqn, nGradEqn
+      procedure(ComputeTimeDerivative_f)                 :: ComputeTimeDerivative
+      real(kind=rp)           , optional                 :: tol
+      integer                 , optional                 :: maxiter
+      real(kind=rp)           , optional                 :: time
+      real(kind=rp)           , optional                 :: dt
+      logical                 , optional , intent(inout) :: ComputeA
+!-----Local-Variables-----------------------------------------------------
+      class(csrMat_t), pointer :: pA
+      integer                  :: niter
+      real(kind=rp)            :: tmpsize
+      integer                  :: i, j, k
+      character(len=1024)      :: filename
+      logical                  :: file_exists
+      integer                  :: solver_type             
+!  -----------------------------------------------------------------------
 
       call MG_UpdateInfo(this,no_levels, dt, time)
       ! this % dt = dt
@@ -873,9 +900,12 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Solve_MB_PMG_NONE(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      !type(MultigridSolver_t) , pointer               :: pMG     
       integer,       intent(in)                       :: nEqn, nGradEqn
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
       real(kind=rp), optional                         :: tol
@@ -883,7 +913,7 @@ contains
       real(kind=rp), optional                         :: time
       real(kind=rp), optional                         :: dt
       logical      , optional , intent(inout)         :: ComputeA
-      !---------------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       class(csrMat_t), pointer                        :: pA
       integer                                         :: niter
       real(kind=rp)                                   :: tmpsize
@@ -891,6 +921,7 @@ contains
       integer                                         :: i, j, k
       character(len=1024)                             :: filename
       logical                                         :: file_exists
+!  -----------------------------------------------------------------------
 
       do while ( (.not. this % converged ) .and. (this % niter .lt. this % maxiter) )
          ! call Stopwatch % Start("cycle")
@@ -939,7 +970,11 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Solve_MB_GMRES_PMG(this, nEqn, nGradEqn, ComputeTimeDerivative, tol, maxiter, time, dt, ComputeA)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       !type(MultigridSolver_t) , pointer               :: pMG     
       integer,       intent(in)                       :: nEqn, nGradEqn
@@ -949,7 +984,7 @@ contains
       real(kind=rp), optional                         :: time
       real(kind=rp), optional                         :: dt
       logical      , optional , intent(inout)         :: ComputeA
-      !---------------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=RP), dimension(:) ,     allocatable   :: x0,tmp_ilu 
       !class(csrMat_t), pointer                        :: pA
       integer                                         :: niter
@@ -960,6 +995,7 @@ contains
       integer                                         :: idx1, idx2
       real(kind = RP)                                 :: tmp1, tmp2
       real(kind = RP)                                 :: rhsnorm 
+!  -----------------------------------------------------------------------
      
       allocate (x0(this%DimPrb))
       allocate (tmp_ilu(this%DimPrb))
@@ -1128,15 +1164,19 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_VCycle(Me,lvl,nEqn,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       type(MultigridSolver_t), target    :: Me
       type(MultigridSolver_t) , pointer  :: Child_p          ! Pointer to Child
       integer, intent(in)                :: lvl
       integer, intent(in)                :: nEqn
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
-      !-----------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer                           :: i ! counter
+!  -----------------------------------------------------------------------
 
       if (lvl == 1) then
          ! smoothing on the coarsest level
@@ -1215,24 +1255,25 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  ------------------------------------------------------
-!  Recursive subroutine to perform a full multigrid cycle
-!  ------------------------------------------------------
    recursive subroutine MG_FMGCycle(Me,lvl,nEqn,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Recursive subroutine to perform a full multigrid cycle.
+!  ---------------------------------------------------------
       implicit none
-      !----------------------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       type(MultigridSolver_t), target    :: Me
-      type(MultigridSolver_t) , pointer  :: Child_p          ! Pointer to Child
+      type(MultigridSolver_t), pointer   :: Child_p          ! Pointer to Child
       integer, intent(in)                :: lvl
       integer, intent(in)                :: nEqn
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
-      !----------------------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
       real(kind=RP)  :: maxResidual(NCONS)   ! Maximum residual in each equation
       integer        :: counter              ! Iteration counter
       character(len=LINE_LENGTH) :: FMGFile
-      !----------------------------------------------------------------------------
+!  -----------------------------------------------------------------------
+
 !
 !     ------------------------------------------
 !     At the beginning, go to the coarsest level
@@ -1266,9 +1307,12 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_ComputeJacobians(Me,lvl,ComputeTimeDerivative,Time,dt,nEqn)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use DenseMatUtilities
       implicit none
-!-----Arguments---------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       type(MultigridSolver_t), target    :: Me
       type(MultigridSolver_t) , pointer  :: Child_p          ! Pointer to Child
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
@@ -1276,9 +1320,10 @@ contains
       integer, intent(in)                :: lvl
       real(kind=rp), intent(in)          :: dt
       real(kind=RP), intent(in)          :: Time
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer             :: i,j
       character(len=1024) :: filename
+!  -----------------------------------------------------------------------
 
 
       select case (S_MATCOMP)
@@ -1387,15 +1432,19 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_JacVec(this,xout,xin,ComputeTimeDerivative,MatFLAG)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       integer,                          intent(in)    :: MatFLAG 
       real(kind=RP),                    intent(in)    :: xin( this % DimPrb)
       real(kind=RP),                    intent(inout) :: xout( this % DimPrb)
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-      !-----------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=RP) :: shift 
+!  -----------------------------------------------------------------------
 
       select case (MatFLAG)
       case (JACOBIANCOMP_MB)
@@ -1423,27 +1472,36 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_PrecVec(this)
+!  ---------------------------------------------------------
+!  TODO. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+!  -----------------------------------------------------------------------
+
       print *, "TBD"
    end subroutine MG_precVec
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_smooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use DenseMatUtilities
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
       real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
       integer,          intent(in)                    :: n                     ! System siz
       integer,          intent(in)                    :: SmoothIters           ! # of iterations
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=rp)                           :: tmp(n)            ! tmp solution vector
       integer                                 :: i,j, idx1, idx2 ! Counters
+!  -----------------------------------------------------------------------
 
       select case (S_SMOOTHER)
          case (S_NOTDEF)
@@ -1461,18 +1519,22 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_BJsmooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use DenseMatUtilities
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
       real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
       integer,          intent(in)                    :: n                     ! System siz
       integer,          intent(in)                    :: SmoothIters           ! # of iterations
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=rp)                           :: tmp(n)            ! tmp solution vector
       integer                                 :: i,j, idx1, idx2 ! Counters
+!  -----------------------------------------------------------------------
 
       do j = 1, SmoothIters
          tmp = 0.0_RP
@@ -1503,19 +1565,23 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_PJsmooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use DenseMatUtilities
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
       real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
       integer,          intent(in)                    :: n                     ! System siz
       integer,          intent(in)                    :: SmoothIters           ! # of iterations
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=rp)                           :: tmp(n)            ! tmp solution vector
       integer                                 :: i,j, idx1, idx2 ! Counters
       real(kind=rp), parameter                :: wpj = 2._RP/3._RP  ! Weight (optimal for FD laplacian... but DGSEM?)
+!  -----------------------------------------------------------------------
 
       do j = 1, SmoothIters
          do i=1,n
@@ -1532,18 +1598,22 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_ILUsmooth(this,x,b,n,SmoothIters,ComputeTimeDerivative)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use DenseMatUtilities
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
       real(kind=rp),    intent(inout), dimension(:)   :: x                     ! solution
       real(kind=rp),    intent(in),    dimension(:)   :: b                     ! Right hand side
       integer,          intent(in)                    :: n                     ! System siz
       integer,          intent(in)                    :: SmoothIters           ! # of iterations
       procedure(ComputeTimeDerivative_f)              :: ComputeTimeDerivative
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=rp), dimension(:), allocatable :: tmp1, tmp2 ! tmp solution vector
       integer                                  :: i,j, idx1, idx2  ! Counters
+!  -----------------------------------------------------------------------
 
       allocate(tmp1(n))
       allocate(tmp2(n))
@@ -1575,10 +1645,14 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_CreateProlongationOperator(this)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use NodalStorageClass
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+!-----Local-Variables-----------------------------------------------------
       integer              :: x_Norigin ! Destination polynomial order X
       integer              :: x_Ndest   ! Destination polynomial order X
       type(NodalStorage_t) :: x_spAo    ! Origin nodal storage X
@@ -1591,7 +1665,7 @@ contains
       integer              :: z_Ndest   ! Destination polynomial order Z
       type(NodalStorage_t) :: z_spAo    ! Origin nodal storage Z
       type(NodalStorage_t) :: z_spAd    ! Destination nodal storage Z
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
       x_Norigin  = this % Nx
       x_Ndest    = this % parent % Nx
@@ -1640,10 +1714,15 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_CreateRestrictionOperator(this,Rweighted)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       use NodalStorageClass
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+      logical, optional, intent(in) :: Rweighted    ! flag for weighted restriction operator 
+!-----Local-Variables-----------------------------------------------------
       integer              :: x_Norigin ! x Destination polynomial order
       integer              :: x_Ndest   ! x Destination polynomial order
       type(NodalStorage_t) :: x_spAo    ! x Origin nodal storage
@@ -1656,11 +1735,11 @@ contains
       integer              :: z_Ndest   ! z Destination polynomial order
       type(NodalStorage_t) :: z_spAo    ! z Origin nodal storage
       type(NodalStorage_t) :: z_spAd    ! z Destination nodal storage
-      logical, optional, intent(in) :: Rweighted    ! flag for weighted restriction operator 
       ! only for restriction
       real(kind=RP), allocatable    :: Rtmp(:,:)
       integer                       :: i,j
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
+
       x_Norigin  = this % Nx
       x_Ndest    = this % child % Nx
       y_Norigin  = this % Ny
@@ -1740,16 +1819,16 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_1DProlongation(this,nEqn)
-      !
-      !---------------------------------------------------------------------
-      ! Prolong a 3D array.
-      !---------------------------------------------------------------------
-      !
+!  ---------------------------------------------------------
+!  Prolong a 3D array using 1D interpolation operators.
+!  NOT USED IN THE CURRENT VERSION. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      class(MultigridSolver_t), pointer               :: child_p
       integer                         , intent(in)    :: nEqn
+!-----Local-Variables-----------------------------------------------------
+      class(MultigridSolver_t), pointer               :: child_p
       integer                                         :: iEl
       integer, dimension(3)                           :: Norigin
       integer, dimension(3)                           :: Ndest
@@ -1758,7 +1837,7 @@ contains
       real(kind=RP), dimension(:), allocatable                                          :: x_org
       real(kind=RP), dimension(nEqn,0:this%Nx, 0:this%Ny, 0:this%Nz)                    :: xe_f
       real(kind=RP), dimension(nEqn,0:this%child%Nx, 0:this%child%Ny, 0:this%child%Nz)  :: xe_c
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
       child_p => this % child
       Norigin = (/ child_p % Nx, child_p % Ny, child_p % Nz /)
@@ -1798,17 +1877,17 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_1DRestriction(this, nEqn, r_vars)
-      !
-      !---------------------------------------------------------------------
-      ! Restrict a 3D array..
-      !---------------------------------------------------------------------
-      !
+!  ---------------------------------------------------------
+!  Restrict a 3D array using 1D interpolation operators.
+!  NOT USED IN THE CURRENT VERSION. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      class(MultigridSolver_t), pointer               :: child_p
       integer                         , intent(in)    :: nEqn
       character(len=*)                , intent(in)    :: r_vars
+!-----Local-Variables-----------------------------------------------------
+      class(MultigridSolver_t), pointer               :: child_p
       integer                                         :: iEl
       integer, dimension(3)                           :: Norigin
       integer, dimension(3)                           :: Ndest
@@ -1819,7 +1898,7 @@ contains
       real(kind=RP), dimension(nEqn,0:this%Nx, 0:this%Ny, 0:this%Nz)  :: xe_f
       real(kind=RP), dimension(nEqn,0:this%child%Nx, 0:this%child%Ny, 0:this%child%Nz)  :: re_c
       real(kind=RP), dimension(nEqn,0:this%child%Nx, 0:this%child%Ny, 0:this%child%Nz)  :: xe_c
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
       child_p => this % child
       Norigin = (/ this % Nx, this % Ny, this % Nz /)
@@ -1875,17 +1954,16 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_3DProlongation(this,nEqn)
-      !
-      !---------------------------------------------------------------------
-      ! Prolong a 3D array.
-      !---------------------------------------------------------------------
-      !
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
-      class(MultigridSolver_t), pointer               :: child_p
       real(kind=RP), dimension(:,:), pointer          :: P_p
       integer                         , intent(in)    :: nEqn
+!-----Local-Variables-----------------------------------------------------
+      class(MultigridSolver_t), pointer               :: child_p
       integer                                         :: iEl
       integer, dimension(3)                           :: Norigin
       integer, dimension(3)                           :: Ndest
@@ -1894,7 +1972,7 @@ contains
       integer                                         :: i,j,k,l
       integer                                         :: size_el_f, size_el_c ! size of the element excluding for Neqn=1
       real(kind=RP), dimension(:), allocatable        :: x_org
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
       child_p => this % child
       P_p => child_p % Prol3D 
@@ -1936,20 +2014,19 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_3DRestriction(this, nEqn , do_x, do_r, do_b)
-      !
-      !---------------------------------------------------------------------
-      ! Restrict a 3D array..
-      !---------------------------------------------------------------------
-      !
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+      integer                         , intent(in)    :: nEqn
       logical                         , intent(in)    :: do_x
       logical                         , intent(in)    :: do_r
       logical                         , intent(in)    :: do_b
+!-----Local-Variables-----------------------------------------------------
       class(MultigridSolver_t), pointer               :: child_p
       real(kind=RP), dimension(:,:), pointer          :: R_p
-      integer                         , intent(in)    :: nEqn
       integer                                         :: iEl
       integer, dimension(3)                           :: Norigin
       integer, dimension(3)                           :: Ndest
@@ -1958,7 +2035,7 @@ contains
       !-----------------------------------------------------
       integer                                         :: size_el_f, size_el_c ! size of the element excluding for Neqn=1
       real(kind=RP), dimension(:), allocatable        :: x_org
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
       child_p => this % child
       R_p => this % Rest3D 
@@ -2025,29 +2102,29 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_JacRestriction(this, nEqn )
-      !
-      !---------------------------------------------------------------------
-      ! Perform R * A * P operation, where:
-      ! A is a (NDOF x NDOF) CSR matrix,
-      ! R is a (Nc x Nf) full matrix,  
-      ! P is a (Nf x Nc) full matrix.
-      ! 
-      ! Nc = (N_x_coarse + 1) * (N_y_coarse + 1) * (N_z_coarse + 1)
-      ! Nf = (N_x_fine + 1) * (N_y_fine + 1) * (N_z_fine + 1)
-      ! NDOF = Nel * Neqn * Nf
-      ! 
-      ! N_x_coarse/fine is a pol. order in x direction.
-      ! Nel is a number of elements.
-      ! Neqn is a number of sovled equations. 
-      !---------------------------------------------------------------------
-      !
+!  ---------------------------------------------------------
+!  Perform R * A * P operation, where:
+!
+!  A is a (NDOF x NDOF) CSR matrix,
+!  R is a (Nc x Nf) full matrix,  
+!  P is a (Nf x Nc) full matrix.
+!  
+!  Nc = (N_x_coarse + 1) * (N_y_coarse + 1) * (N_z_coarse + 1)
+!  Nf = (N_x_fine + 1) * (N_y_fine + 1) * (N_z_fine + 1)
+!  NDOF = Nel * Neqn * Nf
+!  
+!  N_x_coarse/fine is a pol. order in x direction.
+!  Nel is a number of elements.
+!  Neqn is a number of sovled equations. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+      integer                         , intent(in)    :: nEqn
+!-----Local-Variables-----------------------------------------------------
       class(MultigridSolver_t), pointer               :: child_p
       real(kind=RP), dimension(:,:), pointer          :: R_p
       real(kind=RP), dimension(:,:), pointer          :: P_p
-      integer                         , intent(in)    :: nEqn
       integer                                         :: iEl_row
       integer                                         :: iEl_col
       integer, dimension(3)                           :: Norigin
@@ -2064,7 +2141,7 @@ contains
       real(kind=RP), dimension(:), allocatable        :: tmp3
       real(kind=RP), dimension(:), allocatable        :: tmp4
       real(kind=RP), dimension(:,:), allocatable      :: tmp_mat
-      !-----------------------------------------------------
+!  -----------------------------------------------------------------------
 
 
       ! set pointers for convenience
@@ -2160,14 +2237,17 @@ contains
       deallocate( tmp4 )
       deallocate( tmp_mat )
 
-      error stop "Wojtek"
+      error stop "TO BE FINISHED"
 
    end subroutine MG_JacRestriction
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    subroutine MG_Interp3DArrays(Nvars, Nin, inArray, Nout, outArray, InterpX, InterpY, InterpZ )
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       integer                                                        , intent(in)    :: Nvars
       integer      , dimension(3)                                    , intent(in)    :: Nin
       integer      , dimension(3)                                    , intent(in)    :: Nout
@@ -2176,9 +2256,9 @@ contains
       real(kind=RP), dimension(0:Nout(1), 0:Nin(1))                  , intent(in)    :: InterpX
       real(kind=RP), dimension(0:Nout(2), 0:Nin(2))                  , intent(in)    :: InterpY
       real(kind=RP), dimension(0:Nout(3), 0:Nin(3))                  , intent(in)    :: InterpZ
-      !-------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: i,j,k,l,m,n
-      !-------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       outArray = 0.0_RP
       
@@ -2198,26 +2278,24 @@ contains
 !////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Create3DProlongationMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2)
+!  ---------------------------------------------------------
+!  Creates a 3D Lagrange interpolation matrix from a grid with 
+!  coordinates x1, y1, z1 (origin) to a grid with coordinates
+!  x2, y2, z2 (destination).
+!  Author (original): David Kopriva 
+!  ---------------------------------------------------------
       implicit none
-!
-!     -----------------------------------------------------------
-!     Creates a 3D Lagrange interpolation matrix from a grid with 
-!     coordinates x1, y1, z1 (origin) to a grid with coordinates
-!     x2, y2, z2 (destination).
-!     Original version by : David Kopriva
-!     This version by     : Wojciech Laskwoski
-!     -----------------------------------------------------------
-!
+!-----Arguments-----------------------------------------------------------
       real(kind=rp)               ,intent(inout) :: Mat((N2x + 1) * (N2y + 1) * (N2z + 1),(N1x + 1) * (N1y + 1) * (N1z + 1)) !<>  
       integer                     ,intent(in)    :: N1x,N1y,N1z  !<  Origin order
       integer                     ,intent(in)    :: N2x,N2y,N2z  !<  Destination order
       real(kind=rp), dimension(:) ,intent(in)    :: x1(0:N1x),y1(0:N1y),z1(0:N1z)     !<  Nodes in origin
       real(kind=rp), dimension(:) ,intent(in)    :: x2(0:N2x),y2(0:N2y),z2(0:N2z)     !<  Nodes in destination
-      !----------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: i,j,k,l,m,n      ! Coordinate counters
       integer :: r,s              ! Matrix index counters
       ! integer :: NDOFEL1, NDOFEL2 ! Degrees of freedom in origin and destination
-      !----------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       ! NDOFEL2 = (N2x + 1) * (N2y + 1) * (N2z + 1)
       ! NDOFEL1 = (N1x + 1) * (N1y + 1) * (N1z + 1)
@@ -2255,14 +2333,13 @@ contains
 !////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Create3DRestrictionMatrix(Mat,N1x,N1y,N1z,N2x,N2y,N2z,x1,y1,z1,x2,y2,z2,w1x,w1y,w1z,w2x,w2y,w2z,Rweighted)
+!  ---------------------------------------------------------
+!  Creates an L2-3D Lagrange interpolation matrix from a grid  
+!  with coordinates x1, y1, z1 (origin) to a grid with coordinates
+!  x2, y2, z2 (destination).
+!  ---------------------------------------------------------
       implicit none
-!
-!     -----------------------------------------------------------
-!     Creates an L2-3D Lagrange interpolation matrix from a grid  
-!     with coordinates x1, y1, z1 (origin) to a grid with coordinates
-!     x2, y2, z2 (destination)
-!     -----------------------------------------------------------
-!
+!-----Arguments-----------------------------------------------------------
       ! real(kind=rp)               ,intent(inout) :: Mat((N1x + 1) * (N1y + 1) * (N1z + 1),(N2x + 1) * (N2y + 1) * (N2z + 1)) !<>
       real(kind=rp)               ,intent(inout) :: Mat((N2x + 1) * (N2y + 1) * (N2z + 1),(N1x + 1) * (N1y + 1) * (N1z + 1)) !<>  
       integer                     ,intent(in)    :: N1x,N1y,N1z  !<  Origin order
@@ -2272,11 +2349,11 @@ contains
       real(kind=rp), dimension(:) ,intent(in)    :: w1x(0:N1x),w1y(0:N1y),w1z(0:N1z)     !<  Weights in origin
       real(kind=rp), dimension(:) ,intent(in)    :: w2x(0:N2x),w2y(0:N2y),w2z(0:N2z)     !<  Weights in destination
       logical                     ,intent(in)    :: Rweighted !<  flag
-      !----------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer       :: i,j,k,l,m,n      ! Coordinate counters
       integer       :: r,s              ! Matrix index counters
       real(kind=rp) :: MASSterm         ! 
-      !----------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       ! print *, size(Mat,1), size(Mat,2)
       ! print *, Mat(27,125)
@@ -2324,11 +2401,16 @@ contains
 !////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Create1elCSRInterpolationMats(this, nEqn)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), target, intent(inout) :: this
+      integer                         , intent(in)    :: nEqn
+!-----Local-Variables-----------------------------------------------------
       class(MultigridSolver_t), pointer               :: child_p
       real(kind=RP), dimension(:,:), pointer          :: R_p
-      integer                         , intent(in)    :: nEqn
       real(kind=RP), dimension(:,:), pointer          :: P_p
       !----------------------------------------------------------
       integer                                         :: size_el_c, size_el_f, size_el_eqn_c, size_el_eqn_f
@@ -2338,7 +2420,7 @@ contains
       real(kind=RP), dimension(:,:), allocatable      :: P1el
       real(kind=RP), dimension(:,:), allocatable      :: R1el
       character(len=1024)                             :: filename
-      !----------------------------------------------------------
+!  -----------------------------------------------------------------------
 
       child_p => this    % child
 
@@ -2456,27 +2538,24 @@ contains
 !!    Compute the value of the interpolant WITHOUT using the barycentric formula
 !     --------------------------------------------------------------------------
 !
-   FUNCTION MG_LagrangeInterpolationNoBar( x, N, nodes, j) RESULT(l)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
+   function MG_LagrangeInterpolationNoBar( x, N, nodes, j) RESULT(l)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  Author (original): David Kopriva 
+!  ---------------------------------------------------------
       use Utilities, only: almostEqual
-      REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
+!-----Input---------------------------------------------------------------
       REAL(KIND=RP)                 :: x     !<  Point of evaluation of interpolant
       INTEGER                       :: N     !<  Polynomial order  
       REAL(KIND=RP), DIMENSION(0:N) :: nodes !<  Nodes of Lagrange interpolation
       INTEGER                       :: j     !<  Index of polynomial to be found
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
+!-----Output--------------------------------------------------------------
+      REAL(KIND=RP)                 :: l     !>  Lagrange interpolant
+!-----Local-Variables-----------------------------------------------------
       INTEGER                       :: i
       REAL(KIND=RP)                 :: numerator, denominator
       REAL(KIND=RP), DIMENSION(0:N) :: values
-      !-----------------------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       values      = 0.0_RP
       values(j)   = 1.0_RP
@@ -2499,8 +2578,11 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_Vec2El(vec,els,N,vecsize,nEqn,eldof,var2interp)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !---------------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       integer,       dimension(3),                           intent(in)    :: N
       integer,                                               intent(in)    :: vecsize
       integer,                                               intent(in)    :: nEqn
@@ -2509,9 +2591,9 @@ contains
       ! real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(inout) :: els
       type(TemporaryElementStorage_t) , dimension(nelem)   , intent(inout) :: els
       character(len=*)                                     , intent(in)    :: var2interp
-      !---------------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: eID, firstIdx, lastIdx ! counters
-      !---------------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       firstIdx = 1
       do eID = 1, nelem
@@ -2530,11 +2612,15 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_KSP_Construct(this,DimPrb,KrylovSpace)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !---------------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), intent(inout) :: this
       integer                 , intent(in)    :: DimPrb
       integer                 , intent(in)    :: KrylovSpace
+!  -----------------------------------------------------------------------
 
       !allocate(this % KSPForMG_t)
 
@@ -2553,10 +2639,14 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_KSP_Destruct(this,DimPrb)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !---------------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), intent(inout) :: this
       integer                 , intent(in)    :: DimPrb
+!  -----------------------------------------------------------------------
 
 
       deallocate(this % KSP % Z )
@@ -2574,8 +2664,11 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_El2Vec(els,vec,N,vecsize,nEqn,eldof,var2interp)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !---------------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       integer, dimension(3), intent(in)                                    :: N
       integer, intent(in)                                                  :: vecsize
       integer, intent(in)                                                  :: nEqn
@@ -2584,9 +2677,9 @@ contains
       ! real(kind=RP), dimension(nEqn,0:N(1), 0:N(2), 0:N(3)), intent(in)     :: els
       type(TemporaryElementStorage_t) , dimension(nelem)   , intent(inout) :: els
       character(len=*)                                     , intent(in)    :: var2interp
-      !---------------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer           :: eID, firstIdx, lastIdx ! counters
-      !---------------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       firstIdx = 1
       do eID = 1, nelem
@@ -2605,14 +2698,17 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_SetOperatorDt(this, dt)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-arguments-----------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t),     intent(inout)     :: this
       real(kind=RP),                     intent(in)        :: dt
-      !-local-variables-----------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=RP)                                        :: shift
       real(kind=RP)                                        :: eps = 1e-10
-      !---------------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       this % dt = dt
       shift = MatrixShift(dt) !
@@ -2624,19 +2720,19 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  --------------------------------------------------
+   subroutine MG_ReSetOperatorDt(this, dt)
+!  ---------------------------------------------------------
 !  Removes previous shift in order to insert new one 
 !              (important when Jacobian is reused)
-!  --------------------------------------------------
-   subroutine MG_ReSetOperatorDt(this, dt)
+!  ---------------------------------------------------------
       implicit none
-      !-arguments-----------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t),     intent(inout)     :: this
       real(kind=RP),                     intent(in)        :: dt
-      !-local-variables-----------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       real(kind=RP)                                        :: shift
       real(kind=RP)                                        :: eps = 1e-10
-      !---------------------------------------------------------------------
+!  -----------------------------------------------------------------------
          
       this % dt = dt
       shift = MatrixShift(dt) !
@@ -2648,39 +2744,48 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-    subroutine MG_SetRHS(this, RHS)
-       implicit none
-       !-arguments-----------------------------------------------------------
-       class(MultigridSolver_t), intent(inout) :: this
-       real(kind=RP)           , intent(in)    :: RHS(this % DimPrb)
-       !---------------------------------------------------------------------
+   subroutine MG_SetRHS(this, RHS)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(MultigridSolver_t), intent(inout) :: this
+      real(kind=RP)           , intent(in)    :: RHS(this % DimPrb)
+!  -----------------------------------------------------------------------
        
-       this % b = RHS
+      this % b = RHS
        
-    end subroutine MG_SetRHS
+   end subroutine MG_SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-    function MG_GetX(this) result(x)
-       implicit none
-       !-----------------------------------------------------------
-       class(MultigridSolver_t), intent(inout) :: this
-       real(kind=RP)                           :: x(this % DimPrb)
-       !-----------------------------------------------------------
+   function MG_GetX(this) result(x)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(MultigridSolver_t), intent(inout) :: this
+      real(kind=RP)                           :: x(this % DimPrb)
+!  -----------------------------------------------------------------------
 
-       x = this % x
+      x = this % x
 
-    end function MG_GetX
+   end function MG_GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    function MG_Getxnorm(this,TypeOfNorm) result(xnorm)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-----------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), intent(inout)  :: this
       character(len=*)                         :: TypeOfNorm
       real(kind=RP)                            :: xnorm
-      !-----------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       select case (TypeOfNorm)
          case ('infinity')
@@ -2696,18 +2801,16 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    function MG_Getrnorm(this) result(rnorm)
+!  ---------------------------------------------------------
+!  Infinity norm. 
+!  ---------------------------------------------------------
       implicit none
-!
-!     ----------------------------------------
-!     Infinity norm
-!     ----------------------------------------
-!
-      !-----------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(MultigridSolver_t), intent(inout) :: this
       real(kind=RP)                            :: rnorm
       !-----------------------------------------------------------
       real(kind=RP)                            :: residual(this % DimPrb)
-      !-----------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       rnorm = this % rnorm
       
@@ -2717,43 +2820,55 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MG_SetRHSValue(this, irow, value)
-        implicit none
-        !-----------------------------------------------------------
-        class(MultigridSolver_t) , intent(inout) :: this
-        integer                  , intent(in)    :: irow
-        real(kind=RP)            , intent(in)    :: value
-        !-----------------------------------------------------------
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(MultigridSolver_t) , intent(inout) :: this
+      integer                  , intent(in)    :: irow
+      real(kind=RP)            , intent(in)    :: value
+!  -----------------------------------------------------------------------
       
-        this % b (irow) = value
+      this % b (irow) = value
       
    end subroutine MG_SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  !
    subroutine MG_SetRHSValues(this, nvalues, irow, values)
-        implicit none
-        class(MultigridSolver_t)    , intent(inout)     :: this
-        integer                     , intent(in)        :: nvalues
-        integer      , dimension(1:), intent(in)        :: irow
-        real(kind=RP), dimension(1:), intent(in)        :: values
-        !------------------------------------------------------
-        integer                                         :: i
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(MultigridSolver_t)    , intent(inout)     :: this
+      integer                     , intent(in)        :: nvalues
+      integer      , dimension(1:), intent(in)        :: irow
+      real(kind=RP), dimension(1:), intent(in)        :: values
+      integer                                         :: i
+!  -----------------------------------------------------------------------
 
-        do i=1, nvalues
-           if (irow(i)<0) cycle
-           this % b(irow(i)) = values(i)
-        end do
+      do i=1, nvalues
+         if (irow(i)<0) cycle
+         this % b(irow(i)) = values(i)
+      end do
       
    end subroutine MG_SetRHSValues
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    function getnosmooths( inputline, arrdim ) result(n)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-!
+!-----Arguments-----------------------------------------------------------
       integer               :: arrdim, cstart, cend, i, j
       integer, dimension(arrdim) :: n
       character ( len = * ) :: inputline
+!-----Local-Variables-----------------------------------------------------
+!  -----------------------------------------------------------------------
 !
       ! cstart = index(inputline,'[')
       ! cend   = index(inputline, ']', .true. )
@@ -2770,15 +2885,18 @@ contains
 !  Convert the DBD matrix to a CSR matrix
 !  --------------------------------------
    subroutine getCSRfromDBD(this,Acsr)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-arguments---------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       ! class(Matrix_t), intent(in)    :: this          !<  This matrix
       class(DenseBlockDiagMatrix_t), intent(in)    :: this          !<  This matrix
       class(csrMat_t)              , intent(inout) :: Acsr      !<  Facorized matrix
-      !-local-variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: ii, jj
       integer :: bID
-      !-------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
       if (this % num_of_Rows /= Acsr % num_of_Rows) then
          print*, 'getCSRfromDBD :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
@@ -2813,14 +2931,17 @@ contains
 !  Author: Wojciech Laskowski (wj.laskowski@upm.es) 
 !  --------------------------------------
    subroutine getDBDfromCSR(this,Adbd)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
-      !-arguments---------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(csrMat_t),               intent(in)    :: this          
       class(DenseBlockDiagMatrix_t), intent(inout) :: Adbd    
-      !-local-variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer                     :: i,j,k ! counters
       real(kind=rp), allocatable  :: Mat(:,:) ! local dense matrix (one block/element)
-      !-------------------------------------------------------------
+!  -----------------------------------------------------------------------
       
 !     Dimension check
 !     ---------------
@@ -2854,13 +2975,16 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine ComputeBlockPrec(this)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       ! use DenseMatUtilities
       implicit none
-      !-------------------------------------------------------------
+!-----Arguments-----------------------------------------------------------
       class(BJSmooth_t), target, intent(inout) :: this            !  Iterative solver class
-      !-------------------------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: k      ! Counter
-      !-------------------------------------------------------------
+!  -----------------------------------------------------------------------
 
       ! print *, "Start test"
       ! print *, "---------------------------"
@@ -2886,6 +3010,9 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MGS_ConstructBlockJacobi(this,p_sem,Nx,Ny,Nz,nEqn)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments---------------------------------------------------
       class(BJSmooth_t)            , intent(inout)      :: this                     ! Matrix to solve
@@ -2894,11 +3021,11 @@ contains
       integer                      , intent(in)         :: Ny              
       integer                      , intent(in)         :: Nz              
       integer                      , intent(in)         :: nEqn              
-!-----Local-Variables---------------------------------------------
+!-----Local-Variables-----------------------------------------------------
       integer :: k,j            ! Counters
       integer :: ndofelm        ! Dummies
       integer :: nnzs(nelem)
-      !--------------------------------------------
+!  -----------------------------------------------------------------------
 
       allocate (this % A_p)
       call this % A_p % construct (num_of_Blocks = p_sem % mesh % no_of_elements)
@@ -2918,23 +3045,29 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MGS_DestructBlockJacobi(this)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments---------------------------------------------------
       class(BJSmooth_t), intent(inout)             :: this                     ! Matrix to solve
 !-----Local-Variables---------------------------------------------
       integer                                 :: i,j              ! Counters
-      !--------------------------------------------
+!  -----------------------------------------------------------------------
    end subroutine MGS_DestructBlockJacobi
 !   
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MGS_ConstructILU(this,A)
+!  ---------------------------------------------------------
+!  Constructor. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments---------------------------------------------------
       class(ILUSmooth_t)            , intent(inout)   :: this ! Matrix to solve
       type(csrMat_t)                , intent(in)      :: A
 !-----Local-Variables---------------------------------------------
-      !--------------------------------------------
+!  -----------------------------------------------------------------------
 #ifdef HAS_MKL
       call this % A % constructWithCSRArrays  (A % Rows, A % Cols, A % Values)
 #else
@@ -2945,17 +3078,25 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine MGS_DestructILU(this)
+!  ---------------------------------------------------------
+!  FIXME TBD. 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments---------------------------------------------------
       class(ILUSmooth_t), intent(inout)             :: this                     ! Matrix to solve
 !-----Local-Variables---------------------------------------------
       integer                                 :: i,j              ! Counters
-      !--------------------------------------------
+!  -----------------------------------------------------------------------
    end subroutine MGS_DestructILU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    subroutine ComputeILU(this)
+!  ---------------------------------------------------------
+!  Incomplete factorisation using only MKL routines. The method and the specific paremteres for the
+!  input (ipar, dpar) can be found here: 
+!  https://software.intel.com/content/www/us/en/develop/documentation/mkl-developer-reference-c/top/sparse-solver-routines/preconditioners-based-on-incomplete-lu-factorization-technique/dcsrilu0.html 
+!  ---------------------------------------------------------
       implicit none
 !-----Arguments---------------------------------------------------
       class(ILUSmooth_t)            , intent(inout)   :: this                     ! Matrix to solve
@@ -2966,7 +3107,6 @@ contains
       integer                     :: ipar(128) 
       integer                     :: ierr 
       !--------------------------------------------
-      ! TBD:
       real(kind=RP), dimension(5)   :: b = (/ 1.0 ,3.0, 4.0, -10.0, 21.0 /)
       real(kind=RP), dimension(5)   :: x = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
       real(kind=RP), dimension(5)   :: y = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
@@ -2975,6 +3115,7 @@ contains
       real(kind=RP), dimension(:), allocatable  :: vals,bilu_test
 
       type(csrMat_t) :: Atmp
+!  -----------------------------------------------------------------------
 
 #ifdef HAS_MKL
       ! initialisation
@@ -2985,17 +3126,15 @@ contains
       dpar(31) = 1.e-16
       dpar(32) = 1.e-10
 
-      print *, "Doing ILU..."
       allocate(bilu0(size(this % A % Values,1)))
       call dcsrilu0  ( this % A % num_of_Rows, this % A % Values, this % A % Rows, this % A % Cols, bilu0 , ipar , dpar , ierr )
       if (ierr .ne. 0) then
          print *, "Error in dscrilu0, ierr: ", ierr
       endif
 
-      ! call this % A % Visualize('Przed.dat')
+      ! call this % A % Visualize('Ajac_prefac.dat') ! visualisation before factorisation
       this % A % Values = bilu0
-      ! call this % A % Visualize('Po.dat')
-      ! error stop "kappa hej"
+      ! call this % A % Visualize('Ajac_posfac.dat') ! visualisation after factorisation
       deallocate(bilu0)
 #else
       error stop "ILU smoother needs MKL."
@@ -3008,35 +3147,6 @@ end module MultigridSolverClass
 
 !!! Printing
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!------------------------------------------------------
-!       print *, "Doing test..."
-!       allocate(cols(15))
-!       allocate(rows(6))
-!       allocate(vals(15))
-!       allocate(bilu_test(15))
-! 
-!       rows = (/ 0,3,6,9,12,15 /)
-!       rows = rows + 1
-!       cols = (/ 1,2,5,1,2,3,2,3,4,3,4,5,1,4,5/)
-!       vals = (/ 10.0, -2.0, 4.0, 4.0, 11.0, 5.0, -5.0, 8.0, 1.0, -4.0, 12.0, -9.0, 1.0, 1.0 ,6.0 /)
-!       ! vals = (/ 10.0, -2.0, 4.0, 0.4, 11.8, 5.0, -0.4237, 10.1186, 1.0, -0.3953, 12.3953, -9.0, 0.1, 0.0807, 6.3261 /)
-! 
-!       call dcsrilu0  ( 5, vals, rows, cols, bilu_test , ipar , dpar , ierr )
-! 
-!       print *, bilu_test
-! 
-!       print *, "   ... done!"
-! 
-!       print *, "ANOTHER ONE!"
-! 
-!       call Atmp % constructWithCSRArrays  (rows, cols, bilu_test)
-! 
-!       call Atmp % ForwSub (b,y,5)
-!       print *, y
-!       call Atmp % BackSub (y,x,5)
-!       print *, x
-! 
-!       error stop "HAYIA"
 !------------------------------------------------------
 !------------------------------------------------------
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

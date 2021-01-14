@@ -1,11 +1,15 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      FileReading.f90
-!      Created: 2010-08-27 12:14:31 -0400 
-!      By: David Kopriva  
 !
-!///////////////////////////////////////////////////////////////////////
+!   @File:    FileReading.f90
+!   @Author:  David Kopriva
+!   @Created: 2010-08-27 12:14:31 -0400 
+!   @Last revision date: Thu Jan 14 01:37:38 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 396b5fba9a6f43989e9bde0a46255138543f5021
+!
+!//////////////////////////////////////////////////////
 !
 module FileReadingUtilities
    USE SMConstants
@@ -509,4 +513,60 @@ contains
          end do
 
       end subroutine getCharArrayFromString
+
+      subroutine getRealArrayFromStringNoCommas( line, array )
+!     ---------------------------------------------------------
+!           Gets an array from a string of the form: 
+!              line = "a b c ..."
+!     ---------------------------------------------------------
+         implicit none
+!-----Arguments-----------------------------------------------------------
+         character(len=1024),    intent(in)  :: line
+         real(kind=RP), allocatable :: array(:)
+!-----Local-Variables-----------------------------------------------------
+         character(len=:), allocatable :: auxline
+         integer     :: pos1 , pos2 , pos
+         real(kind=RP) :: val
+         integer  :: io,i
+!-------------------------------------------------------------------------
+
+         allocate(character(len=len(trim(line))) :: auxline)
+         auxline=trim(line)
+
+         array = 0.0_RP
+         i=1
+
+         ! Get the elements
+         do
+            pos = index(auxline , " " ) 
+            
+            if ( pos .gt. 0 ) then
+         
+               read(auxline(1:pos-1),*,iostat=io) val 
+               array(i) = val
+               i=i+1
+               if ( io .lt. 0 ) then
+                  return
+               end if
+         
+               auxline = auxline(pos+1:)
+         
+            else
+               read(auxline ,*,iostat=io) val 
+               array(i) = val
+               i=i+1
+               if ( io .lt. 0 ) then
+                  return
+               end if
+
+               exit
+         
+            end if
+         
+         end do
+
+         deallocate(auxline)
+         
+      end subroutine getRealArrayFromStringNoCommas
+
 end module FileReadingUtilities

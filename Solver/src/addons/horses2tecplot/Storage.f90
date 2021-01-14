@@ -1,6 +1,15 @@
 !
 !//////////////////////////////////////////////////////
 !
+!   @File:    Storage.f90
+!   @Author:  TBD
+!   @Created: TBD
+!   @Last revision date: Thu Jan 14 01:37:35 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 396b5fba9a6f43989e9bde0a46255138543f5021
+!
+!//////////////////////////////////////////////////////
+!
 ! TODO: Create destructors
 !
 !//////////////////////////////////////////////////////
@@ -230,6 +239,10 @@ module Storage
 !        ----------------
          fid = putSolutionFileInReadDataMode(solutionName)
       
+        
+         call set_getVelocityGradients(GRADVARS_STATE) ! FIXME: NEEDED FOR HORSES2PLT
+         write(STD_OUT,'(15X,A)') " WARNING horses2tecplot.90 :: Velocity Gradients set to default (GRADVARS_STATE)"
+
          if ( .not. self % isStatistics ) then
             do eID = 1, self % no_of_elements
                associate ( e => self % elements(eID) ) 

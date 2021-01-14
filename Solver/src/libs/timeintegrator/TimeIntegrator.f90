@@ -402,14 +402,12 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)            
                ! print *, "NDOF: ", sem % mesh % storage % NDOF * NCONS
                if ( .not. allocated(sem % mesh % storage % QNS  ) ) then 
-                  print *, "Zaalokowano."
                   allocate(sem % mesh % storage % QNS(sem % mesh % storage % NDOF * NCONS))
                end if 
                call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF * NCONS)
                open(1, file = 'sol.txt')  
                write(1,'(1E19.11)') sem % mesh % storage % QNS  
                close(1)
-               print *, "Sol saved."
 #endif
             end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
@@ -420,18 +418,13 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)            
       ! print *, "NDOF: ", sem % mesh % storage % NDOF * NCONS
       if ( .not. allocated(sem % mesh % storage % QNS  ) ) then 
-         print *, "Zaalokowano."
          allocate(sem % mesh % storage % QNS(sem % mesh % storage % NDOF * NCONS))
       end if 
       call sem % mesh % storage % local2GlobalQ (sem % mesh % storage % NDOF * NCONS)
       open(1, file = 'sol_ini.txt')  
       write(1,'(1E19.11)') sem % mesh % storage % QNS  
       close(1)
-      print *, "Sol_ini saved."
-      print *, "------------------------------------------------"
-      print *, "Checking Qdot(sol_ini)"
       if ( .not. allocated(sem % mesh % storage % QdotNS  ) ) then 
-         print *, "Zaalokowano."
          allocate(sem % mesh % storage % QdotNS(sem % mesh % storage % NDOF * NCONS))
       end if 
       call sem % mesh % storage % local2GlobalQdot (sem % mesh % storage % NDOF * NCONS)
@@ -586,9 +579,8 @@ print*, "Method selected: RK5"
       open(1, file = 'sol.txt', status = 'replace')  
       write(1,'(1E19.11)') sem % mesh % storage % QNS 
       close(1)
-      print *, "Solution saved!"
 
-      call ComputeModalForm( sem % mesh % storage % QNS, sem % mesh % storage % Qhat, NCONS, size(sem % mesh % elements), &
+      if (allocated(sem % mesh % storage % Qhat)) call ComputeModalForm( sem % mesh % storage % QNS, sem % mesh % storage % Qhat, NCONS, size(sem % mesh % elements), &
          sem % mesh % elements(1) % storage % Nxyz(1), &
          sem % mesh % elements(1) % storage % Nxyz(2), &
          sem % mesh % elements(1) % storage % Nxyz(3) )

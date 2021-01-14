@@ -4,9 +4,9 @@
 !   @File: InterpolationAndDerivatives.f90
 !   @Author: David Kopriva 
 !   @Created: 2009-12-15 15:36:24 -0500 
-!   @Last revision date: Mon Nov 16 18:59:14 2020
+!   @Last revision date: Thu Jan 14 01:37:40 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: aa4100e92ebd683f1b552ae650d462216d926ac0
+!   @Last revision commit: 396b5fba9a6f43989e9bde0a46255138543f5021
 !
 !//////////////////////////////////////////////////////
 !
@@ -1154,35 +1154,22 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
+   function JacobiPolynomial( N, x, nx, alpha, beta ) result (PolMat) 
 !  ---------------------------------------------------------
 !  General routine to evaluate orthonormal Jacobi polynomial
 !  of type (alpha,beta) recursively at points defined by an
 !  array x - essentially computes 1D Vandermonde matrix.   
-!  By: Wojciech Laskowski
 !  ---------------------------------------------------------
-   function JacobiPolynomial( N, x, nx, alpha, beta ) result (PolMat) 
       implicit none
-!
-!  ----------------
-!  Input:
-!  ----------------
-!
+!-----Input---------------------------------------------------------------
       integer,                            intent(in) :: N      !<  Polynomial order
       real(kind=RP), dimension(0:nx),     intent(in) :: x      !<  Where to evaluate the derivative
       integer,                            intent(in) :: nx 
       real(kind=RP),                      intent(in) :: alpha 
       real(kind=RP),                      intent(in) :: beta 
-!
-!  ----------------
-!  Output:
-!  ----------------
-!
+!-----Output--------------------------------------------------------------
       real(kind=RP), dimension(0:nx,0:N) :: PolMat !<  Resulting matrix with polynomials
-!
-!  ----------------
-!  Local Variables:
-!  ----------------
-!
+!-----Local-Variables-----------------------------------------------------
       integer                        :: i,j
       real(kind=RP)                  :: gamma0, gamma1 
       real(kind=RP)                  :: aold, anew, bnew, tmp 
@@ -1216,30 +1203,17 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
+   function ComputeVandermonde( N ) result (V) 
 !  ---------------------------------------------------------
 !  Routine to compute a square Vandermonde matrix for 3D hexa.
-!  By: Wojciech Laskowski
 !  ---------------------------------------------------------
-   function ComputeVandermonde( N ) result (V) 
       use GaussQuadrature
       implicit none
-!
-!  ----------------
-!  Input:
-!  ----------------
-!
+!-----Input---------------------------------------------------------------
       integer,       dimension(3),        intent(in)    :: N      !  Polynomial order
-!
-!  ----------------
-!  Output:
-!  ----------------
-!
+!-----Output--------------------------------------------------------------
       real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1) :: V ! Vandermonde matrix 
-!
-!  ----------------
-!  Local Variables:
-!  ----------------
-!
+!-----Local-Variables-----------------------------------------------------
       integer :: i,j,k,l,Vsize 
       real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:N(1)) :: Vx ! 1D Vandermonde matrix in x 
       real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:N(2)) :: Vy ! 1D Vandermonde matrix in y 
@@ -1290,18 +1264,13 @@
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine ComputeModalForm( u, uhat, Neqn, Nel, Nx, Ny, Nz )
 !  ---------------------------------------------------------
 !  Routine to compute modal form of any 1D array.
-!  By: Wojciech Laskowski
 !  ---------------------------------------------------------
-   subroutine ComputeModalForm( u, uhat, Neqn, Nel, Nx, Ny, Nz )
       use DenseMatUtilities
       implicit none
-!
-!  ----------------
-!  Arguments:
-!  ----------------
-!
+!-----Arguments-----------------------------------------------------------
       real(kind=RP), dimension(Nel*Neqn*(Nx+1)*(Ny+1)*(Nz+1)) , intent(in)    :: u    ! 1D array of nodal storage
       real(kind=RP), dimension(Nel*Neqn*(Nx+1)*(Ny+1)*(Nz+1)) , intent(inout) :: uhat ! 1D array of modal storage
       integer                                                 , intent(in)    :: Neqn ! no. equations
@@ -1310,11 +1279,7 @@
       integer                                                 , intent(in)    :: Nx      
       integer                                                 , intent(in)    :: Ny
       integer                                                 , intent(in)    :: Nz
-!
-!  ----------------
-!  Local Variables:
-!  ----------------
-!
+!-----Local-Variables-----------------------------------------------------
       real(kind=rp), dimension(0:(Nx+1)*(Ny+1)*(Nz+1)-1,0:(Nx+1)*(Ny+1)*(Nz+1)-1) :: V 
       integer                                                                     :: i,j,k,l,iel
       integer                                                                     :: elsize
