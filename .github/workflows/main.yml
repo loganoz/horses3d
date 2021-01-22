@@ -35,6 +35,9 @@ jobs:
       - name: Show gfortran version
         run: gfortran-9 --version
       
+      - name: Navigate to directory 
+        run: cd build/Solver/test/Components/FacePatches
+        
       - name: Build FacePatches gfortran debug
         run: make all FacePatches gfortran debug
     
