@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI
+name: CI gfortran release
 
 # Controls when the action will run. 
 on:
@@ -45,11 +45,11 @@ jobs:
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
          make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
         
-      - name: Build FacePatches gfortran debug
+      - name: Build FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
     
-      - name: Run FacePatches gfortran debug
+      - name: Run FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
             
