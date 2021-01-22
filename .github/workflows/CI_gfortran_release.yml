@@ -44,7 +44,13 @@ jobs:
         run: |
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
          make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
-        
+########################################################################
+#######                         COMPONENTS                      ########
+########################################################################
+#
+# 1) FACE PATCHES TEST
+# --------------------
+
       - name: Build FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
@@ -52,5 +58,119 @@ jobs:
       - name: Run FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
-            
+#
+# 3) HEXMAPPINGS TEST
+# -------------------            
+#
+# 4) HEXMESH TEST
+# ---------------
+#
+# 5) MESHCONSISTENCY TEST
+# -----------------------
+#
+# 6) NODALSTORAGE TEST
+# --------------------
 
+########################################################################
+#######                         EULER                           ########
+########################################################################
+#
+# 1) DIFFUSER
+# -----------
+#
+# 2) UNIFORM FLOW
+# ---------------
+#
+# 3) BOX AROUND CIRCLE
+# --------------------
+#
+# 4) BOX AROUND CIRCLE PIROZZOLI
+# ------------------------------
+#
+# 5) Inviscid TGV with KEPEC
+# --------------------------
+#
+# 6) Vortex transport 2D with KEPEC
+# ---------------------------------
+#
+# 7) Jacobian-Free Newton-Krylov
+# ------------------------------
+#
+# 8) BOX AROUND CIRCLE WITH ADAPTATION
+# ------------------------------------
+
+########################################################################
+#######                         NAVIER-STOKES                   ########
+########################################################################
+
+#
+# 0) Convergence
+# ------------------------------
+#
+# 0) Convergence energy
+# --------------------------
+#
+# 0) Convergence entropy
+# ---------------------------------
+#
+# 1) CYLINDER
+# -----------
+#
+# 2) CYLINDER IP
+# --------------
+#
+# 3) CYLINDER BR2
+# ---------------
+#
+# 4) CYLINDER DUCROS
+# ------------------
+#
+# 5) CYLINDER LES
+# ------------------
+#
+# 6) TAYLOR GREEN VORTEX
+# ----------------------
+#
+# 7) TAYLOR GREEN VORTEX KEP BR2
+# -----------------------------
+#
+# 8) TAYLOR GREEN VORTEX KEPEC IP
+# -------------------------------
+#
+# 9) CYLINDER FAS
+# ---------------
+#
+# 10) CYLINDER IP+BDF2
+# -------------------
+      - name: Build NSCylinderIP_BDF2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+    
+      - name: Run NSCylinderIP_BDF2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        run: ./horses3d.ns CylinderIP_BDF2.control
+#
+# 11) CYLINDER DIFFERENT ORDERS
+# ----------------------------
+#
+# 12) ENTROPY CONSERVING TEST
+# ----------------------------
+#
+# 13) ENERGY CONSERVING TEST
+# ----------------------------
+########################################################################
+#######                       PARTICLES                         ########
+########################################################################
+
+#
+# 1) FreeFall
+# ----------------------------
+#
+# 2) RadiationHeat
+# ----------------------------
+#
+# 3) ParticleBoundaryCond
+# ----------------------------
+#
+# 4) Pouransari
+# ----------------------------
