@@ -49,9 +49,17 @@ jobs:
         working-directory: ./Solver
         run: ./configure
       
+      - name: Environment for ifort compiler
+        if: contains(matrix.fortran-compiler, 'ifort')
+        run: |
+          echo "CC=icx" > $GITHUB_ENV
+          echo "FC=ifort" > $GITHUB_ENV
+          echo "F90FLAGS=-O3 -heap-arrays" > $GITHUB_ENV
+      
       - name: Compile horses3d ifort debug
         working-directory: ./Solver  
         run: |
+         source /opt/intel/oneapi/setvars.sh || true 
          make allclean MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
          make MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
         
