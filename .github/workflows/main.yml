@@ -45,12 +45,9 @@ jobs:
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
          make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
         
-      - name: Navigate to directory 
-        run: cd build/Solver/test/Components/FacePatches
-        
       - name: Build FacePatches gfortran debug
         working-directory: ./Solver/test/Components/FacePatches
-        run: make all FacePatches gfortran debug
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
     
       - name: Run FacePatches gfortran debug
         working-directory: ./Solver/test/Components/FacePatches
