@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI ifort debug
+name: CI ifort release
 
 # Controls when the action will run. 
 on:
@@ -56,19 +56,19 @@ jobs:
           echo "FC=ifort" > $GITHUB_ENV
           echo "F90FLAGS=-O3 -heap-arrays" > $GITHUB_ENV
       
-      - name: Compile horses3d ifort debug
+      - name: Compile horses3d ifort release
         working-directory: ./Solver  
         run: |
          source /opt/intel/oneapi/setvars.sh || true 
          ifort --version
-         make allclean MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
-         make MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
+         make allclean MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+         make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
         
-      - name: Build FacePatches ifort debug
+      - name: Build FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
-        run: MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
+        run: MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
     
-      - name: Run FacePatches ifort debug
+      - name: Run FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
             
