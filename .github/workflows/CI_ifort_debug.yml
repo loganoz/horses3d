@@ -60,6 +60,7 @@ jobs:
         working-directory: ./Solver  
         run: |
          source /opt/intel/oneapi/setvars.sh || true 
+         ifort --version
          make allclean MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
          make MODE=DEBUG COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=NO
         
