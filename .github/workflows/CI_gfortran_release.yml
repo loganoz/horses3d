@@ -167,13 +167,13 @@ jobs:
 #
 # 10) CYLINDER IP+BDF2
 # -------------------
-      - name: Build NSCylinderIP_BDF2 gfortran DEBUG
-        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
-        run: make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
+      ##- name: Build NSCylinderIP_BDF2 gfortran DEBUG
+      ##  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+      ##  run: make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
     
-      - name: Run NSCylinderIP_BDF2 gfortran DEBUG
-        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
-        run: ./horses3d.ns CylinderIP_BDF2.control
+      ##- name: Run NSCylinderIP_BDF2 gfortran DEBUG
+      ##  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
+      ##  run: ./horses3d.ns CylinderIP_BDF2.control
 #
 # 11) CYLINDER DIFFERENT ORDERS
 # ----------------------------
