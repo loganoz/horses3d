@@ -26,15 +26,17 @@ jobs:
       - uses: actions/checkout@v2
 
       # Runs a single command using the runners shell
-      - name: Install gfortran
-        run: |
-         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-         sudo apt update
-         sudo apt-get install gfortran-9
+      ##- name: Install gfortran
+      ##  run: |
+      ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      ##   sudo apt update
+      ##   sudo apt-get install gfortran-9
       
+      ##- name: Show gfortran version
+      ##  run: gfortran-9 --version
       - name: Show gfortran version
-        run: gfortran-9 --version
-      
+        run: gfortran --version
+
       - name: Configure
         working-directory: ./Solver
         run: ./configure
@@ -91,6 +93,10 @@ jobs:
       - name: list files in Diffuser
         working-directory: ./Solver/test/Euler/Diffuser
         run: ls -la
+
+      - name: ldd horses3d.ns
+        working-directory: ./Solver/test/Euler/Diffuser
+        run: ldd horses3d.ns 
 
       - name: run Diffuser gfortran DEBUG
         working-directory: ./Solver/test/Euler/Diffuser
