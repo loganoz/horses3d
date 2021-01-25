@@ -68,7 +68,7 @@ jobs:
         
       - name: Build FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
-        run: MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+        run: make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
     
       - name: Run FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
