@@ -147,7 +147,7 @@ jobs:
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
     
       - name: Run NSCylinderIP_BDF2 gfortran release
-        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
         run: ./horses3d.ns CylinderIP_BDF2.control
 #
 # 11) CYLINDER DIFFERENT ORDERS
