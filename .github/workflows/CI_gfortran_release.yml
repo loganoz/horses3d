@@ -44,6 +44,7 @@ jobs:
         run: |
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
          make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+         
 ########################################################################
 #######                         COMPONENTS                      ########
 ########################################################################
@@ -58,6 +59,7 @@ jobs:
       - name: Run FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
+
 #
 # 3) HEXMAPPINGS TEST
 # -------------------            
@@ -77,6 +79,15 @@ jobs:
 #
 # 1) DIFFUSER
 # -----------
+
+      - name: Build Diffuser gfortran release
+        working-directory: ./Solver/test/Euler/Diffuser/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+    
+      - name: run Diffuser gfortran release"
+        working-directory: ./Solver/test/Euler/Diffuser
+        run: ./horses3d.ns DiffuserFlow.control
+
 #
 # 2) UNIFORM FLOW
 # ---------------
