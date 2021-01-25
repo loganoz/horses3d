@@ -194,7 +194,7 @@
             call pointSourceFlowSolution(x, Q, success, thermodynamics_, dimensionless_, refValues_)
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
 !
 !           --------------------------------------------------------
 !           Used to define a Neumann user defined boundary condition
@@ -210,7 +210,7 @@
             real(kind=RP), intent(inout)  :: U_x(NGRAD)
             real(kind=RP), intent(inout)  :: U_y(NGRAD)
             real(kind=RP), intent(inout)  :: U_z(NGRAD)
-         end subroutine UserDefinedNeumann
+         end subroutine UserDefinedNeumann1
 #endif
 !
 !//////////////////////////////////////////////////////////////////////// 
