@@ -43,7 +43,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install intel-hpckit-getting-started intel-oneapi-clck intel-oneapi-common-licensing intel-oneapi-common-vars
           sudo apt-get install intel-oneapi-dev-utilities  intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-compiler-fortran intel-oneapi-itac
-          sudo apt-get install intel-oneapi-mkl
+          sudo apt-get install intel-oneapi-mkl intel-oneapi-mpi intel-oneapi-mpi-devel
           # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
           # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
@@ -51,12 +51,12 @@ jobs:
         working-directory: ./Solver
         run: ./configure
       
-      - name: Environment for ifort compiler
-        if: contains(matrix.fortran-compiler, 'ifort')
-        run: |
-          echo "CC=icx" > $GITHUB_ENV
-          echo "FC=ifort" > $GITHUB_ENV
-          echo "F90FLAGS=-O3 -heap-arrays" > $GITHUB_ENV
+      ##- name: Environment for ifort compiler
+      ##  if: contains(matrix.fortran-compiler, 'ifort')
+      ##  run: |
+      ##    echo "CC=icx" > $GITHUB_ENV
+      ##    echo "FC=ifort" > $GITHUB_ENV
+      ##    echo "F90FLAGS=-O3 -heap-arrays" > $GITHUB_ENV
       
       - name: Compile horses3d ifort release
         working-directory: ./Solver  
@@ -68,7 +68,9 @@ jobs:
         
       - name: Build FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
-        run: make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true  
+          make MODE=RELEASE COMPILER=ifort COMM=SEQUENTIAL ENABLE_THREADS=YES
     
       - name: Run FacePatches ifort release
         working-directory: ./Solver/test/Components/FacePatches
