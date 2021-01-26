@@ -286,5 +286,70 @@ jobs:
         run: ./horses3d.ns Pouransari_St0041.control
 
 ########################################################################
-#######                       PARTICLES                         ########
+#######                       MULTIPHASE                        ########
 ########################################################################
+#
+# 1) Convergence
+# ----------------------------
+      - name: Build MultiphaseConvergence gfortran release
+        working-directory: ./Solver/test/Multiphase/Convergence/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run MultiphaseConvergence gfortran release
+        working-directory: ./Solver/test/Multiphase/Convergence
+        run: ./horses3d.mu Convergence.control
+#
+# 2) RisingBubble
+# ----------------------------
+      - name: Build MultiphaseRisingBubble gfortran release
+        working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run MultiphaseRisingBubble gfortran release
+        working-directory: ./Solver/test/Multiphase/RisingBubble
+        run: ./horses3d.mu RisingBubble.control
+#
+# 3) Pipe
+# ----------------------------
+      - name: Build MultiphasePipe gfortran release
+        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run MultiphasePipe gfortran release
+        working-directory: ./Solver/test/Multiphase/Pipe
+        run: ./horses3d.mu AnnularFlow.control
+#
+# 4) Entropy conserving test
+# ----------------------------
+      - name: Build MultiphaseEntropyConservingTest gfortran release
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run MultiphaseEntropyConservingTest gfortran release
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
+        run: ./horses3d.mu EntropyConservingTest.control
+########################################################################
+#######                      INCOMPRESSIBLE                     ########
+########################################################################
+#
+# 1) Convergence
+# ----------------------------
+      - name: Build iNS-Convergence gfortran release
+        working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run iNS-Convergence gfortran release
+        working-directory: ./Solver/test/IncompressibleNS/Convergence
+        run: ./horses3d.ins Convergence4P5.control
+#
+# 2) Kovasznay 
+# ----------------------------
+#
+# 3) Lid driven cavity 
+# ----------------------------
+#
+# 4) Taylor Green Vortex
+# ----------------------------
+#
+# 5) Rayleigh-Taylor instability 
+# -------------------------------
