@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI gfortran DEBUG
+name: CI gfortran release
 
 # Controls when the action will run. 
 on:
@@ -41,11 +41,11 @@ jobs:
         working-directory: ./Solver
         run: ./configure
       
-      - name: Compile horses3d gfortran DEBUG
+      - name: Compile horses3d gfortran release
         working-directory: ./Solver  
         run: |
-         make allclean MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
-         make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
+         make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+         make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
 ########################################################################
 #######                         COMPONENTS                      ########
@@ -54,11 +54,11 @@ jobs:
 # 1) FACE PATCHES TEST
 # --------------------
 
-      - name: Build FacePatches gfortran DEBUG
+      - name: Build FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
-        run: make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run FacePatches gfortran DEBUG
+      - name: Run FacePatches gfortran release
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
 
@@ -82,23 +82,11 @@ jobs:
 # 1) DIFFUSER
 # -----------
 
-      - name: Build Diffuser gfortran DEBUG
+      - name: Build Diffuser gfortran release
         working-directory: ./Solver/test/Euler/Diffuser/SETUP
-        run: make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
-    
-      - name: list files in Diffuser/Setup
-        working-directory: ./Solver/test/Euler/Diffuser/SETUP
-        run: ls -la 
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: list files in Diffuser
-        working-directory: ./Solver/test/Euler/Diffuser
-        run: ls -la
-
-      - name: ldd horses3d.ns
-        working-directory: ./Solver/test/Euler/Diffuser
-        run: ldd horses3d.ns 
-
-      - name: run Diffuser gfortran DEBUG
+      - name: Run Diffuser gfortran release
         working-directory: ./Solver/test/Euler/Diffuser
         run: ./horses3d.ns DiffuserFlow.control
 
@@ -111,18 +99,45 @@ jobs:
 #
 # 4) BOX AROUND CIRCLE PIROZZOLI
 # ------------------------------
+
+      - name: Build BoxAroundCirclePirozzoli gfortran release
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run BoxAroundCirclePirozzoli gfortran release
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
+        run: ./horses3d.ns BoxAroundCirclePirozzoli.control
+        
 #
 # 5) Inviscid TGV with KEPEC
 # --------------------------
+#
 #
 # 6) Vortex transport 2D with KEPEC
 # ---------------------------------
 #
 # 7) Jacobian-Free Newton-Krylov
 # ------------------------------
+
+      - name: Build JFNK Uniform Flow gfortran release
+        working-directory: ./Solver/test/Euler/JFNK/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run JFNK Uniform Flow gfortran release
+        working-directory: ./Solver/test/Euler/JFNK
+        run: ./horses3d.ns UniformFlowJFNK.control
+
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
 # ------------------------------------
+
+      - name: Build BoxAroundCircle_pAdapted gfortran release
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run BoxAroundCircle_pAdapted gfortran release
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
+        run: ./horses3d.ns BoxAroundCircle_pAdapted.control
 
 ########################################################################
 #######                         NAVIER-STOKES                   ########
@@ -146,12 +161,33 @@ jobs:
 #
 # 3) CYLINDER BR2
 # ---------------
+      - name: Build NSCylinderBR2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NSCylinderBR2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderBR2
+        run: ./horses3d.ns CylinderBR2.control
 #
 # 4) CYLINDER DUCROS
 # ------------------
+      - name: Build NSCylinderDucros gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NSCylinderDucros gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderDucros
+        run: ./horses3d.ns CylinderDucros.control
 #
 # 5) CYLINDER LES
 # ------------------
+      - name: Build NSCylinderLES gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderLES/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NSCylinderLES gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderLES
+        run: ./horses3d.ns CylinderLES.control
 #
 # 6) TAYLOR GREEN VORTEX
 # ----------------------
@@ -161,22 +197,43 @@ jobs:
 #
 # 8) TAYLOR GREEN VORTEX KEPEC IP
 # -------------------------------
+      - name: Build TaylorGreenKEPEC_IP gfortran release
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run TaylorGreenKEPEC_IP gfortran release
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
+        run: ./horses3d.ns TaylorGreenKEPEC_IP.control
 #
 # 9) CYLINDER FAS
 # ---------------
+      - name: Build NSCylinderFAS gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NSCylinderFAS gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderFAS
+        run: ./horses3d.ns CylinderFAS.control
 #
 # 10) CYLINDER IP+BDF2
 # -------------------
-      ##- name: Build NSCylinderIP_BDF2 gfortran DEBUG
-      ##  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
-      ##  run: make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=NO
+      - name: Build NSCylinderIP_BDF2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
     
-      ##- name: Run NSCylinderIP_BDF2 gfortran DEBUG
-      ##  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
-      ##  run: ./horses3d.ns CylinderIP_BDF2.control
+      - name: Run NSCylinderIP_BDF2 gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
+        run: ./horses3d.ns CylinderIP_BDF2.control
 #
 # 11) CYLINDER DIFFERENT ORDERS
 # ----------------------------
+      - name: Build NSCylinderDifferentOrders gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NSCylinderDifferentOrders gfortran release
+        working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
+        run: ./horses3d.ns CylinderDifferentOrders.control
 #
 # 12) ENTROPY CONSERVING TEST
 # ----------------------------
@@ -190,12 +247,44 @@ jobs:
 #
 # 1) FreeFall
 # ----------------------------
+      - name: Build ParticlesFreeFall gfortran release
+        working-directory: ./Solver/test/Particles/FreeFall/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run ParticlesFreeFall gfortran release
+        working-directory: ./Solver/test/Particles/FreeFall
+        run: ./horses3d.ns FreeFall.control
 #
 # 2) RadiationHeat
 # ----------------------------
+      - name: Build RadiationHeat gfortran release
+        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run RadiationHeat gfortran release
+        working-directory: ./Solver/test/Particles/RadiationHeat
+        run: ./horses3d.ns RadiationHeat.control
 #
 # 3) ParticleBoundaryCond
 # ----------------------------
+      - name: Build ParticleBoundaryCond gfortran release
+        working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run ParticleBoundaryCond gfortran release
+        working-directory: ./Solver/test/Particles/ParticleBoundaryCond
+        run: ./horses3d.ns BoundaryCondition.control
 #
 # 4) Pouransari
 # ----------------------------
+      - name: Build Pouransari gfortran release
+        working-directory: ./Solver/test/Particles/Pouransari/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run Pouransari gfortran release
+        working-directory: ./Solver/test/Particles/Pouransari
+        run: ./horses3d.ns Pouransari_St0041.control
+
+########################################################################
+#######                       PARTICLES                         ########
+########################################################################
