@@ -368,9 +368,9 @@ print*, "Entering IC"
             real(kind=RP), intent(in)    :: t
             real(kind=RP), intent(in)    :: nHat(NDIM)
             real(kind=RP), intent(in)    :: Q(NCONS)
-            real(kind=RP), intent(in)    :: U_x(NGRAD)
-            real(kind=RP), intent(in)    :: U_y(NGRAD)
-            real(kind=RP), intent(in)    :: U_z(NGRAD)
+            real(kind=RP), intent(inout)    :: U_x(NGRAD)
+            real(kind=RP), intent(inout)    :: U_y(NGRAD)
+            real(kind=RP), intent(inout)    :: U_z(NGRAD)
             real(kind=RP), intent(inout) :: flux(NCONS)
             type(Thermodynamics_t), intent(in) :: thermodynamics_
             type(Dimensionless_t),  intent(in) :: dimensionless_
