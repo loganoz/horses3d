@@ -265,23 +265,27 @@ jobs:
 #
 # 3) ParticleBoundaryCond
 # ----------------------------
-      - name: Build ParticleBoundaryCond gfortran release
-        working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
-        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build ParticleBoundaryCond gfortran release
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
+      #   run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run ParticleBoundaryCond gfortran release
-        working-directory: ./Solver/test/Particles/ParticleBoundaryCond
-        run: ./horses3d.ns BoundaryCondition.control
+      # - name: Run ParticleBoundaryCond gfortran release
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond
+      #   run: ./horses3d.ns BoundaryCondition.control
 #
 # 4) Pouransari
 # ----------------------------
-      - name: Build Pouransari gfortran release
-        working-directory: ./Solver/test/Particles/Pouransari/SETUP
-        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build Pouransari gfortran release
+      #   working-directory: ./Solver/test/Particles/Pouransari/SETUP
+      #   run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run Pouransari gfortran release
-        working-directory: ./Solver/test/Particles/Pouransari
-        run: ./horses3d.ns Pouransari_St0041.control
+      # - name: Run Pouransari gfortran release
+      #   working-directory: ./Solver/test/Particles/Pouransari
+      #   run: ./horses3d.ns Pouransari_St0041.control
 
 ########################################################################
 #######                       MULTIPHASE                        ########
