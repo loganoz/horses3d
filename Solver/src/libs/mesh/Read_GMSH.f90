@@ -4,14 +4,43 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Dec 10 10:05:22 2020
-!   @Last revision date: Mon Jan 18 14:52:59 2021
+!   @Last revision date: Fri Jan 29 16:27:27 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: d6a6ff4a9a1ef873f3a649179fd701c9720fbe91
+!   @Last revision commit: cdf4480e2a8999a8983f1b87f3b0911942204404
 !
 !//////////////////////////////////////////////////////
 !
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.
 !  Current supported versions: GMSH Mesh Format 4.1.
+!
+!  GMSH original hexahedral ordering:
+!  
+!         v
+!  3----------2            3----13----2           3----13----2
+!  |\     ^   |\           |\         |\          |\         |\
+!  | \    |   | \          | 15       | 14        |15    24  | 14
+!  |  \   |   |  \         9  \       11 \        9  \ 20    11 \
+!  |   7------+---6        |   7----19+---6       |   7----19+---6
+!  |   |  +-- |-- | -> u   |   |      |   |       |22 |  26  | 23|
+!  0---+---\--1   |        0---+-8----1   |       0---+-8----1   |
+!   \  |    \  \  |         \  17      \  18       \ 17    25 \  18
+!    \ |     \  \ |         10 |        12|        10 |  21    12|
+!     \|      w  \|           \|         \|          \|         \|
+!      4----------5            4----16----5           4----16----5
+!
+! HORSES3D corner ordering: 
+!         v
+!  1----------4           
+!  |\     ^   |\          
+!  | \    |   | \         
+!  |  \   |   |  \        
+!  |   5------+---8       
+!  |   |  +-- |-- | -> u  
+!  2---+---\--3   |       
+!   \  |    \  \  |       
+!    \ |     \  \ |       
+!     \|      w  \|       
+!      6----------7       
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -159,6 +188,7 @@ MODULE Read_GMSH
       logical                         :: tmpb
       integer, dimension(:), allocatable :: tmpi_vec1, tmpi_vec2
       character(len=127),    allocatable :: tmps_vec(:)
+      real(kind=RP), dimension(:), allocatable :: tmpd_vec
       type(MSH_BCinfo_t), dimension(:), allocatable :: msh_bcs
       integer                         :: msh_no_BCs
       integer                         :: msh_no_points
@@ -185,8 +215,8 @@ MODULE Read_GMSH
       integer                         :: numberOfBoundaryFaces
       integer                         :: numberOfFaces
        
-      integer                         :: bFaceOrder, numBFacePoints
-      integer                         :: i, j, k, l
+      integer                         :: bFaceOrder, numBFacePoints, innerEdgePoints
+      integer                         :: i, j, k, l, jj, ii
       integer                         :: fUnit, fileStat
       integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       real(kind=RP)                   :: x(NDIM)
@@ -206,10 +236,8 @@ MODULE Read_GMSH
 !-----Check-if-a-mesh-partition-exists-----------------------------------
       if ( MPI_Process % doMPIAction ) then
          if ( mpi_partition % Constructed ) then
-            ! ERROR stop "Read_GMSH :: No support for MPI yet."
             call ConstructMeshPartition_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
          else         
-            ! ERROR Stop "Read_GMSH :: No MPI partitions constructed." 
             call ConstructSimplestMesh_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
          end if
          return
@@ -434,27 +462,14 @@ MODULE Read_GMSH
 !------------------------------------------------------------------------
 
 !-----Reorder-nodes-in-elements------------------------------------------
-      select case(org_element_type)
-      case (5)
-         allocate(tmpi_vec1(8))
-      case (12)
-         error stop "READ_GMSH :: TBC"
-      case (92)
-         error stop "READ_GMSH :: TBC"
-      case (93)
-         error stop "READ_GMSH :: TBC"
-      case default 
-         error stop "READ_GMSH :: No 3D elements detected in the mesh."
-      end select
+      allocate(tmpi_vec1((bFaceOrder + 1)**3))
       do msh_elblock=1, msh_no_elblocks
          if (msh_element_blocks(msh_elblock) % el_type .eq. org_element_type) then
             do j=1, msh_element_blocks(msh_elblock) % no_els 
                ! re-order nodes within element to match HORSES ordering
                tmpi_vec1 = msh_element_blocks(msh_elblock) % nodes(j,:)
-               msh_element_blocks(msh_elblock) % nodes(j,1) = tmpi_vec1(4)
-               msh_element_blocks(msh_elblock) % nodes(j,2:4) = tmpi_vec1(1:3)
-               msh_element_blocks(msh_elblock) % nodes(j,5) = tmpi_vec1(8)
-               msh_element_blocks(msh_elblock) % nodes(j,6:8) = tmpi_vec1(5:7)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_element_blocks(msh_elblock) % nodes(j,:) = tmpi_vec1
             end do
          end if
       end do
@@ -583,6 +598,7 @@ MODULE Read_GMSH
 
 !-----Set-up-face-patches------------------------------------------------
       numBFacePoints = bFaceOrder + 1
+      innerEdgePoints = bFaceOrder - 1
       allocate(uNodes(numBFacePoints))
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
@@ -626,8 +642,27 @@ MODULE Read_GMSH
                   end do
                   self % elements(l) % SurfInfo % IsHex8 = .TRUE.
                   self % elements(l) % SurfInfo % corners = corners
-               else ! curved mesh
+               else ! curved mesh              
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
 
+                  tmpi_vec2 = msh_element_blocks(msh_elblock) % nodes(msh_el,:)       
+
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = self % nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
                end if
 
                call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
@@ -818,6 +853,8 @@ MODULE Read_GMSH
       type(MSH_node_block_t)  , dimension(:), allocatable  :: msh_node_blocks
       type(MSH_element_block_t)  , dimension(:), allocatable  :: msh_element_blocks
 
+      type(Node)  , dimension(:), allocatable  :: local_nodes
+
       character(len=1024) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
       integer, dimension(4)      :: check_eltype
@@ -834,6 +871,7 @@ MODULE Read_GMSH
        
       integer                         :: bFaceOrder, numBFacePoints
       integer                         :: i, j, k, l, pNode, pElement
+      integer                         :: jj, ii
       integer                         :: fUnit, fileStat
       integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       real(kind=RP)                   :: x(NDIM)
@@ -1070,27 +1108,14 @@ MODULE Read_GMSH
 !------------------------------------------------------------------------
 
 !-----Reorder-nodes-in-elements------------------------------------------
-      select case(org_element_type)
-      case (5)
-         allocate(tmpi_vec1(8))
-      case (12)
-         error stop "READ_GMSH :: TBC"
-      case (92)
-         error stop "READ_GMSH :: TBC"
-      case (93)
-         error stop "READ_GMSH :: TBC"
-      case default 
-         error stop "READ_GMSH :: No 3D elements detected in the mesh."
-      end select
+      allocate(tmpi_vec1((bFaceOrder + 1)**3))
       do msh_elblock=1, msh_no_elblocks
          if (msh_element_blocks(msh_elblock) % el_type .eq. org_element_type) then
             do j=1, msh_element_blocks(msh_elblock) % no_els 
                ! re-order nodes within element to match HORSES ordering
                tmpi_vec1 = msh_element_blocks(msh_elblock) % nodes(j,:)
-               msh_element_blocks(msh_elblock) % nodes(j,1) = tmpi_vec1(4)
-               msh_element_blocks(msh_elblock) % nodes(j,2:4) = tmpi_vec1(1:3)
-               msh_element_blocks(msh_elblock) % nodes(j,5) = tmpi_vec1(8)
-               msh_element_blocks(msh_elblock) % nodes(j,6:8) = tmpi_vec1(5:7)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_element_blocks(msh_elblock) % nodes(j,:) = tmpi_vec1
             end do
          end if
       end do
@@ -1215,9 +1240,6 @@ MODULE Read_GMSH
       self % nodeType = nodes
       self % no_of_elements = mpi_partition % no_of_elements
       self % no_of_allElements = numberOfAllElements
-      ! print *, "MPI_Process % rank: ", MPI_Process % rank
-      ! print *, "There are ", self % no_of_elements , " elements out of ", numberOfAllElements
-      ! print *, "There are ", mpi_partition % no_of_nodes , " nodes out of ", numberOfAllNodes
 !------------------------------------------------------------------------
 
 !-----Set-up-face-patches------------------------------------------------
@@ -1260,6 +1282,16 @@ MODULE Read_GMSH
       end do ! msh_no_nodeblocks
 !------------------------------------------------------------------------
 
+!----Set-local-nodes-----------------------------------------------------
+      allocate(local_nodes(numberOfAllNodes))
+      do msh_nodeblock=1, msh_no_nodeblocks
+         do msh_node=1, msh_node_blocks(msh_nodeblock) % no_nodes
+            x = msh_node_blocks(msh_nodeblock) % cords(msh_node,1:NDIM)/Lref
+            call ConstructNode( local_nodes(msh_node_blocks(msh_nodeblock) % tags(msh_node)), x, msh_node_blocks(msh_nodeblock) % tags(msh_node) )
+         end do ! msh_node_blocks(msh_nodeblock) % no_nodes
+      end do ! msh_no_nodeblocks
+!------------------------------------------------------------------------
+
 !----Set-elements-----------------------------------------------------------
       j = 0
       pElement = 1
@@ -1273,8 +1305,54 @@ MODULE Read_GMSH
                nodeIDs = globalToLocalNodeID(nodeIDs)
 
                if ( pElement .gt. mpi_partition % no_of_elements ) then
+
+                  ! set element boundaries
+                  do k = 1, 6
+                     tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                     if (tmpi1 .gt. 0) then
+                        names(k) = trim(msh_bcs(tmpi1) % name)
+                     else
+                        names(k) = emptyBCName
+                     end if
+                  end do ! k
+
+                  ! set BC names to faces
+                  do k = 1, 6
+                     if(trim(names(k)) /= emptyBCName) then
+                        call toLower( names(k) )
+                        zoneNames => zoneNameDictionary % allKeys()
+                        if ( all(trim(names(k)) .ne. zoneNames) ) then
+                           call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                        end if
+                        deallocate (zoneNames)
+                     end if
+                  end do ! k
+
                   cycle
                else if ( l .ne. mpi_partition % elementIDs(pElement) ) then
+
+                  ! set element boundaries
+                  do k = 1, 6
+                     tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                     if (tmpi1 .gt. 0) then
+                        names(k) = trim(msh_bcs(tmpi1) % name)
+                     else
+                        names(k) = emptyBCName
+                     end if
+                  end do ! k
+
+                  ! set BC names to faces
+                  do k = 1, 6
+                     if(trim(names(k)) /= emptyBCName) then
+                        call toLower( names(k) )
+                        zoneNames => zoneNameDictionary % allKeys()
+                        if ( all(trim(names(k)) .ne. zoneNames) ) then
+                           call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                        end if
+                        deallocate (zoneNames)
+                     end if
+                  end do ! k
+
                   cycle
                end if
 
@@ -1285,7 +1363,24 @@ MODULE Read_GMSH
                   self % elements(pElement) % SurfInfo % IsHex8 = .TRUE.
                   self % elements(pElement) % SurfInfo % corners = corners
                else ! curved mesh
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
+                  tmpi_vec2 = msh_element_blocks(msh_elblock) % nodes(msh_el,:)       
 
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = local_nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
                end if
 
                call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
@@ -1348,6 +1443,9 @@ MODULE Read_GMSH
       deallocate(uNodes) ! Check if we can do it! FIXME
       deallocate(vNodes) ! Check if we can do it! FIXME
       deallocate(values) ! Check if we can do it! FIXME
+
+      ! deallocate local nodes
+      deallocate(local_nodes)
 !------------------------------------------------------------------------
 !
 !     ---------------------------
@@ -1505,6 +1603,7 @@ MODULE Read_GMSH
        
       integer                         :: bFaceOrder, numBFacePoints
       integer                         :: i, j, k, l
+      integer                         :: jj, ii
       integer                         :: fUnit, fileStat
       integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       real(kind=RP)                   :: x(NDIM)
@@ -1741,27 +1840,14 @@ MODULE Read_GMSH
 !------------------------------------------------------------------------
 
 !-----Reorder-nodes-in-elements------------------------------------------
-      select case(org_element_type)
-      case (5)
-         allocate(tmpi_vec1(8))
-      case (12)
-         error stop "READ_GMSH :: TBC"
-      case (92)
-         error stop "READ_GMSH :: TBC"
-      case (93)
-         error stop "READ_GMSH :: TBC"
-      case default 
-         error stop "READ_GMSH :: No 3D elements detected in the mesh."
-      end select
+      allocate(tmpi_vec1((bFaceOrder + 1)**3))
       do msh_elblock=1, msh_no_elblocks
          if (msh_element_blocks(msh_elblock) % el_type .eq. org_element_type) then
             do j=1, msh_element_blocks(msh_elblock) % no_els 
                ! re-order nodes within element to match HORSES ordering
                tmpi_vec1 = msh_element_blocks(msh_elblock) % nodes(j,:)
-               msh_element_blocks(msh_elblock) % nodes(j,1) = tmpi_vec1(4)
-               msh_element_blocks(msh_elblock) % nodes(j,2:4) = tmpi_vec1(1:3)
-               msh_element_blocks(msh_elblock) % nodes(j,5) = tmpi_vec1(8)
-               msh_element_blocks(msh_elblock) % nodes(j,6:8) = tmpi_vec1(5:7)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_element_blocks(msh_elblock) % nodes(j,:) = tmpi_vec1
             end do
          end if
       end do
@@ -1933,7 +2019,24 @@ MODULE Read_GMSH
                   self % elements(l) % SurfInfo % IsHex8 = .TRUE.
                   self % elements(l) % SurfInfo % corners = corners
                else ! curved mesh
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
+                  tmpi_vec2 = msh_element_blocks(msh_elblock) % nodes(msh_el,:)       
 
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = self % nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
                end if
 
                call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
@@ -2172,6 +2275,8 @@ MODULE Read_GMSH
          allocate(this % nodes(no_els,4))
       case (10) ! 2D 2nd order quadrangle
          allocate(this % nodes(no_els,9))
+      case (36) ! 2D 3rd order quadrangle
+         allocate(this % nodes(no_els,16))
       case (5)  ! 3D 1st order hexahedron
          allocate(this % nodes(no_els,8))
       case (12) ! 3D 2nd order hexahedron
@@ -2249,6 +2354,299 @@ MODULE Read_GMSH
       !call ISORT (vec_unique, [0], size(vec_unique), 1)
        
    end subroutine unique
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GetOrderedFaceNodeTags(face_nodes,k,bFaceOrder,elnodes)
+!  ---------------------------------------------------------
+!  Routine to extract k'th face from the element. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments---------------------------------------------------
+      integer, allocatable, dimension(:),    intent(inout)   :: face_nodes ! 
+      integer,                               intent(in   )   :: k ! face number
+      integer,                               intent(in   )   :: bFaceOrder ! polynomial order
+      integer, allocatable, dimension(:),    intent(in   )   :: elnodes ! 
+!-----Local-Variables---------------------------------------------
+      integer :: numBFacePoints, innerEdgePoints
+      integer :: i
+      integer, dimension(50) :: tmpi_tbd=(/(i,i=1,50)/)
+      integer, dimension( (bFaceOrder-1)**2 ) :: buffer1, buffer2
+!  -----------------------------------------------------------------------
+      
+      face_nodes = 0.d0
+      numBFacePoints = bFaceOrder + 1
+      innerEdgePoints = bFaceOrder - 1
+
+      select case (k)
+      case(1)
+         ! Corners
+         face_nodes(1) = elnodes( 1 )
+         face_nodes(numBFacePoints) = elnodes( 2 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 5 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 6 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*1 : 9+innerEdgePoints*2-1 ) ! 10th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*7 : 9+innerEdgePoints*8-1 ) ! 16th entity
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*2 : 9+innerEdgePoints*3-1 ) ! 11th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*9 : 9+innerEdgePoints*10-1 ) ! 18th entity
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) ! 23rd entity
+         end do
+      case(2)
+         ! Corners
+         face_nodes(1) = elnodes( 4 )
+         face_nodes(numBFacePoints) = elnodes( 3 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 8 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 7 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*3 : 9+innerEdgePoints*4-1 ) ! 12th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*6 : 9+innerEdgePoints*7-1 ) ! 15th entity 
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*4 : 9+innerEdgePoints*5-1 ) ! 13th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*10 : 9+innerEdgePoints*11-1 ) ! 19th entity
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) ! 24th entity
+         end do
+      case(3)
+         ! Corners
+         face_nodes(1) = elnodes( 1 )
+         face_nodes(numBFacePoints) = elnodes( 2 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 4 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 3 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*1 : 9+innerEdgePoints*2-1 ) ! 10th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*5 : 9+innerEdgePoints*6-1 ) ! 14th entity
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*0 : 9+innerEdgePoints*1-1 ) ! 9th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*3 : 9+innerEdgePoints*4-1 ) ! 12th entity
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) ! 21st entity
+         end do
+      case(4)
+         ! Corners
+         face_nodes(1) = elnodes( 2 )
+         face_nodes(numBFacePoints) = elnodes( 3 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 6 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 7 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*0 : 9+innerEdgePoints*1-1 ) ! 9th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*2 : 9+innerEdgePoints*3-1 ) ! 11th entity 
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*4 : 9+innerEdgePoints*5-1 ) ! 13th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*8 : 9+innerEdgePoints*9-1 ) ! 17th entity
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) ! 22nd entity
+         end do
+      case(5)
+         ! Corners
+         face_nodes(1) = elnodes( 5 )
+         face_nodes(numBFacePoints) = elnodes( 6 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 8 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 7 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*9 : 9+innerEdgePoints*10-1 ) ! 18th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) ! 20th entity 
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*8 : 9+innerEdgePoints*9-1 ) ! 17th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*10 : 9+innerEdgePoints*11-1 ) ! 19th entity
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) ! 26th entity
+         end do
+      case(6)
+         ! Corners
+         face_nodes(1) = elnodes( 1 )
+         face_nodes(numBFacePoints) = elnodes( 4 )
+         face_nodes(numBFacePoints*bFaceOrder+1) = elnodes( 5 )
+         face_nodes(numBFacePoints*numBFacePoints) = elnodes( 8 )
+
+         ! Edges
+         face_nodes(2 : 1+innerEdgePoints) = &
+         elnodes( 9+innerEdgePoints*5 : 9+innerEdgePoints*6-1 ) ! 14th entity
+
+         face_nodes( (numBFacePoints + 1):(innerEdgePoints*numBFacePoints + 1):numBFacePoints ) = &
+         elnodes( 9+innerEdgePoints*7 : 9+innerEdgePoints*8-1 ) ! 16th entity 
+
+         face_nodes( (numBFacePoints*2):(numBFacePoints*bFaceOrder):numBFacePoints ) = & 
+         elnodes( 9+innerEdgePoints*6 : 9+innerEdgePoints*7-1 ) ! 15th entity
+
+         face_nodes( numBFacePoints*bFaceOrder + 2 : numBFacePoints*bFaceOrder + 1 + innerEdgePoints ) = &
+         elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) ! 20th entity
+
+
+         ! Inner part of the face
+         do i=1, innerEdgePoints
+            face_nodes( numBFacePoints*i + 2 : numBFacePoints*i + 1 + innerEdgePoints ) = &
+            elnodes( 1 +  (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) : &
+                              i*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) ! 25th entity
+         end do
+      case default
+         error stop "Read_GMSH :: GetOrderedFaceNodeTags :: face number not in 1,6 range."
+      end select
+
+   end subroutine GetOrderedFaceNodeTags
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ReorderElement(elnodes,bFaceOrder)
+!  ---------------------------------------------------------
+!  Reordering routine from GMSH ordering to SpecMesh ordering. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments---------------------------------------------------
+      integer, allocatable, dimension(:),    intent(inout)   :: elnodes ! 
+      integer,                               intent(in   )   :: bFaceOrder ! polynomial order
+!-----Local-Variables---------------------------------------------
+      integer, dimension( (bFaceOrder+1)**3 ) :: buffer
+      integer, dimension( (bFaceOrder-1),(bFaceOrder-1) ) :: face_buffer
+      integer :: innerEdgePoints,i
+!  -----------------------------------------------------------------------
+      buffer = elnodes
+      innerEdgePoints = bFaceOrder - 1
+
+      ! reorder verices
+      elnodes(1) = buffer(4)
+      elnodes(2:4) = buffer(1:3)
+      elnodes(5) = buffer(8)
+      elnodes(6:8) = buffer(5:7)
+
+      select case (bFaceOrder)
+      case (1)
+         ! do nothing
+      case (2)
+         ! do nothing
+      case (3)
+         ! reverse edges (reverse edge no 2,4,6,10,11,12)
+
+         ! 10th entity (2nd edge)
+         elnodes( 9+innerEdgePoints*1 : 9+innerEdgePoints*2-1 )   = buffer( 9+innerEdgePoints*2-1 : 9+innerEdgePoints*1 : -1 ) 
+         ! 12th entity (4th edge)
+         elnodes( 9+innerEdgePoints*3 : 9+innerEdgePoints*4-1 )   = buffer( 9+innerEdgePoints*4-1 : 9+innerEdgePoints*3 : -1 ) 
+         ! 14th entity (6th edge)
+         elnodes( 9+innerEdgePoints*5 : 9+innerEdgePoints*6-1 )   = buffer( 9+innerEdgePoints*6-1 : 9+innerEdgePoints*5 : -1 ) 
+         ! 18th entity (10th edge)
+         elnodes( 9+innerEdgePoints*9 : 9+innerEdgePoints*10-1 )  = buffer( 9+innerEdgePoints*10-1 : 9+innerEdgePoints*9 : -1 ) 
+         ! 19th entity (11th edge)
+         elnodes( 9+innerEdgePoints*10 : 9+innerEdgePoints*11-1 ) = buffer( 9+innerEdgePoints*11-1 : 9+innerEdgePoints*10 : -1 ) 
+         ! 20th entity (12th edge)
+         elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) = buffer( 9+innerEdgePoints*12-1 : 9+innerEdgePoints*11 : -1 ) 
+
+         ! fix faces
+         ! ************ FIXME: MANUAL FIX FOR NOW, TODO :: EXPAND THIS TO P=4 *********************
+
+         ! 23rd entity (Face no 1)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 1 + 1*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 2*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 24th entity (Face no 2) 
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,1)
+
+         ! 21st entity (Face no 3) 
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,1)
+
+         ! 22nd enitty (Face no 4)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 1*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 2*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,1)
+
+         ! 26th enitty (Face no 5)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 1 + 1*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 2*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 25th enitty (Face no 6)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) 
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,1)
+      case (4)
+         error stop "Read_GMSH :: Curved elements with P=4 do not have checked ordering!"
+      case default 
+         error stop "Read_GMSH :: Curved elements with P>4 not implemented."
+      end select
+   end subroutine ReorderElement
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
