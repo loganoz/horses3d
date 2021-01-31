@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Dec 10 10:05:22 2020
-!   @Last revision date: Fri Jan 29 16:27:27 2021
+!   @Last revision date: Sun Jan 31 02:37:24 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cdf4480e2a8999a8983f1b87f3b0911942204404
+!   @Last revision commit: b098cf7edf0200eb880f483c1ab1940bf274ca84
 !
 !//////////////////////////////////////////////////////
 !
@@ -188,7 +188,6 @@ MODULE Read_GMSH
       logical                         :: tmpb
       integer, dimension(:), allocatable :: tmpi_vec1, tmpi_vec2
       character(len=127),    allocatable :: tmps_vec(:)
-      real(kind=RP), dimension(:), allocatable :: tmpd_vec
       type(MSH_BCinfo_t), dimension(:), allocatable :: msh_bcs
       integer                         :: msh_no_BCs
       integer                         :: msh_no_points
@@ -218,19 +217,13 @@ MODULE Read_GMSH
       integer                         :: bFaceOrder, numBFacePoints, innerEdgePoints
       integer                         :: i, j, k, l, jj, ii
       integer                         :: fUnit, fileStat
-      integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+      integer                         :: nodeIDs(NODES_PER_ELEMENT)
       real(kind=RP)                   :: x(NDIM)
-      integer                         :: faceFlags(FACES_PER_ELEMENT)
-      CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
       CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !-----Curved-patches------------------------------------------------------
       real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
       real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
-!-----Flat-patches--------------------------------------------------------
-      real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 !  -----------------------------------------------------------------------
 
 !-----Check-if-a-mesh-partition-exists-----------------------------------
@@ -866,26 +859,20 @@ MODULE Read_GMSH
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
-      integer                         :: numberOfBoundaryFaces
       integer                         :: numberOfFaces
        
       integer                         :: bFaceOrder, numBFacePoints
       integer                         :: i, j, k, l, pNode, pElement
       integer                         :: jj, ii
       integer                         :: fUnit, fileStat
-      integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+      integer                         :: nodeIDs(NODES_PER_ELEMENT)
       real(kind=RP)                   :: x(NDIM)
-      integer                         :: faceFlags(FACES_PER_ELEMENT)
       CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
       CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !-----Curved-patches------------------------------------------------------
       real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
       real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
-!-----Flat-patches--------------------------------------------------------
-      real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 !  -----------------------------------------------------------------------
 
       success               = .TRUE.
@@ -1605,19 +1592,13 @@ MODULE Read_GMSH
       integer                         :: i, j, k, l
       integer                         :: jj, ii
       integer                         :: fUnit, fileStat
-      integer                         :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
+      integer                         :: nodeIDs(NODES_PER_ELEMENT)
       real(kind=RP)                   :: x(NDIM)
-      integer                         :: faceFlags(FACES_PER_ELEMENT)
-      CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
       CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
       real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
 !-----Curved-patches------------------------------------------------------
       real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
       real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
-!-----Flat-patches--------------------------------------------------------
-      real(kind=RP)  , DIMENSION(2)     :: uNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(2)     :: vNodesFlat = [-1.0_RP,1.0_RP]
-      real(kind=RP)  , DIMENSION(3,2,2) :: valuesFlat
 !  -----------------------------------------------------------------------
 
       numberOfBoundaryFaces = 0
@@ -2370,8 +2351,6 @@ MODULE Read_GMSH
 !-----Local-Variables---------------------------------------------
       integer :: numBFacePoints, innerEdgePoints
       integer :: i
-      integer, dimension(50) :: tmpi_tbd=(/(i,i=1,50)/)
-      integer, dimension( (bFaceOrder-1)**2 ) :: buffer1, buffer2
 !  -----------------------------------------------------------------------
       
       face_nodes = 0.d0

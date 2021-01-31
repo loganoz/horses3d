@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Sun May 19 16:54:09 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision date: Sun Jan 31 02:37:26 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: b098cf7edf0200eb880f483c1ab1940bf274ca84
 !
 !//////////////////////////////////////////////////////
 !
@@ -35,6 +35,7 @@ module FASMultigridClass
    use BDFTimeIntegrator
    use FileReadingUtilities      , only: getFileName
    use MPI_Process_Info          , only: MPI_Process
+   use FileReadingUtilities      , only: getIntArrayFromString 
 #if defined(NAVIERSTOKES)
    use ManufacturedSolutions
 #endif
@@ -81,9 +82,6 @@ module FASMultigridClass
    integer        :: nelem          ! Number of elements
    integer        :: num_of_allElems
    integer        :: Smoother       ! Current smoother being used
-   integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
-   integer        :: SweepNumPost   ! Number of sweeps post-smoothing
-   integer        :: SweepNumCoarse ! Number of sweeps on coarsest level
    integer        :: MaxSweeps      ! Maximum number of sweeps in a smoothing process
    logical        :: MGOutput       ! Display output?
    logical        :: FMG = .FALSE.  ! Use Full Multigrid algorithm?
@@ -98,6 +96,7 @@ module FASMultigridClass
    real(kind=RP)  :: cfl            ! Advective cfl number
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
    real(kind=RP)  :: own_dt             ! dt
+   integer, allocatable :: MGSweeps(:) ! Number of pre- and post- smoothings operations on each level
    
 !========
  contains
@@ -117,6 +116,8 @@ module FASMultigridClass
       character(len=LINE_LENGTH)                     :: PostSmoothOptions
       integer                                        :: zoneID                ! Zone counter
       logical                                        :: conformingBoundaries  ! Is the mesh conforming on all boundaries?
+      character(len=LINE_LENGTH)                     :: tmpc
+      integer                                        :: i
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
@@ -139,25 +140,19 @@ module FASMultigridClass
       else
          deltaN = 1
       end if
-      
-      if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
-          controlVariables % containsKey("mg sweeps post") ) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
-         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
-      elseif (controlVariables % containsKey("mg sweeps")) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
-         SweepNumPost = SweepNumPre
+
+      allocate(MGSweeps(MGlevels)) 
+      if ( controlVariables % containsKey("mg sweeps") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps",LINE_LENGTH)
+         MGSweeps = getIntArrayFromString(tmpc)
       else
-         SweepNumPre  = 1
-         SweepNumPost = 1
+         MGSweeps= 1
+         if (MGlevels .gt. 1) then
+            do i=2,MGlevels
+               MGSweeps(i) = 2*MGSweeps(i-1)
+            end do
+         end if
       end if
-      
-      if (controlVariables % containsKey("mg sweeps coarsest")) then
-         SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
-      else
-         SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
-      end if
-      
 !
 !     Select the smoother
 !     -------------------
@@ -545,7 +540,6 @@ module FASMultigridClass
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
       real(kind=RP)                 :: maxResidual(NCONS)
-      integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
       !----------------------------------------------------------------------------
@@ -555,16 +549,11 @@ module FASMultigridClass
 !     Pre-smoothing procedure
 !     -----------------------
 !
-      if (lvl == 1) then
-         NumOfSweeps = SweepNumCoarse
-      else
-         NumOfSweeps = SweepNumPre
-      end if
 !~      this % computeA = .TRUE.
       sweepcount = 0
       DO
-         call this % Smooth(NumOfSweeps,t,dt, ComputeTimeDerivative)
-         sweepcount = sweepcount + NumOfSweeps
+         call this % Smooth(MGSweeps(lvl),t,dt, ComputeTimeDerivative)
+         sweepcount = sweepcount + MGSweeps(lvl)
          
          if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem % mesh)
          
@@ -627,17 +616,11 @@ module FASMultigridClass
 !     Post-smoothing procedure
 !     ------------------------
 !
-      if (lvl == 1) then
-         NumOfSweeps = SweepNumCoarse
-      else
-         NumOfSweeps = SweepNumPost
-      end if
-      
       sweepcount = 0
       DO
-         call this % Smooth(NumOfSweeps, t, dt, ComputeTimeDerivative)
+         call this % Smooth(MGSweeps(lvl), t, dt, ComputeTimeDerivative)
          
-         sweepcount = sweepcount + NumOfSweeps
+         sweepcount = sweepcount + MGSweeps(lvl)
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
          if (sweepcount .ge. MaxSweeps) exit
@@ -858,6 +841,7 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this
       !-----------------------------------------------------------
       
+      deallocate(MGSweeps) 
       call RecursiveDestructor(this,MGlevels)
       
    end subroutine destruct
