@@ -1,9 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      DGSEMClass.f95
-!      Created: 2008-07-12 13:38:26 -0400 
-!      By: David Kopriva
+!   @File:    DGSEMClass.f95
+!   @Author:  David Kopriva
+!   @Created: 2008-07-12 13:38:26 -0400
+!   @Last revision date: Wed Jan 27 16:23:07 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: e199f09aa7589b8bf0cca843e5f1caf3e59586af
+!
+!////////////////////////////////////////////////////////////////////////
 !
 !      Basic class for the discontinuous Galerkin spectral element
 !      solution of conservation laws.
@@ -540,7 +545,7 @@ Module DGSEMClass
 !  it is the only or best way. Other variations look only at the smallest
 !  mesh values, other account for differences across the element.
 !     -------------------------------------------------------------------
-   real(kind=RP) function MaxTimeStep( self, cfl, dcfl )
+   subroutine MaxTimeStep( self, cfl, dcfl, MaxDt , MaxDtVec)
       use VariableConversion
       use MPI_Process_Info
       implicit none
@@ -548,6 +553,8 @@ Module DGSEMClass
       type(DGSem)                :: self
       real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
       real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
+      real(kind=RP), intent(inout)  :: MaxDt 
+      real(kind=RP), allocatable, dimension(:), intent(inout), optional :: MaxDtVec
 #ifdef FLOW
       !------------------------------------------------
       integer                       :: i, j, k, eID                     ! Coordinate and element counters
@@ -573,8 +580,8 @@ Module DGSEMClass
       
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
-      
-!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes) default(private) 
+      if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
+!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private) 
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(eID) % Nxyz
@@ -641,6 +648,7 @@ Module DGSEMClass
                            self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
             
             TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
+            if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
 
 #if defined(NAVIERSTOKES)            
             if (flowIsNavierStokes) then
@@ -651,6 +659,8 @@ Module DGSEMClass
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
                
                TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
+               if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), &
+                                                      dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v)  )
             end if
 #else
             TimeStep_Visc = huge(1.0_RP)
@@ -674,13 +684,13 @@ Module DGSEMClass
       
       if (TimeStep_Conv  < TimeStep_Visc) then
          self % mesh % dt_restriction = DT_CONV
-         MaxTimeStep  = TimeStep_Conv
+         MaxDt  = TimeStep_Conv
       else
          self % mesh % dt_restriction = DT_DIFF
-         MaxTimeStep  = TimeStep_Visc
+         MaxDt  = TimeStep_Visc
       end if
-#endif
-   end function MaxTimeStep
+#endif            
+   end subroutine MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////
 !

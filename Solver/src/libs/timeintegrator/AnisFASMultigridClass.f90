@@ -594,7 +594,7 @@ module AnisFASMultigridClass
       sweepcount = 0
       DO
          do iEl = 1, NumOfSweeps
-            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
             call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
          sweepcount = sweepcount + 1
@@ -665,7 +665,7 @@ module AnisFASMultigridClass
       DO
          
          do iEl = 1, NumOfSweeps
-            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
             call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
 

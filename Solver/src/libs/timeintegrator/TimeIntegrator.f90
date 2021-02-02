@@ -457,7 +457,7 @@ print*, "Method selected: RK5"
 !
 !        CFL-bounded time step
 !        ---------------------      
-         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl, self % dcfl )
+         IF ( self % Compute_dt ) call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
 !
 !        Correct time step
 !        -----------------

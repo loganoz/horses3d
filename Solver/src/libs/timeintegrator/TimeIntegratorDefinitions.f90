@@ -19,7 +19,7 @@ module TimeIntegratorDefinitions
    public   TimeStep_FCN
 
    abstract interface
-      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative )
+      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
          use SMConstants
          use HexMeshClass
          use DGSEMClass
@@ -35,6 +35,7 @@ module TimeIntegratorDefinitions
 #endif
          REAL(KIND=RP)              :: t, deltaT
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+         real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       end subroutine TimeStep_FCN
    end interface
 

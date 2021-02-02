@@ -34,7 +34,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -53,6 +53,7 @@ MODULE ExplicitMethods
       logical            :: particles
 #endif
       REAL(KIND=RP)   :: t, deltaT, tk
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
 !
 !     ---------------
@@ -65,26 +66,53 @@ MODULE ExplicitMethods
       
       INTEGER :: k, id
       
-      DO k = 1,3
+      if (present(dt_vec)) then
+
+      do k = 1,3
          
-         tk = t + b(k)*deltaT
-         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            tk = t + b(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
-         DO id = 1, SIZE( mesh % elements )
+            do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
-             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
-             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+                  mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
 #endif
 
 #if (defined(CAHNHILLIARD)) && (!defined(FLOW))
-            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
-            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+                  mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
 #endif
-         END DO
+            end do ! id
 !$omp end parallel do
          
-      END DO
+      end do ! k
+
+      else 
+
+      do k = 1,3
+         
+            tk = t + b(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         
+!$omp parallel do schedule(runtime)
+            do id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+                  mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+                  mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*deltaT* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+                  mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*deltaT* mesh % elements(id) % storage % G_CH
+#endif
+            end do ! id
+!$omp end parallel do
+         
+      end do ! k
+
+      end if
 !
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
@@ -100,7 +128,7 @@ MODULE ExplicitMethods
       
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -116,6 +144,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
 !
 !     ---------------
 !     Local variables
@@ -126,6 +155,31 @@ MODULE ExplicitMethods
       real(kind=RP), parameter  :: a(N_STAGES) = [0.0_RP , -0.4178904745_RP, -1.192151694643_RP ,     -1.697784692471_RP , -1.514183444257_RP ]
       real(kind=RP), parameter  :: b(N_STAGES) = [0.0_RP , 0.1496590219993_RP , 0.3704009573644_RP , 0.6222557631345_RP , 0.9582821306748_RP ]
       real(kind=RP), parameter  :: c(N_STAGES) = [0.1496590219993_RP , 0.3792103129999_RP , 0.8229550293869_RP , 0.6994504559488_RP , 0.1530572479681_RP]
+
+      if (present(dt_vec)) then 
+
+      DO k = 1, N_STAGES
+         
+         tk = t + b(k)*deltaT
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +              mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + c(k)*dt_vec(id)* mesh % elements(id) % storage % G_CH
+#endif
+         END DO
+!$omp end parallel do
+         
+      END DO
+
+      else
 
       DO k = 1, N_STAGES
          
@@ -147,6 +201,8 @@ MODULE ExplicitMethods
 !$omp end parallel do
          
       END DO
+
+      end if
       
 !$omp parallel do schedule(runtime)
       do k=1, mesh % no_of_elements
@@ -163,7 +219,7 @@ MODULE ExplicitMethods
       
    end subroutine TakeRK5Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative )
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -179,6 +235,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       !
 !     ---------------
 !     Local variables

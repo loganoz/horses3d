@@ -1403,7 +1403,7 @@ readloop:do
 !     Smooth solution
 !     ---------------
       do k=1, MAX_STEPS_SMOOTHING
-         if ( this % Compute_dt ) this % dt = MaxTimeStep( sem, this % cfl, this % dcfl )
+         if ( this % Compute_dt ) call MaxTimeStep( self=sem, cfl=this % cfl, dcfl=this % dcfl , MaxDt=this % dt)
             
          select case (this % postSmoothMethod)
             case(SMOOTH_RK3)

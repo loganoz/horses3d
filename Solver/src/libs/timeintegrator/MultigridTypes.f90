@@ -1,3 +1,18 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    MultigridTypes.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Apr 27 12:57:00 2017
+!   @Last revision date: Wed Jan 27 16:23:12 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: e199f09aa7589b8bf0cca843e5f1caf3e59586af
+!
+!//////////////////////////////////////////////////////
+!
+!  Variables and utilities for mulgridrid solvers.
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
 module MultigridTypes
    use SMConstants
@@ -23,7 +38,7 @@ module MultigridTypes
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative )
+      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
@@ -39,6 +54,7 @@ module MultigridTypes
 #endif
          REAL(KIND=RP)              :: t, deltaT
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+         real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       end subroutine SmoothIt_t
    end interface
    
@@ -54,10 +70,15 @@ module MultigridTypes
    integer, parameter :: BJ_SMOOTHER      = 1 ! Block Jacobi smoother
    integer, parameter :: JFGMRES_SMOOTHER = 2 ! Jacobian-Free GMRES
    integer, parameter :: IMPLICIT_SMOOTHER_IDX = 1 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: RK5_SMOOTHER     = 5 ! Williamson's 5th order low-storage Runge-Kutta (only for steady state cases)
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step
    integer        :: plotInterval   ! Read to display output
+
+   ! preconditioners
+   integer, parameter :: PRECONDIIONER_NONE = 0 
+   integer, parameter :: PRECONDIIONER_LTS = 1 ! Local time stepping
    
 !========
  contains

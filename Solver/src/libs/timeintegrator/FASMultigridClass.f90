@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Sun Jan 31 02:37:26 2021
+!   @Last revision date: Wed Jan 27 16:23:11 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: b098cf7edf0200eb880f483c1ab1940bf274ca84
+!   @Last revision commit: e199f09aa7589b8bf0cca843e5f1caf3e59586af
 !
 !//////////////////////////////////////////////////////
 !
@@ -56,6 +56,7 @@ module FASMultigridClass
       class(GenericLinSolver_t), allocatable  :: linsolver             ! Linear solver for implicit smoothing
       integer                                 :: MGlevel               ! Current Multigrid level
       logical                                 :: computeA              !< Compute A in this level?
+      real(kind=RP),             allocatable  :: lts_dt(:)             ! dt array for LTS
       contains
          procedure :: construct
          procedure :: solve
@@ -97,6 +98,7 @@ module FASMultigridClass
    real(kind=RP)  :: dcfl           ! Diffusive cfl number
    real(kind=RP)  :: own_dt             ! dt
    integer, allocatable :: MGSweeps(:) ! Number of pre- and post- smoothings operations on each level
+   integer        :: Preconditioner       ! Current smoother being used
    
 !========
  contains
@@ -162,6 +164,10 @@ module FASMultigridClass
             if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
                ERROR stop ':: RK3 smoother is only for steady-state computations'
             Smoother = RK3_SMOOTHER
+         case('RK5')
+            if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
+               ERROR stop ':: RK5 smoother is only for steady-state computations'
+            Smoother = RK5_SMOOTHER
          case('BlockJacobi')
             Smoother = BJ_SMOOTHER
             call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
@@ -175,6 +181,20 @@ module FASMultigridClass
             if (MPI_Process % isRoot) write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
             Smoother = RK3_SMOOTHER
       end select
+
+!
+!     Select the preconditioner for smoothing
+!     ---------------------------------------
+      if (controlVariables % containsKey("mg preconditioner")) then
+         select case (controlVariables % StringValueForKey("mg preconditioner",LINE_LENGTH))
+         case('LTS')
+            Preconditioner = PRECONDIIONER_LTS
+         case default
+            Preconditioner = PRECONDIIONER_NONE
+         end select
+      else
+         Preconditioner = PRECONDIIONER_NONE
+      end if
       
 !     Check that the BDF order is consistent
 !        (only valid for implicit smoothers)
@@ -342,6 +362,11 @@ module FASMultigridClass
          Solver % MGStorage(k) % Scase = 0._RP
       end DO   
 !$omp end parallel do
+
+      ! allocate array for LTS
+      if (Preconditioner .eq. PRECONDIIONER_LTS) allocate( Solver % lts_dt(nelem))
+      ! allocate( Solver % lts_dt(nelem))
+         
 !
 !     --------------------------------------------------------------
 !     Fill MGStorage(iEl) % Scase if required (manufactured solutions)
@@ -841,7 +866,6 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this
       !-----------------------------------------------------------
       
-      deallocate(MGSweeps) 
       call RecursiveDestructor(this,MGlevels)
       
    end subroutine destruct
@@ -858,6 +882,9 @@ module FASMultigridClass
       
       ! First go to coarsest level
       if (lvl > 1) call RecursiveDestructor(Solver % Child,lvl-1)
+
+      ! Deallocate LTS
+      if (allocated(Solver % lts_dt)) deallocate(Solver % lts_dt)
       
       !Destruct Multigrid storage
       deallocate (Solver % MGStorage) ! allocatable components are automatically deallocated
@@ -897,28 +924,65 @@ module FASMultigridClass
       integer :: sweep
       !-------------------------------------------------------------
       
-      select case (Smoother)
+      select case (Preconditioner)
+      case (PRECONDIIONER_LTS)
+         ! compute LTS
+         if (Compute_dt) then
+            call MaxTimeStep( self=this % p_sem, cfl=cfl, dcfl=dcfl , MaxDt=own_dt, MaxDtVec=this % lts_dt)
+         else
+            error stop "FASMultigrid :: LTS needs cfd & dcfl."
+         end if
+
+         select case (Smoother)
 !
-!        3rd order Runge-Kutta smoother
-!        -> Has its own dt, since it's for steady-state simulations
-!        ----------------------------------------------------------
-         case (RK3_SMOOTHER)
-            do sweep = 1, SmoothSweeps
-               if (Compute_dt) own_dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-               call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, &
-                             own_dt, ComputeTimeDerivative )
-            end do
+!           3rd order Runge-Kutta smoother
+!           -> Has its own dt, since it's for steady-state simulations
+!           ----------------------------------------------------------
+            case (RK3_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, this % lts_dt )
+               end do
+            ! RK5 smoother
+            case (RK5_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRK5Step (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, this % lts_dt )
+               end do
+            case default
+               error stop "FASMultigrid :: No smoother defined for the multigrid."
+         end select ! Smoother
+      case (PRECONDIIONER_NONE)
+         select case (Smoother)
 !
-!        Implicit smoothers
-!        ------------------
-         case default
-            call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
-            
-!~            this % computeA = .TRUE.
-            call this % linsolver % solve(NCONS, NGRAD, maxiter=SmoothSweeps, time= t, dt = dt, &
-                                             ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
-            call UpdateNewtonSol(this % p_sem, this % linsolver)
-      end select
+!           3rd order Runge-Kutta smoother
+!           -> Has its own dt, since it's for steady-state simulations
+!           ----------------------------------------------------------
+            case (RK3_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=cfl, dcfl=dcfl, MaxDt=own_dt )
+                  call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative )
+               end do
+            ! RK5 smoother
+            case (RK5_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=cfl, dcfl=dcfl, MaxDt=own_dt )
+                  call TakeRK5Step (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative )
+               end do
+!
+!           Implicit smoothers
+!           ------------------
+            case default
+               call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
+
+!~               this % computeA = .TRUE.
+               call this % linsolver % solve(NCONS, NGRAD, maxiter=SmoothSweeps, time= t, dt = dt, &
+                                                ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
+               call UpdateNewtonSol(this % p_sem, this % linsolver)
+         end select ! Smoother
+      end select ! Preconditioner
       
    end subroutine Smooth
 !
