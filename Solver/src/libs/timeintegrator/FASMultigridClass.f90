@@ -515,9 +515,9 @@ module FASMultigridClass
          do i = 1, maxVcycles
             call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
             select case(Smoother)
-               case (RK3_SMOOTHER) ! Only one iteration per pseudo time-step for RK3 smoother
+               case ( : 1) ! Only one iteration per pseudo time-step for RK smoothers
                   exit 
-               case default  ! Check if the nonlinear problem was solved to a given tolerance
+               case (IMPLICIT_SMOOTHER_IDX : )  ! Check if the nonlinear problem was solved to a given tolerance
                   rnorm = this % linsolver % Getrnorm()
                   xnorm = this % linsolver % Getxnorm('infinity')
                   print*, 'V-Cycle', i, 'rnorm=', rnorm, 'xnorm', xnorm 
