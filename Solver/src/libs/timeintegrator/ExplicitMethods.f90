@@ -245,11 +245,19 @@ MODULE ExplicitMethods
 
       CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
          
+      if (present(dt_vec)) then
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + dt_vec(id)*mesh % elements(id) % storage % QDot
+         END DO
+!$omp end parallel do
+      else
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
             mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
          END DO
 !$omp end parallel do
+      end if
 
 !
 !     To obtain the updated residuals

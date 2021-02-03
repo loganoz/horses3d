@@ -160,6 +160,10 @@ module FASMultigridClass
 !     -------------------
       
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
+         case('Euler')
+            if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
+               ERROR stop ':: RK3 smoother is only for steady-state computations'
+            Smoother = Euler_SMOOTHER
          case('RK3')
             if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
                ERROR stop ':: RK3 smoother is only for steady-state computations'
@@ -934,6 +938,12 @@ module FASMultigridClass
          end if
 
          select case (Smoother)
+            ! Euler Smoother
+            case (Euler_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeExplicitEulerStep (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, this % lts_dt )
+               end do
 !
 !           3rd order Runge-Kutta smoother
 !           -> Has its own dt, since it's for steady-state simulations
@@ -954,6 +964,12 @@ module FASMultigridClass
          end select ! Smoother
       case (PRECONDIIONER_NONE)
          select case (Smoother)
+            ! Euler Smoother
+            case (Euler_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeExplicitEulerStep (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative)
+               end do
 !
 !           3rd order Runge-Kutta smoother
 !           -> Has its own dt, since it's for steady-state simulations

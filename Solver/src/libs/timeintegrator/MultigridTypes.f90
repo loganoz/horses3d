@@ -66,11 +66,12 @@ module MultigridTypes
    integer, parameter :: NMIN_GAUSSLOBATTO = 1 ! Minimum polynomial order when using Gauss-Lobatto nodes
    
    ! smoothers
-   integer, parameter :: RK3_SMOOTHER     = 0 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
-   integer, parameter :: RK5_SMOOTHER     = 1 ! Williamson's 5th order low-storage Runge-Kutta (only for steady state cases)
-   integer, parameter :: BJ_SMOOTHER      = 2 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 3 ! Jacobian-Free GMRES
-   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 2 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: Euler_SMOOTHER   = 0 ! 
+   integer, parameter :: RK3_SMOOTHER     = 1 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
+   integer, parameter :: RK5_SMOOTHER     = 2 ! 
+   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 3 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: BJ_SMOOTHER      = 3 ! Block Jacobi smoother
+   integer, parameter :: JFGMRES_SMOOTHER = 4 ! Jacobian-Free GMRES
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step
