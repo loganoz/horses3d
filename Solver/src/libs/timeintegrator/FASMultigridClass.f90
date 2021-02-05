@@ -99,6 +99,10 @@ module FASMultigridClass
    real(kind=RP)  :: own_dt             ! dt
    integer, allocatable :: MGSweeps(:) ! Number of pre- and post- smoothings operations on each level
    integer        :: Preconditioner       ! Current smoother being used
+   real(kind=RP)  :: cflend      ! 
+   real(kind=RP)  :: cfl_increment = 0.0    ! 
+   real(kind=RP)  :: dcflend      ! 
+   real(kind=RP)  :: dcfl_increment = 0.0    ! 
    
 !========
  contains
@@ -249,7 +253,39 @@ module FASMultigridClass
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
-               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
+               dcfl = cfl
+            end if
+         end if
+         ! CFL boosting
+         if (controlVariables % containsKey("cfl boost")) then
+            cflend = controlVariables % doublePrecisionValueForKey("cfl boost")
+            if (cflend .le. cfl) then
+               cflend = cfl
+            else
+               select case(maxval(MGSweeps))
+               case ( : 10)
+                  cfl_increment = (cflend - cfl) / 100 
+               case (11 : 100)
+                  cfl_increment = (cflend - cfl) / 20 
+               case (101 : )
+                  cfl_increment = (cflend - cfl) / 10 
+               end select
+            end if
+         end if
+         ! DCFL boosting
+         if (controlVariables % containsKey("dcfl boost")) then
+            dcflend = controlVariables % doublePrecisionValueForKey("dcfl boost")
+            if (dcflend .le. dcfl) then
+               dcflend = dcfl
+            else
+               select case(maxval(MGSweeps))
+               case ( : 10)
+                  dcfl_increment = (dcflend - dcfl) / 100 
+               case (11 : 100)
+                  dcfl_increment = (dcflend - dcfl) / 20 
+               case (101 : )
+                  dcfl_increment = (dcflend - dcfl) / 10 
+               end select
             end if
          end if
 #elif defined(CAHNHILLIARD)
@@ -518,6 +554,8 @@ module FASMultigridClass
       else
          do i = 1, maxVcycles
             call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
+            if (cfl .lt. cflend) cfl = cfl + cfl_increment
+            if (dcfl .lt. dcflend) dcfl = dcfl + dcfl_increment
             select case(Smoother)
                case ( : (IMPLICIT_SMOOTHER_IDX-1)) ! Only one iteration per pseudo time-step for RK smoothers
                   exit 
@@ -528,7 +566,7 @@ module FASMultigridClass
                   if (xnorm<1.e-6_RP) exit
             end select
             if (rnorm > 1e-2_RP) call computeA_AllLevels(this,MGlevels)
-         end do
+         end do ! i
          if (i > 4) call computeA_AllLevels(this,MGlevels) ! Hard-coded: 4
       end if
       
