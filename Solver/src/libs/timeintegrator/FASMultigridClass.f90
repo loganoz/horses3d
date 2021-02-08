@@ -99,11 +99,11 @@ module FASMultigridClass
    real(kind=RP)  :: own_dt             ! dt
    integer, allocatable :: MGSweeps(:) ! Number of pre- and post- smoothings operations on each level
    integer        :: Preconditioner       ! Current smoother being used
-   real(kind=RP)  :: cflend      ! 
-   real(kind=RP)  :: cfl_increment = 0.0    ! 
-   real(kind=RP)  :: dcflend      ! 
-   real(kind=RP)  :: dcfl_increment = 0.0    ! 
-   
+   logical :: CFLboost  = .false.
+   logical :: DCFLboost = .false.
+   integer        :: CurrentMGCycle   
+   real(kind=RP)  :: cfl_ini            ! Advective cfl number
+   real(kind=RP)  :: dcfl_ini           ! Diffusive cfl number
 !========
  contains
 !========
@@ -249,44 +249,22 @@ module FASMultigridClass
 #if defined(NAVIERSTOKES)      
          Compute_dt = .TRUE.
          cfl = controlVariables % doublePrecisionValueForKey("cfl")
+         cfl_ini = cfl
          if (flowIsNavierStokes) then
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
                dcfl = cfl
             end if
+            dcfl_ini = dcfl
          end if
          ! CFL boosting
          if (controlVariables % containsKey("cfl boost")) then
-            cflend = controlVariables % doublePrecisionValueForKey("cfl boost")
-            if (cflend .le. cfl) then
-               cflend = cfl
-            else
-               select case(maxval(MGSweeps))
-               case ( : 10)
-                  cfl_increment = (cflend - cfl) / 100 
-               case (11 : 100)
-                  cfl_increment = (cflend - cfl) / 20 
-               case (101 : )
-                  cfl_increment = (cflend - cfl) / 10 
-               end select
-            end if
+            CFLboost = controlVariables % logicalValueForKey("cfl boost")
          end if
          ! DCFL boosting
          if (controlVariables % containsKey("dcfl boost")) then
-            dcflend = controlVariables % doublePrecisionValueForKey("dcfl boost")
-            if (dcflend .le. dcfl) then
-               dcflend = dcfl
-            else
-               select case(maxval(MGSweeps))
-               case ( : 10)
-                  dcfl_increment = (dcflend - dcfl) / 100 
-               case (11 : 100)
-                  dcfl_increment = (dcflend - dcfl) / 20 
-               case (101 : )
-                  dcfl_increment = (dcflend - dcfl) / 10 
-               end select
-            end if
+            DCFLboost = controlVariables % logicalValueForKey("dcfl boost")
          end if
 #elif defined(CAHNHILLIARD)
          print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
@@ -553,9 +531,8 @@ module FASMultigridClass
          call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
       else
          do i = 1, maxVcycles
+            CurrentMGCycle = timestep
             call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
-            if (cfl .lt. cflend) cfl = cfl + cfl_increment
-            if (dcfl .lt. dcflend) dcfl = dcfl + dcfl_increment
             select case(Smoother)
                case ( : (IMPLICIT_SMOOTHER_IDX-1)) ! Only one iteration per pseudo time-step for RK smoothers
                   exit 
@@ -608,6 +585,7 @@ module FASMultigridClass
       integer                       :: N1(3), N2(3)
       real(kind=RP)                 :: maxResidual(NCONS)
       real(kind=RP)                 :: PrevRes
+      real(kind=RP)                 :: NewRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
       !----------------------------------------------------------------------------
 #if defined(NAVIERSTOKES)      
@@ -686,6 +664,12 @@ module FASMultigridClass
       sweepcount = 0
       DO
          call this % Smooth(MGSweeps(lvl), t, dt, ComputeTimeDerivative)
+         NewRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+
+         call CFLRamp(cfl_ini,cfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
+         call CFLRamp(dcfl_ini,dcfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
+
+         print *, "Cycle no " ,CurrentMGCycle, " Level: ", lvl, " . CFL = ", cfl, " . DCFL ", dcfl
          
          sweepcount = sweepcount + MGSweeps(lvl)
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
@@ -693,7 +677,7 @@ module FASMultigridClass
          if (sweepcount .ge. MaxSweeps) exit
          
          if (lvl > 1 .and. PostFCycle) then
-            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) > PrevRes) then
+            if (NewRes > PrevRes) then
                call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
                call FASVCycle(this,t,dt,lvl-1,lvl, ComputeTimeDerivative)
             else
@@ -701,7 +685,7 @@ module FASMultigridClass
             end if
          elseif (PostSmooth .or. PostFCycle) then
             !if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
-            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < PrevRes) exit
+            if (NewRes < PrevRes) exit
          else
             exit
          end if

@@ -178,4 +178,35 @@ module MultigridTypes
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine CFLRamp(cfl_ini,cfl,n,res0,res1,CFLboost)
+      IMPLICIT NONE
+!
+!     ------------------------------------
+!     Variation of CFL ramping according to Jiang et al. 2015 (version for FAS). 
+!     ------------------------------------
+!
+!     ----------------------------------------------
+      real(kind=rp), intent(in)       :: cfl_ini ! initial, user-defined CFL
+      real(kind=rp), intent(inout)    :: cfl     ! previous iteration CFL
+      integer, intent(in)             :: n ! outer iteration
+      real(kind=rp), intent(in)       :: res0     ! RES before
+      real(kind=rp), intent(in)       :: res1     ! RES after
+      logical, intent(in)             :: CFLboost
+!     ----------------------------------------------
+      real(kind=rp)                :: eta = 1.01d0   ! Ideally 1.0 < eta < 1.05
+      real(kind=rp)                :: eps = 1e-6     !
+!     ----------------------------------------------
+      if (CFLboost) then
+         if ( (res1 / res0 .gt. 1.0d0) .and. (res0 .gt. eps) ) then
+            cfl = cfl / 2.0d0
+         else
+            ! cfl = cfl_ini * eta**n ! original work
+            cfl = cfl_ini  * (1.d0 + (eta-1.d0)*n) ! linear variation 
+         end if
+      end if ! CLFBoost 
+   
+   end subroutine CFLRamp
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module MultigridTypes
