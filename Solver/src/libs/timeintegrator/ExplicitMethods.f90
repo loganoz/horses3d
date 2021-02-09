@@ -443,13 +443,13 @@ MODULE ExplicitMethods
       integer, parameter         :: N_STAGES = 5
       real(kind=RP), parameter  :: a(N_STAGES) = [0.0_RP , 0.404070245338597_RP, 0.414793082130357_RP , 0.043088917965554_RP , 0.685523727897505_RP ]
       real(kind=RP), parameter  :: b(N_STAGES) = [0.324512326075470_RP , 0.285038111011129_RP , 0.229918995045975_RP , 0.324511869748567_RP , 0.192528965988635_RP ]
-      ! real(kind=RP), parameter  :: c(N_STAGES) = [0.1496590219993_RP , 0.3792103129999_RP , 0.8229550293869_RP , 0.6994504559488_RP , 0.1530572479681_RP]
+
+      tk = t + deltaT
 
       if (present(dt_vec)) then 
 
       DO k = 1, N_STAGES
          
-         tk = t + deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
@@ -472,7 +472,6 @@ MODULE ExplicitMethods
 
       DO k = 1, N_STAGES
          
-         tk = t + deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          
 !$omp parallel do schedule(runtime)
