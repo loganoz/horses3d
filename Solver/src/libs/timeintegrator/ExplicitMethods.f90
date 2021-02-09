@@ -22,6 +22,7 @@ MODULE ExplicitMethods
 
    private
    public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
+   public   TakeRK5OptStep
 
    integer, protected :: eBDF_order = 3
    logical, protected :: CTD_AFTER_STEPS = .false.
@@ -411,6 +412,101 @@ MODULE ExplicitMethods
       implicit none
       CTD_AFTER_STEPS = .true.
    end subroutine Enable_CTD_AFTER_STEPS
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   SUBROUTINE TakeRK5OptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec )
+!  
+!        *****************************************************************************************
+!       Optimal RK5 coefficients from:
+!      Data for Optimal Runge-Kutta Schemes for Pseudo Time-Stepping
+!       with High-Order Unstructured Methods. B. C. Vermeire, N. A. Loppi, P. E. Vincent. Journal of Computational Physics
+!      translated into 2N storage.
+!        *****************************************************************************************
+!
+      implicit none
+      type(HexMesh)                   :: mesh
+#ifdef FLOW
+      type(Particles_t)  :: particles
+#else
+      logical            :: particles
+#endif
+      REAL(KIND=RP)                   :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                    :: id, k
+      integer, parameter         :: N_STAGES = 5
+      real(kind=RP), parameter  :: a(N_STAGES) = [0.0_RP , 0.404070245338597_RP, 0.414793082130357_RP , 0.043088917965554_RP , 0.685523727897505_RP ]
+      real(kind=RP), parameter  :: b(N_STAGES) = [0.324512326075470_RP , 0.285038111011129_RP , 0.229918995045975_RP , 0.324511869748567_RP , 0.192528965988635_RP ]
+      ! real(kind=RP), parameter  :: c(N_STAGES) = [0.1496590219993_RP , 0.3792103129999_RP , 0.8229550293869_RP , 0.6994504559488_RP , 0.1530572479681_RP]
+
+      if (present(dt_vec)) then 
+
+      DO k = 1, N_STAGES
+         
+         tk = t + deltaT
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  +  dt_vec(id) * mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q   +  b(k) * mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH  +  dt_vec(id) * mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c          +  b(k) * mesh % elements(id) % storage % G_CH
+#endif
+         END DO
+!$omp end parallel do
+         
+      END DO
+
+      else
+
+      DO k = 1, N_STAGES
+         
+         tk = t + deltaT
+         CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         
+!$omp parallel do schedule(runtime)
+         DO id = 1, SIZE( mesh % elements )
+#ifdef FLOW
+             mesh % elements(id) % storage % G_NS = a(k)* mesh % elements(id) % storage % G_NS  + deltaT * mesh % elements(id) % storage % QDot
+             mesh % elements(id) % storage % Q =       mesh % elements(id) % storage % Q  + b(k) * mesh % elements(id) % storage % G_NS
+#endif
+
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+            mesh % elements(id) % storage % G_CH = a(k)*mesh % elements(id) % storage % G_CH + deltaT * mesh % elements(id) % storage % cDot
+            mesh % elements(id) % storage % c    = mesh % elements(id) % storage % c         + b(k) * mesh % elements(id) % storage % G_CH
+#endif
+         END DO
+!$omp end parallel do
+         
+      END DO
+
+      end if
+      
+!$omp parallel do schedule(runtime)
+      do k=1, mesh % no_of_elements
+         if ( any(isnan(mesh % elements(k) % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+            call exit(99)
+         endif
+      end do
+!$omp end parallel do
+
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+      
+   end subroutine TakeRK5OptStep
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

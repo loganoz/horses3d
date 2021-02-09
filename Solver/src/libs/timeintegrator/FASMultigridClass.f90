@@ -176,6 +176,10 @@ module FASMultigridClass
             if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
                ERROR stop ':: RK5 smoother is only for steady-state computations'
             Smoother = RK5_SMOOTHER
+         case('RK5Opt')
+            if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
+               ERROR stop ':: RK5 smoother is only for steady-state computations'
+            Smoother = RK5Opt_SMOOTHER
          case('BlockJacobi')
             Smoother = BJ_SMOOTHER
             call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
@@ -669,8 +673,6 @@ module FASMultigridClass
          call CFLRamp(cfl_ini,cfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
          call CFLRamp(dcfl_ini,dcfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
 
-         print *, "Cycle no " ,CurrentMGCycle, " Level: ", lvl, " . CFL = ", cfl, " . DCFL ", dcfl
-         
          sweepcount = sweepcount + MGSweeps(lvl)
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
@@ -981,6 +983,12 @@ module FASMultigridClass
                   call TakeRK5Step (this % p_sem % mesh, this % p_sem % particles, t, &
                                 own_dt, ComputeTimeDerivative, this % lts_dt )
                end do
+            ! RK5 smoother opt for Steady State
+            case (RK5Opt_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRK5OptStep (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, this % lts_dt )
+               end do
             case default
                error stop "FASMultigrid :: No smoother defined for the multigrid."
          end select ! Smoother
@@ -1007,6 +1015,13 @@ module FASMultigridClass
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=cfl, dcfl=dcfl, MaxDt=own_dt )
                   call TakeRK5Step (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative )
+               end do
+            ! RK5 opt smoother
+            case (RK5Opt_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=cfl, dcfl=dcfl, MaxDt=own_dt )
+                  call TakeRK5OptStep (this % p_sem % mesh, this % p_sem % particles, t, &
                                 own_dt, ComputeTimeDerivative )
                end do
 !

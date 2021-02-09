@@ -69,9 +69,10 @@ module MultigridTypes
    integer, parameter :: Euler_SMOOTHER   = 0 ! 
    integer, parameter :: RK3_SMOOTHER     = 1 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
    integer, parameter :: RK5_SMOOTHER     = 2 ! 
-   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 3 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
-   integer, parameter :: BJ_SMOOTHER      = 3 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 4 ! Jacobian-Free GMRES
+   integer, parameter :: RK5OPT_SMOOTHER  = 3 ! 
+   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: BJ_SMOOTHER      = 4 ! Block Jacobi smoother
+   integer, parameter :: JFGMRES_SMOOTHER = 5 ! Jacobian-Free GMRES
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step
