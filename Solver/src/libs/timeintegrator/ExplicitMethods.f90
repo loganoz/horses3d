@@ -1,9 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ExplicitMethods.f90
-!      Created: 2007-10-23 09:25:32 -0400 
-!      By: David Kopriva  
+!   @File:    ExplicitMethods.f90
+!   @Author:  2007-10-23 09:25:32 -0400 
+!   @Created: David Kopriva
+!   @Last revision date: Tue Feb  9 22:15:48 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: cd254b7fc25795caf3a285825faa6b46b79c6e79
+!
+!////////////////////////////////////////////////////////////////////////
 !
 !      RK integrators for DG approximation to conservation
 !      laws in 3D
@@ -22,7 +27,7 @@ MODULE ExplicitMethods
 
    private
    public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
-   public   TakeRK5OptStep
+   public   TakeRKOptStep
 
    integer, protected :: eBDF_order = 3
    logical, protected :: CTD_AFTER_STEPS = .false.
@@ -415,13 +420,10 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE TakeRK5OptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec )
+   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec )
 !  
 !        *****************************************************************************************
-!       Optimal RK5 coefficients from:
-!      Data for Optimal Runge-Kutta Schemes for Pseudo Time-Stepping
-!       with High-Order Unstructured Methods. B. C. Vermeire, N. A. Loppi, P. E. Vincent. Journal of Computational Physics
-!      translated into 2N storage.
+!       Optimal RK coefficients from Bassi2009
 !        *****************************************************************************************
 !
       implicit none
@@ -433,6 +435,7 @@ MODULE ExplicitMethods
 #endif
       REAL(KIND=RP)                   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
+      integer, intent(in)         :: N_STAGES
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
 !
 !     ---------------
@@ -440,9 +443,30 @@ MODULE ExplicitMethods
 !     ---------------
 !
       integer                    :: id, k
-      integer, parameter         :: N_STAGES = 5
-      real(kind=RP), parameter  :: a(N_STAGES) = [0.0_RP , 0.404070245338597_RP, 0.414793082130357_RP , 0.043088917965554_RP , 0.685523727897505_RP ]
-      real(kind=RP), parameter  :: b(N_STAGES) = [0.324512326075470_RP , 0.285038111011129_RP , 0.229918995045975_RP , 0.324511869748567_RP , 0.192528965988635_RP ]
+      real(kind=RP), dimension(6,7) :: Am, Bm
+      real(kind=RP) :: a(N_STAGES), b(N_STAGES)
+
+      Bm(1,:) = (/ 0.9998596842476678, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0 /)
+      Bm(2,:) = (/ 0.528003175664866, 0.5193233361621609, 0.3209132144853066, 0.0, 0.0, 0.0, 0.0 /)
+      Bm(3,:) = (/ 0.4062766523561424, 0.3590274668186006, 0.2782786562184366, 0.3031000737788218, 0.0, 0.0, 0.0 /)
+      Bm(4,:) = (/ 0.32451232607547, 0.2850381110111294, 0.2299189950459751, 0.3245118697485674, 0.1925289659886354, 0.0, 0.0 /)
+      Bm(5,:) = (/ 0.2712469842000987, 0.2506886071464794, 0.1571621623659122, 0.2281484031198761, 0.2523511867383585, 0.1918765315676819, 0.0 /)
+      Bm(6,:) = (/ 0.2328811281838825, 0.2007437175473038, 0.1577268986576998, 0.2052094755795549, 0.2138853585222901, 0.192146045128098, 0.1428487872093191 /)
+
+      Am(1,:) = (/ 0.0 / 1.0, -0.4998596842476678 / 0.5, 0.0, 0.0, 0.0, 0.0, 0.0 /)
+      Am(2,:) = (/ 0.0 / 1.0, -0.1645541151603977 / 0.315637725010225, -0.20368561115193584 / 0.3209132144853066, 0.0, 0.0, 0.0, 0.0 /)
+      Am(3,:) = (/ 0.0 / 1.0, -0.11076800268308828 / 0.1937832814991212, -0.1652441853194794 / 0.207607995049003, &
+            -0.0706706611694336 / 0.3031000737788218, 0.0, 0.0, 0.0 /)
+      Am(4,:) = (/ 0.0 / 1.0, -0.11517541944711737 / 0.1896693024156952, -0.0953688085954342 / 0.2159361297115306, &
+            -0.01398286533444451 / 0.1925286952557861, -0.1319831744927813 / 0.1925289659886354, 0.0, 0.0 /)
+      Am(5,:) = (/ 0.0 / 1.0, -0.056511008554826186 / 0.1229547684000589, -0.1277338387464205 / 0.1094339401033201, &
+            -0.047728222262592115 / 0.1824888900957738, -0.045659513024102316 / 0.1785098941878928,-0.0738412925504657 / 0.1918765315676819, 0.0 /)
+      Am(6,:) = (/ 0.0 / 1.0, -0.044038551801784204 / 0.1267393084745009, -0.0740044090728029 / 0.1061061571001407, &
+            -0.051620741557559094 / 0.1525740388611983, -0.052635436718356604 / 0.1650271578073516,-0.04885820071493849 / 0.1178619741653911, &
+             -0.0742840709627069 / 0.1428487872093191 /)
+
+      a = Am(N_STAGES-1,1:N_STAGES)
+      b = Bm(N_STAGES-1,1:N_STAGES)
 
       tk = t + deltaT
 
@@ -505,7 +529,7 @@ MODULE ExplicitMethods
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
       
-   end subroutine TakeRK5OptStep
+   end subroutine TakeRKOptStep
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

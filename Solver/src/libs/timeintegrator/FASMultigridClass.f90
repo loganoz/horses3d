@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Jan 27 16:23:11 2021
+!   @Last revision date: Tue Feb  9 22:12:58 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: e199f09aa7589b8bf0cca843e5f1caf3e59586af
+!   @Last revision commit: cd254b7fc25795caf3a285825faa6b46b79c6e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -104,6 +104,7 @@ module FASMultigridClass
    integer        :: CurrentMGCycle   
    real(kind=RP)  :: cfl_ini            ! Advective cfl number
    real(kind=RP)  :: dcfl_ini           ! Diffusive cfl number
+   integer        :: erk_order = 5   ! Steady-state OptERK type 
 !========
  contains
 !========
@@ -176,10 +177,21 @@ module FASMultigridClass
             if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
                ERROR stop ':: RK5 smoother is only for steady-state computations'
             Smoother = RK5_SMOOTHER
-         case('RK5Opt')
+         case('RKOpt')
             if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
-               ERROR stop ':: RK5 smoother is only for steady-state computations'
-            Smoother = RK5Opt_SMOOTHER
+               ERROR stop ':: RKOpt smoother is only for steady-state computations'
+            Smoother = RKOpt_SMOOTHER
+            ! Select order of ERK scheme
+            if ( controlVariables % containsKey("rk order") ) then
+               erk_order = controlVariables % IntegerValueForKey("rk order")
+               if (erk_order .gt. 7) then
+                  erk_order = 7
+                  print *, "FASMultigrid :: ERK Order too high, switching to 7."
+               else if (erk_order .lt. 2) then
+                  erk_order = 2
+                  print *, "FASMultigrid :: ERK Order too low, switching to 2."
+               end if
+            end if
          case('BlockJacobi')
             Smoother = BJ_SMOOTHER
             call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
@@ -984,10 +996,10 @@ module FASMultigridClass
                                 own_dt, ComputeTimeDerivative, this % lts_dt )
                end do
             ! RK5 smoother opt for Steady State
-            case (RK5Opt_SMOOTHER)
+            case (RKOpt_SMOOTHER)
                do sweep = 1, SmoothSweeps
-                  call TakeRK5OptStep (this % p_sem % mesh, this % p_sem % particles, t, &
-                                own_dt, ComputeTimeDerivative, this % lts_dt )
+                  call TakeRKOptStep (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, erk_order, this % lts_dt )
                end do
             case default
                error stop "FASMultigrid :: No smoother defined for the multigrid."
@@ -1018,11 +1030,11 @@ module FASMultigridClass
                                 own_dt, ComputeTimeDerivative )
                end do
             ! RK5 opt smoother
-            case (RK5Opt_SMOOTHER)
+            case (RKOpt_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=cfl, dcfl=dcfl, MaxDt=own_dt )
-                  call TakeRK5OptStep (this % p_sem % mesh, this % p_sem % particles, t, &
-                                own_dt, ComputeTimeDerivative )
+                  call TakeRKOptStep (this % p_sem % mesh, this % p_sem % particles, t, &
+                                own_dt, ComputeTimeDerivative, erk_order )
                end do
 !
 !           Implicit smoothers

@@ -4,9 +4,9 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Jan 27 16:23:12 2021
+!   @Last revision date: Tue Feb  9 22:12:58 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: e199f09aa7589b8bf0cca843e5f1caf3e59586af
+!   @Last revision commit: cd254b7fc25795caf3a285825faa6b46b79c6e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -69,7 +69,7 @@ module MultigridTypes
    integer, parameter :: Euler_SMOOTHER   = 0 ! 
    integer, parameter :: RK3_SMOOTHER     = 1 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
    integer, parameter :: RK5_SMOOTHER     = 2 ! 
-   integer, parameter :: RK5OPT_SMOOTHER  = 3 ! 
+   integer, parameter :: RKOPT_SMOOTHER   = 3 ! 
    integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
    integer, parameter :: BJ_SMOOTHER      = 4 ! Block Jacobi smoother
    integer, parameter :: JFGMRES_SMOOTHER = 5 ! Jacobian-Free GMRES
@@ -183,7 +183,7 @@ module MultigridTypes
       IMPLICIT NONE
 !
 !     ------------------------------------
-!     Variation of CFL ramping according to Jiang et al. 2015 (version for FAS). 
+!      CLF ramping strategies.
 !     ------------------------------------
 !
 !     ----------------------------------------------
@@ -195,15 +195,24 @@ module MultigridTypes
       logical, intent(in)             :: CFLboost
 !     ----------------------------------------------
       real(kind=rp)                :: eta = 1.01d0   ! Ideally 1.0 < eta < 1.05
-      real(kind=rp)                :: eps = 1e-6     !
+      real(kind=rp)                :: eps = 1e-10    !
 !     ----------------------------------------------
       if (CFLboost) then
+
+!     Variation of CFL ramping according to Jiang et al. 2015 (version for FAS). 
          if ( (res1 / res0 .gt. 1.0d0) .and. (res0 .gt. eps) ) then
             cfl = cfl / 2.0d0
          else
             ! cfl = cfl_ini * eta**n ! original work
-            cfl = cfl_ini  * (1.d0 + (eta-1.d0)*n) ! linear variation 
+            select case(n)
+            case ( : 100)
+               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*n) ! linear variation 
+            case ( 101 : 1000)
+               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*100 + (eta-1.d0)*n*0.1) ! linear variation 
+            case ( 1001 : )
+            end select
          end if
+
       end if ! CLFBoost 
    
    end subroutine CFLRamp
