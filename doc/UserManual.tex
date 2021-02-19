@@ -915,7 +915,7 @@ The options comprise following flags:
 							\textit{Gauss}* \\ \hline
 							
 -{}-output-mode= 	& 
-			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-mesh} is defined).
+			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-file} is defined).
 			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  & 
 							\textit{multizone} \\ \hline
 							
@@ -931,7 +931,7 @@ The options comprise following flags:
 			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
 							Not Present  \\ \hline
 							
--{}-boundary-mesh= 	& 
+-{}-boundary-file= 	& 
 			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
 							Not Present  \\ \hline
 \multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
@@ -999,7 +999,7 @@ The options are:
 \end{multicols}
 
 \subsection{Statistics Files (*.stats.hsol)}
-Statistics files generate following variables by default:
+Statistics files generate following variables by default (being Sij the components of the Reynolds Stress tensor):
 
 \begin{multicols}{3}
 \begin{itemize}
