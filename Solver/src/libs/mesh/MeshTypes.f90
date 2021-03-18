@@ -1,9 +1,12 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      Filename.f
-!      Created: 2008-05-29 17:44:55 -0400 
-!      By: David Kopriva  
+!   @File:    MeshTypes.f90
+!   @Author:  David Kopriva
+!   @Created: 2008-05-29 17:44:55 -0400 
+!   @Last revision date: Thu Mar 18 11:58:59 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 966274b24d0fb3507260ee580cfd52143429c8ae
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -19,7 +22,7 @@
       public   HMESH_NONE, HMESH_UNDEFINED, HMESH_INTERIOR
       public   HMESH_BOUNDARY, HMESH_MPI, emptyBCName
       public   EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
-      public   SPECMESH, HOPRMESH
+      public   SPECMESH, HOPRMESH, GMSHMESH
    
       public indexesOnOtherFace, leftIndexes2Right, coordRotation
 
@@ -37,6 +40,7 @@
       
       integer, parameter :: SPECMESH = 1
       integer, parameter :: HOPRMESH = 2
+      integer, parameter :: GMSHMESH = 3
       
       contains
 !
