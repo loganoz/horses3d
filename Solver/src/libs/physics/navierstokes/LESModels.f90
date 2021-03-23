@@ -345,63 +345,44 @@ module LESModels
          real(kind=RP), intent(out)          :: mu
          !-local-variables---------------------------------------
          real(kind=RP)  :: S(NDIM, NDIM)
+         real(kind=RP)  :: gradV2(NDIM, NDIM), gradV(NDIM,NDIM)
          real(kind=RP)  :: Sd(NDIM, NDIM)
-         real(kind=RP)  :: normS, normSd, divV, kappa, LS
+         real(kind=RP)  :: normS, normSd, divV2, kappa, LS
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
-         integer        :: m
+         integer        :: i,j
          !-------------------------------------------------------
          
          call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+
+         gradV(1,:) = U_x(1:3)
+         gradV(2,:) = U_y(1:3)
+         gradV(3,:) = U_z(1:3)
+
+         do i = 1, 3 
+            do j = 1, 3 
+               S(i,j)      = 0.5_RP*(gradV(i,j)+gradV(j,i))
+               gradV2(i,j) = 0.5_RP*(gradV(i,j)*gradV(j,i))
+            end do  
+         end do  
          
-!
-!        Compute symmetric part of the deformation tensor
-!        ------------------------------------------------
-         S(:,1) = U_x(1:3)
-         S(:,2) = U_y(1:3)
-         S(:,3) = U_z(1:3)
+         divV2 = gradV2(1,1) + gradV2(2,2) + gradV2(3,3)
 
-         S(1,:) = S(1,:) + U_x(1:3)
-         S(2,:) = S(2,:) + U_y(1:3)
-         S(3,:) = S(3,:) + U_z(1:3)
-
-         S = 0.5_RP * S
-
-         divV = S(1,1) + S(2,2) + S(3,3)
-
-!        Compute the norm of S
-!        --------------------- 
          normS =  sum(S*S)
 
-!        Remove the volumetric deformation tensor with squared gradients
-!        ----------------------------------------
-	 do m = 1, 3 
-         Sd(m,1) = POW2(U_x(m))
-         Sd(m,2) = POW2(U_y(m))
-         Sd(m,3) = POW2(U_z(m))
-	 end do  
+         do i = 1, 3 
+            do j = 1, 3 
+               Sd(i,j) = 0.5_RP*(gradV2(i,j)+gradV2(j,i))
+            end do  
+         end do  
 
-	 do m = 1, 3
-         Sd(1,m) = Sd(1,m) + POW2(U_x(m))
-         Sd(2,m) = Sd(2,m) + POW2(U_y(m))
-         Sd(3,m) = Sd(3,m) + POW2(U_z(m))
-	 end do 
+         Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * divV2
+         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * divV2
+         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * divV2
 
-         Sd = 0.5_RP * Sd
-
-	      Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * POW2(divV)
-         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * POW2(divV)
-         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * POW2(divV)
-
-!        Compute the norm of Sd
-!        --------------------- 
          normSd =  sum(Sd*Sd)
-!
-!        Compute viscosity and thermal conductivity
-!        ------------------------------------------
-         LS = min(this % Cw * delta, dWall * K_VONKARMAN)
-         LS = this % ComputeWallEffect(LS,dWall)
+         LS = this % Cw * delta
          
          mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
          
