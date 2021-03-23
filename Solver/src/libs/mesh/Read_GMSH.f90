@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Sun Mar 21 18:37:16 2021
+!   @Last revision date: Tue Mar 23 14:29:46 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 668d31d1b48f33591118e6e4660b5daac10e4975
+!   @Last revision commit: 019a66a4b01d8e4a423131293a0debc0792e0e5c
 !
 !//////////////////////////////////////////////////////
 !
@@ -335,7 +335,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -352,7 +352,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -369,7 +369,7 @@ MODULE Read_GMSH
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
@@ -973,7 +973,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -990,7 +990,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -1007,7 +1007,7 @@ MODULE Read_GMSH
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
@@ -1701,7 +1701,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -1718,7 +1718,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -1735,7 +1735,7 @@ MODULE Read_GMSH
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
