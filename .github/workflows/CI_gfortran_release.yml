@@ -238,6 +238,16 @@ jobs:
 #
 # 13) ENERGY CONSERVING TEST
 # ----------------------------
+#
+# 14) NACA0012
+# ----------------------------
+      - name: Build NACA0012 gfortran release
+        working-directory: ./Solver/test/NavierStokes/NACA0012/SETUP
+        run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+
+      - name: Run NACA0012 gfortran release
+        working-directory: ./Solver/test/NavierStokes/NACA0012
+        run: ./horses3d.ns NACA0012.control
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################
