@@ -269,6 +269,11 @@ module Storage
                   read(fid) e % Q_x
                   read(fid) e % Q_y
                   read(fid) e % Q_z
+
+!                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
+!                 Set state as is the default option TODO point to the correct one if its posible (oscar note)
+!                 ---------------------------
+                  call set_getVelocityGradients(GRADVARS_STATE)
                   
                   ! Following block works for NS, CH, NSCH and iNS .... but not iNSCH: change 5 by 6 to use iNSCH (NS won't work) 
                   if (NVARS .ge. 5) then 
