@@ -1,17 +1,24 @@
 !
-!////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
 !
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Thu Dec 10 10:05:22 2020
-!   @Last revision date: Sun Jan 31 02:37:24 2021
+!   @Created: Thu Mar 18 13:18:13 2021
+!   @Last revision date: Thu Mar 25 01:13:03 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: b098cf7edf0200eb880f483c1ab1940bf274ca84
+!   @Last revision commit: f7e6dd8052a2f96f1f6c9bfd01fc4304070498ba
+!
+!//////////////////////////////////////////////////////
+!
+!
+!////////////////////////////////////////////////////////////////////////
+!
 !
 !//////////////////////////////////////////////////////
 !
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.
-!  Current supported versions: GMSH Mesh Format 4.1.
+!  Current supported versions: GMSH Mesh Format 4.1 
+!  Current supported elements ID: 5,12,92. Respectively: P1,P2 and P3 hexahedral. 
 !
 !  GMSH original hexahedral ordering:
 !  
@@ -31,9 +38,9 @@
 ! HORSES3D corner ordering: 
 !         v
 !  1----------4           
-!  |\     ^   |\          
-!  | \    |   | \         
-!  |  \   |   |  \        
+!  |\     ^   |\
+!  | \    |   | \
+!  |  \   |   |  \
 !  |   5------+---8       
 !  |   |  +-- |-- | -> u  
 !  2---+---\--3   |       
@@ -312,7 +319,7 @@ MODULE Read_GMSH
          msh_points(i)%tag      = int(msh_entity_vec(1))
          msh_points(i)%x        = msh_entity_vec(2:4)
          msh_points(i)%no_ptags = int(msh_entity_vec(5))
-         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:6+msh_points(i)%no_ptags)) 
+         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:5+msh_points(i)%no_ptags)) 
       end do ! msh_no_points
 !------------------------------------------------------------------------
 
@@ -326,9 +333,9 @@ MODULE Read_GMSH
          msh_curves(i)%minX     = msh_entity_vec(2:4)
          msh_curves(i)%maxX     = msh_entity_vec(5:7)
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:9+msh_curves(i)%no_ptags)) 
+         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -343,9 +350,9 @@ MODULE Read_GMSH
          msh_surfaces(i)%minX     = msh_entity_vec(2:4)
          msh_surfaces(i)%maxX     = msh_entity_vec(5:7)
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:9+msh_surfaces(i)%no_ptags)) 
+         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -360,9 +367,9 @@ MODULE Read_GMSH
          msh_volumes(i)%minX     = msh_entity_vec(2:4)
          msh_volumes(i)%maxX     = msh_entity_vec(5:7)
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:9+msh_volumes(i)%no_ptags)) 
+         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
@@ -474,7 +481,7 @@ MODULE Read_GMSH
          ! find no surfaces
          msh_bcs(i) % no_of_surfaces = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
          end do ! msh_no_surfaces
 
@@ -483,7 +490,7 @@ MODULE Read_GMSH
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
@@ -498,7 +505,7 @@ MODULE Read_GMSH
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
          do j=1, msh_no_curves
-            tmpi = findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
+            tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                tmpi_vec1(1 + (k-1)*2: k*2) = msh_curves(j) % bps
@@ -516,11 +523,11 @@ MODULE Read_GMSH
 
             select case (msh_node_blocks(j) % entity_dim)
             case (0) ! points 
-               tmpi = findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
             case (1) ! curves 
-               tmpi = findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
             case (2) ! surfaces
-               tmpi = findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
             case (3) ! volume
                tmpi = 0
             end select ! msh_node_blocks(j) % entity_dim
@@ -548,7 +555,7 @@ MODULE Read_GMSH
                   ! find matching nodes
                   tmpi_vec1=0
                   do l=1,8
-                     tmpi = findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
                      ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
@@ -662,7 +669,7 @@ MODULE Read_GMSH
 
                ! set element boundaries
                do k = 1, 6
-                  tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
                   if (tmpi1 .gt. 0) then
                      self % elements(l) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
                   else
@@ -950,7 +957,7 @@ MODULE Read_GMSH
          msh_points(i)%tag      = int(msh_entity_vec(1))
          msh_points(i)%x        = msh_entity_vec(2:4)
          msh_points(i)%no_ptags = int(msh_entity_vec(5))
-         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:6+msh_points(i)%no_ptags)) 
+         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:5+msh_points(i)%no_ptags)) 
       end do ! msh_no_points
 !------------------------------------------------------------------------
 
@@ -964,9 +971,9 @@ MODULE Read_GMSH
          msh_curves(i)%minX     = msh_entity_vec(2:4)
          msh_curves(i)%maxX     = msh_entity_vec(5:7)
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:9+msh_curves(i)%no_ptags)) 
+         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -981,9 +988,9 @@ MODULE Read_GMSH
          msh_surfaces(i)%minX     = msh_entity_vec(2:4)
          msh_surfaces(i)%maxX     = msh_entity_vec(5:7)
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:9+msh_surfaces(i)%no_ptags)) 
+         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -998,9 +1005,9 @@ MODULE Read_GMSH
          msh_volumes(i)%minX     = msh_entity_vec(2:4)
          msh_volumes(i)%maxX     = msh_entity_vec(5:7)
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:9+msh_volumes(i)%no_ptags)) 
+         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
@@ -1114,7 +1121,7 @@ MODULE Read_GMSH
          ! find no surfaces
          msh_bcs(i) % no_of_surfaces = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
          end do ! msh_no_surfaces
 
@@ -1123,7 +1130,7 @@ MODULE Read_GMSH
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
@@ -1138,7 +1145,7 @@ MODULE Read_GMSH
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
          do j=1, msh_no_curves
-            tmpi = findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
+            tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                tmpi_vec1(1 + (k-1)*2: k*2) = msh_curves(j) % bps
@@ -1156,11 +1163,11 @@ MODULE Read_GMSH
 
             select case (msh_node_blocks(j) % entity_dim)
             case (0) ! points 
-               tmpi = findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
             case (1) ! curves 
-               tmpi = findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
             case (2) ! surfaces
-               tmpi = findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
             case (3) ! volume
                tmpi = 0
             end select ! msh_node_blocks(j) % entity_dim
@@ -1188,7 +1195,7 @@ MODULE Read_GMSH
                   ! find matching nodes
                   tmpi_vec1=0
                   do l=1,8
-                     tmpi = findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
                      ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
@@ -1295,7 +1302,7 @@ MODULE Read_GMSH
 
                   ! set element boundaries
                   do k = 1, 6
-                     tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                     tmpi1 = my_findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
                      if (tmpi1 .gt. 0) then
                         names(k) = trim(msh_bcs(tmpi1) % name)
                      else
@@ -1320,7 +1327,7 @@ MODULE Read_GMSH
 
                   ! set element boundaries
                   do k = 1, 6
-                     tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                     tmpi1 = my_findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
                      if (tmpi1 .gt. 0) then
                         names(k) = trim(msh_bcs(tmpi1) % name)
                      else
@@ -1378,7 +1385,7 @@ MODULE Read_GMSH
 
                ! set element boundaries
                do k = 1, 6
-                  tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
                   if (tmpi1 .gt. 0) then
                      self % elements(pElement) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
                   else
@@ -1678,7 +1685,7 @@ MODULE Read_GMSH
          msh_points(i)%tag      = int(msh_entity_vec(1))
          msh_points(i)%x        = msh_entity_vec(2:4)
          msh_points(i)%no_ptags = int(msh_entity_vec(5))
-         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:6+msh_points(i)%no_ptags)) 
+         if (msh_points(i)%no_ptags .gt. 0) msh_points(i)%ptags(1:msh_points(i)%no_ptags) = int(msh_entity_vec(6:5+msh_points(i)%no_ptags)) 
       end do ! msh_no_points
 !------------------------------------------------------------------------
 
@@ -1692,9 +1699,9 @@ MODULE Read_GMSH
          msh_curves(i)%minX     = msh_entity_vec(2:4)
          msh_curves(i)%maxX     = msh_entity_vec(5:7)
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:9+msh_curves(i)%no_ptags)) 
+         if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
-         msh_curves(i)%bps = msh_entity_vec(10+msh_curves(i)%no_ptags:11+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
 !------------------------------------------------------------------------
@@ -1709,9 +1716,9 @@ MODULE Read_GMSH
          msh_surfaces(i)%minX     = msh_entity_vec(2:4)
          msh_surfaces(i)%maxX     = msh_entity_vec(5:7)
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:9+msh_surfaces(i)%no_ptags)) 
+         if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
-         msh_surfaces(i)%bps = msh_entity_vec(10+msh_surfaces(i)%no_ptags:11+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
 !------------------------------------------------------------------------
@@ -1726,9 +1733,9 @@ MODULE Read_GMSH
          msh_volumes(i)%minX     = msh_entity_vec(2:4)
          msh_volumes(i)%maxX     = msh_entity_vec(5:7)
          msh_volumes(i)%no_ptags = int(msh_entity_vec(8))
-         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:9+msh_volumes(i)%no_ptags)) 
+         if (msh_volumes(i)%no_ptags .gt. 0) msh_volumes(i)%ptags(1:msh_volumes(i)%no_ptags) = int(msh_entity_vec(9:8+msh_volumes(i)%no_ptags)) 
          msh_volumes(i)%no_bps = msh_entity_vec(9+msh_volumes(i)%no_ptags)
-         msh_volumes(i)%bps = msh_entity_vec(10+msh_volumes(i)%no_ptags:11+msh_volumes(i)%no_ptags)
+         msh_volumes(i)%bps(1:msh_volumes(i)%no_bps) = msh_entity_vec(10+msh_volumes(i)%no_ptags:9+msh_volumes(i)%no_ptags+msh_volumes(i)%no_bps)
          msh_volumes(i)%bps = abs(msh_volumes(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_volumes
 !------------------------------------------------------------------------
@@ -1840,7 +1847,7 @@ MODULE Read_GMSH
          ! find no surfaces
          msh_bcs(i) % no_of_surfaces = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
          end do ! msh_no_surfaces
 
@@ -1849,7 +1856,7 @@ MODULE Read_GMSH
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
-            tmpi = findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
+            tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
@@ -1864,7 +1871,7 @@ MODULE Read_GMSH
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
          do j=1, msh_no_curves
-            tmpi = findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
+            tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                tmpi_vec1(1 + (k-1)*2: k*2) = msh_curves(j) % bps
@@ -1882,11 +1889,11 @@ MODULE Read_GMSH
 
             select case (msh_node_blocks(j) % entity_dim)
             case (0) ! points 
-               tmpi = findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % point_tags, msh_node_blocks(j) % entity_tag, 1)
             case (1) ! curves 
-               tmpi = findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_node_blocks(j) % entity_tag, 1)
             case (2) ! surfaces
-               tmpi = findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
+               tmpi = my_findloc(msh_bcs(i) % surface_tags, msh_node_blocks(j) % entity_tag, 1)
             case (3) ! volume
                tmpi = 0
             end select ! msh_node_blocks(j) % entity_dim
@@ -1914,7 +1921,7 @@ MODULE Read_GMSH
                   ! find matching nodes
                   tmpi_vec1=0
                   do l=1,8
-                     tmpi = findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
                      ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
@@ -2024,7 +2031,7 @@ MODULE Read_GMSH
 
                ! set element boundaries
                do k = 1, 6
-                  tmpi1 = findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_element_blocks(msh_elblock) % BCs(msh_el,k),1)
                   if (tmpi1 .gt. 0) then
                      self % elements(l) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
                   else
@@ -2133,7 +2140,7 @@ MODULE Read_GMSH
         CHARACTER(LEN=*), intent(in) :: fileName
         integer                      :: nelem
         !----------------------------------
-        integer :: i, j, k, fUnit, nElBlocks, ElsInBlock, eltype
+        integer :: i, j, k, fUnit, nElBlocks, ElsInBlock, eltype, elem_tmp
         integer :: ierr
         logical :: success=.false.
         character (len=100) :: cline
@@ -2143,16 +2150,16 @@ MODULE Read_GMSH
          
         open(newunit = fUnit, FILE = trim(fileName) )  
 
+        nelem = 0
         do
             read(fUnit,'(A)',iostat=ierr) cline
             if (ierr /= 0) exit
             read (cline,*) cword ! read first word of line
             if (cword == "$Elements") then
-               read(fUnit,*) nElBlocks, nelem, k, k           
-               nelem = 0
+               read(fUnit,*) nElBlocks, elem_tmp, k, k           
                do i=1, nElBlocks
                   read(fUnit,*) k, k, eltype, ElsInBlock
-                  if (findloc(check_eltype,eltype,1) ) nelem = nelem + ElsInBlock
+                  if (my_findloc(check_eltype,eltype,1) .ge. 1) nelem = nelem + ElsInBlock
                   do j=1, ElsInBlock
                      read(fUnit,*) k
                   end do
@@ -2272,7 +2279,7 @@ MODULE Read_GMSH
       end select
 
       ! allocate BCs only if 3D element is detected
-      if (findloc((/5,12,92,93/),el_type,1)) then
+      if (my_findloc((/5,12,92,93/),el_type,1) .ge. 1) then
          allocate(this % BCs(no_els,6))
          this % BCs = 0
       end if
@@ -2304,7 +2311,7 @@ MODULE Read_GMSH
       implicit none
        
       integer,dimension(:),intent(in) :: vec
-      integer,dimension(:),allocatable,intent(out) :: vec_unique
+      integer,dimension(:),allocatable,intent(inout) :: vec_unique
        
       integer :: i,num
       logical,dimension(size(vec)) :: mask
@@ -2335,6 +2342,32 @@ MODULE Read_GMSH
       !call ISORT (vec_unique, [0], size(vec_unique), 1)
        
    end subroutine unique
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   integer function my_findloc(arr, val, dim)
+!  ---------------------------------------------------------
+!  Vanilla routine to find an index of matching value in the array.
+!  For INTEL or GNU v>9.0 just switch to 'findloc'.
+!  ---------------------------------------------------------
+      implicit none
+      !-----Arguments---------------------------------------------------
+      integer,dimension(:),intent(in) :: arr
+      integer,             intent(in) :: val, dim
+      !-----Local-Variables---------------------------------------------
+      integer :: i
+      !  -----------------------------------------------------------------------
+
+      ! my_findloc = findloc(arr,val,dim) ! intrinsic function
+      my_findloc = 0
+      do i = 1, size(arr,1)
+         if (arr(i) .eq. val) then
+         my_findloc = i
+         exit
+         end if
+      end do
+       
+   end function my_findloc
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

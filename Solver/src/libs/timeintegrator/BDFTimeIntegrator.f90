@@ -171,7 +171,7 @@ contains
          case('smooth')
             allocate (IterativeSolver_t      :: this % linsolver)
          case('multigrid')
-            allocate (MultigridSolver_t      :: this % linsolver)
+            allocate (LinearMultigridSolver_t      :: this % linsolver)
          case('static-condensation')
             allocate (StaticCondSolver_t     :: this % linsolver)
          case default

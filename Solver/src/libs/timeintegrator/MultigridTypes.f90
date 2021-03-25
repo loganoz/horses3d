@@ -32,13 +32,16 @@ module MultigridTypes
       real(kind=RP), dimension(:,:,:,:), allocatable :: E     ! Error (for correction)
       real(kind=RP), dimension(:,:,:,:), allocatable :: S     ! Source term interpolated from next finer grid
       real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
+      real(kind=RP), dimension(:,:,:,:), allocatable :: R     ! 
+      real(kind=RP), dimension(:,:,:,:), allocatable :: Q0    ! 
+      real(kind=RP), dimension(:,:,:,:), allocatable :: dQ    ! 
    end type MGSolStorage_t
    
 !
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
+      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt)
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
@@ -55,6 +58,9 @@ module MultigridTypes
          REAL(KIND=RP)              :: t, deltaT
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
          real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+         ! Dual (pseudo) time stepping arguments (also optional):
+         logical, intent(in), optional :: dts 
+         real(kind=RP), intent(in), optional :: global_dt 
       end subroutine SmoothIt_t
    end interface
    

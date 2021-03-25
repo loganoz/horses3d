@@ -16,10 +16,10 @@ module TimeIntegratorDefinitions
    implicit none
 
    private
-   public   TimeStep_FCN
+   public   TimeStep_FCN, ComputePseudoTimeDerivative
 
    abstract interface
-      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
+      subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
          use SMConstants
          use HexMeshClass
          use DGSEMClass
@@ -35,8 +35,39 @@ module TimeIntegratorDefinitions
 #endif
          REAL(KIND=RP)              :: t, deltaT
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
-         real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+         ! Optional arguments:
+         real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec ! dt array for Local Time Stepping preconditioning
+         ! Dual (pseudo) time stepping arguments (also optional):
+         logical, intent(in), optional :: dts 
+         real(kind=RP), intent(in), optional :: global_dt 
       end subroutine TimeStep_FCN
    end interface
+!========
+   contains
+!========
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputePseudoTimeDerivative(mesh, tk, global_dt)
+      use SMConstants
+      use HexMeshClass
+!-----Arguments-----------------------------------------------------------
+      type(HexMesh)                                        :: mesh
+      real(KIND=RP), intent(in)                            :: tk
+      real(kind=RP), intent(in)                            :: global_dt 
+!-----Local-Variables-----------------------------------------------------
+      integer       :: id
+!-------------------------------------------------------------------------
 
+!$omp parallel do schedule(runtime)
+   do id = 1, SIZE( mesh % elements )
+      mesh % elements(id) % storage % Qdot = mesh % elements(id) % storage % Qdot - &
+         (mesh % elements(id) % storage % Q - mesh % elements(id) % storage % prevQ(1) % Q) / global_dt
+   end do ! id
+!$omp end parallel do
+
+   end subroutine
+!
+!////////////////////////////////////////////////////////////////////////
+!
 end module TimeIntegratorDefinitions

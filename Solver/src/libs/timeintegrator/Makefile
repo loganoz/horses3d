@@ -12,9 +12,8 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/AnalyticalJacobian.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
-		./build_ns/GenericSmoother.o \
 		./build_ns/MatrixFreeSmootherClass.o \
-		./build_ns/MultigridSolverClass.o \
+		./build_ns/LinearMultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
 		./build_ns/MatrixFreeGMRESClass.o \
@@ -36,9 +35,8 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/AnalyticalJacobian.o \
 		./build_ins/GenericLinSolverClass.o \
 		./build_ins/PetscSolverClass.o \
-		./build_ins/GenericSmoother.o \
 		./build_ins/MatrixFreeSmootherClass.o \
-		./build_ins/MultigridSolverClass.o \
+		./build_ins/LinearMultigridSolverClass.o \
 		./build_ins/MKLPardisoSolverClass.o \
 		./build_ins/IterativeSolverClass.o \
 		./build_ins/MatrixFreeGMRESClass.o \
@@ -61,9 +59,8 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/AnalyticalJacobian.o \
 		./build_ch/GenericLinSolverClass.o \
 		./build_ch/PetscSolverClass.o \
-		./build_ch/GenericSmoother.o \
 		./build_ch/MatrixFreeSmootherClass.o \
-		./build_ch/MultigridSolverClass.o \
+		./build_ch/LinearMultigridSolverClass.o \
 		./build_ch/MKLPardisoSolverClass.o \
 		./build_ch/IterativeSolverClass.o \
 		./build_ch/MatrixFreeGMRESClass.o \
@@ -85,9 +82,8 @@ LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/AnalyticalJacobian.o \
 		./build_mu/GenericLinSolverClass.o \
 		./build_mu/PetscSolverClass.o \
-		./build_mu/GenericSmoother.o \
 		./build_mu/MatrixFreeSmootherClass.o \
-		./build_mu/MultigridSolverClass.o \
+		./build_mu/LinearMultigridSolverClass.o \
 		./build_mu/MKLPardisoSolverClass.o \
 		./build_mu/IterativeSolverClass.o \
 		./build_mu/MatrixFreeGMRESClass.o \

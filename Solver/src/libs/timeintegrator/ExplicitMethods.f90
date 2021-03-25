@@ -4,9 +4,9 @@
 !   @File:    ExplicitMethods.f90
 !   @Author:  2007-10-23 09:25:32 -0400 
 !   @Created: David Kopriva
-!   @Last revision date: Tue Feb  9 22:15:48 2021
+!   @Last revision date: Thu Mar 25 01:13:08 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cd254b7fc25795caf3a285825faa6b46b79c6e79
+!   @Last revision commit: f7e6dd8052a2f96f1f6c9bfd01fc4304070498ba
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -40,7 +40,7 @@ MODULE ExplicitMethods
 !  ------------------------------
 !  Routine for taking a RK3 step.
 !  ------------------------------
-   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec )
+   SUBROUTINE TakeRK3Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
 !
 !     ----------------------------------
 !     Williamson's 3rd order Runge-Kutta
@@ -61,6 +61,8 @@ MODULE ExplicitMethods
       REAL(KIND=RP)   :: t, deltaT, tk
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
 !
 !     ---------------
 !     Local variables
@@ -71,13 +73,14 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
       
       INTEGER :: k, id
-      
+
       if (present(dt_vec)) then
 
       do k = 1,3
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
@@ -101,7 +104,8 @@ MODULE ExplicitMethods
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         
+            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
 #ifdef FLOW
@@ -134,7 +138,7 @@ MODULE ExplicitMethods
       
    END SUBROUTINE TakeRK3Step
 
-   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec )
+   SUBROUTINE TakeRK5Step( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -151,6 +155,8 @@ MODULE ExplicitMethods
       REAL(KIND=RP)                   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
 !
 !     ---------------
 !     Local variables
@@ -168,6 +174,7 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -191,6 +198,7 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -225,7 +233,7 @@ MODULE ExplicitMethods
       
    end subroutine TakeRK5Step
 
-   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec)
+   SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
 !  
 !        *****************************************************************************************
 !           These coefficients have been extracted from the paper: "Fourth-Order 2N-Storage
@@ -242,6 +250,8 @@ MODULE ExplicitMethods
       REAL(KIND=RP)                   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
       !
 !     ---------------
 !     Local variables
@@ -250,6 +260,7 @@ MODULE ExplicitMethods
       integer                    :: id, k
 
       CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
+      if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
       if (present(dt_vec)) then
 !$omp parallel do schedule(runtime)
@@ -420,7 +431,7 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec )
+   SUBROUTINE TakeRKOptStep( mesh, particles, t, deltaT, ComputeTimeDerivative , N_STAGES, dt_vec, dts, global_dt )
 !  
 !        *****************************************************************************************
 !       Optimal RK coefficients from Bassi2009
@@ -437,6 +448,8 @@ MODULE ExplicitMethods
       procedure(ComputeTimeDerivative_f)      :: ComputeTimeDerivative
       integer, intent(in)         :: N_STAGES
       real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
 !
 !     ---------------
 !     Local variables
@@ -475,6 +488,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -497,6 +511,7 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
