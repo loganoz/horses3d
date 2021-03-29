@@ -98,6 +98,7 @@ Module  FWHObseverClass  !
 !        *****************************************************************************
 
        use ParamfileRegions
+       use FileReadingUtilities, only: getRealArrayFromString
        implicit none
 
        class(ObserverClass)                                 :: self
