@@ -1,11 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      BDFTimeIntegrator.f90
-!      Created: 2017-04-09 16:30:00 +0100 
-!      By:  Andrés Rueda
+!   @File:    BDFTimeIntegrator.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: 2017-04-09 16:30:00 +0100 
+!   @Last revision date: Mon Mar 29 05:44:29 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 415fdf52ece080769be5c0d3f939ebbe489dbd65
 !
-!      Module for integrating in time using the Backward Differentiation Formulas (BDF)
+!   Module for integrating in time using the Backward Differentiation Formulas (BDF)
 !
 !////////////////////////////////////////////////////////////////////////
 MODULE BDFTimeIntegrator
@@ -26,6 +29,7 @@ MODULE BDFTimeIntegrator
    
    PRIVATE                          
    PUBLIC BDFIntegrator_t, TakeBDFStep, ComputeRHS, UpdateNewtonSol, BDF_SetPreviousSolution, bdf_order, BDF_MatrixShift, BDF_SetOrder
+   public BDFCoeff, BDFInitialiseQ
    
 !
 !  ********************
@@ -59,7 +63,7 @@ MODULE BDFTimeIntegrator
    
    logical       :: computeA = .TRUE.  ! Compute Jacobian? (only valid if it is meant to be computed according to the convergence)
    logical       :: Adaptive_dt = .TRUE.
-   integer       :: bdf_order       ! BDF order specified by user
+   ! integer       :: bdf_order       ! BDF order specified by user
    integer       :: order           ! BDF order to be used
    integer       :: StepsTaken = 0
 
@@ -613,28 +617,27 @@ contains
       end do
       
    end function BDF_GetRHS
-   
-!~   subroutine BDFCoefficientsVariable_dt(order,dt)
-!~      implicit none
-!~      integer      , intent(in) :: order
-!~      real(kind=RP), intent(in) :: dt(order)
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine BDFInitialiseQ(mesh)
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      type(HexMesh)                                        :: mesh
+!-----Local-Variables-----------------------------------------------------
+      integer :: i, id
+!-------------------------------------------------------------------------
       
-!~      select case(order)
-!~         case (1)
-!~            a(1) = 1.0_RP / dt(1)
-!~            a(2) = -1.0_RP / dt(1)
-!~         case (2)
-!~            a(1) = a(1) + 1.0_RP / (dt(1)+dt(2)) 
-!~            a(2) = a(2) - (1.0_RP + dt(1)/dt(2)) / (dt(1)+dt(2)) 
-!~            a(3) = (dt(1)/dt(2)) / (dt(1)+dt(2)) 
-!~         case (3)
-!~            a(1) = a(1) + 1.0_RP / (dt(1)+dt(2)+dt(3)) 
-!~            a(2) = a(2) - (1.0_RP + dt(1)/dt(2)*(1.0+(dt(1)+dt(2))/(dt(2)+dt(3)))) / (dt(1)+dt(2)+dt(3)) 
-!~            a(3) = a(3) + (dt(1)/dt(2)*(1.0+(dt(1)+dt(2))/(dt(2)+dt(3))) + &
-!~                     dt(1)/dt(3)*(dt(1)+dt(2))/(dt(2)+dt(3)) ) / (dt(1)+dt(2)+dt(3)) 
-!~            a(4) = -(dt(1)/dt(3))*(dt(1)+dt(2))/(dt(2)+dt(3)) / (dt(1)+dt(2)+dt(3))
-!~         case default
-!~            ERROR stop ':: variable time-step BDF only up to order 3'
-!~      end select
-!~   end subroutine
+      do i = 1, bdf_order
+!$omp parallel do schedule(runtime)
+         do id = 1, SIZE( mesh % elements )
+            mesh % elements(id) % storage % prevQ(i) % Q = mesh % elements(id) % storage % Q
+         end do ! id
+!$omp end parallel do
+      end do
+      
+   end subroutine BDFInitialiseQ
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 END MODULE BDFTimeIntegrator

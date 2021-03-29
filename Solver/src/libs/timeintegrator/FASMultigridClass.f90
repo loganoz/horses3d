@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Tue Feb  9 22:12:58 2021
+!   @Last revision date: Mon Mar 29 05:43:38 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cd254b7fc25795caf3a285825faa6b46b79c6e79
+!   @Last revision commit: 415fdf52ece080769be5c0d3f939ebbe489dbd65
 !
 !//////////////////////////////////////////////////////
 !
@@ -108,6 +108,7 @@ module FASMultigridClass
    integer        :: erk_order = 5      ! Steady-state OptERK type 
 !-----DTS-variables-------------------------------------------------------------------
    logical        :: DualTimeStepping = .false.
+   real(kind=RP)  :: conv_tolerance = 1e-6_RP
    real(kind=RP), target  :: p_cfl            ! Pseudo advective cfl number
    real(kind=RP), target  :: p_dcfl           ! Pseudo diffusive cfl number
    real(kind=RP), target  :: p_dt             ! Pseudo dt
@@ -182,6 +183,11 @@ module FASMultigridClass
       if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) then
          ! is the simulation type is time-accurate and we use FAS
          DualTimeStepping = .true.
+         if (controlVariables % containsKey("convergence tolerance")) &
+            conv_tolerance = controlVariables % doublePrecisionValueForKey("convergence tolerance")
+
+            if (controlVariables % containsKey("bdf order")) call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )     
+            call BDFInitialiseQ(sem % mesh)    
 
          if (controlVariables % containsKey("pseudo cfl")) then
 #if defined(NAVIERSTOKES)      
@@ -205,7 +211,6 @@ module FASMultigridClass
          end if
       end if ! time-accurate
 
-      
 !
 !     Read multigrid variables
 !     -------------------------
@@ -416,18 +421,6 @@ module FASMultigridClass
       end DO   
 !$omp end parallel do
 
-      if (Smoother >= IMPLICIT_SMOOTHER_IDX) then
-         if ( .not. allocated(Solver % p_sem % mesh % storage % QdotNS  ) ) then 
-            allocate(Solver % p_sem % mesh % storage % QdotNS(Solver % p_sem % mesh % storage % NDOF * NCONS))
-         end if 
-         if ( .not. allocated(Solver % p_sem % mesh % storage % QNS  ) ) then 
-            allocate(Solver % p_sem % mesh % storage % QNS(Solver % p_sem % mesh % storage % NDOF * NCONS))
-         end if 
-         if ( .not. allocated(Solver % p_sem % mesh % storage % PrevQNS  ) ) then 
-            allocate(Solver % p_sem % mesh % storage % PrevQNS(Solver % p_sem % mesh % storage % NDOF * NCONS,1))
-         end if 
-      end if
-
       ! allocate array for LTS
       if (Preconditioner .eq. PRECONDIIONER_LTS) allocate( Solver % lts_dt(nelem))
       ! allocate( Solver % lts_dt(nelem))
@@ -624,14 +617,12 @@ module FASMultigridClass
       integer :: tau_maxit = 10000
       real(kind=RP) :: dQdtau_norm, Qdot_norm
       real(kind=RP) :: tk
-      real(kind=RP) :: tau_tol
-
 !
 !     -----------------------
 !     Solve local steady-state problem
 !     -----------------------
 !
-      write(STD_OUT,*) "Starting pseudo step."
+      write(STD_OUT,'(10X,A)') "--- Starting pseudo step ---"
 
       tk = t
 
@@ -641,32 +632,27 @@ module FASMultigridClass
       Qdot_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
       call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, own_dt)
       dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
-      tau_tol = min(1e-5_RP,Qdot_norm * 1e-1_RP)
 
+      ! set previous solution
+      do i= 1, bdf_order
+         if (i .eq. bdf_order) then
 !$omp parallel do schedule(runtime)
-      do id = 1, SIZE(this % p_sem % mesh % elements )
-         this % p_sem % mesh % elements(id) % storage % prevQ(1) % Q = this % p_sem % mesh % elements(id) % storage % Q
-      end do ! id
+            do id = 1, SIZE(this % p_sem % mesh % elements )
+               this % p_sem % mesh % elements(id) % storage % prevQ(i) % Q = this % p_sem % mesh % elements(id) % storage % Q
+            end do ! id
 !$omp end parallel do
+         else
+!$omp parallel do schedule(runtime)
+            do id = 1, SIZE(this % p_sem % mesh % elements )
+               this % p_sem % mesh % elements(id) % storage % prevQ(i) % Q = this % p_sem % mesh % elements(id) % storage % prevQ(i+1) % Q
+            end do ! id
+!$omp end parallel do
+         end if
+      end do
 
-      do i = 1, tau_maxit ! if i > 1/dts_factor, then we don't have speed up
-
-         
-
-         ! if (Preconditioner .eq. PRECONDIIONER_LTS) then
-         !    if (Compute_dt) call MaxTimeStep( self=this % p_sem, cfl=p_cfl, dcfl=p_dcfl , MaxDt=p_dt, MaxDtVec=this % lts_dt)
-         !    call TakeRK3Step( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=tk, deltaT=p_dt, &
-         !       ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=.true., global_dt=own_dt )
-         ! else
-         !    if (Compute_dt) call MaxTimeStep( self=this % p_sem, cfl=p_cfl, dcfl=p_dcfl , MaxDt=p_dt)
-         !    call TakeRK3Step( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=tk, deltaT=p_dt, &
-         !       ComputeTimeDerivative=ComputeTimeDerivative, dts=.true., global_dt=own_dt )
-         ! end if
-
+      do i = 1, tau_maxit
          
          call this % solve(i, tk, p_dt, ComputeTimeDerivative)
-
-         
 
 !$omp parallel do schedule(runtime)
       do id = 1, SIZE(this % p_sem % mesh % elements )
@@ -674,28 +660,26 @@ module FASMultigridClass
       end do ! id
 !$omp end parallel do
 
-         ! call Smooth(this,1,tk,p_dt, ComputeTimeDerivative)
-
-         ! tk = tk + p_dt
-
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
          Qdot_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
          call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, own_dt)
          dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
 
-         
-         write(STD_OUT,*) "---------------------------"
-         write(STD_OUT,*) "Iteration: ", i
-         write(STD_OUT,*) "Time: ", tk
-         write(STD_OUT,*) "dQdt res: ", Qdot_norm
-         write(STD_OUT,*) "dQdtau res: ", dQdtau_norm
-         if (dQdtau_norm .le. tau_tol) exit
+         write(STD_OUT,'(10X,A,I4,A,ES10.3)') "It: ", i, " dQdtau: ", dQdtau_norm
+         if (dQdtau_norm .le. conv_tolerance) exit
 
       end do
 
       tk = tk + own_dt
 
-      write(STD_OUT,*) "Finishing pseudo step."
+!$omp parallel do schedule(runtime)
+      do id = 1, SIZE(this % p_sem % mesh % elements )
+         this % p_sem % mesh % elements(id) % storage % prevQ(1) % Q = this % p_sem % mesh % elements(id) % storage % Q
+      end do ! id
+!$omp end parallel do
+
+      call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+      write(STD_OUT,'(10X,A)') "--- Finishing pseudo step ---"
       
    end subroutine TakePseudoStep  
 !
