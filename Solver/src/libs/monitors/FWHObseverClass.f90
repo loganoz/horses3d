@@ -15,12 +15,13 @@ Module  FWHObseverClass  !
 
    use SMConstants
    use FaceClass
-   use VariableConversion, only: Pressure
    use Physics
+   use PhysicsStorage
    use NodalStorageClass
    use MonitorDefinitions, only: BUFFER_SIZE_DEFAULT, BUFFER_SIZE, STR_LEN_MONITORS
    use ZoneClass
    use HexMeshClass
+   use MPI_Process_Info
    Implicit None
 
 !
@@ -47,8 +48,8 @@ Module  FWHObseverClass  !
            procedure :: construct      => ObserverConstruct
            procedure :: destruct       => ObserverDestruct
            procedure :: update         => ObserverUpdate
-           procedure :: writeToFile    => ObserverWriteToFile
-           procedure :: updateTdelay   =>ObserverUpdateTdelay
+           ! procedure :: writeToFile    => ObserverWriteToFile
+           procedure :: updateTdelay   => ObserverUpdateTdelay
 
    end type ObserverClass
 
@@ -136,6 +137,7 @@ Module  FWHObseverClass  !
 
 !      Get the coordinates
 !      -------------------
+      print *, "Observer: ", self%observerName
        self % x = getRealArrayFromString(coordinates)
 
 !     Enable the observer
@@ -143,8 +145,8 @@ Module  FWHObseverClass  !
       self % active = .true.
       allocate ( self % Pac(BUFFER_SIZE,3) )
 
+      !     ------------------
 !     Get source information
-!     ------------------
       self % numberOfFaces = sourceZone % no_of_faces
 
 !     Construct each pair observer-source
@@ -182,6 +184,7 @@ Module  FWHObseverClass  !
 
          close ( fID )
       end if
+
 
    End Subroutine ObserverConstruct
 
@@ -241,14 +244,14 @@ Module  FWHObseverClass  !
                                          mesh % faces(meshFaceIDs(4)),&
                                          mesh % faces(meshFaceIDs(5)),&
                                          mesh % faces(meshFaceIDs(6)) )
-         if ( computeGradients ) then
-            call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
-                                             mesh % faces(meshFaceIDs(2)),&
-                                             mesh % faces(meshFaceIDs(3)),&
-                                             mesh % faces(meshFaceIDs(4)),&
-                                             mesh % faces(meshFaceIDs(5)),&
-                                             mesh % faces(meshFaceIDs(6)) )
-         end if
+         ! if ( computeGradients ) then
+         !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
+         !                                     mesh % faces(meshFaceIDs(2)),&
+         !                                     mesh % faces(meshFaceIDs(3)),&
+         !                                     mesh % faces(meshFaceIDs(4)),&
+         !                                     mesh % faces(meshFaceIDs(5)),&
+         !                                     mesh % faces(meshFaceIDs(6)) )
+         ! end if
 !!$omp end task
       end do
 !!$omp end single
@@ -298,11 +301,12 @@ Module  FWHObseverClass  !
       t = 0.0_RP
       do i = 1, self % numberOfFaces
           ! for moving surfaces each pair of observer-source should updated the tDelay first
-          print *, "time of source ", i, "of observer ", self % ID, "is: ", self % sourcePair(i)%tDelay
+          ! print *, "time of source ", i, "of observer ", self % ID, "is: ", self % sourcePair(i)%tDelay
           t = t + self % sourcePair(i) % tDelay
       end do  
 
       self % tDelay = t / real(self % numberOfFaces,RP)
+          ! print *, "time of average of observer ", self % ID, "is: ", self % tDelay
 
    End Subroutine ObserverUpdateTdelay
 
@@ -336,7 +340,7 @@ Module  FWHObseverClass  !
          close ( fID )
       end if
       
-      if ( no_of_lines .ne. 0 ) self % values(1) = self % values(no_of_lines)
+      if ( no_of_lines .ne. 0 ) self % Pac(1,:) = self % Pac(no_of_lines,:)
       
    End Subroutine ObserberWriteToFile
 
@@ -357,9 +361,12 @@ Module  FWHObseverClass  !
 
    Subroutine  ObserverSourcePairConstruct(self, x, f, fID, isSolid, FirstCall)
 
+       use fluiddata
+       implicit none
+
        class(ObserverSourcePairClass)                      :: self
        real(kind=RP), dimension(NDIM), intent(in)          :: x       ! observer position
-       ! type(face), intent(in)                              :: f    ! source
+       type(face), intent(in)                              :: f    ! source
        integer                                             :: fID
        logical, intent(in)                                 :: FirstCall, isSolid
 
@@ -368,7 +375,7 @@ Module  FWHObseverClass  !
        integer                                             :: i, j
        real(kind=RP)                                       :: fwGamma2, fwGammaInv
        real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U, M0
+       real(kind=RP), dimension(NDIM)                      :: U0, M0
 
        ! self % faceSource = f
        self % faceIDinMesh = fID
@@ -383,22 +390,28 @@ Module  FWHObseverClass  !
        call getMeanStreamValues(rho0, U0, M0, c0, P0)
 
        fwGamma2 = 1.0_RP / (1.0_RP - dimensionless % Mach**2)
-       fwGammaInv = 1.0_RP - dimensionless % Mach**2
-       ! y = f%geom%x(:)
+       fwGammaInv = sqrt(1.0_RP - dimensionless % Mach**2)
        ! source position, for each node of the face
        associate (y => f % geom % x)
            do j= 0, Ny; do i = 0,Nx
                ! store geometrical accoustic relations for each node
-               self % rVect(:,i,j) = x - y(:,i,j)
-               self % r(i,j) = norm2(rVect(:,i,j))
-               self % reStar(i,j) = fwGammaInv*sqrt( self%r(i,j)**2 + fwGamma2*dot_product(M0, self%rVect(:,i,j)) )
+               self % rVect(:,i,j) = x(:) - y(:,i,j)
+               self % r(i,j) = norm2(self % rVect(:,i,j))
+               self % reStar(i,j) = fwGammaInv*sqrt( self%r(i,j)**2 + fwGamma2*( dot_product(M0, self%rVect(:,i,j)) )**2 )
                self % reStarUnitVect(:,i,j) = ( self%rVect(:,i,j) + fwGamma2*dot_product(M0, self%rVect(:,i,j))*M0(:) ) / &
                                             (fwGamma2*self%reStar(i,j))
                self % re(i,j) = fwGamma2*( self%reStar(i,j) - dot_product(M0, self%rVect(:,i,j)) )
                self % reUnitVect(:,i,j) = fwGamma2*( self%reStarUnitVect(:,i,j) - M0(:) )
-               self % tDelay = (sum(self%re)/real(size(re),RP) / c0
+               self % tDelay = (sum(self%re))/real(size(self%re),RP) / c0
            end do; end do
        end associate
+
+       ! print *, "r: ", self%r(1,1)
+       ! print *, "rv: ", self%rVect(:,1,1)
+       ! print *, "res: ", self%reStar(1,1)
+       ! print *, "resUnitVect: ", self%reStarUnitVect(:,1,1), "norm: ",norm2(self%reStarUnitVect(:,1,1))
+       ! print *, "res: ", self%re(1,1)
+       ! print *, "reUnitVect: ", self%reUnitVect(:,1,1), "norm: ",norm2(self%reUnitVect(:,1,1))
 
    End Subroutine ObserverSourcePairConstruct 
 
@@ -423,7 +436,7 @@ Module  FWHObseverClass  !
    Function FWHSurfaceIntegral(self, f) result(Pacc)
 
        class(ObserverSourcePairClass)                      :: self
-       class(Zone_t), intent(in)                           :: f
+       class(Face), intent(in)                           :: f
        real(kind=RP),dimension(3)                          :: Pacc  ! accoustic pressure values
 
        ! local variables
@@ -432,7 +445,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(NDIM,NDIM)                 :: Lij, LijDot
        type(NodalStorage_t), pointer                       :: spAxi, spAeta
        real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U, M0
+       real(kind=RP), dimension(NDIM)                      :: U0, M0
        real(kind=RP)                                       :: Pt, Pl
 
        ! Initialization
@@ -446,31 +459,33 @@ Module  FWHObseverClass  !
        call getMeanStreamValues(rho0, U0, M0, c0, P0)
 
        associate( Q => f % storage(1) % Q )
+           associate( Qdot => f % storage(1) % Qdot )
 
-!           **********************************
-!           Computes the surface integral
-!              I = \int vec{f}·vec{n} * vec{g}·vec{r} dS
-!           **********************************
-!
-            do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
+    !           **********************************
+    !           Computes the surface integral
+    !              I = \int vec{f}·vec{n} * vec{g}·vec{r} dS
+    !           **********************************
+    !
+                do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 
-               n = f % geom % normal(:,i,j)
-               call calculateFWHVariables(Q, Qdot, self%isSolid, Qi, QiDot, Lij, LijDot)
+                   n = f % geom % normal(:,i,j)
+                   call calculateFWHVariables(Q, Qdot, self%isSolid, Qi, QiDot, Lij, LijDot)
 
-               ! loading term integrals
-               Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
-                         spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-               Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
-                         spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-
-               ! thickness term integrals, only for permable surfaces
-               if (.not. self % isSolid) then
-                   Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
+                   ! loading term integrals
+                   Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
                              spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                   Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
+                   Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
                              spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-               end if  
-            end do          ;    end do
+
+                   ! thickness term integrals, only for permable surfaces
+                   if (.not. self % isSolid) then
+                       Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
+                                 spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                       Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
+                                 spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   end if  
+                end do          ;    end do
+           end associate
        end associate
 
        Pt = Pt / (4.0_RP * PI)
@@ -483,30 +498,31 @@ Module  FWHObseverClass  !
 
    Subroutine calculateFWHVariables(Q, Qdot, isSolid, Qi, QiDot, Lij, LijDot)
 
+       use VariableConversion, only: Pressure, PressureDot
+       implicit none
+
        real(kind=RP), dimension(NCONS), intent(in)         :: Q        ! horses variables array
        real(kind=RP), dimension(NCONS), intent(in)         :: Qdot     ! horses time derivatives array
        logical, intent(in)                                 :: isSolid
        real(kind=RP), dimension(NDIM), intent(out)         :: Qi       ! fwh Qi array, related with the accoustic pressure thickness
        real(kind=RP), dimension(NDIM), intent(out)         :: Qidot
-       real(kind=RP), dimension(NDIM:NDIM), intent(out)    :: Lij      ! fwh Lij tensor: related with the accoustic pressure loading
-       real(kind=RP), dimension(NDIM:NDIM), intent(out)    :: LijDot
+       real(kind=RP), dimension(NDIM,NDIM), intent(out)    :: Lij      ! fwh Lij tensor: related with the accoustic pressure loading
+       real(kind=RP), dimension(NDIM,NDIM), intent(out)    :: LijDot
 
        !local variables
        real(kind=RP)                                       :: P, pDot
-       real(kind=RP), dimension(NDIM:NDIM)                 :: Pij      ! fwh perturbation stress tensor
+       real(kind=RP), dimension(NDIM,NDIM)                 :: Pij      ! fwh perturbation stress tensor
        ! real(kind=RP), dimension(NDIM:NDIM)                 :: tau
        real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U, M0
+       real(kind=RP), dimension(NDIM)                      :: U0, M0
        integer                                             :: i, j, ii, jj
 
        call getMeanStreamValues(rho0, U0, M0, c0, P0)
        P = Pressure(Q)
        pDot = PressureDot(Q,Qdot)
 
-       Pij = 0.0_RP
        LijDot = 0.0_RP
        do i=1,NDIM
-
            Pij(i,i) = P - P0
            !pressure derivative of LijDot
            LijDot(i,i) = pDot
@@ -534,7 +550,7 @@ Module  FWHObseverClass  !
                    ! one index is added since rhoV1 = Q(2), rhoV2 = Q(3) ...
                    ii = i + 1
                    Lij(i,j) = Lij(i,j) + (Q(ii) - Q(1)*U0(i))*(Q(jj)/Q(1))
-                   LijDot(i,j) = Lij(Doti,j) + (1/Q(1)) * &
+                   LijDot(i,j) = LijDot(i,j) + (1/Q(1)) * &
                                  ( (Qdot(ii) - Qdot(1)) * (Q(jj) - Q(1)*U0(j)) + &
                                  ( Qdot(jj) - Q(jj)/Q(1)*Qdot(1) ) * (Q(ii) - Q(1)*U0(i)) )
                end do  
@@ -554,8 +570,8 @@ Module  FWHObseverClass  !
        real(kind=RP)                                       :: theta, phi, U0Magnitud
 
 
-       theta = refvalues_ % AOAtheta*(pi/180.0_RP)
-       phi   = refvalues_ % AOAphi*(pi/180.0_RP)
+       theta = refvalues % AOAtheta*(pi/180.0_RP)
+       phi   = refvalues % AOAphi*(pi/180.0_RP)
 
        ! set 1 by default
        ! TODO use values of boundary conditions (inflow if exists or outflow, or set this defaults if not exists)
@@ -566,12 +582,12 @@ Module  FWHObseverClass  !
        U0(2)  = U0Magnitud*sin(theta)*cos(phi)
        U0(3)  = U0Magnitud*sin(phi)
 
-       M0 = U0 * dimensionless%Mach
-       c0 = U0Magnitud / dimensionless%Mach
+       M0 = U0 * dimensionless % Mach
+       c0 = U0Magnitud / dimensionless % Mach
 
        ! default initial condition and outflow BC for energy without external pressure
        ! TODO include external pressure
-       P0 = 1.0_RP / (dimensionless%gammaM2)
+       P0 = 1.0_RP / (dimensionless % gammaM2)
        ! rhoe0 = P0 / thermodynamics%gammaMinus1 + 0.5_RP*rho0*(U0Magnitud**2)
 
 

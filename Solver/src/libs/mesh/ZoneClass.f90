@@ -35,7 +35,7 @@ module ZoneClass
          procedure   :: Initialize       => Zone_Initialize
          procedure   :: copy             => Zone_Assign
          generic     :: assignment(=)    => copy
-         procedure   :: CreateFicticious => Zone_CreateFicicious
+         procedure   :: CreateFicticious => Zone_CreateFicticious
    end type Zone_t
    
    contains
@@ -239,11 +239,11 @@ module ZoneClass
       end subroutine Zone_Assign
 
       ! create a ficticious zone, useful to represent ficticious surfaces such as for FWH analogy
-      Subroutine Zone_CreateFicicious(self, maker, zoneName, no_of_faces, facesID)
+      Subroutine Zone_CreateFicticious(self, marker, zoneName, no_of_faces, facesID)
 
          implicit none
          class(Zone_t)                                 :: self
-         integer, intent(in)                           :: maker, no_of_faces
+         integer, intent(in)                           :: marker, no_of_faces
          character(len=*), intent(in)                  :: zoneName
          integer, dimension(no_of_faces), intent(in)   :: facesID
 
@@ -253,6 +253,6 @@ module ZoneClass
          allocate(self % faces(no_of_faces))
          self % faces = facesID
 
-      End Subroutine Zone_CreateFicicious
+      End Subroutine Zone_CreateFicticious
 
 end module ZoneClass

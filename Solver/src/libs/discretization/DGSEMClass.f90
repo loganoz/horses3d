@@ -22,6 +22,7 @@ Module DGSEMClass
    use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES)
    USE ManufacturedSolutions
+   use FWHGeneralClass
 #endif
    use MonitorsClass
    use ParticlesClass
@@ -47,6 +48,9 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+#if defined(NAVIERSTOKES)
+      type(FWHClass)                                          :: fwh
+#endif
 #ifdef FLOW
       type(Particles_t)                                       :: particles
 #else
@@ -333,6 +337,13 @@ Module DGSEMClass
 !     ------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
+!
+!     ------------------
+!     Build the FWH general class
+!     ------------------
+#if defined(NAVIERSTOKES)
+      call self % fwh % construct(self % mesh, controlVariables)
+#endif
 
 ! #if defined(NAVIERSTOKES)
 ! !

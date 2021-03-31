@@ -3445,7 +3445,7 @@ slavecoord:             DO l = 1, 4
       logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
       integer :: bdf_order, eID, fID, RKSteps_num
-      logical :: Face_St
+      logical :: Face_St, FaceComputeQdot
       character(len=LINE_LENGTH) :: time_int
       !-----------------------------------------------------------
       
@@ -3454,6 +3454,7 @@ slavecoord:             DO l = 1, 4
       else
          Face_St = .TRUE.
       end if
+      FaceComputeQdot = controlVariables % logicalValueForKey("accoustic analogy")
       
       time_int = controlVariables % stringValueForKey("time integration",LINE_LENGTH)
       call toLower (time_int)
@@ -3486,8 +3487,8 @@ slavecoord:             DO l = 1, 4
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE.)
-            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE.)
+            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot)
+            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot)
             end associate
          end do
       end if
@@ -3680,7 +3681,7 @@ slavecoord:             DO l = 1, 4
       type(FTValueDictionary) , intent(in)      :: controlVariables
       !-local-variables-----------------------------------
       integer :: eID, fID, zoneID
-      logical :: saveGradients
+      logical :: saveGradients, FaceComputeQdot
       logical :: analyticalJac   ! Do we need analytical Jacobian storage?
       type(IntegerDataLinkedList_t) :: elementList
       type(IntegerDataLinkedList_t) :: facesList
@@ -3710,6 +3711,7 @@ slavecoord:             DO l = 1, 4
 !     Some initializations
 !     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      FaceComputeQdot = controlVariables % logicalValueForKey("accoustic analogy")
       
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
@@ -3767,8 +3769,8 @@ slavecoord:             DO l = 1, 4
 !$omp parallel do private(f) schedule(runtime)
       do fID=1, size(facesArray)
          f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers 
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac)
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac, FaceComputeQdot)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac, FaceComputeQdot)
       end do
 !$omp end parallel do 
 

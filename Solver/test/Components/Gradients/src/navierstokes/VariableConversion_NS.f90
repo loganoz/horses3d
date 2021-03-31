@@ -60,31 +60,6 @@ module VariableConversion_NS
 
       end function Pressure
 !
-! /////////////////////////////////////////////////////////////////////
-
-!---------------------------------------------------------------------
-!! Compute the pressure time derivate from the state variables and its time derivatives
-!---------------------------------------------------------------------
-!
-      PURE function PressureDot(Q,QDot) RESULT(PDot)
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
-      REAL(KIND=RP), DIMENSION(NGRAD), INTENT(IN) :: QDot
-!
-!     ---------------
-!     Local Variables
-!     ---------------
-!
-      REAL(KIND=RP) :: PDot
-      
-      PDot = QDot(5) + 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/(Q(1)**2)*QDot(1) - dot_product(Q(2:4), QDot(2:4))/Q(1)
-      PDot = thermodynamics % gammaMinus1*PDot
-
-      end function PressureDot
 !
 ! /////////////////////////////////////////////////////////////////////
 !

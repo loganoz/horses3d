@@ -163,11 +163,13 @@ module StorageClass
    type FaceStorage_t
       logical                                          :: constructed = .FALSE.
       logical                                          :: computeGradients
+      logical                                          :: computeQdot
       logical                                          :: anJacobian =.FALSE.         ! Has Jacobian storage?
       integer                                          :: NDIM
       integer                                          :: currentlyLoaded
       integer                                          :: Nf(2), Nel(2)
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
+      real(kind=RP), dimension(:,:,:),     pointer     :: Qdot
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
       real(kind=RP), dimension(:,:,:),     allocatable :: Hflux
@@ -175,6 +177,7 @@ module StorageClass
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW
       real(kind=RP), dimension(:,:,:),     allocatable :: QNS
+      real(kind=RP), dimension(:,:,:),     allocatable :: QdotNS
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
@@ -1235,7 +1238,7 @@ module StorageClass
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients, analyticalJac)
+      pure subroutine FaceStorage_Construct(self, NDIM, Nf, Nel, computeGradients, analyticalJac, computeQdot)
          implicit none
          class(FaceStorage_t), intent(inout) :: self
          integer             , intent(in)    :: NDIM
@@ -1243,6 +1246,7 @@ module StorageClass
          integer             , intent(in)    :: Nel(2)             ! Element face polynomial order
          logical             , intent(in)    :: computeGradients 
          logical             , intent(in)    :: analyticalJac      !<? Construct analytical Jacobian storage?
+         logical             , intent(in)    :: computeQdot
 !
 !        ---------------
 !        Local variables
@@ -1254,6 +1258,7 @@ module StorageClass
          self % Nel = Nel
          self % NDIM = NDIM
          self % computeGradients = computeGradients
+         self % computeQdot = computeQdot
          
          interfaceFluxMemorySize = 0
 
@@ -1266,6 +1271,9 @@ module StorageClass
             ALLOCATE( self % U_zNS(NGRAD,0:Nf(1),0:Nf(2)) )
          end if
 !
+         if (computeQdot) then
+             ALLOCATE( self % QdotNS   (NCONS,0:Nf(1),0:Nf(2)) )
+         end if
 !        Biggest Interface flux memory size is u\vec{n}
 !        ----------------------------------------------
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
@@ -1314,6 +1322,11 @@ module StorageClass
             self % U_yNS = 0.0_RP
             self % U_zNS = 0.0_RP
          end if
+
+         if (computeQdot) then
+            self % QdotNS = 0.0_RP
+         end if
+
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
 #endif
@@ -1391,6 +1404,9 @@ module StorageClass
             safedeallocate(self % U_yNS)
             safedeallocate(self % U_zNS)
          end if
+         if (self % computeQdot) then
+             safedeallocate(self % QdotNS)
+         end if
          safedeallocate(self % mu_NS)
          safedeallocate(self % rho )
          
@@ -1422,6 +1438,7 @@ module StorageClass
 
          self % Q      => NULL()
          self % U_x    => NULL() ; self % U_y => NULL() ; self % U_z => NULL()
+         self % Qdot   => NULL()
          self % unStar => NULL()
          self % fStar  => NULL()
 
@@ -1447,6 +1464,10 @@ module StorageClass
             self % U_y (1:,0:,0:) => self % U_yNS
             self % U_z (1:,0:,0:) => self % U_zNS
             self % unStar(1:NGRAD, 1:NDIM, 0:self % Nel(1), 0:self % Nel(2)) => self % genericInterfaceFluxMemory
+         end if
+
+         if (self % computeQdot) then
+             self % QDot(1:,0:,0:) => self % QDotNS
          end if
 
       end subroutine FaceStorage_SetStorageToNS
@@ -1531,7 +1552,7 @@ module StorageClass
          
          call to % destruct
          if (.not. from % constructed) return
-         call to % construct(from % NDIM, from % Nf, from % Nel, from % computeGradients, from % anJacobian)
+         call to % construct(from % NDIM, from % Nf, from % Nel, from % computeGradients, from % anJacobian, from % computeQdot)
          
          to % currentlyLoaded = from % currentlyLoaded
          to % Nf = from % Nf
@@ -1545,6 +1566,7 @@ module StorageClass
             to % U_yNS = from % U_yNS
             to % U_zNS = from % U_zNS
          end if
+         if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
          to % mu_NS  = from % mu_NS 
          
