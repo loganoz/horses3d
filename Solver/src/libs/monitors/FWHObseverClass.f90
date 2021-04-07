@@ -38,7 +38,6 @@ Module  FWHObseverClass  !
        class(ObserverSourcePairClass), dimension(:), allocatable       :: sourcePair
        real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! accoustic pressure, two componenets and the total (sum)
        real(kind=RP)                                                   :: tDelay
-       ! class(Zone_t), pointer                                          :: sourceZone
        logical                                                         :: active
        character(len=STR_LEN_MONITORS)                                 :: observerName
        character(len=STR_LEN_MONITORS)                                 :: fileName
@@ -48,7 +47,7 @@ Module  FWHObseverClass  !
            procedure :: construct      => ObserverConstruct
            procedure :: destruct       => ObserverDestruct
            procedure :: update         => ObserverUpdate
-           ! procedure :: writeToFile    => ObserverWriteToFile
+           procedure :: writeToFile    => ObserverWriteToFile
            procedure :: updateTdelay   => ObserverUpdateTdelay
 
    end type ObserverClass
@@ -67,13 +66,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(:,:),   allocatable        :: reStar
        real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
        real(kind=RP)                                       :: tDelay
-       ! type(Face)                                          :: faceSource
-       integer                                             :: faceIDinMesh
-       logical                                             :: isSolid
-
-       !TODO: once it works, remove comments of faceSource
-       !TODO: remove isSolid as an attribute and passid it as a parameter for FWHSurfaceIntegral (only need there), could be an
-       !attribute of the Observer or better of the FW class, and pass as a parameter when the update is called
+       integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
 
        contains
 
@@ -89,7 +82,7 @@ Module  FWHObseverClass  !
 !           OBSERVER CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, isSolid)
+   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall)
 
 !        *****************************************************************************
 !              This subroutine initializes the observer similar to a monitor. The following
@@ -103,12 +96,11 @@ Module  FWHObseverClass  !
        implicit none
 
        class(ObserverClass)                                 :: self
-       ! class(Zone_t), intent(in), target                            :: sourceZone
        class(Zone_t), intent(in)                            :: sourceZone
        class(HexMesh), intent(in)                           :: mesh
        integer, intent(in)                                  :: ID
        character(len=*), intent(in)                         :: solution_file
-       logical, intent(in)                                  :: FirstCall, isSolid
+       logical, intent(in)                                  :: FirstCall
 
        ! local variables
        character(len=STR_LEN_MONITORS)  :: in_label
@@ -117,15 +109,10 @@ Module  FWHObseverClass  !
        character(len=STR_LEN_MONITORS)  :: coordinates
        integer                          :: fID
        integer                          :: MeshFaceID, zoneFaceID
-       ! integer                          :: number
 !
 !      Get observer ID
 !      --------------
        self % ID = ID
-!
-!      Get observer zone (surface for integration)
-!      --------------
-       ! self % sourceZone => sourceZone
 !
 !      Search for the parameters in the case file
 !      ------------------------------------------
@@ -137,7 +124,7 @@ Module  FWHObseverClass  !
 
 !      Get the coordinates
 !      -------------------
-      print *, "Observer: ", self%observerName
+      ! print *, "Observer: ", trim(self%observerName)
        self % x = getRealArrayFromString(coordinates)
 
 !     Enable the observer
@@ -156,7 +143,7 @@ Module  FWHObseverClass  !
       do zoneFaceID = 1, self % numberOfFaces
 !         Face global ID
           MeshFaceID = sourceZone % faces(zoneFaceID)
-          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, isSolid, FirstCall)
+          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall)
       end do  
 
 !     Set the average time delay of the observer
@@ -185,10 +172,9 @@ Module  FWHObseverClass  !
          close ( fID )
       end if
 
-
    End Subroutine ObserverConstruct
 
-   Subroutine ObserverUpdate(self, mesh, BufferPosition)
+   Subroutine ObserverUpdate(self, mesh, BufferPosition, isSolid)
 
 !     *******************************************************************
 !        This subroutine updates the observer accoustic pressure computing it from
@@ -198,73 +184,37 @@ Module  FWHObseverClass  !
 !         TODO: use mpi (see surface integral)
 !     *******************************************************************
 !
-      use ElementClass
       implicit none
       class (ObserverClass)                                :: self
-      class (HexMesh), intent(inout), target               :: mesh
+      class (HexMesh), intent(in)                          :: mesh
       integer,intent(in)                                   :: bufferPosition
+      logical, intent(in)                                  :: isSolid
 
       ! local variables
       real(kind=RP)                                        :: Pt, Pl  ! pressure of each pair
       real(kind=RP), dimension(3)                          :: localPacc, Pacc   ! temporal variable to store the sum of the pressure
       real(kind=RP)                                        :: valx, valy, valz
-      integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
-      integer, dimension(6)                                :: meshFaceIDs
-      class(Element), pointer                              :: elements(:)
+      integer                                              :: zoneFaceID, meshFaceID !,ierr
 
 !     Initialization
 !     --------------            
-      self % Pac = 0.0_RP
+      self % Pac(bufferPosition,:) = 0.0_RP
       Pacc = 0.0_RP
       valx = 0.0_RP
       valy = 0.0_RP
       valz = 0.0_RP
 
-!     *************************
-!     Perform the interpolation
-!     *************************
-!
-      elements => mesh % elements
-!!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
-!!$omp&                                        valx,valy,valz,computeGradients)
-!!$omp single
 
-!        Loop the zone to get faces and elements
-!        ---------------------------------------
-      do zoneFaceID = 1, self % numberOfFaces
-         meshFaceID = self % sourcePair(zoneFaceID) % faceIDinMesh
-
-         eID = mesh % faces(meshFaceID) % elementIDs(1)
-         meshFaceIDs = mesh % elements(eID) % faceIDs
-
-!!$omp task depend(inout:elements(eID))
-         call elements(eID) % ProlongSolutionToFaces(NCONS, mesh % faces(meshFaceIDs(1)),&
-                                         mesh % faces(meshFaceIDs(2)),&
-                                         mesh % faces(meshFaceIDs(3)),&
-                                         mesh % faces(meshFaceIDs(4)),&
-                                         mesh % faces(meshFaceIDs(5)),&
-                                         mesh % faces(meshFaceIDs(6)) )
-         ! if ( computeGradients ) then
-         !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
-         !                                     mesh % faces(meshFaceIDs(2)),&
-         !                                     mesh % faces(meshFaceIDs(3)),&
-         !                                     mesh % faces(meshFaceIDs(4)),&
-         !                                     mesh % faces(meshFaceIDs(5)),&
-         !                                     mesh % faces(meshFaceIDs(6)) )
-         ! end if
-!!$omp end task
-      end do
-!!$omp end single
-
-!        Loop the pairs (equivalent to lood the zone) and get the values
+!        Loop the pairs (equivalent to loop the zone) and get the values
 !        ---------------------------------------
 !!$omp do private(fID,localVal) reduction(+:valx,valy,valz) schedule(runtime)
+      ! print *, "obs: ", trim(self%observerName)
       do zoneFaceID = 1, self % numberOfFaces
 !        Compute the integral
 !        --------------------
-         ! localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral()
          meshFaceID = self % sourcePair(zoneFaceID) % faceIDinMesh
-         localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID) )
+         localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid )
+
          ! sum without interpolate: supose little change of each tDelay
          valx = valx + localPacc(1)
          valy = valy + localPacc(2)
@@ -280,7 +230,9 @@ Module  FWHObseverClass  !
 !       call mpi_allreduce(localPacc, Pacc, 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 ! #endif
 
-      self%Pac(bufferPosition,:) = Pacc
+      self % Pac(bufferPosition,:) = Pacc
+      ! print *, "obs: ", trim(self%observerName), "id: ", self%id
+      ! print *, "Pacc obs: ", self%Pac(bufferPosition,:)
 
    End Subroutine ObserverUpdate
 
@@ -300,7 +252,7 @@ Module  FWHObseverClass  !
 
       t = 0.0_RP
       do i = 1, self % numberOfFaces
-          ! for moving surfaces each pair of observer-source should updated the tDelay first
+          ! for moving surfaces, each pair of observer-source should updated the tDelay first
           ! print *, "time of source ", i, "of observer ", self % ID, "is: ", self % sourcePair(i)%tDelay
           t = t + self % sourcePair(i) % tDelay
       end do  
@@ -310,7 +262,7 @@ Module  FWHObseverClass  !
 
    End Subroutine ObserverUpdateTdelay
 
-   Subroutine ObserberWriteToFile(self, iter, tsource, no_of_lines)
+   Subroutine ObserverWriteToFile(self, iter, tsource, no_of_lines)
 !
 !     *************************************************************
 !           This subroutine writes the buffer to the file.
@@ -342,12 +294,12 @@ Module  FWHObseverClass  !
       
       if ( no_of_lines .ne. 0 ) self % Pac(1,:) = self % Pac(no_of_lines,:)
       
-   End Subroutine ObserberWriteToFile
+   End Subroutine ObserverWriteToFile
 
    Subroutine ObserverDestruct(self)
 
         implicit none
-        class(ObserverClass)                               :: self
+        class(ObserverClass), intent(inout)               :: self
 
         safedeallocate (self % Pac)
         call self % sourcePair % destruct
@@ -359,38 +311,32 @@ Module  FWHObseverClass  !
 !           OBSERVER SOURCE PAIR CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine  ObserverSourcePairConstruct(self, x, f, fID, isSolid, FirstCall)
+   Subroutine  ObserverSourcePairConstruct(self, x, f, fID, FirstCall)
 
-       use fluiddata
+       ! use fluiddata
+       use FWHDefinitions, only: rho0, P0, c0, U0, M0, fwGamma2
        implicit none
 
        class(ObserverSourcePairClass)                      :: self
        real(kind=RP), dimension(NDIM), intent(in)          :: x       ! observer position
        type(face), intent(in)                              :: f    ! source
        integer                                             :: fID
-       logical, intent(in)                                 :: FirstCall, isSolid
+       logical, intent(in)                                 :: FirstCall
 
        ! local variables
        integer                                             :: Nx,Ny
        integer                                             :: i, j
-       real(kind=RP)                                       :: fwGamma2, fwGammaInv
-       real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U0, M0
+       real(kind=RP)                                       :: fwGammaInv
 
-       ! self % faceSource = f
        self % faceIDinMesh = fID
-       self % isSolid = isSolid
 
        Nx = f % Nf(1)
        Ny = f % Nf(2)
 
-       allocate( self % r(Nx,Ny), self % re(Nx,Ny), self % reStar(Nx,Ny) )
-       allocate( self % rVect(NDIM,Nx,Ny), self % reUnitVect(NDIM,Nx,Ny) ,self % reStarUnitVect(NDIM,Nx,Ny) )
+       allocate( self % r(0:Nx,0:Ny), self % re(0:Nx,0:Ny), self % reStar(0:Nx,0:Ny) )
+       allocate( self % rVect(NDIM,0:Nx,0:Ny), self % reUnitVect(NDIM,0:Nx,0:Ny) ,self % reStarUnitVect(NDIM,0:Nx,0:Ny) )
 
-       call getMeanStreamValues(rho0, U0, M0, c0, P0)
-
-       fwGamma2 = 1.0_RP / (1.0_RP - dimensionless % Mach**2)
-       fwGammaInv = sqrt(1.0_RP - dimensionless % Mach**2)
+       fwGammaInv = 1.0_RP / sqrt(fwGamma2)
        ! source position, for each node of the face
        associate (y => f % geom % x)
            do j= 0, Ny; do i = 0,Nx
@@ -409,8 +355,8 @@ Module  FWHObseverClass  !
        ! print *, "r: ", self%r(1,1)
        ! print *, "rv: ", self%rVect(:,1,1)
        ! print *, "res: ", self%reStar(1,1)
-       ! print *, "resUnitVect: ", self%reStarUnitVect(:,1,1), "norm: ",norm2(self%reStarUnitVect(:,1,1))
-       ! print *, "res: ", self%re(1,1)
+       ! print *, "reStarUnitVect: ", self%reStarUnitVect(:,1,1), "norm: ",norm2(self%reStarUnitVect(:,1,1))
+       ! print *, "re: ", self%re(1,1)
        ! print *, "reUnitVect: ", self%reUnitVect(:,1,1), "norm: ",norm2(self%reUnitVect(:,1,1))
 
    End Subroutine ObserverSourcePairConstruct 
@@ -431,32 +377,32 @@ Module  FWHObseverClass  !
    ! calculate the surface integrals of the FW-H analogy for stacionary surfaces (permable or impermeable) with a general flow
    ! direction of the medium
    ! the integrals are for a single face (pane in FWH terminology) for a single observer
+!         TODO: check if is more efficient to store FWHvariables for each face instead of calculating it always
+!               for many observers, its being recomputed as many as observers
 
-   ! Function FWHSurfaceIntegral(self) result(Pacc)
-   Function FWHSurfaceIntegral(self, f) result(Pacc)
+   Function FWHSurfaceIntegral(self, f, isSolid) result(Pacc)
+
+       use FWHDefinitions, only: rho0, P0, c0, U0, M0
+       implicit none
 
        class(ObserverSourcePairClass)                      :: self
-       class(Face), intent(in)                           :: f
+       class(Face), intent(in)                             :: f
        real(kind=RP),dimension(3)                          :: Pacc  ! accoustic pressure values
+       logical, intent(in)                                 :: isSolid
 
        ! local variables
        integer                                             :: i, j  ! face indexes
        real(kind=RP), dimension(NDIM)                      :: Qi,QiDot, n
        real(kind=RP), dimension(NDIM,NDIM)                 :: Lij, LijDot
        type(NodalStorage_t), pointer                       :: spAxi, spAeta
-       real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U0, M0
        real(kind=RP)                                       :: Pt, Pl
 
        ! Initialization
        Pt = 0.0_RP
        Pl = 0.0_RP
-       ! spAxi  => NodalStorage(self % faceSource % Nf(1))
-       ! spAeta => NodalStorage(self % faceSource % Nf(2))
        spAxi  => NodalStorage(f % Nf(1))
        spAeta => NodalStorage(f % Nf(2))
 
-       call getMeanStreamValues(rho0, U0, M0, c0, P0)
 
        associate( Q => f % storage(1) % Q )
            associate( Qdot => f % storage(1) % Qdot )
@@ -465,11 +411,18 @@ Module  FWHObseverClass  !
     !           Computes the surface integral
     !              I = \int vec{f}·vec{n} * vec{g}·vec{r} dS
     !           **********************************
+       ! print *, "reStarUnitVect: ", self%reStarUnitVect
     !
                 do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 
                    n = f % geom % normal(:,i,j)
-                   call calculateFWHVariables(Q, Qdot, self%isSolid, Qi, QiDot, Lij, LijDot)
+                   call calculateFWHVariables(Q(:,i,j), Qdot(:,i,j), isSolid, Qi, QiDot, Lij, LijDot)
+                   ! print *, "Q: ", Q(:,i,j)
+                   ! print *, "Qdot: ", Qdot(:,i,j)
+                   ! print *, "Qi: ", Qi
+                   ! print *, "QiDot: ", QiDot
+                   ! print *, "Lij: ", Lij
+                   ! print *, "LijDot: ", LijDot
 
                    ! loading term integrals
                    Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
@@ -478,7 +431,7 @@ Module  FWHObseverClass  !
                              spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
                    ! thickness term integrals, only for permable surfaces
-                   if (.not. self % isSolid) then
+                   if (.not. isSolid) then
                        Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
                        Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
@@ -490,15 +443,77 @@ Module  FWHObseverClass  !
 
        Pt = Pt / (4.0_RP * PI)
        Pl = Pl / (4.0_RP * PI)
+                   ! print *, "Pl: ", pl
 
-      ! get total accoustic pressure as the sum of the two components (the quadraplo terms are being ignored)
+      ! get total accoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
        Pacc = (/Pt, Pl, Pt+Pl/)
+       ! print *, "Pacc: ", Pacc
 
    End Function FWHSurfaceIntegral 
+
+   Subroutine SourceProlongSolution(observer, mesh)
+
+!     *******************************************************************
+!        This subroutine prolong the solution from the mesh storage to the faces (source).
+!         TODO: use openmp (commented)
+!         TODO: use mpi (see surface integral)
+!     *******************************************************************
+!
+      use ElementClass
+      implicit none
+      class (ObserverClass), intent(in)                    :: observer
+      class (HexMesh), intent(inout), target               :: mesh
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
+      integer, dimension(6)                                :: meshFaceIDs
+      class(Element), pointer                              :: elements(:)
+
+!     *************************
+!     Perform the interpolation
+!     *************************
+!
+      elements => mesh % elements
+!!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
+!!$omp&                                        valx,valy,valz,computeGradients)
+!!$omp single
+
+!        Loop the zone to get faces and elements
+!        ---------------------------------------
+      do zoneFaceID = 1, observer % numberOfFaces
+         meshFaceID = observer % sourcePair(zoneFaceID) % faceIDinMesh
+
+         eID = mesh % faces(meshFaceID) % elementIDs(1)
+         meshFaceIDs = mesh % elements(eID) % faceIDs
+
+!!$omp task depend(inout:elements(eID))
+         call elements(eID) % ProlongSolutionToFaces(NCONS,&
+                                                            mesh % faces(meshFaceIDs(1)),&
+                                                            mesh % faces(meshFaceIDs(2)),&
+                                                            mesh % faces(meshFaceIDs(3)),&
+                                                            mesh % faces(meshFaceIDs(4)),&
+                                                            mesh % faces(meshFaceIDs(5)),&
+                                                            mesh % faces(meshFaceIDs(6)),&
+                                                            computeQdot = .TRUE.)
+
+         ! if ( computeGradients ) then
+         !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
+         !                                     mesh % faces(meshFaceIDs(2)),&
+         !                                     mesh % faces(meshFaceIDs(3)),&
+         !                                     mesh % faces(meshFaceIDs(4)),&
+         !                                     mesh % faces(meshFaceIDs(5)),&
+         !                                     mesh % faces(meshFaceIDs(6)) )
+         ! end if
+!!$omp end task
+      end do
+!!$omp end single
+
+   End Subroutine SourceProlongSolution
 
    Subroutine calculateFWHVariables(Q, Qdot, isSolid, Qi, QiDot, Lij, LijDot)
 
        use VariableConversion, only: Pressure, PressureDot
+       use FWHDefinitions,     only: rho0, P0, c0, U0, M0
        implicit none
 
        real(kind=RP), dimension(NCONS), intent(in)         :: Q        ! horses variables array
@@ -513,13 +528,14 @@ Module  FWHObseverClass  !
        real(kind=RP)                                       :: P, pDot
        real(kind=RP), dimension(NDIM,NDIM)                 :: Pij      ! fwh perturbation stress tensor
        ! real(kind=RP), dimension(NDIM:NDIM)                 :: tau
-       real(kind=RP)                                       :: rho0, c0, P0
-       real(kind=RP), dimension(NDIM)                      :: U0, M0
        integer                                             :: i, j, ii, jj
 
-       call getMeanStreamValues(rho0, U0, M0, c0, P0)
        P = Pressure(Q)
        pDot = PressureDot(Q,Qdot)
+       ! print *, "P0: ", P0
+       ! print *, "P: ", P
+       ! print *, "QDot: ", QDot
+       ! print *, "pDot: ", pDot
 
        LijDot = 0.0_RP
        do i=1,NDIM
@@ -558,39 +574,5 @@ Module  FWHObseverClass  !
        end if
 
    End Subroutine calculateFWHVariables
-
-   Subroutine  getMeanStreamValues(rho0, U0, M0, c0, P0)
-
-       use fluiddata
-
-       real(kind=RP), intent(out)                          :: rho0, P0, c0
-       real(kind=RP), dimension(NDIM), intent(out)         :: U0, M0
-
-       ! local variables
-       real(kind=RP)                                       :: theta, phi, U0Magnitud
-
-
-       theta = refvalues % AOAtheta*(pi/180.0_RP)
-       phi   = refvalues % AOAphi*(pi/180.0_RP)
-
-       ! set 1 by default
-       ! TODO use values of boundary conditions (inflow if exists or outflow, or set this defaults if not exists)
-       U0Magnitud = 1.0_RP
-       rho0 = 1.0_RP
-
-       U0(1)  = U0Magnitud*cos(theta)*cos(phi)
-       U0(2)  = U0Magnitud*sin(theta)*cos(phi)
-       U0(3)  = U0Magnitud*sin(phi)
-
-       M0 = U0 * dimensionless % Mach
-       c0 = U0Magnitud / dimensionless % Mach
-
-       ! default initial condition and outflow BC for energy without external pressure
-       ! TODO include external pressure
-       P0 = 1.0_RP / (dimensionless % gammaM2)
-       ! rhoe0 = P0 / thermodynamics%gammaMinus1 + 0.5_RP*rho0*(U0Magnitud**2)
-
-
-   End Subroutine getMeanStreamValues
 
 End Module  FWHObseverClass 

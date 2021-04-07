@@ -384,6 +384,7 @@ print*, "Method selected: RK5"
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
       
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -393,6 +394,7 @@ print*, "Method selected: RK5"
       end if 
       
       call monitors % WriteToFile(sem % mesh)
+      call sem % fwh % writeToFile()
 
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
@@ -400,6 +402,7 @@ print*, "Method selected: RK5"
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
             end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
+            call sem % fwh % writeToFile( force = .TRUE. )
             return
          END IF
       end if
@@ -467,6 +470,7 @@ print*, "Method selected: RK5"
 !        Update monitors
 !        ---------------
          call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
+         call sem % fwh % updateValues(sem % mesh, t, k+1)
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -530,6 +534,7 @@ print*, "Method selected: RK5"
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
+         call sem % fwh % writeToFile()
          
          sem % numberOfTimeSteps = k + 1
       END DO
@@ -539,6 +544,7 @@ print*, "Method selected: RK5"
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
+         call sem % fwh % writeToFile( force = .TRUE. )
       end if
       
       sem % maxResidual       = maxval(maxResidual)

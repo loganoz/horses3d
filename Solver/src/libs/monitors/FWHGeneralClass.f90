@@ -36,24 +36,29 @@ Module FWHGeneralClass  !
         class(ObserverClass), dimension(:), allocatable                   :: observers
         class(Zone_t), allocatable                                        :: sourceZone
         logical                                                           :: isSolid
+        logical                                                           :: isActive
 
         contains
 
             procedure :: construct      => FWHConstruct
-            ! procedure :: destruct       => FWHDestruct
-            ! procedure :: updateValues   => FWHUpate
-            ! procedure :: writeToFile    => FWHWriteToFile
+            procedure :: destruct       => FWHDestruct
+            procedure :: updateValues   => FWHUpate
+            procedure :: writeToFile    => FWHWriteToFile
 
     end type FWHClass
-           ! se debe construir desde la clase general de FW, esta debe hacer algo similar a la de monitores: crear update, escribir,
-           ! crear archivo de escritura, allocar, leer de control file, etc...
 
     contains
 
     Subroutine FWHConstruct(self, mesh, controlVariables)
+
         use FTValueDictionaryClass
         use mainKeywordsModule
         use FileReadingUtilities, only: getCharArrayFromString
+        use FWHDefinitions,       only: getMeanStreamValues
+        use Headers
+#ifdef _HAS_MPI_
+        use mpi
+#endif
         implicit none
 
         class(FWHClass)                                     :: self
@@ -74,13 +79,21 @@ Module FWHGeneralClass  !
         character(len=LINE_LENGTH)                          :: zones_str
         character(len=LINE_LENGTH), allocatable             :: zones_names(:)
 
+        !look if the accoustic analogy calculations are set to be computed
+        !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
+        if (.not. controlVariables % containsKey("accoustic analogy")) then
+            self % isActive = .FALSE.
+            print *, "FWH not activated"
+            return
+        end if
+
+        self % isActive = .TRUE.
         allocate( self % t(BUFFER_SIZE), self % iter(BUFFER_SIZE) )
 
 !       Get the general configuration of control file
 !       --------------------------
-        !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
         self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
-        if (self % isSolid) then
+        ! if (self % isSolid) then
             if (controlVariables % containsKey("accoustic solid surface")) then
                 zones_str = controlVariables%stringValueForKey("accoustic solid surface", LINE_LENGTH)
             else 
@@ -111,9 +124,9 @@ Module FWHGeneralClass  !
                 facesIDs(no_of_face_i:no_of_face_i+faces_per_zone(i)-1) = mesh % zones(zonesIDs(i)) % faces
                 no_of_face_i = no_of_face_i + faces_per_zone(i) 
             end do 
-        else
-            stop "Permeable surfaces not implemented yet"
-        end if
+        ! else
+        !     stop "Permeable surfaces not implemented yet"
+        ! end if
 
         ! create self sourceZone using facesIDs
 !       --------------------------
@@ -129,7 +142,7 @@ Module FWHGeneralClass  !
         solution_file = trim(getFileName(solution_file))
         self % solution_file = trim(solution_file)
 
-!       Search in case file for probes, surface monitors, and volume monitors
+!       Search in case file for observers
 !       ---------------------------------------------------------------------
         if (mesh % child) then ! Return doing nothing if this is a child mesh
            self % numberOfObservers = 0
@@ -139,16 +152,140 @@ Module FWHGeneralClass  !
 
 !       Initialize observers
 !       ----------
+        call getMeanStreamValues()
         allocate( self % observers(self % numberOfObservers) )
-        do i = 1, self%numberOfObservers
-            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % isSolid)
+        do i = 1, self % numberOfObservers
+            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall)
         end do 
 
         self % bufferLine = 0
         
         FirstCall = .FALSE.
 
+!        Describe the zones
+!        ------------------
+         if ( .not. MPI_Process % isRoot ) return
+         call Subsection_Header("Ficticious FWH zone")
+         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", self % sourceZone % no_of_faces
+         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
+         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * self % sourceZone % no_of_faces
+
     End Subroutine FWHConstruct
+
+    Subroutine FWHUpate(self, mesh, t, iter)
+
+        implicit none
+
+        class(FWHClass)                                     :: self
+        class(HexMesh)                                      :: mesh
+        real(kind=RP), intent(in)                           :: t
+        integer, intent(in)                                 :: iter
+
+!       ---------------
+!       Local variables
+!       ---------------
+!
+        integer                                             :: i 
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) return
+
+!
+!       Move to next buffer line
+!       ------------------------
+        self % bufferLine = self % bufferLine + 1
+!
+!       Save time, iteration and CPU-time
+!       -----------------------
+        self % t       ( self % bufferLine )  = t
+        self % iter    ( self % bufferLine )  = iter
+
+        call SourceProlongSolution(self % observers(1), mesh)
+        do i = 1, self % numberOfObservers
+            call self % observers(i) % update(mesh, self % bufferLine, self % isSolid)
+        end do 
+
+    End Subroutine FWHUpate
+
+    Subroutine FWHWriteToFile(self, force)
+!
+!        ******************************************************************
+!              This routine has a double behaviour:
+!           force = .true.  -> Writes to file and resets buffers
+!           force = .false. -> Just writes to file if the buffer is full
+!        ******************************************************************
+!
+        use MPI_Process_Info
+        implicit none
+
+        class(FWHClass)                                     :: self
+        logical, optional                                   :: force
+
+!       ---------------
+!       Local variables
+!       ---------------
+        integer                                             :: i 
+        logical                                             :: forceVal
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) return
+
+        if ( present ( force ) ) then
+           forceVal = force
+        else
+           forceVal = .false.
+        end if
+
+        if ( forceVal ) then 
+!
+!           In this case the observers are exported to their files and the buffer is reseted
+!           -------------------------------------------------------------------------------
+            do i =1, self%numberOfObservers
+                call self % observers(i) % writeToFile(self % iter, self % t, self % bufferLine)
+            end do
+!               Reset buffer
+!               ------------
+                self % bufferLine = 0
+        else
+!               The observers are exported just if the buffer is full
+!               ----------------------------------------------------
+            if ( self % bufferLine .eq. BUFFER_SIZE ) then
+                do i =1, self%numberOfObservers
+                    call self % observers(i) % writeToFile(self % iter, self % t, self % bufferLine)
+                end do
+!               Reset buffer
+!               ------------
+                self % bufferLine = 0
+            end if
+        end if
+
+    End Subroutine FWHWriteToFile
+
+    Subroutine FWHDestruct(self)
+
+        implicit none
+        class(FWHClass), intent(inout)                   :: self
+
+!       ---------------
+!       Local variables
+!       ---------------
+        integer                                          :: i 
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) return
+
+        safedeallocate(self % iter)
+        safedeallocate(self % t)
+        safedeallocate(self % sourceZone)
+        do i = 1, self % numberOfObservers
+            call self % observers(i) % destruct
+        end do
+        safedeallocate(self % observers)
+
+    End Subroutine FWHDestruct
 
 !
 !//////////////////////////////////////////////////////////////////////////////
@@ -184,7 +321,7 @@ Module FWHGeneralClass  !
       open ( newunit = fID , file = case_name , status = "old" , action = "read" )
 
 !
-!     Read the whole file to find monitors
+!     Read the whole file to find the observers
 !     ------------------------------------
 readloop:do 
          read ( fID , '(A)' , iostat = io ) line

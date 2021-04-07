@@ -377,6 +377,8 @@ Module DGSEMClass
       CALL self % mesh % destruct
       
       call self % monitors % destruct
+
+      call self % fwh % destruct
       
       END SUBROUTINE DestructDGSem
 !
