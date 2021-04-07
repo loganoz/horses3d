@@ -24,6 +24,7 @@ LIBOBJS_NS = 	./build_ns/ConnectivityClass.o \
 		./build_ns/MeshPartitioning.o \
 		./build_ns/Read_HDF5Mesh_HOPR.o \
 		./build_ns/Read_SpecMesh.o \
+		./build_ns/Read_GMSH.o \
 		./build_ns/ReadMeshFile.o
 
 LIBOBJS_iNS = 	./build_ins/ConnectivityClass.o \
@@ -42,6 +43,7 @@ LIBOBJS_iNS = 	./build_ins/ConnectivityClass.o \
 		./build_ins/MeshPartitioning.o \
 		./build_ins/Read_HDF5Mesh_HOPR.o \
 		./build_ins/Read_SpecMesh.o \
+		./build_ins/Read_GMSH.o \
 		./build_ins/ReadMeshFile.o
 
 
@@ -61,6 +63,7 @@ LIBOBJS_CH = 	./build_ch/ConnectivityClass.o \
 		./build_ch/MeshPartitioning.o \
 		./build_ch/Read_HDF5Mesh_HOPR.o \
 		./build_ch/Read_SpecMesh.o \
+		./build_ch/Read_GMSH.o \
 		./build_ch/ReadMeshFile.o
 
 LIBOBJS_MU =  ./build_mu/ConnectivityClass.o \
@@ -79,6 +82,7 @@ LIBOBJS_MU =  ./build_mu/ConnectivityClass.o \
 		./build_mu/MeshPartitioning.o \
 		./build_mu/Read_HDF5Mesh_HOPR.o \
 		./build_mu/Read_SpecMesh.o \
+		./build_mu/Read_GMSH.o \
 		./build_mu/ReadMeshFile.o
 
 LIB = mesh
