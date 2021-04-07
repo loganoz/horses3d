@@ -218,27 +218,35 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      subroutine HexElement_ProlongSolutionToFaces(self, nEqn, fFR, fBK, fBOT, fR, fT, fL)
+      subroutine HexElement_ProlongSolutionToFaces(self, nEqn, fFR, fBK, fBOT, fR, fT, fL, computeQdot)
          use FaceClass
          implicit none
          class(Element),   intent(in)  :: self
          integer,          intent(in)  :: nEqn
          class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
+         logical,optional, intent(in)  :: computeQdot
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer  :: i, j, k, l, N(3)
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: QFR, QBK, QdotFR, QdotBK
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: QBOT, QT, QdotBOT, QdotT
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR, QdotL, QdotR
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+         logical :: prolongQdot
          
          N = self % Nxyz
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
          spAzeta => NodalStorage(N(3))
+
+         if (present(computeQdot)) then
+             prolongQdot = computeQdot
+         else
+             prolongQdot = .FALSE.
+         end if
 !
 !        *************************
 !        Prolong solution to faces
@@ -248,6 +256,12 @@
          QFR  = 0.0_RP     ; QBK  = 0.0_RP
          QBOT = 0.0_RP     ; QT   = 0.0_RP
          
+         ! if (prolongQdot) then
+             QdotL   = 0.0_RP     ; QdotR   = 0.0_RP
+             QdotFR  = 0.0_RP     ; QdotBK  = 0.0_RP
+             QdotBOT = 0.0_RP     ; QdotT   = 0.0_RP
+         ! end if
+         
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,LEFT  )
             QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,RIGHT )
@@ -255,15 +269,23 @@
             QBK (:,i,k)= QBK (:,i,k)+ self % storage % Q(:,i,j,k)* spAeta % v (j,BACK  )
             QBOT(:,i,j)= QBOT(:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,BOTTOM)
             QT  (:,i,j)= QT  (:,i,j)+ self % storage % Q(:,i,j,k)* spAzeta % v(k,TOP   )
+            if (prolongQdot) then
+                QdotL  (:,j,k)= QdotL  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi % v  (i,LEFT  )
+                QdotR  (:,j,k)= QdotR  (:,j,k)+ self % storage % Qdot(:,i,j,k)* spAxi % v  (i,RIGHT )
+                QdotFR (:,i,k)= QdotFR (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta % v (j,FRONT )
+                QdotBK (:,i,k)= QdotBK (:,i,k)+ self % storage % Qdot(:,i,j,k)* spAeta % v (j,BACK  )
+                QdotBOT(:,i,j)= QdotBOT(:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,BOTTOM)
+                QdotT  (:,i,j)= QdotT  (:,i,j)+ self % storage % Qdot(:,i,j,k)* spAzeta % v(k,TOP   )
+            end if
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
          
-         call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ))
-         call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ))
-         call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ))
-         call fBK  % AdaptSolutionToFace(nEqn, N(1), N(3), QBK  , self % faceSide(EBACK  ))
-         call fBOT % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT , self % faceSide(EBOTTOM))
-         call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ))
+         call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
+         call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
+         call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ), QdotFR, computeQdot)
+         call fBK  % AdaptSolutionToFace(nEqn, N(1), N(3), QBK  , self % faceSide(EBACK  ), QdotBK, computeQdot)
+         call fBOT % AdaptSolutionToFace(nEqn, N(1), N(2), QBOT , self % faceSide(EBOTTOM), QdotBOT, computeQdot)
+         call fT   % AdaptSolutionToFace(nEqn, N(1), N(2), QT   , self % faceSide(ETOP   ), QdotT, computeQdot)
 
       end subroutine HexElement_ProlongSolutionToFaces
 

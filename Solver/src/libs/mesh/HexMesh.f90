@@ -3454,7 +3454,7 @@ slavecoord:             DO l = 1, 4
       else
          Face_St = .TRUE.
       end if
-      FaceComputeQdot = controlVariables % logicalValueForKey("accoustic analogy")
+      FaceComputeQdot = controlVariables % containsKey("accoustic analogy")
       
       time_int = controlVariables % stringValueForKey("time integration",LINE_LENGTH)
       call toLower (time_int)
@@ -3711,7 +3711,7 @@ slavecoord:             DO l = 1, 4
 !     Some initializations
 !     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-      FaceComputeQdot = controlVariables % logicalValueForKey("accoustic analogy")
+      FaceComputeQdot = controlVariables % containsKey("accoustic analogy")
       
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
