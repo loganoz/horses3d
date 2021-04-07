@@ -378,7 +378,9 @@ Module DGSEMClass
       
       call self % monitors % destruct
 
+#if defined(NAVIERSTOKES)
       call self % fwh % destruct
+#endif
       
       END SUBROUTINE DestructDGSem
 !

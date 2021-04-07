@@ -26,6 +26,29 @@ Module  FWHObseverClass  !
 
 !
 !  *****************************
+!  Observer source pair class definition
+!  class for the coupling of each pair of observer and source(face)
+!  mainly accoustic geometrical relations and face link
+!  *****************************
+   type ObserverSourcePairClass
+       real(kind=RP), dimension(:,:,:), allocatable        :: rVect
+       real(kind=RP), dimension(:,:),   allocatable        :: r
+       real(kind=RP), dimension(:,:),   allocatable        :: re
+       real(kind=RP), dimension(:,:,:), allocatable        :: reUnitVect 
+       real(kind=RP), dimension(:,:),   allocatable        :: reStar
+       real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
+       real(kind=RP)                                       :: tDelay
+       integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
+
+       contains
+
+           procedure :: construct       => ObserverSourcePairConstruct
+           procedure :: destruct        => ObserverSourcePairDestruct
+           procedure :: FWHSurfaceIntegral
+
+   end type ObserverSourcePairClass
+!
+!  *****************************
 !  General observer class definition
 !   (similar to a monitor, mostly surface monitor in many behaviours)
 !  *****************************
@@ -51,30 +74,6 @@ Module  FWHObseverClass  !
            procedure :: updateTdelay   => ObserverUpdateTdelay
 
    end type ObserverClass
-
-!
-!  *****************************
-!  Observer source pair class definition
-!  class for the coupling of each pair of observer and source(face)
-!  mainly accoustic geometrical relations and face link
-!  *****************************
-   type ObserverSourcePairClass
-       real(kind=RP), dimension(:,:,:), allocatable        :: rVect
-       real(kind=RP), dimension(:,:),   allocatable        :: r
-       real(kind=RP), dimension(:,:),   allocatable        :: re
-       real(kind=RP), dimension(:,:,:), allocatable        :: reUnitVect 
-       real(kind=RP), dimension(:,:),   allocatable        :: reStar
-       real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
-       real(kind=RP)                                       :: tDelay
-       integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
-
-       contains
-
-           procedure :: construct       => ObserverSourcePairConstruct
-           procedure :: destruct        => ObserverSourcePairDestruct
-           procedure :: FWHSurfaceIntegral
-
-   end type ObserverSourcePairClass
 
    contains
 
