@@ -166,7 +166,7 @@ Module  FWHObseverClass  !
          write( fID , '(A20,ES24.10)') "z coordinate: ", self % x(3)
 
          write( fID , * )
-         write( fID , '(A10,5(2X,A24))' ) "Iteration" , "Time" , "Observer Time", "P'T", "P'L", "P'"
+         write( fID , '(A10,5(2X,A24))' ) "Iteration" , "Time" , "Observer_Time", "P'T", "P'L", "P'"
 
          close ( fID )
       end if
