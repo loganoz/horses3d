@@ -1,8 +1,8 @@
 diff --git a/Solver/Makefile.in b/Solver/Makefile.in
-index 4bcf915..8645ac3 100644
+index d963b28d..dade8e21 100644
 --- a/Solver/Makefile.in
 +++ b/Solver/Makefile.in
-@@ -128,7 +128,7 @@ ifeq ($(COMM),PARALLEL)
+@@ -126,7 +126,7 @@ ifeq ($(COMM),PARALLEL)
          FC=mpif90
  	MACROS+= -D_HAS_MPI_
      else ifeq ($(FC),ifort)
@@ -11,96 +11,54 @@ index 4bcf915..8645ac3 100644
  	MACROS+= -D_HAS_MPI_
      endif
  endif
-diff --git a/Solver/src/libs/discretization/DGSEMClass.f90 b/Solver/src/libs/discretization/DGSEMClass.f90
-index 22dbe76..d543eff 100644
---- a/Solver/src/libs/discretization/DGSEMClass.f90
-+++ b/Solver/src/libs/discretization/DGSEMClass.f90
-@@ -432,7 +432,7 @@ Module DGSEMClass
- !     -> Trivial but must be defined since self % monitors has a user-defined assignment
- !     -> Must be impure because of some pointers of the derived types
- !     -----------------------------------------------------------------------------------
--      impure elemental subroutine DGSEM_Assign (to, from)
-+      subroutine DGSEM_Assign (to, from)
-          implicit none
-          class(DGSem), intent(inout) :: to
-          type (DGSem), intent(in)    :: from
+diff --git a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90 b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+index a26ea4e5..e5bbfd49 100644
+--- a/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
++++ b/Solver/src/libs/ftobject/TestSuiteManagerClass.f90
+@@ -135,7 +135,7 @@
+          
+          ALLOCATE(newTestCase)
+          newTestCase % testName     = TRIM(ADJUSTL(testName))
+-         newTestCase % TestSubroutine => testSubroutine
++         ! newTestCase % TestSubroutine => testSubroutine
+          newTestCase % next         => NULL()
+          newTestCase % passed       = .TRUE.
+          self % numberOfTests       = self % numberOfTests + 1
+@@ -269,4 +269,4 @@
+           
+       END SUBROUTINE performTests    
+       
+-      END Module TestSuiteManagerClass    
+\ No newline at end of file
++      END Module TestSuiteManagerClass    
 diff --git a/Solver/src/libs/mesh/HexMesh.f90 b/Solver/src/libs/mesh/HexMesh.f90
-index c81d1eb..3b0b9fe 100644
+index 65a79b04..b42df6f6 100644
 --- a/Solver/src/libs/mesh/HexMesh.f90
 +++ b/Solver/src/libs/mesh/HexMesh.f90
-@@ -2848,8 +2848,9 @@ slavecoord:             DO l = 1, 4
+@@ -2868,7 +2868,9 @@ slavecoord:             DO l = 1, 4
  !           ----------------------------------------------------------------------
              
              call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients)
 -            call auxMesh % storage % elements % InterpolateSolution (self % storage % elements,auxMesh % nodeType , with_gradients)
--            
 +            do eID=1, self % no_of_elements
 +               call auxMesh % storage % elements (eID)% InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
 +            end do
+             
  !           Clean up
  !           --------
-             
-@@ -3809,7 +3810,7 @@ slavecoord:             DO l = 1, 4
- !
- !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- ! 
--   impure elemental subroutine HexMesh_Assign (to, from)
-+   subroutine HexMesh_Assign (to, from)
-       implicit none
-       !-arguments----------------------------------------
-       class(HexMesh), intent(inout), target :: to
-diff --git a/Solver/src/libs/mesh/StorageClass.f90 b/Solver/src/libs/mesh/StorageClass.f90
-index 8816f34..8c830ae 100644
---- a/Solver/src/libs/mesh/StorageClass.f90
-+++ b/Solver/src/libs/mesh/StorageClass.f90
-@@ -1051,7 +1051,7 @@ module StorageClass
- !     Interpolate solution to another element storage
- !            this % Q  ->  other % Q
- !     -----------------------------------------------
--      impure elemental subroutine ElementStorage_InterpolateSolution(this,other,nodes,with_gradients)
-+      subroutine ElementStorage_InterpolateSolution(this,other,nodes,with_gradients)
-          implicit none
-          !-arguments----------------------------------------------
-          class(ElementStorage_t), intent(in)    :: this
 diff --git a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90 b/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
-index 0e09635..f0cd9e1 100644
+index fee33e5e..98bb607f 100644
 --- a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
 +++ b/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
-@@ -66,8 +66,7 @@ module GenericLinSolverClass
+@@ -71,7 +71,7 @@ module GenericLinSolverClass
        end function MatrixShift_FCN
     end interface
     
 -   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift  ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
--
 +   procedure(MatrixShift_FCN), pointer :: MatrixShift
+ 
  contains
  !
- !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-diff --git a/utils/patches/bender.patch b/utils/patches/bender.patch
-index ef6be93..677d9e6 100644
---- a/utils/patches/bender.patch
-+++ b/utils/patches/bender.patch
-@@ -1,22 +0,0 @@
--diff --git a/Solver/src/libs/jacobian/CSR_Matrices.f90 b/Solver/src/libs/jacobian/CSR_Matrices.f90
--index 3b84c31..2351f11 100644
----- a/Solver/src/libs/jacobian/CSR_Matrices.f90
--+++ b/Solver/src/libs/jacobian/CSR_Matrices.f90
--@@ -26,7 +26,7 @@ MODULE CSR_Matrices
--       INTEGER,        POINTER, CONTIGUOUS :: BlockSize(:)=>NULL()  ! Size of each block
--    CONTAINS
--    
---      GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
--+      !GENERIC, PUBLIC                     :: construct  => CSR_CreateMatnnz, CSR_CreateMatnnzs
--       PROCEDURE                           :: assigndiag => CSR_AssignDiag
--       PROCEDURE                           :: Visualize  => CSR2Visualize
--       PROCEDURE                           :: destroy
--@@ -36,7 +36,7 @@ MODULE CSR_Matrices
--       PROCEDURE                           :: GetDense => CSR2Dense
--       PROCEDURE                           :: GetBlock => CSR_GetBlock
--       
---      PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
--+      !PROCEDURE, PRIVATE                  :: CSR_CreateMatnnz, CSR_CreateMatnnzs
--    END TYPE
--    !-----------------------------------------------------------------------------   
--    
+-- 
+2.27.0
 
