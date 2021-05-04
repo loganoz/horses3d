@@ -116,6 +116,7 @@ module LESModels
                print*, "   * None (default)"
                print*, "   * Smagorinsky"
                print*, "   * Wale"
+               print*, "   * Vreman"
                errorMessage(STD_OUT)
                stop
 
@@ -146,11 +147,16 @@ module LESModels
                model % WallModel = NO_WALLMODEL
                model % requiresWallDistances = .true.
 
+            case ("Vreman")
+               model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
+
             case default
                write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * Linear (default)"
                print*, "   * Wale"
+               print*, "   * Vreman"
                print*, "   * None"
                errorMessage(STD_OUT)
                stop
@@ -415,7 +421,7 @@ module LESModels
             case(NO_WALLMODEL)
                write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Wale"
             case(LINEAR_WALLMODEL)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model wiht Wale -> deactivate"
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model with Wale -> deactivate"
          end select
          
       end subroutine WALE_Describe
@@ -519,7 +525,7 @@ module LESModels
             case(NO_WALLMODEL)
                write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Vreman"
             case(LINEAR_WALLMODEL)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model wiht Vreman -> deactivate"
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model with Vreman -> deactivate"
          end select
          
       end subroutine Vreman_Describe
