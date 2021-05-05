@@ -502,7 +502,7 @@ module LESModels
             &  - G__ij(2,3) * G__ij(2,3) &
             &  - G__ij(1,3) * G__ij(1,3)
 
-         if(alpha>1.0e-8_RP) then
+         if(alpha>1.0e-6_RP) then
             mu = Q(IRHO) * this % C * sqrt (Bbeta/alpha)
          else 
             mu = 0.0_RP
