@@ -378,6 +378,7 @@ module LESModels
          gradV(2,:) = U_y(1:3)
          gradV(3,:) = U_z(1:3)
 
+         S=0.0_RP
          do i = 1, 3 
             do j = 1, 3 
                S(i,j)      = 0.5_RP*(gradV(i,j)+gradV(j,i))
@@ -389,6 +390,7 @@ module LESModels
 
          normS =  sum(S*S)
 
+         Sd=0.0_RP
          do i = 1, 3 
             do j = 1, 3 
                Sd(i,j) = 0.5_RP*(gradV2(i,j)+gradV2(j,i))
@@ -502,7 +504,7 @@ module LESModels
             &  - G__ij(2,3) * G__ij(2,3) &
             &  - G__ij(1,3) * G__ij(1,3)
 
-         if(alpha>1.0e-6_RP) then
+         if(alpha>1.0e-10_RP) then
             mu = Q(IRHO) * this % C * sqrt (Bbeta/alpha)
          else 
             mu = 0.0_RP
