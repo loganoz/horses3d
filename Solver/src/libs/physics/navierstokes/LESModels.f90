@@ -55,7 +55,6 @@ module LESModels
       real(kind=RP)  :: CS
       contains
          procedure          :: Initialize         => Smagorinsky_Initialize
-         procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
          procedure          :: Describe           => Smagorinsky_Describe
          procedure          :: ComputeViscosity   => Smagorinsky_ComputeViscosity
    end type Smagorinsky_t
@@ -64,7 +63,6 @@ module LESModels
       real(kind=RP)  :: Cw
       contains
          procedure          :: Initialize         => WALE_Initialize
-         procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
          procedure          :: Describe           => WALE_Describe
          procedure          :: ComputeViscosity   => WALE_ComputeViscosity
    end type WALE_t
@@ -73,7 +71,6 @@ module LESModels
       real(kind=RP)  :: C
       contains
          procedure          :: Initialize         => Vreman_Initialize
-         procedure, private   :: ComputeWallEffect  => LESModel_ComputeWallEffect
          procedure          :: Describe           => Vreman_Describe
          procedure          :: ComputeViscosity   => Vreman_ComputeViscosity
    end type Vreman_t
@@ -141,6 +138,7 @@ module LESModels
             select case (trim(modelName))
             case ("none")
                model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
 
             case ("linear")
                model % WallModel             = LINEAR_WALLMODEL
