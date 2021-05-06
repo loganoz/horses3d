@@ -377,8 +377,7 @@ module LESModels
          gradV(1,:) = U_x(1:3)
          gradV(2,:) = U_y(1:3)
          gradV(3,:) = U_z(1:3)
-
-         S=0.0_RP
+ 
          do i = 1, 3 
             do j = 1, 3 
                S(i,j)      = 0.5_RP*(gradV(i,j)+gradV(j,i))
@@ -390,7 +389,6 @@ module LESModels
 
          normS =  sum(S*S)
 
-         Sd=0.0_RP
          do i = 1, 3 
             do j = 1, 3 
                Sd(i,j) = 0.5_RP*(gradV2(i,j)+gradV2(j,i))
