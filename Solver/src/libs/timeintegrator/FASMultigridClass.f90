@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Thu May  6 23:18:54 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: d5002efe504e1e7557130b3010e0db46aa6e3e00
 !
 !//////////////////////////////////////////////////////
 !
@@ -97,7 +97,8 @@ module FASMultigridClass
    real(kind=RP), target  :: cfl            ! Advective cfl number
    real(kind=RP), target  :: dcfl           ! Diffusive cfl number
    real(kind=RP), target  :: own_dt             ! dt
-   integer, allocatable :: MGSweeps(:) ! Number of pre- and post- smoothings operations on each level
+   integer, allocatable :: MGSweepsPre(:) ! Number of pre- and post-smoothings operations on each level
+   integer, allocatable :: MGSweepsPost(:) ! Number of post- and post-smoothings operations on each level
    integer        :: Preconditioner       ! Current smoother being used
    integer        :: CurrentMGCycle 
 !-----CFL-ramping-variables-----------------------------------------------------------
@@ -113,7 +114,8 @@ module FASMultigridClass
    real(kind=RP), target  :: p_cfl            ! Pseudo advective cfl number
    real(kind=RP), target  :: p_dcfl           ! Pseudo diffusive cfl number
    real(kind=RP), target  :: p_dt             ! Pseudo dt
-!========
+
+!========SweepNumPost
  contains
 !========
 !
@@ -230,17 +232,35 @@ module FASMultigridClass
          deltaN = 1
       end if
 
-      allocate(MGSweeps(MGlevels)) 
-      if ( controlVariables % containsKey("mg sweeps") ) then
-         tmpc = controlVariables % StringValueForKey("mg sweeps",LINE_LENGTH)
-         MGSweeps = getIntArrayFromString(tmpc)
-      else
-         MGSweeps= 1
-         if (MGlevels .gt. 1) then
-            do i=2,MGlevels
-               MGSweeps(i) = 2*MGSweeps(i-1)
-            end do
-         end if
+!
+!     Number of sweeps
+!     -------------------
+
+      if (.not. allocated(MGSweepsPre)) allocate(MGSweepsPre(MGlevels)) 
+      if (.not. allocated(MGSweepsPost)) allocate(MGSweepsPost(MGlevels)) 
+      MGsweepsPre  = 1
+      MGsweepsPost = 1
+
+      if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
+          controlVariables % containsKey("mg sweeps post") ) then
+        MGsweepsPre = controlVariables % IntegerValueForKey("mg sweeps pre")
+        MGsweepsPost =controlVariables % IntegerValueForKey("mg sweeps post")
+      else if (controlVariables % containsKey("mg sweeps" ) ) then
+        MGsweepsPre = controlVariables % IntegerValueForKey("mg sweeps")
+        MGsweepsPost = controlVariables % IntegerValueForKey("mg sweeps")
+      end if
+      if (controlVariables % containsKey("mg sweeps coarsest")) then
+        MGsweepsPre(1) = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+        MGsweepsPost(1) =controlVariables % IntegerValueForKey("mg sweeps coarsest")
+      end if
+
+      if ( controlVariables % containsKey("mg sweeps pre exact") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps pre exact",LINE_LENGTH)
+         MGSweepsPre = getIntArrayFromString(tmpc)
+      end if
+      if ( controlVariables % containsKey("mg sweeps post exact") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps post exact",LINE_LENGTH)
+         MGSweepsPost = getIntArrayFromString(tmpc)
       end if
 !
 !     Select the smoother
@@ -733,10 +753,11 @@ module FASMultigridClass
 !     -----------------------
 !
 !~      this % computeA = .TRUE.
+
       sweepcount = 0
       DO
-         call this % Smooth(MGSweeps(lvl),t,dt, ComputeTimeDerivative)
-         sweepcount = sweepcount + MGSweeps(lvl)
+         call this % Smooth(MGSweepsPre(lvl),t,dt, ComputeTimeDerivative)
+         sweepcount = sweepcount + MGSweepsPre(lvl)
          
          if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem % mesh)
          
@@ -800,15 +821,17 @@ module FASMultigridClass
 !     Post-smoothing procedure
 !     ------------------------
 !
+
       sweepcount = 0
       DO
-         call this % Smooth(MGSweeps(lvl), t, dt, ComputeTimeDerivative)
+         call this % Smooth(MGSweepsPost(lvl), t, dt, ComputeTimeDerivative)
+         sweepcount = sweepcount + MGSweepsPost(lvl)
+
          NewRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
 
          call CFLRamp(cfl_ini,cfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
          call CFLRamp(dcfl_ini,dcfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
 
-         sweepcount = sweepcount + MGSweeps(lvl)
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
          if (sweepcount .ge. MaxSweeps) exit
@@ -1155,21 +1178,21 @@ module FASMultigridClass
 !           ----------------------------------------------------------
             case (RK3_SMOOTHER)
                do sweep = 1, SmoothSweeps
-                  call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
                end do
             ! RK5 smoother
             case (RK5_SMOOTHER)
                do sweep = 1, SmoothSweeps
-                  call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
                end do
             ! RK5 opt smoother
             case (RKOpt_SMOOTHER)
                do sweep = 1, SmoothSweeps
-                  call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dts=DualTimeStepping, global_dt=own_dt )
                end do
