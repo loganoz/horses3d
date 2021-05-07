@@ -202,7 +202,7 @@ module LESModels
                LESModel_ComputeWallEffect = min(LS, dWall * K_VONKARMAN)
             case (NO_WALLMODEL)
                LESModel_ComputeWallEffect = LS
-               !This is to prevent changes in LS if dWall is not computed but the ComputeWallEffect is called. 
+               ! LS is left unmodified if no wall model is selected
          end select
          
       end function LESModel_ComputeWallEffect
