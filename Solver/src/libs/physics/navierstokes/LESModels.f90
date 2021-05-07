@@ -155,10 +155,10 @@ module LESModels
             case default
                write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
-               print*, "   * Linear (default)"
+               print*, "   * Linear"
                print*, "   * Wale"
                print*, "   * Vreman"
-               print*, "   * None"
+               print*, "   * None (default)"
                errorMessage(STD_OUT)
                stop
 
