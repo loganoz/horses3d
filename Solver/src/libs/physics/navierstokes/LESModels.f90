@@ -200,6 +200,9 @@ module LESModels
          select case (self % WallModel)
             case (LINEAR_WALLMODEL)
                LESModel_ComputeWallEffect = min(LS, dWall * K_VONKARMAN)
+            case (NO_WALLMODEL)
+               LESModel_ComputeWallEffect = LS
+               !This is to prevent changes in LS if dWall is not computed but the ComputeWallEffect is called. 
          end select
          
       end function LESModel_ComputeWallEffect
