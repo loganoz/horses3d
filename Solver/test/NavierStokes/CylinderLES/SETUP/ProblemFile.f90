@@ -536,14 +536,14 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd =  34.5733454863460_RP
-            real(kind=RP), parameter           :: cl =  -0.00046800322_RP
-            real(kind=RP), parameter           :: wake_u = 1.096531E-8_RP
-            real(kind=RP), parameter           :: res(5) = [  8.81312488898120_RP, &
-                                                              17.6088380687767_RP, &
-                                                              0.19037533106263_RP, &
-                                                              24.3013528462887_RP, &   
-                                                              240.637864645369_RP]
+            real(kind=RP), parameter           :: cd =  34.751355293080636_RP
+            real(kind=RP), parameter           :: cl = -3.1233478556313976E-004_RP
+            real(kind=RP), parameter           :: wake_u = 8.3896828153379791E-009_RP
+            real(kind=RP), parameter           :: res(5) = [  5.6964871449001118_RP, &
+                                                              12.724771786115124_RP, &
+                                                             0.34560611106498174_RP, &
+                                                              14.708233552065705_RP, &   
+                                                              153.88834658372070_RP]
 #if defined(NAVIERSTOKES)
 
             CALL initializeSharedAssertionsManager
@@ -589,7 +589,7 @@ end module ProblemFileFunctions
                                tol           = 1.d-11, &
                                msg           = "Lift coefficient")
 
-            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+           CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
    
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
