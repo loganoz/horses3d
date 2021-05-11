@@ -3,11 +3,16 @@ Module FWHDefinitions  !
     use SMConstants
     Implicit None
     private
+    public OB_BUFFER_SIZE_DEFAULT, STR_LEN_OBSERVER
+    public OB_BUFFER_SIZE
     public rho0, P0, c0, U0, M0, fwGamma2
     public getMeanStreamValues
 
     real(kind=RP)                                           :: rho0, P0, c0, fwGamma2
     real(kind=RP), dimension(NDIM)                          :: U0, M0
+    integer, parameter         :: OB_BUFFER_SIZE_DEFAULT = 200
+    integer                    :: OB_BUFFER_SIZE = OB_BUFFER_SIZE_DEFAULT
+    integer, parameter         :: STR_LEN_OBSERVER = 128
 
     contains
 

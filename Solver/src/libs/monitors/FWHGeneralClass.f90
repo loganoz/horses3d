@@ -14,7 +14,8 @@
 Module FWHGeneralClass  !
 
     use SMConstants
-    use MonitorDefinitions
+    ! use MonitorDefinitions
+    use FWHDefinitions, only: OB_BUFFER_SIZE_DEFAULT, OB_BUFFER_SIZE_DEFAULT, STR_LEN_OBSERVER
     use FWHObseverClass
     use HexMeshClass
     use ZoneClass
@@ -37,6 +38,8 @@ Module FWHGeneralClass  !
         class(Zone_t), allocatable                                        :: sourceZone
         logical                                                           :: isSolid
         logical                                                           :: isActive
+        logical                                                           :: firstWrite
+        logical                                                           :: interpolate
 
         contains
 
@@ -56,6 +59,7 @@ Module FWHGeneralClass  !
         use FileReadingUtilities, only: getCharArrayFromString
         use FWHDefinitions,       only: getMeanStreamValues
         use Headers
+        use Monopole
 #ifdef _HAS_MPI_
         use mpi
 #endif
@@ -71,15 +75,16 @@ Module FWHGeneralClass  !
 !
         integer                                             :: fID , io
         integer                                             :: i
-        character(len=STR_LEN_MONITORS)                     :: line
-        character(len=STR_LEN_MONITORS)                     :: solution_file
+        character(len=STR_LEN_OBSERVER)                     :: line
+        character(len=STR_LEN_OBSERVER)                     :: solution_file
         integer                                             :: no_of_zones, no_of_face_i
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         logical, save                                       :: FirstCall = .TRUE.
         character(len=LINE_LENGTH)                          :: zones_str
         character(len=LINE_LENGTH), allocatable             :: zones_names(:)
 
-        !look if the accoustic analogy calculations are set to be computed
+!        look if the accoustic analogy calculations are set to be computed
+!        --------------------------------
         !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
         if (.not. controlVariables % containsKey("accoustic analogy")) then
             self % isActive = .FALSE.
@@ -87,8 +92,14 @@ Module FWHGeneralClass  !
             return
         end if
 
+!        Setup the buffer
+!        ----------------
+         if (controlVariables % containsKey("observers flush interval") ) then
+            OB_BUFFER_SIZE = controlVariables % integerValueForKey("observers flush interval")
+         end if
+
         self % isActive = .TRUE.
-        allocate( self % t(BUFFER_SIZE), self % iter(BUFFER_SIZE) )
+        allocate( self % t(OB_BUFFER_SIZE), self % iter(OB_BUFFER_SIZE) )
 
 !       Get the general configuration of control file
 !       --------------------------
@@ -135,7 +146,7 @@ Module FWHGeneralClass  !
 
 !       Get the solution file name
 !       --------------------------
-        solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = STR_LEN_MONITORS )
+        solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = STR_LEN_OBSERVER )
 !
 !       Remove the *.hsol termination
 !       -----------------------------
@@ -150,15 +161,19 @@ Module FWHGeneralClass  !
            self % numberOfObservers = getNoOfObservers()
         end if
 
+!       Set interpolate atribute as TRUE by default
+        self % interpolate = .TRUE.
+        ! self % interpolate = .FALSE.
 !       Initialize observers
 !       ----------
         call getMeanStreamValues()
         allocate( self % observers(self % numberOfObservers) )
         do i = 1, self % numberOfObservers
-            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall)
+            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % interpolate)
         end do 
 
         self % bufferLine = 0
+        self % firstWrite = .FALSE.
         
         FirstCall = .FALSE.
 
@@ -170,16 +185,19 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * self % sourceZone % no_of_faces
 
+        call setVals()
+
     End Subroutine FWHConstruct
 
-    Subroutine FWHUpate(self, mesh, t, iter)
+    Subroutine FWHUpate(self, mesh, t, iter, dt, isFirst)
 
         implicit none
 
         class(FWHClass)                                     :: self
         class(HexMesh)                                      :: mesh
-        real(kind=RP), intent(in)                           :: t
+        real(kind=RP), intent(in)                           :: t, dt
         integer, intent(in)                                 :: iter
+        logical, intent(in), optional                        :: isFirst
 
 !       ---------------
 !       Local variables
@@ -196,15 +214,25 @@ Module FWHGeneralClass  !
 !       ------------------------
         self % bufferLine = self % bufferLine + 1
 !
-!       Save time, iteration and CPU-time
+!       Save time and iteration
 !       -----------------------
         self % t       ( self % bufferLine )  = t
         self % iter    ( self % bufferLine )  = iter
 
-        call SourceProlongSolution(self % observers(1), mesh)
-        do i = 1, self % numberOfObservers
-            call self % observers(i) % update(mesh, self % bufferLine, self % isSolid)
-        end do 
+!
+        call SourceProlongSolution(self % sourceZone, mesh, t)
+!       see if its regular or interpolated
+!       -----------------------
+        if (.not. self % firstWrite) then
+            do i = 1, self % numberOfObservers
+                ! call self % observers(i) % update(mesh, self % bufferLine, self % isSolid, dt, isFirst)
+                call self % observers(i) % update(mesh, self % isSolid, self % bufferLine, self % interpolate)
+            end do 
+        else
+            do i = 1, self % numberOfObservers
+                call self % observers(i) % updateOneStep(mesh, self % bufferLine, self % isSolid, t)
+            end do 
+        end if
 
     End Subroutine FWHUpate
 
@@ -242,6 +270,12 @@ Module FWHGeneralClass  !
 !
 !           In this case the observers are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
+            if (.not. self % firstWrite .and. self % interpolate) then
+                do i =1, self % numberOfObservers
+                    call self % observers(i) % interpolateSol(self % t, self % bufferLine)
+                end do
+                self % firstWrite = .TRUE.
+            end if
             do i =1, self%numberOfObservers
                 call self % observers(i) % writeToFile(self % iter, self % t, self % bufferLine)
             end do
@@ -251,7 +285,13 @@ Module FWHGeneralClass  !
         else
 !               The observers are exported just if the buffer is full
 !               ----------------------------------------------------
-            if ( self % bufferLine .eq. BUFFER_SIZE ) then
+            if ( self % bufferLine .eq. OB_BUFFER_SIZE ) then
+                if (.not. self % firstWrite .and. self % interpolate) then
+                    do i =1, self % numberOfObservers
+                        call self % observers(i) % interpolateSol(self % t, self % bufferLine)
+                    end do
+                    self % firstWrite = .TRUE.
+                end if
                 do i =1, self%numberOfObservers
                     call self % observers(i) % writeToFile(self % iter, self % t, self % bufferLine)
                 end do
