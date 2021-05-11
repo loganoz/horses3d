@@ -285,7 +285,7 @@ Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
 
 \section{Cahn-Hilliard}
 
-\chapter{Implicit Solvers}
+\chapter{Implicit Solvers with Newton linearisation}
 \section{General Keywords}
 The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
@@ -426,7 +426,36 @@ preallocate     & \textit{LOGICAL}: Specifies if the Jacobian must be allocated 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\chapter{$p$-Multigrid}
+\chapter{Explicit Solvers}
+
+The code has an implementation of the Full Approximation Scheme (FAS) nonlinear $p$-multigrid method.
+The main keywords to use it are shown in Table \ref{tab:explicitKey}.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for the multigrid solver.} \label{tab:explicitKey} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for the multigrid solver - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+\textbf{time integration} & \textit{CHARACTER}: This is the main keyword to activate the multigrid solvers. The value of it should be set to 'FAS' for the Full Approximation Scheme (FAS) nonlinear multigrid  solvers and to 'AnisFAS' for anisotropic FAS schemes. & 'explicit' \\ \hline
+
+\textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
+
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5' and 'RKOpt'. & RK3 \\ \hline
+
+rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver. Possible orders are from 2 to 7. & 2 \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\chapter{Nonlinear $p$-Multigrid solver (FAS)}
 
 The code has an implementation of the Full Approximation Scheme (FAS) nonlinear $p$-multigrid method.
 The main keywords to use it are shown in Table \ref{tab:multigridKey}.
@@ -444,6 +473,7 @@ The main keywords to use it are shown in Table \ref{tab:multigridKey}.
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword to activate the multigrid solvers. The value of it should be set to 'FAS' for the Full Approximation Scheme (FAS) nonlinear multigrid  solvers and to 'AnisFAS' for anisotropic FAS schemes. & 'explicit' \\ \hline
 
+\textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration (the exact method can be set using 'bdf order' option) and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
 
 multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computations. & \textbf{Mandatory keyword} \\ \hline
 
@@ -459,7 +489,13 @@ mg sweeps post    & \textit{INTEGER}: Number of post-smoothing sweeps to be take
 
 mg sweeps coarsest   & \textit{INTEGER}: Number of pre- and post-smoothing sweeps to be taken on the coarsest multigrid level. & Average between pre-sweeps and post-sweeps \\ \hline
 
-mg smoother     & \textit{CHARACTER}: The smoothing technique to be used. It can be either RK3 (explicit pseudo time-stepping, i.e. no good for time-accurate simulations), BlockJacobi (implicit consistent time-stepping), or (matrix-free) GMRES (implicit consistent time-stepping). & RK3 \\ \hline
+mg sweeps exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps'. Defines exact number of pre- and post- smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 pre-sweep and 1 post-sweep on level 1 and 4 pre-\/post-sweeps on level 2. & 1* \\ \hline
+
+mg sweeps pre exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps pre'. Defines exact number of pre-smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 pre-sweep on level 1 and 4 pre-sweeps on level 2. & 1* \\ \hline
+
+mg sweeps post exact & \textit{INTEGER(:)}: Alternative to 'mg sweeps post'. Defines exact number of post-smoothing sweeps to be taken on each level. Index of the array indicates the MG level for the sweeps to be performed, e.g. [1,4] performs 1 post-sweep on level 1 and 4 post-sweeps on level 2. & 1* \\ \hline
+
+mg smoother     & \textit{CHARACTER}: The smoothing technique to be used. The keywords and possible smoothers are the same as the 'explicit method' in \ref{tab:explicitKey}. & RK3 \\ \hline
 
 %% FMG keywords
 
@@ -484,8 +520,6 @@ max mg sweeps & \textit{INTEGER}: Maximum number of smoothing sweeps to be perfo
 
 
 \multicolumn{3}{p{16.4cm}}{*  The user must specify \textit{mg sweeps pre} \textbf{and} \textit{mg sweeps post}, or \textit{mg sweeps}.} \\
-
-
 
 \end{longtable}
 
@@ -1037,4 +1071,3 @@ Some remarks:
 \bibliography{../LaTeX/9_backmatter/library}
 
 \end{document}
-

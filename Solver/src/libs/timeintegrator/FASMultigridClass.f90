@@ -110,6 +110,7 @@ module FASMultigridClass
 !-----DTS-variables-------------------------------------------------------------------
    logical        :: DualTimeStepping = .false.
    logical        :: Compute_Global_dt = .true.
+   logical        :: PseudoConvergenceMonitor = .false.
    real(kind=RP)  :: conv_tolerance = 1e-6_RP
    real(kind=RP), target  :: p_cfl            ! Pseudo advective cfl number
    real(kind=RP), target  :: p_dcfl           ! Pseudo diffusive cfl number
@@ -188,6 +189,11 @@ module FASMultigridClass
          ! is the simulation type is time-accurate and we use FAS
          DualTimeStepping = .true.
          Compute_dt = .true.
+
+         if (controlVariables % containsKey("pseudo convergence monitor")) then
+            PseudoConvergenceMonitor = controlVariables % logicalValueForKey("pseudo convergence monitor")
+         end if
+
          if (controlVariables % containsKey("convergence tolerance")) &
             conv_tolerance = controlVariables % doublePrecisionValueForKey("convergence tolerance")
 
@@ -254,12 +260,14 @@ module FASMultigridClass
         MGsweepsPost(1) =controlVariables % IntegerValueForKey("mg sweeps coarsest")
       end if
 
-      if ( controlVariables % containsKey("mg sweeps pre exact") ) then
+      if ( controlVariables % containsKey("mg sweeps pre exact") .and. controlVariables % containsKey("mg sweeps post exact") ) then
          tmpc = controlVariables % StringValueForKey("mg sweeps pre exact",LINE_LENGTH)
          MGSweepsPre = getIntArrayFromString(tmpc)
-      end if
-      if ( controlVariables % containsKey("mg sweeps post exact") ) then
          tmpc = controlVariables % StringValueForKey("mg sweeps post exact",LINE_LENGTH)
+         MGSweepsPost = getIntArrayFromString(tmpc)
+      else if (controlVariables % containsKey("mg sweeps exact") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps exact",LINE_LENGTH)
+         MGSweepsPre = getIntArrayFromString(tmpc)
          MGSweepsPost = getIntArrayFromString(tmpc)
       end if
 !
@@ -413,6 +421,7 @@ module FASMultigridClass
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
+      integer :: N1(3), N2(3)
       
       Solver % MGlevel = lvl
 !
@@ -446,7 +455,6 @@ module FASMultigridClass
 
       ! allocate array for LTS
       if (Preconditioner .eq. PRECONDIIONER_LTS) allocate( Solver % lts_dt(nelem))
-      ! allocate( Solver % lts_dt(nelem))
          
 !
 !     --------------------------------------------------------------
@@ -533,6 +541,20 @@ module FASMultigridClass
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+
+         if (DualTimeStepping) then
+!$omp do private(N1,N2) schedule(runtime)
+            DO k = 1, nelem
+               N1 = Solver  % p_sem % mesh % elements (k) % Nxyz
+               N2 = Child_p % p_sem % mesh % elements (k) % Nxyz
+               call Interp3DArrays(NCONS, N1, Solver  % p_sem % mesh % elements(k) % storage % Q, &
+                                          N2, Child_p % p_sem % mesh % elements(k) % storage % Q )
+            end DO
+!$omp end do
+            call BDFInitialiseQ(Child_p % p_sem % mesh)    
+         end if
+
+
          !old>
          
 !~!<New
@@ -584,9 +606,6 @@ module FASMultigridClass
          FMG = .FALSE.
       end if
 
-      ! print *, "Solve : dt = ", dt
-      ! error stop "TBC"
-      
       ! if (Smoother >= IMPLICIT_SMOOTHER_IDX) call this % linsolver % SetOperatorDt(dt)
 !
 !     -----------------------
@@ -645,7 +664,6 @@ module FASMultigridClass
 !
 
       tk = t
-
       if (Compute_Global_dt) call MaxTimeStep( self=this % p_sem, cfl=cfl, dcfl=dcfl , MaxDt=own_dt)
 
       call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
@@ -672,22 +690,11 @@ module FASMultigridClass
 
       do i = 1, tau_maxit
          
-        ! print *, "p_dt = ", p_dt
          call this % solve(i, tk, p_dt, ComputeTimeDerivative)
-         ! call this % solve(i, tk, own_dt, ComputeTimeDerivative)
-
-!$omp parallel do schedule(runtime)
-      do id = 1, SIZE(this % p_sem % mesh % elements )
-         if ( any(isnan(this % p_sem % mesh % elements(id) % storage % Q))) error stop "TBC"
-      end do ! id
-!$omp end parallel do
-
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
-         ! Qdot_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
          call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, own_dt)
          dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
-         ! write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
-
+         if (PseudoConvergenceMonitor) write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
          if (dQdtau_norm .le. conv_tolerance) exit
 
       end do
