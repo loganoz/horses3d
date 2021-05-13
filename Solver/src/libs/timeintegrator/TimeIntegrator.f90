@@ -189,6 +189,7 @@ print*, "Method selected: RK5"
 !
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
+         call sem  % fwh        % autosaveConfig(controlVariables, initial_time)  ! If not requested, the procedure returns only setting not save values
          
          
          call self % TauEstimator % construct(controlVariables, sem)
@@ -386,9 +387,6 @@ print*, "Method selected: RK5"
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
-#if defined(NAVIERSTOKES)
-      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
-#endif
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
       
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -398,9 +396,6 @@ print*, "Method selected: RK5"
       end if 
       
       call monitors % WriteToFile(sem % mesh)
-#if defined(NAVIERSTOKES)
-      call sem % fwh % writeToFile()
-#endif
 
       IF (self % integratorType == STEADY_STATE) THEN
          IF (maxval(maxResidual) <= Tol )  THEN
@@ -414,6 +409,14 @@ print*, "Method selected: RK5"
             return
          END IF
       end if
+!
+!     Save FWH at time 0
+!     --------         
+#if defined(NAVIERSTOKES)
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
+      call sem % fwh % writeToFile()
+      call sem % fwh % saveSourceSol(sem % mesh, 0, t)
+#endif
 !
 !     -----------------
 !     Integrate in time
@@ -442,7 +445,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-         dt = self % CorrectDt(t,self % dt)
+         dt = self % CorrectDt(t,self % dt, sem % fwh)
 !
 !        User defined periodic operation
 !        -------------------------------
@@ -484,9 +487,6 @@ print*, "Method selected: RK5"
 !        Update monitors
 !        ---------------
          call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
-#if defined(NAVIERSTOKES)
-         call sem % fwh % updateValues(sem % mesh, t, k+1)
-#endif
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -546,13 +546,20 @@ print*, "Method selected: RK5"
             end if 
 #endif 
          end if
+!
+!        Save FWH
+!        --------         
+#if defined(NAVIERSTOKES)
+         if (sem % fwh % autosave % Autosave(k+1)) then
+             call sem % fwh % updateValues(sem % mesh, t, k+1)
+             call sem % fwh % writeToFile()
+             call sem % fwh % saveSourceSol(sem % mesh, k+1, t)
+         end if 
+#endif
 
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-#if defined(NAVIERSTOKES)
-         call sem % fwh % writeToFile()
-#endif
          
          sem % numberOfTimeSteps = k + 1
       END DO
@@ -669,12 +676,14 @@ print*, "Method selected: RK5"
 !  This routine corrects the time-step size, so that 
 !  time-periodic operations can be performed
 !  -------------------------------------------------
-   recursive function TimeIntegrator_CorrectDt (self, t, dt_in) result(dt_out)
+   recursive function TimeIntegrator_CorrectDt (self, t, dt_in, fwh) result(dt_out)
+      use FWHGeneralClass
       implicit none
       !-arguments------------------------------------------------
       class(TimeIntegrator_t) , intent(inout)   :: self
       real(kind=RP)           , intent(in)      :: t
       real(kind=RP)           , intent(in)      :: dt_in
+      class(FWHClass)         , intent(inout)   :: fwh   
       real(kind=RP)                             :: dt_out
       !-local-variables------------------------------------------
       real(kind=RP) :: dt_temp
@@ -682,7 +691,8 @@ print*, "Method selected: RK5"
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
-      integer, parameter :: DONT_KNOW   = 3
+      integer, parameter :: FWHSAVE     = 3
+      integer, parameter :: DONT_KNOW   = 4
       integer, save :: next_time_will = DONT_KNOW
       !----------------------------------------------------------
 
@@ -691,6 +701,7 @@ print*, "Method selected: RK5"
 !     -------------------------------      
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
+      fwh  % autosave   % performAutosave = .FALSE.
       dt_out = dt_in
       
 !
@@ -720,9 +731,14 @@ print*, "Method selected: RK5"
                   self % pAdaptator % performPAdaptationT = .TRUE.
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                end if
+
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, fwh % autosave % nextAutosaveTime) ) then
+                  fwh % autosave % performAutosave = .TRUE.
+                  fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
+               end if
                
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
             end if
             
          case (ADAPT)
@@ -735,19 +751,50 @@ print*, "Method selected: RK5"
                   self % autosave % performAutosave = .TRUE.
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
+
+               if ( AlmostEqual(self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime) ) then
+                  fwh % autosave % performAutosave = .TRUE.
+                  fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
+               end if
                
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
             end if
             
+         case (FWHSAVE)
+            
+             ! print *, "f:h autosave "
+            if ( fwh % autosave % nextAutosaveTime < (t + dt_out) ) then
+               dt_out = fwh % autosave % nextAutosaveTime - t
+               fwh % autosave % performAutosave = .TRUE.
+               
+               if ( AlmostEqual(fwh % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % pAdaptator % performPAdaptationT = .TRUE.
+                  self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               end if
+
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, fwh % autosave % nextAutosaveTime) ) then
+                  self % autosave % performAutosave = .TRUE.
+                  self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
+               end if
+               
+               fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
+            end if
+            ! print *, "fwh nextAutosaveTime: ", fwh%autosave%nextAutosaveTime
+
          case (DONT_KNOW)
             
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
-                  self % autosave % mode       == AUTOSAVE_BY_TIME) then
+                  self % autosave % mode       == AUTOSAVE_BY_TIME .or. &
+                  fwh % autosave % mode       == AUTOSAVE_BY_TIME) then
                
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+            ! print *, "fwh nextAutosaveTime: ", fwh%autosave%nextAutosaveTime
+            ! print *, "s nextAutosaveTime: ", self%autosave%nextAutosaveTime
+            ! print *, "a nextAutosaveTime: ", self%pAdaptator%nextAdaptationTime
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
                
-               dt_temp = self % CorrectDt (t, dt_out)
+               dt_temp = self % CorrectDt (t, dt_out, fwh)
                dt_out  = dt_temp
             else
                next_time_will = DO_NOTHING

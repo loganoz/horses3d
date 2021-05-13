@@ -14,12 +14,12 @@
 Module FWHGeneralClass  !
 
     use SMConstants
-    ! use MonitorDefinitions
     use FWHDefinitions, only: OB_BUFFER_SIZE_DEFAULT, OB_BUFFER_SIZE_DEFAULT, STR_LEN_OBSERVER
     use FWHObseverClass
     use HexMeshClass
     use ZoneClass
     use FileReadingUtilities      , only: getFileName
+    use AutosaveClass
     Implicit None
 
 !
@@ -40,13 +40,17 @@ Module FWHGeneralClass  !
         logical                                                           :: isActive
         logical                                                           :: firstWrite
         logical                                                           :: interpolate
+        logical                                                           :: saveSourceSolFile
+        type(Autosave_t)                                                  :: autosave
 
         contains
 
             procedure :: construct      => FWHConstruct
             procedure :: destruct       => FWHDestruct
+            procedure :: autosaveConfig => FWHSaveSolutionConfiguration
             procedure :: updateValues   => FWHUpate
             procedure :: writeToFile    => FWHWriteToFile
+            procedure :: saveSourceSol  => FWHSaveSourceSolution
 
     end type FWHClass
 
@@ -162,8 +166,14 @@ Module FWHGeneralClass  !
         end if
 
 !       Set interpolate atribute as TRUE by default
+        ! todo: read from constrol variables
         self % interpolate = .TRUE.
         ! self % interpolate = .FALSE.
+
+!       Get whether the source surface solution is saved in files
+!       --------------------------
+        self % saveSourceSolFile = controlVariables  %  logicalValueForKey("accoustic solution save")
+
 !       Initialize observers
 !       ----------
         call getMeanStreamValues()
@@ -184,20 +194,53 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", self % sourceZone % no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * self % sourceZone % no_of_faces
+         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", self % saveSourceSolFile
 
         call setVals()
 
     End Subroutine FWHConstruct
 
-    Subroutine FWHUpate(self, mesh, t, iter, dt, isFirst)
+    Subroutine FWHSaveSolutionConfiguration(self, controlVariables, t0)
+
+        use FTValueDictionaryClass
+        implicit none
+
+        class(FWHClass)                                     :: self
+        class(FTValueDictionary), intent(in)                :: controlVariables
+        real(kind=RP), intent(in)                           :: t0
+
+!       ---------------
+!       Local variables
+!       ---------------
+        real(kind=RP)                                       :: dtSave
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) then
+            self % autosave = Autosave_t(.FALSE.,.FALSE.,huge(1),huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_UNDEFINED)
+            return
+        end if
+
+!       configure save type, used for update, write and save file
+!       --------------------------
+        if (controlVariables % containsKey("accoustic save timestep")) then
+            dtSave = controlVariables % doublePrecisionValueForKey("accoustic save timestep")
+            self % autosave = Autosave_t(.FALSE.,.TRUE.,huge(1),dtSave,nextAutosaveTime=dtSave+t0,mode=AUTOSAVE_BY_TIME)
+        else
+            !Save each time step
+            self % autosave = Autosave_t(.FALSE.,.TRUE.,1,huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_BY_ITERATION)
+        end if
+
+    End Subroutine FWHSaveSolutionConfiguration
+
+    Subroutine FWHUpate(self, mesh, t, iter)
 
         implicit none
 
         class(FWHClass)                                     :: self
         class(HexMesh)                                      :: mesh
-        real(kind=RP), intent(in)                           :: t, dt
+        real(kind=RP), intent(in)                           :: t
         integer, intent(in)                                 :: iter
-        logical, intent(in), optional                        :: isFirst
 
 !       ---------------
 !       Local variables
@@ -218,14 +261,15 @@ Module FWHGeneralClass  !
 !       -----------------------
         self % t       ( self % bufferLine )  = t
         self % iter    ( self % bufferLine )  = iter
-
 !
+!       Save Solution to elements faces of fwh surface
+!       -----------------------
         call SourceProlongSolution(self % sourceZone, mesh, t)
+
 !       see if its regular or interpolated
 !       -----------------------
         if (.not. self % firstWrite) then
             do i = 1, self % numberOfObservers
-                ! call self % observers(i) % update(mesh, self % bufferLine, self % isSolid, dt, isFirst)
                 call self % observers(i) % update(mesh, self % isSolid, self % bufferLine, self % interpolate)
             end do 
         else
@@ -327,6 +371,31 @@ Module FWHGeneralClass  !
 
     End Subroutine FWHDestruct
 
+     SUBROUTINE FWHSaveSourceSolution(self, mesh, iter, time)
+        IMPLICIT NONE
+!
+!       ------------------------------------
+!       Save the results to the surface solution file
+!       ------------------------------------
+!
+!       ----------------------------------------------
+        class(FWHClass)                                     :: self
+        class(HexMesh), intent(in)                          :: mesh
+        integer, intent(in)                                 :: iter              !< Time step
+        real(kind=RP), intent(in)                           :: time              !< Simu time
+
+        !local variables
+        character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
+!       ----------------------------------------------
+        
+        if(.not. self % saveSourceSolFile .or. .not. self % isActive) return
+
+        WRITE(FinalName,'(2A,I10.10,A)')  TRIM(self % solution_file),'_',iter,'.fwhs.hsol'
+      ! if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
+       ! write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',time,'.'
+        call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName)
+     
+     END SUBROUTINE FWHSaveSourceSolution
 !
 !//////////////////////////////////////////////////////////////////////////////
 !

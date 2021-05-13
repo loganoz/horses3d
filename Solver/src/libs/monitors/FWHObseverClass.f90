@@ -795,8 +795,8 @@ use VariableConversion, only: Pressure, PressureDot
       integer, dimension(6)                                :: meshFaceIDs
       ! class(Element), pointer                              :: elements(:)
       class(Face), pointer                                 :: faces(:)
-       integer                                             :: i, j
-       integer                                             :: Nx,Ny
+      integer                                              :: i, j
+      integer                                              :: Nx,Ny
       real(kind=RP), dimension(NDIM)                       :: x
       real(kind=RP), dimension(NCONS)                      :: Q, QDot
       real(kind=RP), dimension(:,:,:), allocatable         :: QF, QDotF
@@ -864,44 +864,90 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine SourceProlongSolution
 
-   Subroutine SourceSaveSolution(source_zone, mesh, t, iter, file_name)
+   Subroutine SourceSaveSolution(source_zone, mesh, time, iter, name)
 
 !     *******************************************************************
 !        This subroutine saves the solution from the face storage to a binary file
 !     *******************************************************************
 !
       use FaceClass
+      use SolutionFile
+      use MPI_Process_Info
+      use fluiddata
       implicit none
       class (Zone_t), intent(in)                           :: source_zone
       class (HexMesh), intent(in), target                  :: mesh
-      real(kind=RP), intent(in)                            :: t
+      real(kind=RP), intent(in)                            :: time
       integer,intent(in)                                   :: iter
-      character(len=*), intent(in)                         :: file_name
+      character(len=*), intent(in)                         :: name
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
       integer, dimension(6)                                :: meshFaceIDs
       class(Face), pointer                                 :: faces(:)
-      integer                                             :: i, j
-      real(kind=RP), dimension(:,:,:), allocatable         :: Q, QDot
+      ! real(kind=RP), dimension(:,:,:), allocatable         :: Q, QDot
+      real(kind=RP), dimension(:,:,:), allocatable         :: Q
+      real(kind=RP), dimension(NDIM)                       :: x
+      integer                                              :: Nx,Ny
+      integer                                              :: fid, offsetIO, pos, padding
+      real(kind=RP)                                        :: refs(NO_OF_SAVED_REFS) 
 
+!
+!     Gather reference quantities
+!     ---------------------------
+      refs(GAMMA_REF) = thermodynamics % gamma
+      refs(RGAS_REF)  = thermodynamics % R
+      refs(RHO_REF)   = refValues      % rho
+      refs(V_REF)     = refValues      % V
+      refs(T_REF)     = refValues      % T
+      refs(MACH_REF)  = dimensionless  % Mach
+
+!
+!     Create new file
+!     ---------------
+      call CreateNewSolutionFile(trim(name), ZONE_SOLUTION_FILE, mesh % nodeType, &
+                                    source_zone % no_of_faces, iter, time, refs)
+
+      padding = NCONS*2
+!
+!     Write arrays
+!     ------------
+      fID = putSolutionFileInWriteDataMode(trim(name))
       faces => mesh % faces
 !     Loop the zone to get faces
 !     ---------------------------------------
+      offsetIO = 0
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
 
           Nx = faces(meshFaceID) % Nf(1)
           Ny = faces(meshFaceID) % Nf(2)
 
-          safedeallocate(QF)
-          safedeallocate(QdotF)
-          allocate (Q(1:NCONS,0:Nx,0:Ny), Qdot(1:NCONS,0:Nx,0:Ny))
+          ! allocate (Q(1:NCONS,0:Nx,0:Ny), Qdot(1:NCONS,0:Nx,0:Ny))
+          allocate (Q(1:NCONS,0:Nx,0:Ny))
 
-          Q(1:NCONS,:,:)  = faces % storage(1) % Q(:,:,:)
-          Qdot(1:NCONS,:,:)  = faces % storage(1) % Qdot(:,:,:)
+          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Q(:,:,:)
+          ! Qdot(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Qdot(:,:,:)
 
+          ! 4 integers are written: number of dimension, and 3 value of the dimensions
+          pos = POS_INIT_DATA + (zoneFaceID-1)*4*SIZEOF_INT + padding * offsetIO * SIZEOF_RP
+          call writeArray(fid, Q, position=pos)
+          ! print *, "Q: ", Q
+
+          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Qdot(:,:,:)
+          write(fid) Q
+          ! print *, "Qd: ", Q
+
+          safedeallocate(Q)
+          ! safedeallocate(QdotF)
+          offsetIO = offsetIO + (Nx+1)*(Ny+1)
       end do
+
+     close(fid)
+!
+!    Close the file
+!    --------------
+     call SealSolutionFile(trim(name))
 
    End Subroutine SourceSaveSolution
 
