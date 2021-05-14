@@ -67,6 +67,14 @@ module LESModels
          procedure          :: ComputeViscosity   => WALE_ComputeViscosity
    end type WALE_t
 
+   type, extends(LESModel_t)  :: Vreman_t
+      real(kind=RP)  :: C
+      contains
+         procedure          :: Initialize         => Vreman_Initialize
+         procedure          :: Describe           => Vreman_Describe
+         procedure          :: ComputeViscosity   => Vreman_ComputeViscosity
+   end type Vreman_t
+
 
    class(LESModel_t), allocatable   :: LESModel
 
@@ -99,12 +107,16 @@ module LESModels
             case ("wale")
                if (.not. allocated(model)) allocate(WALE_t  :: model)
 
+            case ("vreman")
+               if (.not. allocated(model)) allocate(Vreman_t  :: model)
+
             case default
                write(STD_OUT,'(A,A,A)') "LES Model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
                print*, "   * None (default)"
                print*, "   * Smagorinsky"
                print*, "   * Wale"
+               print*, "   * Vreman"
                errorMessage(STD_OUT)
                stop
 
@@ -126,6 +138,7 @@ module LESModels
             select case (trim(modelName))
             case ("none")
                model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
 
             case ("linear")
                model % WallModel             = LINEAR_WALLMODEL
@@ -135,19 +148,25 @@ module LESModels
                model % WallModel = NO_WALLMODEL
                model % requiresWallDistances = .true.
 
+            case ("Vreman")
+               model % WallModel = NO_WALLMODEL
+               model % requiresWallDistances = .true.
+
             case default
                write(STD_OUT,'(A,A,A)') "Wall model ",trim(modelName), " is not implemented."
                print*, "Available options are:"
-               print*, "   * Linear (default)"
+               print*, "   * Linear"
                print*, "   * Wale"
-               print*, "   * None"
+               print*, "   * Vreman"
+               print*, "   * None (default)"
                errorMessage(STD_OUT)
                stop
 
             end select
             
          else
-            model % WallModel = LINEAR_WALLMODEL
+            !model % WallModel = LINEAR_WALLMODEL
+            model % WallModel = NO_WALLMODEL
          end if
          
 !        Describe
@@ -181,6 +200,9 @@ module LESModels
          select case (self % WallModel)
             case (LINEAR_WALLMODEL)
                LESModel_ComputeWallEffect = min(LS, dWall * K_VONKARMAN)
+            case (NO_WALLMODEL)
+               LESModel_ComputeWallEffect = LS
+               ! LS is left unmodified if no wall model is selected
          end select
          
       end function LESModel_ComputeWallEffect
@@ -345,63 +367,44 @@ module LESModels
          real(kind=RP), intent(out)          :: mu
          !-local-variables---------------------------------------
          real(kind=RP)  :: S(NDIM, NDIM)
+         real(kind=RP)  :: gradV2(NDIM, NDIM), gradV(NDIM,NDIM)
          real(kind=RP)  :: Sd(NDIM, NDIM)
-         real(kind=RP)  :: normS, normSd, divV, kappa, LS
+         real(kind=RP)  :: normS, normSd, divV2, kappa, LS
          real(kind=RP)  :: U_x(NDIM)
          real(kind=RP)  :: U_y(NDIM)
          real(kind=RP)  :: U_z(NDIM)
-         integer        :: m
+         integer        :: i,j
          !-------------------------------------------------------
          
          call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+
+         gradV(1,:) = U_x(1:3)
+         gradV(2,:) = U_y(1:3)
+         gradV(3,:) = U_z(1:3)
+ 
+         do i = 1, 3 
+            do j = 1, 3 
+               S(i,j)      = 0.5_RP*(gradV(i,j)+gradV(j,i))
+               gradV2(i,j) = 0.5_RP*(gradV(i,j)*gradV(j,i))
+            end do  
+         end do  
          
-!
-!        Compute symmetric part of the deformation tensor
-!        ------------------------------------------------
-         S(:,1) = U_x(1:3)
-         S(:,2) = U_y(1:3)
-         S(:,3) = U_z(1:3)
+         divV2 = gradV2(1,1) + gradV2(2,2) + gradV2(3,3)
 
-         S(1,:) = S(1,:) + U_x(1:3)
-         S(2,:) = S(2,:) + U_y(1:3)
-         S(3,:) = S(3,:) + U_z(1:3)
-
-         S = 0.5_RP * S
-
-         divV = S(1,1) + S(2,2) + S(3,3)
-
-!        Compute the norm of S
-!        --------------------- 
          normS =  sum(S*S)
 
-!        Remove the volumetric deformation tensor with squared gradients
-!        ----------------------------------------
-	 do m = 1, 3 
-         Sd(m,1) = POW2(U_x(m))
-         Sd(m,2) = POW2(U_y(m))
-         Sd(m,3) = POW2(U_z(m))
-	 end do  
+         do i = 1, 3 
+            do j = 1, 3 
+               Sd(i,j) = 0.5_RP*(gradV2(i,j)+gradV2(j,i))
+            end do  
+         end do  
 
-	 do m = 1, 3
-         Sd(1,m) = Sd(1,m) + POW2(U_x(m))
-         Sd(2,m) = Sd(2,m) + POW2(U_y(m))
-         Sd(3,m) = Sd(3,m) + POW2(U_z(m))
-	 end do 
+         Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * divV2
+         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * divV2
+         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * divV2
 
-         Sd = 0.5_RP * Sd
-
-	      Sd(1,1) = Sd(1,1) - 1.0_RP / 3.0_RP * POW2(divV)
-         Sd(2,2) = Sd(2,2) - 1.0_RP / 3.0_RP * POW2(divV)
-         Sd(3,3) = Sd(3,3) - 1.0_RP / 3.0_RP * POW2(divV)
-
-!        Compute the norm of Sd
-!        --------------------- 
          normSd =  sum(Sd*Sd)
-!
-!        Compute viscosity and thermal conductivity
-!        ------------------------------------------
-         LS = min(this % Cw * delta, dWall * K_VONKARMAN)
-         LS = this % ComputeWallEffect(LS,dWall)
+         LS = this % Cw * delta
          
          mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
          
@@ -422,9 +425,112 @@ module LESModels
             case(NO_WALLMODEL)
                write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Wale"
             case(LINEAR_WALLMODEL)
-               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model wiht Wale -> deactivate"
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model with Wale -> deactivate"
          end select
          
       end subroutine WALE_Describe
 
+!
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+!           Vreman
+!           -----------------------
+!           C = 0.07 (in typical FVM)
+!           C = 0.1 in Alya, also recommended by Vreman for highspeed flows 
+!//////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine Vreman_Initialize(self, controlVariables)
+         implicit none
+         class(Vreman_t)                     :: self
+         class(FTValueDictionary),  intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         self % active                = .true.
+
+         if ( controlVariables % containsKey(LESIntensityKey) ) then
+            self % C = controlVariables % doublePrecisionValueForKey(LESIntensityKey)
+
+         else
+            self % C = 0.07_RP      
+
+         end if
+
+      end subroutine Vreman_Initialize
+
+      pure subroutine Vreman_ComputeViscosity (this, delta, dWall, Q, Q_x, Q_y, Q_z, mu)
+         implicit none
+         !-arguments---------------------------------------------
+         class(Vreman_t), intent(in)    :: this
+         real(kind=RP), intent(in)           :: delta
+         real(kind=RP), intent(in)           :: dWall
+         real(kind=RP), intent(in)           :: Q(NCONS)
+         real(kind=RP), intent(in)           :: Q_x(NGRAD)
+         real(kind=RP), intent(in)           :: Q_y(NGRAD)
+         real(kind=RP), intent(in)           :: Q_z(NGRAD)
+         real(kind=RP), intent(out)          :: mu
+         !-local-variables---------------------------------------
+         real(kind=RP)  :: G__ij(NDIM, NDIM)
+         real(kind=RP)  :: gradV(NDIM, NDIM)
+         real(kind=RP)  :: delta2, alpha, Bbeta, LS
+         real(kind=RP)  :: U_x(NDIM)
+         real(kind=RP)  :: U_y(NDIM)
+         real(kind=RP)  :: U_z(NDIM)
+         integer        :: i,j,k
+         !-------------------------------------------------------
+         
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+
+         delta2 = delta*delta 
+         gradV(1,:) = U_x(1:3)
+         gradV(2,:) = U_y(1:3)
+         gradV(3,:) = U_z(1:3)
+         G__ij(:,:) = 0.0_RP
+
+         do i = 1,3
+            do j = 1,3
+               do k = 1,3
+                  G__ij(i,j) = G__ij(i,j) &
+                     + (gradV(i,k)*gradV(j,k)*delta2)
+               end do
+            end do
+         end do
+
+         alpha =  sum(gradV*gradV)
+         Bbeta = G__ij(1,1) * G__ij(2,2) &
+            &  + G__ij(2,2) * G__ij(3,3) &
+            &  + G__ij(3,3) * G__ij(1,1) &
+            &  - G__ij(1,2) * G__ij(1,2) &
+            &  - G__ij(2,3) * G__ij(2,3) &
+            &  - G__ij(1,3) * G__ij(1,3)
+
+         if(alpha>1.0e-10_RP) then
+            mu = Q(IRHO) * this % C * sqrt (Bbeta/alpha)
+         else 
+            mu = 0.0_RP
+         end if
+         
+      end subroutine Vreman_ComputeViscosity
+
+      subroutine Vreman_Describe(self)
+         implicit none
+         class(Vreman_t),   intent(in)  :: self
+
+         if ( .not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,*)
+         call SubSection_Header("LES Model")
+         write(STD_OUT,'(30X,A,A30,A)') "->","LES model: ","Vreman"
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","LES model intensity: ", self % C
+         
+         select case (self % WallModel)
+            case(NO_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "Vreman"
+            case(LINEAR_WALLMODEL)
+               write(STD_OUT,'(30X,A,A30,A)') "->","Wall model: ", "you do not need a linear model with Vreman -> deactivate"
+         end select
+         
+      end subroutine Vreman_Describe
 end module LESModels
