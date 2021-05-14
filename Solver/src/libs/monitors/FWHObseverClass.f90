@@ -22,6 +22,9 @@ Module  FWHObseverClass  !
    use ZoneClass
    use HexMeshClass
    use MPI_Process_Info
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    Implicit None
 
 !
@@ -197,8 +200,6 @@ Module  FWHObseverClass  !
 !        This subroutine updates the observer accoustic pressure computing it from
 !        the mesh storage. It is stored in the "bufferPosition" position of the 
 !        buffer.
-!         TODO: use openmp (commented)
-!         TODO: use mpi (see surface integral)
 !     *******************************************************************
 !
 use VariableConversion, only: Pressure, PressureDot
@@ -207,8 +208,6 @@ use VariableConversion, only: Pressure, PressureDot
       class (HexMesh), intent(in)                          :: mesh
       integer,intent(in), optional                         :: bufferPosition
       logical, intent(in)                                  :: isSolid, interpolate
-      ! real(kind=RP), intent(in)                            :: dt
-      ! logical, intent(in), optional                        :: isFirst
 
       ! local variables
       real(kind=RP)                                        :: Pt, Pl  ! pressure of each pair
@@ -216,49 +215,67 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP), dimension(3)                          :: mInterp ! slope of interpolation
       real(kind=RP)                                        :: valx, valy, valz
       integer                                              :: zoneFaceID, meshFaceID !,ierr
+      integer                                             :: storePosition
 
 !     Initialization
 !     --------------            
-      if (present(bufferPosition))self % Pac(bufferPosition,:) = 0.0_RP
+      if (present(bufferPosition)) self % Pac(bufferPosition,:) = 0.0_RP
       Pacc = 0.0_RP
       valx = 0.0_RP
       valy = 0.0_RP
       valz = 0.0_RP
 
-!        Loop the pairs (equivalent to loop the zone) and get the values
-!        ---------------------------------------
-!!$omp do private(fID,localVal) reduction(+:valx,valy,valz) schedule(runtime)
-      ! print *, "obs: ", trim(self%observerName)
+!     Loop the pairs (equivalent to loop the zone) and get the values
+!     ---------------------------------------
       interp_cond: if (interpolate) then
-          do zoneFaceID = 1, self % numberOfFaces
-!        Compute the integral
-!        --------------------
+!        For this case only save the values of the solution of each pair, at the corresponding position
+!        ---------------------------------------
+!$omp parallel private(meshFaceID,storePosition,localPacc) shared(mesh,isSolid,interpolate,Pacc,NodalStorage,&
+!$omp&                                                     self,bufferPosition)
+!$omp do private(meshFaceID,storePosition,localPacc) schedule(runtime)
+         do zoneFaceID = 1, self % numberOfFaces
+!            Compute the integral
+!            --------------------
              meshFaceID = self % sourcePair(zoneFaceID) % faceIDinMesh
-             localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid , interpolate, bufferPosition)
+             localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid )
 
-             end do  
+             !save solution at bufferPosition or last position
+             if (present(bufferPosition)) then
+                 storePosition = bufferPosition
+             else
+                 storePosition = size(self % sourcePair(zoneFaceID) % Pacc, dim=1)
+             end if
+             self % sourcePair(zoneFaceID) % Pacc(storePosition,:) = localPacc
+         end do  
+!$omp end do
+!$omp end parallel
      else interp_cond
+!        For this case get the whole solution of the observer, adding all the pairs without saving
+!        ---------------------------------------
+!$omp parallel private(meshFaceID, localPacc) shared(mesh,isSolid,interpolate,Pacc,NodalStorage,&
+!$omp&                                        self,valx,valy,valz)
+!$omp do private(meshFaceID,localPacc) reduction(+:valx,valy,valz) schedule(runtime)
           do zoneFaceID = 1, self % numberOfFaces
-!        Compute the integral
-!        --------------------
+!            Compute the integral
+!            --------------------
              meshFaceID = self % sourcePair(zoneFaceID) % faceIDinMesh
 
-             localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid , interpolate)
+             localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid )
 
-         ! sum without interpolate: supose little change of each tDelay
+             ! sum without interpolate: supose little change of each tDelay
              valx = valx + localPacc(1)
              valy = valy + localPacc(2)
              valz = valz + localPacc(3)
-             end do  
-!!$omp end do
-!!$omp end parallel
+         end do  
+!$omp end do
+!$omp end parallel
 
           Pacc = (/valx, valy, valz/)
 
-! #ifdef _HAS_MPI_
-!       localPacc = Pacc
-!       call mpi_allreduce(localPacc, Pacc, 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
-! #endif
+#ifdef _HAS_MPI_
+      localPacc = Pacc
+      call mpi_allreduce(localPacc, Pacc, 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
 
           self % Pac(bufferPosition,:) = Pacc
      end if interp_cond
@@ -354,19 +371,27 @@ use VariableConversion, only: Pressure, PressureDot
       ! interpolate the solution of each pair at first position
       ! and save the time of each pair at its last position
       tobserver = tsource + self % tDelay
+!$omp parallel shared(self)
+!$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
             if (self % sourcePair(i) % tDelay .eq. self % tDelay) cycle
             call self % sourcePair(i) % interpolateSolS(tobserver, tsource)
       end do 
+!$omp end do
+!$omp end parallel
 
       ! sum all the pair solution and save it at bufferPosition of the observer sol
       nDiscard = 0
       call self % sumIntegrals(nDiscard, 1, bufferPosition, bufferPosition)
 
       ! update the solution of each pair and its times for next iteration
+!$omp parallel shared(self)
+!$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
             call self % sourcePair(i) % updateOneStep()
       end do 
+!$omp end do
+!$omp end parallel
 
     End Subroutine ObserverUpdateOneStep
 
@@ -406,6 +431,8 @@ use VariableConversion, only: Pressure, PressureDot
       allocate(tobserver(n))
       tobserver(1:n) = tsource(k:no_of_lines) + self % tdelay
 
+!$omp parallel shared(self, nDiscard, n, no_of_lines, tobserver, tsource,k)
+!$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
           ! call interp of each pair that are not the minimum
           ! if (almostequal(self % sourcepair(i) % tdelay, self % tdelay)) then
@@ -415,6 +442,8 @@ use VariableConversion, only: Pressure, PressureDot
               call self % sourcePair(i) % interpolateSolF(n, no_of_lines, tobserver, tsource(1:no_of_lines), nDiscard(i))
           end if
       end do
+!$omp end do
+!$omp end parallel
 
       ! set to 0 the first part of the solution, which cannot be interpolated
       ! in this case Pacc is written from 1:no_of_lines, which have a value of 0 at first positions, not need to change obs write proc
@@ -433,7 +462,6 @@ use VariableConversion, only: Pressure, PressureDot
    End Subroutine ObserverInterpolateSol
 
    ! sum all the interpolated solution of all pairs and save it at the observer solution
-   ! todo: use openmp and mpi
    Subroutine ObserverSumIntegrals(self, nDiscard, N, startIndex, no_of_lines)
 
       implicit none  
@@ -456,6 +484,8 @@ use VariableConversion, only: Pressure, PressureDot
       valy = 0.0_RP
       valz = 0.0_RP
 
+!$omp parallel private(localPacc) shared(Pacc,nDiscard,N,self,valx,valy,valz)
+!$omp do private(localPacc) reduction(+:valx,valy,valz) schedule(runtime)
       do i = 1, self % numberOfFaces
 !        Get the array of interpolated values of each pair
          localPacc(1:N,:) = self % sourcePair(i) % Pacc(nDiscard(i)+1:nDiscard(i)+N,:)
@@ -466,10 +496,17 @@ use VariableConversion, only: Pressure, PressureDot
          valz = valz + localPacc(:,3)
 
       end do  
+!$omp end do
+!$omp end parallel
 
       Pacc(:,1) = valx(:)
       Pacc(:,2) = valy(:)
       Pacc(:,3) = valz(:)
+
+#ifdef _HAS_MPI_
+      localPacc = Pacc
+      call mpi_allreduce(localPacc, Pacc, 3*N, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
 
       self % Pac(startIndex:no_of_lines,:) = Pacc(1:N,:)
 
@@ -692,7 +729,8 @@ use VariableConversion, only: Pressure, PressureDot
 !         TODO: check if is more efficient to store FWHvariables for each face instead of calculating it always
 !               for many observers, its being recomputed as many as observers
 
-   Function FWHSurfaceIntegral(self, f, isSolid, interpolate, bufferPosition) result(Pacc)
+   ! Function FWHSurfaceIntegral(self, f, isSolid, interpolate, bufferPosition) result(Pacc)
+   Function FWHSurfaceIntegral(self, f, isSolid) result(Pacc)
 
        use FWHDefinitions, only: rho0, P0, c0, U0, M0
        use VariableConversion, only: Pressure, PressureDot
@@ -700,9 +738,10 @@ use VariableConversion, only: Pressure, PressureDot
 
        class(ObserverSourcePairClass)                      :: self
        class(Face), intent(in)                             :: f
+       logical, intent(in)                                 :: isSolid
        real(kind=RP),dimension(3)                          :: Pacc  ! accoustic pressure values
-       logical, intent(in)                                 :: isSolid, interpolate
-       integer, intent(in), optional                       :: bufferPosition
+       ! logical, intent(in)                                 :: isSolid, interpolate
+       ! integer, intent(in), optional                       :: bufferPosition
 
        ! local variables
        integer                                             :: i, j  ! face indexes
@@ -710,7 +749,7 @@ use VariableConversion, only: Pressure, PressureDot
        real(kind=RP), dimension(NDIM,NDIM)                 :: Lij, LijDot
        type(NodalStorage_t), pointer                       :: spAxi, spAeta
        real(kind=RP)                                       :: Pt, Pl
-       integer                                             :: storePosition
+       ! integer                                             :: storePosition
 
        ! Initialization
        Pt = 0.0_RP
@@ -756,17 +795,6 @@ use VariableConversion, only: Pressure, PressureDot
        Pacc = (/Pt, Pl, Pt+Pl/)
        ! print *, "Pacc: ", Pacc
        
-       !save solution at bufferPosition or last position
-       if (interpolate) then
-           if (present(bufferPosition)) then
-               storePosition = bufferPosition
-       if (self%faceIDinMesh == 3300) then
-       endif
-           else
-               storePosition = size(self % Pacc, dim=1)
-           end if
-           self % Pacc(storePosition,:) = Pacc
-       end if
 
    End Function FWHSurfaceIntegral 
 
@@ -807,8 +835,8 @@ use VariableConversion, only: Pressure, PressureDot
 !
       ! elements => mesh % elements
       faces => mesh % faces
-!!$omp parallel private(fID, eID, fIDs, localVal) shared(elements,mesh,NodalStorage,zoneID,integralType,val,&
-!!$omp&                                        valx,valy,valz,computeGradients)
+!!$omp parallel private(meshFaceID,Nx,Ny,QF,QDotF,Q,x,i,j) shared(faces,mesh,NodalStorage,&
+!!$omp&                                        t)
 !!$omp single
 
 !        Loop the zone to get faces and elements
@@ -816,6 +844,7 @@ use VariableConversion, only: Pressure, PressureDot
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
 
+!!$omp task depend(inout:faces(meshFaceID))
           ! mesh % faces(meshFaceID) % geom % x
           Nx = faces(meshFaceID) % Nf(1)
           Ny = faces(meshFaceID) % Nf(2)
@@ -827,14 +856,10 @@ use VariableConversion, only: Pressure, PressureDot
             x = y(:,i,j)
             call getQ(Q, Qdot, x, t)
 
-            ! faces % storage(1) % Q(:,i,j) = Q
-            ! faces % storage(1) % Qdot(:,i,j) = Qdot
             QF(:,i,j) = Q
             QdotF(:,i,j) = Qdot
            end do; end do
           end associate
-          ! faces % storage(1) % Q = QF
-          ! faces % storage(1) % Qdot = QdotF
           call faces(meshFaceID) % AdaptSolutionToFace(NCONS, Nx, Ny, QF, 1, QdotE=QdotF, computeQdot=.TRUE.)
 
          !eID = mesh % faces(meshFaceID) % elementIDs(1)
@@ -861,6 +886,7 @@ use VariableConversion, only: Pressure, PressureDot
 !!$omp end task
       end do
 !!$omp end single
+!!$omp end parallel
 
    End Subroutine SourceProlongSolution
 
