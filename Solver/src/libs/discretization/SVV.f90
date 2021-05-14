@@ -63,7 +63,7 @@ module SpectralVanishingViscosity
    enum, bind(C)
       enumerator :: PHYSICAL_DISS, GUERMOND_DISS
    end enum
-   
+
    type FilterMatrices_t
       logical                    :: constructed = .false.
       integer                    :: N
@@ -137,7 +137,7 @@ module SpectralVanishingViscosity
          class(HexMesh),            intent(in) :: mesh
 !
 !        ---------------
-!        Local variables         
+!        Local variables
 !        ---------------
 !
          integer     :: eID
@@ -158,7 +158,7 @@ module SpectralVanishingViscosity
 
          else
             self % enabled = .false.
-   
+
          end if
 
          if ( .not. self % enabled ) return
@@ -261,7 +261,7 @@ module SpectralVanishingViscosity
          end if
 !
 !        -------------------------
-!        Get the SVV kernel cutoff  
+!        Get the SVV kernel cutoff
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
@@ -311,9 +311,9 @@ module SpectralVanishingViscosity
             end select
          else
             self % diss_type = PHYSICAL_DISS
-      
+
          end if
-         
+
          select case (self % diss_type)
          case (PHYSICAL_DISS)
             select case (grad_vars)
@@ -322,13 +322,13 @@ module SpectralVanishingViscosity
                self % Compute_SVV   => SVV_physical_dissipation_ENTROPY
                allocate(self % entropy_indexes(5))
                self % entropy_indexes = [1,2,3,4,5]
-   
-            case(GRADVARS_ENERGY)   
+
+            case(GRADVARS_ENERGY)
                self % Compute_Hflux => Hflux_physical_dissipation_ENERGY
                self % Compute_SVV   => SVV_physical_dissipation_ENERGY
                allocate(self % entropy_indexes(3))
                self % entropy_indexes = [2,3,4]
-   
+
             case default
                write(STD_OUT,*) "ERROR. SVV with physical dissipation is only configured for Energy or Entropy gradient variables"
                errorMessage(STD_OUT)
@@ -363,9 +363,9 @@ module SpectralVanishingViscosity
          !-arguments----------------------------------------
          class(SVV_t), intent (in) :: this
          !--------------------------------------------------
-         
+
          if (.not. MPI_Process % isRoot) return
-         
+
          write(STD_OUT,'(/)')
          call Subsection_Header("Spectral Vanishing Viscosity (SVV)")
 
@@ -375,7 +375,7 @@ module SpectralVanishingViscosity
             case (GUERMOND_DISS)   ; write(STD_OUT,'(A)') 'Guermond'
          end select
 
-         
+
          if (this % muIsSmagorinsky) then
             write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV1
@@ -385,13 +385,13 @@ module SpectralVanishingViscosity
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity 2 : ", this % muSVV2
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity 2: ", this % alphaSVV2
          end if
-         
+
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
          select case (this % filterType)
             case (LPASS_FILTER) ; write(STD_OUT,'(A)') 'low-pass'
             case (HPASS_FILTER) ; write(STD_OUT,'(A)') 'high-pass'
          end select
-         
+
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter shape: "
          select case (this % filterShape)
             case (POW_FILTER)   ; write(STD_OUT,'(A)') 'power kernel'
@@ -404,7 +404,7 @@ module SpectralVanishingViscosity
          else
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Filter cutoff: ", this % Psvv
          end if
-         
+
       end subroutine SVV_Describe
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
@@ -530,7 +530,7 @@ module SpectralVanishingViscosity
             else
                Qy = self % filters(e % Nxyz(2)) % Q
             end if
-             
+
             if ( e % Nxyz(3) > 0 ) then
                call self % filters(e % Nxyz(3)) % Recompute(Psvv, self % filtertype,Qz)
             else
@@ -549,7 +549,7 @@ module SpectralVanishingViscosity
 
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
                    spA_eta  => NodalStorage(e % Nxyz(2)), &
-                   spA_zeta => NodalStorage(e % Nxyz(3))) 
+                   spA_zeta => NodalStorage(e % Nxyz(3)))
 !
 !        -----------------
 !        Compute the Hflux
@@ -559,7 +559,7 @@ module SpectralVanishingViscosity
            call self % Compute_Hflux(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
                                                 e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), &
                                                 sqrt_mu(i,j,k), sqrt_alpha(i,j,k), Hx(:,i,j,k), Hy(:,i,j,k), Hz(:,i,j,k))
-   
+
            Hx(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)) * Hx(:,i,j,k)
            Hy(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)) * Hy(:,i,j,k)
            Hz(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)) * Hz(:,i,j,k)
@@ -596,7 +596,7 @@ module SpectralVanishingViscosity
             Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
             Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
          end do                ; end do                ; end do                ; end do
-         
+
          if (self % filterType == LPASS_FILTER) then
             Hxf = Hx - Hxf
             Hyf = Hy - Hyf
@@ -618,7 +618,7 @@ module SpectralVanishingViscosity
 !           ---------------------------
             SVV_diss = SVV_diss + spA_xi % w(i) * spA_eta % w(j) * spA_zeta % w(k) * &
                         (sum(e % storage % U_x(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IX) + &
-                             e % storage % U_y(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IY) + & 
+                             e % storage % U_y(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IY) + &
                              e % storage % U_z(self % entropy_indexes,i,j,k)*cartesianFlux(self % entropy_indexes,IZ))) * e % geom % jacobian(i,j,k)
 
 
@@ -656,7 +656,7 @@ module SpectralVanishingViscosity
 
 
          end associate
-         
+
       end subroutine SVV_ComputeInnerFluxes
 !
 !//////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -670,7 +670,7 @@ module SpectralVanishingViscosity
 !        ***************************************************************************************
 !           For the energy variables, the SVV flux is very simple as the NS viscous matrix
 !        is constant. We only multiply by the square root of the viscosity
-!     
+!
 !        ***************************************************************************************
 !
          implicit none
@@ -685,9 +685,9 @@ module SpectralVanishingViscosity
 !
          real(kind=RP) :: invRho, u, v, w, p_div_rho, sqrt_mu_T
 
-         Hx = sqrt_mu*Ux 
-         Hy = sqrt_mu*Uy 
-         Hz = sqrt_mu*Uz  
+         Hx = sqrt_mu*Ux
+         Hy = sqrt_mu*Uy
+         Hz = sqrt_mu*Uz
 
       end subroutine Hflux_physical_dissipation_ENERGY
 
@@ -695,35 +695,35 @@ module SpectralVanishingViscosity
 !
 !        ***************************************************************************************
 !
-!           This Hflux is computed from the LU decomposition of the viscous fluxes. 
+!           This Hflux is computed from the LU decomposition of the viscous fluxes.
 !        If Fv = Lᵀ·D·L∇U, then Hflux = √D*L∇U, with
-!     
+!
 !        D = diag(α  4/3µT  µT  µT  T²κ | α  0  µT  µT  T²κ | α  0  0  0  T²κ),
 !
 !        and
-!     
+!
 !            |---------------------|-----------------------|-----------------------|
 !            | 1   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   1   0   0   u   |   0   0 -1/2  0 -v/2  |   0   0   0 -1/2 -w/2 |
-!            | 0   0   1   0   v   |   0   1   0   0   u   |   0   0   0   0   0   |   
-!            | 0   0   0   1   w   |   0   0   0   0   0   |   0   1   0   0   u   |   
-!            | 0   0   0   0   1   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | 0   0   1   0   v   |   0   1   0   0   u   |   0   0   0   0   0   |
+!            | 0   0   0   1   w   |   0   0   0   0   0   |   0   1   0   0   u   |
+!            | 0   0   0   0   1   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   1   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!        L = | 0   0   0   0   0   |   0   0   1   0   v   |   0   0   0  -1  -w   |   
-!            | 0   0   0   0   0   |   0   0   0   1   w   |   0   0   1   0   v   |   
-!            | 0   0   0   0   0   |   0   0   0   0   1   |   0   0   0   0   0   |   
+!        L = | 0   0   0   0   0   |   0   0   1   0   v   |   0   0   0  -1  -w   |
+!            | 0   0   0   0   0   |   0   0   0   1   w   |   0   0   1   0   v   |
+!            | 0   0   0   0   0   |   0   0   0   0   1   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   1   0   0   0   0   |
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   1   |   
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   1   |
 !            |---------------------|-----------------------|-----------------------|
 !
 !        Only the non-constants are taken into the sqrt of (D). (e.g. 4/3µT -> 4/3 √(µT))
-!     
+!
 !        ***************************************************************************************
 !
          implicit none
@@ -779,37 +779,37 @@ module SpectralVanishingViscosity
 !
 !        ***************************************************************************************
 !
-!           This Hflux is computed from the LU decomposition of the Guermond-Popov fluxes. 
+!           This Hflux is computed from the LU decomposition of the Guermond-Popov fluxes.
 !        If FGP = Lᵀ·D·L∇U, then Hflux = √D*L∇U, with
-!     
+!
 !        D = diag(αρ  µp  µp/2  µp/2  αρ | αρ  0  µp  µp/2  αρ  | αρ  0  0  µp  αρ),
 !
 !        and
-!     
+!
 !            |---------------------|-----------------------|-----------------------|
 !            | 1   u   v   w   e   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   1   0   0   u   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | 0   0   1   0   v   |   0   1   0   0   u   |   0   0   0   0   0   |   
-!            | 0   0   0   1   w   |   0   0   0   0   0   |   0   1   0   0   u   |   
-!            | 0   0   0   0   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | 0   0   1   0   v   |   0   1   0   0   u   |   0   0   0   0   0   |
+!            | 0   0   0   1   w   |   0   0   0   0   0   |   0   1   0   0   u   |
+!            | 0   0   0   0   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   1   u   v   w   e   |   0   0   0   0   0   |
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!        L = | 0   0   0   0   0   |   0   0   1   0   v   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   1   w   |   0   0   1   0   v   |   
-!            | 0   0   0   0   0   |   0   0   0   0   Λ   |   0   0   0   0   0   |   
+!        L = | 0   0   0   0   0   |   0   0   1   0   v   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   1   w   |   0   0   1   0   v   |
+!            | 0   0   0   0   0   |   0   0   0   0   Λ   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   1   u   v   w   e   |
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   1   w   |   
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   Λ   |   
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   1   w   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   Λ   |
 !            |---------------------|-----------------------|-----------------------|
 !
 !        Λ=(p/ρ)/√(γ-1)
 !
 !        Only the non-constants are taken into the sqrt of (D). (e.g. µp/2 -> 1/2 √(µp) )
-!     
+!
 !        ***************************************************************************************
 !
          implicit none
@@ -839,14 +839,14 @@ module SpectralVanishingViscosity
          sqrt_mu_p      = sqrt_mu*sqrt(p_div_rho*Q(IRHO))
 
          Hx(IRHO)  = invRho*sum(Q*Ux)
-         Hx(IRHOU) = Ux(IRHOU) + u*Ux(IRHOE) 
+         Hx(IRHOU) = Ux(IRHOU) + u*Ux(IRHOE)
          Hx(IRHOV) = Ux(IRHOV) + v*Ux(IRHOE) + Uy(IRHOU) + u*Uy(IRHOE)
          Hx(IRHOW) = Ux(IRHOW) + w*Ux(IRHOE) + Uz(IRHOU) + u*Uz(IRHOE)
          Hx(IRHOE) = lambda*Ux(IRHOE)
 
          Hy(IRHO)  = invRho*sum(Q*Uy)
          Hy(IRHOU) = 0.0_RP
-         Hy(IRHOV) = Uy(IRHOV) + v*Uy(IRHOE) 
+         Hy(IRHOV) = Uy(IRHOV) + v*Uy(IRHOE)
          Hy(IRHOW) = Uy(IRHOW) + w*Uy(IRHOE) + Uz(IRHOV) + v*Uz(IRHOE)
          Hy(IRHOE) = lambda*Uy(IRHOE)
 
@@ -890,28 +890,28 @@ module SpectralVanishingViscosity
          real(kind=RP)  :: kappa
 
          kappa = sqrt_mu * dimensionless % mu_to_kappa
-  
+
          invRho  = 1.0_RP / Q(IRHO)
          u = Q(IRHOU:IRHOW)*invRho
 
          divV = Hx(IX) + Hy(IY) + Hz(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = sqrt_mu * (2.0_RP * Hx(IRHOU) - 2.0_RP/3.0_RP * divV ) 
-         F(IRHOV,IX) = sqrt_mu * ( Hx(IRHOV) + Hy(IRHOU) ) 
-         F(IRHOW,IX) = sqrt_mu * ( Hx(IRHOW) + Hz(IRHOU) ) 
-         F(IRHOE,IX) = F(IRHOU,IX) * u(1) + F(IRHOV,IX) * u(2) + F(IRHOW,IX) * u(3) + kappa * Hx(IRHOE) 
+         F(IRHOU,IX) = sqrt_mu * (2.0_RP * Hx(IRHOU) - 2.0_RP/3.0_RP * divV )
+         F(IRHOV,IX) = sqrt_mu * ( Hx(IRHOV) + Hy(IRHOU) )
+         F(IRHOW,IX) = sqrt_mu * ( Hx(IRHOW) + Hz(IRHOU) )
+         F(IRHOE,IX) = F(IRHOU,IX) * u(1) + F(IRHOV,IX) * u(2) + F(IRHOW,IX) * u(3) + kappa * Hx(IRHOE)
 
          F(IRHO,IY) = 0.0_RP
-         F(IRHOU,IY) = F(IRHOV,IX) 
+         F(IRHOU,IY) = F(IRHOV,IX)
          F(IRHOV,IY) = sqrt_mu * (2.0_RP * Hy(IRHOV) - 2.0_RP / 3.0_RP * divV )
-         F(IRHOW,IY) = sqrt_mu * ( Hy(IRHOW) + Hz(IRHOV) ) 
+         F(IRHOW,IY) = sqrt_mu * ( Hy(IRHOW) + Hz(IRHOV) )
          F(IRHOE,IY) = F(IRHOU,IY) * u(1) + F(IRHOV,IY) * u(2) + F(IRHOW,IY) * u(3) + kappa * Hy(IRHOE)
 
          F(IRHO,IZ) = 0.0_RP
-         F(IRHOU,IZ) = F(IRHOW,IX) 
-         F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = sqrt_mu * ( 2.0_RP * Hz(IRHOW) - 2.0_RP / 3.0_RP * divV ) 
+         F(IRHOU,IZ) = F(IRHOW,IX)
+         F(IRHOV,IZ) = F(IRHOW,IY)
+         F(IRHOW,IZ) = sqrt_mu * ( 2.0_RP * Hz(IRHOW) - 2.0_RP / 3.0_RP * divV )
          F(IRHOE,IZ) = F(IRHOU,IZ) * u(1) + F(IRHOV,IZ) * u(2) + F(IRHOW,IZ) * u(3) + kappa * Hz(IRHOE)
 
       end subroutine SVV_physical_dissipation_ENERGY
@@ -922,30 +922,30 @@ module SpectralVanishingViscosity
 !
 !           We add what remains from the decomposition, from Hflux: Fv = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts) 
-!     
+!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!
 !        D = diag(α  µT  µT  µT  T²κ | α  0  µT  µT  T²κ | α  0  0  0  T²κ),
 !
 !        and
-!     
+!
 !            |---------------------|-----------------------|-----------------------|
 !            | 1   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   1   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | 0   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | 0   u   v   w   1   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | 0   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | 0   u   v   w   1   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   1   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!        Lᵀ= | 0 -1/2  0   0   0   |   0   0   1   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   1   0   |   0   0   0   0   0   |   
-!            | 0 -v/2  u   0   0   |   0   0   v   w   1   |   0   0   0   0   0   |   
+!        Lᵀ= | 0 -1/2  0   0   0   |   0   0   1   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   1   0   |   0   0   0   0   0   |
+!            | 0 -v/2  u   0   0   |   0   0   v   w   1   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   1   0   0   0   0   |
 !            | 0   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | 0   0   0   0   0   |   0   0   0   1   0   |   0   0   0   0   0   |   
-!            | 0 -1/2  0   0   0   |   0   0  -1   0   0   |   0   0   0   0   0   |   
-!            | 0 -w/2  0   u   0   |   0   0  -w   v   0   |   0   0   0   0   1   |   
+!            | 0   0   0   0   0   |   0   0   0   1   0   |   0   0   0   0   0   |
+!            | 0 -1/2  0   0   0   |   0   0  -1   0   0   |   0   0   0   0   0   |
+!            | 0 -w/2  0   u   0   |   0   0  -w   v   0   |   0   0   0   0   1   |
 !            |---------------------|-----------------------|-----------------------|
 !
 !        ***************************************************************************************
@@ -995,7 +995,7 @@ module SpectralVanishingViscosity
          F(IRHOV,IY) = -0.5_RP*Hx_sqrtD(IRHOU)+Hy_sqrtD(IRHOV)
          F(IRHOW,IY) = Hy_sqrtD(IRHOW)
          F(IRHOE,IY) = -0.5_RP*v*Hx_sqrtD(IRHOU) + u*Hx_sqrtD(IRHOV) + v*Hy_sqrtD(IRHOV) + w*Hy_sqrtD(IRHOW) + Hy_sqrtD(IRHOE)
-         
+
          F(IRHO,IZ)  = Hz_sqrtD(IRHO)
          F(IRHOU,IZ) = Hx_sqrtD(IRHOW)
          F(IRHOV,IZ) = Hy_sqrtD(IRHOW)
@@ -1010,30 +1010,30 @@ module SpectralVanishingViscosity
 !
 !           We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts) 
-!     
+!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!
 !        D = diag(αρ  µp  µp  µp  αρ | αρ  0  µp  µp  αρ  | αρ  0  0  µp  αρ),
 !
 !        and
-!     
+!
 !            |---------------------|-----------------------|-----------------------|
 !            | 1   0   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            | u   1   0   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
-!            | v   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | w   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |   
-!            | e   u   v   w   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |   
+!            | v   0   1   0   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | w   0   0   1   0   |   0   0   0   0   0   |   0   0   0   0   0   |
+!            | e   u   v   w   Λ   |   0   0   0   0   0   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   1   0   0   0   0   |   0   0   0   0   0   |
 !            | 0   0   1   0   0   |   u   0   0   0   0   |   0   0   0   0   0   |
-!        Lᵀ= | 0   0   0   0   0   |   v   0   1   0   0   |   0   0   0   0   0   |   
-!            | 0   0   0   0   0   |   w   0   0   1   0   |   0   0   0   0   0   |   
-!            | 0   0   u   0   0   |   e   0   v   w   Λ   |   0   0   0   0   0   |   
+!        Lᵀ= | 0   0   0   0   0   |   v   0   1   0   0   |   0   0   0   0   0   |
+!            | 0   0   0   0   0   |   w   0   0   1   0   |   0   0   0   0   0   |
+!            | 0   0   u   0   0   |   e   0   v   w   Λ   |   0   0   0   0   0   |
 !            |---------------------|-----------------------|-----------------------|
 !            | 0   0   0   0   0   |   0   0   0   0   0   |   1   0   0   0   0   |
 !            | 0   0   0   1   0   |   0   0   0   0   0   |   u   0   0   0   0   |
-!            | 0   0   0   0   0   |   0   0   0   1   0   |   v   0   0   0   0   |   
-!            | 0   0   0   0   0   |   0   0   0   0   0   |   w   0   0   1   0   |   
-!            | 0   0   0   u   0   |   0   0   0   v   0   |   e   0   0   w   Λ   |   
+!            | 0   0   0   0   0   |   0   0   0   1   0   |   v   0   0   0   0   |
+!            | 0   0   0   0   0   |   0   0   0   0   0   |   w   0   0   1   0   |
+!            | 0   0   0   u   0   |   0   0   0   v   0   |   e   0   0   w   Λ   |
 !            |---------------------|-----------------------|-----------------------|
 !
 !        ***************************************************************************************
@@ -1086,7 +1086,7 @@ module SpectralVanishingViscosity
          F(IRHOV,IY) = v*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOV)
          F(IRHOW,IY) = w*Hy_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
          F(IRHOE,IY) = e*Hy_sqrtD(IRHO) + u*Hx_sqrtD(IRHOV) + v*Hy_sqrtD(IRHOV) + w*Hy_sqrtD(IRHOW) + lambda*Hy_sqrtD(IRHOE)
-         
+
          F(IRHO,IZ)  = Hz_sqrtD(IRHO)
          F(IRHOU,IZ) = u*Hz_sqrtD(IRHO) + Hx_sqrtD(IRHOW)
          F(IRHOV,IZ) = v*Hz_sqrtD(IRHO) + Hy_sqrtD(IRHOW)
@@ -1153,7 +1153,7 @@ module SpectralVanishingViscosity
 !!        --------------------
 !!
 !         if (.not. self % postFiltering) then
-!            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
+!            associate(Qx => self % filters(e % Nxyz(1)) % Q, &
 !                      Qy => self % filters(e % Nxyz(2)) % Q, &
 !                      Qz => self % filters(e % Nxyz(3)) % Q    )
 !
@@ -1168,7 +1168,7 @@ module SpectralVanishingViscosity
 !            end do                  ; end do                   ; end do
 !
 !            end associate
-!            
+!
 !            if (self % filterType == LPASS_FILTER) then
 !               Uxf = e % storage % U_x - Uxf
 !               Uyf = e % storage % U_y - Uyf
@@ -1209,7 +1209,7 @@ module SpectralVanishingViscosity
 !!        ----------------------
 !!
 !         if (self % postFiltering) then
-!            associate(Qx => self % filters(e % Nxyz(1)) % Q, & 
+!            associate(Qx => self % filters(e % Nxyz(1)) % Q, &
 !                      Qy => self % filters(e % Nxyz(2)) % Q, &
 !                      Qz => self % filters(e % Nxyz(3)) % Q    )
 !
@@ -1224,14 +1224,14 @@ module SpectralVanishingViscosity
 !            end do                  ; end do                   ; end do
 !
 !            end associate
-!            
+!
 !            if (self % filterType == LPASS_FILTER) then
 !               contravariantFlux = contravariantFluxF - contravariantFlux
 !            end if
 !         else
 !            contravariantFlux = contravariantFluxF
 !         end if
-!         
+!
 !      end subroutine SVV_ComputeInnerFluxes
 
 !      subroutine SVV_RiemannSolver ( self, f, EllipticFlux, QLeft, QRight, U_xLeft, U_yLeft, U_zLeft, U_xRight, U_yRight, U_zRight, flux)
@@ -1259,7 +1259,7 @@ module SpectralVanishingViscosity
 !!        ---------------
 !!
 !         integer           :: i, j, ii, jj
-!         real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2)) 
+!         real(kind=RP)     :: Q(NCONS, 0:f % Nf(1), 0:f % Nf(2))
 !         real(kind=RP)     :: U_x(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
 !         real(kind=RP)     :: U_y(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
 !         real(kind=RP)     :: U_z(NGRAD, 0:f % Nf(1), 0:f % Nf(2))
@@ -1302,7 +1302,7 @@ module SpectralVanishingViscosity
 !!           -----------
 !            mu    = self % muSVV !/ maxval(f % Nf+1)
 !         end if
-!         
+!
 !         beta  = 0.0_RP
 !         kappa = mu / ( thermodynamics % gammaMinus1 * POW2(dimensionless % Mach) * dimensionless % Prt)
 !!
@@ -1311,21 +1311,21 @@ module SpectralVanishingViscosity
 !!        --------------------
 !!
 !         if (.not. self % postFiltering) then
-!            associate(Qx => self % filters(f % Nf(1)) % Q, & 
+!            associate(Qx => self % filters(f % Nf(1)) % Q, &
 !                      Qy => self % filters(f % Nf(2)) % Q   )
 !
 !            Uxf = 0.0_RP   ; Uyf = 0.0_RP    ; Uzf = 0.0_RP
-!            
+!
 !            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
 !               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
-!                  Q2D = Qx(ii,i) * Qy(jj,j) 
+!                  Q2D = Qx(ii,i) * Qy(jj,j)
 !                  Uxf(:,ii,jj) = Uxf(:,ii,jj) + Q2D * U_x(:,i,j)
 !                  Uyf(:,ii,jj) = Uyf(:,ii,jj) + Q2D * U_y(:,i,j)
 !                  Uzf(:,ii,jj) = Uzf(:,ii,jj) + Q2D * U_z(:,i,j)
 !               end do                  ; end do
 !            end do                   ; end do
 !            end associate
-!            
+!
 !            if (self % filterType == LPASS_FILTER) then
 !               Uxf = U_x - Uxf
 !               Uyf = U_y - Uyf
@@ -1341,7 +1341,7 @@ module SpectralVanishingViscosity
 !            call EllipticFlux(NCONS, NGRAD, Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j), mu(i,j), beta(i,j), kappa(i,j), flux_vec)
 !            fluxF(:,i,j) =  flux_vec(:,IX) * f % geom % normal(IX,i,j) &
 !                          + flux_vec(:,IY) * f % geom % normal(IY,i,j) &
-!                          + flux_vec(:,IZ) * f % geom % normal(IZ,i,j) 
+!                          + flux_vec(:,IZ) * f % geom % normal(IZ,i,j)
 !         end do               ; end do
 !!
 !!        ---------------
@@ -1349,19 +1349,19 @@ module SpectralVanishingViscosity
 !!        ---------------
 !!
 !         if (self % postFiltering) then
-!            associate(Qx => self % filters(f % Nf(1)) % Q, & 
+!            associate(Qx => self % filters(f % Nf(1)) % Q, &
 !                      Qy => self % filters(f % Nf(2)) % Q   )
 !
 !            flux = 0.0_RP
-!            
+!
 !            do j = 0, f % Nf(2)   ; do i = 0, f % Nf(1)
 !               do jj = 0, f % Nf(2)   ; do ii = 0, f % Nf(1)
-!                  Q2D = Qx(ii,i) * Qy(jj,j) 
+!                  Q2D = Qx(ii,i) * Qy(jj,j)
 !                  flux(:,ii,jj) = flux(:,ii,jj) + Q2D * fluxF(:,i,j)
 !               end do                  ; end do
 !            end do                   ; end do
 !            end associate
-!            
+!
 !            if (self % filterType == LPASS_FILTER) then
 !               flux = fluxF - flux
 !            end if
@@ -1408,7 +1408,7 @@ module SpectralVanishingViscosity
             self % filters(N) % constructed = .true.
             return
          end if
-            
+
 !
 !        Get the evaluation of Legendre polynomials at the interpolation nodes
 !        ---------------------------------------------------------------------
@@ -1437,24 +1437,24 @@ module SpectralVanishingViscosity
                do k = 0, N
                   filterCoefficients(k) = (real(k, kind=RP) / N + 1.0e-12_RP) ** self % Psvv
                end do
-            
+
             case (SHARP_FILTER)
                sharpCutOff = nint(self % Psvv)
 
                filterCoefficients = 0._RP
-      
+
                do k = 0, N
                   if ( k >= sharpCutOff ) filterCoefficients(k) = 1.0_RP
                end do
-               
+
             case (EXP_FILTER)
                filterCoefficients = 0._RP
                do k = 0, N
                   if (k > self % Psvv) filterCoefficients(k) = exp( -real( (k-N)**2 , kind=RP) / (k - self % Psvv) ** 2 )
                end do
-               
+
          end select
-         
+
          if (self % filterType == LPASS_FILTER) then
             filterCoefficients = 1._RP - filterCoefficients
          end if
@@ -1477,18 +1477,18 @@ module SpectralVanishingViscosity
          self % filters(N) % constructed = .true.
 
       end subroutine SVV_constructFilter
-      
+
       subroutine SVV_destruct(this)
          implicit none
          class(SVV_t) :: this
          integer :: i
-         
+
          do i = 0, Nmax
             if ( this % filters(i) % constructed ) deallocate(this % filters(i) % Q)
          end do
-         
+
          !if (this % muIsSmagorinsky) call Smagorinsky % destruct
-         
+
       end subroutine SVV_destruct
 
       subroutine FilterMatrices_Recompute(self,Psvv, type_, Q)
@@ -1518,6 +1518,6 @@ module SpectralVanishingViscosity
          end do      ; end do       ; end do
 
       end subroutine FilterMatrices_Recompute
-      
+
 end module SpectralVanishingViscosity
 #endif
