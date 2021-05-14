@@ -802,7 +802,7 @@ use VariableConversion, only: Pressure, PressureDot
 !           ZONE PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine SourceProlongSolution(source_zone, mesh, t)
+   Subroutine SourceProlongSolution(source_zone, mesh)
 
 !     *******************************************************************
 !        This subroutine prolong the solution from the mesh storage to the faces (source).
@@ -810,70 +810,42 @@ use VariableConversion, only: Pressure, PressureDot
 !         TODO: use mpi (see surface integral)
 !     *******************************************************************
 !
-      ! use ElementClass
-      use Monopole
-      use FaceClass
+      use ElementClass
       implicit none
       class (Zone_t), intent(in)                           :: source_zone
       class (HexMesh), intent(inout), target               :: mesh
-      real(kind=RP), intent(in)                            :: t
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
       integer, dimension(6)                                :: meshFaceIDs
-      ! class(Element), pointer                              :: elements(:)
-      class(Face), pointer                                 :: faces(:)
-      integer                                              :: i, j
-      integer                                              :: Nx,Ny
-      real(kind=RP), dimension(NDIM)                       :: x
-      real(kind=RP), dimension(NCONS)                      :: Q, QDot
-      real(kind=RP), dimension(:,:,:), allocatable         :: QF, QDotF
+      class(Element), pointer                              :: elements(:)
 
 !     *************************
 !     Perform the interpolation
 !     *************************
 !
-      ! elements => mesh % elements
-      faces => mesh % faces
-!!$omp parallel private(meshFaceID,Nx,Ny,QF,QDotF,Q,x,i,j) shared(faces,mesh,NodalStorage,&
+      elements => mesh % elements
+!$omp parallel private(meshFaceID,eID,meshFaceIDs) shared(elements,mesh,NodalStorage)
 !!$omp&                                        t)
-!!$omp single
+!$omp single
 
 !        Loop the zone to get faces and elements
 !        ---------------------------------------
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
 
-!!$omp task depend(inout:faces(meshFaceID))
-          ! mesh % faces(meshFaceID) % geom % x
-          Nx = faces(meshFaceID) % Nf(1)
-          Ny = faces(meshFaceID) % Nf(2)
-          safedeallocate(QF)
-          safedeallocate(QdotF)
-          allocate (QF(1:NCONS,0:Nx,0:Ny), QdotF(1:NCONS,0:Nx,0:Ny))
-          associate (y => faces(meshFaceID) % geom % x)
-           do j= 0, Ny; do i = 0,Nx
-            x = y(:,i,j)
-            call getQ(Q, Qdot, x, t)
+         eID = mesh % faces(meshFaceID) % elementIDs(1)
+         meshFaceIDs = mesh % elements(eID) % faceIDs
 
-            QF(:,i,j) = Q
-            QdotF(:,i,j) = Qdot
-           end do; end do
-          end associate
-          call faces(meshFaceID) % AdaptSolutionToFace(NCONS, Nx, Ny, QF, 1, QdotE=QdotF, computeQdot=.TRUE.)
-
-         !eID = mesh % faces(meshFaceID) % elementIDs(1)
-         !meshFaceIDs = mesh % elements(eID) % faceIDs
-
-!!!$omp task depend(inout:elements(eID))
-         !call elements(eID) % ProlongSolutionToFaces(NCONS,&
-         !                                                   mesh % faces(meshFaceIDs(1)),&
-         !                                                   mesh % faces(meshFaceIDs(2)),&
-         !                                                   mesh % faces(meshFaceIDs(3)),&
-         !                                                   mesh % faces(meshFaceIDs(4)),&
-         !                                                   mesh % faces(meshFaceIDs(5)),&
-         !                                                   mesh % faces(meshFaceIDs(6)),&
-                                                            ! computeQdot = .TRUE.)
+!$omp task depend(inout:elements(eID))
+         call elements(eID) % ProlongSolutionToFaces(NCONS,&
+                                                            mesh % faces(meshFaceIDs(1)),&
+                                                            mesh % faces(meshFaceIDs(2)),&
+                                                            mesh % faces(meshFaceIDs(3)),&
+                                                            mesh % faces(meshFaceIDs(4)),&
+                                                            mesh % faces(meshFaceIDs(5)),&
+                                                            mesh % faces(meshFaceIDs(6)),&
+                                                             computeQdot = .TRUE.)
 
          ! if ( computeGradients ) then
          !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
@@ -883,10 +855,10 @@ use VariableConversion, only: Pressure, PressureDot
          !                                     mesh % faces(meshFaceIDs(5)),&
          !                                     mesh % faces(meshFaceIDs(6)) )
          ! end if
-!!$omp end task
+!$omp end task
       end do
-!!$omp end single
-!!$omp end parallel
+!$omp end single
+!$omp end parallel
 
    End Subroutine SourceProlongSolution
 

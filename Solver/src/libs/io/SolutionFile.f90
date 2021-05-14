@@ -7,6 +7,7 @@
 !        * Solution files: stores the conservative variables Q for all elements
 !        * Solution and gradient files: stores the conservative variables and their gradients.
 !        * Statistics files: stores the statistics values.
+!        * Zone solution files: stores the conservative variables Q and its temporal derivate for the faces of a zone
 !
 !  These files always start as follows:
 !

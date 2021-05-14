@@ -63,7 +63,6 @@ Module FWHGeneralClass  !
         use FileReadingUtilities, only: getCharArrayFromString
         use FWHDefinitions,       only: getMeanStreamValues
         use Headers
-        use Monopole
 #ifdef _HAS_MPI_
         use mpi
 #endif
@@ -196,8 +195,6 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * self % sourceZone % no_of_faces
          write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", self % saveSourceSolFile
 
-        call setVals()
-
     End Subroutine FWHConstruct
 
     Subroutine FWHSaveSolutionConfiguration(self, controlVariables, t0)
@@ -264,7 +261,7 @@ Module FWHGeneralClass  !
 !
 !       Save Solution to elements faces of fwh surface
 !       -----------------------
-        call SourceProlongSolution(self % sourceZone, mesh, t)
+        call SourceProlongSolution(self % sourceZone, mesh)
 
 !       see if its regular or interpolated
 !       -----------------------
