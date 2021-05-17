@@ -18,7 +18,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
-   public ENTROPY_BALANCE
+   public ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 
 #if defined(INCNS)
@@ -42,7 +42,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
-      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
+      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -71,16 +71,6 @@ module VolumeIntegrals
 !           This function computes scalar integrals, that is, those
 !           in the form:
 !                 val = \int v dx
-!           Implemented integrals are:
-!              * VOLUME
-!              * KINETIC_ENERGY
-!              * KINETIC_ENERGY_RATE
-!              * ENSTROPHY
-!              * VELOCITY
-!              * ENTROPY
-!              * ENTROPY_RATE
-!              * INTERNAL ENERGY
-!              * FREE_ENERGY            
 !        -----------------------------------------------------------
 !
 
@@ -145,7 +135,7 @@ module VolumeIntegrals
          real(kind=RP)           :: grad_Mp(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: M_grad_p(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)           :: p, s, dtP
+         real(kind=RP)           :: p, s, ms
          real(kind=RP), pointer  :: Qb(:)
          real(kind=RP)           :: free_en, fchem, entr, area, rho
          real(kind=RP)           :: Strain(NDIM,NDIM)
@@ -302,9 +292,22 @@ module VolumeIntegrals
 !           ********************************************
 !
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               p = Pressure( e % storage % Q )
+               p = Pressure( e % storage % Q(:,i,j,k) )
                s = ( log(p) - thermodynamics % gamma * log(e % storage % Q(IRHO,i,j,k)) )
-               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+            end do            ; end do           ; end do
+
+          case ( MATH_ENTROPY )
+!
+!           ******************************************************************
+!              Computes the mathematical entropy as: -\rho s / (\gamma - 1)
+!           ******************************************************************
+!
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               p = Pressure( e % storage % Q(:,i,j,k) )
+               s = ( log(p) - thermodynamics % gamma * log(e % storage % Q(IRHO,i,j,k)) )
+               ms = - e % storage % Q(IRHO,i,j,k) * s / thermodynamics % gammaMinus1
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * ms
             end do            ; end do           ; end do
 
           case ( ENTROPY_RATE )

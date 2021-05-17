@@ -113,6 +113,7 @@ module VolumeMonitorClass
          case ("entropy")
          case ("entropy rate")
          case ("entropy balance")
+         case ("math entropy") ; self % num_of_vars = 2
          case ("svv dissipation")
          case ("internal energy")
          case ("mean velocity")
@@ -134,6 +135,7 @@ module VolumeMonitorClass
                print*, "   * Entropy"
                print*, "   * Entropy rate"
                print*, "   * Entropy balance"
+               print*, "   * Math entropy"
                print*, "   * SVV dissipation"
                print*, "   * Internal energy"
                print*, "   * Mean velocity"
@@ -286,6 +288,9 @@ module VolumeMonitorClass
 
          case ("entropy balance")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, ENTROPY_BALANCE) / ScalarVolumeIntegral(mesh, VOLUME)
+
+         case ("math entropy")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, MATH_ENTROPY) / ScalarVolumeIntegral(mesh, VOLUME)
 
          case ("svv dissipation")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, SVV_DISSIPATION) / ScalarVolumeIntegral(mesh, VOLUME)
