@@ -188,7 +188,7 @@ module HyperbolicSplitForm
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
          
          end select
-#else if defined(INCNS)
+#elif defined(INCNS)
          select case ( splitType )
          case (STANDARD_SPLIT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
