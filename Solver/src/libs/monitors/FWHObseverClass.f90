@@ -214,7 +214,7 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP), dimension(3)                          :: localPacc, Pacc   ! temporal variable to store the sum of the pressure
       real(kind=RP), dimension(3)                          :: mInterp ! slope of interpolation
       real(kind=RP)                                        :: valx, valy, valz
-      integer                                              :: zoneFaceID, meshFaceID !,ierr
+      integer                                              :: zoneFaceID, meshFaceID,  ierr
       integer                                             :: storePosition
 
 !     Initialization
@@ -473,7 +473,7 @@ use VariableConversion, only: Pressure, PressureDot
       ! local variables
       real(kind=RP), dimension(:,:), allocatable           :: localPacc, Pacc   ! temporal variable to store the sum of the pressure
       real(kind=RP), dimension(:), allocatable             :: valx, valy, valz
-      integer                                              :: i
+      integer                                              :: i, ierr
 
 !     Initialization
 !     --------------            
@@ -816,7 +816,7 @@ use VariableConversion, only: Pressure, PressureDot
       class (HexMesh), intent(inout), target               :: mesh
 
       ! local variables
-      integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
+      integer                                              :: zoneFaceID, meshFaceID, eID
       integer, dimension(6)                                :: meshFaceIDs
       class(Element), pointer                              :: elements(:)
 
