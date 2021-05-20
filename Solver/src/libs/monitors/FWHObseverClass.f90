@@ -949,6 +949,71 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine SourceSaveSolution
 
+   Subroutine SourceLoadSolution(source_zone, mesh, fileName)
+
+      use SolutionFile
+      implicit none
+      class (Zone_t), intent(in)                           :: source_zone
+      class (HexMesh), intent(inout)                       :: mesh
+      character(len=*), intent(in)                         :: fileName
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID
+      real(kind=RP), dimension(:,:,:), allocatable         :: QF
+      integer                                              :: Nx,Ny
+      integer                                              :: fID, offsetIO, pos, padding
+      integer                                              :: arrayRank, Neq, Npx, Npy
+
+!     Read elements data
+!     ------------------
+      fID = putSolutionFileInReadDataMode(trim(fileName))
+
+      padding = NCONS*2
+      offsetIO = 0
+!
+!     Loop the zone to get faces and elements
+!     ---------------------------------------
+      do zoneFaceID = 1, source_zone % no_of_faces
+          meshFaceID = source_zone % faces(zoneFaceID)
+          ! 4 integers were written: number of dimension, and 3 value of the dimensions
+          pos = POS_INIT_DATA + (zoneFaceID-1)*4*SIZEOF_INT + padding * offsetIO * SIZEOF_RP
+          associate(f => mesh % faces(meshFaceID))
+              Nx = f % Nf(1)
+              Ny = f % Nf(2)
+!             verify dimensions of each row
+              read(fID, pos=pos) arrayRank
+              read(fID) Neq, Npx, Npy
+              if (     ((Npx-1) .ne. Nx) &
+                  .or. ((Npy-1) .ne. Ny) &
+                  .or. (Neq     .ne. NCONS ) ) then
+                  write(STD_OUT,'(A,I0,A)') "Error reading fwh file: wrong dimension for face "&
+                      ,meshFaceID,"."
+
+                  write(STD_OUT,'(A,I0,A,I0,A)') "Face dimensions: ", Nx, &
+                      " ,", Ny, "."
+
+                  write(STD_OUT,'(A,I0,A,I0,A)') "File dimensions: ", Npx -1, &
+                      " ,", Npy-1, "."
+                  errorMessage(STD_OUT)
+                  stop
+              end if
+
+              allocate(QF(1:NCONS,0:Nx,0:Ny))
+              read(fID) QF
+              f % storage(1) % Q = QF
+              read(fID) QF
+              f % storage(1) % Qdot = QF
+              safedeallocate(QF)
+              offsetIO = offsetIO + (Nx+1)*(Ny+1)
+          end associate
+      end do
+
+!     Close the file
+!     --------------
+      close(fID)
+
+   End Subroutine SourceLoadSolution
+
 !/////////////////////////////////////////////////////////////////////////
 !           AUXILIAR PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
