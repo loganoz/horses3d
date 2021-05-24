@@ -886,7 +886,7 @@ module SpectralVanishingViscosity
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: invRho, divV, u(NDIM)
+         real(kind=RP)  :: invRho, divV, u(2:1+NDIM)
          real(kind=RP)  :: kappa
 
          kappa = sqrt_mu * dimensionless % mu_to_kappa
