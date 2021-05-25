@@ -1077,8 +1077,8 @@ module RiemannSolvers_NS
 !        ---------------
 !
 !
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L, thetaL
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R, thetaR
          real(kind=RP)  :: QLRot(5), QRRot(5)
          real(kind=RP)  :: invRhoL, invRhoR
          real(kind=RP)  :: lambda, stab(5)
@@ -1110,6 +1110,8 @@ module RiemannSolvers_NS
          aL = sqrt(gamma * pL * invRhoL)
          aR = sqrt(gamma * pR * invRhoR)
 !
+         thetarhoL = QLeft(6)
+         thetaehoR = QRight(6)
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
      !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
@@ -1121,8 +1123,8 @@ module RiemannSolvers_NS
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetaL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetaR /)
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
 !        Compute the Lax-Friedrichs stabilization
@@ -1623,7 +1625,7 @@ module RiemannSolvers_NS
          flux(IRHOV) = 0.5_RP * ( QLeft(IRHOU) * vL + QRight(IRHOU) * vR )
          flux(IRHOW) = 0.5_RP * ( QLeft(IRHOU) * wL + QRight(IRHOU) * wR )
          flux(IRHOE) = 0.5_RP * ( uL*(QLeft(IRHOE) + pL) + uR*(QRight(IRHOE) + pR) )
-
+         flux(IRHOTHETA) = 0.5_RP * (uL * QLeft(IRHOTHETA) + uR * QRight(IRHOTHETA)  )
       end subroutine StandardAverage
 
       subroutine DucrosAverage(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 

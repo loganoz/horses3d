@@ -88,6 +88,10 @@ module StorageClass
       type(Statistics_t)                   :: stats                ! NSE statistics
       real(kind=RP)                        :: SVV_diss
 #endif
+#ifdef SPALARTALMARAS
+      real(kind=RP),           allocatable ::  S_SA(:,:,:,:)   
+      real(kind=RP),           allocatable :: mu_SA(:,:,:,:)         ! EddyViscocityVector, EddyetaVector
+#endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
       real(kind=RP), dimension(:,:,:,:),   allocatable :: cDot  ! CHE concentration time derivative
@@ -230,6 +234,11 @@ module StorageClass
 !                                          |______Jacobian for this component
 !
 #endif
+
+!#ifdef SPALARTALMARAS
+!      real(kind=RP),           allocatable :: mu_SA(:,:,:,:)         ! EddyViscocityVector, EddyetaVector
+!#endif
+
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:),   allocatable :: c
       real(kind=RP), dimension(:,:,:),   allocatable :: c_x

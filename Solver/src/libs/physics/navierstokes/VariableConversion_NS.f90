@@ -25,7 +25,7 @@ module VariableConversion_NS
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   set_getVelocityGradients
+   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
   
 
    interface getTemperatureGradient
@@ -130,6 +130,16 @@ module VariableConversion_NS
 
       end subroutine GetNSViscosity
 
+      pure subroutine GetNSKinematicViscosity(mu, rho, niu)
+         implicit none
+         real(kind=RP), intent(in)   :: mu
+         real(kind=RP), intent(in)   :: rho
+         real(kind=RP), intent(out)  :: niu
+
+         niu = mu / rho
+
+      end subroutine GetNSKinematicViscosity
+
       pure subroutine get_laminar_mu_kappa(Q,mu,kappa)
          implicit none
          real(kind=RP), intent(in)  :: Q(NCONS)
@@ -171,6 +181,18 @@ module VariableConversion_NS
 
       END FUNCTION SutherlandsLaw
 
+      pure subroutine ComputeVorticity(U_x, U_y, U_z, vorticity)
+         
+         real(kind=RP), intent(in)  :: U_x(NDIM)
+         real(kind=RP), intent(in)  :: U_y(NDIM)
+         real(kind=RP), intent(in)  :: U_z(NDIM)
+         real(kind=RP), intent(out) :: vorticity
+
+               vorticity(var,i,j,k) = sqrt(  POW2( U_y(3,i,j,k) - U_z(2,i,j,k) ) &
+                                           + POW2( U_z(1,i,j,k) - U_x(3,i,j,k) ) &
+                                           + POW2( U_x(2,i,j,k) - U_y(1,i,j,k) ) )
+
+      end subroutine ComputeVorticity
 !
 ! /////////////////////////////////////////////////////////////////////
 !

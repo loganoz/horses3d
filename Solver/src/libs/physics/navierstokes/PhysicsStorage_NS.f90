@@ -80,7 +80,7 @@
 
      private
      public    flowIsNavierStokes, NCONS, NGRAD
-     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IRHOTHETA
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
@@ -106,14 +106,17 @@
 !    --------------------------
 !!   The sizes of the NS system
 !    --------------------------
-!
-     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
-!
 !    -------------------------------------------
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
+#IF defined(SPALARTALMARAS)
+     INTEGER, PARAMETER :: NCONS = 6, NGRAD = 6
+     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5, IRHOTHETA = 6
+#ELSE
+     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
+#ENDIF
 !
 !    ----------------------------------------
 !!   The positions of the primitive variables
@@ -254,6 +257,7 @@
       else
          dimensionless_ % Pr = 0.72_RP
       end if
+      
       if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
          dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
       else
@@ -308,6 +312,10 @@
          dimensionless_ % mu_to_kappa = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Pr)
       END IF 
 !
+      if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
+         dimensionless_ % mut_to_kappa_SA = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Prt)
+      end if
+
 !     **************************************
 !     Check if state gradients are requested
 !     **************************************
@@ -356,7 +364,9 @@
       refValues_ % p = refValues_ % rho * POW2( refValues_ % V )
 
       if ( flowIsNavierStokes ) then
+         dimensionless_ % niu =  dimensionless_ % mu * refValues_ % rho
          refValues_ % mu = refValues_ % rho * refValues_ % V * Lref * dimensionless_ % mu
+         refValues_ % niu =  refValues_ % mu / refValues_ % rho
          refValues_ % kappa = refValues_ % mu * thermodynamics_ % cp / dimensionless_ % Pr
 
       else
