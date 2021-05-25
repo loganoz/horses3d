@@ -18,7 +18,8 @@ LIBOBJS = 	./build/FluidData_NS.o \
 		./build/LESModels.o \
 		./build/Physics_NS.o \
 		./build/RiemannSolvers_NS.o \
-		./build/ManufacturedSolutions.o 
+		./build/ManufacturedSolutions.o \
+		./build/Turbulence.o 
 
 
 LIB = physicsns
