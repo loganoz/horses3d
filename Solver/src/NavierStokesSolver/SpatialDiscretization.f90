@@ -33,7 +33,7 @@ module SpatialDiscretization
                                     set_getVelocityGradients
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
-      use SpallartAlmarasTurbulences
+      use SpallartAlmarasTurbulence
 #ifdef _HAS_MPI_
       use mpi
 #endif
