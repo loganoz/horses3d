@@ -33,7 +33,9 @@ module SpatialDiscretization
                                     set_getVelocityGradients
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
+#ifdef SPALARTALMARAS
       use SpallartAlmarasTurbulence
+#endif
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -999,13 +1001,13 @@ module SpatialDiscretization
                DO i = 0, f % Nf(1)
 
                   mu_left(1) = f % storage(1) % mu_NS(1,i,j)
- #ifdef SPALARTALMARAS
+#ifdef SPALARTALMARAS
                   mu_right(2) = f % storage(2) % mu_NS(3,i,j)
                   mu_left(2)  = f % storage(1) % mu_NS(3,i,j)
- #else
+#else
                   mu_right(2) = 0.0_RP
                   mu_left(2) = 0.0_RP
- #endif 
+#endif 
                   mu_left(3) = f % storage(1) % mu_NS(2,i,j)
                   mu_right(1) = f % storage(2) % mu_NS(1,i,j)
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
@@ -1086,13 +1088,13 @@ module SpatialDiscretization
 
                   mu_left(1) = f % storage(1) % mu_NS(1,i,j)
                   mu_left(3) = f % storage(1) % mu_NS(2,i,j)
- #ifdef SPALARTALMARAS
+#ifdef SPALARTALMARAS
                   mu_right(2) = f % storage(2) % mu_NS(3,i,j)
                   mu_left(2)  = f % storage(1) % mu_NS(3,i,j)
- #else
+#else
                   mu_right(2) = 0.0_RP
                   mu_left(2) = 0.0_RP
- #endif 
+#endif 
                   mu_right(1) = f % storage(2) % mu_NS(1,i,j)
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
 !      
