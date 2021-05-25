@@ -25,7 +25,7 @@ module VariableConversion_NS
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
+   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity, geteddyviscositygradients
   
 
    interface getTemperatureGradient
@@ -602,4 +602,30 @@ module VariableConversion_NS
          end select
 
       end subroutine set_getVelocityGradients
+
+      subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
+         implicit none
+         real(kind=RP), intent(in)  :: Q   (1:NCONS)
+         real(kind=RP), intent(in)  :: Q_x (1:NCONS)
+         real(kind=RP), intent(in)  :: Q_y (1:NCONS)
+         real(kind=RP), intent(in)  :: Q_z (1:NCONS)
+         real(kind=RP), intent(out) :: theta_x
+         real(kind=RP), intent(out) :: theta_y
+         real(kind=RP), intent(out) :: theta_z
+
+         real(kind=RP)        :: invRho, theta, thetaDivRho
+
+         invRho  = 1.0_RP / Q(IRHO)
+
+         theta = Q(IRHOTHETA) * invRho
+         thetaDivRho = theta * invRho
+
+         theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
+         theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
+         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
+
+      end subroutine geteddyviscositygradients
+
+
+
 end module VariableConversion_NS

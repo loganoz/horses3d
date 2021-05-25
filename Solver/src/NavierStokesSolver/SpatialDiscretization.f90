@@ -443,7 +443,10 @@ module SpatialDiscretization
                delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call GetNSKinematicViscosity(e % storage % mu_NS(1,i,j,k), e % storage % Q(IRHO,i,j,k), kinematic_viscocity )
-                  call SAmodel % ComputeViscosity(e % storage % Q(IRHOTHETA,i,j,k), kinematic_viscocity, e % storage % Q(IRHO,i,j,k), mu_t, e % storage % mu_NS(3,i,j,k))
+                  
+                  call SAmodel % ComputeViscosity(e % storage % Q(IRHOTHETA,i,j,k), kinematic_viscocity,&
+                                                  e % storage % Q(IRHO,i,j,k), e % storage % mu_NS(1,i,j,k),&
+                                                  mu_t, e % storage % mu_NS(3,i,j,k))
                   
                   e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_t
                   e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_t * dimensionless % mut_to_kappa_SA
@@ -710,7 +713,9 @@ module SpatialDiscretization
                   do side = 1, no_of_sides
 
                   call GetNSKinematicViscosity(f % storage(side) % mu_NS(1,i,j), f % storage(side) % Q(IRHO,i,j), kinematic_viscocity )
-                  call SAmodel % ComputeViscosity(f % storage(side) % Q(IRHOTHETA,i,j), kinematic_viscocity, e % storage(side) % Q(IRHO,i,j,k), mu_t, f % storage(side) % mu_NS(3,i,j) )
+                  call SAmodel % ComputeViscosity(f % storage(side) % Q(IRHOTHETA,i,j), kinematic_viscocity, &
+                                                  f % storage(side) % Q(IRHO,i,j,k), f % storage(side) % mu_NS(1,i,j), &
+                                                  mu_t, f % storage(side) % mu_NS(3,i,j) )
                   
                   f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t
                   f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_t * dimensionless % mut_to_kappa_SA
