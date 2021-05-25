@@ -603,6 +603,7 @@ module VariableConversion_NS
 
       end subroutine set_getVelocityGradients
 
+#IF defined (SPALARTALMARAS)
       subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
          implicit none
          real(kind=RP), intent(in)  :: Q   (1:NCONS)
@@ -625,7 +626,7 @@ module VariableConversion_NS
          theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
 
       end subroutine geteddyviscositygradients
-
+#ENDIF
 
 
 end module VariableConversion_NS
