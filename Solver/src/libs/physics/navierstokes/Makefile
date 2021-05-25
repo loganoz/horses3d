@@ -11,8 +11,7 @@ MOD_FLAG?=-J
 
 
 
-LIBOBJS = ./build/Turbulence.o \
-          ./build/FluidData_NS.o \
+LIBOBJS = ./build/FluidData_NS.o \
 		  ./build/PhysicsStorage_NS.o \
 		  ./build/VariableConversion_NS.o \
 		  ./build/ArtificialViscosity.o \
@@ -20,8 +19,8 @@ LIBOBJS = ./build/Turbulence.o \
 		  ./build/Physics_NS.o \
 		  ./build/RiemannSolvers_NS.o \
 		  ./build/ManufacturedSolutions.o \
-
-
+		  ./build/Turbulence.o 
+          
 LIB = physicsns
 
 ############################################

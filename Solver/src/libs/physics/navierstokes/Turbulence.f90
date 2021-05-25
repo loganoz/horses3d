@@ -10,6 +10,7 @@
 !
 !//////////////////////////////////////////////////////
 !
+#include "Includes.h"
 module SpallartAlmarasTurbulence
    use SMConstants
    use VariableConversion_NS
@@ -121,7 +122,7 @@ module SpallartAlmarasTurbulence
 
       subroutine SA_ComputeViscosity(self, rhotheta, kinematic_viscocity, rho, mu, mu_t, eta)
          implicit none
-         class(Spalart_Almaras_t), intent(in) :: self
+         class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: rhotheta
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: kinematic_viscocity
@@ -157,7 +158,7 @@ module SpallartAlmarasTurbulence
                                          Q, Q_x, Q_y, Q_z, S_SA)
          implicit none
          !-----------------------------------------------------------
-         class(Spalart_Almaras_t), intent(in) :: self
+         class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: kinematic_viscocity
          real(kind=RP), intent(in)            :: rho
@@ -187,7 +188,7 @@ module SpallartAlmarasTurbulence
          call self % Compute_chi(theta, kinematic_viscocity, chi)
          call self % Compute_fv1(chi, fv1)
 
-         call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, production_G)
+         call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall, production_G)
 
          call self % Compute_DestructionTerm(theta, rho, dwall, destruciton_Y)
 
@@ -224,7 +225,7 @@ module SpallartAlmarasTurbulence
 !/////////////////////////////////////////////////////////
 ! compute production terms 
 
-      subroutine Compute_ProductionTerm(self, chi, fv1, vort, rho, theta, production_G)
+      subroutine Compute_ProductionTerm(self, chi, fv1, vort, rho, theta, dwall, production_G)
          implicit none
          !-----------------------------------------------------------
          class(Spalart_Almaras_t), intent(inout) :: self
@@ -233,6 +234,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: vort
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: theta
+         real(kind=RP), intent(in)            :: dwall
          real(kind=RP), intent(out)           :: production_G
          !-----------------------------------------------------------
          real(kind=RP)                        :: fv2
@@ -242,7 +244,7 @@ module SpallartAlmarasTurbulence
          IF (theta .GT. 0.0_RP ) then
             
             fv2    =  Compute_fv2(self, chi, fv1)
-            sbar   =  Compute_sbar(self, theta, fv2)
+            sbar   =  Compute_sbar(self, theta, dwall, fv2)
             self % stilda =  Compute_modifiedvorticity(self, vort, sbar)
             
             production_G = self % cb1 * self % stilda * rho * theta
@@ -259,7 +261,7 @@ module SpallartAlmarasTurbulence
 
       pure function Compute_fv2(self, chi, fv1) result(fv2)
          implicit none
-         class(Spalart_Almaras_t), intent(in) :: self
+         class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: chi
          real(kind=RP), intent(in)            :: fv1
          real(kind=RP)                        :: fv2
@@ -268,20 +270,21 @@ module SpallartAlmarasTurbulence
      
       end function Compute_fv2
 
-      pure function Compute_sbar(self, theta, fv2) result(sbar)
+      pure function Compute_sbar(self, theta, dwall, fv2) result(sbar)
          implicit none
-         class(Spalart_Almaras_t), intent(in) :: self
+         class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: fv2
+         real(kind=RP), intent(in)            :: dwall
          real(kind=RP)                        :: sbar
 
-         sbar = theta * fv2/ (POW2(self % kappa) + POW2(self % dwall) )
+         sbar = theta * fv2/ (POW2(self % kappa) + POW2(dwall) )
      
       end function Compute_sbar
 
       pure function Compute_modifiedvorticity(self, vort, sbar) result(stilda)
          implicit none
-         class(Spalart_Almaras_t), intent(in) :: self
+         class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: vort
          real(kind=RP), intent(in)            :: sbar
          real(kind=RP)                        :: stilda
