@@ -8,7 +8,7 @@
 !
 !//////////////////////////////////////////////////////
 !
-!This class represents the general behaviour of the Fwoc Williams and Hawckings aero accoustic analogy
+!This class represents the general behaviour of the Ffowcs Williams and Hawckings aero accoustic analogy
 
 #include "Includes.h"
 Module FWHGeneralClass  !
@@ -51,6 +51,7 @@ Module FWHGeneralClass  !
             procedure :: updateValues   => FWHUpate
             procedure :: writeToFile    => FWHWriteToFile
             procedure :: saveSourceSol  => FWHSaveSourceSolution
+            procedure :: loadSourceSol  => FWHLoadSourceSolution
 
     end type FWHClass
 
@@ -230,7 +231,7 @@ Module FWHGeneralClass  !
 
     End Subroutine FWHSaveSolutionConfiguration
 
-    Subroutine FWHUpate(self, mesh, t, iter)
+    Subroutine FWHUpate(self, mesh, t, iter, isFromFile)
 
         implicit none
 
@@ -238,17 +239,26 @@ Module FWHGeneralClass  !
         class(HexMesh)                                      :: mesh
         real(kind=RP), intent(in)                           :: t
         integer, intent(in)                                 :: iter
+        logical, intent(in), optional                       :: isFromFile
 
 !       ---------------
 !       Local variables
 !       ---------------
 !
         integer                                             :: i 
+        logical                                             :: prolong
 
 !       Check if is activated
 !       ------------------------
         if (.not. self % isActive) return
 
+!       Check if prolong is necessary
+!       ------------------------
+        if (present(isFromFile)) then
+            prolong = .not. isFromFile
+        else
+            prolong = .TRUE.
+        end if 
 !
 !       Move to next buffer line
 !       ------------------------
@@ -261,7 +271,7 @@ Module FWHGeneralClass  !
 !
 !       Save Solution to elements faces of fwh surface
 !       -----------------------
-        call SourceProlongSolution(self % sourceZone, mesh)
+        if (prolong) call SourceProlongSolution(self % sourceZone, mesh)
 
 !       see if its regular or interpolated
 !       -----------------------
@@ -393,6 +403,21 @@ Module FWHGeneralClass  !
         call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName)
      
      END SUBROUTINE FWHSaveSourceSolution
+
+     Subroutine FWHLoadSourceSolution(self, fileName, mesh)
+
+        implicit none
+        class(FWHClass)                                      :: self
+        character(len=*), intent(in)                         :: fileName
+        class (HexMesh), intent(inout)                       :: mesh
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % isActive) return
+
+        call SourceLoadSolution(self % sourceZone, mesh, fileName)
+
+     End Subroutine FWHLoadSourceSolution
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
