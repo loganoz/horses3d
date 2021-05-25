@@ -11,11 +11,11 @@
 !//////////////////////////////////////////////////////
 !
 module SpallartAlmarasTurbulence
-   use SMConstants, only: RP
-   use VariableConversion
-   use FluidData
-   use PhysicsStorage
-   use Physics
+   use SMConstants
+   use VariableConversion_NS
+   use FluidData_NS
+   use PhysicsStorage_NS
+   use Physics_NS
    use FTValueDictionaryClass
    use Utilities
    use mainKeywordsModule
