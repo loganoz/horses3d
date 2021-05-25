@@ -259,7 +259,7 @@ module SpallartAlmarasTurbulence
       
       end subroutine Compute_ProductionTerm
 
-      pure function Compute_fv2(self, chi, fv1) result(fv2)
+      function Compute_fv2(self, chi, fv1) result(fv2)
          implicit none
          class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: chi
@@ -270,7 +270,7 @@ module SpallartAlmarasTurbulence
      
       end function Compute_fv2
 
-      pure function Compute_sbar(self, theta, dwall, fv2) result(sbar)
+      function Compute_sbar(self, theta, dwall, fv2) result(sbar)
          implicit none
          class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: theta
@@ -282,7 +282,7 @@ module SpallartAlmarasTurbulence
      
       end function Compute_sbar
 
-      pure function Compute_modifiedvorticity(self, vort, sbar) result(stilda)
+      function Compute_modifiedvorticity(self, vort, sbar) result(stilda)
          implicit none
          class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: vort
@@ -304,7 +304,7 @@ module SpallartAlmarasTurbulence
 
          gn = 1.0_RP - (1000.0_RP*POW2(chi))/(1.0_RP + POW2(chi) )
 
-      end subroutine Compute_gn
+      end function Compute_gn
 
 !/////////////////////////////////////////////////////////
 ! compute destruciton terms 
@@ -333,7 +333,7 @@ module SpallartAlmarasTurbulence
       
          END IF
       
-      end subroutine Compute_ProductionTerm
+      end subroutine Compute_DestructionTerm
 
       function Compute_g(self, theta, dwall) result(g)
          implicit none
@@ -371,7 +371,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: Theta_z
          real(kind=RP), intent(out)           :: source_Kappa
 
-         source_Kappa  = self % cb2 * rho * sum (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z))
+         source_Kappa  = self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z))
                
       end subroutine Compute_AdditionalSourceTermKappa
 
