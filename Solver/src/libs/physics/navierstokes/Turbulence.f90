@@ -52,17 +52,17 @@ module SpallartAlmarasTurbulence
 !        procedure         :: Destruct          => Class_Destruct
          procedure         :: Initialize        => SAmodel_Initialize
          
-         procedure, private     => Compute_chi
-         procedure, private     => Compute_fv1
-         procedure, private     => Compute_fv2
-         procedure, private     => Compute_sbar
-         procedure, private     => Compute_modifiedvorticity
-         procedure, private     => Compute_gn
-         procedure, private     => Compute_g
-         procedure, private     => Compute_fw
-         procedure, private     => Compute_ProductionTerm
-         procedure, private     => Compute_DestructionTerm
-         procedure, private     => Compute_AdditionalSourceTermKappa
+         procedure, private ::     => Compute_chi
+         procedure, private ::     => Compute_fv1
+         procedure, private ::     => Compute_fv2
+         procedure, private ::     => Compute_sbar
+         procedure, private ::     => Compute_modifiedvorticity
+         procedure, private ::     => Compute_gn
+         procedure, private ::     => Compute_g
+         procedure, private ::     => Compute_fw
+         procedure, private ::     => Compute_ProductionTerm
+         procedure, private ::     => Compute_DestructionTerm
+         procedure, private ::     => Compute_AdditionalSourceTermKappa
 
          procedure            :: ComputeViscosity    => SA_ComputeViscosity
          procedure            :: ComputeSourceTerms  => SA_Compute_SourceTerms          
@@ -128,9 +128,9 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(out)           :: mu_t
          real(kind=RP), intent(out)           :: eta
 
-         real(kind=RP),            :: fv1
-         real(kind=RP),            :: chi
-         real(kind=RP),            :: theta
+         real(kind=RP)            :: fv1
+         real(kind=RP)            :: chi
+         real(kind=RP)            :: theta
 
          theta = rhotheta / rho
 
@@ -311,7 +311,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: dwall
          real(kind=RP), intent(in)            :: y_destr
 
-         IF (theta .GT. 0.0_RP )
+         IF (theta .GT. 0.0_RP ) then
          
          g  = Compute_g(theta, dwall)
          fw = Compute_fw(g)
@@ -333,7 +333,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: dwall
          real(kind=RP), intent(out)           :: g
 
-         real(kind=RP),                       :: r
+         real(kind=RP)                        :: r
 
          r = min(theta/( self % stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
 
