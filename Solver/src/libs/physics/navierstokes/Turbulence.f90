@@ -52,17 +52,17 @@ module SpallartAlmarasTurbulence
 !        procedure         :: Destruct          => Class_Destruct
          procedure         :: Initialize        => SAmodel_Initialize
          
-         procedure, private ::     => Compute_chi
-         procedure, private ::     => Compute_fv1
-         procedure, private ::     => Compute_fv2
-         procedure, private ::     => Compute_sbar
-         procedure, private ::     => Compute_modifiedvorticity
-         procedure, private ::     => Compute_gn
-         procedure, private ::     => Compute_g
-         procedure, private ::     => Compute_fw
-         procedure, private ::     => Compute_ProductionTerm
-         procedure, private ::     => Compute_DestructionTerm
-         procedure, private ::     => Compute_AdditionalSourceTermKappa
+         procedure, private ::      Compute_chi
+         procedure, private ::      Compute_fv1
+         procedure, private ::      Compute_fv2
+         procedure, private ::      Compute_sbar
+         procedure, private ::      Compute_modifiedvorticity
+         procedure, private ::      Compute_gn
+         procedure, private ::      Compute_g
+         procedure, private ::      Compute_fw
+         procedure, private ::      Compute_ProductionTerm
+         procedure, private ::      Compute_DestructionTerm
+         procedure, private ::      Compute_AdditionalSourceTermKappa
 
          procedure            :: ComputeViscosity    => SA_ComputeViscosity
          procedure            :: ComputeSourceTerms  => SA_Compute_SourceTerms          
