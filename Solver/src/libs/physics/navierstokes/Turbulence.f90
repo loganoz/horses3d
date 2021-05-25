@@ -93,7 +93,7 @@ module SpallartAlmarasTurbulence
 
          if (.not. allocated(model)) allocate( Spalart_Almaras_t :: model)
 
-            write(STD_OUT,'(A,A,A)') "RANS Model: ",trim(modelName), "."
+!            write(STD_OUT,'(A,A,A)') "RANS Model: ",trim(modelName), "."
 
             call model % Initialize(controlVariables)
          
@@ -153,7 +153,7 @@ module SpallartAlmarasTurbulence
 ! Compute Spallart Almaras Source  terms
 
        subroutine SA_Compute_SourceTerms(self, theta, kinematic_viscocity, rho, dwall,&
-                                         Qx, Qy, Qz, source_Kappa)
+                                         Qx, Qy, Qz, S_SA)
          implicit none
          !-----------------------------------------------------------
          class(Spalart_Almaras_t), intent(in) :: self
@@ -277,8 +277,6 @@ module SpallartAlmarasTurbulence
       pure function Compute_modifiedvorticity(self, vort, sbar) result(stilda)
          implicit none
          class(Spalart_Almaras_t), intent(in) :: self
-         real(kind=RP), intent(in)            :: theta
-         real(kind=RP), intent(in)            :: fv2
          real(kind=RP), intent(in)            :: sbar
          real(kind=RP)                        :: stilda
 
@@ -305,11 +303,13 @@ module SpallartAlmarasTurbulence
       subroutine Compute_DestructionTerm(self, theta, rho, dwall, destruciton_Y)
          implicit none
          class(Spalart_Almaras_t), intent(in) :: self
-         real(kind=RP), intent(in)            :: fw
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: dwall
-         real(kind=RP), intent(in)            :: y_destr
+         real(kind=RP), intent(out)           :: destruciton_Y
+         
+         real(kind=RP)            :: g
+         real(kind=RP)            :: fw
 
          IF (theta .GT. 0.0_RP ) then
          
@@ -331,8 +331,7 @@ module SpallartAlmarasTurbulence
          class(Spalart_Almaras_t), intent(in) :: self
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: dwall
-         real(kind=RP), intent(out)           :: g
-
+         real(kind=RP)                        :: g
          real(kind=RP)                        :: r
 
          r = min(theta/( self % stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
@@ -344,10 +343,8 @@ module SpallartAlmarasTurbulence
       function Compute_fw(self, g) result(fw)
          implicit none
          class(Spalart_Almaras_t), intent(in) :: self
-         real(kind=RP), intent(in)            :: theta
-         real(kind=RP), intent(in)            :: stilda
-         real(kind=RP), intent(in)            :: dwall
-         real(kind=RP), intent(out)            :: g
+         real(kind=RP), intent(in)            :: g
+         real(kind=RP)            :: fw
 
          fw = g * (1.0_RP + self % cw3**6 / g**6 + self % cw3**6)**(1.0_RP/6.0_RP)
 
@@ -363,11 +360,11 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: Theta_x
          real(kind=RP), intent(in)            :: Theta_y
          real(kind=RP), intent(in)            :: Theta_z
-         real(kind=RP), intent(in)            :: Kappa
+         real(kind=RP), intent(out)           :: source_Kappa
 
          source_Kappa  = self % cb2 * rho * sum (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z))
                
       end subroutine Compute_AdditionalSourceTermKappa
 
    
-end module SpallartAlmarasTurbulences
+end module SpallartAlmarasTurbulence
