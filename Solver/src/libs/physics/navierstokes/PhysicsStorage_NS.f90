@@ -80,7 +80,7 @@
 
      private
      public    flowIsNavierStokes, NCONS, NGRAD
-     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IRHOTHETA
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
@@ -95,7 +95,9 @@
      public    CheckPhysicsNSInputIntegrity
      public    GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
      public    grad_vars, SetGradientVariables
-!
+#if defined(SPALARTALMARAS)
+     public    IRHOTHETA
+#ENDIF
 !    ----------------------------
 !    Either NavierStokes or Euler
 !    ----------------------------

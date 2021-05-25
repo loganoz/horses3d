@@ -69,6 +69,7 @@ module FluidData_NS
       real(kind=RP)        :: Prt      ! Turbulent Prandtl number
       real(kind=RP)        :: Fr
       real(kind=RP)        :: mu
+      real(kind=RP)        :: niu
       real(kind=RP)        :: kappa
       real(kind=RP)        :: mu_to_kappa
       real(kind=RP)        :: mut_to_kappa_SA
@@ -151,6 +152,7 @@ module FluidData_NS
          dimensionless % Prt             = dimensionless_ % Prt
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % mu              = dimensionless_ % mu
+         dimensionless % niu              = dimensionless_ % niu
          dimensionless % kappa           = dimensionless_ % kappa
          dimensionless % mut_to_kappa_SA = dimensionless_ % mut_to_kappa_SA
          dimensionless % Mach            = dimensionless_ % Mach
