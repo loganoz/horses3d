@@ -277,26 +277,20 @@
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
          real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
-         real(kind=RP)                    :: thetaDivRho, theta_x, theta_y,theta_z
+         real(kind=RP)                    :: theta, thetaDivRho, theta_x, theta_y,theta_z
          
          invRho  = 1.0_RP / Q(IRHO)
 
          u = Q(IRHOU) * invRho
          v = Q(IRHOV) * invRho
          w = Q(IRHOW) * invRho
-         theta = Q(IRHOTHETA) * invRho
          
          uDivRho = [u * invRho, v * invRho, w * invRho]
-         thetaDivRho = theta * invRho
          
          u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
          u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
          u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
-         
-         theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
-         theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
-         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
-         
+                  
          nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
          nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
          nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
@@ -322,6 +316,13 @@
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa  * nablaT(IZ)
 
 #IF defined (SPALARTALMARAS)
+         theta = Q(IRHOTHETA) * invRho
+         thetaDivRho = theta * invRho
+
+         theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
+         theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
+         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
+
          F(IRHOTHETA,IX) = theta_x * eta
          F(IRHOTHETA,IY) = theta_y * eta
          F(IRHOTHETA,IZ) = theta_z * eta
