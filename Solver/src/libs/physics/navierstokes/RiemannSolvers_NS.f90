@@ -1077,8 +1077,8 @@ module RiemannSolvers_NS
 !        ---------------
 !
 !
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L, thetaL
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R, thetaR
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L, thetarhoL
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R, thetaehoR
          real(kind=RP)  :: QLRot(5), QRRot(5)
          real(kind=RP)  :: invRhoL, invRhoR
          real(kind=RP)  :: lambda, stab(5)
@@ -1123,8 +1123,13 @@ module RiemannSolvers_NS
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
+#if defined (SPALARTALMARAS)
          QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetaL /)
          QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetaR /)
+#else
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
+#endif
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
 !        Compute the Lax-Friedrichs stabilization
@@ -1625,7 +1630,9 @@ module RiemannSolvers_NS
          flux(IRHOV) = 0.5_RP * ( QLeft(IRHOU) * vL + QRight(IRHOU) * vR )
          flux(IRHOW) = 0.5_RP * ( QLeft(IRHOU) * wL + QRight(IRHOU) * wR )
          flux(IRHOE) = 0.5_RP * ( uL*(QLeft(IRHOE) + pL) + uR*(QRight(IRHOE) + pR) )
+#IF DEFINED (SPALARTALMARAS)
          flux(IRHOTHETA) = 0.5_RP * (uL * QLeft(IRHOTHETA) + uR * QRight(IRHOTHETA)  )
+#ENDIF
       end subroutine StandardAverage
 
       subroutine DucrosAverage(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 
