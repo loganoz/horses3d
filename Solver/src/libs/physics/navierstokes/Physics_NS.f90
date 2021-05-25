@@ -100,11 +100,11 @@
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
 
-#if defined SPALARTALMARAS
+#if defined (SPALARTALMARAS)
          F(IRHOTHETA, IX ) = Q(IRHOTHETA) * u
          F(IRHOTHETA, IY ) = Q(IRHOTHETA) * v
          F(IRHOTHETA, IZ ) = Q(IRHOTHETA) * w
-#end if
+#endif
       
          end associate
 
@@ -321,7 +321,7 @@
          F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) !+ beta * divV
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa  * nablaT(IZ)
 
-#IF defined SPALARTALMARAS
+#IF defined (SPALARTALMARAS)
          F(IRHOTHETA,IX) = theta_x * eta
          F(IRHOTHETA,IY) = theta_y * eta
          F(IRHOTHETA,IZ) = theta_z * eta
