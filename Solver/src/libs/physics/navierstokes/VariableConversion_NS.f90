@@ -188,9 +188,9 @@ module VariableConversion_NS
          real(kind=RP), intent(in)  :: U_z(NDIM)
          real(kind=RP), intent(out) :: vorticity
 
-               vorticity(var,i,j,k) = sqrt(  POW2( U_y(3,i,j,k) - U_z(2,i,j,k) ) &
-                                           + POW2( U_z(1,i,j,k) - U_x(3,i,j,k) ) &
-                                           + POW2( U_x(2,i,j,k) - U_y(1,i,j,k) ) )
+               vorticity = sqrt(  POW2( U_y(3) - U_z(2) ) &
+                                + POW2( U_z(1) - U_x(3) ) &
+                                + POW2( U_x(2) - U_y(1) ) )
 
       end subroutine ComputeVorticity
 !
