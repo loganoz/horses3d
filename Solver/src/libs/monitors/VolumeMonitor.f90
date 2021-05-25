@@ -113,7 +113,7 @@ module VolumeMonitorClass
          case ("entropy")
          case ("entropy rate")
          case ("entropy balance")
-         case ("math entropy") ; self % num_of_vars = 2
+         case ("math entropy")
          case ("svv dissipation")
          case ("internal energy")
          case ("mean velocity")
