@@ -25,7 +25,11 @@ module VariableConversion_NS
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity, geteddyviscositygradients
+   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
+
+#if defined SPALARTALMARAS
+   public   geteddyviscositygradients
+#endif
   
 
    interface getTemperatureGradient
