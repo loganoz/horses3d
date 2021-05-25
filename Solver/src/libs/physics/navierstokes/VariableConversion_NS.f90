@@ -393,6 +393,26 @@ module VariableConversion_NS
 
       end subroutine getVelocityGradients_Energy
 
+      pure subroutine getVelocityGradients_Entropy(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: pDivRho
+         real(kind=RP) :: U(NDIM)
+         !-------------------------------------------------------------
+
+         pDivRho = Pressure(Q) / Q(IRHO)
+         U = Q(IRHOU:IRHOW) / Q(IRHO)
+
+         U_x = pDivRho * Q_x(IRHOU:IRHOW) + U / pDivRho * Q_x(IRHOE)
+         U_y = pDivRho * Q_y(IRHOU:IRHOW) + U / pDivRho * Q_y(IRHOE)
+         U_z = pDivRho * Q_z(IRHOU:IRHOW) + U / pDivRho * Q_z(IRHOE)
+
+      end subroutine getVelocityGradients_Entropy
+
 !
 !/////////////////////////////////////////////////////////////////////////////
 !
@@ -576,6 +596,9 @@ module VariableConversion_NS
 
          case(GRADVARS_ENERGY)
             getVelocityGradients => getVelocityGradients_ENERGY
+
+         case(GRADVARS_ENTROPY)
+            getVelocityGradients => getVelocityGradients_ENTROPY
 
          end select
 
