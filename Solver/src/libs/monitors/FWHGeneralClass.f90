@@ -64,6 +64,7 @@ Module FWHGeneralClass  !
         use FileReadingUtilities, only: getCharArrayFromString
         use FWHDefinitions,       only: getMeanStreamValues
         use Headers
+        use Utilities,            only: toLower
 #ifdef _HAS_MPI_
         use mpi
 #endif
@@ -84,8 +85,8 @@ Module FWHGeneralClass  !
         integer                                             :: no_of_zones, no_of_face_i
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         logical, save                                       :: FirstCall = .TRUE.
-        character(len=LINE_LENGTH)                          :: zones_str
-        character(len=LINE_LENGTH), allocatable             :: zones_names(:)
+        character(len=LINE_LENGTH)                          :: zones_str, zones_str2
+        character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
 
 !        look if the accoustic analogy calculations are set to be computed
 !        --------------------------------
@@ -110,15 +111,33 @@ Module FWHGeneralClass  !
         self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
         ! if (self % isSolid) then
             if (controlVariables % containsKey("accoustic solid surface")) then
-                zones_str = controlVariables%stringValueForKey("accoustic solid surface", LINE_LENGTH)
+                zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
+                zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
+                call toLower(zones_str)
+                call toLower(zones_str2)
             else 
                 stop "Accoustic surface for integration is not defined"
             end if
-            call getCharArrayFromString(zones_str, LINE_LENGTH, zones_names)
+
+            call getCharArrayFromString(zones_str, LINE_LENGTH, zones_temp)
+            if (zones_str2 .ne. "") then
+                no_of_zones = size(zones_temp)
+                call getCharArrayFromString(zones_str2, LINE_LENGTH, zones_temp2)
+                no_of_zones = no_of_zones + size(zones_temp2)
+                allocate(zones_names(no_of_zones))
+                zones_names(1:size(zones_temp)) = zones_temp
+                zones_names(size(zones_temp)+1:no_of_zones) = zones_temp2
+                safedeallocate(zones_temp)
+                safedeallocate(zones_temp2)
+            else
+                no_of_zones = size(zones_temp)
+                allocate(zones_names(no_of_zones))
+                zones_names = zones_temp
+                safedeallocate(zones_temp)
+            end if 
 
     !       Get the zones ids fo the mesh and for each the number of faces
     !       --------------------------
-            no_of_zones = size(zones_names)
             allocate( faces_per_zone(no_of_zones), zonesIDs(no_of_zones) )
             do i = 1, no_of_zones
                 zonesIDs(i) = getZoneID(zones_names(i), mesh)
