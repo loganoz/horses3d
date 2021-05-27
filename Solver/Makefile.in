@@ -26,6 +26,12 @@ RANLIB=ranlib
 HOME_DIR?=@HORSES_HOME_DIR
 INSTALL_DIR=$(HOME_DIR)
 INCLUDE=-I$(HOME_DIR)/include
+USR_LIBS=/usr/lib/x86_64-linux-gnu
+
+HDF5_ROOT=$(USR_LIBS)
+HDF5_LIB=/usr/include/hdf5
+PETSC_DIR=/usr/lib/petsc
+METIS_HOME=$(USR_LIBS)
 LIBS = 
 MACROS = 
 EXTLIB_INC =
@@ -164,15 +170,17 @@ endif
 ##########################
 ## 	Link HDF5 	##
 ##########################
+# Few modifications to path, to make it work with my distro
 ifdef HDF5_ROOT
-	ifneq ("$(wildcard $(HDF5_ROOT)/lib/libhdf5_fortran-shared.so)","")
-		LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran-shared
+	ifneq ("$(wildcard $(HDF5_ROOT)/serial/libhdf5_fortran-shared.so)","")
+		LIBS += -L$(HDF5_ROOT)/serial -lhdf5_fortran-shared
 		MACROS+= -DHAS_HDF5
 		EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
-	else ifneq ("$(wildcard $(HDF5_ROOT)/lib/libhdf5_fortran.*)","")
-		LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran
+	else ifneq ("$(wildcard $(HDF5_ROOT)/hdf5/serial/libhdf5_fortran.*)","")
+		LIBS += -L$(HDF5_ROOT)/hdf5/serial -lhdf5_fortran
 		MACROS+= -DHAS_HDF5
-		EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
+		# EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
+		EXTLIB_INC += -I$(HDF5_LIB)/serial -I$(HDF5_ROOT) -I$(HDF5_ROOT)/hdf5/serial
 	endif
 ##  	FC = $(HDF5_EXE)
 endif
