@@ -263,7 +263,7 @@
       if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
          dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
       else
-         dimensionless_ % Prt = dimensionless_ % Pr
+         dimensionless_ % Prt = 0.92_RP
       end if
 !
 !     *********************

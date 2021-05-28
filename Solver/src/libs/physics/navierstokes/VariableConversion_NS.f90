@@ -139,8 +139,13 @@ module VariableConversion_NS
          real(kind=RP), intent(in)   :: mu
          real(kind=RP), intent(in)   :: rho
          real(kind=RP), intent(out)  :: niu
+         
+         real(kind=RP)  :: T, suther
 
-         niu = mu / rho
+         T = Temperature(Q)
+         suther = SutherlandsLaw(T)
+         
+         niu = mu * suther/ rho
 
       end subroutine GetNSKinematicViscosity
 
