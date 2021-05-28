@@ -1,4 +1,5 @@
 #!/bin/bash
+
 #######################################################################
 ###	This script configures the test cases:
 ###		-> Copies Makefiles with the solver absolute path
