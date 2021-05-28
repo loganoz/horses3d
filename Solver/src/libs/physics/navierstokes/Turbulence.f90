@@ -94,8 +94,6 @@ module SpallartAlmarasTurbulence
 
          if (.not. allocated(model)) allocate( Spalart_Almaras_t :: model)
 
-!            write(STD_OUT,'(A,A,A)') "RANS Model: ",trim(modelName), "."
-
             call model % Initialize(controlVariables)
          
         
@@ -140,7 +138,7 @@ module SpallartAlmarasTurbulence
          call self % Compute_fv1(chi, fv1)
 
          IF (theta .GT. 0.0_RP ) then
-            mu_t = rho * theta * fv1 * ( dimensionless % mu / refValues % mu)
+            mu_t = rho * theta * fv1 
             eta  = mu * (1.0_RP + chi) / self % sigma
          ELSE
             mu_t = 0.0_RP       
@@ -342,7 +340,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: g
          real(kind=RP)                        :: r
 
-         r = min(dimensionless % mu * theta/( self % stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
+         r = min(dimensionless % mu * theta/( self % stilda * POW2(self % kappa) * POW2(dwall)), dimensionless % mu * self % rmax )
 
          g = r + self % cw2 * ( r**6 - r)
 

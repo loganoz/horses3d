@@ -450,8 +450,8 @@ module SpatialDiscretization
                                                   e % storage % Q(IRHO,i,j,k), e % storage % mu_NS(1,i,j,k),&
                                                   mu_t, e % storage % mu_NS(3,i,j,k))
                   
-                  e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_t
-                  e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_t * dimensionless % mut_to_kappa_SA
+                  e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_t * dimensionless % mu
+                  e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_t * dimensionless % mu * dimensionless % mut_to_kappa_SA
 
                   call SAmodel % ComputeSourceTerms(e % storage % Q(IRHOTHETA,i,j,k), kinematic_viscocity, e % storage % Q(IRHO,i,j,k), &
                               e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
@@ -719,8 +719,8 @@ module SpatialDiscretization
                                                   f % storage(side) % Q(IRHO,i,j,k), f % storage(side) % mu_NS(1,i,j), &
                                                   mu_t, f % storage(side) % mu_NS(3,i,j) )
                   
-                  f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t
-                  f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_t * dimensionless % mut_to_kappa_SA
+                  f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t * dimensionless % mu
+                  f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_t * dimensionless % mu * dimensionless % mut_to_kappa_SA
 
                end do                ; end do                ; end do
                end associate
