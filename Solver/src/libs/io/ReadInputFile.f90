@@ -205,6 +205,7 @@ end module FileReaders
          write(fid,'(A40,A,A)') "AoA Phi", " = ", "0.0"
          write(fid,'(A40,A,A)') "Gravity direction", " = ", "[x,y,z]"
          write(fid,'(A40,A,A)') "Compute gradients", " = ", ".true."
+         write(fid,'(A40,A,A)') "Turbulence intensity", " = ", "0.0", "! NS only"
 
          write(fid,'(/,A)') "!                        ** Cahn-Hilliard"
          write(fid,'(A40,A,A)') "Peclet number", " = ", "1.0"

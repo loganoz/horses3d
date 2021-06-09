@@ -24,6 +24,7 @@
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: GRAVITY_DIRECTION_KEY          = "gravity direction"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                  = "aoa theta"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                    = "aoa phi"
+         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: TURBULENCE_INTENSITY_KEY       = "turbulence intensity"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY             = "flow equations"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY        = "riemann solver"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY       = "lambda stabilization"
@@ -550,6 +551,16 @@
 
       END IF 
 !
+      
+    !   Turbulence intensity. Zero by default
+    !   -------------------------------------
+    IF ( controlVariables % containsKey(TURBULENCE_INTENSITY_KEY) )     THEN
+        refValues_ % TurbulenceIntensity = controlVariables % doublePrecisionValueForKey(TURBULENCE_INTENSITY_KEY) 
+    ELSE
+        refValues_ % TurbulenceIntensity = 0.0_RP
+    END IF 
+
+
 !     **************************
 !     Sutherland's law constants
 !     **************************

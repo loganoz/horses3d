@@ -58,6 +58,7 @@ module FluidData_NS
       real(kind=RP)        :: kappa
       real(kind=RP)        :: AoATheta
       real(kind=RP)        :: AoAPhi
+      real(kind=RP)        :: TurbulenceIntensity
    end type RefValues_t
 
    type Dimensionless_t
@@ -135,6 +136,7 @@ module FluidData_NS
          refValues % kappa    = refValues_ % kappa
          refValues % AoATheta = refValues_ % AoATheta
          refValues % AoAPhi   = refValues_ % AoAPhi
+         refValues % TurbulenceIntensity   = refValues_ % TurbulenceIntensity
 
       end subroutine SetRefValues
 

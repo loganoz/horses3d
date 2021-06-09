@@ -19,6 +19,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: reynoldsNumberKey       = "reynolds number"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaThetaKey             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: aoaPhiKey               = "aoa phi"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: TurbulenceIntensityKey  = "turbulence intensity"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: flowIsNavierStokesKey   = "flowisnavierstokes"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: polynomialOrderKey      = "polynomial order"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: cflKey                  = "cfl"
@@ -31,7 +32,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfPlotPointsKey   = "number of plot points"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfBoundariesKey   = "number of boundaries"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey     = "solution file name"
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(20) :: mainKeywords =  [machNumberKey,           &
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(21) :: mainKeywords =  [machNumberKey,           &
                                                                           discretizationNodesKey,  &
                                                                           inviscidDiscretizationKey, &
                                                                           viscousDiscretizationKey, &
@@ -40,6 +41,7 @@
                                                                           reynoldsNumberKey,       &
                                                                           aoaThetaKey,             &
                                                                           aoaPhiKey,               &
+                                                                          TurbulenceIntensityKey,  &
                                                                           flowIsNavierStokesKey,   &
                                                                           polynomialOrderKey,      &
                                                                           cflKey,                  &
