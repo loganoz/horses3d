@@ -4,9 +4,9 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Thu Jun 10 18:41:08 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,6 @@ module MultigridTypes
       real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
       real(kind=RP), dimension(:,:,:,:), allocatable :: R     ! 
       real(kind=RP), dimension(:,:,:,:), allocatable :: Q0    ! 
-      real(kind=RP), dimension(:,:,:,:), allocatable :: dQ    ! 
    end type MGSolStorage_t
    
 !
@@ -77,8 +76,10 @@ module MultigridTypes
    integer, parameter :: RK5_SMOOTHER     = 2 ! 
    integer, parameter :: RKOPT_SMOOTHER   = 3 ! 
    integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
-   integer, parameter :: BJ_SMOOTHER      = 4 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 5 ! Jacobian-Free GMRES
+   integer, parameter :: IRK_SMOOTHER = 4     ! Implicit Euler smoother (full matrix assembly)
+   integer, parameter :: DIRK5_SMOOTHER = 5   ! Semi-implicit RK smoother
+   integer, parameter :: BJ_SMOOTHER      = 6 ! Block Jacobi smoother
+   integer, parameter :: JFGMRES_SMOOTHER = 7 ! Jacobian-Free GMRES
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step

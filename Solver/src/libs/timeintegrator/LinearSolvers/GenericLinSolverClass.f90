@@ -27,9 +27,6 @@ module GenericLinSolverClass
    
    public FTValueDictionary
    
-   integer, parameter :: NOTDEF_JACOBIAN     = 0
-   integer, parameter :: NUMERICAL_JACOBIAN  = 1
-   integer, parameter :: ANALYTICAL_JACOBIAN = 2
    
    type :: GenericLinSolver_t
       class(JacobianComputer_t), allocatable   :: Jacobian

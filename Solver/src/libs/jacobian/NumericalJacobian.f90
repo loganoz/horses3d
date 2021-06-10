@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Sun Aug  4 16:39:45 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Thu Jun 10 18:41:01 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
 !
 !//////////////////////////////////////////////////////
 !
@@ -127,9 +127,20 @@ contains
 !
       
       call Stopwatch % Start("Numerical Jacobian construction")
-      
-      if (isfirst) then   
+
+      if (.NOT. isfirst) then 
+         deallocate(nbr)
+         deallocate(Nx)
+         deallocate(Ny)
+         deallocate(Nz)
+         deallocate(used)
+         deallocate(ndofcol)
+         deallocate(QDot0)
+         deallocate(Q0)
+      end if
+
          nelm = size(sem % mesh % elements)
+
 !
 !        Define the number of needed neighbors
 !        -> TODO: Define according to physics and discretization
@@ -218,7 +229,6 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
          
          ! All initializations done!
          isfirst = .FALSE.
-      end if !(isfirst)
 !
 !     ---------------------------------------------
 !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)

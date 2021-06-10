@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Sun Aug  4 19:18:48 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
+!   @Last revision date: Thu Jun 10 18:41:03 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
 !
 !//////////////////////////////////////////////////////
 !
@@ -3447,6 +3447,7 @@ slavecoord:             DO l = 1, 4
       integer :: bdf_order, eID, fID, RKSteps_num
       logical :: Face_St
       character(len=LINE_LENGTH) :: time_int
+      character(len=LINE_LENGTH) :: mg_smoother
       !-----------------------------------------------------------
       
       if ( present(Face_Storage) ) then
@@ -3461,6 +3462,14 @@ slavecoord:             DO l = 1, 4
       if     ( controlVariables % containsKey("bdf order")) then
          bdf_order = controlVariables % integerValueForKey("bdf order")
          RKSteps_num = 0
+      elseif ( trim(time_int) == "fas" ) then
+        if ( controlVariables % containsKey("mg smoother")) then
+          mg_smoother = controlVariables % stringValueForKey("mg smoother",LINE_LENGTH)
+          call toLower (mg_smoother)
+          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "dirk5") ) then
+            bdf_order = 1
+          end if
+        end if
       elseif ( trim(time_int) == "imex" ) then
          bdf_order = 1
 #ifdef MULTIPHASE
