@@ -11,10 +11,10 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module VariableConversion_NS
+module VariableConversion_NSSA
    use SMConstants
-   use PhysicsStorage_NS
-   use FluidData_NS
+   use PhysicsStorage_NSSA
+   use FluidData_NSSA
    implicit none
 
    private
@@ -45,7 +45,7 @@ module VariableConversion_NS
     abstract interface
       pure subroutine getVelocityGradients_f(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
          use SMConstants
-         use PhysicsStorage_NS
+         use PhysicsStorage_NSSA
          implicit none
          real(kind=RP), intent(in)  :: Q(NCONS)
          real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
@@ -637,4 +637,4 @@ module VariableConversion_NS
 #endif
 
 
-end module VariableConversion_NS
+end module VariableConversion_NSSA

@@ -11,12 +11,12 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-module RiemannSolvers_NS
+module RiemannSolvers_NSSA
    use SMConstants
-   use Physics_NS
-   use PhysicsStorage_NS
-   use VariableConversion_NS
-   use FluidData_NS
+   use Physics_NSSA
+   use PhysicsStorage_NSSA
+   use VariableConversion_NSSA
+   use FluidData_NSSA
 
    private 
    public RiemannSolver, SetRiemannSolver, RiemannSolver_dFdQ
@@ -24,7 +24,7 @@ module RiemannSolvers_NS
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
          use SMConstants
-         use PhysicsStorage_NS
+         use PhysicsStorage_NSSA
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM)
@@ -34,7 +34,7 @@ module RiemannSolvers_NS
       end subroutine RiemannSolverFCN
       subroutine AveragedStatesFCN(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 
          use SMConstants
-         use PhysicsStorage_NS
+         use PhysicsStorage_NSSA
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -44,7 +44,7 @@ module RiemannSolvers_NS
       end subroutine AveragedStatesFCN
       subroutine RiemannSolver_dFdQFCN(ql,qr,nHat,dfdq_num,side)
          use SMConstants
-         use PhysicsStorage_NS
+         use PhysicsStorage_NSSA
          implicit none
          real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
          real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
@@ -191,7 +191,7 @@ module RiemannSolvers_NS
          
          ERROR stop 'Requested Riemann solver not implemented for implicit time-integration'
       end subroutine BaseClass_RiemannSolver_dFdQ
-#ifndef SPALARTALMARAS
+#ifndef SPALARTALMARAS 
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
@@ -1142,8 +1142,9 @@ module RiemannSolvers_NS
 !
 !        Compute the Lax-Friedrichs stabilization
 !        ----------------------------------------
-         stab = 0.5_RP * lambda * (QRRot - QLRot)
-!
+         stab(1:5) = 0.5_RP * lambda * (QRRot(1:5) - QLRot(1:5))
+         stab(6)   = 0.5_RP * (QRRot(6) - QLRot(6))
+
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------
          flux = flux - lambdaStab * stab
@@ -1902,4 +1903,4 @@ module RiemannSolvers_NS
 
       end subroutine ChandrasekarAverage
 
-end module RiemannSolvers_NS
+end module RiemannSolvers_NSSA

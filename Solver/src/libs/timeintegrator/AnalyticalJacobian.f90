@@ -36,11 +36,16 @@ module AnalyticalJacobian
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
    use ConnectivityClass               , only: Connectivity
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientVariables_STATE
    use FluidData_NS, only: dimensionless
+#elif defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSA               , only: RiemannSolver_dFdQ, RiemannSolver
+   use HyperbolicDiscretizations       , only: HyperbolicDiscretization
+   use VariableConversion              , only: NSGradientVariables_STATE
+   use FluidData_NSSA, only: dimensionless
 #endif
 #ifdef _HAS_MPI_
    use mpi
@@ -133,7 +138,7 @@ contains
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
       integer        , optional, intent(in)        :: mode
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) 
       !--------------------------------------------
       integer :: nnz
       integer :: nelem, ierr
@@ -270,7 +275,7 @@ contains
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
    end subroutine AnJacobian_Compute
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -615,9 +620,10 @@ contains
          f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          
       end do             ; end do
-      
+#ifndef SPALARTALMARAS
       if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)
-      
+#endif
+
    end subroutine ComputeInterfaceFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -988,8 +994,8 @@ contains
 !     Inviscid contribution
 !     *********************
 !
+#ifndef SPALARTALMARAS     
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      
       if (flowIsNavierStokes) then
          call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
          ! TODO: Read this from Viscous discretization
@@ -1004,7 +1010,7 @@ contains
          call AnJac_GetFaceJac(fL, sideL, JacL, dqHat_dqp, dqHat_dqm)
          
       end if
-      
+#endif    
 !
 !     Pointers to the flux Jacobians with respect to q on the faces
 !     -------------------------------------------------------------

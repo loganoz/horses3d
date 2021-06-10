@@ -20,8 +20,10 @@ Module DGSEMClass
    USE PhysicsStorage
    use FluidData
    use FileReadingUtilities      , only: getFileName
-#if defined(NAVIERSTOKES)
-   USE ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
 #endif
    use MonitorsClass
    use ParticlesClass
@@ -306,7 +308,7 @@ Module DGSEMClass
 !     Get manufactured solution source term (if requested)
 !     ----------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements) 
             DO k=0, Nz(el)
@@ -326,6 +328,21 @@ Module DGSEMClass
             END DO
          END DO
       END IF
+#elif defined(SPALARTALMARAS)
+      IF (self % ManufacturedSol) THEN
+         DO el = 1, SIZE(self % mesh % elements) 
+            DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)
+                        CALL ManufacturedSolutionSourceNSSA(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                          self % mesh % elements(el) % geom % dwall(i,j,k), 0._RP, &
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
+
 #endif
 !
 !     ------------------
@@ -463,7 +480,7 @@ Module DGSEMClass
       use MPI_Process_Info
       IMPLICIT NONE
       CLASS(HexMesh), intent(in)  :: mesh
-      REAL(KIND=RP) :: maxResidual(NCONS)
+      REAL(KIND=RP), dimension(NCONS) :: maxResidual
 !
 !     ---------------
 !     Local variables
@@ -471,8 +488,8 @@ Module DGSEMClass
 !
       INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(NCONS)
-      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localc
-      real(kind=RP) :: R1, R2, R3, R4, R5, c
+      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
+      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
       
       maxResidual = 0.0_RP
       R1 = 0.0_RP
@@ -480,29 +497,46 @@ Module DGSEMClass
       R3 = 0.0_RP
       R4 = 0.0_RP
       R5 = 0.0_RP
+      R6 = 0.0_RP
       c    = 0.0_RP
 
-!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5,c) schedule(runtime)
+!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
+!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
-#ifdef FLOW
+#if defined FLOW && !(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
          localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
+#else
+         localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
+         localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
+         localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
+         localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
+         localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
+         localR6 = maxval(abs(mesh % elements(id) % storage % QDot(6,:,:,:)))
 #endif
+
 #ifdef CAHNHILLIARD
          localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
 #endif
       
-#ifdef FLOW
+#if defined FLOW && !(SPALARTALMARAS)
          R1 = max(R1,localR1)
          R2 = max(R2,localR2)
          R3 = max(R3,localR3)
          R4 = max(R4,localR4)
          R5 = max(R5,localR5)
+#elif defined(SPALARTALMARAS)
+         R1 = max(R1,localR1)
+         R2 = max(R2,localR2)
+         R3 = max(R3,localR3)
+         R4 = max(R4,localR4)
+         R5 = max(R5,localR5)
+         R6 = max(R6,localR6)
 #endif
+
 #ifdef CAHNHILLIARD
          c    = max(c, localc)
 #endif
@@ -510,8 +544,10 @@ Module DGSEMClass
 !$omp end do
 !$omp end parallel
 
-#ifdef FLOW
-      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
+#if defined FLOW && (!(SPALARTALMARAS))
+!      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
+#elif defined(SPALARTALMARAS)
+      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
 #endif
       
 #if  defined(CAHNHILLIARD) && (!defined(FLOW))
@@ -559,11 +595,13 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
-      real(kind=RP)                 :: Q(NCONS)                           ! The solution in a node
+      real(kind=RP)                 :: Q(5)                             ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
+#ifndef SPALARTALMARAS
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
+#endif
 #if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
 #endif
@@ -620,8 +658,9 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
+#ifndef SPALARTALMARAS
             CALL ComputeEigenvaluesForState( Q , eValues )
-            
+#endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 !           ----------------------------

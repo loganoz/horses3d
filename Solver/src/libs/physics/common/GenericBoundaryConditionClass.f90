@@ -29,7 +29,7 @@ module GenericBoundaryConditionClass
 !  Public variables
 !  ****************
 !
-   public NS_BC, C_BC, MU_BC
+   public NS_BC, C_BC, MU_BC, NSSA_BC
 !
 !  ******************
 !  Public definitions
@@ -45,6 +45,7 @@ module GenericBoundaryConditionClass
       enumerator :: NONE_BC
       enumerator :: NS_BC
       enumerator :: C_BC, MU_BC
+      enumerator :: NSSA_BC
    end enum
 !
 !  ****************
@@ -156,6 +157,8 @@ module GenericBoundaryConditionClass
 #ifdef FLOW
          case(NS_BC)
             call self % FlowState(x, t, nHat, Q)
+         case(NSSA_BC)
+            call self % FlowState(x,t,nHat, Q)
 #endif
          case(C_BC)
             call self % PhaseFieldState(x, t, nHat, Q)

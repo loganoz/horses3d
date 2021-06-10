@@ -11,7 +11,7 @@
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
-      Module Physics_NSKeywordsModule
+      Module Physics_NSSAKeywordsModule
          IMPLICIT NONE 
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_TEMPERATURE_KEY      = "reference temperature (k)"
@@ -32,7 +32,7 @@
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_TEMPERATURE_KEY     = "sutherland temperature"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_REF_TEMPERATURE_KEY = "sutherland reference temperature"
          
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSSAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
@@ -43,7 +43,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME    ="u-diss"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME        ="u-diss"
 
          !PARTICLES 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
@@ -64,23 +64,23 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: INJ_VEL_KEY              = "particles injection velocity"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: INJ_TEMP_KEY             = "particles injection temperature"
          
-      END MODULE Physics_NSKeywordsModule
+      END MODULE Physics_NSSAKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
 !    
 !    ******
-     MODULE PhysicsStorage_NS
+     MODULE PhysicsStorage_NSSA
 !    ******
 !
      USE SMConstants
-     use FluidData_NS
+     use FluidData_NSSA
      use FileReadingUtilities, only: getRealArrayFromString
      
      IMPLICIT NONE
 
      private
      public    flowIsNavierStokes, NCONS, NGRAD
-     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+     public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE, IRHOTHETA
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
@@ -91,11 +91,10 @@
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    CHANDRASEKAR_SPLIT
       
-     public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
+     public    ConstructPhysicsStorage_NSSA, DestructPhysicsStorage_NS, DescribePhysicsStorage_NSSA
      public    CheckPhysicsNSInputIntegrity
      public    GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
      public    grad_vars, SetGradientVariables
-
 !    ----------------------------
 !    Either NavierStokes or Euler
 !    ----------------------------
@@ -110,13 +109,8 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-#if defined(SPALARTALMARAS)
      INTEGER, PARAMETER :: NCONS = 6, NGRAD = 6
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5, IRHOTHETA = 6
-#else
-     INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
-     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
-#endif
 !
 !    ----------------------------------------
 !!   The positions of the primitive variables
@@ -204,9 +198,9 @@
 !!    variables.
 !     --------------------------------------------------
 !
-      SUBROUTINE ConstructPhysicsStorage_NS( controlVariables, Lref, timeref, success )
+      SUBROUTINE ConstructPhysicsStorage_NSSA( controlVariables, Lref, timeref, success )
       USE FTValueDictionaryClass
-      USE Physics_NSKeywordsModule
+      USE Physics_NSSAKeywordsModule
       use Utilities, only: toLower, almostEqual
 !
 !     ---------
@@ -261,7 +255,7 @@
       if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
          dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
       else
-         dimensionless_ % Prt = 0.92_RP
+         dimensionless_ % Prt = 0.9_RP
       end if
 !
 !     *********************
@@ -586,7 +580,7 @@
       call setDimensionless( dimensionless_ )
       call setRefValues( refValues_ )
 
-      END SUBROUTINE ConstructPhysicsStorage_NS
+      END SUBROUTINE ConstructPhysicsStorage_NSSA
 !
 !     ///////////////////////////////////////////////////////
 !
@@ -604,7 +598,7 @@
 !!    Descriptor: Shows the gathered data
 !     -----------------------------------------
 !
-      SUBROUTINE DescribePhysicsStorage_NS()
+      SUBROUTINE DescribePhysicsStorage_NSSA()
          USE Headers
          use MPI_Process_Info
          IMPLICIT NONE
@@ -654,13 +648,13 @@
                                                    dimensionless % gravity_dir(2), ", ", &
                                                    dimensionless % gravity_dir(3), "]"
 
-      END SUBROUTINE DescribePhysicsStorage_NS
+      END SUBROUTINE DescribePhysicsStorage_NSSA
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
       SUBROUTINE CheckPhysicsNSInputIntegrity( controlVariables, success )  
          USE FTValueDictionaryClass
-         USE Physics_NSKeywordsModule
+         USE Physics_NSSAKeywordsModule
          IMPLICIT NONE
 !
 !        ---------
@@ -678,10 +672,10 @@
          INTEGER                  :: i
          success = .TRUE.
          
-         DO i = 1, SIZE(physics_NSKeywords)
-            obj => controlVariables % objectForKey(physics_NSKeywords(i))
+         DO i = 1, SIZE(physics_NSSAKeywords)
+            obj => controlVariables % objectForKey(physics_NSSAKeywords(i))
             IF ( .NOT. ASSOCIATED(obj) )     THEN
-               PRINT *, "Input file is missing entry for keyword: ",physics_NSKeywords(i)
+               PRINT *, "Input file is missing entry for keyword: ",physics_NSSAKeywords(i)
                success = .FALSE. 
             END IF  
          END DO  
@@ -705,6 +699,6 @@
 
 !
 !    **********       
-     END MODULE PhysicsStorage_NS
+     END MODULE PhysicsStorage_NSSA
 !    **********
 

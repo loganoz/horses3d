@@ -10,9 +10,8 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      PROGRAM HORSES3DMainNS
+      PROGRAM HORSES3DMainNSSA
       
-      USE SMConstants
       use FTValueDictionaryClass
       USE PhysicsStorage
       USE SharedBCModule
@@ -25,8 +24,9 @@
       use SpatialDiscretization
       use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use ManufacturedSolutionsNS
+      use ManufacturedSolutionsNSSA
       use FluidData
+      USE SMConstants
       use FileReaders               , only: ReadControlFile 
       use FileReadingUtilities      , only: getFileName
       use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
@@ -203,7 +203,7 @@
 
       call MPI_Process % Close
       
-      END PROGRAM HORSES3DMainNS
+      END PROGRAM HORSES3DMainNSSA
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

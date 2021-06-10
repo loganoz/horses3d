@@ -106,6 +106,7 @@ for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
 	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir

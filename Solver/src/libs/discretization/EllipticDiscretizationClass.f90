@@ -10,7 +10,7 @@ module EllipticDiscretizationClass
 !
    private
    public   EllipticDiscretization_t, EllipticFlux_f, GetViscosity_f
-   public   ELLIPTIC_NS, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
+   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
 
    public BaseClass_ComputeGradient
 
@@ -24,7 +24,7 @@ module EllipticDiscretizationClass
          procedure      :: LiftGradients             => BaseClass_LiftGradients
          procedure      :: ComputeInnerFluxes        => BaseClass_ComputeInnerFluxes
          procedure      :: RiemannSolver             => BaseClass_RiemannSolver
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          procedure      :: ComputeInnerFluxJacobian  => BaseClass_ComputeInnerFluxJacobian
          procedure      :: RiemannSolver_Jacobians   => BaseClass_RiemannSolver_Jacobians
 #endif
@@ -55,7 +55,7 @@ module EllipticDiscretizationClass
    end interface
 
    enum, bind(C)
-      enumerator :: ELLIPTIC_NS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
+      enumerator :: ELLIPTIC_NS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS, ELLIPTIC_NSSA
    end enum
 !
 !  ========
@@ -99,6 +99,9 @@ module EllipticDiscretizationClass
 
          case(ELLIPTIC_MU)
             self % eqName = ELLIPTIC_MU
+
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
 
          case default
             print*, "Unrecognized equation"
@@ -222,7 +225,7 @@ module EllipticDiscretizationClass
 !                    |__________Jacobian for this component
 !              (added to existing Jacobian)
 !     --------------------------------------------------------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, df_dgradq, dFdQ) 
          use ElementClass
          use Physics

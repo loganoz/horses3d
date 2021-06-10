@@ -35,8 +35,8 @@ module FASMultigridClass
    use BDFTimeIntegrator
    use FileReadingUtilities      , only: getFileName
    use MPI_Process_Info          , only: MPI_Process
-#if defined(NAVIERSTOKES)
-   use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
 #endif
    
    implicit none
@@ -306,8 +306,8 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-#if defined(NAVIERSTOKES)
-      use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      use ManufacturedSolutionsNS
 #endif
       use FTValueDictionaryClass
       implicit none
@@ -353,7 +353,7 @@ module FASMultigridClass
 !        (only for lower meshes)
 !     --------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       if (ManSol) then
          DO iEl = 1, nelem
             

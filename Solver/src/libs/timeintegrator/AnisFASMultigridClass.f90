@@ -26,8 +26,8 @@ module AnisFASMultigridClass
    use FTValueDictionaryClass , only: FTValueDictionary
    use MPI_Process_Info       , only: MPI_Process
    use StopwatchClass         , only: Stopwatch
-#if defined(NAVIERSTOKES)
-   use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
 #endif
    
    implicit none
@@ -377,7 +377,7 @@ module AnisFASMultigridClass
 !     Fill source term if required (manufactured solutions)
 !     -----------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       if (ManSol) then
          do iEl = 1, nelem
             

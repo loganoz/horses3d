@@ -22,7 +22,7 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/horses3d.ns
+PROG=./bin/horses3d.nssa
 
 OBJS_HORSES=	SpatialDiscretization \
 		main  
@@ -47,12 +47,12 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS -I./include $(INCLUDE) $(INCLUDE)_nssa $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
-./build_ns/%.o: ./**/%.f90
+./build_nssa/%.o: ./**/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include_ns
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS -I./include $(INCLUDE) $(INCLUDE)_nssa $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include_nssa
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo
@@ -60,7 +60,7 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
+	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_nssa -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
 install: $(PROG)
 	cp -p $(PROG) $(INSTALL_DIR)/bin
@@ -82,9 +82,9 @@ mkdirs: FORCE
 
 header: FORCE
 	@echo
-	@echo "============================================="
-	@echo ">>   Building HORSES3D Navier-Stokes Solver  "
-	@echo "============================================="
+	@echo "============================================================"
+	@echo ">>   Building HORSES3D Navier-Stokes/SPALARTALMARAS Solver  "
+	@echo "============================================================"
 	@echo
 	@echo
 

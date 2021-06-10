@@ -8,28 +8,28 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-
-LIBOBJS = ./build/FluidData_NS.o \
-		  ./build/PhysicsStorage_NS.o \
-		  ./build/VariableConversion_NS.o \
+LIBOBJS = ./build/FluidData_NSSA.o \
+		  ./build/PhysicsStorage_NSSA.o \
+		  ./build/VariableConversion_NSSA.o \
 		  ./build/ArtificialViscosity.o \
 		  ./build/LESModels.o \
-		  ./build/Physics_NS.o \
-		  ./build/RiemannSolvers_NS.o \
+		  ./build/Physics_NSSA.o \
+		  ./build/RiemannSolvers_NSSA.o \
 		  ./build/ManufacturedSolutions.o \
-
-LIB = physicsns
+		  ./build/Turbulence.o 
+          
+LIB = physicsnssa
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
 ############################################
-.DEFAULT_GOAL:= lib$(LIB).a
+.DEFAULT_GOAL:=  lib$(LIB).a
 
 
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -DSPALARTALMARAS $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo
@@ -48,9 +48,9 @@ install : lib$(LIB).a
 
 header: FORCE
 	@echo
-	@echo "==========================================="
-	@echo ">>   Building Navier-Stokes physics        "
-	@echo "==========================================="
+	@echo "============================================================"
+	@echo ">>   Building Navier-Stokes/Spallart-Almaras physics        "
+	@echo "============================================================"
 	@echo
 	@echo
 mkdirs: FORCE
@@ -60,7 +60,7 @@ mkdirs: FORCE
 clean: FORCE
 	$(RM) lib$(LIB).a 
 	$(RM) ./build/*.o 
-	$(RM) ./indlude/*.mod
+	$(RM) ./indlude/*.mod 
 #############################################
 #	Dummy procedure to force a rule     #
 #############################################

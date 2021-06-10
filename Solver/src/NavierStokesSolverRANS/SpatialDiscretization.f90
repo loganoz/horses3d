@@ -30,7 +30,7 @@ module SpatialDiscretization
       use FluidData
       use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
                                     GetGradientValues_f, NSGradientVariables_ENERGY, get_laminar_mu_kappa, &
-                                    set_getVelocityGradients
+                                    set_getVelocityGradients, GetNSKinematicViscosity
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
 #ifdef SPALARTALMARAS
@@ -210,20 +210,14 @@ module SpatialDiscretization
                   stop 
 
                end select
-#ifndef SPALARTALMARAS
-               call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
-#else
+
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NSSA)
-#endif
                call ViscousDiscretization % Describe
       
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
-#ifndef SPALARTALMARAS
-               call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
-#else
+
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NSSA)
-#endif!
 !              Set state as default option
 !              ---------------------------
                call SetGradientVariables(GRADVARS_STATE)
@@ -238,9 +232,7 @@ module SpatialDiscretization
    !        -----------------
             call InitializeLESModel(LESModel, controlVariables)
 
-#if defined SPALARTALMARAS
             call InitializeTurbulenceModel(SAmodel, controlVariables)
-#endif
          
          end if
 !
@@ -292,7 +284,7 @@ module SpatialDiscretization
 !
          INTEGER :: k
 
-         call SetBoundaryConditionsEqn(NS_BC)
+         call SetBoundaryConditionsEqn(NSSA_BC)
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces
@@ -675,7 +667,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer       :: iFace, i, j, side
-         real(kind=RP) :: delta, mu_smag
+         real(kind=RP) :: delta, mu_smag, mu_t, kinematic_viscocity
 
          if (flowIsNavierStokes) then
 !$omp do schedule(runtime) private(i,j)
@@ -714,7 +706,7 @@ module SpatialDiscretization
          end if
 
 #if defined(SPALARTALMARAS)
-!$omp do schedule(runtime) private(i,j,k,mu_t)
+!$omp do schedule(runtime) private(i,j,mu_t)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -722,7 +714,7 @@ module SpatialDiscretization
 
                   call GetNSKinematicViscosity(f % storage(side) % mu_NS(1,i,j), f % storage(side) % Q(IRHO,i,j), kinematic_viscocity )
                   call SAmodel % ComputeViscosity(f % storage(side) % Q(IRHOTHETA,i,j), kinematic_viscocity, &
-                                                  f % storage(side) % Q(IRHO,i,j,k), f % storage(side) % mu_NS(1,i,j), &
+                                                  f % storage(side) % Q(IRHO,i,j), f % storage(side) % mu_NS(1,i,j), &
                                                   mu_t, f % storage(side) % mu_NS(3,i,j) )
                   
                   f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t * dimensionless % mu
@@ -783,7 +775,7 @@ module SpatialDiscretization
 !        Add a source term
 !        -----------------
          if (.not. mesh % child) then
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j, k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -794,7 +786,7 @@ module SpatialDiscretization
 !$omp end do
          end if
          
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)

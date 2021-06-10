@@ -18,8 +18,10 @@
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicDiscretizationClass
    use SMConstants
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS
+#elif defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSA
 #elif defined(INCNS)
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
@@ -41,7 +43,7 @@ module HyperbolicDiscretizationClass
          procedure   :: Initialize               => BaseClass_Initialize
          procedure   :: ComputeInnerFluxes       => BaseClass_ComputeInnerFluxes
          procedure   :: ComputeSplitFormFluxes   => BaseClass_ComputeSplitFormFluxes
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          procedure   :: ComputeInnerFluxJacobian => BaseClass_ComputeInnerFluxJacobian
 #endif
    end type HyperbolicDiscretization_t
@@ -241,7 +243,7 @@ module HyperbolicDiscretizationClass
 !                 |     |
 !              jac|coord|flux in cartesian direction dim 
 !     ----------------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
          use ElementClass
          use Physics
