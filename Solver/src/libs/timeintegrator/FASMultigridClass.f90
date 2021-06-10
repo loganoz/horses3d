@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jun 10 18:41:05 2021
+!   @Last revision date: Thu Jun 10 19:01:09 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
+!   @Last revision commit: c7cd770d93fd454a3ee53d91064937232d555d0d
 !
 !//////////////////////////////////////////////////////
 !
@@ -1261,7 +1261,7 @@ module FASMultigridClass
             case (DIRK5_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
-                  call TakeDIRK5Step ( this=this, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                  call TakeDIRK5Step ( this=this, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
                end do
 
@@ -1274,7 +1274,7 @@ module FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine TakeDIRK5Step( this, particles, t, deltaT, ComputeTimeDerivative, dts, global_dt )
+   subroutine TakeDIRK5Step( this, t, deltaT, ComputeTimeDerivative, dts, global_dt )
 !
 !     ----------------------------------
 !     5th order diagonally implicit Runge-Kutta scheme from Bassi 2009
@@ -1287,11 +1287,6 @@ module FASMultigridClass
 !     -----------------
 !
       class(FASMultigrid_t)  ,intent(inout), target :: this
-#ifdef FLOW
-      type(Particles_t)  :: particles
-#else
-      logical            :: particles
-#endif
       real(KIND=RP)   :: t, deltaT, tk
       procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
       logical, intent(in), optional :: dts 
@@ -1310,7 +1305,7 @@ module FASMultigridClass
       
          tk = t + a(k)*deltaT
 
-         call ComputeTimeDerivative( this % p_sem % mesh, particles, tk, CTD_IGNORE_MODE)
+         call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
          call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
 
 
