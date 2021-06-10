@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jun 10 19:01:09 2021
+!   @Last revision date: Thu Jun 10 19:32:45 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: c7cd770d93fd454a3ee53d91064937232d555d0d
+!   @Last revision commit: b84c477ca04e19d73a884312623b5431875e7a0a
 !
 !//////////////////////////////////////////////////////
 !
@@ -787,12 +787,13 @@ module FASMultigridClass
          select type (Amat => this % A)
          type is (csrMat_t)
             call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative)
+            invdt = -1._RP/dt
+            call Amat % shift(invdt)
          type is (DenseBlockDiagMatrix_t)
             call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, BlockDiagonalized=.true.)
+            invdt = -1._RP/dt
+            call Amat % shift(invdt)
          end select 
-
-         invdt = -1._RP/dt
-         call this % A % shift(invdt)
 
          select type (Amat => this % A)
          type is (csrMat_t)
