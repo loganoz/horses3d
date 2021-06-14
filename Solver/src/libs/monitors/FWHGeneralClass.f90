@@ -36,6 +36,9 @@ Module FWHGeneralClass  !
         real(kind=RP), dimension(:), allocatable                          :: t
         class(ObserverClass), dimension(:), allocatable                   :: observers
         class(Zone_t), allocatable                                        :: sourceZone
+        integer                                                           :: totalNumberOfFaces
+        integer, dimension(:), allocatable                                :: globalFid
+        integer, dimension(:), allocatable                                :: faceOffset
         logical                                                           :: isSolid
         logical                                                           :: isActive
         logical                                                           :: firstWrite
@@ -82,7 +85,7 @@ Module FWHGeneralClass  !
         integer                                             :: i
         character(len=STR_LEN_OBSERVER)                     :: line
         character(len=STR_LEN_OBSERVER)                     :: solution_file
-        integer                                             :: no_of_zones, no_of_face_i
+        integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         logical, save                                       :: FirstCall = .TRUE.
         character(len=LINE_LENGTH)                          :: zones_str, zones_str2
@@ -158,6 +161,7 @@ Module FWHGeneralClass  !
                 facesIDs(no_of_face_i:no_of_face_i+faces_per_zone(i)-1) = mesh % zones(zonesIDs(i)) % faces
                 no_of_face_i = no_of_face_i + faces_per_zone(i) 
             end do 
+
         ! else
         !     stop "Permeable surfaces not implemented yet"
         ! end if
@@ -166,6 +170,23 @@ Module FWHGeneralClass  !
 !       --------------------------
         allocate( self % sourceZone )
         call self % sourceZone % CreateFicticious(-1, "FW_Surface", SUM(faces_per_zone), facesIDs)
+
+!       Gather the total number of faces
+!       ------------------
+        if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+            call mpi_allreduce(self % sourceZone % no_of_faces, no_of_faces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+        else
+            no_of_faces = self % sourceZone % no_of_faces
+        end if
+        self % totalNumberOfFaces = no_of_faces
+
+!       Get arrays for I/O of surface solution file
+!       --------------------------
+        allocate(self % globalFid(self % sourceZone % no_of_faces))
+        allocate(self % faceOffset(self % sourceZone % no_of_faces))
+        call SourcePrepareForIO(self % sourceZone, mesh, no_of_faces, self % globalFid, self % faceOffset)
 
 !       Get the solution file name
 !       --------------------------
@@ -210,9 +231,9 @@ Module FWHGeneralClass  !
 !        ------------------
          if ( .not. MPI_Process % isRoot ) return
          call Subsection_Header("Ficticious FWH zone")
-         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", self % sourceZone % no_of_faces
+         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
-         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * self % sourceZone % no_of_faces
+         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces
          write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", self % saveSourceSolFile
 
     End Subroutine FWHConstruct
@@ -419,7 +440,7 @@ Module FWHGeneralClass  !
         WRITE(FinalName,'(2A,I10.10,A)')  TRIM(self % solution_file),'_',iter,'.fwhs.hsol'
       ! if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
        ! write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',time,'.'
-        call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName)
+        call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName, self % totalNumberOfFaces, self % globalFid, self % faceOffset)
      
      END SUBROUTINE FWHSaveSourceSolution
 
@@ -434,7 +455,7 @@ Module FWHGeneralClass  !
 !       ------------------------
         if (.not. self % isActive) return
 
-        call SourceLoadSolution(self % sourceZone, mesh, fileName)
+        call SourceLoadSolution(self % sourceZone, mesh, fileName, self % globalFid, self % faceOffset)
 
      End Subroutine FWHLoadSourceSolution
 !

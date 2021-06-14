@@ -862,7 +862,7 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine SourceProlongSolution
 
-   Subroutine SourceSaveSolution(source_zone, mesh, time, iter, name)
+   Subroutine SourceSaveSolution(source_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset)
 
 !     *******************************************************************
 !        This subroutine saves the solution from the face storage to a binary file
@@ -876,18 +876,19 @@ use VariableConversion, only: Pressure, PressureDot
       class (Zone_t), intent(in)                           :: source_zone
       class (HexMesh), intent(in), target                  :: mesh
       real(kind=RP), intent(in)                            :: time
-      integer,intent(in)                                   :: iter
+      integer,intent(in)                                   :: iter, no_of_faces
       character(len=*), intent(in)                         :: name
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
 
       ! local variables
-      integer                                              :: zoneFaceID, meshFaceID, eID !,ierr
+      integer                                              :: zoneFaceID, meshFaceID, eID
+      integer                                              :: ierr
       integer, dimension(6)                                :: meshFaceIDs
       class(Face), pointer                                 :: faces(:)
-      ! real(kind=RP), dimension(:,:,:), allocatable         :: Q, QDot
       real(kind=RP), dimension(:,:,:), allocatable         :: Q
       real(kind=RP), dimension(NDIM)                       :: x
       integer                                              :: Nx,Ny
-      integer                                              :: fid, offsetIO, pos, padding
+      integer                                              :: fid, pos, padding
       real(kind=RP)                                        :: refs(NO_OF_SAVED_REFS) 
 
 !
@@ -904,7 +905,7 @@ use VariableConversion, only: Pressure, PressureDot
 !     Create new file
 !     ---------------
       call CreateNewSolutionFile(trim(name), ZONE_SOLUTION_FILE, mesh % nodeType, &
-                                    source_zone % no_of_faces, iter, time, refs)
+                                    no_of_faces, iter, time, refs)
 
       padding = NCONS*2
 !
@@ -914,31 +915,24 @@ use VariableConversion, only: Pressure, PressureDot
       faces => mesh % faces
 !     Loop the zone to get faces
 !     ---------------------------------------
-      offsetIO = 0
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
 
           Nx = faces(meshFaceID) % Nf(1)
           Ny = faces(meshFaceID) % Nf(2)
 
-          ! allocate (Q(1:NCONS,0:Nx,0:Ny), Qdot(1:NCONS,0:Nx,0:Ny))
           allocate (Q(1:NCONS,0:Nx,0:Ny))
 
           Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Q(:,:,:)
-          ! Qdot(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Qdot(:,:,:)
 
           ! 4 integers are written: number of dimension, and 3 value of the dimensions
-          pos = POS_INIT_DATA + (zoneFaceID-1)*4*SIZEOF_INT + padding * offsetIO * SIZEOF_RP
+          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
           call writeArray(fid, Q, position=pos)
-          ! print *, "Q: ", Q
 
           Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Qdot(:,:,:)
           write(fid) Q
-          ! print *, "Qd: ", Q
 
           safedeallocate(Q)
-          ! safedeallocate(QdotF)
-          offsetIO = offsetIO + (Nx+1)*(Ny+1)
       end do
 
      close(fid)
@@ -949,19 +943,20 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine SourceSaveSolution
 
-   Subroutine SourceLoadSolution(source_zone, mesh, fileName)
+   Subroutine SourceLoadSolution(source_zone, mesh, fileName, fGlobID, faceOffset)
 
       use SolutionFile
       implicit none
       class (Zone_t), intent(in)                           :: source_zone
       class (HexMesh), intent(inout)                       :: mesh
       character(len=*), intent(in)                         :: fileName
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID
       real(kind=RP), dimension(:,:,:), allocatable         :: QF
       integer                                              :: Nx,Ny
-      integer                                              :: fID, offsetIO, pos, padding
+      integer                                              :: fID, pos, padding
       integer                                              :: arrayRank, Neq, Npx, Npy
 
 !     Read elements data
@@ -969,14 +964,13 @@ use VariableConversion, only: Pressure, PressureDot
       fID = putSolutionFileInReadDataMode(trim(fileName))
 
       padding = NCONS*2
-      offsetIO = 0
 !
 !     Loop the zone to get faces and elements
 !     ---------------------------------------
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
           ! 4 integers were written: number of dimension, and 3 value of the dimensions
-          pos = POS_INIT_DATA + (zoneFaceID-1)*4*SIZEOF_INT + padding * offsetIO * SIZEOF_RP
+          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
           associate(f => mesh % faces(meshFaceID))
               Nx = f % Nf(1)
               Ny = f % Nf(2)
@@ -1004,7 +998,6 @@ use VariableConversion, only: Pressure, PressureDot
               read(fID) QF
               f % storage(1) % Qdot = QF
               safedeallocate(QF)
-              offsetIO = offsetIO + (Nx+1)*(Ny+1)
           end associate
       end do
 
@@ -1013,6 +1006,159 @@ use VariableConversion, only: Pressure, PressureDot
       close(fID)
 
    End Subroutine SourceLoadSolution
+
+   Subroutine SourcePrepareForIO(source_zone, mesh, totalNumberOfFaces, globalFaceID, faceOffset)
+
+!     *******************************************************************
+!        This subroutine creates the arrays necessary for the face binary file
+!     *******************************************************************
+!
+      use FaceClass
+      use MPI_Process_Info
+      implicit none
+      class (Zone_t), intent(in)                           :: source_zone
+      class (HexMesh), intent(in), target                  :: mesh
+      integer,intent(in)                                   :: totalNumberOfFaces
+      integer, dimension(source_zone % no_of_faces), intent(out)          :: globalFaceID, faceOffset
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID, eID, i
+      integer, dimension(:), allocatable                   :: gFid, facesSizes, allfacesSizes, allFacesOffset
+      integer, dimension(:,:), allocatable                 :: zoneInfoArray
+      ! integer, dimension(:), allocatable                 :: zoneInfoArray
+      integer                                              :: ierr, fID
+      class(Face), pointer                                 :: faces(:)
+      integer, dimension(MPI_Process % nProcs)             :: no_of_faces_p, displs
+      integer, dimension(1)                                :: idInGlobal
+
+      faces => mesh % faces
+
+!     *******************************************************************
+!     Get the globalFaceID
+!     *******************************************************************
+
+      allocate(gFid(totalNumberOfFaces))
+      allocate(zoneInfoArray(totalNumberOfFaces,2))
+
+      if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+          call mpi_gather(source_zone % no_of_faces,1,MPI_INT,no_of_faces_p,1,MPI_INT,0,MPI_COMM_WORLD,ierr)
+
+      if (MPI_Process % isRoot) then
+          displs=0
+          do i = 2, MPI_Process % nProcs 
+              displs(i) = displs(i-1) + no_of_faces_p(i-1)
+          end do
+      end if
+
+      ! get the global element ID and the face ID as a single 2D array for the root process, will be used to sort
+      call mpi_gatherv(mesh % elements(faces(source_zone % faces) % elementIDs(1)) % globID, source_zone % no_of_faces,MPI_INT, &
+                                     zoneInfoArray(:,1), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+      call mpi_gatherv(source_zone % faces, source_zone % no_of_faces,MPI_INT, &
+                                     zoneInfoArray(:,2), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+      ! get the sorted array
+      if (MPI_Process % isRoot) then
+          gFid = getGlobalFaceIDs(zoneInfoArray, totalNumberOfFaces)
+      end if
+
+      ! distribute to all partitions
+      call mpi_scatterv(gFid, no_of_faces_p, displs, MPI_INT, globalFaceID, source_zone % no_of_faces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+#endif
+      else
+          zoneInfoArray(:,1) = mesh % elements(faces(source_zone % faces) % elementIDs(1)) % globID
+          zoneInfoArray(:,2) = source_zone % faces
+          ! get the sorted array
+          globalFaceID = getGlobalFaceIDs(zoneInfoArray, totalNumberOfFaces)
+      end if
+
+!     Free memory
+!     -----------
+      deallocate(gFid, zoneInfoArray)
+
+!     *******************************************************************
+!     Get the faceOffset, similar to HexMesh_PrepareForIO, but for faces
+!     *******************************************************************
+
+!     Get each face storage size
+!     ---------------------
+      allocate(facesSizes(totalNumberOfFaces), allfacesSizes(totalNumberOfFaces))
+
+      facesSizes = 0 ! default to use allreduce
+      do zoneFaceID = 1, source_zone % no_of_faces
+          ! globalFaceID index
+          fID = globalFaceID(zoneFaceID)
+          meshFaceID = source_zone % faces(zoneFaceID)
+          facesSizes(fID) = ( faces(meshFaceID) % Nf(1) +1 ) * ( faces(meshFaceID) % Nf(2) +1 )
+      end do
+
+      allfacesSizes = 0
+      if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+          call mpi_allreduce(facesSizes, allfacesSizes, totalNumberOfFaces, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      else
+          allfacesSizes = facesSizes
+      end if
+    
+!     Get all faces offset: the accumulation of allfacesSizes
+!     -----------------------
+      allocate(allFacesOffset(totalNumberOfFaces))
+
+      allFacesOffset(1) = 0
+      do fID = 2, totalNumberOfFaces
+          allFacesOffset(fID) = allFacesOffset(fID-1) + allfacesSizes(fID-1)
+      end do
+
+!     Assign the results to partitions' array
+!     ----------------------------------
+      do zoneFaceID = 1, source_zone % no_of_faces
+          fID = globalFaceID(zoneFaceID)
+          faceOffset(zoneFaceID) = allFacesOffset(fID)
+      end do
+
+!     Free memory
+!     -----------
+      deallocate(facesSizes, allfacesSizes, allFacesOffset)
+
+   End Subroutine SourcePrepareForIO
+
+   Function getGlobalFaceIDs(zoneInfoArray, N) result(gID)
+!     *******************************************************************
+!        This function gets a unique identifier of each face of the source_zone,
+!        in a unique order needed for I/O
+!     *******************************************************************
+
+      use Utilities, only: QsortWithFriend
+      implicit none
+
+      integer,dimension(N,2),intent(in)                    :: zoneInfoArray
+      integer,intent(in)                                   :: N
+      integer,dimension(N)                                 :: giD
+
+      ! local variables
+      integer,dimension(N)                                 :: originalIndex, orderedIndex, toOrderArray
+      integer                                              :: bigInt, i, maxF, nDigits
+
+      maxF = maxval(zoneInfoArray(:,2))
+      nDigits = 0
+      ! get number of digits of maxF
+      do while (maxF .ne. 0)
+          maxF = maxF / 10
+          nDigits = nDigits + 1
+      end do
+      ! convert the two arrays as a one of integers that can be sort, first by the globID of the element and the by the faceID
+      bigInt = 10 ** nDigits
+      toOrderArray = bigInt * zoneInfoArray(:,1) + zoneInfoArray(:,2)
+      ! create simple arrays of indexes
+      originalIndex = [(i, i=1,N)]
+      orderedIndex = [(i, i=1,N)]
+      call QsortWithFriend(toOrderArray,originalIndex)
+      ! get the indexes of orders`
+      call QsortWithFriend(originalIndex, orderedIndex)
+      gID = orderedIndex
+
+   End Function getGlobalFaceIDs
+
 
 !/////////////////////////////////////////////////////////////////////////
 !           AUXILIAR PROCEDURES --------------------------
