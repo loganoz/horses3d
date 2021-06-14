@@ -335,8 +335,8 @@ Module DGSEMClass
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
                         CALL ManufacturedSolutionSourceNSSA(self % mesh % elements(el) % geom % x(:,i,j,k), &
-                                                          self % mesh % elements(el) % geom % dwall(i,j,k), 0._RP, &
-                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
+                                                            self % mesh % elements(el) % geom % dwall(i,j,k), 0._RP, &
+                                                            self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                   END DO
                END DO
             END DO
@@ -545,7 +545,7 @@ Module DGSEMClass
 !$omp end parallel
 
 #if defined FLOW && (!(SPALARTALMARAS))
-!      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
+      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
 #elif defined(SPALARTALMARAS)
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
 #endif
@@ -595,7 +595,7 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
-      real(kind=RP)                 :: Q(5)                             ! The solution in a node
+      real(kind=RP)                 :: Q(NCONS)                             ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction

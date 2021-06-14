@@ -191,6 +191,9 @@ module GenericBoundaryConditionClass
 #ifdef FLOW
          case(NS_BC)
             call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
+
+         case(NSSA_BC)
+            call self % FlowGradVars(x, t, nHat, Q, U, GetGradients)
 #endif
          case(C_BC)
             call self % PhaseFieldState(x, t, nHat, U)

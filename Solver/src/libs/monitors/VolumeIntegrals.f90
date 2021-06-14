@@ -21,6 +21,10 @@ module VolumeIntegrals
    public ENTROPY_BALANCE
 #endif
 
+#if defined(SPALARTALMARAS)
+   public L2RHOU, LINFRHOU, L2RHOE, LINFRHOE, L2RHOTHETA, LINFRHOTHETA
+#endif
+
 #if defined(INCNS)
    public MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
 #endif
@@ -43,6 +47,9 @@ module VolumeIntegrals
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
       enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
+#endif
+#if defined(SPALARTALMARAS)
+      enumerator :: L2RHOU, LINFRHOU, L2RHOE, LINFRHOE, L2RHOTHETA, LINFRHOTHETA
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -147,9 +154,9 @@ module VolumeIntegrals
          real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem, entr, area, rho
+         real(kind=RP)           :: free_en, fchem, entr, area, rho , u , v, w, en, theta 
          real(kind=RP)           :: Strain(NDIM,NDIM)
-         real(kind=RP)           :: mu
+         real(kind=RP)           :: mu 
 
          Nel = e % Nxyz
 
@@ -374,6 +381,149 @@ module VolumeIntegrals
             end do            ; end do           ; end do
             
 #endif
+
+#if defined(SPALARTALMARAS)
+         
+         
+         case(L2RHOU)
+
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = val +   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOU,i,j,k) - rho*u ) * (e % storage % Q(IRHOU,i,j,k) - rho*u ))
+                   end associate
+         end do            ; end do           ; end do
+
+
+         case(LINFRHOU)
+
+
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = max(val,   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOU,i,j,k) - rho*u ) * (e % storage % Q(IRHOU,i,j,k) - rho*u )))
+                   end associate
+         end do            ; end do           ; end do
+
+
+         case(L2RHOE)
+
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = val +   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOE,i,j,k) - rho*en ) * (e % storage % Q(IRHOE,i,j,k) - rho*en ))
+                   end associate
+         end do            ; end do           ; end do  
+
+
+         case(LINFRHOE)
+
+         
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = max(val,   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOE,i,j,k) - rho*en ) * (e % storage % Q(IRHOE,i,j,k) - rho*en )))
+                   end associate
+         end do            ; end do           ; end do
+
+
+         case(L2RHOTHETA)
+
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = val +   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOTHETA,i,j,k) - rho*theta ) * (e % storage % Q(IRHOTHETA,i,j,k) - rho*theta ))
+                   end associate
+         end do            ; end do           ; end do  
+
+
+
+
+         case(LINFRHOTHETA)
+
+         
+         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               
+                   associate( x => e % geom % x(1,i,j,k), &
+                              y => e % geom % x(2,i,j,k), &
+                              z => e % geom % x(3,i,j,k) )
+
+
+                              rho = 2. + 0.1*Sin(Pi*(x + y + z)) 
+                              u = 1. + 0.1*Sin(Pi*(x + y + z))
+                              v = -4. + 2.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              w = 5. - 3.*(2. + 0.1*Sin(Pi*(x + y + z)))
+                              en = 2. + 0.1*Sin(Pi*(x + y + z))
+                              theta = Cos(Pi*(x + y + z)) 
+
+                              val = max(val,   sqrt(wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
+                                  * (e % storage % Q(IRHOTHETA,i,j,k) - rho*theta ) * (e % storage % Q(IRHOTHETA,i,j,k) - rho*theta )))
+                   end associate
+         end do            ; end do           ; end do
+
+#endif
+
+
 #if defined(INCNS)
          case (MASS)
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)

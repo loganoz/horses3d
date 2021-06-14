@@ -152,8 +152,9 @@ module FluidData_NSSA
          dimensionless % Prt             = dimensionless_ % Prt
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % mu              = dimensionless_ % mu
-         dimensionless % niu              = dimensionless_ % niu
+         dimensionless % niu             = dimensionless_ % niu
          dimensionless % kappa           = dimensionless_ % kappa
+         dimensionless % mu_to_kappa     = dimensionless_ % mu_to_kappa
          dimensionless % mut_to_kappa_SA = dimensionless_ % mut_to_kappa_SA
          dimensionless % Mach            = dimensionless_ % Mach
          dimensionless % gammaM2         = dimensionless_ % gammaM2

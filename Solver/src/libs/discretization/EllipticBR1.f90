@@ -453,15 +453,16 @@ module EllipticBR1
          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-#if defined(NAVIERSTOKES) && !defined(SPALARTALMARAS)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
 
-#elif defined(NAVIERSTOKES) && defined(SPALARTALMARAS)
+#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
          mu    = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = e % storage % mu_ns(3,:,:,:)
+         !print *, "I am here", e % storage % mu_ns(3,1,1,1)
 
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)

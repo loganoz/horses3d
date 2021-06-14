@@ -1083,8 +1083,8 @@ module RiemannSolvers_NSSA
 !        ---------------
 !
 !
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, thetaL, aL, rhoV2L, thetarhoL
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, thetaR, aR, rhoV2R, thetaehoR
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL , aL, rhoV2L, thetarhoL
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R, thetarhoR
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: invRhoL, invRhoR
          real(kind=RP)  :: lambda, stab(NCONS)
@@ -1110,16 +1110,17 @@ module RiemannSolvers_NSSA
 
          rhoeL = QLeft(5) ; rhoeR = QRight(5)                
 
+#ifdef SPALARTALMARAS
+         thetarhoL = QLeft(6) ; thetarhoR = QRight(6)
+#endif
+
          pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
          pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
 
          aL = sqrt(gamma * pL * invRhoL)
          aR = sqrt(gamma * pR * invRhoR)
 !
-#ifdef SPALARTALMARAS
-         thetarhoL = QLeft(6)
-         thetaehoR = QRight(6)
-#endif
+
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
      !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
@@ -1131,19 +1132,15 @@ module RiemannSolvers_NSSA
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-#if defined (SPALARTALMARAS)
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetaL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetaR /)
-#else
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
-#endif
+         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetarhoL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetarhoL /)
+
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
 !        Compute the Lax-Friedrichs stabilization
 !        ----------------------------------------
          stab(1:5) = 0.5_RP * lambda * (QRRot(1:5) - QLRot(1:5))
-         stab(6)   = 0.5_RP * (QRRot(6) - QLRot(6))
+         stab(6)   = 0.0_RP  !0.5_RP * (QRRot(6) - QLRot(6))
 
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------

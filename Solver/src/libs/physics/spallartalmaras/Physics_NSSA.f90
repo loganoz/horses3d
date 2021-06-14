@@ -322,7 +322,6 @@
          theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
          theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
          theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
-
          F(IRHOTHETA,IX) = theta_x * eta
          F(IRHOTHETA,IY) = theta_y * eta
          F(IRHOTHETA,IZ) = theta_z * eta

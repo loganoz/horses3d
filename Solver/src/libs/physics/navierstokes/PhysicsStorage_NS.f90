@@ -260,8 +260,6 @@
       
       if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
          dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
-      else
-         dimensionless_ % Prt = 0.92_RP
       end if
 !
 !     *********************
@@ -312,10 +310,6 @@
          dimensionless_ % mu_to_kappa = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Pr)
       END IF 
 !
-      if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
-         dimensionless_ % mut_to_kappa_SA = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Prt)
-      end if
-
 !     **************************************
 !     Check if state gradients are requested
 !     **************************************

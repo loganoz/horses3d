@@ -133,17 +133,16 @@ module SpallartAlmarasTurbulence
          real(kind=RP)            :: theta
 
          theta = rhotheta / rho
-
          call self % Compute_chi(theta, kinematic_viscocity, chi)
          call self % Compute_fv1(chi, fv1)
-
-         IF (theta .GT. 0.0_RP ) then
+         
+         if (theta .GE. 0.0_RP ) then
             mu_t = rho * theta * fv1 
-            eta  = mu * (1.0_RP + chi) / self % sigma
-         ELSE
+            eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma
+         else
             mu_t = 0.0_RP       
-            eta  = mu * (1.0_RP + chi + (chi**2)/2.0_RP) / self % sigma
-         END IF 
+            eta  = dimensionless % mu * mu * (1.0_RP + chi + (chi**2)/2.0_RP) / self % sigma
+         endif 
 
 
       end subroutine SA_ComputeViscosity
@@ -151,12 +150,12 @@ module SpallartAlmarasTurbulence
       !/////////////////////////////////////////////////////////
 ! Compute Spallart Almaras Source  terms
 
-       subroutine SA_Compute_SourceTerms(self, theta, kinematic_viscocity, rho, dwall,&
+       subroutine SA_Compute_SourceTerms(self, rhotheta, kinematic_viscocity, rho, dwall,&
                                          Q, Q_x, Q_y, Q_z, S_SA)
          implicit none
          !-----------------------------------------------------------
          class(Spalart_Almaras_t), intent(inout) :: self
-         real(kind=RP), intent(in)            :: theta
+         real(kind=RP), intent(in)            :: rhotheta
          real(kind=RP), intent(in)            :: kinematic_viscocity
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: dwall
@@ -167,6 +166,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(out)           :: S_SA(NCONS)
          !-----------------------------------------------------------
          real(kind=RP)           :: chi
+         real(kind=RP)           :: theta
          real(kind=RP)           :: vort
          real(kind=RP)           :: fv1
          real(kind=RP)           :: production_G
@@ -177,7 +177,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)           :: U_z(NDIM)         
          real(kind=RP)           :: Theta_x, Theta_y, Theta_z
 
-
+         theta = rhotheta / rho
          call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
          call ComputeVorticity(U_x, U_y, U_z, vort)
          call geteddyviscositygradients(Q, Q_x, Q_y, Q_z, Theta_x, Theta_y, Theta_z)
@@ -191,7 +191,8 @@ module SpallartAlmarasTurbulence
 
          call self % Compute_AdditionalSourceTermKappa(rho, Theta_x, Theta_y, Theta_z, source_Kappa)   
 
-         S_SA = production_G - destruciton_Y + source_Kappa    
+         S_SA(1:5) = 0.0_RP
+         S_SA(NCONS) = production_G - destruciton_Y + source_Kappa    
       
       end subroutine SA_Compute_SourceTerms
 
@@ -203,7 +204,7 @@ module SpallartAlmarasTurbulence
          class(Spalart_Almaras_t), intent(in) :: self
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: kinematic_viscocity
-         real(kind=RP), intent(out)            :: chi
+         real(kind=RP), intent(out)           :: chi
 
          chi = theta / kinematic_viscocity
 
@@ -215,7 +216,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: chi
          real(kind=RP), intent(out)            :: fv1
 
-         fv1 = chi**3/(chi**3 + self % cv1 **3)
+         fv1 = (chi**3.0_RP)/((chi**3.0_RP) + (self % cv1)**3.0_RP)
 
       end subroutine Compute_fv1
 
@@ -238,7 +239,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: sbar
          real(kind=RP)                        :: gn
 
-         IF (theta .GT. 0.0_RP ) then
+         if (theta .GE. 0.0_RP ) then
             
             fv2    =  Compute_fv2(self, chi, fv1)
             sbar   =  Compute_sbar(self, theta, dwall, fv2)
@@ -246,14 +247,14 @@ module SpallartAlmarasTurbulence
             
             production_G = self % cb1 * self % stilda * rho * theta
          
-         ELSE
+         else
             
             gn = Compute_gn(self, chi)
             
             production_G = self % cb1 * vort * rho * theta * gn 
          
-         END IF
-      
+         end if 
+
       end subroutine Compute_ProductionTerm
 
       function Compute_fv2(self, chi, fv1) result(fv2)
@@ -275,7 +276,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: dwall
          real(kind=RP)                        :: sbar
 
-         sbar =  dimensionless % mu * theta * fv2/ (POW2(self % kappa) + POW2(dwall) ) 
+         sbar =  dimensionless % mu * theta * fv2/ (POW2(self % kappa) * POW2(dwall) ) 
      
       end function Compute_sbar
 
@@ -286,7 +287,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: sbar
          real(kind=RP)                        :: stilda
 
-         IF (sbar .GT. - self % cv2 * vort / dimensionless % mu ) then
+         IF (sbar .GE. - self % cv2 * vort) then
             stilda = vort + sbar 
          ELSE
             stilda =  vort +  (vort*(POW2(self % cv2)*vort + self % cv3 * sbar))/((self % cv3 - 2.0_RP* self % cv2)*vort - sbar)
@@ -317,19 +318,19 @@ module SpallartAlmarasTurbulence
          real(kind=RP)            :: g
          real(kind=RP)            :: fw
 
-         IF (theta .GT. 0.0_RP ) then
+         if (theta .GE. 0.0_RP ) then
          
-         g  = Compute_g(self, theta, dwall)
-         fw = Compute_fw(self, g)
+            g  = Compute_g(self, theta, dwall)
+            fw = Compute_fw(self, g)
          
-         destruciton_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall)) 
+            destruciton_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall)) 
          
-         ELSE
+         else
          
-         destruciton_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
+            destruciton_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
       
-         END IF
-      
+         end if 
+
       end subroutine Compute_DestructionTerm
 
       function Compute_g(self, theta, dwall) result(g)
@@ -342,7 +343,7 @@ module SpallartAlmarasTurbulence
 
          r = min(dimensionless % mu * theta/( self % stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
 
-         g = r + self % cw2 * ( r**6 - r)
+         g = r + self % cw2 * ( (r**6.0_RP) - r)
 
       end function Compute_g
 
@@ -352,7 +353,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: g
          real(kind=RP)            :: fw
 
-         fw = g * (1.0_RP + self % cw3**6 / g**6 + self % cw3**6)**(1.0_RP/6.0_RP)
+         fw = g * ((1.0_RP + self % cw3**6.0_RP) / (g**6.0_RP + self % cw3**6.0_RP))**(1.0_RP/6.0_RP)
 
       end function Compute_fw
 
@@ -368,7 +369,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: Theta_z
          real(kind=RP), intent(out)           :: source_Kappa
 
-         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z))
+         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z)) / self % sigma
                
       end subroutine Compute_AdditionalSourceTermKappa
 

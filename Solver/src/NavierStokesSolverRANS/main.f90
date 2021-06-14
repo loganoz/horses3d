@@ -84,7 +84,7 @@
       CALL controlVariables % initWithSize(16)
       CALL UserDefinedStartup
       CALL ConstructSharedBCModule
-      
+      print*, "I am in line 87"
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
       IF(.NOT. success)   ERROR STOP "Control file reading error"
@@ -94,23 +94,33 @@
 !     Set up the DGSEM
 !     ----------------
 !      
+      print*, "I am in line 97"
+
       CALL ConstructPhysicsStorage( controlVariables, success )
       IF(.NOT. success)   ERROR STOP "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
       sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
-      
+      print*, "I am in line 104"
+
       IF (sem % ManufacturedSol) THEN
          CALL InitializeManufacturedSol(controlVariables % StringValueForKey("manufactured solution",LINE_LENGTH))
       END IF
       
+      print*, "I am in line 110"
+
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
+      print*, "I am in line 113"
       call InitializeNodalStorage (controlVariables ,Nmax)
+      print*, "I am in line 115"
       call Initialize_InterpolationMatrices(Nmax)
-      
-      call sem % construct (  controlVariables  = controlVariables,                                         &
-                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
+
+      print*, "I am in line 118"
+
+      call sem % construct (  controlVariables  = controlVariables,       &
+                                 Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,    &
                                  success           = success)
+      print*, "I am in line 123"
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
@@ -122,6 +132,8 @@
 !     Set the initial condition
 !     -------------------------
 !
+      print*, "I am in line 135"
+
       call sem % SetInitialCondition(controlVariables, initial_iteration, initial_time)
       !
       !     -------------------
@@ -143,6 +155,7 @@
 !     Integrate in time
 !     -----------------
 !
+      print*, "I am in line 158"
       CALL timeIntegrator % integrate(sem, controlVariables, sem % monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     ------------------------------------------

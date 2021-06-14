@@ -136,7 +136,7 @@ module HyperbolicDiscretizationClass
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Standard"
 
          select case (whichRiemannSolver)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case (RIEMANN_ROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
 
@@ -163,6 +163,10 @@ module HyperbolicDiscretizationClass
 
          case (RIEMANN_UDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
+#elif defined(SPALARTALMARAS)
+         
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
 #elif defined(INCNS)
          case (RIEMANN_CENTRAL)

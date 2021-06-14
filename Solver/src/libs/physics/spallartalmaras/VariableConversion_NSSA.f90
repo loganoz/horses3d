@@ -184,7 +184,7 @@ module VariableConversion_NSSA
 
       tildeT = T*TemperatureReNormalization_Sutherland
 !      
-      mu = (1._RP + S_div_TRef_Sutherland)/(tildeT + S_div_TRef_Sutherland)*tildeT*SQRT(tildeT)
+      mu = (1._RP + S_div_TRef_Sutherland)/(tildeT + (S_div_TRef_Sutherland))*tildeT*SQRT(tildeT)
 
 
       END FUNCTION SutherlandsLaw

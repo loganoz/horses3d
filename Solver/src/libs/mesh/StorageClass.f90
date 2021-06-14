@@ -792,14 +792,16 @@ module StorageClass
          ALLOCATE( self % G_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NS   (NCONS,0:Nx,0:Ny,0:Nz) )
          ALLOCATE( self % S_NSP  (NCONS,0:Nx,0:Ny,0:Nz) )
-         
+#if defined (SPALARTALMARAS)
+         ALLOCATE( self % S_SA  (NCONS,0:Nx,0:Ny,0:Nz) )
+#endif
          if (computeGradients) then
             ALLOCATE( self % U_xNS (NGRAD,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_yNS (NGRAD,0:Nx,0:Ny,0:Nz) )
             ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          end if
          
-         allocate( self % mu_NS(2,0:Nx,0:Ny,0:Nz) )
+         allocate( self % mu_NS(3,0:Nx,0:Ny,0:Nz) )
          
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
          
@@ -856,7 +858,9 @@ module StorageClass
          self % QDotNS = 0.0_RP
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
-         
+#if defined (SPALARTALMARAS)
+         self % S_SA   = 0.0_RP
+#endif
          if (computeGradients) then
             self % U_xNS = 0.0_RP
             self % U_yNS = 0.0_RP
@@ -943,7 +947,11 @@ module StorageClass
          to % G_NS   = from % G_NS
          to % S_NS   = from % S_NS
          to % S_NSP  = from % S_NSP
-         
+
+#if defined (SPALARTALMARAS)
+         to % S_SA   = from % S_SA
+#endif
+
          to % mu_NS     = from % mu_NS 
          to % stats     = from % stats
          
@@ -1026,7 +1034,11 @@ module StorageClass
          safedeallocate(self % G_NS)
          safedeallocate(self % S_NS)
          safedeallocate(self % S_NSP)
-         
+
+#if defined (SPALARTALMARAS)
+         safedeallocate(self % S_SA)
+#endif
+   
          if (self % computeGradients) then
             safedeallocate(self % U_xNS)
             safedeallocate(self % U_yNS)
@@ -1280,7 +1292,7 @@ module StorageClass
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
-         allocate( self % mu_NS     (2,0:Nf(1),0:Nf(2)) )
+         allocate( self % mu_NS     (3,0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif

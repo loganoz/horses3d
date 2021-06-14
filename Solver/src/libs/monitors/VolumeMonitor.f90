@@ -104,7 +104,7 @@ module VolumeMonitorClass
          self % num_of_vars = 1
          call toLower(self % variable)
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          select case ( trim ( self % variable ) )
          case ("kinetic energy")
          case ("kinetic energy rate")
@@ -145,7 +145,23 @@ module VolumeMonitorClass
 
             end if
          end select
+#elif defined(SPALARTALMARAS)
+         select case ( trim ( self % variable ) )
+         case ("l2rhou")
+         case ("linfrhou")
+         case ("l2rhoe")
+         case ("linfrhoe")
+         case ("l2rhotheta")
+         case ("linfrhotheta")
+         case default
 
+            if ( len_trim (self % variable) .eq. 0 ) then
+               print*, "Variable was not specified for volume monitor " , self % ID , "."
+            else
+               print *, "Mistake in the name spec of the SA monitors"
+               stop "Stopped."
+            end if
+         end select         
 #elif defined(INCNS)
          select case ( trim ( self % variable ) )
          case ("mass")
@@ -265,7 +281,7 @@ module VolumeMonitorClass
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case ("kinetic energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 
@@ -307,6 +323,25 @@ module VolumeMonitorClass
 
          case ("particles source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
+#elif defined(SPALARTALMARAS)
+        
+         case ("l2rhou")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOU)
+        
+         case ("linfrhou")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOU)
+        
+         case ("l2rhoe")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOE)
+        
+         case ("linfrhoe")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOE)
+        
+         case ("l2rhotheta")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOTHETA)
+        
+         case ("linfrhotheta")
+            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOTHETA)
 
 #elif defined(INCNS)
          case ("mass")
