@@ -49,6 +49,8 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatG                      ! Weak form Laplacian derivative matrix hatG := W⁻¹DᵀWD (where W is the diagonal matrix with the quadrature weights)
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
+      real(kind=RP), dimension(:,:), allocatable :: Fwd                       ! Projection matrix from Lagrange to Legendre
+      real(kind=RP), dimension(:,:), allocatable :: Bwd                       ! Projection matrix from Legendre to Lagrange
       real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL      
       real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss         
       contains
@@ -181,9 +183,11 @@ MODULE NodalStorageClass
       integer, intent(in)      :: nodes
       integer, intent(in)      :: N          !<  Polynomial order
       !--------------------------------------
-      integer            :: i,j
-      real(kind=RP)      :: wb(0:N)
+      integer            :: i,j,k
       integer, PARAMETER :: LEFT = 1, RIGHT = 2
+      real(kind=RP)      :: wb(0:N)
+      real(kind=RP)      :: Lkj(0:N,0:N), dLk_dummy
+      real(kind=RP)      :: normLk(0:N)
       !--------------------------------------
       
       if (this % Constructed) return
@@ -202,6 +206,8 @@ MODULE NodalStorageClass
       ALLOCATE( this % DT   (0:N,0:N) )
       ALLOCATE( this % hatD (0:N,0:N) )
       ALLOCATE( this % hatG (0:N,0:N) )
+      ALLOCATE( this % Fwd  (0:N,0:N) )
+      ALLOCATE( this % Bwd  (0:N,0:N) )
       ALLOCATE( this % xCGL (0:N) )
       ALLOCATE( this % wbCGL (0:N) )
       ALLOCATE( this % DCGL (0:N,0:N) )
@@ -309,6 +315,27 @@ MODULE NodalStorageClass
       call PolynomialInterpolationMatrix(this % N, this % N, this % xCGL, this % wbCGL, this % x,&
                                          this % TCheb2Gauss)
 !
+!     ---------------------------------------------------------------------
+!     Construct projection matrices from/to Lagrange to/from Legendre basis
+!     ---------------------------------------------------------------------
+!
+!     Get the evaluation of Legendre polynomials at the interpolation nodes
+      do j = 0 , N ;    do k = 0 , N
+         call LegendrePolyAndDerivative(k, this % x(j), Lkj(k,j), dLk_dummy)
+      end do       ;    end do
+!
+!     Get the norm of Legendre polynomials
+      normLk = 0.0_RP
+      do k = 0 , N   ; do j = 0 , N
+         normLk(k) = normLk(k) + this % w(j) * Lkj(k,j) * Lkj(k,j)
+      end do         ; end do
+!
+!     Get the transformation from Nodal to Modal and viceversa matrices
+      do k = 0 , N   ; do i = 0 , N
+         this % Fwd(k,i) = this % w(i) * Lkj(k,i) / normLk(k)
+         this % Bwd(i,k) = Lkj(k,i)
+      end do         ; end do
+!
 !     Set the nodal storage as constructed
 !     ------------------------------------      
       this % Constructed = .TRUE.
@@ -344,6 +371,8 @@ MODULE NodalStorageClass
       DEALLOCATE( this % b )
       DEALLOCATE( this % vd )
       DEALLOCATE( this % bd )
+      DEALLOCATE( this % Fwd )
+      DEALLOCATE( this % Bwd )
       safedeallocate( this % sharpD )    !  This matrices are just generated for Gauss-Lobatto discretizations.
 
       end subroutine DestructNodalStorage

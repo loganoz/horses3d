@@ -68,8 +68,8 @@ module SpectralVanishingViscosity
       logical                    :: constructed = .false.
       integer                    :: N
       real(kind=RP), allocatable :: Q(:,:)
-      real(kind=RP), allocatable :: F(:,:)
-      real(kind=RP), allocatable :: B(:,:)
+      real(kind=RP), pointer     :: F(:,:)
+      real(kind=RP), pointer     :: B(:,:)
       contains
          procedure :: Recompute => FilterMatrices_Recompute
    end type FilterMatrices_t
@@ -1149,46 +1149,10 @@ module SpectralVanishingViscosity
 !
          integer        :: i, j, k
          integer        :: sharpCutOff
-         real(kind=RP)  :: Nodal2Modal(0:N,0:N)
-         real(kind=RP)  :: Modal2Nodal(0:N,0:N)
          real(kind=RP)  :: filterCoefficients(0:N)
-         real(kind=RP)  :: Lkj(0:N,0:N), dLk_dummy
-         real(kind=RP)  :: normLk(0:N)
+
 
          if ( self % filters(N) % Constructed ) return
-
-         if ( N .eq. 0 ) then
-            self % filters(N) % N = N
-            allocate(self % filters(N) % Q(0:N,0:N))
-            allocate(self % filters(N) % F(0:N,0:N))
-            allocate(self % filters(N) % B(0:N,0:N))
-            self % filters(N) % Q = 1.0_RP
-            self % filters(N) % F = 1.0_RP
-            self % filters(N) % B = 1.0_RP
-            self % filters(N) % constructed = .true.
-            return
-         end if
-
-!
-!        Get the evaluation of Legendre polynomials at the interpolation nodes
-!        ---------------------------------------------------------------------
-         do j = 0 , N ;    do k = 0 , N
-            call LegendrePolyAndDerivative(k, NodalStorage(N) % x(j), Lkj(k,j), dLk_dummy)
-         end do       ;    end do
-!
-!        Get the norm of Legendre polynomials
-!        ------------------------------------
-         normLk = 0.0_RP
-         do k = 0 , N   ; do j = 0 , N
-            normLk(k) = normLk(k) + NodalStorage(N) % w(j) * Lkj(k,j) * Lkj(k,j)
-         end do         ; end do
-!
-!        Get the transformation from Nodal to Modal and viceversa matrices
-!        -----------------------------------------------------------------
-         do k = 0 , N   ; do i = 0 , N
-            Nodal2Modal(k,i) = NodalStorage(N) % w(i) * Lkj(k,i) / normLk(k)
-            Modal2Nodal(i,k) = Lkj(k,i)
-         end do         ; end do
 !
 !        Get the filter coefficients
 !        ---------------------------
@@ -1223,16 +1187,17 @@ module SpectralVanishingViscosity
 !        ----------------------------
          self % filters(N) % N = N
          allocate(self % filters(N) % Q(0:N,0:N))
-         allocate(self % filters(N) % F(0:N,0:N))
-         allocate(self % filters(N) % B(0:N,0:N))
 
+         self % filters(N) % F => NodalStorage(N) % Fwd
+         self % filters(N) % B => NodalStorage(N) % Bwd
+
+         associate(N2M => self % filters(N) % F, M2N => self % filters(N) % B)
          self % filters(N) % Q = 0.0_RP
          do k = 0, N ; do j = 0, N  ; do i = 0, N
-            self % filters(N) % Q(i,j) = self % filters(N) % Q(i,j) + Modal2Nodal(i,k) * filterCoefficients(k) * Nodal2Modal(k,j)
+            self % filters(N) % Q(i,j) = self % filters(N) % Q(i,j) + &
+                                         M2N(i,k) * filterCoefficients(k) * N2M(k,j)
          end do      ; end do       ; end do
-
-         self % filters(N) % F = Nodal2Modal
-         self % filters(N) % B = Modal2Nodal
+         end associate
 
          self % filters(N) % constructed = .true.
 
@@ -1244,10 +1209,12 @@ module SpectralVanishingViscosity
          integer :: i
 
          do i = 0, Nmax
-            if ( this % filters(i) % constructed ) deallocate(this % filters(i) % Q)
+            if ( this % filters(i) % constructed ) then
+               deallocate(this % filters(i) % Q)
+               nullify(this % filters(i) % F)
+               nullify(this % filters(i) % B)
+            end if
          end do
-
-         !if (this % muIsSmagorinsky) call Smagorinsky % destruct
 
       end subroutine SVV_destruct
 
