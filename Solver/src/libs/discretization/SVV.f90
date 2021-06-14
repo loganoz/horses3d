@@ -37,11 +37,11 @@ module SpectralVanishingViscosity
 !  Keywords
 !  --------
    character(len=*), parameter  :: SVV_KEY               =  "enable svv"
-   character(len=*), parameter  :: SVV_MU1_KEY           =  "svv viscosity 1"
-   character(len=*), parameter  :: SVV_ALPHA1_KEY        =  "svv alpha viscosity 1"
-   character(len=*), parameter  :: SVV_MU2_KEY           =  "svv viscosity 2"
-   character(len=*), parameter  :: SVV_ALPHA2_KEY        =  "svv alpha viscosity 2"
+   character(len=*), parameter  :: SVV_MU_KEY            =  "svv viscosity"
+   character(len=*), parameter  :: SVV_ALPHA_KEY         =  "svv alpha viscosity"
+   character(len=*), parameter  :: SVV_ALPHA_MU_KEY      =  "svv alpha/mu ratio"
    character(len=*), parameter  :: SVV_CUTOFF_KEY        =  "svv filter cutoff"
+   character(len=*), parameter  :: SVV_MU_SMAG           =  "svv les intensity"
    character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
    character(len=*), parameter  :: DISSIPATION_TYPE_KEY  =  "svv dissipation type"
@@ -78,14 +78,14 @@ module SpectralVanishingViscosity
       logical                                     :: automatic_Psvv
       logical                                     :: enabled
       logical                                     :: muIsSmagorinsky = .FALSE.
+      logical                                     :: alphaIsPropToMu = .FALSE.
       integer                                     :: filterType
       integer                                     :: filterShape
       integer                                     :: diss_type
       integer, allocatable                        :: entropy_indexes(:)
-      real(kind=RP)                               :: muSVV1,    sqrt_muSVV1
-      real(kind=RP)                               :: alphaSVV1, sqrt_alphaSVV1
-      real(kind=RP)                               :: muSVV2,    sqrt_muSVV2
-      real(kind=RP)                               :: alphaSVV2, sqrt_alphaSVV2
+      real(kind=RP)                               :: muSVV,    sqrt_muSVV
+      real(kind=RP)                               :: alphaSVV, sqrt_alphaSVV
+      real(kind=RP)                               :: sqrt_mu2alpha
       real(kind=RP)                               :: Psvv
       type(FilterMatrices_t)                      :: filters(0:Nmax)
       procedure(Compute_Hflux_f), nopass, pointer :: Compute_Hflux
@@ -97,8 +97,8 @@ module SpectralVanishingViscosity
          procedure      :: destruct           => SVV_destruct
    end type SVV_t
 
-   type(SVV_t), protected    :: SVV
-   type(Smagorinsky_t)       :: Smagorinsky
+   type(SVV_t), protected :: SVV
+   type(Smagorinsky_t)    :: Smagorinsky
 
    abstract interface
       subroutine Compute_SVV_f(NCONS, NGRAD, Q, Hx, Hy, Hz, sqrt_mu, sqrt_alpha, F)
@@ -176,17 +176,20 @@ module SpectralVanishingViscosity
                case ('smagorinsky')
                   ! TODO: Use default constructor
                   self % muIsSmagorinsky = .TRUE.
+                  self % muSVV = 0.0_RP
+
+                  ! TODO: Use the default constructor
                   Smagorinsky % active = .TRUE.
                   Smagorinsky % requiresWallDistances = .FALSE.
                   Smagorinsky % WallModel = 0  ! No wall model
-                  if ( controlVariables%containsKey(SVV_MU2_KEY) ) then
-                     Smagorinsky % CS = controlVariables%doublePrecisionValueForKey(SVV_MU2_KEY)
+                  if ( controlVariables % containsKey(SVV_MU_SMAG) ) then
+                     Smagorinsky % CS = controlVariables % doublePrecisionValueForKey(SVV_MU_SMAG)
                   else
                      Smagorinsky % CS = 0.2_RP
                   end if
 
                case default
-                  self % muSVV1 = controlVariables % doublePrecisionValueForKey(SVV_MU1_KEY)
+                  self % muSVV = controlVariables % doublePrecisionValueForKey(SVV_MU_KEY)
 
             end select
 
@@ -201,8 +204,13 @@ module SpectralVanishingViscosity
             self % muSVV2 = 0.0_RP
          end if
 
-         if ( controlVariables % containsKey(SVV_ALPHA1_KEY) ) then
-            self % alphaSVV1 = controlVariables % doublePrecisionValueForKey(SVV_ALPHA1_KEY)
+         if ( controlVariables % containsKey(SVV_ALPHA_KEY) ) then
+            self % alphaSVV = controlVariables % doublePrecisionValueForKey(SVV_ALPHA_KEY)
+         else if ( controlVariables % containsKey(SVV_ALPHA_MU_KEY) ) then
+            self % alphaIsPropToMu = .TRUE.
+            self % sqrt_mu2alpha   = controlVariables % doublePrecisionValueForKey(SVV_ALPHA_MU_KEY)
+            self % alphaSVV        = self % sqrt_mu2alpha * self % muSVV
+            self % sqrt_mu2alpha   = sqrt( self % sqrt_mu2alpha )
          else
             self % alphaSVV1 = 0.0_RP
          end if
@@ -380,10 +388,13 @@ module SpectralVanishingViscosity
             write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
             write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV1
          else
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity 1 : ", this % muSVV1
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity 1: ", this % alphaSVV1
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity 2 : ", this % muSVV2
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity 2: ", this % alphaSVV2
+            write(STD_OUT,'(30X,A,A30,F10.6)') "->","Viscosity: ", this % muSVV
+         end if
+
+         if (this % alphaIsPropToMu) then
+            write(STD_OUT,'(30X,A,A30,F0.1,A)') "->", "Alpha viscosity: ", (this % sqrt_mu2alpha)**2, "x mu_SVV"
+         else
+            write(STD_OUT,'(30X,A,A30,F10.6)') "->","Alpha viscosity: ", this % alphaSVV
          end if
 
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
@@ -443,6 +454,31 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Qy(0:e % Nxyz(2),0:e % Nxyz(2))
          real(kind=RP)       :: Qz(0:e % Nxyz(3),0:e % Nxyz(3))
 
+!
+!        --------------------------------------------
+!        Compute the viscosity, using LES if required
+!        --------------------------------------------
+!
+         if ( self % muIsSmagorinsky ) then
+             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                 call Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                     e % storage % Q(:,i,j,k),       &
+                                                     e % storage % U_x(:,i,j,k),     &
+                                                     e % storage % U_y(:,i,j,k),     &
+                                                     e % storage % U_z(:,i,j,k),     &
+                                                     sqrt_mu(i,j,k))
+                 sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
+             end do                ; end do                ; end do
+         else
+             sqrt_mu = self % sqrt_muSVV
+         end if
+
+         if ( self % alphaIsPropToMu ) then
+             sqrt_alpha = self % sqrt_mu2alpha * sqrt_mu
+         else
+             sqrt_alpha = self % sqrt_alphaSVV
+         end if
 !
 !        ---------------------------------
 !        Compute the viscosity and filters
