@@ -219,7 +219,7 @@ Module FWHGeneralClass  !
         call getMeanStreamValues()
         allocate( self % observers(self % numberOfObservers) )
         do i = 1, self % numberOfObservers
-            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % interpolate)
+            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % interpolate, no_of_faces)
         end do 
 
         self % bufferLine = 0
@@ -438,8 +438,6 @@ Module FWHGeneralClass  !
         if(.not. self % saveSourceSolFile .or. .not. self % isActive) return
 
         WRITE(FinalName,'(2A,I10.10,A)')  TRIM(self % solution_file),'_',iter,'.fwhs.hsol'
-      ! if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-       ! write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',time,'.'
         call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName, self % totalNumberOfFaces, self % globalFid, self % faceOffset)
      
      END SUBROUTINE FWHSaveSourceSolution

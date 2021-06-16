@@ -71,6 +71,7 @@ Module  FWHObseverClass  !
        class(ObserverSourcePairClass), dimension(:), allocatable       :: sourcePair
        real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! accoustic pressure, two componenets and the total (sum)
        real(kind=RP)                                                   :: tDelay
+       real(kind=RP)                                                   :: tDelayMax
        logical                                                         :: active
        character(len=STR_LEN_OBSERVER)                                 :: observerName
        character(len=STR_LEN_OBSERVER)                                 :: fileName
@@ -94,7 +95,7 @@ Module  FWHObseverClass  !
 !           OBSERVER CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate)
+   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate, totalNumberOfFaces)
 
 !        *****************************************************************************
 !              This subroutine initializes the observer similar to a monitor. The following
@@ -110,7 +111,7 @@ Module  FWHObseverClass  !
        class(ObserverClass)                                 :: self
        class(Zone_t), intent(in)                            :: sourceZone
        class(HexMesh), intent(in)                           :: mesh
-       integer, intent(in)                                  :: ID
+       integer, intent(in)                                  :: ID, totalNumberOfFaces
        character(len=*), intent(in)                         :: solution_file
        logical, intent(in)                                  :: FirstCall, interpolate
 
@@ -136,7 +137,6 @@ Module  FWHObseverClass  !
 
 !      Get the coordinates
 !      -------------------
-      ! print *, "Observer: ", trim(self%observerName)
        self % x = getRealArrayFromString(coordinates)
 
 !     Enable the observer
@@ -168,7 +168,7 @@ Module  FWHObseverClass  !
 
 !     Set the average time delay of the observer
 !     -------------------------------------------------
-      call self % updateTdelay()
+      call self % updateTdelay(totalNumberOfFaces)
 
 !     Prepare the file in which the observer is exported
 !     -------------------------------------------------
@@ -282,35 +282,60 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine ObserverUpdate
 
-   Subroutine ObserverUpdateTdelay(self)
+   Subroutine ObserverUpdateTdelay(self, totalNumberOfFaces)
 
 !     *******************************************************************
 !        This subroutine updates the observer time delay. For static surfaces it 
-!        doesn't need to be updated at every iteration
+!        doesn't need to be updated at every iteration.
+!        Minimum time is used, for interpolation procedures
 !     *******************************************************************
 !
+      use MPI_Process_Info
       implicit none
       class   (ObserverClass)                              :: self
+      integer, intent(in)                                  :: totalNumberOfFaces
       
       ! local variables
-      integer                                              :: i
-      real(kind=RP)                                        :: t
+      integer                                              :: i, ierr
+      real(kind=RP)                                        :: t, tmax
+      real(kind=RP), dimension(:), allocatable             :: alltDelay
+      real(kind=RP), dimension(self % numberOfFaces)       :: tDelayArray
+      integer, dimension(MPI_Process % nProcs)             :: no_of_faces_p, displs
 
-      ! t = 0.0_RP
-      t = self % sourcePair(1) % tDelay
-          ! print *, "time of source 1 of observer ", self % ID, "is: ", self % sourcePair(1)%tDelay
-      ! do i = 1, self % numberOfFaces
-      do i = 2, self % numberOfFaces
-          ! for moving surfaces, each pair of observer-source should updated the tDelay first
-          ! print *, "time of source ", i, "of observer ", self % ID, "is: ", self % sourcePair(i)%tDelay
-          ! t = t + self % sourcePair(i) % tDelay
-          if (self % sourcePair(i) % tDelay .lt. t) t = self % sourcePair(i) % tDelay
-      end do  
+      do i =1, self % numberOfFaces
+        tDelayArray(i) = self % sourcePair(i) % tDelay
+      end do
 
-      ! self % tDelay = t / real(self % numberOfFaces,RP)
+      if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+          call mpi_gather(self % numberOfFaces,1,MPI_INT,no_of_faces_p,1,MPI_INT,0,MPI_COMM_WORLD,ierr)
+
+          if (MPI_Process % isRoot) then
+              displs=0
+              do i = 2, MPI_Process % nProcs 
+                  displs(i) = displs(i-1) + no_of_faces_p(i-1)
+              end do
+          end if
+
+          allocate(alltDelay(totalNumberOfFaces))
+          call mpi_gatherv(tDelayArray, self % numberOfFaces, MPI_DOUBLE, &
+                                     alltDelay, no_of_faces_p, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD, ierr)
+
+          if (MPI_Process % isRoot) then
+              t = minval(alltDelay)
+              tmax = maxval(alltDelay)
+          end if
+
+          call mpi_Bcast(t, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ierr)
+          call mpi_Bcast(tmax, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ierr)
+#endif
+      else
+          t = minval(tDelayArray)
+          tmax = maxval(tDelayArray)
+      end if
+
       self % tDelay = t
-          ! print *, "time of average of observer ", self % ID, "is: ", self % tDelay
-          ! print *, "time of min of observer ", self % ID, "is: ", self % tDelay
+      self % tDelayMax = tmax
 
    End Subroutine ObserverUpdateTdelay
 
@@ -357,8 +382,6 @@ use VariableConversion, only: Pressure, PressureDot
       integer,intent(in)                                   :: bufferPosition
       logical, intent(in)                                  :: isSolid
       real(kind=RP), intent(in)                            :: tsource
-      ! real(kind=RP), intent(in)                            :: dt
-      ! logical, intent(in), optional                        :: isFirst
 
       ! local variables
       real(kind=RP)                                        :: tobserver
@@ -407,23 +430,15 @@ use VariableConversion, only: Pressure, PressureDot
       !local variables
       real(kind=RP), dimension(:), allocatable             :: tobserver
       integer                                              :: i, n, k, m
-      real(kind=RP)                                        :: tdelaymin, tdelaymax
       integer, dimension(self % numberOfFaces)             :: nDiscard
       logical                                              :: sameDelay
 
       allocate(tobserver(no_of_lines))
       tobserver = tsource(1:no_of_lines) + self % tdelay
 
-      ! get min and max t delay
-      tdelaymin = self % tdelay
-      tdelaymax = self % tdelay
-      do i = 1, self % numberOfFaces
-          if (self % sourcepair(i) % tdelay .gt. tdelaymax) tdelaymax = self % sourcepair(i) % tdelay
-      end do
-
       ! get max tobserver that can be interpolated
       do k =1, no_of_lines
-          if ( tobserver(k) .ge. (tdelaymax + tsource(1)) ) exit
+          if ( tobserver(k) .ge. (self % tDelayMax + tsource(1)) ) exit
       end do
       n = no_of_lines - k + 1 ! k is the min tobserver index
 
@@ -567,19 +582,6 @@ use VariableConversion, only: Pressure, PressureDot
                self % tDelay = (sum(self%re))/real(size(self%re),RP) / c0
            end do; end do
        end associate
-
-     ! if (all(f%geom%x(:,i,j) .ge. 0.98_RP) .and. f%geom%x(3,i,j) .eq. 1.98_RP) then
-     ! ! ! if (all(f%geom%x(:,Nx,Ny) .ge. 0.98_RP)) then
-     ! if (self%faceIDinMesh == 3300) then
-     !   print *, "x: ", f%geom%x(:,Nx,Ny)
-     !   ! print *, "x: ", f%geom%x
-     !   print *, "r: ", self%r(Nx,Ny)
-     !   print *, "rv: ", self%rVect(:,Nx,Ny)
-     !   print *, "res: ", self%reStar(Nx,Ny)
-     !   print *, "reStarUnitVect: ", self%reStarUnitVect(:,Nx,Ny), "norm: ",norm2(self%reStarUnitVect(:,Nx,Ny))
-     !   print *, "re: ", self%re(Nx,Ny)
-     !   print *, "reUnitVect: ", self%reUnitVect(:,Nx,Ny), "norm: ",norm2(self%reUnitVect(:,Nx,Ny))
-   ! endif
 
    End Subroutine ObserverSourcePairConstruct 
 
@@ -793,8 +795,6 @@ use VariableConversion, only: Pressure, PressureDot
 
       ! get total accoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
        Pacc = (/Pt, Pl, Pt+Pl/)
-       ! print *, "Pacc: ", Pacc
-       
 
    End Function FWHSurfaceIntegral 
 
