@@ -20,9 +20,13 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/EllipticBR1.o \
 		./build_ns/EllipticBR2.o \
 		./build_ns/EllipticDiscretizations.o \
-		./build_ns/SVV.o 
+		./build_ns/SVV.o \
+		./build_ns/ShockCapturingKeywords.o \
+		./build_ns/SCsensorClass.o \
+		./build_ns/ShockCapturing.o
+#		./build_ns/HyperbolicEntropyFV.o \
 
-LIBOBJS_iNS =    ./build_ins/DGSEMClass.o \
+LIBOBJS_iNS =   ./build_ins/DGSEMClass.o \
 		./build_ins/DGIntegrals.o \
 		./build_ins/GradientsStabilization.o \
 		./build_ins/HyperbolicDiscretizationClass.o \
@@ -34,7 +38,8 @@ LIBOBJS_iNS =    ./build_ins/DGSEMClass.o \
 		./build_ins/EllipticBR1.o \
 		./build_ins/EllipticBR2.o \
 		./build_ins/EllipticDiscretizations.o \
-		./build_ins/SVV.o 
+		./build_ins/SVV.o
+#		./build_ins/HyperbolicEntropyFV.o \
 
 LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/DGIntegrals.o \
@@ -47,8 +52,7 @@ LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/EllipticIP.o \
 		./build_ch/EllipticBR1.o \
 		./build_ch/EllipticBR2.o \
-		./build_ch/EllipticDiscretizations.o \
-		./build_ch/SVV.o 
+		./build_ch/EllipticDiscretizations.o
 
 LIBOBJS_MU =  ./build_mu/DGSEMClass.o \
 		./build_mu/DGIntegrals.o \
@@ -60,8 +64,7 @@ LIBOBJS_MU =  ./build_mu/DGSEMClass.o \
 		./build_mu/EllipticIP.o \
 		./build_mu/EllipticBR1.o \
 		./build_mu/EllipticBR2.o \
-		./build_mu/EllipticDiscretizations.o \
-		./build_mu/SVV.o 
+		./build_mu/EllipticDiscretizations.o
 
 LIB = discretization
 
