@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Jun 10 18:41:03 2021
+!   @Last revision date: Thu Jun 17 23:45:43 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
+!   @Last revision commit: 926d9ae6305573eb5251c82bdfc342bc7888541a
 !
 !//////////////////////////////////////////////////////
 !
@@ -3463,11 +3463,14 @@ slavecoord:             DO l = 1, 4
          bdf_order = controlVariables % integerValueForKey("bdf order")
          RKSteps_num = 0
       elseif ( trim(time_int) == "fas" ) then
+         bdf_order = -1
+         RKSteps_num = 0
         if ( controlVariables % containsKey("mg smoother")) then
           mg_smoother = controlVariables % stringValueForKey("mg smoother",LINE_LENGTH)
           call toLower (mg_smoother)
           if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "dirk5") ) then
             bdf_order = 1
+            RKSteps_num = 0
           end if
         end if
       elseif ( trim(time_int) == "imex" ) then
