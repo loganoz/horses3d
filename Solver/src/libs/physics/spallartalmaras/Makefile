@@ -15,8 +15,9 @@ LIBOBJS = ./build/FluidData_NSSA.o \
 		  ./build/LESModels.o \
 		  ./build/Physics_NSSA.o \
 		  ./build/RiemannSolvers_NSSA.o \
-		  ./build/ManufacturedSolutions.o \
-		  ./build/Turbulence.o 
+		  ./build/Turbulence.o  \
+		  ./build/ManufacturedSolutions.o 
+
           
 LIB = physicsnssa
 
@@ -29,7 +30,7 @@ LIB = physicsnssa
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DSPALARTALMARAS $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo
