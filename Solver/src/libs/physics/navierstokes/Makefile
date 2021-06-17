@@ -54,13 +54,12 @@ header: FORCE
 	@echo
 	@echo
 mkdirs: FORCE
-	@mkdir -p ./include 
+	@mkdir -p ./include
 	@mkdir -p ./build
 
 clean: FORCE
 	$(RM) lib$(LIB).a 
-	$(RM) ./build/*.o 
-	$(RM) ./indlude/*.mod
+	$(RM) ./build/*.o ./include/*.mod
 #############################################
 #	Dummy procedure to force a rule     #
 #############################################

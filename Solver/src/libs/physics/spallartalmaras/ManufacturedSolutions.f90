@@ -27,7 +27,6 @@ MODULE ManufacturedSolutionsNSSA
    USE Physics_NSSA
    use FluidData_NSSA
    use VariableConversion_NSSA
-   use SpallartAlmarasTurbulence
    IMPLICIT NONE
 
    private

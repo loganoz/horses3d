@@ -628,27 +628,7 @@ module SpatialDiscretization
 !$omp end do
 
             end if
-!Add Spallart-Almaras Source - Term 
-!$omp do schedule(runtime)  
-               do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
-                     e % storage % S_NS = e % storage % S_NS - e % storage % S_SA
-                  end associate
-               enddo
-!$omp end do
          end if !(.not. mesh % child)
-!
-      !do eID = 1, size(mesh % elements)
-      !    associate(e => mesh % elements(eID))
-      !         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-      !            if(e % storage % Q(IRHOTHETA, i,j,k) / e % storage % Q(IRHO, i,j,k ) .LT. 0.0_RP ) then 
-      !            print *, "The theta is SMALLER than 0 "
-      !            end if
-      !              print *, "The Qdot is " , 0.1* e % storage % QDot(6,i,j,k)  +  0.3* (Pi**2*Cos(Pi*(e % geom % x(1,i,j,k) + e % geom % x(2,i,j,k) + e % geom % x(3,i,j,k))))
-      !               e % storage % QDot(6,i,j,k) = 0.1 *e % storage % QDot(6,i,j,k)  +  0.3 * (Pi**2*Cos(Pi*(e % geom % x(1,i,j,k) + e % geom % x(2,i,j,k) + e % geom % x(3,i,j,k))))
-      !       end do                  ; end do                ; end do
-      !       end associate
-      ! end do
 
 !        ***********************
 !        Now add the source term
@@ -657,7 +637,7 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k) 
+               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k) + e % storage % S_SA(:,i,j,k) 
             end do                  ; end do                ; end do
             end associate
          end do
