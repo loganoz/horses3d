@@ -331,7 +331,7 @@ Module DGSEMClass
 #elif defined(SPALARTALMARAS)
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements) 
-            DO k=0, Nz(el)
+           DO k=0, Nz(el)
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
                         CALL ManufacturedSolutionSourceNSSA(self % mesh % elements(el) % geom % x(:,i,j,k), &
@@ -342,7 +342,6 @@ Module DGSEMClass
             END DO
          END DO
       END IF
-
 #endif
 !
 !     ------------------

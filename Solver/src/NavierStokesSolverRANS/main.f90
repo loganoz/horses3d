@@ -53,7 +53,7 @@
       integer, allocatable                :: Nx(:), Ny(:), Nz(:)
       integer                             :: Nmax
       
-      call SetSolver(NAVIERSTOKES_SOLVER)
+      call SetSolver(NAVIERSTOKESSA_SOLVER)
 !
 !     -----------------------------------------
 !     Start measuring the total simulation time
@@ -74,10 +74,10 @@
 !     ----------------------------------------------------------------------------------
 !
       if ( MPI_Process % doMPIAction ) then
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Parallel Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       else
-         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes Solver",__DATE__,__TIME__)
+         CALL Main_Header("HORSES3D High-Order (DG) Spectral Element Sequential Navier-Stokes / Spallart-Almaras Solver",__DATE__,__TIME__)
 
       end if
 

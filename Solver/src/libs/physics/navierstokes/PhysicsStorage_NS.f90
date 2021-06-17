@@ -110,13 +110,8 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-#if defined(SPALARTALMARAS)
-     INTEGER, PARAMETER :: NCONS = 6, NGRAD = 6
-     INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5, IRHOTHETA = 6
-#else
      INTEGER, PARAMETER :: NCONS = 5, NGRAD = 5
      INTEGER, PARAMETER       :: IRHO = 1 , IRHOU = 2 , IRHOV = 3 , IRHOW = 4 , IRHOE = 5
-#endif
 !
 !    ----------------------------------------
 !!   The positions of the primitive variables

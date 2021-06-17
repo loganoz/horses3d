@@ -142,7 +142,7 @@ module VariableConversion_NSSA
          implicit none
          real(kind=RP), intent(in)   :: mu
          real(kind=RP), intent(in)   :: rho
-         real(kind=RP), intent(out)  :: niu
+         real(kind=RP), intent(inout)  :: niu
                   
          niu = mu / rho
 

@@ -158,7 +158,7 @@ module GenericBoundaryConditionClass
          case(NS_BC)
             call self % FlowState(x, t, nHat, Q)
          case(NSSA_BC)
-            call self % FlowState(x,t,nHat, Q)
+            call self % FlowState(x, t, nHat, Q)
 #endif
          case(C_BC)
             call self % PhaseFieldState(x, t, nHat, Q)

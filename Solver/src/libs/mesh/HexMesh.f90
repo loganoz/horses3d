@@ -3511,10 +3511,10 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu
+      integer  :: off, ns, c, mu, nssa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu)
+      call GetStorageEquations(off, ns, c, mu, nssa)
 
       if ( which .eq. ns ) then
 #ifdef FLOW
@@ -3530,7 +3530,26 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(1) % SetStorageToNS
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
+
+      elseif ( which .eq. nssa ) then
+
+         self % storage % Q => self % storage % QNS 
+         self % storage % QDot => self % storage % QDotNS 
+         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToNS
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToNS
+            call self % faces(fID) % storage(2) % SetStorageToNS
+         end do
+
+
 #endif
+
+
       elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c

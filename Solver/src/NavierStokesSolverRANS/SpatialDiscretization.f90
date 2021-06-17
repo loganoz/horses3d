@@ -33,9 +33,9 @@ module SpatialDiscretization
                                     set_getVelocityGradients, GetNSKinematicViscosity
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
-#ifdef SPALARTALMARAS
       use SpallartAlmarasTurbulence
-#endif
+      use ManufacturedSolutionsNSSA
+
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -246,9 +246,9 @@ module SpatialDiscretization
                computeMPIFaceFlux          => computeMPIFaceFlux_SVV
                computeBoundaryFlux         => computeBoundaryFlux_SVV
             else
-               computeElementInterfaceFlux => computeElementInterfaceFlux_NS
-               computeMPIFaceFlux          => computeMPIFaceFlux_NS
-               computeBoundaryFlux         => computeBoundaryFlux_NS
+               computeElementInterfaceFlux => computeElementInterfaceFlux_NSSA
+               computeMPIFaceFlux          => computeMPIFaceFlux_NSSA
+               computeBoundaryFlux         => computeBoundaryFlux_NSSA
             end if
          end if
          
@@ -409,7 +409,6 @@ module SpatialDiscretization
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
-                  !print *,  e % storage % mu_NS(1,i,j,k), dimensionless % mu_to_kappa, dimensionless % mu, dimensionless % mut_to_kappa_SA
                end do                ; end do                ; end do
                end associate
             end do
@@ -436,9 +435,7 @@ module SpatialDiscretization
 !$omp end do
       end if
 
-
-#if defined(SPALARTALMARAS)
-!$omp do schedule(runtime) private(i,j,k,delta,mu_t, kinematic_viscocity)
+!$omp do schedule(runtime) private(i,j,k,mu_t, mu_dim, kinematic_viscocity)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -449,7 +446,7 @@ module SpatialDiscretization
                   
                   call SAmodel % ComputeViscosity(e % storage % Q(IRHOTHETA,i,j,k), kinematic_viscocity,&
                                                   e % storage % Q(IRHO,i,j,k), mu_dim,&
-                                                  mu_t, e % storage % mu_NS(3,i,j,k))
+                                                  mu_t, e % storage % mu_NS(3,i,j,k) , e % geom % x(:,i,j,k))
 
                   e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_t * dimensionless % mu
                   e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_t * dimensionless % mu * dimensionless % mut_to_kappa_SA
@@ -458,12 +455,11 @@ module SpatialDiscretization
                                                     e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                     e % storage % U_x(:,i,j,k), &
                                                     e % storage % U_y(:,i,j,k), &
-                                                    e % storage % U_z(:,i,j,k), e % storage % S_SA(:,i,j,k))
+                                                    e % storage % U_z(:,i,j,k), e % storage % S_SA(:,i,j,k), e % geom % x(:,i,j,k))
                end do                ; end do                ; end do
                end associate
             end do
 !$omp end do
-#endif
 
 !        Compute viscosity at interior and boundary faces
 !        ------------------------------------------------
@@ -516,7 +512,7 @@ module SpatialDiscretization
 !$omp end do
 !
 !        ****************************
-!        Wait until messages are sent
+!       Wait until messages are sent
 !        ****************************
 !
 #ifdef _HAS_MPI_
@@ -626,34 +622,46 @@ module SpatialDiscretization
 !$omp do schedule(runtime)  
                do eID = 1, mesh % no_of_elements
                   associate ( e => mesh % elements(eID) )            
-                     e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP 
+                     e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
                   end associate
                enddo
 !$omp end do
 
             end if
+!Add Spallart-Almaras Source - Term 
+!$omp do schedule(runtime)  
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )            
+                     e % storage % S_NS = e % storage % S_NS - e % storage % S_SA
+                  end associate
+               enddo
+!$omp end do
          end if !(.not. mesh % child)
 !
-         !do eID = 1, mesh % no_of_elements
-         !   associate ( e => mesh % elements(eID) )
-         !   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-         !         print *, "The Qdot is " ,  e % storage % QDot(6,i,j,k)- e % storage % S_NS(6,i,j,k)+ e % storage % S_SA(6,i,j,k), e % storage % Q(6,i,j,k)/ e % storage % Q(1,i,j,k)
-         !   end do                  ; end do                ; end do
-         !   end associate
-         !end do
+      !do eID = 1, size(mesh % elements)
+      !    associate(e => mesh % elements(eID))
+      !         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+      !            if(e % storage % Q(IRHOTHETA, i,j,k) / e % storage % Q(IRHO, i,j,k ) .LT. 0.0_RP ) then 
+      !            print *, "The theta is SMALLER than 0 "
+      !            end if
+      !              print *, "The Qdot is " , 0.1* e % storage % QDot(6,i,j,k)  +  0.3* (Pi**2*Cos(Pi*(e % geom % x(1,i,j,k) + e % geom % x(2,i,j,k) + e % geom % x(3,i,j,k))))
+      !               e % storage % QDot(6,i,j,k) = 0.1 *e % storage % QDot(6,i,j,k)  +  0.3 * (Pi**2*Cos(Pi*(e % geom % x(1,i,j,k) + e % geom % x(2,i,j,k) + e % geom % x(3,i,j,k))))
+      !       end do                  ; end do                ; end do
+      !       end associate
+      ! end do
 
 !        ***********************
 !        Now add the source term
 !        ***********************
-!!!!!!!!!!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k) + e % storage % S_SA(:,i,j,k)
+               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k) 
             end do                  ; end do                ; end do
             end associate
          end do
-!!!!!!!!!!!!!!!!!!$omp end do
+!$omp end do
 
       end subroutine TimeDerivative_ComputeQDot
    
@@ -707,7 +715,6 @@ module SpatialDiscretization
 !$omp end do
          end if
 
-#if defined(SPALARTALMARAS)
 !$omp do schedule(runtime) private(i,j,mu_t, kinematic_viscocity, mu_dim)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
@@ -717,10 +724,9 @@ module SpatialDiscretization
                   mu_dim = f % storage(side) % mu_NS(1,i,j) / dimensionless % mu 
 
                   call GetNSKinematicViscosity(mu_dim, f % storage(side) % Q(IRHO,i,j), kinematic_viscocity )
-                  
                   call SAmodel % ComputeViscosity(f % storage(side) % Q(IRHOTHETA,i,j), kinematic_viscocity, &
                                                   f % storage(side) % Q(IRHO,i,j), mu_dim, &
-                                                  mu_t, f % storage(side) % mu_NS(3,i,j) )
+                                                  mu_t, f % storage(side) % mu_NS(3,i,j), f % geom % x(:,i,j))
                   
                   f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t * dimensionless % mu
                   f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_t * dimensionless % mu * dimensionless % mut_to_kappa_SA
@@ -729,7 +735,6 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-#endif
 
 
       end subroutine compute_viscosity_at_faces
@@ -910,6 +915,7 @@ module SpatialDiscretization
 !        Compute inviscid contravariant flux
 !        -----------------------------------
          call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux ) 
+
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -967,7 +973,6 @@ module SpatialDiscretization
          type(Element)           :: e
          real(kind=RP)           :: t
          type(HexMesh)           :: mesh
-
          e % storage % QDot = e % storage % QDot - ScalarWeakIntegrals % StdFace( e, NCONS, &
                       mesh % faces(e % faceIDs(EFRONT))  % storage(e % faceSide(EFRONT))  % fStar, &
                       mesh % faces(e % faceIDs(EBACK))   % storage(e % faceSide(EBACK))   % fStar, &
@@ -985,13 +990,9 @@ module SpatialDiscretization
 ! 
 !///////////////////////////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE computeElementInterfaceFlux_NS(f)
+      SUBROUTINE computeElementInterfaceFlux_NSSA(f)
          use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
          use RiemannSolvers_NSSA
-#endif
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
@@ -1058,6 +1059,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
+
                flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
                
             END DO   
@@ -1070,15 +1072,11 @@ module SpatialDiscretization
          Sidearray = (/1,2/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray)
 
-      END SUBROUTINE computeElementInterfaceFlux_NS
+      END SUBROUTINE computeElementInterfaceFlux_NSSA
 
-      SUBROUTINE computeMPIFaceFlux_NS(f)
+      SUBROUTINE computeMPIFaceFlux_NSSA(f)
          use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
          use RiemannSolvers_NSSA
-#endif       
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
@@ -1161,16 +1159,12 @@ module SpatialDiscretization
          Sidearray = (/thisSide, HMESH_NONE/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray )
 
-      end subroutine ComputeMPIFaceFlux_NS
+      end subroutine ComputeMPIFaceFlux_NSSA
 
-      SUBROUTINE computeBoundaryFlux_NS(f, time)
+      SUBROUTINE computeBoundaryFlux_NSSA(f, time)
       USE ElementClass
       use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
-         use RiemannSolvers_NSSA
-#endif
+      use RiemannSolvers_NSSA
       IMPLICIT NONE
 !
 !     ---------
@@ -1203,7 +1197,6 @@ module SpatialDiscretization
                                       time, &
                                       f % geom % normal(:,i,j), &
                                       f % storage(2) % Q(:,i,j))
-
       end do               ; end do
 
       if ( flowIsNavierStokes ) then
@@ -1223,7 +1216,6 @@ module SpatialDiscretization
                visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
-
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
                                               time, &
@@ -1233,6 +1225,7 @@ module SpatialDiscretization
                                               f % storage(1) % U_y(:,i,j), &
                                               f % storage(1) % U_z(:,i,j), &
                                               visc_flux(:,i,j))
+
 
             end do
          end do
@@ -1260,15 +1253,11 @@ module SpatialDiscretization
       Sidearray = (/1, HMESH_NONE/)
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
-      END SUBROUTINE computeBoundaryFlux_NS
+      END SUBROUTINE computeBoundaryFlux_NSSA
 
       SUBROUTINE computeElementInterfaceFlux_SVV(f)
          use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
          use RiemannSolvers_NSSA
-#endif
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
@@ -1354,11 +1343,7 @@ module SpatialDiscretization
 
       SUBROUTINE computeMPIFaceFlux_SVV(f)
          use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
          use RiemannSolvers_NSSA
-#endif
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
@@ -1442,11 +1427,7 @@ module SpatialDiscretization
       SUBROUTINE computeBoundaryFlux_SVV(f, time)
       USE ElementClass
       use FaceClass
-#ifndef SPALARTALMARAS
-         use RiemannSolvers_NS
-#else
-         use RiemannSolvers_NSSA
-#endif
+      use RiemannSolvers_NSSA
       IMPLICIT NONE
 !
 !     ---------

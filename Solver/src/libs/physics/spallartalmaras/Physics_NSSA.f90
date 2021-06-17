@@ -100,11 +100,9 @@
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
 
-#if defined (SPALARTALMARAS)
          F(IRHOTHETA, IX ) = Q(IRHOTHETA) * u
          F(IRHOTHETA, IY ) = Q(IRHOTHETA) * v
          F(IRHOTHETA, IZ ) = Q(IRHOTHETA) * w
-#endif
       
          end associate
 
@@ -257,7 +255,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, eta, kappa, F)
+      pure subroutine ViscousFlux_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -266,7 +264,7 @@
          real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
          real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
-         real(kind=RP), intent(in)  :: eta
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
@@ -315,17 +313,15 @@
          F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) !+ beta * divV
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa  * nablaT(IZ)
 
-#if defined (SPALARTALMARAS)
          theta = Q(IRHOTHETA) * invRho
          thetaDivRho = theta * invRho
-
          theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
          theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
-         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
-         F(IRHOTHETA,IX) = theta_x * eta
-         F(IRHOTHETA,IY) = theta_y * eta
-         F(IRHOTHETA,IZ) = theta_z * eta
-#endif
+         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO)
+         F(IRHOTHETA,IX) = theta_x * beta
+         F(IRHOTHETA,IY) = theta_y * beta
+         F(IRHOTHETA,IZ) = theta_z * beta
+
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux_STATE
 

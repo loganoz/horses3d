@@ -37,6 +37,8 @@ module FASMultigridClass
    use MPI_Process_Info          , only: MPI_Process
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
 #endif
    
    implicit none
@@ -307,7 +309,9 @@ module FASMultigridClass
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      use ManufacturedSolutionsNS
+   use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
 #endif
       use FTValueDictionaryClass
       implicit none
@@ -374,8 +378,21 @@ module FASMultigridClass
             end DO
          end DO
       end if
-#endif
-!
+#elif defined(SPALARTALMARAS)
+      IF (self % ManufacturedSol) THEN
+         DO el = 1, SIZE(self % mesh % elements) 
+           DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)
+                        CALL ManufacturedSolutionSourceNSSA(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                            Solver % p_sem % mesh % elements(iEl) % geom % dwall(i,j,k), 0._RP, &
+                                                             Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
+#endif!
 !     -------------------------------------------
 !     Create linear solver for implicit smoothing
 !                                 (if needed)

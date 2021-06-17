@@ -1110,9 +1110,8 @@ module RiemannSolvers_NSSA
 
          rhoeL = QLeft(5) ; rhoeR = QRight(5)                
 
-#ifdef SPALARTALMARAS
-         thetarhoL = QLeft(6) ; thetarhoR = QRight(6)
-#endif
+         thetarhoL = QLeft(6) 
+         thetarhoR = QRight(6)
 
          pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
          pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
@@ -1140,7 +1139,7 @@ module RiemannSolvers_NSSA
 !        Compute the Lax-Friedrichs stabilization
 !        ----------------------------------------
          stab(1:5) = 0.5_RP * lambda * (QRRot(1:5) - QLRot(1:5))
-         stab(6)   = 0.0_RP  !0.5_RP * (QRRot(6) - QLRot(6))
+         stab(6)   = 0.5_RP * lambda * (QRRot(6) - QLRot(6))
 
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------

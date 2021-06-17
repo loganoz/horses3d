@@ -28,7 +28,7 @@ module StorageClass
    public   GetStorageEquations
   
    enum, bind(C)
-      enumerator :: OFF = 0, NS, C, MU
+      enumerator :: OFF = 0, NS, C, MU, NSSA
    end enum 
 
    type Statistics_t
@@ -536,7 +536,7 @@ module StorageClass
          
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
-            case (NS)
+            case (NS,NSSA)
 #ifdef FLOW
                nEqn = NCONS
 #endif
@@ -570,7 +570,7 @@ module StorageClass
          
          ! Temporary only checking first element!
          select case (self % elements(1) % currentlyLoaded)
-            case (NS)
+            case (NS,NSSA)
 #ifdef FLOW
                nEqn = NCONS
 #endif
@@ -617,7 +617,7 @@ module StorageClass
                self % Qdot  => NULL()
                self % PrevQ => NULL()
 #ifdef FLOW
-            case (NS)
+            case (NS,NSSA)
                self % Q     => self % QNS
                self % Qdot  => self % QdotNS
                self % PrevQ => self % PrevQNS
@@ -801,7 +801,7 @@ module StorageClass
             ALLOCATE( self % U_zNS (NGRAD,0:Nx,0:Ny,0:Nz) )
          end if
          
-         allocate( self % mu_NS(3,0:Nx,0:Ny,0:Nz) )
+         allocate( self % mu_NS(1:3,0:Nx,0:Ny,0:Nz) )
          
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
          
@@ -991,7 +991,7 @@ module StorageClass
                self % U_z  => NULL()
                self % QDot => NULL()
 #ifdef FLOW
-            case (NS)
+            case (NS,NSSA)
                call self % SetStorageToNS   
 #endif
 #ifdef CAHNHILLIARD
@@ -1093,7 +1093,11 @@ module StorageClass
 !
          integer  :: k
 
+#ifndef SPALARTALMARAS
          self % currentlyLoaded = NS
+#else
+         self % currentlyLoaded = NSSA
+#endif
          self % Q   (1:,0:,0:,0:) => self % QNS
          if (self % computeGradients) then
             self % U_x (1:,0:,0:,0:) => self % U_xNS
@@ -1292,7 +1296,7 @@ module StorageClass
          interfaceFluxMemorySize = NGRAD * nDIM * product(Nf + 1)
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
-         allocate( self % mu_NS     (3,0:Nf(1),0:Nf(2)) )
+         allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1453,9 +1457,11 @@ module StorageClass
       pure subroutine FaceStorage_SetStorageToNS(self)
          implicit none
          class(FaceStorage_t), intent(inout), target    :: self
-
+#ifndef SPALARTALMARAS
          self % currentlyLoaded = NS
-!
+#else
+         self % currentlyLoaded = NSSA
+#endif
 !        Get sizes
 !        ---------
          self % Q   (1:,0:,0:)            => self % QNS
@@ -1527,7 +1533,7 @@ module StorageClass
                self % FStar  => NULL()
                self % unStar => NULL()
 #ifdef FLOW
-            case (NS)
+            case (NS,NSSA)
                call self % SetStorageToNS   
 #endif
 #ifdef CAHNHILLIARD
@@ -1621,14 +1627,15 @@ module StorageClass
 
       end subroutine Statistics_Destruct
 
-      subroutine GetStorageEquations(off_, ns_, c_, mu_)
+      subroutine GetStorageEquations(off_, ns_, c_, mu_, nssa_)
          implicit none  
-         integer, intent(out) :: off_, ns_, c_, mu_
+         integer, intent(out) :: off_, ns_, c_, mu_, nssa_
 
          off_ = OFF
          ns_  = NS
          c_   = C
          mu_  = MU
+         nssa_= NSSA
 
       end subroutine GetStorageEquations
 
