@@ -1,0 +1,89 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NSSA"
+mesh file name        = "MESH/Cube.mesh"
+polynomial order      = 5
+!2D mesh offset direction = z
+Number of time steps  = 100000
+Output Interval       = 1 for explicit
+autosave mode         = "iteration"
+autosave interval     = 100000
+
+Convergence tolerance = 1.d-10
+!dt                    = 1.00d0 ! for implicit
+dt                     = 0.0000001d0 ! for explicit
+!cfl                    = 0.1d0
+!dcfl                   = 0.1d0
+mach number            = 0.5d0
+Reynolds number        = 1000.0d0
+
+discretization nodes  = Gauss
+solution file name    = "RESULTS/MMS.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/TMMS.hsol"
+
+inviscid discretization = standard
+riemann solver         = "lax-friedrichs"
+viscous discretization = "BR1"
+manufactured solution  = 3D
+simulation type       = steady-state
+time integration      = explicit 
+
+!-------------------------------------------------------------
+! Inflow
+!-------------------------------------------------------------
+#define boundary back
+  type = user-defined
+  !type = Inflow 
+#end
+
+#define boundary front
+  type = user-defined
+  ! type = Outflow 
+  !type = Inflow 
+#end
+
+#define boundary bottom
+  type = user-defined
+  ! type = Freeslipwall  
+  !type = Inflow 
+#end
+
+#define boundary top
+  type = user-defined
+  ! type = Freeslipwall 
+  !type = Inflow 
+#end
+
+#define boundary left
+  type = user-defined
+  ! type = Outflow 
+  !type = Inflow 
+#end
+
+#define boundary right
+  type = user-defined
+  ! type = Outflow 
+  !type = Inflow 
+#end
+
+
+#define volume monitor 1 
+   Name = L2rhou
+   Variable = L2rhou
+#end
+
+#define volume monitor 2 
+   Name = L2rhoe
+   Variable = L2rhoe
+#end
+
+#define volume monitor 3 
+   Name = L2rhotheta
+   Variable = L2rhotheta
+#end
+
+
+
+
+!-------------------------------------------------------------
