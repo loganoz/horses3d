@@ -635,16 +635,6 @@ module SpatialDiscretization
                   end associate
                enddo
 !$omp end do
-
-#ifdef SPALARTALMARAS
-!$omp do schedule(runtime)  
-               do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
-                     e % storage % S_NS = e % storage % S_NS + e % storage % S_SA 
-                  end associate
-               enddo
-!$omp end do
-#endif
             end if
          end if !(.not. mesh % child)
 !

@@ -149,7 +149,7 @@ module SpallartAlmarasTurbulence
                         tRatio => S_div_Tref_Sutherland )
 
 
-         if (theta .GE. 1e-13_RP ) then
+         if (theta .GE. 0.0_RP ) then
             mu_t = rho * theta * fv1 
             eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma
 

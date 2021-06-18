@@ -135,7 +135,7 @@ module ResidualsMonitorClass
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
-         write(STD_OUT , '(3X,A10)' , advance = "no") "parameter"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "turbulence parameter"
 #elif defined(INCNS)
          write(STD_OUT , '(3X,A10)' , advance = "no") "dens-transp"
          write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"

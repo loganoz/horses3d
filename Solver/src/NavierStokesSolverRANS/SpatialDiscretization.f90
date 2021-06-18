@@ -398,6 +398,7 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl
          real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim
+         logical     :: isfirst = .TRUE.
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -571,6 +572,15 @@ module SpatialDiscretization
 !                   If you are going to add contributions to the source term, do it adding to e % storage % S_NS inside the condition!
 !        *****************************************************************************************************************************
          if (.not. mesh % child) then
+
+
+!$omp do schedule(runtime)  
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )            
+                     e % storage % Qdot =  e % storage % Qdot +  e % storage % S_SA
+                  end associate
+               enddo
+!$omp end do
 !
 !           Add physical source term
 !           ************************
@@ -628,16 +638,19 @@ module SpatialDiscretization
 !$omp end do
 
             end if
-         end if !(.not. mesh % child)
+
+       end if !(.not. mesh % child)
 
 !        ***********************
 !        Now add the source term
 !        ***********************
+!               print *, "and here" 
+
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k) + e % storage % S_SA(:,i,j,k) 
+               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k)
             end do                  ; end do                ; end do
             end associate
          end do

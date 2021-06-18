@@ -9102,7 +9102,7 @@ subroutine ManufacturedSolutionSourceNSSA(xvec, dwall, time, S)
 !CORRECT SOURCE TERMS THETA >= 0
         if (sbar .GE. -cv2 * somega * Re  ) then 
 
-                    S(6) = S(6) +         (-2.0051747451504216*cwone*Cos(Pi*(x + y + z))**2.*  &
+                   S(6) = S(6) +         (-2.0051747451504216*cwone*Cos(Pi*(x + y + z))**2.*  &
                        (Min(2.,(5.948839976204641*Cos(Pi*(x + y + z)))/  &
                            (dwall**2*Re*(Sqrt(4.046537804446636*Cos(Pi*(x + y + z))**2 +   &
                                  0.09869604401089357*Cos(Pi*(x + y + z))**2.) +   &
@@ -9810,9 +9810,9 @@ subroutine ManufacturedSolutionSourceNSSA(xvec, dwall, time, S)
                     (27.625022718649113*(2. + 0.1*Sin(Pi*(x + y + z)))*  &
                        (-Sin(Pi*(x + y + z)))**2.)/Re  
 
-                    else 
+                   else 
 
-                    S(6) = S(6) +         (-2.0051747451504216*cwone*Cos(Pi*(x + y + z))**2.* &
+                   S(6) = S(6) +         (-2.0051747451504216*cwone*Cos(Pi*(x + y + z))**2.* &
                    (Min(2.,(5.948839976204641*Cos(Pi*(x + y + z)))/ &
                        (dwall**2*Re*(Sqrt(4.046537804446636*Cos(Pi*(x + y + z))**2 +  &
                              0.09869604401089357*Cos(Pi*(x + y + z))**2.) +  &
@@ -13379,7 +13379,7 @@ subroutine ManufacturedSolutionSourceNSSA(xvec, dwall, time, S)
        (27.625022718649113*(2. + 0.1*Sin(Pi*(x + y + z)))* &
           (-Sin(Pi*(x + y + z)))**2.)/Re 
 
-                  end if 
+                 end if 
 
 
 
