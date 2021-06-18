@@ -1132,7 +1132,7 @@ module RiemannSolvers_NSSA
 !        Perform the average using the averaging function
 !        ------------------------------------------------
          QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetarhoL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetarhoL /)
+         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetarhoR /)
 
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
