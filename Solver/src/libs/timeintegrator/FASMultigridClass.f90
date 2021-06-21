@@ -688,7 +688,7 @@ module FASMultigridClass
                 firstIdx = 1
                 do eID=1, nelem 
                    lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
-                   QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % storage % elements(eID) % QNS , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+                   QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % elements(eID) % storage % Qdot , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
                    firstIdx = lastIdx
                 end do
                 RESnorm1 = l2norm(QdotForL2norm)
