@@ -186,7 +186,7 @@ module MultigridTypes
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CFLRamp(cfl_ini,cfl,n,res0,res1,CFLboost)
+   subroutine CFLRamp(cfl_max,cfl,res0,res1,cflboost_rate,CFLboost)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -194,32 +194,36 @@ module MultigridTypes
 !     ------------------------------------
 !
 !     ----------------------------------------------
-      real(kind=rp), intent(in)       :: cfl_ini ! initial, user-defined CFL
-      real(kind=rp), intent(inout)    :: cfl     ! previous iteration CFL
-      integer, intent(in)             :: n ! outer iteration
+      real(kind=rp), intent(in)       :: cfl_max 
+      real(kind=rp), intent(inout)    :: cfl    
       real(kind=rp), intent(in)       :: res0     ! RES before
       real(kind=rp), intent(in)       :: res1     ! RES after
+      real(kind=rp), intent(in)       :: cflboost_rate
       logical, intent(in)             :: CFLboost
 !     ----------------------------------------------
-      real(kind=rp)                :: eta = 1.01d0   ! Ideally 1.0 < eta < 1.05
-      real(kind=rp)                :: eps = 1e-10    !
+      real(kind=rp)                :: conv
 !     ----------------------------------------------
+        print *, "CLFboost: ", CFLboost
+        print *, "CLFmax: ", cfl_max
+        
       if (CFLboost) then
+        if (cfl .le. cfl_max) then
 
-!     Variation of CFL ramping according to Jiang et al. 2015 (version for FAS). 
-         if ( (res1 / res0 .gt. 1.0d0) .and. (res0 .gt. eps) ) then
-            cfl = cfl / 2.0d0
-         else
-            ! cfl = cfl_ini * eta**n ! original work
-            select case(n)
-            case ( : 100)
-               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*n) ! linear variation 
-            case ( 101 : 1000)
-               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*100 + (eta-1.d0)*n*0.1) ! linear variation 
-            case ( 1001 : )
-            end select
-         end if
+          conv = log10(res0/res1)
 
+          print *, "conv = ", conv
+
+          if (conv .le. 0.0_RP) then
+                  print *, "O1"
+          elseif ( (conv .gt. 0.0_RP) .and. (conv .le. 1.0_RP )  ) then
+              cfl = cfl + cfl * conv * cflboost_rate
+                  print *, "O2"
+          elseif (conv .gt. 1.0_RP ) then
+              cfl = cfl + cfl * cflboost_rate
+                  print *, "O3"
+          end if
+
+        end if
       end if ! CLFBoost 
    
    end subroutine CFLRamp

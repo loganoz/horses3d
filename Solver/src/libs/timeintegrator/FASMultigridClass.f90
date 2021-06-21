@@ -124,9 +124,14 @@ module FASMultigridClass
 !-----CFL-ramping-variables-----------------------------------------------------------
    logical        :: CFLboost  = .false.
    logical        :: DCFLboost = .false.
-   real(kind=RP)  :: cfl_ini            ! Inital advective cfl number (for CFL boost)
-   real(kind=RP)  :: dcfl_ini           ! Initial diffusive cfl number (for CFL boost)
-   integer        :: erk_order = 5      ! Steady-state OptERK type 
+   real(kind=RP)  :: cfl_max                    ! Max. advective cfl number (for CFL boost)
+   real(kind=RP)  :: dcfl_max                   ! Max. diffusive cfl number (for CFL boost)
+   real(kind=RP)  :: cflboost_rate              ! Max. diffusive cfl number (for CFL boost)
+   integer        :: erk_order = 5              ! Steady-state OptERK type 
+   real(kind=RP), allocatable :: QdotForL2norm(:) 
+   logical        :: ComputeL2norm = .false.
+   real(kind=RP)  :: RESnorm1 = -1.0_RP     
+   real(kind=RP)  :: RESnorm2 = -1.0_RP     
 !-----DTS-variables-------------------------------------------------------------------
    logical        :: DualTimeStepping = .false.
    logical        :: Compute_Global_dt = .true.
@@ -186,11 +191,32 @@ module FASMultigridClass
          ! CFL boosting
          if (controlVariables % containsKey("cfl boost")) then
             CFLboost = controlVariables % logicalValueForKey("cfl boost")
+            CFL_max = controlVariables % logicalValueForKey("maximum cfl")
          end if
          ! DCFL boosting
          if (controlVariables % containsKey("dcfl boost")) then
             DCFLboost = controlVariables % logicalValueForKey("dcfl boost")
+            DCFL_max = controlVariables % logicalValueForKey("maximum dcfl")
          end if
+         ! boost rate
+         if (controlVariables % containsKey("cfl boost rate")) then
+            CFLboost_rate = controlVariables % doublePrecisionValueForKey("cfl boost rate")
+         else
+            CFLboost_rate = 0.1_RP
+         end if
+
+         ! max cfl
+         if (controlVariables % containsKey("cfl max")) then
+            cfl_max = controlVariables % doublePrecisionValueForKey("cfl max")
+         else
+            cfl_max = 1.0_RP
+         end if
+         if (controlVariables % containsKey("dcfl max")) then
+            dcfl_max = controlVariables % doublePrecisionValueForKey("dcfl max")
+         else
+            dcfl_max = 1.0_RP
+         end if
+
 #elif defined(CAHNHILLIARD)
          print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
          errorMessage(STD_OUT)
@@ -377,6 +403,7 @@ module FASMultigridClass
          saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
          FMGSolutionFile = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       end if
+
 !
 !     ------------------------------------------
 !     Get the minimum multigrid polynomial order
@@ -403,6 +430,11 @@ module FASMultigridClass
       
       nelem = SIZE(sem % mesh % elements)
       num_of_allElems = sem % mesh % no_of_allElements
+
+      if (controlVariables % containsKey("compute l2 norm")) then
+        ComputeL2norm = controlVariables % logicalValueForKey("compute l2 norm")
+        if ( ComputeL2norm ) allocate(QdotForL2norm(this % p_sem % NDOF * NCONS ))
+      end if
 !
 !     --------------------------
 !     Create linked solvers list
@@ -633,6 +665,7 @@ module FASMultigridClass
       !-------------------------------------------------
       integer :: maxVcycles = 40, i
       real(kind=RP) :: rnorm, xnorm
+      integer :: firstIdx, lastIdx, eID
       
       ThisTimeStep = timestep
       
@@ -649,11 +682,44 @@ module FASMultigridClass
 !     Perform multigrid cycle
 !     -----------------------
 !     
+
+      if ( ComputeL2norm ) then
+         if (RESnorm1 .lt. 0.0_RP) then
+                firstIdx = 1
+                do eID=1, nelem 
+                   lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
+                   QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % storage % elements(eID) % QNS , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+                   firstIdx = lastIdx
+                end do
+                RESnorm1 = l2norm(QdotForL2norm)
+         else
+                RESnorm1 = RESnorm2
+         end if
+      end if
+
       if (FMG) then
          call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
       else
          call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
       end if
+
+      if ( ComputeL2norm ) then
+         firstIdx = 1
+         do eID=1, nelem 
+            lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
+            QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % elements(eID) % storage % Qdot , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+            firstIdx = lastIdx
+         end do
+         RESnorm2 = l2norm(QdotForL2norm)
+      end if
+
+
+      if (CFLboost) then
+        if (.not. ComputeL2norm) error stop "FASMultigrid :: CFL ramping needs L2 norm."
+         call CFLRamp(cfl_max,cfl,RESnorm1,RESnorm2,cflboost_rate,CFLboost)
+         call CFLRamp(dcfl_max,dcfl,RESnorm1,RESnorm2,cflboost_rate,CFLboost)
+      end if
+
       
    end subroutine solve  
 !
@@ -812,7 +878,6 @@ module FASMultigridClass
 
       sweepcount = 0
       do
-         if(Smoother .ge. IMPLICIT_SMOOTHER_IDX) call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
          call this % Smooth(MGSweepsPre(lvl),t,dt, ComputeTimeDerivative)
          sweepcount = sweepcount + MGSweepsPre(lvl)
          
@@ -881,14 +946,10 @@ module FASMultigridClass
 
       sweepcount = 0
       DO
-         if(Smoother .ge. IMPLICIT_SMOOTHER_IDX) call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
          call this % Smooth(MGSweepsPost(lvl), t, dt, ComputeTimeDerivative)
          sweepcount = sweepcount + MGSweepsPost(lvl)
 
          NewRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
-
-         call CFLRamp(cfl_ini,cfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
-         call CFLRamp(dcfl_ini,dcfl,CurrentMGCycle,PrevRes,NewRes,CFLboost)
 
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
@@ -1111,6 +1172,7 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this
       !-----------------------------------------------------------
       
+      if ( ComputeL2norm ) deallocate(QdotForL2norm)
       call RecursiveDestructor(this,MGlevels)
       
    end subroutine destruct
@@ -1260,6 +1322,9 @@ module FASMultigridClass
             case (IRK_SMOOTHER)
                error STOP "FASMultigrid :: IRK Smoother not ready."
             case (DIRK5_SMOOTHER)
+
+               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
+
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
                   call TakeDIRK5Step ( this=this, t=t, deltaT=smoother_dt, &
