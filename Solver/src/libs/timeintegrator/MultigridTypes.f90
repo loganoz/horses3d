@@ -4,9 +4,9 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Jun 10 18:41:08 2021
+!   @Last revision date: Mon Jun 21 18:37:41 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
+!   @Last revision commit: c7813eb980093a2744333a46ec2afe3bd2a3e6bf
 !
 !//////////////////////////////////////////////////////
 !
@@ -203,24 +203,17 @@ module MultigridTypes
 !     ----------------------------------------------
       real(kind=rp)                :: conv
 !     ----------------------------------------------
-        print *, "CLFboost: ", CFLboost
-        print *, "CLFmax: ", cfl_max
         
       if (CFLboost) then
         if (cfl .le. cfl_max) then
 
           conv = log10(res0/res1)
 
-          print *, "conv = ", conv
-
           if (conv .le. 0.0_RP) then
-                  print *, "O1"
           elseif ( (conv .gt. 0.0_RP) .and. (conv .le. 1.0_RP )  ) then
               cfl = cfl + cfl * conv * cflboost_rate
-                  print *, "O2"
           elseif (conv .gt. 1.0_RP ) then
               cfl = cfl + cfl * cflboost_rate
-                  print *, "O3"
           end if
 
         end if
