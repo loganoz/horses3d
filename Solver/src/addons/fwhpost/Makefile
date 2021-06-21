@@ -26,6 +26,7 @@ PROG=./bin/horses.postfwh
 
 OBJS=	\
 	FWHPostProc \
+	FWHPreSurface \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)

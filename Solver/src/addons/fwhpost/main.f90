@@ -16,6 +16,7 @@ Program main
     use FluidData
     use InterpolationMatrices     , only: Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
     use FWHPostProc
+    use FWHPreSurface
     use SharedBCModule
     use MPI_Process_Info
 #ifdef _HAS_MPI_
@@ -28,6 +29,7 @@ Program main
     logical                                 :: success
     integer, allocatable                    :: Nx(:), Ny(:), Nz(:)
     integer                                 :: Nmax
+    logical                                 :: surface
 
 !   -----------------------------------------
 !   Start measuring the total simulation time
@@ -73,7 +75,13 @@ Program main
         success           = success)
     IF(.NOT. success)   ERROR STOP "Mesh reading error"
 
-    call LoadAllFiles(controlVariables, sem)
+    surface = controlVariables % logicalValueForKey("fwhsurf")
+
+    if (surface) then
+        call getElements(sem % mesh, controlVariables)
+    else
+        call LoadAllFiles(controlVariables, sem)
+    end if
 
 !
 !   ------------------------------------------
