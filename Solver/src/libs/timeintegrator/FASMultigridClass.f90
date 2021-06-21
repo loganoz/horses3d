@@ -191,12 +191,12 @@ module FASMultigridClass
          ! CFL boosting
          if (controlVariables % containsKey("cfl boost")) then
             CFLboost = controlVariables % logicalValueForKey("cfl boost")
-            CFL_max = controlVariables % logicalValueForKey("maximum cfl")
+            CFL_max = controlVariables % doublePrecisionValueForKey("maximum cfl")
          end if
          ! DCFL boosting
          if (controlVariables % containsKey("dcfl boost")) then
             DCFLboost = controlVariables % logicalValueForKey("dcfl boost")
-            DCFL_max = controlVariables % logicalValueForKey("maximum dcfl")
+            DCFL_max = controlVariables % doublePrecisionValueForKey("maximum dcfl")
          end if
          ! boost rate
          if (controlVariables % containsKey("cfl boost rate")) then
