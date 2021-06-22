@@ -688,7 +688,11 @@ module FASMultigridClass
                 firstIdx = 1
                 do eID=1, nelem 
                    lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
+! TODO: this check is needed for compilation to succeed. This is because QNS is only allocated for ElementStorage_t if the FLOW flag is active.
+!       However, there must be a better way of doint this.
+#ifdef FLOW
                    QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % storage % elements(eID) % QNS , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+#endif
                    firstIdx = lastIdx
                 end do
                 RESnorm1 = l2norm(QdotForL2norm)
