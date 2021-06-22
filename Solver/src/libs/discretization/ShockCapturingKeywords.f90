@@ -13,35 +13,37 @@ module ShockCapturingKeywords
 !
 !  Keywords
 !  --------
-   character(len=*), parameter :: SC_KEY          = "enable shock-capturing"
-   character(len=*), parameter :: SC_SENSOR_KEY   = "shock-capturing sensor"
-   character(len=*), parameter :: SC_VARIABLE_KEY = "shock-capturing variable"
-   character(len=*), parameter :: SC_METHOD       = "shock-capturing method"
-
-   character(len=*), parameter :: SC_MODAL_KEY = "modal"
-   character(len=*), parameter :: SC_RHO_KEY   = "rho"
-   character(len=*), parameter :: SC_RHOU_KEY  = "rhou"
-   character(len=*), parameter :: SC_RHOV_KEY  = "rhov"
-   character(len=*), parameter :: SC_RHOW_KEY  = "rhow"
-   character(len=*), parameter :: SC_RHOE_KEY  = "rhoe"
-   character(len=*), parameter :: SC_U_KEY     = "u"
-   character(len=*), parameter :: SC_V_KEY     = "v"
-   character(len=*), parameter :: SC_W_KEY     = "w"
-   character(len=*), parameter :: SC_P_KEY     = "p"
-   character(len=*), parameter :: SC_RHOP_KEY  = "rhop"
+   character(len=*), parameter :: SC_KEY            = "enable shock-capturing"
+   character(len=*), parameter :: SC_SENSOR_KEY     = "shock-capturing sensor"
+   character(len=*), parameter :: SC_METHOD_KEY     = "shock-capturing method"
+   character(len=*), parameter :: SC_VARIABLE_KEY   = "sensor variable"
+   character(len=*), parameter :: SC_LOW_THRES_KEY  = "sensor lower limit"
+   character(len=*), parameter :: SC_HIGH_THRES_KEY = "sensor higher limit"
+   character(len=*), parameter :: SC_THRES_1_KEY    = "sensor threshold 1"
+   character(len=*), parameter :: SC_THRES_2_KEY    = "sensor threshold 2"
+   character(len=*), parameter :: SC_AVIS_KEY       = "shock-capturing art. viscosity"
 !
 !  Sensor types
 !  ------------
-   enum, bind(C)
-      enumerator :: SC_MODAL
-   end enum
+   character(len=*), parameter :: SC_MODAL_KEY = "modal"
+!
+!  Shock-capturing methods
+!  -----------------------
+   character(len=*), parameter :: SC_SVV_KEY   = "svv"
+   character(len=*), parameter :: SC_SSFV_KEY  = "ssfv-svv"
+   character(len=*), parameter :: SC_NOSVV_KEY = "no svv"
 !
 !  Sensed variables
 !  ----------------
-   enum, bind(C)
-      enumerator :: SC_RHO, SC_RHOU, SC_RHOV, SC_RHOW, SC_RHOE
-      enumerator :: SC_U, SC_V, SC_W, SC_P
-      enumerator :: SC_RHOP
-   end enum 
+   character(len=*), parameter :: SC_RHO_KEY  = "rho"
+   character(len=*), parameter :: SC_RHOU_KEY = "rhou"
+   character(len=*), parameter :: SC_RHOV_KEY = "rhov"
+   character(len=*), parameter :: SC_RHOW_KEY = "rhow"
+   character(len=*), parameter :: SC_RHOE_KEY = "rhoe"
+   character(len=*), parameter :: SC_U_KEY    = "u"
+   character(len=*), parameter :: SC_V_KEY    = "v"
+   character(len=*), parameter :: SC_W_KEY    = "w"
+   character(len=*), parameter :: SC_P_KEY    = "p"
+   character(len=*), parameter :: SC_RHOP_KEY = "rhop"
 
 end module ShockCapturingKeywords
