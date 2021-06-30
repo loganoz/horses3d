@@ -84,13 +84,13 @@ module ProblemFileFunctions
          use PhysicsStorage
          use FluidData
          implicit none
-         real(kind=RP)  :: x(NDIM)
-         real(kind=RP)  :: t
-         real(kind=RP)  :: nHat(NDIM)
-         real(kind=RP)  :: Q(NCONS)
-         type(Thermodynamics_t), intent(in)  :: thermodynamics_
-         type(Dimensionless_t),  intent(in)  :: dimensionless_
-         type(RefValues_t),      intent(in)  :: refValues_
+         real(kind=RP), intent(in)          :: x(NDIM)
+         real(kind=RP), intent(in)          :: t
+         real(kind=RP), intent(in)          :: nHat(NDIM)
+         real(kind=RP), intent(inout)       :: Q(NCONS)
+         type(Thermodynamics_t), intent(in) :: thermodynamics_
+         type(Dimensionless_t),  intent(in) :: dimensionless_
+         type(RefValues_t),      intent(in) :: refValues_
       end subroutine UserDefinedState_f
 
       subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
@@ -288,14 +288,12 @@ end module ProblemFileFunctions
 #endif
 !
 !           ---------------
-!           local variables
+!           Local variables
 !           ---------------
 !
-            integer        :: eid, i, j, k
+            integer        :: eID, i, j, k
             real(kind=RP)  :: qq, u, v, w, p
-#if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, theta
-#endif
 
 !
 !           ---------------------------------------
@@ -305,27 +303,27 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             associate ( gammaM2 => dimensionless_ % gammaM2, &
                         gamma => thermodynamics_ % gamma )
-            theta = refvalues_ % AOAtheta*(pi/180.0_RP)
-            phi   = refvalues_ % AOAphi*(pi/180.0_RP)
+            theta = refValues_ % AOATheta*(PI/180.0_RP)
+            phi   = refValues_ % AOAPhi*(PI/180.0_RP)
       
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
-                          ny => mesh % elemeNts(eID) % nxyz(2), &
+                          Ny => mesh % elements(eID) % Nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   qq = 1.0_RP
-                  u  = qq*cos(theta)*cos(phi)
-                  v  = qq*sin(theta)*cos(phi)
-                  w  = qq*sin(phi)
+                  u  = qq*cos(theta)*COS(phi)
+                  v  = qq*sin(theta)*COS(phi)
+                  w  = qq*SIN(phi)
       
-                  q(1) = 1.0_RP
+                  Q(1) = 1.0_RP
                   p    = 1.0_RP/(gammaM2)
-                  q(2) = q(1)*u
-                  q(3) = q(1)*v
-                  q(4) = q(1)*w
-                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
+                  Q(2) = Q(1)*u
+                  Q(3) = Q(1)*v
+                  Q(4) = Q(1)*w
+                  Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
+                  mesh % elements(eID) % storage % Q(:,i,j,k) = Q 
                end do;        end do;        end do
                end associate
             end do
@@ -528,7 +526,8 @@ end module ProblemFileFunctions
 !           Local variables
 !           ---------------
 !
-            CHARACTER(LEN=29)                  :: testName           = "Cylinder Smagorinsky"
+#if defined(NAVIERSTOKES)
+            CHARACTER(LEN=29)                  :: testName  = "NACA0012"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -536,68 +535,48 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd =  34.751355293080636_RP
-            real(kind=RP), parameter           :: cl = -3.1233478556313976E-004_RP
-            real(kind=RP), parameter           :: wake_u = 8.3896828153379791E-009_RP
-            real(kind=RP), parameter           :: res(5) = [  5.6964871449001118_RP, &
-                                                              12.724771786115124_RP, &
-                                                             0.34560611106498174_RP, &
-                                                              14.708233552065705_RP, &   
-                                                              153.88834658372070_RP]
-#if defined(NAVIERSTOKES)
+            real(kind=RP), parameter           :: residuals(5) = [3.3579582636004E-03_RP, &
+                                                                  9.8682581724463E-02_RP, &
+                                                                  1.0338094944636E-01_RP, &
+                                                                  6.7837086395846E-06_RP, &
+                                                                  8.8231580081655E-02_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
-            
-            CALL FTAssertEqual(expectedValue = res(1) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(1,1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "continuity residual")
 
-            CALL FTAssertEqual(expectedValue = res(2) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(2,1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "x-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(3) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "y-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(4) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(4,1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "z-momentum residual")
-
-            CALL FTAssertEqual(expectedValue = res(5) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(5,1) + 1.0_RP, &
-                               tol           = 1.0e-7_RP, &
-                               msg           = "energy residual")
-
-            CALL FTAssertEqual(expectedValue = wake_u + 1.0_RP, &
-                               actualValue   = monitors % probes(1) % values(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Wake final x-velocity at the point [0,2.0,4.0]")
+                               msg           = "Continuity residual")
 
-            CALL FTAssertEqual(expectedValue = cd, &
-                               actualValue   = monitors % surfaceMonitors(1) % values(1), &
+            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Drag coefficient")
+                               msg           = "X-Momentum residual")
 
-            CALL FTAssertEqual(expectedValue = cl + 1.0_RP, &
-                               actualValue   = monitors % surfaceMonitors(2) % values(1) + 1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
                                tol           = 1.d-11, &
-                               msg           = "Lift coefficient")
+                               msg           = "Y-Momentum residual")
 
-           CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
-   
+            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Z-Momentum residual")
+
+            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+                               actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
+                               tol           = 1.d-11, &
+                               msg           = "Energy residual")
+
+            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
+
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test case has no expected solution yet, only checks the residual after 100 iterations."
+               WRITE(6,*) "This test checks if Dual Time Stepping works correctly."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
-               WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
+               WRITE(6,*) "NOTE: Dual Time Stepping not working correctly. Check FAS routines."
                 STOP 99
             END IF 
             WRITE(6,*)
@@ -605,8 +584,6 @@ end module ProblemFileFunctions
             CALL finalizeSharedAssertionsManager
             CALL detachSharedAssertionsManager
 #endif
-
-
          END SUBROUTINE UserDefinedFinalize
 !
 !//////////////////////////////////////////////////////////////////////// 

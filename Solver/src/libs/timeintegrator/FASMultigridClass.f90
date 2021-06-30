@@ -4,12 +4,11 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Sun May 19 16:54:09 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision date: Thu Jun 10 19:32:45 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: b84c477ca04e19d73a884312623b5431875e7a0a
 !
 !//////////////////////////////////////////////////////
-!
 !
 !      FAS Multigrid Class
 !        Provides the routines for solving a time step with nonlinear multigrid procedures.
@@ -31,10 +30,17 @@ module FASMultigridClass
    use InterpolationMatrices
    use MultigridTypes
    use TimeIntegratorDefinitions
-   use LinearSolverClass
    use BDFTimeIntegrator
    use FileReadingUtilities      , only: getFileName
    use MPI_Process_Info          , only: MPI_Process
+   use FileReadingUtilities      , only: getIntArrayFromString 
+   use MatrixClass
+   use CSRMatrixClass         , only: csrMat_t
+   use AnalyticalJacobian     , only: AnJacobian_t
+   use NumericalJacobian      , only: NumJacobian_t
+   use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
+   use DenseMatUtilities
+   use MPI_Utilities          , only: infNorm, L2Norm! , MPI_SumAll
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
 #elif defined(SPALARTALMARAS)
@@ -45,6 +51,11 @@ module FASMultigridClass
    
    private
    public FASMultigrid_t
+
+   type :: LUpivots_t
+   !-----Variables-----------------------------------------------------------
+         integer      , dimension(:)  , allocatable :: v   ! LU pivots
+   end type LUpivots_t
    
 !
 !  Multigrid class
@@ -54,16 +65,27 @@ module FASMultigridClass
       type(FASMultigrid_t)     , pointer      :: Child                 ! Next coarser multigrid solver
       type(FASMultigrid_t)     , pointer      :: Parent                ! Next finer multigrid solver
       type(MGSolStorage_t)     , allocatable  :: MGStorage(:)          ! Storage
-      class(GenericLinSolver_t), allocatable  :: linsolver             ! Linear solver for implicit smoothing
       integer                                 :: MGlevel               ! Current Multigrid level
-      logical                                 :: computeA              !< Compute A in this level?
+      real(kind=RP),             allocatable  :: lts_dt(:)             ! dt array for LTS
+
+      ! variables for implicit time integration
+      class(JacobianComputer_t), allocatable       :: Jacobian           ! Jacobian
+      class(Matrix_t), allocatable                 :: A                  ! Jacobian matrix
+      class(LUpivots_t), allocatable, dimension(:) :: LUpivots
+      real(kind=RP), dimension(:)  , allocatable   :: dQ
+      integer                                      :: JacobianComputation = NUMERICAL_JACOBIAN
+      logical                                      :: computeA              !< Compute A in this level?
+      integer                                      :: DimPrb                ! problem size
+      integer                                      :: GlobalDimPrb                ! global problem size
+
       contains
          procedure :: construct
          procedure :: solve
          procedure :: Smooth
          procedure :: destruct
          procedure :: SetPreviousSolution => FAS_SetPreviousSolution    ! For implicit smoothing, it's necessary to store the previous solution(s) in all levels
-      
+         procedure :: TakePseudoStep ! solve for Dual Time Stepping 
+
    end type FASMultigrid_t
 !
 !  ----------------
@@ -83,9 +105,6 @@ module FASMultigridClass
    integer        :: nelem          ! Number of elements
    integer        :: num_of_allElems
    integer        :: Smoother       ! Current smoother being used
-   integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
-   integer        :: SweepNumPost   ! Number of sweeps post-smoothing
-   integer        :: SweepNumCoarse ! Number of sweeps on coarsest level
    integer        :: MaxSweeps      ! Maximum number of sweeps in a smoothing process
    logical        :: MGOutput       ! Display output?
    logical        :: FMG = .FALSE.  ! Use Full Multigrid algorithm?
@@ -97,11 +116,36 @@ module FASMultigridClass
    character(len=LINE_LENGTH)              :: FMGSolutionFile
    logical                                 :: saveGradients
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
-   real(kind=RP)  :: cfl            ! Advective cfl number
-   real(kind=RP)  :: dcfl           ! Diffusive cfl number
-   real(kind=RP)  :: own_dt             ! dt
-   
-!========
+   real(kind=RP), target  :: cfl            ! Advective cfl number
+   real(kind=RP), target  :: dcfl           ! Diffusive cfl number
+   real(kind=RP), target  :: own_dt             ! dt
+   integer, allocatable :: MGSweepsPre(:) ! Number of pre- and post-smoothings operations on each level
+   integer, allocatable :: MGSweepsPost(:) ! Number of post- and post-smoothings operations on each level
+   integer        :: Preconditioner       ! Current smoother being used
+   integer        :: CurrentMGCycle 
+!-----CFL-ramping-variables-----------------------------------------------------------
+   logical        :: CFLboost  = .false.
+   logical        :: DCFLboost = .false.
+   real(kind=RP)  :: cfl_max                    ! Max. advective cfl number (for CFL boost)
+   real(kind=RP)  :: dcfl_max                   ! Max. diffusive cfl number (for CFL boost)
+   real(kind=RP)  :: cflboost_rate              ! Max. diffusive cfl number (for CFL boost)
+   integer        :: erk_order = 5              ! Steady-state OptERK type 
+   real(kind=RP), allocatable :: QdotForL2norm(:) 
+   logical        :: ComputeL2norm = .false.
+   real(kind=RP)  :: RESnorm1 = -1.0_RP     
+   real(kind=RP)  :: RESnorm2 = -1.0_RP     
+!-----DTS-variables-------------------------------------------------------------------
+   logical        :: DualTimeStepping = .false.
+   logical        :: Compute_Global_dt = .true.
+   logical        :: PseudoConvergenceMonitor = .false.
+   real(kind=RP)  :: conv_tolerance = 1e-6_RP
+   real(kind=RP), target  :: p_cfl            ! Pseudo advective cfl number
+   real(kind=RP), target  :: p_dcfl           ! Pseudo diffusive cfl number
+   real(kind=RP), target  :: p_dt             ! Pseudo dt
+!-----Implicit-relaxation-variables---------------------------------------------------
+   integer        :: MatrixType = JACOBIAN_MATRIX_NONE
+
+!========SweepNumPost
  contains
 !========
 !
@@ -119,6 +163,8 @@ module FASMultigridClass
       character(len=LINE_LENGTH)                     :: PostSmoothOptions
       integer                                        :: zoneID                ! Zone counter
       logical                                        :: conformingBoundaries  ! Is the mesh conforming on all boundaries?
+      character(len=LINE_LENGTH)                     :: tmpc
+      integer                                        :: i
       !-----------------------------------------------------------
       
       call Stopwatch % Pause("Solver")
@@ -129,6 +175,106 @@ module FASMultigridClass
 !     Read important variables from file
 !     ----------------------------------
 !
+!
+!     Read cfl and dcfl numbers
+!     -------------------------
+      if (controlVariables % containsKey("cfl")) then
+#if defined(NAVIERSTOKES)      
+         Compute_dt = .TRUE.
+         cfl = controlVariables % doublePrecisionValueForKey("cfl")
+         ! if there is no dcfl, use the same number as for cfl 
+         if (flowIsNavierStokes) then
+            if (controlVariables % containsKey("dcfl")) then
+               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
+            else
+               dcfl = cfl
+            end if
+         end if
+         ! CFL boosting
+         if (controlVariables % containsKey("cfl boost")) then
+            CFLboost = controlVariables % logicalValueForKey("cfl boost")
+            CFL_max = controlVariables % doublePrecisionValueForKey("maximum cfl")
+         end if
+         ! DCFL boosting
+         if (controlVariables % containsKey("dcfl boost")) then
+            DCFLboost = controlVariables % logicalValueForKey("dcfl boost")
+            DCFL_max = controlVariables % doublePrecisionValueForKey("maximum dcfl")
+         end if
+         ! boost rate
+         if (controlVariables % containsKey("cfl boost rate")) then
+            CFLboost_rate = controlVariables % doublePrecisionValueForKey("cfl boost rate")
+         else
+            CFLboost_rate = 0.1_RP
+         end if
+
+         ! max cfl
+         if (controlVariables % containsKey("cfl max")) then
+            cfl_max = controlVariables % doublePrecisionValueForKey("cfl max")
+         else
+            cfl_max = 1.0_RP
+         end if
+         if (controlVariables % containsKey("dcfl max")) then
+            dcfl_max = controlVariables % doublePrecisionValueForKey("dcfl max")
+         else
+            dcfl_max = 1.0_RP
+         end if
+
+#elif defined(CAHNHILLIARD)
+         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+         errorMessage(STD_OUT)
+         stop
+#endif
+      elseif (controlVariables % containsKey("dt")) then
+         Compute_dt = .false.
+         Compute_Global_dt = .false.
+         own_dt = controlVariables % doublePrecisionValueForKey("dt")
+      else
+         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
+      end if
+
+!
+!     Pseudo time stepping variables
+!     -------------------------
+      if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) then
+         ! is the simulation type is time-accurate and we use FAS
+         DualTimeStepping = .true.
+         Compute_dt = .true.
+
+         if (controlVariables % containsKey("pseudo convergence monitor")) then
+            PseudoConvergenceMonitor = controlVariables % logicalValueForKey("pseudo convergence monitor")
+         end if
+
+         if (controlVariables % containsKey("convergence tolerance")) &
+            conv_tolerance = controlVariables % doublePrecisionValueForKey("convergence tolerance")
+
+            if (controlVariables % containsKey("bdf order")) call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )     
+            call BDFInitialiseQ(sem % mesh)    
+
+         if (controlVariables % containsKey("pseudo cfl")) then
+#if defined(NAVIERSTOKES)      
+            p_cfl = controlVariables % doublePrecisionValueForKey("pseudo cfl")
+            if (flowIsNavierStokes) then
+               if (controlVariables % containsKey("pseudo dcfl")) then
+                  p_dcfl       = controlVariables % doublePrecisionValueForKey("pseudo dcfl")
+               else
+                  p_dcfl = p_cfl
+               end if
+            end if
+#elif defined(CAHNHILLIARD)
+            print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
+            errorMessage(STD_OUT)
+            stop
+#endif
+         elseif (controlVariables % containsKey("pseudo dt")) then
+            p_dt = controlVariables % doublePrecisionValueForKey("pseudo dt")
+         else
+            ERROR STOP '"pseudo cfl" or "pseudo dt" keywords must be specified for the time-accurate FAS integrator'
+         end if
+      end if ! time-accurate
+
+!
+!     Read multigrid variables
+!     -------------------------
       if (.NOT. controlVariables % containsKey("multigrid levels")) then
          print*, 'Fatal error: "multigrid levels" keyword is needed by the FASMultigrid solver'
          STOP
@@ -141,60 +287,99 @@ module FASMultigridClass
       else
          deltaN = 1
       end if
-      
+
+!
+!     Number of sweeps
+!     -------------------
+
+      if (.not. allocated(MGSweepsPre)) allocate(MGSweepsPre(MGlevels)) 
+      if (.not. allocated(MGSweepsPost)) allocate(MGSweepsPost(MGlevels)) 
+      MGsweepsPre  = 1
+      MGsweepsPost = 1
+
       if (controlVariables % containsKey("mg sweeps pre" ) .AND. &
           controlVariables % containsKey("mg sweeps post") ) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps pre")
-         SweepNumPost = controlVariables % IntegerValueForKey("mg sweeps post")
-      elseif (controlVariables % containsKey("mg sweeps")) then
-         SweepNumPre  = controlVariables % IntegerValueForKey("mg sweeps")
-         SweepNumPost = SweepNumPre
-      else
-         SweepNumPre  = 1
-         SweepNumPost = 1
+        MGsweepsPre = controlVariables % IntegerValueForKey("mg sweeps pre")
+        MGsweepsPost =controlVariables % IntegerValueForKey("mg sweeps post")
+      else if (controlVariables % containsKey("mg sweeps" ) ) then
+        MGsweepsPre = controlVariables % IntegerValueForKey("mg sweeps")
+        MGsweepsPost = controlVariables % IntegerValueForKey("mg sweeps")
       end if
-      
       if (controlVariables % containsKey("mg sweeps coarsest")) then
-         SweepNumCoarse = controlVariables % IntegerValueForKey("mg sweeps coarsest")
-      else
-         SweepNumCoarse = (SweepNumPre + SweepNumPost) / 2
+        MGsweepsPre(1) = controlVariables % IntegerValueForKey("mg sweeps coarsest")
+        MGsweepsPost(1) =controlVariables % IntegerValueForKey("mg sweeps coarsest")
       end if
-      
+
+      if ( controlVariables % containsKey("mg sweeps pre exact") .and. controlVariables % containsKey("mg sweeps post exact") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps pre exact",LINE_LENGTH)
+         MGSweepsPre = getIntArrayFromString(tmpc)
+         tmpc = controlVariables % StringValueForKey("mg sweeps post exact",LINE_LENGTH)
+         MGSweepsPost = getIntArrayFromString(tmpc)
+      else if (controlVariables % containsKey("mg sweeps exact") ) then
+         tmpc = controlVariables % StringValueForKey("mg sweeps exact",LINE_LENGTH)
+         MGSweepsPre = getIntArrayFromString(tmpc)
+         MGSweepsPost = getIntArrayFromString(tmpc)
+      end if
 !
 !     Select the smoother
 !     -------------------
-      
       select case (controlVariables % StringValueForKey("mg smoother",LINE_LENGTH))
+         case('Euler')
+            Smoother = Euler_SMOOTHER
          case('RK3')
-            if ( trim(controlVariables % StringValueForKey("simulation type",LINE_LENGTH)) == "time-accurate" ) &
-               ERROR stop ':: RK3 smoother is only for steady-state computations'
             Smoother = RK3_SMOOTHER
-         case('BlockJacobi')
-            Smoother = BJ_SMOOTHER
-            call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
-         case('GMRES')
-            Smoother = JFGMRES_SMOOTHER
-            call BDF_SetOrder( controlVariables % integerValueForKey("bdf order") )
-         case('SIRK')
-            !! SmoothIt => TakeSIRKStep
-            error stop ':: SIRK smoother not implemented yet'
+         case('RK5')
+            Smoother = RK5_SMOOTHER
+         case('RKOpt')
+            Smoother = RKOpt_SMOOTHER
+            ! Select order of ERK scheme
+            if ( controlVariables % containsKey("rk order") ) then
+               erk_order = controlVariables % IntegerValueForKey("rk order")
+               if (erk_order .gt. 7) then
+                  erk_order = 7
+                  print *, "FASMultigrid :: ERK Order too high, switching to 7."
+               else if (erk_order .lt. 2) then
+                  erk_order = 2
+                  print *, "FASMultigrid :: ERK Order too low, switching to 2."
+               end if
+            end if
+         case('IRK')
+            Smoother = IRK_SMOOTHER
+            MatrixType = JACOBIAN_MATRIX_CSR
+         case('DIRK5')
+            Smoother = DIRK5_SMOOTHER
+            MatrixType = JACOBIAN_MATRIX_DENSE
          case default 
             if (MPI_Process % isRoot) write(STD_OUT,*) '"mg smoother" not recognized. Defaulting to RK3.'
             Smoother = RK3_SMOOTHER
       end select
+
+!
+!     Select the preconditioner for smoothing
+!     ---------------------------------------
+      if (controlVariables % containsKey("mg preconditioner")) then
+         select case (controlVariables % StringValueForKey("mg preconditioner",LINE_LENGTH))
+         case('LTS')
+            Preconditioner = PRECONDIIONER_LTS
+         case default
+            Preconditioner = PRECONDIIONER_NONE
+         end select
+      else
+         Preconditioner = PRECONDIIONER_NONE
+      end if
       
 !     Check that the BDF order is consistent
 !        (only valid for implicit smoothers)
 !     --------------------------------------
-      select case (Smoother)
-         case(BJ_SMOOTHER)
+      if (Smoother .ge. IMPLICIT_SMOOTHER_IDX) then
             if (bdf_order > 1) then
-               if (.not. controlVariables % containsKey("dt") ) then
-                  ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
-               end if
+               if (.not. controlVariables % containsKey("dt") ) ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
             end if
-      end select
+      end if
       
+!
+!     More control parameters for mg cycle
+!     -------------------------------
       PostSmoothOptions = controlVariables % StringValueForKey("postsmooth option",LINE_LENGTH)
       if (trim(PostSmoothOptions) == 'f-cycle') then
          PostFCycle = .true.
@@ -220,59 +405,13 @@ module FASMultigridClass
          saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
          FMGSolutionFile = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       end if
-      
-!     Read cfl and dcfl numbers
-!     -------------------------
-      
-      if (controlVariables % containsKey("cfl")) then
-#if defined(NAVIERSTOKES)      
-         Compute_dt = .TRUE.
-         cfl = controlVariables % doublePrecisionValueForKey("cfl")
-         if (flowIsNavierStokes) then
-            if (controlVariables % containsKey("dcfl")) then
-               dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
-            else
-               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
-            end if
-         end if
-#elif defined(CAHNHILLIARD)
-         print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
-         errorMessage(STD_OUT)
-         stop
-#endif
-      elseif (controlVariables % containsKey("dt")) then
-         Compute_dt = .FALSE.
-         own_dt = controlVariables % doublePrecisionValueForKey("dt")
-      else
-         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
-      end if
-      
+
 !
 !     ------------------------------------------
 !     Get the minimum multigrid polynomial order
 !     ------------------------------------------
 !
-      
-      NMIN = 1
-      
-      ! If the uniform coarsening is used instead of the high-order coarsening (MultigridTypes.f90),
-      ! Following code should be uncommented
-      
-!~       if (sem % mesh % meshIs2D) then
-!~          NMIN = 1
-!~       else
-!~          conformingBoundaries = .TRUE.
-!~          do zoneID = 1, size(sem % mesh % zones)
-!~             conformingBoundaries = (conformingBoundaries .and. sem % mesh % ConformingOnZone(zoneID))
-!~          end do
-         
-!~          if (conformingBoundaries) then
-!~             NMIN = 1
-!~          else
-!~             NMIN = 2
-!~          end if
-!~       end if
-      
+      NMIN = 1     
 !
 !     -----------------------
 !     Update module variables
@@ -293,6 +432,11 @@ module FASMultigridClass
       
       nelem = SIZE(sem % mesh % elements)
       num_of_allElems = sem % mesh % no_of_allElements
+
+      if (controlVariables % containsKey("compute l2 norm")) then
+        ComputeL2norm = controlVariables % logicalValueForKey("compute l2 norm")
+        if ( ComputeL2norm ) allocate(QdotForL2norm(this % p_sem % NDOF * NCONS ))
+      end if
 !
 !     --------------------------
 !     Create linked solvers list
@@ -329,28 +473,46 @@ module FASMultigridClass
       !----------------------------------------------
       !
       integer :: Nxyz(3), fd, l
+      integer :: N1(3), N2(3)
+      integer, dimension(:), allocatable :: nnz_perblock
       
       Solver % MGlevel = lvl
+      Solver % DimPrb = Solver % p_sem % NDOF * NCONS
+      Solver % globalDimPrb = Solver % p_sem % totalNDOF * NCONS
 !
 !     --------------------------
 !     Allocate Multigrid storage
 !     --------------------------
 !
-      ALLOCATE (Solver % MGStorage(nelem))
+      allocate (Solver % MGStorage(nelem))
 !$omp parallel do private(Q1,Q2,Q3,Q4) schedule(runtime)
       DO k = 1, nelem
          Q1 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,1)
          Q2 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,2) - 1
          Q3 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,3) - 1
          Q4 = SIZE(Solver % p_sem % mesh % elements(k) % storage % Q,4) - 1
-         ALLOCATE(Solver % MGStorage(k) % Q    (Q1,0:Q2,0:Q3,0:Q4))
-         ALLOCATE(Solver % MGStorage(k) % E    (Q1,0:Q2,0:Q3,0:Q4))
-         ALLOCATE(Solver % MGStorage(k) % S    (Q1,0:Q2,0:Q3,0:Q4))
-         ALLOCATE(Solver % MGStorage(k) % Scase(Q1,0:Q2,0:Q3,0:Q4))
-         
+         allocate(Solver % MGStorage(k) % Q    (Q1,0:Q2,0:Q3,0:Q4))
+         allocate(Solver % MGStorage(k) % E    (Q1,0:Q2,0:Q3,0:Q4))
+         allocate(Solver % MGStorage(k) % S    (Q1,0:Q2,0:Q3,0:Q4))
+         allocate(Solver % MGStorage(k) % Scase(Q1,0:Q2,0:Q3,0:Q4))
+
+         if (DualTimeStepping) then
+            allocate(Solver % MGStorage(k) % R    (Q1,0:Q2,0:Q3,0:Q4))
+            allocate(Solver % MGStorage(k) % Q0   (Q1,0:Q2,0:Q3,0:Q4))
+         end if
+
          Solver % MGStorage(k) % Scase = 0._RP
       end DO   
 !$omp end parallel do
+
+      ! allocate storage for implicit relaxation
+      if (Smoother .ge. IMPLICIT_SMOOTHER_IDX) then
+         if (.not. (allocated(Solver % dQ)) ) allocate( Solver % dQ(Solver % DimPrb) )
+         Solver % dQ = 0._RP
+      end if
+
+      ! allocate array for LTS
+      if (Preconditioner .eq. PRECONDIIONER_LTS) allocate( Solver % lts_dt(nelem))
 !
 !     --------------------------------------------------------------
 !     Fill MGStorage(iEl) % Scase if required (manufactured solutions)
@@ -394,24 +556,59 @@ module FASMultigridClass
       END IF
 #endif!
 !     -------------------------------------------
-!     Create linear solver for implicit smoothing
-!                                 (if needed)
+!     Assemble Jacobian for implicit smoothing
 !     -------------------------------------------
-!
-      if ( Smoother >= IMPLICIT_SMOOTHER_IDX ) then
-!
-!        Solver initialization
-!        ---------------------
-         select case ( Smoother )
-            case (BJ_SMOOTHER)
-               allocate ( MatFreeSmooth_t :: Solver % linsolver )
-            case (JFGMRES_SMOOTHER)
-               allocate ( MatFreeGMRES_t  :: Solver % linsolver )
+
+      if ( Smoother .ge. IMPLICIT_SMOOTHER_IDX ) then
+         
+         Solver % JacobianComputation = GetJacobianFlag()
+         select case (Solver % JacobianComputation)
+            case (NOTDEF_JACOBIAN )    ; allocate(Solver % Jacobian)
+            case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Solver % Jacobian)
+            case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Solver % Jacobian)
+            case default
+               ERROR stop 'Invalid jacobian type'
          end select
+         call Solver % Jacobian % construct(Solver % p_sem % mesh, NCONS)
 !
-!        Solver construction
+!        Construct Jacobian
 !        ---------------------
-         call Solver % linsolver % construct(Solver % p_sem % NDOF*NCONS, Solver % p_sem % totalNDOF*NCONS, NCONS, controlVariables, Solver % p_sem, BDF_MatrixShift)
+            select case ( MatrixType )
+               case (JACOBIAN_MATRIX_NONE)
+               case (JACOBIAN_MATRIX_DENSE)
+               !
+               ! Construct blocks only
+               ! ---------------------
+                  allocate(DenseBlockDiagMatrix_t :: Solver % A)
+                  call Solver % A % construct (num_of_Blocks = Solver % p_sem % mesh % no_of_elements)
+
+                  allocate(nnz_perblock(nelem))
+
+                  do k=1,nelem
+                     nnz_perblock(k) = NCONS*(Solver % p_sem % mesh % elements(k) % Nxyz(1)+1)*&
+                           (Solver % p_sem % mesh % elements(k) % Nxyz(2)+1)*&
+                           (Solver % p_sem % mesh % elements(k) % Nxyz(3)+1) 
+                  end do
+                  call Solver % A % PreAllocate (nnzs=nnz_perblock)
+                  call Solver % Jacobian % Configure (Solver % p_sem % mesh, NCONS, Solver % A)
+
+                  ! allocate vectors for pivots
+                  allocate (Solver % LUpivots(nelem))
+                  do k = 1,nelem
+                     allocate ( Solver % LUpivots(k) % v( nnz_perblock(k)) )
+                  end do
+
+                  deallocate(nnz_perblock)
+               case (JACOBIAN_MATRIX_CSR)
+               !
+               ! Construct full Jacobian matrix
+               ! ---------------------
+                  allocate(csrMat_t :: Solver % A)
+                  call Solver % A % Construct(num_of_Rows = Solver % DimPrb)
+                  call Solver % Jacobian % Configure (Solver % p_sem % mesh, NCONS, Solver % A)
+               case default
+
+            end select
          Solver % computeA = .TRUE.
       end if
       
@@ -449,24 +646,19 @@ module FASMultigridClass
                                            success = success,                                                            &
                                            ChildSem = .TRUE. )
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
-         !old>
-         
-!~!<New
-!~         N2(:,1) = N2x
-!~         N2(:,2) = N2y
-!~         N2(:,3) = N2z
-         
-!~         ! Copy the sem
-!~         Child_p % p_sem = Solver % p_sem
-         
-!~         ! Mark the mesh as a child mesh
-!~         Child_p % p_sem % mesh % child = .TRUE. 
-         
-!~         ! Adapt the mesh to the new polynomial orders
-!~         N2trans = transpose(N2)
-!~         call Child_p % p_sem % mesh % pAdapt (N2trans, controlVariables)
-!~         call Child_p % p_sem % mesh % storage % PointStorage
-!New>
+
+         if (DualTimeStepping) then
+!$omp do private(N1,N2) schedule(runtime)
+            DO k = 1, nelem
+               N1 = Solver  % p_sem % mesh % elements (k) % Nxyz
+               N2 = Child_p % p_sem % mesh % elements (k) % Nxyz
+               call Interp3DArrays(NCONS, N1, Solver  % p_sem % mesh % elements(k) % storage % Q, &
+                                          N2, Child_p % p_sem % mesh % elements(k) % storage % Q )
+            end DO
+!$omp end do
+            call BDFInitialiseQ(Child_p % p_sem % mesh)    
+         end if
+
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       end if
       
@@ -490,6 +682,7 @@ module FASMultigridClass
       !-------------------------------------------------
       integer :: maxVcycles = 40, i
       real(kind=RP) :: rnorm, xnorm
+      integer :: firstIdx, lastIdx, eID
       
       ThisTimeStep = timestep
       
@@ -499,33 +692,131 @@ module FASMultigridClass
       else
          FMG = .FALSE.
       end if
+
+      ! if (Smoother >= IMPLICIT_SMOOTHER_IDX) call this % linsolver % SetOperatorDt(dt)
 !
 !     -----------------------
 !     Perform multigrid cycle
 !     -----------------------
-!
-      if (Smoother >= IMPLICIT_SMOOTHER_IDX) call FAS_SetPreviousSolution(this,MGlevels)
-      
+!     
+
+      if ( ComputeL2norm ) then
+         if (RESnorm1 .lt. 0.0_RP) then
+                firstIdx = 1
+                do eID=1, nelem 
+                   lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
+                   QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % elements(eID) % storage % Qdot , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+                   firstIdx = lastIdx
+                end do
+                RESnorm1 = l2norm(QdotForL2norm)
+         else
+                RESnorm1 = RESnorm2
+         end if
+      end if
+
       if (FMG) then
          call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
       else
-         do i = 1, maxVcycles
-            call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
-            select case(Smoother)
-               case (RK3_SMOOTHER) ! Only one iteration per pseudo time-step for RK3 smoother
-                  exit 
-               case default  ! Check if the nonlinear problem was solved to a given tolerance
-                  rnorm = this % linsolver % Getrnorm()
-                  xnorm = this % linsolver % Getxnorm('infinity')
-                  print*, 'V-Cycle', i, 'rnorm=', rnorm, 'xnorm', xnorm 
-                  if (xnorm<1.e-6_RP) exit
-            end select
-            if (rnorm > 1e-2_RP) call computeA_AllLevels(this,MGlevels)
-         end do
-         if (i > 4) call computeA_AllLevels(this,MGlevels) ! Hard-coded: 4
+         call FASVCycle(this,t,dt,MGlevels,MGlevels, ComputetimeDerivative)
       end if
+
+      if ( ComputeL2norm ) then
+         firstIdx = 1
+         do eID=1, nelem 
+            lastIdx = firstIdx + this % p_sem % mesh % storage % elements(eID) % NDOF * NCONS
+            QdotForL2norm (firstIdx : lastIdx - 1) = reshape ( this % p_sem % mesh % elements(eID) % storage % Qdot , (/ this % p_sem % mesh % storage % elements(eID) % NDOF *NCONS /) )
+            firstIdx = lastIdx
+         end do
+         RESnorm2 = l2norm(QdotForL2norm)
+      end if
+
+
+      if (CFLboost) then
+        if (.not. ComputeL2norm) error stop "FASMultigrid :: CFL ramping needs L2 norm."
+         call CFLRamp(cfl_max,cfl,RESnorm1,RESnorm2,cflboost_rate,CFLboost)
+         call CFLRamp(dcfl_max,dcfl,RESnorm1,RESnorm2,cflboost_rate,CFLboost)
+      end if
+
       
    end subroutine solve  
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------
+!  Driver of the Dual time-stepping procedure.
+!  Q_{m+1} = Q_m + d\tau <(> (Q_m - Q_n)/dt + R(Q_m) <)> (BDF1 example)
+!  ---------------------------------------------
+   subroutine TakePseudoStep(this, timestep, t, dt, ComputeTimeDerivative, FullMG, tol)
+      implicit none
+      !-------------------------------------------------
+      class(FASMultigrid_t), intent(inout) :: this
+      integer                              :: timestep
+      real(kind=RP)        , intent(in)    :: t
+      real(kind=RP)        , intent(in)    :: dt
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      logical           , OPTIONAL         :: FullMG
+      real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
+      !-------------------------------------------------
+      integer :: i, id
+      integer :: tau_maxit = 10000
+      real(kind=RP) :: dQdtau_norm, Qdot_norm
+      real(kind=RP) :: tk
+!
+!     -----------------------
+!     Solve local steady-state problem
+!     -----------------------
+!
+
+      tk = t
+      if (Compute_Global_dt) call MaxTimeStep( self=this % p_sem, cfl=cfl, dcfl=dcfl , MaxDt=own_dt)
+
+      call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+      Qdot_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+      call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, own_dt)
+      dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+
+      ! set previous solution
+      do i= 1, bdf_order
+         if (i .eq. bdf_order) then
+!$omp parallel do schedule(runtime)
+            do id = 1, SIZE(this % p_sem % mesh % elements )
+               this % p_sem % mesh % elements(id) % storage % prevQ(i) % Q = this % p_sem % mesh % elements(id) % storage % Q
+            end do ! id
+!$omp end parallel do
+         else
+!$omp parallel do schedule(runtime)
+            do id = 1, SIZE(this % p_sem % mesh % elements )
+               this % p_sem % mesh % elements(id) % storage % prevQ(i) % Q = this % p_sem % mesh % elements(id) % storage % prevQ(i+1) % Q
+            end do ! id
+!$omp end parallel do
+         end if
+      end do
+
+      do i = 1, tau_maxit
+         
+         call this % solve(i, tk, p_dt, ComputeTimeDerivative)
+         call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+         call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, own_dt)
+         dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+         if (PseudoConvergenceMonitor) write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
+         if (dQdtau_norm .le. conv_tolerance) exit
+
+      end do
+
+      dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+      write(STD_OUT,'(20X,A,I4,A,ES10.3)') "--- Pseudo time step converged in ", i, " iterations to Res= ", dQdtau_norm
+
+      tk = tk + own_dt
+
+!$omp parallel do schedule(runtime)
+      do id = 1, SIZE(this % p_sem % mesh % elements )
+         this % p_sem % mesh % elements(id) % storage % prevQ(1) % Q = this % p_sem % mesh % elements(id) % storage % Q
+      end do ! id
+!$omp end parallel do
+
+      call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+      
+   end subroutine TakePseudoStep  
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -562,9 +853,11 @@ module FASMultigridClass
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
       integer                       :: N1(3), N2(3)
       real(kind=RP)                 :: maxResidual(NCONS)
-      integer                       :: NumOfSweeps
       real(kind=RP)                 :: PrevRes
+      real(kind=RP)                 :: NewRes
       integer                       :: sweepcount           ! Number of sweeps done in a point in time
+      real(kind=RP)                 :: invdt
+      integer                       :: k
       !----------------------------------------------------------------------------
 #if defined(NAVIERSTOKES)      
 !
@@ -572,16 +865,38 @@ module FASMultigridClass
 !     Pre-smoothing procedure
 !     -----------------------
 !
-      if (lvl == 1) then
-         NumOfSweeps = SweepNumCoarse
-      else
-         NumOfSweeps = SweepNumPre
+      if (this % computeA) then
+
+         select type (Amat => this % A)
+         type is (csrMat_t)
+            call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative)
+            invdt = -1._RP/dt
+            call Amat % shift(invdt)
+         type is (DenseBlockDiagMatrix_t)
+            call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, BlockDiagonalized=.true.)
+            invdt = -1._RP/dt
+            call Amat % shift(invdt)
+         end select 
+
+         select type (Amat => this % A)
+         type is (csrMat_t)
+            error stop "Full implicit not ready."
+         type is (DenseBlockDiagMatrix_t)
+!$omp parallel do schedule(runtime)
+            do k=1, nelem
+               call ComputeLUandOverwrite (A       = Amat % Blocks(k) % Matrix, &
+                                          LUpivots = this % LUpivots(k) % v)
+            end do
+!$omp end parallel do
+         end select
+
+         this % computeA = .false.
       end if
-!~      this % computeA = .TRUE.
+
       sweepcount = 0
-      DO
-         call this % Smooth(NumOfSweeps,t,dt, ComputeTimeDerivative)
-         sweepcount = sweepcount + NumOfSweeps
+      do
+         call this % Smooth(MGSweepsPre(lvl),t,dt, ComputeTimeDerivative)
+         sweepcount = sweepcount + MGSweepsPre(lvl)
          
          if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem % mesh)
          
@@ -589,6 +904,7 @@ module FASMultigridClass
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
             call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, CTD_IGNORE_MODE)
+            if (DualTimeStepping) call ComputePseudoTimeDerivative(this % Child % p_sem % mesh, t, own_dt)
             
             if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < SmoothFineFrac * MAXVAL(ComputeMaxResiduals(this % Child % p_sem % mesh))) exit
          else
@@ -596,7 +912,7 @@ module FASMultigridClass
          end if
          
          if (sweepcount .ge. MaxSweeps) exit
-      end DO
+      end do
       
       PrevRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
       
@@ -644,23 +960,20 @@ module FASMultigridClass
 !     Post-smoothing procedure
 !     ------------------------
 !
-      if (lvl == 1) then
-         NumOfSweeps = SweepNumCoarse
-      else
-         NumOfSweeps = SweepNumPost
-      end if
-      
+
       sweepcount = 0
       DO
-         call this % Smooth(NumOfSweeps, t, dt, ComputeTimeDerivative)
-         
-         sweepcount = sweepcount + NumOfSweeps
+         call this % Smooth(MGSweepsPost(lvl), t, dt, ComputeTimeDerivative)
+         sweepcount = sweepcount + MGSweepsPost(lvl)
+
+         NewRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
+
          if (MGOutput) call PlotResiduals( lvl, sweepcount , this % p_sem % mesh)
          
          if (sweepcount .ge. MaxSweeps) exit
          
          if (lvl > 1 .and. PostFCycle) then
-            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) > PrevRes) then
+            if (NewRes > PrevRes) then
                call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
                call FASVCycle(this,t,dt,lvl-1,lvl, ComputeTimeDerivative)
             else
@@ -668,7 +981,7 @@ module FASMultigridClass
             end if
          elseif (PostSmooth .or. PostFCycle) then
             !if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
-            if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < PrevRes) exit
+            if (NewRes < PrevRes) exit
          else
             exit
          end if
@@ -853,6 +1166,7 @@ module FASMultigridClass
 !     -------------------------------------------
 !      
       call ComputeTimeDerivative(Child_p % p_sem % mesh,Child_p % p_sem % particles, t, CTD_IGNORE_MODE) 
+      if (DualTimeStepping) call ComputePseudoTimeDerivative(Child_p % p_sem % mesh, t, own_dt)
       
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
@@ -875,6 +1189,7 @@ module FASMultigridClass
       class(FASMultigrid_t), intent(inout) :: this
       !-----------------------------------------------------------
       
+      if ( ComputeL2norm ) deallocate(QdotForL2norm)
       call RecursiveDestructor(this,MGlevels)
       
    end subroutine destruct
@@ -887,18 +1202,22 @@ module FASMultigridClass
       !-----------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: Solver
       integer                              :: lvl
+      integer                              :: k
       !-----------------------------------------------------------
       
       ! First go to coarsest level
       if (lvl > 1) call RecursiveDestructor(Solver % Child,lvl-1)
+
+      ! Deallocate LTS
+      if (allocated(Solver % lts_dt)) deallocate(Solver % lts_dt)
       
       !Destruct Multigrid storage
       deallocate (Solver % MGStorage) ! allocatable components are automatically deallocated
       
       ! Destruct linear solver (if present)
-      if (Smoother >= IMPLICIT_SMOOTHER_IDX) then
-         call Solver % linsolver % destroy
-         deallocate ( Solver % linsolver )
+      if (Smoother .ge. IMPLICIT_SMOOTHER_IDX) then
+         ! call Solver % linsolver % destroy FINDME
+         ! deallocate ( Solver % linsolver )
       end if
       
       if (lvl < MGlevels) then
@@ -911,6 +1230,13 @@ module FASMultigridClass
       
       if (lvl > 1) then
          deallocate (Solver % Child)
+      end if
+
+      if ( allocated(Solver % LUpivots) ) then
+         do k = 1,nelem
+            deallocate ( Solver % LUpivots(k) % v ) 
+         end do
+         deallocate ( Solver % LUpivots )
       end if
       
    end subroutine RecursiveDestructor
@@ -926,34 +1252,178 @@ module FASMultigridClass
       real(kind=RP)          , intent(in)            :: dt
       procedure(ComputeTimeDerivative_f)                     :: ComputeTimeDerivative
       !-------------------------------------------------------------
-      real(kind=RP) :: own_dt
+      real(kind=RP), pointer :: smoother_dt, smoother_cfl, smoother_dcfl
       integer :: sweep
       !-------------------------------------------------------------
       
-      select case (Smoother)
+      if (DualTimeStepping) then
+         smoother_dt   => p_dt
+         smoother_cfl  => p_cfl
+         smoother_dcfl => p_dcfl
+      else 
+         smoother_dt   => own_dt
+         smoother_cfl  => cfl
+         smoother_dcfl => dcfl
+      end if
+
+      select case (Preconditioner)
+      case (PRECONDIIONER_LTS)
+         ! compute LTS
+         if (Compute_dt) then
+            call MaxTimeStep( self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl , MaxDt=smoother_dt, MaxDtVec=this % lts_dt)
+         else
+            error stop "FASMultigrid :: LTS needs cfd & dcfl."
+         end if
+
+
+         select case (Smoother)
+            ! Euler Smoother
+            case (Euler_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeExplicitEulerStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK3 smoother
+            case (RK3_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK5 smoother
+            case (RK5_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK5 smoother opt for Steady State
+            case (RKOpt_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            case default
+               error stop "FASMultigrid :: No smoother defined for the multigrid."
+         end select ! Smoother
+      case (PRECONDIIONER_NONE)
+         select case (Smoother)
+            ! Euler Smoother
+            case (Euler_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  call TakeExplicitEulerStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK3 smoother
+            case (RK3_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK5 smoother
+            case (RK5_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+            ! RK Opt smoother
+            case (RKOpt_SMOOTHER)
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dts=DualTimeStepping, global_dt=own_dt )
+               end do
 !
-!        3rd order Runge-Kutta smoother
-!        -> Has its own dt, since it's for steady-state simulations
-!        ----------------------------------------------------------
-         case (RK3_SMOOTHER)
-            do sweep = 1, SmoothSweeps
-               if (Compute_dt) own_dt = MaxTimeStep(this % p_sem, cfl, dcfl )
-               call TakeRK3Step (this % p_sem % mesh, this % p_sem % particles, t, &
-                             own_dt, ComputeTimeDerivative )
-            end do
-!
-!        Implicit smoothers
-!        ------------------
-         case default
-            call ComputeRHS(this % p_sem, t, dt, this % linsolver, ComputeTimeDerivative )               ! Computes b (RHS) and stores it into linsolver
-            
-!~            this % computeA = .TRUE.
-            call this % linsolver % solve(NCONS, NGRAD, maxiter=SmoothSweeps, time= t, dt = dt, &
-                                             ComputeTimeDerivative = ComputeTimeDerivative, computeA = this % computeA) ! 
-            call UpdateNewtonSol(this % p_sem, this % linsolver)
-      end select
+!           Implicit smoothers
+!           ------------------
+            case (IRK_SMOOTHER)
+               error STOP "FASMultigrid :: IRK Smoother not ready."
+            case (DIRK5_SMOOTHER)
+
+               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
+
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeDIRK5Step ( this=this, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=own_dt )
+               end do
+
+            case default
+               error STOP "FASMultigrid :: Smoother not specified."
+         end select ! Smoother
+      end select ! Preconditioner
       
    end subroutine Smooth
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine TakeDIRK5Step( this, t, deltaT, ComputeTimeDerivative, dts, global_dt )
+!
+!     ----------------------------------
+!     5th order diagonally implicit Runge-Kutta scheme from Bassi 2009
+!     ----------------------------------
+!
+      implicit none
+!
+!     -----------------
+!     Input parameters:
+!     -----------------
+!
+      class(FASMultigrid_t)  ,intent(inout), target :: this
+      real(KIND=RP)   :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(kind=rp), dimension(5) :: a = (/0.2_RP, 0.25_RP, 0.333333_RP, 0.5_RP, 1.0_RP/)
+      integer :: k, id, i
+      real(kind=RP), allocatable :: x_loc(:) ! Local x
+
+      this % dQ = 0._RP
+      do k = 1,5
+      
+         tk = t + a(k)*deltaT
+
+         call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+         call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
+
+
+         select type (Adense => this % A)
+            type is (DenseBlockDiagMatrix_t)
+            ! call Adense % SolveBlocks_LU(this % dQ,this % p_sem % mesh % storage % Qdot)
+!$omp parallel do private(x_loc) schedule(runtime)
+            do id = 1, SIZE( this % p_sem % mesh % elements )
+               allocate( x_loc(Adense % BlockSizes(id)) )
+               call SolveLU(ALU      = Adense % Blocks(id) % Matrix, &
+                           LUpivots = this % LUpivots(id) % v, &
+                           x = x_loc, &
+                           b = this % p_sem % mesh % storage % Qdot(Adense % BlockIdx(id):Adense % BlockIdx(id+1)-1) * a(k) )
+!$omp critical
+               this % dQ(Adense % BlockIdx(id):Adense % BlockIdx(id+1)-1) = x_loc
+!$omp end critical
+               deallocate(x_loc)
+            end do ! id
+!$omp end parallel do
+         end select
+
+         this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ    
+         call this % p_sem % mesh % storage % global2localq  
+      end do ! k
+
+!$omp parallel do schedule(runtime)
+      do k=1, this % p_sem % mesh % no_of_elements
+         if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+            call exit(99)
+         endif
+      end do
+!$omp end parallel do
+            
+   end subroutine TakeDIRK5Step
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -995,4 +1465,5 @@ module FASMultigridClass
          call FAS_SetPreviousSolution(this % Child,lvl-1)
       end if
    end subroutine FAS_SetPreviousSolution
+
 end module FASMultigridClass

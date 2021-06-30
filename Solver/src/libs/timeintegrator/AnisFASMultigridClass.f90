@@ -4,9 +4,9 @@
 !   @File:    AnisFASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Sun Aug  4 19:18:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b0e7de9dd2b9495b21923c824ccafea2aec501a4
+!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
 !
 !//////////////////////////////////////////////////////
 !
@@ -594,7 +594,7 @@ module AnisFASMultigridClass
       sweepcount = 0
       DO
          do iEl = 1, NumOfSweeps
-            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
             call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
          sweepcount = sweepcount + 1
@@ -665,7 +665,7 @@ module AnisFASMultigridClass
       DO
          
          do iEl = 1, NumOfSweeps
-            if (Compute_dt) dt = MaxTimeStep(p_sem, cfl, dcfl )
+            if (Compute_dt) call MaxTimeStep(self=p_sem, cfl=cfl, dcfl=dcfl, MaxDt=dt )
             call SmoothIt(p_sem % mesh, p_sem % particles, t, dt, ComputeTimeDerivative )
          end do
 

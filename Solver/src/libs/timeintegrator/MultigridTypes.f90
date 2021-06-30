@@ -1,3 +1,18 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    MultigridTypes.f90
+!   @Author:  Andrés Rueda (am.rueda@upm.es)
+!   @Created: Sun Apr 27 12:57:00 2017
+!   @Last revision date: Mon Jun 21 18:37:41 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: c7813eb980093a2744333a46ec2afe3bd2a3e6bf
+!
+!//////////////////////////////////////////////////////
+!
+!  Variables and utilities for mulgridrid solvers.
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
 module MultigridTypes
    use SMConstants
@@ -17,13 +32,15 @@ module MultigridTypes
       real(kind=RP), dimension(:,:,:,:), allocatable :: E     ! Error (for correction)
       real(kind=RP), dimension(:,:,:,:), allocatable :: S     ! Source term interpolated from next finer grid
       real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
+      real(kind=RP), dimension(:,:,:,:), allocatable :: R     ! 
+      real(kind=RP), dimension(:,:,:,:), allocatable :: Q0    ! 
    end type MGSolStorage_t
    
 !
 !  Interface for the smoother
 !  --------------------------
    abstract interface
-      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative )
+      subroutine SmoothIt_t( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt)
          use SMConstants, only: RP
          use HexMeshClass, only: HexMesh
          use DGSEMClass, only: ComputeTimeDerivative_f
@@ -39,6 +56,10 @@ module MultigridTypes
 #endif
          REAL(KIND=RP)              :: t, deltaT
          procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+         real(kind=RP), allocatable, dimension(:), intent(in), optional :: dt_vec
+         ! Dual (pseudo) time stepping arguments (also optional):
+         logical, intent(in), optional :: dts 
+         real(kind=RP), intent(in), optional :: global_dt 
       end subroutine SmoothIt_t
    end interface
    
@@ -50,14 +71,23 @@ module MultigridTypes
    integer, parameter :: NMIN_GAUSSLOBATTO = 1 ! Minimum polynomial order when using Gauss-Lobatto nodes
    
    ! smoothers
-   integer, parameter :: RK3_SMOOTHER     = 0 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
-   integer, parameter :: BJ_SMOOTHER      = 1 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 2 ! Jacobian-Free GMRES
-   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 1 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: Euler_SMOOTHER   = 0 ! 
+   integer, parameter :: RK3_SMOOTHER     = 1 ! Williamson's 3rd order low-storage Runge-Kutta (only for steady state cases)
+   integer, parameter :: RK5_SMOOTHER     = 2 ! 
+   integer, parameter :: RKOPT_SMOOTHER   = 3 ! 
+   integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
+   integer, parameter :: IRK_SMOOTHER = 4     ! Implicit Euler smoother (full matrix assembly)
+   integer, parameter :: DIRK5_SMOOTHER = 5   ! Semi-implicit RK smoother
+   integer, parameter :: BJ_SMOOTHER      = 6 ! Block Jacobi smoother
+   integer, parameter :: JFGMRES_SMOOTHER = 7 ! Jacobian-Free GMRES
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step
    integer        :: plotInterval   ! Read to display output
+
+   ! preconditioners
+   integer, parameter :: PRECONDIIONER_NONE = 0 
+   integer, parameter :: PRECONDIIONER_LTS = 1 ! Local time stepping
    
 !========
  contains
@@ -153,6 +183,43 @@ module MultigridTypes
       end if
       
    end subroutine PlotResiduals
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine CFLRamp(cfl_max,cfl,res0,res1,cflboost_rate,CFLboost)
+      IMPLICIT NONE
+!
+!     ------------------------------------
+!      CLF ramping strategies.
+!     ------------------------------------
+!
+!     ----------------------------------------------
+      real(kind=rp), intent(in)       :: cfl_max 
+      real(kind=rp), intent(inout)    :: cfl    
+      real(kind=rp), intent(in)       :: res0     ! RES before
+      real(kind=rp), intent(in)       :: res1     ! RES after
+      real(kind=rp), intent(in)       :: cflboost_rate
+      logical, intent(in)             :: CFLboost
+!     ----------------------------------------------
+      real(kind=rp)                :: conv
+!     ----------------------------------------------
+        
+      if (CFLboost) then
+        if (cfl .le. cfl_max) then
+
+          conv = log10(res0/res1)
+
+          if (conv .le. 0.0_RP) then
+          elseif ( (conv .gt. 0.0_RP) .and. (conv .le. 1.0_RP )  ) then
+              cfl = cfl + cfl * conv * cflboost_rate
+          elseif (conv .gt. 1.0_RP ) then
+              cfl = cfl + cfl * cflboost_rate
+          end if
+
+        end if
+      end if ! CLFBoost 
+   
+   end subroutine CFLRamp
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !

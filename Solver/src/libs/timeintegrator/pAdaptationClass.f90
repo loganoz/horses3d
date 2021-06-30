@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Thu Aug  1 18:48:28 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6a5c8d0cd14b48b0b93496dd37d0190cb9574cc0
+!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
 !
 !//////////////////////////////////////////////////////
 !
@@ -1403,7 +1403,7 @@ readloop:do
 !     Smooth solution
 !     ---------------
       do k=1, MAX_STEPS_SMOOTHING
-         if ( this % Compute_dt ) this % dt = MaxTimeStep( sem, this % cfl, this % dcfl )
+         if ( this % Compute_dt ) call MaxTimeStep( self=sem, cfl=this % cfl, dcfl=this % dcfl , MaxDt=this % dt)
             
          select case (this % postSmoothMethod)
             case(SMOOTH_RK3)

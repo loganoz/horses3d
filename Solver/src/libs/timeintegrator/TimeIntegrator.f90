@@ -1,12 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      TimeIntegration.f95
-!      Created: 2007-10-23 09:25:32 -0400 
-!      By: David Kopriva  
+!   @File:    TimeIntegrator.f90
+!   @Author:  David kopriva
+!   @Created: 2007-10-23 09:25:32 -0400 
+!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
 !
-!      Third order RK integrator for DG approximation to conservation
-!      laws in 2D
+!   Module for general time integration.
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -427,7 +429,7 @@ print*, "Method selected: RK5"
 !
 !        CFL-bounded time step
 !        ---------------------      
-         IF ( self % Compute_dt ) self % dt = MaxTimeStep( sem, self % cfl, self % dcfl )
+         IF ( self % Compute_dt ) call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
 !
 !        Correct time step
 !        -----------------
@@ -447,7 +449,13 @@ print*, "Method selected: RK5"
          CASE (EXPLICIT_SOLVER)
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
          case (FAS_SOLVER)
-            call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+            if (self % integratorType .eq. STEADY_STATE) then
+               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+            elseif (self % integratorType .eq. TIME_ACCURATE) then
+               call FASSolver % TakePseudoStep(k, t, dt, ComputeTimeDerivative)
+            else
+               error stop "FAS SOLVER :: Wrong simulation type."
+            end if
          case (ANISFAS_SOLVER)
             call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          case (IMEX_SOLVER)
