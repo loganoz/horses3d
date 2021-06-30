@@ -66,7 +66,6 @@ MODULE ExplicitMethods
       INTEGER :: k, id
       
       DO k = 1,3
-         
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
          

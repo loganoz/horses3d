@@ -13329,7 +13329,7 @@ subroutine ManufacturedSolutionSourceNSSA(xvec, dwall, time, S)
 
                  end if 
 
-
+        S(1:NCONS) = -S(1:NCONS)
 
       end associate
    END SUBROUTINE ManufacturedSolutionSourceNSSA

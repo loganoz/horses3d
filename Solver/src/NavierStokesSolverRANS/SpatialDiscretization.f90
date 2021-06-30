@@ -565,14 +565,6 @@ module SpatialDiscretization
 !$omp end single
          end if
 #endif
-!
-!        *****************************************************************************************************************************
-!        Compute contributions to source term
-!        ATTENTION: This is deactivated for child multigrid meshes since they have specially tailored source terms (already computed).
-!                   If you are going to add contributions to the source term, do it adding to e % storage % S_NS inside the condition!
-!        *****************************************************************************************************************************
-         if (.not. mesh % child) then
-
 
 !$omp do schedule(runtime)  
                do eID = 1, mesh % no_of_elements
@@ -581,6 +573,13 @@ module SpatialDiscretization
                   end associate
                enddo
 !$omp end do
+!
+!        *****************************************************************************************************************************
+!        Compute contributions to source term
+!        ATTENTION: This is deactivated for child multigrid meshes since they have specially tailored source terms (already computed).
+!                   If you are going to add contributions to the source term, do it adding to e % storage % S_NS inside the condition!
+!        *****************************************************************************************************************************
+         if (.not. mesh % child) then
 !
 !           Add physical source term
 !           ************************
@@ -650,7 +649,7 @@ module SpatialDiscretization
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) - e % storage % S_NS(:,i,j,k)
+               e % storage % QDot(:,i,j,k) =   e % storage % QDot(:,i,j,k) + e % storage % S_NS(:,i,j,k)
             end do                  ; end do                ; end do
             end associate
          end do

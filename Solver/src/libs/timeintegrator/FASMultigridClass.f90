@@ -378,6 +378,20 @@ module FASMultigridClass
             end DO
          end DO
       end if
+#elif defined(SPALARTALMARAS)
+      if (ManSol) then
+         DO iEl = 1, nelem   
+            DO k=0, Solver % p_sem % mesh % Nz(iEl)
+               DO j=0, Solver % p_sem % mesh % Ny(iEl)
+                  DO i=0, Solver % p_sem % mesh % Nx(iEl)
+                        CALL ManufacturedSolutionSourceNSSA(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                            Solver % p_sem % mesh % elements(iEl) % geom % dwall(i,j,k), 0._RP, &
+                                                            Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
 #endif!
 !     -------------------------------------------
 !     Create linear solver for implicit smoothing
@@ -829,7 +843,7 @@ module FASMultigridClass
 !$omp do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
-         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = 0._RP
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS =  0.0_RP
       end DO
 !$omp end do
 !$omp end parallel
@@ -843,7 +857,7 @@ module FASMultigridClass
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = Child_p % MGStorage(iEl) % S - &
-                                                                Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
+                                                                Child_p % p_sem % mesh % elements(iEl) % storage % Qdot !- Child_p % MGStorage(iEl) % Scase
       end DO
 !$omp end parallel do
       

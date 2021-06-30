@@ -1,7 +1,7 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NSSA"
 mesh file name        = "MESH/Cube.mesh"
-polynomial order      = 5
+polynomial order      = 4
 !2D mesh offset direction = z
 Number of time steps  = 100000
 Output Interval       = 1 for explicit
@@ -10,7 +10,7 @@ autosave interval     = 100000
 
 Convergence tolerance = 1.d-10
 !dt                    = 1.00d0 ! for implicit
-dt                     = 0.0000001d0 ! for explicit
+dt                     = 0.0001d0 ! for explicit
 !cfl                    = 0.1d0
 !dcfl                   = 0.1d0
 mach number            = 0.5d0
@@ -27,7 +27,11 @@ riemann solver         = "lax-friedrichs"
 viscous discretization = "BR1"
 manufactured solution  = 3D
 simulation type       = steady-state
-time integration      = explicit 
+!time integration      = explicit  
+time integration      = fas
+multigrid levels      = 3
+delta n = 1
+ 
 
 !-------------------------------------------------------------
 ! Inflow
