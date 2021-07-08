@@ -20,8 +20,8 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/EllipticBR1.o \
 		./build_ns/EllipticBR2.o \
 		./build_ns/EllipticDiscretizations.o \
-		./build_ns/SVV.o \
 		./build_ns/ShockCapturingKeywords.o \
+		./build_ns/SVV.o \
 		./build_ns/SCsensorClass.o \
 		./build_ns/ShockCapturing.o
 

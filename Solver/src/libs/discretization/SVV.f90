@@ -44,7 +44,6 @@ module SpectralVanishingViscosity
    character(len=*), parameter  :: SVV_MU_SMAG           =  "svv les intensity"
    character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
-   character(len=*), parameter  :: DISSIPATION_TYPE_KEY  =  "svv dissipation type"
 !
 !  Filter types
 !  ------------
@@ -131,6 +130,7 @@ module SpectralVanishingViscosity
          use FTValueDictionaryClass
          use mainKeywordsModule
          use PhysicsStorage
+         use ShockCapturingKeywords, only: SC_VISC_FLUX_KEY, SC_PHYS_VAL, SC_GP_VAL
          implicit none
          class(SVV_t)                          :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
@@ -299,21 +299,21 @@ module SpectralVanishingViscosity
             end associate
          end do
 !
-!        --------------------------------------
-!        Select the appropriate HFlux functions
-!        --------------------------------------
+!        -----------------------------------------------------
+!        Select the appropriate HFlux functions (keys from SC)
+!        -----------------------------------------------------
 !
-         if ( controlVariables % ContainsKey(DISSIPATION_TYPE_KEY) ) then
-            mu = controlVariables % StringValueForKey(DISSIPATION_TYPE_KEY, LINE_LENGTH)
+         if ( controlVariables % ContainsKey(SC_VISC_FLUX_KEY) ) then
+            mu = controlVariables % StringValueForKey(SC_VISC_FLUX_KEY, LINE_LENGTH)
             call tolower(mu)
 
             select case (trim(mu))
-            case ("physical") ; self % diss_type = PHYSICAL_DISS
-            case ("guermond") ; self % diss_type = GUERMOND_DISS
+            case (SC_PHYS_VAL) ; self % diss_type = PHYSICAL_DISS
+            case (SC_GP_VAL) ;  self % diss_type = GUERMOND_DISS
             case default
                write(STD_OUT,*) 'ERROR. SVV dissipation type not recognized. Options are:'
-               write(STD_OUT,*) '   * Physical'
-               write(STD_OUT,*) '   * Guermond'
+               write(STD_OUT,*) '   * ', SC_PHYS_VAL
+               write(STD_OUT,*) '   * ', SC_GP_VAL
                errorMessage(STD_OUT)
                stop
             end select

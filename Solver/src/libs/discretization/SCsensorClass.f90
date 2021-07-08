@@ -10,8 +10,9 @@ module SCsensorClass
 
    private
 
-   public :: SCsensor
+   public :: SCsensor_t
    public :: Set_SCsensor
+   public :: Destruct_SCsensor
 
    type :: SCsensor_t
 
@@ -20,23 +21,25 @@ module SCsensorClass
          real(RP) :: ds2   !< Half-bandwidth
          real(RP) :: low   !< Lower threshold
          real(RP) :: high  !< Upper threshold
-         real(RP) :: s1    !< Threshold one (from 0 to 1)
-         real(RP) :: s2    !< Threshold two (from 0 to 1), higher that s1
          integer  :: sVar  !< Variable used as input for the sensor
 
          procedure(Compute_Int), pointer :: Compute => null()
          procedure(Rescale_Int), pointer :: Rescale => SinRamp
+
+      contains
+
+         final :: Destruct_SCsensor
 
    end type SCsensor_t
 !
 !  Interfaces
 !  ----------
    abstract interface
-      pure function Compute_Int(this, mesh, elem) result(val)
+      pure function Compute_Int(this, mesh, e) result(val)
          import RP, SCsensor_t, HexMesh, Element
          class(SCsensor_t), intent(in) :: this
          type(HexMesh),     intent(in) :: mesh
-         type(Element),     intent(in) :: elem
+         type(Element),     intent(in) :: e
          real(RP)                      :: val
       end function Compute_Int
 
@@ -47,29 +50,28 @@ module SCsensorClass
          real(RP)                      :: scaled
       end function Rescale_Int
    end interface
-
-   type(SCsensor_t), protected :: SCsensor
 !
 !  ========
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, sensorType, variable,        &
-                           sensorLow, sensorHigh, thres1, thres2)
+   subroutine Set_SCsensor(sensor, sensorType, variable, sensorLow, sensorHigh)
+!
+!     ---------
+!     Interface
+!     ---------
       implicit none
       type(SCsensor_t), intent(inout) :: sensor
-      integer,          intent(in)    :: sensorType
+      character(len=*), intent(in)    :: sensorType
       integer,          intent(in)    :: variable
       real(RP),         intent(in)    :: sensorLow
       real(RP),         intent(in)    :: sensorHigh
-      real(RP),         intent(in)    :: thres1
-      real(RP),         intent(in)    :: thres2
 
 !
 !     Sensor type
 !     -----------
       select case (sensorType)
-      case (SC_MODAL)
+      case (SC_MODAL_VAL)
          sensor % Compute => Sensor_modal
 
       end select
@@ -79,8 +81,6 @@ module SCsensorClass
       sensor % sVar = variable
       sensor % low  = sensorLow
       sensor % high = sensorHigh
-      sensor % s1   = thres1
-      sensor % s2   = thres2
       sensor % s0   = (sensorHigh + sensorLow) / 2.0_RP
       sensor % ds   = (sensorHigh - sensorLow)
       sensor % ds2  = sensor % ds / 2.0_RP
@@ -89,18 +89,42 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
+   pure subroutine Destruct_SCsensor(sensor)
+!
+!     ---------
+!     Interface
+!     ---------
+      type(SCsensor_t), intent(inout) :: sensor
+
+
+      if (associated(sensor % Compute)) nullify(sensor % Compute)
+      if (associated(sensor % Rescale)) nullify(sensor % Rescale)
+
+   end subroutine Destruct_SCsensor
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
 !     Sensors
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function Sensor_modal(sensor, mesh, elem) result(val)
+   pure function Sensor_modal(sensor, mesh, e) result(val)
+!
+!     -------
+!     Modules
+!     -------
       use NodalStorageClass, only: NodalStorage
+!
+!     ---------
+!     Interface
+!     ---------
       implicit none
       class(SCsensor_t), intent(in) :: sensor
       type(HexMesh),     intent(in) :: mesh
-      type(Element),     intent(in) :: elem
+      type(Element),     intent(in) :: e
       real(RP)                      :: val
 !
+!     ---------------
 !     Local variables
 !     ---------------
       integer               :: i, j, k, r
@@ -108,13 +132,13 @@ module SCsensorClass
       real(RP), allocatable :: sVarMod(:,:,:)
 
 
-      associate(Nx => elem % Nxyz(1), Ny => elem % Nxyz(2), Nz => elem % Nxyz(3))
+      associate(Nx => e % Nxyz(1), Ny => e % Nxyz(2), Nz => e % Nxyz(3))
 !
 !     Compute the sensed variable
 !     ---------------------------
       allocate(sVar(0:Nx, 0:Ny, 0:Nz))
       do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-         sVar(i,j,k) = GetSensedVariable(sensor % sVar, elem % storage % Q(:,i,j,k))
+         sVar(i,j,k) = GetSensedVariable(sensor % sVar, e % storage % Q(:,i,j,k))
       end do       ; end do       ; end do
 !
 !     Switch to modal space
@@ -151,14 +175,20 @@ module SCsensorClass
 !///////////////////////////////////////////////////////////////////////////////
 !
    pure function SinRamp(sensor, sensedValue) result(scaled)
+!
+!     ---------
+!     Interface
+!     ---------
       implicit none
       class(SCsensor_t), intent(in) :: sensor
       real(RP),          intent(in) :: sensedValue
       real(RP)                      :: scaled
 !
+!     ---------------
 !     Local variables
 !     ---------------
       real(RP) :: dev
+
 
       ! Deviation of the input value wrt the centre of the sensor
       dev = sensedValue - sensor % s0
@@ -185,12 +215,14 @@ module SCsensorClass
 !
    pure function GetSensedVariable(varType, Q) result(s)
 !
+!     -------
 !     Modules
 !     -------
       use PhysicsStorage_NS,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
       use VariableConversion_NS, only: Pressure
       implicit none
 !
+!     ---------
 !     Interface
 !     ---------
       integer,  intent(in) :: varType
@@ -199,34 +231,34 @@ module SCsensorClass
 
 
       select case (varType)
-      case (SC_RHO)
+      case (SC_RHO_ID)
          s = Q(IRHO)
 
-      case (SC_RHOU)
+      case (SC_RHOU_ID)
          s = Q(IRHOU)
 
-      case (SC_RHOV)
+      case (SC_RHOV_ID)
          s = Q(IRHOV)
 
-      case (SC_RHOW)
+      case (SC_RHOW_ID)
          s = Q(IRHOW)
 
-      case (SC_RHOE)
+      case (SC_RHOE_ID)
          s = Q(IRHOE)
 
-      case (SC_U)
+      case (SC_U_ID)
          s = Q(IRHOU) / Q(IRHO)
 
-      case (SC_V)
+      case (SC_V_ID)
          s = Q(IRHOV) / Q(IRHO)
 
-      case (SC_W)
+      case (SC_W_ID)
          s = Q(IRHOW) / Q(IRHO)
 
-      case (SC_P)
+      case (SC_P_ID)
          s = Pressure(Q)
 
-      case (SC_RHOP)
+      case (SC_RHOP_ID)
          s = Pressure(Q) * Q(IRHO)
 
       end select
