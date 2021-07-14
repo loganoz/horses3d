@@ -12,14 +12,14 @@
 #include "Includes.h"
 module ShockCapturing
 
-   use SMConstants,                only: RP, STD_OUT, LINE_LENGTH, NDIM
+   use SMConstants,                only: RP, STD_OUT, LINE_LENGTH, NDIM, IX, IY, IZ
    use PhysicsStorage_NS,          only: NCONS, NGRAD
    use FluidData_NS,               only: dimensionless
    use Utilities,                  only: toLower
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
    use LESModels,                  only: Smagorinsky_t
-   use SpectralVanishingViscosity, only: SVV, InitializeSVV
+   !use SpectralVanishingViscosity, only: SVV, InitializeSVV
 
    use ShockCapturingKeywords
    use SCsensorClass, only: SCsensor_t, Set_SCsensor, Destruct_SCsensor
@@ -49,9 +49,10 @@ module ShockCapturing
 
       contains
 
-         procedure :: Detect   => SC_detect
-         !procedure :: Apply    => SC_apply
-         !procedure :: Describe => SC_describe
+         procedure :: Detect     => SC_detect
+         procedure :: Viscosity  => SC_viscosity
+         !procedure :: Hyperbolic => SC_hyperbolic
+         !procedure :: Describe   => SC_describe
 
          final :: SC_destruct
 
@@ -61,8 +62,9 @@ module ShockCapturing
       integer                                          :: fluxType
       procedure(Viscous_Int), nopass, pointer, private :: ViscousFlux => null()
    contains
-      procedure :: Apply    => ArtVisc_apply
-      !procedure :: Describe => ArtVisc_describe
+      procedure :: Viscosity  => ArtVisc_viscosity
+      !procedure :: Hyperbolic => Artvisc_hyperbolic
+      !procedure :: Describe   => ArtVisc_describe
       final :: ArtVisc_destruct
    end type ArtViscDriver_t
 
@@ -70,15 +72,17 @@ module ShockCapturing
       real(RP), private :: sqrt_mu
       real(RP), private :: sqrt_alpha
    contains
-      !procedure :: Apply    => SVV_apply
-      !procedure :: Describe => SVV_describe
+      !procedure :: Viscosity  => SVV_viscosity
+      !procedure :: Hyperbolic => SVV_hyperbolic
+      !procedure :: Describe   => SVV_describe
    end type SVVdriver_t
 
    type, extends(SVVdriver_t) :: SSFVdriver_t
       real(RP) :: c
    contains
-      !procedure :: Apply    => SSFV_apply
-      !procedure :: Describe => SSFV_describe
+      !procedure :: Viscosity  => SSFV_viscosity
+      !procedure :: Hyperbolic => SSFV_hyperbolic
+      !procedure :: Describe   => SSFV_describe
    end type SSFVdriver_t
 !
 !  Interfaces
@@ -290,7 +294,7 @@ module ShockCapturing
          end select
 
       class default
-         call InitializeSVV(SVV, controlVariables, mesh)
+         !call InitializeSVV(SVV, controlVariables, mesh)  ! CHECK
 
       end select
 !
@@ -419,6 +423,23 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
+   subroutine SC_viscosity(self, mesh, e, SCflux)
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCdriver_t), intent(in)    :: self
+      type(HexMesh),     intent(inout) :: mesh
+      type(Element),     intent(inout) :: e
+      real(RP),          intent(out)   :: SCflux(:,:,:,:,:)
+
+
+      SCflux = 0.0_RP
+
+   end subroutine SC_viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
    pure subroutine SC_destruct(self)
 !
 !     ---------
@@ -454,7 +475,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine ArtVisc_apply(self, mesh, e, SCflux)
+   subroutine ArtVisc_viscosity(self, mesh, e, SCflux)
 !
 !     --------------------------------------------------------------------------
 !     TODO: Introduce alpha viscosity, which probably means reimplementing all
@@ -476,12 +497,13 @@ module ShockCapturing
       integer  :: i
       integer  :: j
       integer  :: k
+      integer  :: fIDs(6)
       real(RP) :: switch
       real(RP) :: factor
       real(RP) :: delta
       real(RP) :: kappa
       real(RP) :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-      !real(RP) :: alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
 
 !
 !     Scale the sensed value to the range [0,1]
@@ -492,12 +514,10 @@ module ShockCapturing
 !     -----------------
       select case (self % updateMethod)
       case (SC_CONST_ID)
-         mu    = self % mu
-         !alpha = self % alpha
+         mu = self % mu
 
       case (SC_SENSOR_ID)
-         mu    = switch * self % mu
-         !alpha = switch * self % alpha
+         mu = switch * self % mu
 
       case (SC_SMAG_ID)
 
@@ -511,26 +531,46 @@ module ShockCapturing
                                                 mu(i,j,k))
          end do                ; end do                ; end do
 
-         !if ( self % alphaIsPropToMu ) then
-             !alpha = self % mu2alpha * mu
-         !else
-             !alpha = self % alpha
-         !end if
-
       end select
 !
-!     Compute the viscous flux (save time for exactly zero viscosities)
-!     -----------------------------------------------------------------
+!     Compute the viscous flux
+!     ------------------------
       do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+
          kappa = dimensionless % mu_to_kappa * mu(i,j,k)
          call self % ViscousFlux(NCONS, NGRAD, e % storage % Q(:,i,j,k), &
                                  e % storage % U_x(:,i,j,k),             &
                                  e % storage % U_y(:,i,j,k),             &
                                  e % storage % U_z(:,i,j,k),             &
                                  mu(i,j,k), 0.0_RP, kappa,               &
-                                 SCflux(:,:,i,j,k))
-      end do                ; end do                ; end do
+                                 covariantflux)
 
-   end subroutine ArtVisc_apply
+         SCflux(:,i,j,k,IX) = covariantFlux(:,IX) * e % geom % jGradXi(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradXi(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+
+
+         SCflux(:,i,j,k,IY) = covariantFlux(:,IX) * e % geom % jGradEta(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradEta(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+
+
+         SCflux(:,i,j,k,IZ) = covariantFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+
+      end do                ; end do                ; end do
+!
+!     Project to faces
+!     ----------------
+      fIDs = e % faceIDs
+      call e % ProlongAviscFluxToFaces(NCONS, SCflux, mesh % faces(fIDs(1)), &
+                                                      mesh % faces(fIDs(2)), &
+                                                      mesh % faces(fIDs(3)), &
+                                                      mesh % faces(fIDs(4)), &
+                                                      mesh % faces(fIDs(5)), &
+                                                      mesh % faces(fIDs(6))  )
+
+   end subroutine ArtVisc_viscosity
 
 end module ShockCapturing

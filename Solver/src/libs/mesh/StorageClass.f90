@@ -171,7 +171,8 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
-      real(kind=RP), dimension(:,:,:),     allocatable :: Hflux
+      real(kind=RP), dimension(:,:,:),     allocatable :: Hflux   ! TODO: remove when SVV is corrected
+      real(kind=RP), dimension(:,:,:),     allocatable :: AviscFlux
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
 #ifdef FLOW

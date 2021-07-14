@@ -307,11 +307,14 @@ print*, "Method selected: RK5"
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
    
-      USE BDFTimeIntegrator
+      use BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
+#ifdef NAVIERSTOKES
+      use ShockCapturing
+#endif
       IMPLICIT NONE
 !
 !     ---------
@@ -337,6 +340,7 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
       integer                       :: k
+      integer                       :: eID
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -378,6 +382,20 @@ print*, "Method selected: RK5"
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+!
+!     -----------------------------
+!     Update shock-capturing sensor
+!     -----------------------------
+!
+#ifdef NAVIERSTOKES
+      if (ShockCapturingDriver % isActive) then
+!$omp do schedule(runtime) private(k)
+         do k = 1, sem % mesh % no_of_elements
+            call ShockCapturingDriver % Detect(sem % mesh, sem % mesh % elements(k))
+         end do
+!$omp end do
+      end if
+#endif
 !
 !     -----------------------
 !     Check initial residuals
@@ -473,6 +491,18 @@ print*, "Method selected: RK5"
 !        ---------------------
          maxResidual       = ComputeMaxResiduals(sem % mesh)
          sem % maxResidual = maxval(maxResidual)
+!
+!        Update sensor
+!        -------------
+#ifdef NAVIERSTOKES
+         if (ShockCapturingDriver % isActive) then
+!$omp do schedule(runtime) private(k)
+            do eID = 1, sem % mesh % no_of_elements
+               call ShockCapturingDriver % Detect(sem % mesh, sem % mesh % elements(eID))
+            end do
+!$omp end do
+         end if
+#endif
 !
 !        Update monitors
 !        ---------------
