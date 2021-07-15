@@ -26,6 +26,7 @@ PROG=./bin/horses.postfwh
 
 OBJS=	\
 	FWHPostProc \
+	SurfaceClass \
 	FWHPreSurface \
 	main \
 

@@ -78,7 +78,7 @@ Program main
     surface = controlVariables % logicalValueForKey("fwhsurf")
 
     if (surface) then
-        call getElements(sem % mesh, controlVariables)
+        call extractSurface(sem % mesh, controlVariables)
     else
         call LoadAllFiles(controlVariables, sem)
     end if
