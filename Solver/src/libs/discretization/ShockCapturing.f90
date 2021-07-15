@@ -19,7 +19,7 @@ module ShockCapturing
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
    use LESModels,                  only: Smagorinsky_t
-   !use SpectralVanishingViscosity, only: SVV, InitializeSVV
+   use SpectralVanishingViscosity, only: SVV, InitializeSVV
 
    use ShockCapturingKeywords
    use SCsensorClass, only: SCsensor_t, Set_SCsensor, Destruct_SCsensor

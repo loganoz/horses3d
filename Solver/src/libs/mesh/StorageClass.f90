@@ -171,7 +171,6 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     pointer     :: Q
       real(kind=RP), dimension(:,:,:),     pointer     :: U_x, U_y, U_z
       real(kind=RP), dimension(:,:,:),     pointer     :: FStar
-      real(kind=RP), dimension(:,:,:),     allocatable :: Hflux   ! TODO: remove when SVV is corrected
       real(kind=RP), dimension(:,:,:),     allocatable :: AviscFlux
       real(kind=RP), dimension(:,:,:,:),   pointer     :: unStar
       real(kind=RP), dimension(:),         allocatable :: genericInterfaceFluxMemory ! unStar and fStar point to this memory simultaneously. This seems safe.
@@ -1321,8 +1320,8 @@ module StorageClass
 #endif
 
 #ifdef NAVIERSTOKES
-         allocate(self % Hflux(NCONS,0:Nf(1), 0:Nf(2)))
-         self % Hflux = 0.0_RP
+         allocate(self % AviscFlux(NCONS,0:Nf(1), 0:Nf(2)))
+         self % AviscFlux = 0.0_RP
 #endif
 
 #ifdef CAHNHILLIARD
@@ -1427,7 +1426,7 @@ module StorageClass
          self % unStar => NULL()
          self % fStar  => NULL()
 
-         safedeallocate(self % Hflux)
+         safedeallocate(self % AviscFlux)
 
       end subroutine FaceStorage_Destruct
 #ifdef FLOW

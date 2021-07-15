@@ -25,7 +25,6 @@ module SpectralVanishingViscosity
    use FluidData
    use MPI_Process_Info             , only: MPI_Process
    use Headers                      , only: Subsection_Header
-   use LESModels                    , only: Smagorinsky_t
    use Utilities                    , only: toLower
    implicit none
 
@@ -41,7 +40,6 @@ module SpectralVanishingViscosity
    character(len=*), parameter  :: SVV_ALPHA_KEY         =  "svv alpha viscosity"
    character(len=*), parameter  :: SVV_ALPHA_MU_KEY      =  "svv alpha/mu ratio"
    character(len=*), parameter  :: SVV_CUTOFF_KEY        =  "svv filter cutoff"
-   character(len=*), parameter  :: SVV_MU_SMAG           =  "svv les intensity"
    character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
 !
@@ -76,28 +74,22 @@ module SpectralVanishingViscosity
    type  SVV_t
       logical                                     :: automatic_Psvv
       logical                                     :: enabled
-      logical                                     :: muIsSmagorinsky = .FALSE.
-      logical                                     :: alphaIsPropToMu = .FALSE.
       integer                                     :: filterType
       integer                                     :: filterShape
       integer                                     :: diss_type
       integer, allocatable                        :: entropy_indexes(:)
-      real(kind=RP)                               :: muSVV,    sqrt_muSVV
-      real(kind=RP)                               :: alphaSVV, sqrt_alphaSVV
-      real(kind=RP)                               :: sqrt_mu2alpha
       real(kind=RP)                               :: Psvv
       type(FilterMatrices_t)                      :: filters(0:Nmax)
       procedure(Compute_Hflux_f), nopass, pointer :: Compute_Hflux
       procedure(Compute_SVV_f),   nopass, pointer :: Compute_SVV
       contains
-         procedure      :: ConstructFilter    => SVV_ConstructFilter
-         procedure      :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
-         procedure      :: Describe           => SVV_Describe
-         procedure      :: destruct           => SVV_destruct
+         procedure :: ConstructFilter    => SVV_ConstructFilter
+         procedure :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
+         procedure :: Describe           => SVV_Describe
+         procedure :: destruct           => SVV_destruct
    end type SVV_t
 
    type(SVV_t), protected :: SVV
-   type(Smagorinsky_t)    :: Smagorinsky
 
    abstract interface
       subroutine Compute_SVV_f(NCONS, NGRAD, Q, Hx, Hy, Hz, sqrt_mu, sqrt_alpha, F)
@@ -162,69 +154,6 @@ module SpectralVanishingViscosity
          end if
 
          if ( .not. self % enabled ) return
-!
-!        ---------------------
-!        Get the SVV viscosity: the viscosity is later multiplied by 1/N
-!        ---------------------
-!
-         if ( controlVariables % containsKey(SVV_MU1_KEY) ) then
-
-            mu = trim(controlVariables % StringValueForKey(SVV_MU1_KEY,LINE_LENGTH) )
-            call ToLower(mu)
-
-            select case ( mu )
-               case ('smagorinsky')
-                  ! TODO: Use default constructor
-                  self % muIsSmagorinsky = .TRUE.
-                  self % muSVV = 0.0_RP
-
-                  ! TODO: Use the default constructor
-                  Smagorinsky % active = .TRUE.
-                  Smagorinsky % requiresWallDistances = .FALSE.
-                  Smagorinsky % WallModel = 0  ! No wall model
-                  if ( controlVariables % containsKey(SVV_MU_SMAG) ) then
-                     Smagorinsky % CS = controlVariables % doublePrecisionValueForKey(SVV_MU_SMAG)
-                  else
-                     Smagorinsky % CS = 0.2_RP
-                  end if
-
-               case default
-                  self % muSVV = controlVariables % doublePrecisionValueForKey(SVV_MU_KEY)
-
-            end select
-
-         else
-            self % muSVV1 = 0.0_RP
-
-         end if
-
-         if ( controlVariables % containsKey(SVV_MU2_KEY) ) then
-            self % muSVV2 = controlVariables % doublePrecisionValueForKey(SVV_MU2_KEY)
-         else
-            self % muSVV2 = 0.0_RP
-         end if
-
-         if ( controlVariables % containsKey(SVV_ALPHA_KEY) ) then
-            self % alphaSVV = controlVariables % doublePrecisionValueForKey(SVV_ALPHA_KEY)
-         else if ( controlVariables % containsKey(SVV_ALPHA_MU_KEY) ) then
-            self % alphaIsPropToMu = .TRUE.
-            self % sqrt_mu2alpha   = controlVariables % doublePrecisionValueForKey(SVV_ALPHA_MU_KEY)
-            self % alphaSVV        = self % sqrt_mu2alpha * self % muSVV
-            self % sqrt_mu2alpha   = sqrt( self % sqrt_mu2alpha )
-         else
-            self % alphaSVV1 = 0.0_RP
-         end if
-
-         if ( controlVariables % containsKey(SVV_ALPHA2_KEY) ) then
-            self % alphaSVV2 = controlVariables % doublePrecisionValueForKey(SVV_ALPHA2_KEY)
-         else
-            self % alphaSVV2 = 0.0_RP
-         end if
-
-         self % sqrt_muSVV1    = sqrt(self % muSVV1)
-         self % sqrt_muSVV2    = sqrt(self % muSVV2)
-         self % sqrt_alphaSVV1 = sqrt(self % alphaSVV1)
-         self % sqrt_alphaSVV2 = sqrt(self % alphaSVV2)
 !
 !        --------------
 !        Type of filter
@@ -383,20 +312,6 @@ module SpectralVanishingViscosity
             case (GUERMOND_DISS)   ; write(STD_OUT,'(A)') 'Guermond'
          end select
 
-
-         if (this % muIsSmagorinsky) then
-            write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV1
-         else
-            write(STD_OUT,'(30X,A,A30,F10.6)') "->","Viscosity: ", this % muSVV
-         end if
-
-         if (this % alphaIsPropToMu) then
-            write(STD_OUT,'(30X,A,A30,F0.1,A)') "->", "Alpha viscosity: ", (this % sqrt_mu2alpha)**2, "x mu_SVV"
-         else
-            write(STD_OUT,'(30X,A,A30,F10.6)') "->","Alpha viscosity: ", this % alphaSVV
-         end if
-
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
          select case (this % filterType)
             case (LPASS_FILTER) ; write(STD_OUT,'(A)') 'low-pass'
@@ -420,16 +335,17 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes(self, mesh, e, contravariantFlux)
+      subroutine SVV_ComputeInnerFluxes(self, mesh, e, mu, alpha, contravariantFlux)
          use ElementClass
          use PhysicsStorage
          use Physics
-         use LESModels
          implicit none
-         class(SVV_t)                           :: self
-         type(HexMesh)                          :: mesh
-         type(Element)                          :: e
-         real(kind=RP)           , intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         class(SVV_t)                :: self
+         type(HexMesh)               :: mesh
+         type(Element)               :: e
+         real(kind=RP), intent (in)  :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP), intent (in)  :: alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP), intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
@@ -456,29 +372,11 @@ module SpectralVanishingViscosity
 
 !
 !        --------------------------------------------
-!        Compute the viscosity, using LES if required
+!        Get the square root of the viscosities
 !        --------------------------------------------
 !
-         if ( self % muIsSmagorinsky ) then
-             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                 call Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                     e % storage % Q(:,i,j,k),       &
-                                                     e % storage % U_x(:,i,j,k),     &
-                                                     e % storage % U_y(:,i,j,k),     &
-                                                     e % storage % U_z(:,i,j,k),     &
-                                                     sqrt_mu(i,j,k))
-                 sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
-             end do                ; end do                ; end do
-         else
-             sqrt_mu = self % sqrt_muSVV
-         end if
-
-         if ( self % alphaIsPropToMu ) then
-             sqrt_alpha = self % sqrt_mu2alpha * sqrt_mu
-         else
-             sqrt_alpha = self % sqrt_alphaSVV
-         end if
+         sqrt_mu    = sqrt(mu)
+         sqrt_alpha = sqrt(alpha)
 !
 !        ---------------------------------
 !        Compute the viscosity and filters
@@ -593,8 +491,8 @@ module SpectralVanishingViscosity
 !
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
            call self % Compute_Hflux(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
-                                                e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), &
-                                                sqrt_mu(i,j,k), sqrt_alpha(i,j,k), Hx(:,i,j,k), Hy(:,i,j,k), Hz(:,i,j,k))
+                                                   e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), &
+                                                   sqrt_mu(i,j,k), sqrt_alpha(i,j,k), Hx(:,i,j,k), Hy(:,i,j,k), Hz(:,i,j,k))
 
            Hx(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)) * Hx(:,i,j,k)
            Hy(:,i,j,k) = sqrt(e % geom % jacobian(i,j,k)) * Hy(:,i,j,k)
@@ -659,19 +557,19 @@ module SpectralVanishingViscosity
 
 
 
-            contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IX) = cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
+                                          + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
+                                          + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IY) =     cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IY) = cartesianFlux(:,IX) * e % geom % jGradEta(IX,i,j,k)  &
+                                          + cartesianFlux(:,IY) * e % geom % jGradEta(IY,i,j,k)  &
+                                          + cartesianFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
 
-            contravariantFlux(:,i,j,k,IZ) =     cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
-                                             +  cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
-                                             +  cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+            contravariantFlux(:,i,j,k,IZ) = cartesianFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k)  &
+                                          + cartesianFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k)  &
+                                          + cartesianFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
          end do               ; end do            ; end do
 
@@ -682,13 +580,13 @@ module SpectralVanishingViscosity
 !        --------------------
 !
          fIDs = e % faceIDs
-         call e % ProlongHfluxToFaces(NCONS, contravariantFlux, &
-                                   mesh % faces(fIDs(1)),&
-                                   mesh % faces(fIDs(2)),&
-                                   mesh % faces(fIDs(3)),&
-                                   mesh % faces(fIDs(4)),&
-                                   mesh % faces(fIDs(5)),&
-                                   mesh % faces(fIDs(6))   )
+         call e % ProlongAviscFluxToFaces(NCONS, contravariantFlux, &
+                                          mesh % faces(fIDs(1)),    &
+                                          mesh % faces(fIDs(2)),    &
+                                          mesh % faces(fIDs(3)),    &
+                                          mesh % faces(fIDs(4)),    &
+                                          mesh % faces(fIDs(5)),    &
+                                          mesh % faces(fIDs(6))     )
 
 
          end associate
