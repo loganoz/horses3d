@@ -805,7 +805,7 @@ module SpatialDiscretization
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: AviscContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
@@ -917,7 +917,8 @@ module SpatialDiscretization
 !        --------------------------
 !
          if ( ShockCapturingDriver % isActive ) then 
-            Avisc_Flux = 0.5_RP * (f % storage(1) % HFlux + f % storage(2) % HFlux)
+            Avisc_Flux = 0.5_RP * (f % storage(1) % AviscFlux + &
+                                   f % storage(2) % AviscFlux)
          else
             Avisc_Flux = 0.0_RP
          end if
@@ -1115,7 +1116,7 @@ module SpatialDiscretization
 
       if ( ShockCapturingDriver % isActive ) then
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-            Avisc_flux(:,i,j) = f % storage(1) % Hflux(:,i,j)! / f % geom % jacobian(i,j)  !CHECK
+            Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j)! / f % geom % jacobian(i,j)  !CHECK
          end do              ; end do
       else
          Avisc_flux = 0.0_RP

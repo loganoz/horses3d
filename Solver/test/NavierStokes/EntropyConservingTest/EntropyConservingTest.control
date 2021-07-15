@@ -14,6 +14,7 @@ AOA phi               = 90.0
 solution file name    = "RESULTS/Cylinder.hsol"
 restart               = .false.
 restart file name     = "RESULTS/Cylinder.hsol"
+
 !---------------------:
 Riemann Solver                         = Central ! Matrix dissipation
 Gradient Variables = Entropy
@@ -21,6 +22,21 @@ Inviscid Discretization                = Split-form
 Split form                             = Chandrasekar
 Viscous Discretization                 = BR1
 compute time derivative after timestep = .true.
+
+!---------------------:
+enable shock-capturing = .true.
+shock sensor           = modal
+shock method           = non-filtered
+shock viscous flux     = guermond-popov
+shock update viscosity = constant
+shock mu               = 0.005
+shock alpha            = 0.001
+sensor variable        = rhop
+sensor lower limit     = -10
+sensor higher limit    = -7
+sensor threshold 1     = -9
+sensor threshold 2     = -8
+
 !enable SVV = .true.
 !svv viscosity = 0.005
 !SVV dissipation type = Guermond

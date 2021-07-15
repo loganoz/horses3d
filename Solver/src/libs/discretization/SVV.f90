@@ -24,7 +24,6 @@ module SpectralVanishingViscosity
    use GaussQuadrature
    use FluidData
    use MPI_Process_Info             , only: MPI_Process
-   use Headers                      , only: Subsection_Header
    use Utilities                    , only: toLower
    implicit none
 
@@ -35,13 +34,13 @@ module SpectralVanishingViscosity
 !
 !  Keywords
 !  --------
-   character(len=*), parameter  :: SVV_KEY               =  "enable svv"
-   character(len=*), parameter  :: SVV_MU_KEY            =  "svv viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_KEY         =  "svv alpha viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_MU_KEY      =  "svv alpha/mu ratio"
-   character(len=*), parameter  :: SVV_CUTOFF_KEY        =  "svv filter cutoff"
-   character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
-   character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
+   character(len=*), parameter  :: SVV_KEY          =  "enable svv"
+   character(len=*), parameter  :: SVV_MU_KEY       =  "svv viscosity"
+   character(len=*), parameter  :: SVV_ALPHA_KEY    =  "svv alpha viscosity"
+   character(len=*), parameter  :: SVV_ALPHA_MU_KEY =  "svv alpha/mu ratio"
+   character(len=*), parameter  :: SVV_CUTOFF_KEY   =  "svv filter cutoff"
+   character(len=*), parameter  :: FILTER_SHAPE_KEY =  "svv filter shape"
+   character(len=*), parameter  :: FILTER_TYPE_KEY  =  "svv filter type"
 !
 !  Filter types
 !  ------------
@@ -304,21 +303,20 @@ module SpectralVanishingViscosity
          if (.not. MPI_Process % isRoot) return
 
          write(STD_OUT,'(/)')
-         call Subsection_Header("Spectral Vanishing Viscosity (SVV)")
 
-         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Dissipation type: "
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","SVV dissipation type: "
          select case (this % diss_type)
             case (PHYSICAL_DISS)   ; write(STD_OUT,'(A)') 'Physical'
             case (GUERMOND_DISS)   ; write(STD_OUT,'(A)') 'Guermond'
          end select
 
-         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","SVV filter type: "
          select case (this % filterType)
             case (LPASS_FILTER) ; write(STD_OUT,'(A)') 'low-pass'
             case (HPASS_FILTER) ; write(STD_OUT,'(A)') 'high-pass'
          end select
 
-         write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter shape: "
+         write(STD_OUT,'(30X,A,A30)',advance="no") "->","SVV filter shape: "
          select case (this % filterShape)
             case (POW_FILTER)   ; write(STD_OUT,'(A)') 'power kernel'
             case (EXP_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
@@ -326,9 +324,9 @@ module SpectralVanishingViscosity
          end select
 
          if (this % automatic_Psvv) then
-            write(STD_OUT,'(30X,A,A30,A)') "->","Filter cutoff: ", "automatic"
+            write(STD_OUT,'(30X,A,A30,A)') "->","SVV filter cutoff: ", "automatic"
          else
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Filter cutoff: ", this % Psvv
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","SVV filter cutoff: ", this % Psvv
          end if
 
       end subroutine SVV_Describe

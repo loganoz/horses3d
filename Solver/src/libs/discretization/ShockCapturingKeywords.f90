@@ -17,10 +17,10 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_SENSOR_KEY     = "shock sensor"
    character(len=*), parameter :: SC_METHOD_KEY     = "shock method"
    character(len=*), parameter :: SC_VISC_FLUX_KEY  = "shock viscous flux"
+   character(len=*), parameter :: SC_UPDATE_KEY     = "shock update viscosity"
    character(len=*), parameter :: SC_MU_KEY         = "shock mu"
    character(len=*), parameter :: SC_ALPHA_KEY      = "shock alpha"
    character(len=*), parameter :: SC_ALPHA_MU_KEY   = "shock alpha/mu"
-   character(len=*), parameter :: SC_UPDATE_KEY     = "shock update viscosity"
    character(len=*), parameter :: SC_VARIABLE_KEY   = "sensor variable"
    character(len=*), parameter :: SC_LOW_THRES_KEY  = "sensor lower limit"
    character(len=*), parameter :: SC_HIGH_THRES_KEY = "sensor higher limit"
@@ -30,6 +30,8 @@ module ShockCapturingKeywords
 !  Sensor types
 !  ------------
    character(len=*), parameter :: SC_MODAL_VAL = "modal"
+
+   integer, parameter :: SC_MODAL_ID = 1
 !
 !  Shock-capturing methods
 !  -----------------------

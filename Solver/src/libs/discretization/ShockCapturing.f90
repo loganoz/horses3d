@@ -35,14 +35,15 @@ module ShockCapturing
          logical :: isActive = .false.  !< On/Off flag
 
          logical          :: hasHyperbolicTerm   !< .true. if the inviscid term is computed
-         integer, private :: updateMethod        !< method to compute the viscosity
+         integer, private :: updateMethod        !< Method to compute the viscosity
+         integer, private :: flux_type           !< Art. visc. formulation
 
          real(RP), private :: s1     !< Threshold one (from 0 to 1)
          real(RP), private :: s2     !< Threshold two (from 0 to 1), higher that s1
 
          real(RP), private :: mu               !< First viscosity parameter
          real(RP), private :: alpha            !< Second viscosity parameter
-         real(RP), private :: mu2alpha         !<  ratio alpha/mu
+         real(RP), private :: mu2alpha         !< Ratio alpha/mu
          logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
 
          type(SCsensor_t),     private :: sensor  !< Sensor to find discontinuities
@@ -52,7 +53,7 @@ module ShockCapturing
          procedure :: Detect     => SC_detect
          procedure :: Viscosity  => SC_viscosity
          !procedure :: Hyperbolic => SC_hyperbolic
-         !procedure :: Describe   => SC_describe
+         procedure :: Describe   => SC_describe
 
          final :: SC_destruct
 
@@ -63,8 +64,7 @@ module ShockCapturing
       procedure(Viscous_Int), nopass, pointer, private :: ViscousFlux => null()
    contains
       procedure :: Viscosity  => ArtVisc_viscosity
-      !procedure :: Hyperbolic => Artvisc_hyperbolic
-      !procedure :: Describe   => ArtVisc_describe
+      procedure :: Describe   => ArtVisc_describe
       final :: ArtVisc_destruct
    end type ArtViscDriver_t
 
@@ -73,7 +73,6 @@ module ShockCapturing
       real(RP), private :: sqrt_alpha
    contains
       !procedure :: Viscosity  => SVV_viscosity
-      !procedure :: Hyperbolic => SVV_hyperbolic
       !procedure :: Describe   => SVV_describe
    end type SVVdriver_t
 
@@ -201,6 +200,7 @@ module ShockCapturing
 
       if (controlVariables % containsKey(SC_ALPHA_KEY)) then
          self % alpha = controlVariables % doublePrecisionValueForKey(SC_ALPHA_KEY)
+         self % alphaIsPropToMu = .false.
 
       else if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
          self % alphaIsPropToMu = .true.
@@ -209,6 +209,7 @@ module ShockCapturing
 
       else
          self % alpha = 0.0_RP
+         self % alphaIsPropToMu = .false.
 
       end if
 !
@@ -294,7 +295,7 @@ module ShockCapturing
          end select
 
       class default
-         !call InitializeSVV(SVV, controlVariables, mesh)  ! CHECK
+         call InitializeSVV(SVV, controlVariables, mesh)
 
       end select
 !
@@ -374,6 +375,10 @@ module ShockCapturing
 !     Construct sensor
 !     ----------------
       call Set_SCsensor(self % sensor, sType, sVarID, lowThr, highThr)
+!
+!     Describe
+!     --------
+      call self % Describe
 
    end subroutine Initialize_ShockCapturing
 !
@@ -402,41 +407,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-!     Base class and destructors
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   pure subroutine SC_detect(self, mesh, e)
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(SCdriver_t), intent(in)    :: self
-      type(HexMesh),     intent(inout) :: mesh
-      type(Element),     intent(inout) :: e
-
-
-      e % storage % sensor = self % sensor % Compute(mesh, e)
-
-   end subroutine SC_detect
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine SC_viscosity(self, mesh, e, SCflux)
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(SCdriver_t), intent(in)    :: self
-      type(HexMesh),     intent(inout) :: mesh
-      type(Element),     intent(inout) :: e
-      real(RP),          intent(out)   :: SCflux(:,:,:,:,:)
-
-
-      SCflux = 0.0_RP
-
-   end subroutine SC_viscosity
+!     Destructors
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -471,15 +442,125 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-!     Methods
+!     Base class
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure subroutine SC_detect(self, mesh, e)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCdriver_t), intent(in)    :: self
+      type(HexMesh),     intent(inout) :: mesh
+      type(Element),     intent(inout) :: e
+
+
+      e % storage % sensor = self % sensor % Compute(mesh, e)
+
+   end subroutine SC_detect
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SC_viscosity(self, mesh, e, SCflux)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCdriver_t), intent(in)    :: self
+      type(HexMesh),     intent(inout) :: mesh
+      type(Element),     intent(inout) :: e
+      real(RP),          intent(out)   :: &
+         SCflux(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), 1:NDIM)
+
+
+      SCflux = 0.0_RP
+
+   end subroutine SC_viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SC_describe(self)
+!
+!     -------
+!     Modules
+!     -------
+      use MPI_Process_Info, only: MPI_Process
+      use Headers,          only: Subsection_Header
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCdriver_t), intent(in) :: self
+
+
+      if (.not. MPI_Process % isRoot) return
+
+      write(STD_OUT, "(/)")
+      call Subsection_Header("Shock-Capturing")
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
+      select case (self % sensor % sens_type)
+         case (SC_MODAL_ID); write(STD_OUT,"(A)") SC_MODAL_VAL
+      end select
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
+      select case (self % sensor % sVar)
+         case (SC_RHO_ID);  write(STD_OUT,"(A)") SC_RHO_VAL
+         case (SC_RHOU_ID); write(STD_OUT,"(A)") SC_RHOU_VAL
+         case (SC_RHOV_ID); write(STD_OUT,"(A)") SC_RHOV_VAL
+         case (SC_RHOW_ID); write(STD_OUT,"(A)") SC_RHOW_VAL
+         case (SC_RHOE_ID); write(STD_OUT,"(A)") SC_RHOE_VAL
+         case (SC_U_ID);    write(STD_OUT,"(A)") SC_U_VAL
+         case (SC_V_ID);    write(STD_OUT,"(A)") SC_V_VAL
+         case (SC_W_ID);    write(STD_OUT,"(A)") SC_W_VAL
+         case (SC_P_ID);    write(STD_OUT,"(A)") SC_P_VAL
+         case (SC_RHOP_ID); write(STD_OUT,"(A)") SC_RHOP_VAL
+      end select
+
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", self % sensor % low
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Threshold s1: ",  self % s1
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Threshold s2: ",  self % s2
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", self % sensor % high
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Viscosity update method: "
+      select case (self % updateMethod)
+         case (SC_CONST_ID);  write(STD_OUT,"(A)") SC_CONST_VAL
+         case (SC_SENSOR_ID); write(STD_OUT,"(A)") SC_SENSOR_VAL
+         case (SC_SMAG_ID);   write(STD_OUT,"(A)") SC_SMAG_VAL
+      end select
+
+      if (self % updateMethod == SC_SMAG_ID) then
+         write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", Smagorinsky % CS
+      else
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity: ", self % mu
+      end if
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Alpha viscosity: "
+      if (self % alphaIsPropToMu) then
+         write(STD_OUT,"(F7.3,A)") self % mu2alpha, "x mu"
+      else
+         write(STD_OUT,"(F10.6)") self % alpha
+      end if
+
+      ! The rest goes in the derived clases
+
+   end subroutine SC_describe
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+!     Simple artificial viscosity
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
    subroutine ArtVisc_viscosity(self, mesh, e, SCflux)
 !
 !     --------------------------------------------------------------------------
-!     TODO: Introduce alpha viscosity, which probably means reimplementing all
-!           the viscous fluxes in `Physics_NS`...
+!     TODO: Introduce alpha viscosity, which probably means reimplementing here
+!           all the viscous fluxes of `Physics_NS`...
 !     --------------------------------------------------------------------------
 !
 !     ---------
@@ -489,7 +570,8 @@ module ShockCapturing
       class(ArtViscDriver_t), intent(in)    :: self
       type(HexMesh),          intent(inout) :: mesh
       type(Element),          intent(inout) :: e
-      real(RP),               intent(out)   :: SCflux(:,:,:,:,:)
+      real(RP),               intent(out)   :: &
+         SCflux(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), 1:NDIM)
 !
 !     ---------------
 !     Local variables
@@ -572,5 +654,33 @@ module ShockCapturing
                                                       mesh % faces(fIDs(6))  )
 
    end subroutine ArtVisc_viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ArtVisc_describe(self)
+!
+!     -------
+!     Modules
+!     -------
+      use MPI_Process_Info, only: MPI_Process
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(ArtViscDriver_t), intent(in) :: self
+
+
+      if (.not. MPI_Process % isRoot) return
+
+      call self % SCdriver_t % Describe()
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Dissipation type: "
+      select case (self % fluxType)
+         case (SC_PHYS_ID); write(STD_OUT,"(A)") SC_PHYS_VAL
+         case (SC_GP_ID);   write(STD_OUT,"(A)") SC_GP_VAL
+      end select
+
+   end subroutine ArtVisc_describe
 
 end module ShockCapturing

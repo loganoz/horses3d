@@ -16,6 +16,8 @@ module SCsensorClass
 
    type :: SCsensor_t
 
+         integer  :: sens_type  ! ID of the sensor type
+
          real(RP) :: s0    !< Centre of the sensor scaling
          real(RP) :: ds    !< Bandwith of the sensor scaling
          real(RP) :: ds2   !< Half-bandwidth
@@ -72,7 +74,8 @@ module SCsensorClass
 !     -----------
       select case (sensorType)
       case (SC_MODAL_VAL)
-         sensor % Compute => Sensor_modal
+         sensor % sens_type = SC_MODAL_ID
+         sensor % Compute  => Sensor_modal
 
       end select
 !
@@ -114,6 +117,7 @@ module SCsensorClass
 !     Modules
 !     -------
       use NodalStorageClass, only: NodalStorage
+      use Utilities,         only: AlmostEqual
 !
 !     ---------
 !     Interface
@@ -160,9 +164,21 @@ module SCsensorClass
          sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
       end do       ; end do       ; end do       ; end do
 !
+!     Check almost zero values
+!     ------------------------
+      do k = 0, Nz ; do j = 0, Ny ; do i = 0 , Nx
+         if (AlmostEqual(sVarMod(i,j,k), 0.0_RP)) then
+            sVarMod(i,j,k) = abs(sVarMod(i,j,k))
+         end if
+      end do       ; end do       ; end do
+!
 !     Ratio of higher modes vs all the modes
 !     --------------------------------------
-      val = log10( abs(sVarMod(Nx,Ny,Nz)) / norm2(sVarMod) )
+      if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
+         val = -999.0_RP  ! This is likely to be big enough ;)
+      else
+         val = log10( abs(sVarMod(Nx,Ny,Nz)) / norm2(sVarMod) )
+      end if
 
       end associate
 
