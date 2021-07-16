@@ -1159,6 +1159,36 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Function getGlobalFaceIDs
 
+   Subroutine SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces)
+
+!     *******************************************************************
+!        This subroutine reads the faces of the surface from a text file
+!     *******************************************************************
+!
+      use MPI_Process_Info
+      implicit none
+
+      class(HexMesh), intent(in)                          :: mesh
+      character(len=LINE_LENGTH), intent(in)              :: surface_file
+      integer, dimension(:), allocatable, intent(out)     :: facesIDs
+      integer, intent(out)                                :: numberOfFaces
+
+      ! local variables
+      integer                                             :: fd       ! File unit
+      integer                                             :: i        ! counter
+      integer, dimension(:), allocatable                  :: geIDs
+         
+      open(newunit = fd, file = surface_file )   
+      read(fd,*) numberOfFaces
+
+      allocate( facesIDs(numberOfFaces), geIDs(numberOfFaces) )
+
+      do i = 1, numberOfFaces
+      read(fd,*) geIDs(i), facesIDs(i)
+      end do
+      close(unit=fd)
+
+   End Subroutine SourceLoadSurfaceFromFile
 
 !/////////////////////////////////////////////////////////////////////////
 !           AUXILIAR PROCEDURES --------------------------

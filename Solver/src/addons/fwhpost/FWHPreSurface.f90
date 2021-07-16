@@ -124,30 +124,6 @@ Module FWHPreSurface  !
         discElemID = getRealArrayFromString(discElems)
         numberOfBCElemDisc = size(discElemID)
 
-            ! numberOfBCZones = 2
-            ! allocate(zoneMarkers(numberOfBCZones))
-
-
-        ! radii = 0.41_RP
-        ! lengthAspect = 0.5_RP
-        ! geometry = "circle"
-        ! ! geometry = "ellipse"
-        ! ! ratio = 1.0_RP
-        ! fileName = "MESH/circle.surfaceZone"
-        ! meshName = "MESH/mm.h5"
-        ! connectedAtBoundary = .false.
-        ! zoneMarkers = (/1, 4/)
-        ! NelemDir = 8
-        ! includeElems = .false.
-        ! numberOfBCElemNew = 0
-        ! allocate(newElemID(numberOfBCElemNew))
-        ! ! newElemID = (/125, 132/)
-        ! newElemID = 0
-        ! discElemID = .false.
-        ! numberOfBCElemDisc = 0
-        ! allocate(discElemID(numberOfBCElemDisc))
-        ! discElemID = 0
-
 !       get the apropiated functions
 !       ----------------------------
 
@@ -172,12 +148,10 @@ Module FWHPreSurface  !
             k = 1
             do i = 1, numberOfBCElemNew
                 call getAdditionalElements(mesh, newElemID(i), NelemDir, zoneMarkers, numberOfBCZones, nE, nNe)
-                print *, "nE: ", nE
                 allNewElemID(k:k+nNe-1) = nE
                 k = k + nNe
                 safedeallocate(nE)
             end do
-            print *, "allNewElemID: ", allNewElemID
         end if 
 
 !       get the forced elements to exclude
@@ -188,20 +162,16 @@ Module FWHPreSurface  !
             k = 1
             do i = 1, numberOfBCElemDisc
                 call getAdditionalElements(mesh, discElemID(i), NelemDir, zoneMarkers, numberOfBCZones, nE, nNe)
-                print *, "nE: ", nE
                 allExcludedElemID(k:k+nNe-1) = nE
                 k = k + nNe
                 safedeallocate(nE)
             end do
-            print *, "allExcludedElemID: ", allExcludedElemID
         end if 
 
 !       get the elements ids
 !       --------------------
-print *, "getID"
         call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, globaleIDs)
         numberOfElements = size(eIDs)
-        print *, "eIDs: ", eIDs
 
 
 !       get the firs faces ids and construct the faces

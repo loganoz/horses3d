@@ -88,7 +88,7 @@ Module FWHGeneralClass  !
         integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         logical, save                                       :: FirstCall = .TRUE.
-        character(len=LINE_LENGTH)                          :: zones_str, zones_str2
+        character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file
         character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
 
 !        look if the accoustic analogy calculations are set to be computed
@@ -110,18 +110,14 @@ Module FWHGeneralClass  !
         allocate( self % t(OB_BUFFER_SIZE), self % iter(OB_BUFFER_SIZE) )
 
 !       Get the general configuration of control file
-!       --------------------------
+!       First get the surface as a zone
+!       -------------------------------
         self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
-        ! if (self % isSolid) then
-            if (controlVariables % containsKey("accoustic solid surface")) then
-                zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
-                zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
-                call toLower(zones_str)
-                call toLower(zones_str2)
-            else 
-                stop "Accoustic surface for integration is not defined"
-            end if
-
+        if (controlVariables % containsKey("accoustic solid surface")) then
+            zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
+            zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
+            call toLower(zones_str)
+            call toLower(zones_str2)
             call getCharArrayFromString(zones_str, LINE_LENGTH, zones_temp)
             if (zones_str2 .ne. "") then
                 no_of_zones = size(zones_temp)
@@ -139,7 +135,7 @@ Module FWHGeneralClass  !
                 safedeallocate(zones_temp)
             end if 
 
-    !       Get the zones ids fo the mesh and for each the number of faces
+    !       Get the zones ids from the mesh and for each, the number of faces
     !       --------------------------
             allocate( faces_per_zone(no_of_zones), zonesIDs(no_of_zones) )
             do i = 1, no_of_zones
@@ -162,14 +158,20 @@ Module FWHGeneralClass  !
                 no_of_face_i = no_of_face_i + faces_per_zone(i) 
             end do 
 
-        ! else
-        !     stop "Permeable surfaces not implemented yet"
-        ! end if
+            deallocate(zonesIDs, zones_names) 
+        elseif (controlVariables % containsKey("accoustic surface file")) then
+            allocate( faces_per_zone(1) )
+            surface_file = controlVariables % stringValueForKey("accoustic surface file", LINE_LENGTH)
+            call SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1))
+        else
+            stop "Accoustic surface for integration is not defined"
+        end if
 
         ! create self sourceZone using facesIDs
 !       --------------------------
         allocate( self % sourceZone )
         call self % sourceZone % CreateFicticious(-1, "FW_Surface", SUM(faces_per_zone), facesIDs)
+        deallocate(facesIDs, faces_per_zone)
 
 !       Gather the total number of faces
 !       ------------------
