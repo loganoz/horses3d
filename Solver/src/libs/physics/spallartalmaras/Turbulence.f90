@@ -137,28 +137,13 @@ module SpallartAlmarasTurbulence
          call self % Compute_chi(theta, kinematic_viscocity, chi)
          call self % Compute_fv1(chi, fv1)
 
-         associate (    x => xvec(1), &
-                        y => xvec(2), &
-                        z => xvec(3), &
-                        gamma => thermodynamics % gamma, &
-                        Mach => dimensionless % Mach, &
-                        Re => dimensionless % Re, &
-                        Pr => dimensionless % Pr, &
-                        Prt => dimensionless % Prt, &
-                        gammaM2 => dimensionless % gammaM2, &
-                        tRatio => S_div_Tref_Sutherland )
-
-
          if (theta .GE. 0.0_RP ) then
             mu_t = rho * theta * fv1 
             eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma
-
         else
              mu_t = 0.0_RP       
              eta  = dimensionless % mu * mu * (1.0_RP + chi + (POW2(chi))/2.0_RP) / self % sigma
         endif 
-
-            end associate
 
       end subroutine SA_ComputeViscosity
 
@@ -209,8 +194,7 @@ module SpallartAlmarasTurbulence
          call self % Compute_AdditionalSourceTermKappa(rho, Theta_x, Theta_y, Theta_z, source_Kappa)   
 
          S_SA(1:5) = 0.0_RP
-         S_SA(NCONS) = production_G - destruciton_Y + source_Kappa  
-
+         S_SA(6)   = production_G - destruciton_Y + source_Kappa 
 
      end subroutine SA_Compute_SourceTerms
 
@@ -255,7 +239,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(inout)         :: production_G
          !-----------------------------------------------------------
          real(kind=RP)                        :: fv2
-         real(kind=RP)                        :: sbar
+         real(kind=RP)                        :: sbar, somega 
          real(kind=RP)                        :: gn, PRODUCTION1, PRODUCTION2, PRODUCTION3
 
       if (theta .GE. 0.0_RP ) then
@@ -266,7 +250,6 @@ module SpallartAlmarasTurbulence
             production_G = self % cb1 * self % stilda * rho * theta
 
          else
-            
             gn = Compute_gn(self, chi)
             production_G = self % cb1 * vort * rho * theta * gn 
 

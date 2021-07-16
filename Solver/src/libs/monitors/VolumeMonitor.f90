@@ -120,6 +120,10 @@ module VolumeMonitorClass
          case ("momentum") ; self % num_of_vars = 3
          case ("source")   ; self % num_of_vars = NCONS
          case ("particles source")   ; self % num_of_vars = NCONS
+         case ("l2rho")
+         case ("l2rhou")
+         case ("l2rhoe")
+
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -147,12 +151,10 @@ module VolumeMonitorClass
          end select
 #elif defined(SPALARTALMARAS)
          select case ( trim ( self % variable ) )
+         case ("l2rho")
          case ("l2rhou")
-         case ("linfrhou")
          case ("l2rhoe")
-         case ("linfrhoe")
          case ("l2rhotheta")
-         case ("linfrhotheta")
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -323,25 +325,28 @@ module VolumeMonitorClass
 
          case ("particles source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
-#elif defined(SPALARTALMARAS)
-        
+         
+         case ("l2rho")
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHO)  / ScalarVolumeIntegral(mesh, VOLUME))
+
          case ("l2rhou")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOU)
-        
-         case ("linfrhou")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOU)
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOU)/ ScalarVolumeIntegral(mesh, VOLUME))
+
+         case ("l2rhoe")
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOE) / ScalarVolumeIntegral(mesh, VOLUME))
+
+#elif defined(SPALARTALMARAS)
+         case ("l2rho")
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHO)  / ScalarVolumeIntegral(mesh, VOLUME))
+           
+         case ("l2rhou")
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOU)/ ScalarVolumeIntegral(mesh, VOLUME))
         
          case ("l2rhoe")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOE)
-        
-         case ("linfrhoe")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOE)
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOE) / ScalarVolumeIntegral(mesh, VOLUME))
         
          case ("l2rhotheta")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, L2RHOTHETA)
-        
-         case ("linfrhotheta")
-            self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, LINFRHOTHETA)
+            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOTHETA) / ScalarVolumeIntegral(mesh, VOLUME))
 
 #elif defined(INCNS)
          case ("mass")

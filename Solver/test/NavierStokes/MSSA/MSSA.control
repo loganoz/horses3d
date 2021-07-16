@@ -1,22 +1,21 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NSSA"
-mesh file name        = "MESH/Cube.mesh"
-polynomial order      = 4
-!2D mesh offset direction = z
+mesh file name        = "MESH/Cube4_mesh.h5"
+polynomial order      = 3
 Number of time steps  = 100000
-Output Interval       = 1 for explicit
+Output Interval       = 20 for explicit
 autosave mode         = "iteration"
 autosave interval     = 100000
 
-Convergence tolerance = 1.d-10
+Convergence tolerance = 1.d-12
 !dt                    = 1.00d0 ! for implicit
-dt                     = 0.0001d0 ! for explicit
-!cfl                    = 0.1d0
-!dcfl                   = 0.1d0
-mach number            = 0.5d0
-Reynolds number        = 1000.0d0
+!dt                     = 0.00001d0 ! for explicit
+cfl                    = 0.01d0
+dcfl                   = 0.01d0
+mach number            = 0.4d0
+Reynolds number        = 200000.0d0
 
-discretization nodes  = Gauss
+discretization nodes  = Gauss-Lobatto
 solution file name    = "RESULTS/MMS.hsol"
 save gradients with solution = .true.
 restart               = .false.
@@ -31,7 +30,9 @@ simulation type       = steady-state
 time integration      = fas
 multigrid levels      = 3
 delta n = 1
- 
+!mg sweeps exact = [4,4,4]
+!mg preconditioner = LTS ! for all runge kutta explicit
+
 
 !-------------------------------------------------------------
 ! Inflow
@@ -69,25 +70,26 @@ delta n = 1
   type = user-defined
   ! type = Outflow 
   !type = Inflow 
-#end
-
+!#end
 
 #define volume monitor 1 
-   Name = L2rhou
-   Variable = L2rhou
+   Name = L2rhoM8P5
+   Variable = L2rho
 #end
 
 #define volume monitor 2 
-   Name = L2rhoe
-   Variable = L2rhoe
+   Name = L2rhouM8P5
+   Variable = L2rhou
 #end
 
 #define volume monitor 3 
-   Name = L2rhotheta
-   Variable = L2rhotheta
+   Name = L2rhoeM8P5
+   Variable = L2rhoe
 #end
 
-
-
+#define volume monitor 4 
+   Name = L2rhothetaM8P5
+   Variable = L2rhotheta
+#end
 
 !-------------------------------------------------------------

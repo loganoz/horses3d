@@ -121,12 +121,12 @@
                               y => mesh % elements(eID) % geom % x(2,i,j,k), &
                               z => mesh % elements(eID) % geom % x(3,i,j,k) )
                    
-                   rho = 2.0 + 0.1*Sin(Pi*(x + y + z)) 
-                   u = 1.0 + 0.1*Sin(Pi*(x + y + z))
-                   v = -4.0 + 2.0*(2.0 + 0.1*Sin(Pi*(x + y + z)))
-                   w = 5.0 - 3.0*(2.0 + 0.1*Sin(Pi*(x + y + z)))
-                   en = 2.0 + 0.1*Sin(Pi*(x + y + z))
-                   thetaeddy = Cos(Pi*(x + y + z)) 
+                   rho = 2.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   u = 1.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   v = -4.0_RP + 2.0_RP*(2.0_RP + 0.1_RP*Sin(Pi*(x + y + z)))
+                   w = 5.0_RP - 3.0_RP*(2.0_RP + 0.1_RP*Sin(Pi*(x + y + z)))
+                   en = 2.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   thetaeddy = Cos(Pi*(x + y + z))
 
                    Q(1) = rho
                    Q(2) = rho * u
@@ -172,12 +172,12 @@
                            y => xvec(2), &
                            z => xvec(3))
 
-                   rho = 2.0 + 0.1*Sin(Pi*(x + y + z)) 
-                   u = 1.0 + 0.1*Sin(Pi*(x + y + z))
-                   v = -4.0 + 2.0*(2.0 + 0.1*Sin(Pi*(x + y + z)))
-                   w = 5.0 - 3.0*(2.0 + 0.1*Sin(Pi*(x + y + z)))
-                   en = 2.0 + 0.1*Sin(Pi*(x + y + z))
-                   thetaeddy = Cos(Pi*(x + y + z)) 
+                   rho = 2.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   u = 1.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   v = -4.0_RP + 2.0_RP*(2.0_RP + 0.1_RP*Sin(Pi*(x + y + z)))
+                   w = 5.0_RP - 3.0_RP*(2.0_RP + 0.1_RP*Sin(Pi*(x + y + z)))
+                   en = 2.0_RP + 0.1_RP*Sin(Pi*(x + y + z))
+                   thetaeddy = Cos(Pi*(x + y + z))
 
                    Q(1) = rho
                    Q(2) = rho * u

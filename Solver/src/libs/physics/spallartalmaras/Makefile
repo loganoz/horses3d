@@ -6,7 +6,7 @@ FFLAGS?=-cpp
 AR?=ar
 ARFLAGS?=cr
 RANLIB?=ranlib
-MOD_FLAG?=-J
+MOD_FLAG?=-J 
 
 LIBOBJS = ./build/FluidData_NSSA.o \
 		  ./build/PhysicsStorage_NSSA.o \
@@ -30,7 +30,7 @@ LIB = physicsnssa
 ./build/%.o: %.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -real-size 64 -DNAVIERSTOKES -DSPALARTALMARAS $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) -c $< -o $@ $(MOD_FLAG) ./include
 
 lib$(LIB).a: header mkdirs $(LIBOBJS)
 	@echo

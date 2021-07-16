@@ -1144,7 +1144,7 @@ module RiemannSolvers_NSSA
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------
          flux = flux - lambdaStab * stab
-!
+!        
 !        ************************************************
 !        Return momentum equations to the cartesian frame
 !        ************************************************
@@ -1636,9 +1636,7 @@ module RiemannSolvers_NSSA
          flux(IRHOV) = 0.5_RP * ( QLeft(IRHOU) * vL + QRight(IRHOU) * vR )
          flux(IRHOW) = 0.5_RP * ( QLeft(IRHOU) * wL + QRight(IRHOU) * wR )
          flux(IRHOE) = 0.5_RP * ( uL*(QLeft(IRHOE) + pL) + uR*(QRight(IRHOE) + pR) )
-#if defined (SPALARTALMARAS)
          flux(IRHOTHETA) = 0.5_RP * (uL * QLeft(IRHOTHETA) + uR * QRight(IRHOTHETA)  )
-#endif
       end subroutine StandardAverage
 
       subroutine DucrosAverage(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 

@@ -463,7 +463,6 @@ module EllipticBR1
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
-         print *, "I am not supposed to be here "
 
 #elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
          mu    = e % storage % mu_ns(1,:,:,:)

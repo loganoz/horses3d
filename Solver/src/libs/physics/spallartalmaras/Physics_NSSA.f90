@@ -100,9 +100,9 @@
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
 
-         F(IRHOTHETA, IX ) = Q(IRHOTHETA) * u
-         F(IRHOTHETA, IY ) = Q(IRHOTHETA) * v
-         F(IRHOTHETA, IZ ) = Q(IRHOTHETA) * w
+         F(IRHOTHETA, IX ) =  Q(IRHOTHETA) * u
+         F(IRHOTHETA, IY ) =  Q(IRHOTHETA) * v
+         F(IRHOTHETA, IZ ) =  Q(IRHOTHETA) * w
       
          end associate
 

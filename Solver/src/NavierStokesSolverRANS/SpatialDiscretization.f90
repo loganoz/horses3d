@@ -566,12 +566,14 @@ module SpatialDiscretization
          end if
 #endif
 
-!$omp do schedule(runtime)  
-               do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
-                     e % storage % Qdot =  e % storage % Qdot +  e % storage % S_SA
-                  end associate
-               enddo
+!$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, mesh % no_of_elements
+            associate ( e => mesh % elements(eID) )
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(6,i,j,k) =   e % storage % QDot(6,i,j,k) + e % storage % S_SA(6,i,j,k)
+            end do                  ; end do                ; end do
+            end associate
+         end do
 !$omp end do
 !
 !        *****************************************************************************************************************************
@@ -718,7 +720,7 @@ module SpatialDiscretization
                   call GetNSKinematicViscosity(mu_dim, f % storage(side) % Q(IRHO,i,j), kinematic_viscocity )
                   call SAmodel % ComputeViscosity(f % storage(side) % Q(IRHOTHETA,i,j), kinematic_viscocity, &
                                                   f % storage(side) % Q(IRHO,i,j), mu_dim, &
-                                                  mu_t, f % storage(side) % mu_NS(3,i,j), f % geom % x(:,i,j))
+                                                  mu_t, f % storage(side) % mu_NS(3,i,j))
                   
                   f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_t * dimensionless % mu
                   f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_t * dimensionless % mu * dimensionless % mut_to_kappa_SA
