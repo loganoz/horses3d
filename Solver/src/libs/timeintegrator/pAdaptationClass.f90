@@ -4,9 +4,9 @@
 !   @File:    pAdaptationClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Fri Jul 16 20:04:09 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
 !
 !//////////////////////////////////////////////////////
 !
@@ -1409,7 +1409,7 @@ readloop:do
             case(SMOOTH_RK3)
                call TakeRK3Step( sem % mesh, sem % particles, t, this % dt, ComputeTimeDerivative )
             case(SMOOTH_FAS)
-               call FASSolver % solve(0, t, this % dt, ComputeTimeDerivative)
+               call FASSolver % solve(0, t, ComputeTimeDerivative)
          end select
          
          maxResidual = ComputeMaxResiduals(sem % mesh)

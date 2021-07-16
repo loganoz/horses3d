@@ -4,9 +4,9 @@
 !   @File:    TimeIntegrator.f90
 !   @Author:  David kopriva
 !   @Created: 2007-10-23 09:25:32 -0400 
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Fri Jul 16 20:04:09 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
 !
 !   Module for general time integration.
 !
@@ -262,7 +262,7 @@ print*, "Method selected: RK5"
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
+         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
          
          call FMGSolver % destruct
       end if
@@ -450,9 +450,9 @@ print*, "Method selected: RK5"
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
-               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+               call FASSolver % solve(k, t, ComputeTimeDerivative)
             elseif (self % integratorType .eq. TIME_ACCURATE) then
-               call FASSolver % TakePseudoStep(k, t, dt, ComputeTimeDerivative)
+               call FASSolver % TakePseudoStep(k, t, ComputeTimeDerivative)
             else
                error stop "FAS SOLVER :: Wrong simulation type."
             end if

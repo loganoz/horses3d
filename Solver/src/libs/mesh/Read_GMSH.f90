@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Wed Jun 30 19:51:31 2021
+!   @Last revision date: Fri Jul 16 20:04:06 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf71d5946f0141ad224c190f9edd8d057ee308de
+!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
 !
 !//////////////////////////////////////////////////////
 !
@@ -335,6 +335,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps = 0
          msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
@@ -352,6 +353,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps = 0
          msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
@@ -489,12 +491,14 @@ MODULE Read_GMSH
          allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
+         jj = 1
          do j=1, msh_no_surfaces
             tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
-               tmpi_vec1(1 + 4*(k-1) : 4*k) = msh_surfaces(j) % bps 
+               tmpi_vec1(jj : jj + count(msh_surfaces(j) % bps /= 0) - 1) = msh_surfaces(j) % bps(1 : count(msh_surfaces(j) % bps /= 0))
+               jj = jj + 1 + count(msh_surfaces(j) % bps /= 0)
             end if ! tmpi
          end do ! msh_no_surfaces
          call unique(tmpi_vec1,msh_bcs(i) % curve_tags)
@@ -973,6 +977,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps = 0
          msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
@@ -990,6 +995,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps = 0
          msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
@@ -1129,12 +1135,14 @@ MODULE Read_GMSH
          allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
+         jj = 1
          do j=1, msh_no_surfaces
             tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
-               tmpi_vec1(1 + 4*(k-1) : 4*k) = msh_surfaces(j) % bps 
+               tmpi_vec1(jj : jj + count(msh_surfaces(j) % bps /= 0) - 1) = msh_surfaces(j) % bps(1 : count(msh_surfaces(j) % bps /= 0))
+               jj = jj + 1 + count(msh_surfaces(j) % bps /= 0)
             end if ! tmpi
          end do ! msh_no_surfaces
          call unique(tmpi_vec1,msh_bcs(i) % curve_tags)
@@ -1701,6 +1709,7 @@ MODULE Read_GMSH
          msh_curves(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_curves(i)%no_ptags .gt. 0) msh_curves(i)%ptags(1:msh_curves(i)%no_ptags) = int(msh_entity_vec(9:8+msh_curves(i)%no_ptags)) 
          msh_curves(i)%no_bps = msh_entity_vec(9+msh_curves(i)%no_ptags)
+         msh_curves(i)%bps = 0
          msh_curves(i)%bps(1:msh_curves(i)%no_bps) = msh_entity_vec(10+msh_curves(i)%no_ptags:9+msh_curves(i)%no_ptags+msh_curves(i)%no_bps)
          msh_curves(i)%bps = abs(msh_curves(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_curves
@@ -1718,6 +1727,7 @@ MODULE Read_GMSH
          msh_surfaces(i)%no_ptags = int(msh_entity_vec(8))
          if (msh_surfaces(i)%no_ptags .gt. 0) msh_surfaces(i)%ptags(1:msh_surfaces(i)%no_ptags) = int(msh_entity_vec(9:8+msh_surfaces(i)%no_ptags)) 
          msh_surfaces(i)%no_bps = msh_entity_vec(9+msh_surfaces(i)%no_ptags)
+         msh_surfaces(i)%bps = 0
          msh_surfaces(i)%bps(1:msh_surfaces(i)%no_bps) = msh_entity_vec(10+msh_surfaces(i)%no_ptags:9+msh_surfaces(i)%no_ptags+msh_surfaces(i)%no_bps)
          msh_surfaces(i)%bps = abs(msh_surfaces(i)%bps) ! why is this negative in the .msh no clue
       end do ! msh_no_surfaces
@@ -1855,12 +1865,14 @@ MODULE Read_GMSH
          allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
+         jj = 1
          do j=1, msh_no_surfaces
             tmpi = my_findloc(msh_surfaces(j)%ptags, msh_bcs(i)%tag, 1)
             if (tmpi .gt. 0) then
                k = k + 1
                msh_bcs(i) % surface_tags(k) = msh_surfaces(j) % tag
-               tmpi_vec1(1 + 4*(k-1) : 4*k) = msh_surfaces(j) % bps 
+               tmpi_vec1(jj : jj + count(msh_surfaces(j) % bps /= 0) - 1) = msh_surfaces(j) % bps(1 : count(msh_surfaces(j) % bps /= 0))
+               jj = jj + 1 + count(msh_surfaces(j) % bps /= 0)
             end if ! tmpi
          end do ! msh_no_surfaces
          call unique(tmpi_vec1,msh_bcs(i) % curve_tags)
