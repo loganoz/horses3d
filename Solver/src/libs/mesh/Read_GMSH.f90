@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Tue Mar 23 14:29:46 2021
+!   @Last revision date: Wed Jun 30 19:51:31 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 019a66a4b01d8e4a423131293a0debc0792e0e5c
+!   @Last revision commit: cf71d5946f0141ad224c190f9edd8d057ee308de
 !
 !//////////////////////////////////////////////////////
 !
@@ -124,7 +124,7 @@ MODULE Read_GMSH
       integer             :: no_ptags
       integer             :: ptags(16)=0
       integer             :: no_bps
-      integer             :: bps(4)
+      integer             :: bps(64)
    end type MSH_surf_t
 
    type :: MSH_vol_t
@@ -135,7 +135,7 @@ MODULE Read_GMSH
       integer             :: no_ptags
       integer             :: ptags(16)=0
       integer             :: no_bps
-      integer             :: bps(6)
+      integer             :: bps(64)
    end type MSH_vol_t
 
    type :: MSH_node_block_t
@@ -486,7 +486,7 @@ MODULE Read_GMSH
          end do ! msh_no_surfaces
 
          ! assign surfaces and curves
-         allocate(tmpi_vec1(4 * msh_bcs(i) % no_of_surfaces))
+         allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
@@ -1126,7 +1126,7 @@ MODULE Read_GMSH
          end do ! msh_no_surfaces
 
          ! assign surfaces and curves
-         allocate(tmpi_vec1(4 * msh_bcs(i) % no_of_surfaces))
+         allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
@@ -1852,7 +1852,7 @@ MODULE Read_GMSH
          end do ! msh_no_surfaces
 
          ! assign surfaces and curves
-         allocate(tmpi_vec1(4 * msh_bcs(i) % no_of_surfaces))
+         allocate(tmpi_vec1(256))
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          do j=1, msh_no_surfaces
