@@ -42,6 +42,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
        real(kind=RP)                                       :: tDelay
        integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
+       real(kind=RP)                                       :: normalCorrection
        real(kind=RP), dimension(:,:),   allocatable        :: Pacc ! temporal solution of accoustic pressure for each pair
        real(kind=RP), dimension(:),     allocatable        :: tInterp ! time array for interpolation
 
@@ -95,7 +96,7 @@ Module  FWHObseverClass  !
 !           OBSERVER CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate, totalNumberOfFaces)
+   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate, totalNumberOfFaces, eIDs)
 
 !        *****************************************************************************
 !              This subroutine initializes the observer similar to a monitor. The following
@@ -114,6 +115,7 @@ Module  FWHObseverClass  !
        integer, intent(in)                                  :: ID, totalNumberOfFaces
        character(len=*), intent(in)                         :: solution_file
        logical, intent(in)                                  :: FirstCall, interpolate
+       integer, dimension(:), intent(in)                    :: eIDs
 
        ! local variables
        character(len=STR_LEN_OBSERVER)  :: in_label
@@ -122,6 +124,7 @@ Module  FWHObseverClass  !
        character(len=STR_LEN_OBSERVER)  :: coordinates
        integer                          :: fID
        integer                          :: MeshFaceID, zoneFaceID
+       integer                          :: elementSide
 !
 !      Get observer ID
 !      --------------
@@ -152,10 +155,29 @@ Module  FWHObseverClass  !
 !     ------------------
       allocate( self % sourcePair(self % numberOfFaces) )
 !     Loop the zone to get faces
+      elementSide = 0
       do zoneFaceID = 1, self % numberOfFaces
 !         Face global ID
           MeshFaceID = sourceZone % faces(zoneFaceID)
-          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall)
+          ! boundary case
+          if (all(eIDs .eq. 0)) then
+              elementSide = 1
+          else
+              ! get from side that correspond to the element in file
+
+              ! if findloc is suport by the compiler use this line and comment the if
+              ! elementSide = findloc(mesh%faces(MeshFaceID)%elementIDs, eIDs(zoneFaceID), dim=1)
+              if ( mesh%faces(MeshFaceID)%elementIDs(1) .eq. eIDs(zoneFaceID) ) then
+                  elementSide = 1
+              elseif ( mesh%faces(MeshFaceID)%elementIDs(2) .eq. eIDs(zoneFaceID) ) then
+                  elementSide = 2
+              end if 
+              if (elementSide .eq. 0) then
+                  print *, "Error: the element ", eIDs(zoneFaceID), " does not correspond to the face ", mesh % faces(MeshFaceID) % ID
+                  call exit(99)
+              end if 
+          end if 
+          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall, elementSide)
       end do  
 
 !     Allocate variables for interpolation
@@ -542,7 +564,7 @@ use VariableConversion, only: Pressure, PressureDot
 !           OBSERVER SOURCE PAIR CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine  ObserverSourcePairConstruct(self, x, f, fID, FirstCall)
+   Subroutine  ObserverSourcePairConstruct(self, x, f, fID, FirstCall, elementSide)
 
        ! use fluiddata
        use FWHDefinitions, only: rho0, P0, c0, U0, M0, fwGamma2
@@ -551,7 +573,7 @@ use VariableConversion, only: Pressure, PressureDot
        class(ObserverSourcePairClass)                      :: self
        real(kind=RP), dimension(NDIM), intent(in)          :: x       ! observer position
        type(face), intent(in)                              :: f    ! source
-       integer                                             :: fID
+       integer, intent(in)                                 :: fID, elementSide
        logical, intent(in)                                 :: FirstCall
 
        ! local variables
@@ -564,6 +586,13 @@ use VariableConversion, only: Pressure, PressureDot
        Nx = f % Nf(1)
        Ny = f % Nf(2)
 
+   select case (elementSide)
+   case (1)
+       self % normalCorrection = 1.0_RP
+   case (2)
+       self % normalCorrection = -1.0_RP
+   end select
+
        allocate( self % r(0:Nx,0:Ny), self % re(0:Nx,0:Ny), self % reStar(0:Nx,0:Ny) )
        allocate( self % rVect(NDIM,0:Nx,0:Ny), self % reUnitVect(NDIM,0:Nx,0:Ny) ,self % reStarUnitVect(NDIM,0:Nx,0:Ny) )
 
@@ -571,6 +600,7 @@ use VariableConversion, only: Pressure, PressureDot
        ! source position, for each node of the face
        associate (y => f % geom % x)
            do j= 0, Ny; do i = 0,Nx
+           ! if ( .eq. 374 ) then
                ! store geometrical accoustic relations for each node
                self % rVect(:,i,j) = x(:) - y(:,i,j)
                self % r(i,j) = norm2(self % rVect(:,i,j))
@@ -770,7 +800,7 @@ use VariableConversion, only: Pressure, PressureDot
     !
                 do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)
 
-                   n = f % geom % normal(:,i,j)
+                   n = f % geom % normal(:,i,j) * self % normalCorrection
                    call calculateFWHVariables(Q(:,i,j), Qdot(:,i,j), isSolid, Qi, QiDot, Lij, LijDot)
 
                    ! loading term integrals
@@ -1159,7 +1189,7 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Function getGlobalFaceIDs
 
-   Subroutine SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces)
+   Subroutine SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces, eIDs)
 
 !     *******************************************************************
 !        This subroutine reads the faces of the surface from a text file
@@ -1170,7 +1200,7 @@ use VariableConversion, only: Pressure, PressureDot
 
       class(HexMesh), intent(in)                          :: mesh
       character(len=LINE_LENGTH), intent(in)              :: surface_file
-      integer, dimension(:), allocatable, intent(out)     :: facesIDs
+      integer, dimension(:), allocatable, intent(out)     :: facesIDs, eIDs
       integer, intent(out)                                :: numberOfFaces
 
       ! local variables
@@ -1187,6 +1217,7 @@ use VariableConversion, only: Pressure, PressureDot
       read(fd,*) geIDs(i), facesIDs(i)
       end do
       close(unit=fd)
+      eIDs = geIDs
 
    End Subroutine SourceLoadSurfaceFromFile
 

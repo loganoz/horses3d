@@ -86,7 +86,7 @@ Module FWHGeneralClass  !
         character(len=STR_LEN_OBSERVER)                     :: line
         character(len=STR_LEN_OBSERVER)                     :: solution_file
         integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
-        integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
+        integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs, eIDs
         logical, save                                       :: FirstCall = .TRUE.
         character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file
         character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
@@ -150,19 +150,20 @@ Module FWHGeneralClass  !
 
     !       Get the faces Ids of all zones as a single array
     !       --------------------------
-            allocate( facesIDs(SUM(faces_per_zone)) )
+            allocate( facesIDs(SUM(faces_per_zone)) , eIDs(SUM(faces_per_zone)))
             no_of_face_i = 1
             do i = 1, no_of_zones
                 if (zonesIDs(i) .eq. -1) cycle
                 facesIDs(no_of_face_i:no_of_face_i+faces_per_zone(i)-1) = mesh % zones(zonesIDs(i)) % faces
                 no_of_face_i = no_of_face_i + faces_per_zone(i) 
             end do 
+            eIDs = 0
 
             deallocate(zonesIDs, zones_names) 
         elseif (controlVariables % containsKey("accoustic surface file")) then
             allocate( faces_per_zone(1) )
             surface_file = controlVariables % stringValueForKey("accoustic surface file", LINE_LENGTH)
-            call SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1))
+            call SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), eIDs)
         else
             stop "Accoustic surface for integration is not defined"
         end if
@@ -221,7 +222,7 @@ Module FWHGeneralClass  !
         call getMeanStreamValues()
         allocate( self % observers(self % numberOfObservers) )
         do i = 1, self % numberOfObservers
-            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % interpolate, no_of_faces)
+            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, self % interpolate, no_of_faces, eIDs)
         end do 
 
         self % bufferLine = 0
