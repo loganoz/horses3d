@@ -318,13 +318,13 @@ module ShockCapturing
       if (controlVariables % containsKey(SC_THRES_1_KEY)) then
          self % s1 = controlVariables % doublePrecisionValueForKey(SC_THRES_1_KEY)
       else
-         self % s1 = (highThr-lowThr) / 3.0_RP
+         self % s1 = lowThr + (highThr-lowThr) / 3.0_RP
       end if
 
       if (controlVariables % containsKey(SC_THRES_2_KEY)) then
          self % s2 = controlVariables % doublePrecisionValueForKey(SC_THRES_2_KEY)
       else
-         self % s2 = (highThr-lowThr) * 2.0_RP / 3.0_RP
+         self % s2 = lowThr + (highThr-lowThr) * 2.0_RP / 3.0_RP
       end if
 !
 !     Sensor type

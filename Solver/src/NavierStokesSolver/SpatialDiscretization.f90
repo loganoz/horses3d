@@ -1184,8 +1184,8 @@ module SpatialDiscretization
                                flux   = inv_flux)
 
             fStar(:,i,j) = (inv_flux - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
-         end do   
-      end do   
+         end do
+      end do
 
       Sidearray = (/1, HMESH_NONE/)
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)

@@ -285,10 +285,6 @@ module SpectralVanishingViscosity
                stop
             end select
          end select
-!
-!        Display the configuration
-!        -------------------------
-         call self % Describe
 
       end subroutine InitializeSVV
 !
