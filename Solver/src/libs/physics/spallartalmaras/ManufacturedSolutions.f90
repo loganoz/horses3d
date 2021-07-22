@@ -17291,836 +17291,836 @@ subroutine ManufacturedSolutionSourceNSSA(xvec, dwall, time, S)
 
 
 
-           S(6) =           -0.1*exp(x)*Cos(Pi*(x + y + z))**2 -   &
-       (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Cos(Pi*(x + y + z))**2 +   &
-       (1.*cwone*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))**2)/  &
-        (dwall**2*Re) - (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-        (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-          1.5707963267948966*Sin(Pi*(x + y + z))) -   &
-       0.1*exp(z)*Cos(Pi*(x + y + z))*  &
-        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))) +   &
-       (27.625022718649113*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*  &
-          (-Sin(Pi*(x + y + z)))**2.)/Re -   &
-       0.1*exp(y)*Cos(Pi*(x + y + z))*Sin(Pi*(x + y + z)) +   &
-       2*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Cos(Pi*(x + y + z))*  &
-        Sin(Pi*(x + y + z)) + (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*  &
-        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z)) +   &
-       (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))**2 -   &
-       (14.137166941154069*(-1. + gamma)**2*gammaM2**2*(1. + tRatio)*  &
-          (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-            1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**2.))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-              (1.5 + 1./(-1. + gamma) -   &
-                0.5*(Cos(Pi*(x + y + z))**2 +   &
-                   (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                   Sin(Pi*(x + y + z))**2)))**2) +   &
-       (7.0685834705770345*(-1. + gamma)**2*gammaM2**2*(1. + tRatio)*  &
-          (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-            1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**2.))/  &
-        (Re*Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          (tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) +   &
-       (14.137166941154069*(-1. + gamma)*gammaM2*(1. + tRatio)*  &
-          (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-            1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**2.))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) -   &
-       (44.41321980490211*(-1. + gamma)*gammaM2*(1. + tRatio)*Cos(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**2.))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) -   &
-       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               ((-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2)))**1.5) +   &
-            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                  0.5*(Cos(Pi*(x + y + z))**2 +   &
-                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                     Sin(Pi*(x + y + z))**2))**2*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.1*exp(x)*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) -   &
-            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**1.*  &
-             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  ((-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2)))**1.5) +   &
-               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                     0.5*(Cos(Pi*(x + y + z))**2 +   &
-                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                        Sin(Pi*(x + y + z))**2))**2*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.1*exp(x)*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) -   &
-               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) -   &
-       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               ((-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2)))**1.5) +   &
-            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                  0.5*(Cos(Pi*(x + y + z))**2 +   &
-                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                     Sin(Pi*(x + y + z))**2))**2*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.1*exp(y)*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) -   &
-            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**1.*  &
-             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  ((-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2)))**1.5) +   &
-               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                     0.5*(Cos(Pi*(x + y + z))**2 +   &
-                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                        Sin(Pi*(x + y + z))**2))**2*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.1*exp(y)*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) -   &
-               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) -   &
-       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))*  &
-          (1.5 + 1./(-1. + gamma) -   &
-            0.5*(Cos(Pi*(x + y + z))**2 +   &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-               Sin(Pi*(x + y + z))**2))*  &
-          Sqrt((-1. + gamma)*gammaM2*  &
-            (1.5 + 1./(-1. + gamma) -   &
-              0.5*(Cos(Pi*(x + y + z))**2 +   &
-                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                 Sin(Pi*(x + y + z))**2)))*  &
-          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               ((-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2)))**1.5) +   &
-            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-               (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                 1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                  0.5*(Cos(Pi*(x + y + z))**2 +   &
-                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                     Sin(Pi*(x + y + z))**2))**2*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            (0.1*exp(z)*Cos(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) -   &
-            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-               (tRatio + (-1. + gamma)*gammaM2*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))))/  &
-             ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-               (1.5 + 1./(-1. + gamma) -   &
-                 0.5*(Cos(Pi*(x + y + z))**2 +   &
-                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                    Sin(Pi*(x + y + z))**2))*  &
-               Sqrt((-1. + gamma)*gammaM2*  &
-                 (1.5 + 1./(-1. + gamma) -   &
-                   0.5*(Cos(Pi*(x + y + z))**2 +   &
-                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                      Sin(Pi*(x + y + z))**2)))) +   &
-            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**1.*  &
-             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  ((-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2)))**1.5) +   &
-               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (1.5707963267948966*Cos(Pi*(x + y + z)) -   &
-                    1.5707963267948966*Sin(Pi*(x + y + z)))*  &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                     0.5*(Cos(Pi*(x + y + z))**2 +   &
-                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                        Sin(Pi*(x + y + z))**2))**2*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) +   &
-               (0.1*exp(z)*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))) -   &
-               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))))/  &
-        (Re*(tRatio + (-1. + gamma)*gammaM2*  &
-             (1.5 + 1./(-1. + gamma) -   &
-               0.5*(Cos(Pi*(x + y + z))**2 +   &
-                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                  Sin(Pi*(x + y + z))**2)))) +   &
-       0.1355*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-        Sqrt((1.5707963267948966*Cos(Pi*(x + y + z)) - Pi*Cos(Pi*(x + y + z)) -   &
-             1.5707963267948966*Sin(Pi*(x + y + z)))**2. +   &
-          (-1.5707963267948966*Cos(Pi*(x + y + z)) +   &
-             1.5707963267948966*Sin(Pi*(x + y + z)) - Pi*Sin(Pi*(x + y + z)))**2. +   &
-          (Pi*Cos(Pi*(x + y + z)) + Pi*Sin(Pi*(x + y + z)))**2.)*  &
-        (1. - (1000.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                         Sin(Pi*(x + y + z))**2)))))**2.)/  &
-           (1. + (((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))*  &
-                  (tRatio + (-1. + gamma)*gammaM2*  &
-                     (1.5 + 1./(-1. + gamma) -   &
-                       0.5*(Cos(Pi*(x + y + z))**2 +   &
-                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                          Sin(Pi*(x + y + z))**2))))/  &
-                ((-1. + gamma)*gammaM2*(1. + tRatio)*  &
-                  (1.5 + 1./(-1. + gamma) -   &
-                    0.5*(Cos(Pi*(x + y + z))**2 +   &
-                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
-                       Sin(Pi*(x + y + z))**2))*  &
-                  Sqrt((-1. + gamma)*gammaM2*  &
-                    (1.5 + 1./(-1. + gamma) -   &
-                      0.5*(Cos(Pi*(x + y + z))**2 +   &
-                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +   &
+           S(6) =                 -0.1*exp(x)*Cos(Pi*(x + y + z))**2 -  &
+       (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Cos(Pi*(x + y + z))**2 +  &
+       (1.*cwone*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))**2)/ &
+        (dwall**2*Re) - (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+        (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+          1.5707963267948966*Sin(Pi*(x + y + z))) -  &
+       0.1*exp(z)*Cos(Pi*(x + y + z))* &
+        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))) +  &
+       (27.625022718649113*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))* &
+          (-Sin(Pi*(x + y + z)))**2.)/Re -  &
+       0.1*exp(y)*Cos(Pi*(x + y + z))*Sin(Pi*(x + y + z)) +  &
+       2*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Cos(Pi*(x + y + z))* &
+        Sin(Pi*(x + y + z)) + (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi* &
+        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z)) +  &
+       (1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))**2 -  &
+       (14.137166941154069*(-1. + gamma)**2*gammaM2**2*(1. + tRatio)* &
+          (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+            1.5707963267948966*Sin(Pi*(x + y + z)))* &
+          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**2.))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+              (1.5 + 1./(-1. + gamma) -  &
+                0.5*(Cos(Pi*(x + y + z))**2 +  &
+                   (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                   Sin(Pi*(x + y + z))**2)))**2) +  &
+       (7.0685834705770345*(-1. + gamma)**2*gammaM2**2*(1. + tRatio)* &
+          (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+            1.5707963267948966*Sin(Pi*(x + y + z)))* &
+          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**2.))/ &
+        (Re*Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          (tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) +  &
+       (14.137166941154069*(-1. + gamma)*gammaM2*(1. + tRatio)* &
+          (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+            1.5707963267948966*Sin(Pi*(x + y + z)))* &
+          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))*Sin(Pi*(x + y + z))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**2.))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) -  &
+       (44.41321980490211*(-1. + gamma)*gammaM2*(1. + tRatio)*Cos(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          (1. + ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            0.5*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**2.))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) -  &
+       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               ((-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2)))**1.5) +  &
+            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                  0.5*(Cos(Pi*(x + y + z))**2 +  &
+                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                     Sin(Pi*(x + y + z))**2))**2* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.1*exp(x)*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) -  &
+            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**1.* &
+             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  ((-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2)))**1.5) +  &
+               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                     0.5*(Cos(Pi*(x + y + z))**2 +  &
+                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                        Sin(Pi*(x + y + z))**2))**2* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.1*exp(x)*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) -  &
+               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) -  &
+       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               ((-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2)))**1.5) +  &
+            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                  0.5*(Cos(Pi*(x + y + z))**2 +  &
+                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                     Sin(Pi*(x + y + z))**2))**2* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.1*exp(y)*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) -  &
+            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**1.* &
+             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  ((-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2)))**1.5) +  &
+               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                     0.5*(Cos(Pi*(x + y + z))**2 +  &
+                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                        Sin(Pi*(x + y + z))**2))**2* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.1*exp(y)*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) -  &
+               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) -  &
+       (4.71238898038469*(-1. + gamma)*gammaM2*(1. + tRatio)*Sin(Pi*(x + y + z))* &
+          (1.5 + 1./(-1. + gamma) -  &
+            0.5*(Cos(Pi*(x + y + z))**2 +  &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+               Sin(Pi*(x + y + z))**2))* &
+          Sqrt((-1. + gamma)*gammaM2* &
+            (1.5 + 1./(-1. + gamma) -  &
+              0.5*(Cos(Pi*(x + y + z))**2 +  &
+                 (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                 Sin(Pi*(x + y + z))**2)))* &
+          ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               ((-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2)))**1.5) +  &
+            (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+               (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                 1.5707963267948966*Sin(Pi*(x + y + z)))* &
+               (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                  0.5*(Cos(Pi*(x + y + z))**2 +  &
+                     (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                     Sin(Pi*(x + y + z))**2))**2* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            (0.1*exp(z)*Cos(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) -  &
+            ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+               (tRatio + (-1. + gamma)*gammaM2* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))))/ &
+             ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+               (1.5 + 1./(-1. + gamma) -  &
+                 0.5*(Cos(Pi*(x + y + z))**2 +  &
+                    (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                    Sin(Pi*(x + y + z))**2))* &
+               Sqrt((-1. + gamma)*gammaM2* &
+                 (1.5 + 1./(-1. + gamma) -  &
+                   0.5*(Cos(Pi*(x + y + z))**2 +  &
+                      (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                      Sin(Pi*(x + y + z))**2)))) +  &
+            1.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**1.* &
+             ((-1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.5*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((1. + tRatio)*(1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  ((-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2)))**1.5) +  &
+               (1.*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (1.5707963267948966*Cos(Pi*(x + y + z)) -  &
+                    1.5707963267948966*Sin(Pi*(x + y + z)))* &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                     0.5*(Cos(Pi*(x + y + z))**2 +  &
+                        (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                        Sin(Pi*(x + y + z))**2))**2* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) +  &
+               (0.1*exp(z)*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))) -  &
+               ((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Pi*Sin(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))))/ &
+        (Re*(tRatio + (-1. + gamma)*gammaM2* &
+             (1.5 + 1./(-1. + gamma) -  &
+               0.5*(Cos(Pi*(x + y + z))**2 +  &
+                  (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                  Sin(Pi*(x + y + z))**2)))) +  &
+       0.1355*(1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+        Sqrt((1.5707963267948966*Cos(Pi*(x + y + z)) - Pi*Cos(Pi*(x + y + z)) -  &
+             1.5707963267948966*Sin(Pi*(x + y + z)))**2. +  &
+          (-1.5707963267948966*Cos(Pi*(x + y + z)) +  &
+             1.5707963267948966*Sin(Pi*(x + y + z)) - Pi*Sin(Pi*(x + y + z)))**2. +  &
+          (Pi*Cos(Pi*(x + y + z)) + Pi*Sin(Pi*(x + y + z)))**2.)* &
+        (1. - (1000.*(((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                         Sin(Pi*(x + y + z))**2)))))**2.)/ &
+           (1. + (((1. + 0.1*exp(x) + 0.1*exp(y) + 0.1*exp(z))*Cos(Pi*(x + y + z))* &
+                  (tRatio + (-1. + gamma)*gammaM2* &
+                     (1.5 + 1./(-1. + gamma) -  &
+                       0.5*(Cos(Pi*(x + y + z))**2 +  &
+                          (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                          Sin(Pi*(x + y + z))**2))))/ &
+                ((-1. + gamma)*gammaM2*(1. + tRatio)* &
+                  (1.5 + 1./(-1. + gamma) -  &
+                    0.5*(Cos(Pi*(x + y + z))**2 +  &
+                       (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
+                       Sin(Pi*(x + y + z))**2))* &
+                  Sqrt((-1. + gamma)*gammaM2* &
+                    (1.5 + 1./(-1. + gamma) -  &
+                      0.5*(Cos(Pi*(x + y + z))**2 +  &
+                         (0.5*Cos(Pi*(x + y + z)) + 0.5*Sin(Pi*(x + y + z)))**2 +  &
                          Sin(Pi*(x + y + z))**2)))))**2.))                                                   
 
         end if 

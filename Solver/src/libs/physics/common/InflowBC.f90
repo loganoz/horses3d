@@ -303,7 +303,7 @@ module InflowBCClass
 
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Max. Vel. Fluct. in % (from TurbIntensity): ', (self % TurbIntensity)
 #if defined(SPALARTALMARAS)
-         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Initial Value of Turbulence variable: ', (self % eddy_theta)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Initial Value of Turbulence variable: ', (3.0_RP * self % eddy_theta)
 #endif
 #elif defined(INCNS)
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v

@@ -28,7 +28,7 @@ module NumericalJacobian
    use StorageClass           , only: SolutionStorage_t
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
-   use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
+   use BoundaryConditions     , only: NS_BC, C_BC, MU_BC, NSSA_BC
    implicit none
    
    private
@@ -150,7 +150,7 @@ contains
 print*, "4 NEIGHBORS!!!!!!!!!!!!"
 #elif defined(NAVIERSTOKES)
          if (flowIsNavierStokes) then
-            num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
+            num_of_neighbor_levels = 2 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
          else
             num_of_neighbor_levels = 1
          end if

@@ -294,11 +294,11 @@ module NoSlipWallBCClass
 
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
 #if defined (SPALARTALMARAS)
-		 Q(IRHOTHETA) = - Q(IRHOTHETA)
+         Q(IRHOTHETA) = - Q(IRHOTHETA)
 #endif
 !        This boundary condition should be
 !        ---------------------------------
-!        Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
+!         Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
 
       end subroutine NoSlipWallBC_FlowState
 
@@ -331,6 +331,9 @@ module NoSlipWallBCClass
          Q_aux(IRHO) = Q(IRHO)
          Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
          Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
+#if defined (SPALARTALMARAS)
+         Q_aux(IRHOTHETA) = 0.0_RP
+#endif
 
          U1 = U(IRHO)
 
@@ -372,7 +375,9 @@ module NoSlipWallBCClass
 
          flux(IRHO)  = 0.0_RP
          flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-
+!#if defined(SPALARTALMARAS)
+!         flux(IRHOTHETA) = 0.0_RP
+!#endif
       end subroutine NoSlipWallBC_FlowNeumann
 #endif
 !

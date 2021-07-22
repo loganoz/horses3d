@@ -187,9 +187,13 @@ module SpallartAlmarasTurbulence
          call self % Compute_chi(theta, kinematic_viscocity, chi)
          call self % Compute_fv1(chi, fv1)
 
-         call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall, xvec,  production_G)
-
-         call self % Compute_DestructionTerm(theta, rho, dwall, destruciton_Y)
+         if (dwall .GT. 0.0_RP) then 
+            call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall, xvec,  production_G)
+            call self % Compute_DestructionTerm(theta, rho, dwall, destruciton_Y)
+         else
+            production_G = 0.0_RP
+            destruciton_Y = 0.0_RP
+         endif
 
          call self % Compute_AdditionalSourceTermKappa(rho, Theta_x, Theta_y, Theta_z, source_Kappa)   
 

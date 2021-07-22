@@ -194,7 +194,7 @@ module Solution2PltModule
             e % U_yout(1:,0:,0:,0:) => e % U_y
             e % U_zout(1:,0:,0:,0:) => e % U_z
          end if
-         
+         e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -357,6 +357,8 @@ module Solution2PltModule
                e % U_yout(1:,0:,0:,0:) => e % U_y
                e % U_zout(1:,0:,0:,0:) => e % U_z
             end if
+
+            e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
    
          else
             allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -370,6 +372,9 @@ module Solution2PltModule
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
             end if
+
+            allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_NS, e % Nout, e % mu_NSout, Tx, Ty, Tz)            
 
          end if
 
@@ -578,6 +583,15 @@ module Solution2PltModule
             end do            ; end do            ; end do
 
          end if
+         
+         allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % mu_NSout = 0.0_RP
+
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % mu_NSout(:,i,j,k) = e % mu_NSout(:,i,j,k) + e % mu_NS(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do  
 
       end subroutine ProjectStorageHomogeneousPoints
 !

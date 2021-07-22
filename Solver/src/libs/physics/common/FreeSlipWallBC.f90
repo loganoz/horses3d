@@ -319,7 +319,7 @@ module FreeSlipWallBCClass
          Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW)
          Q_aux(IRHOE) = Q(IRHOE) + self % wallType*(Q(IRHO)*self % eWall+0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO)-Q(IRHOE))
 #if defined(SPALARTALMARAS)
-		   Q_aux(IRHOTHETA)= 0.0_RP
+		   Q_aux(IRHOTHETA)= Q(IRHOTHETA)
 #endif
          call GetGradients(NCONS, NGRAD, Q_aux, U)
 
@@ -353,9 +353,9 @@ module FreeSlipWallBCClass
          heatFlux = flux(IRHOE) - viscWork
          flux(IRHO:IRHOW) = 0.0_RP
          flux(IRHOE) = self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-!#if defined(SPALARTALMARAS)
-!         flux(IRHOTHETA) = 0.0_RP
-!#endif
+#if defined(SPALARTALMARAS)
+         flux(IRHOTHETA) = 0.0_RP
+#endif
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
 !

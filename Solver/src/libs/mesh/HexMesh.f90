@@ -2637,6 +2637,7 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+         refs(RE_REF)    = dimensionless  % Re
 #elif defined(INCNS)
          refs(GAMMA_REF) = 0.0_RP
          refs(RGAS_REF)  = 0.0_RP
@@ -2644,12 +2645,18 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
+         refs(RE_REF)    = 0.0_RP
 #else
          refs = 0.0_RP
 #endif
 !
 !        Create new file
 !        ---------------
+#if defined(SPALARTALMARAS)
+            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
+                                       self % nodeType, self % no_of_allElements, iter, time, refs)
+            padding = NCONS + 3*NGRAD + 1
+#else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2659,7 +2666,9 @@ slavecoord:             DO l = 1, 4
                                        self % no_of_allElements, iter, time, refs)
             padding = NCONS
          end if
+#endif
 !
+
 !        Write arrays
 !        ------------
          fID = putSolutionFileInWriteDataMode(trim(name))
@@ -2668,7 +2677,8 @@ slavecoord:             DO l = 1, 4
 
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 #ifdef FLOW
-            Q(1:NCONS,:,:,:)  = e % storage % Q
+            Q(1:NCONS,:,:,:)  = e % storage % Q(1:NCONS,:,:,:)
+
 #ifdef MULTIPHASE
             Q(IMP,:,:,:) = e % storage % Q(IMP,:,:,:) + e % storage % Q(IMC,:,:,:)*e % storage % mu(1,:,:,:)
 #endif
@@ -2711,6 +2721,16 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+#if defined(SPALARTALMARAS)
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+               Q(1,:,:,:) = e % storage % mu_ns(1,:,:,:)
+
+               write(fid) Q
+
+               deallocate(Q)
+#endif            
+
             end associate
          end do
          close(fid)
@@ -2744,7 +2764,8 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-!
+         refs(RE_REF)    = dimensionless  % Re
+
 !        Create new file
 !        ---------------
          call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)

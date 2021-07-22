@@ -35,6 +35,7 @@ module Storage
       real(kind=RP), pointer     :: Q_x(:,:,:,:)
       real(kind=RP), pointer     :: Q_y(:,:,:,:)
       real(kind=RP), pointer     :: Q_z(:,:,:,:)
+      real(kind=RP), pointer     :: mu_NS(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
@@ -43,6 +44,7 @@ module Storage
       real(kind=RP), pointer     :: U_xout(:,:,:,:)
       real(kind=RP), pointer     :: U_yout(:,:,:,:)
       real(kind=RP), pointer     :: U_zout(:,:,:,:)
+      real(kind=RP), pointer     :: mu_NSout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
       
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -239,7 +241,7 @@ module Storage
                NGRADVARS = NVARS     ! TODO: Read NCONS and NGRAD from physics!
                select case(NVARS)
                case(1)      ; NGRADVARS = 1
-               case(6)      ; NGRADVARS = 4
+               case(6)      ; NGRADVARS = 3
                case default ; NGRADVARS = 3
                end select
 !   
@@ -281,11 +283,11 @@ module Storage
                         call getVelocityGradients(e % Q(:,i,j,k), e % Q_x(1:5,i,j,k), e % Q_y(1:5,i,j,k), e % Q_z(1:5,i,j,k), &
                                                   e % U_x(1:3,i,j,k), e % U_y(1:3,i,j,k), e % U_z(1:3,i,j,k) )
                      end do               ; end do                ; end do
-                     if (NVARS == 6) then
-                        e % U_x(6,:,:,:) = e % Q_x(6,:,:,:)
-                        e % U_y(6,:,:,:) = e % Q_y(6,:,:,:)
-                        e % U_z(6,:,:,:) = e % Q_z(6,:,:,:)
-                     end if
+                     !if (NVARS == 6) then
+                     !   e % U_x(6,:,:,:) = e % Q_x(6,:,:,:)
+                     !   e % U_y(6,:,:,:) = e % Q_y(6,:,:,:)
+                     !   e % U_z(6,:,:,:) = e % Q_z(6,:,:,:)
+                     !end if
                   else
                      e % U_x = e % Q_x(1:NGRADVARS,:,:,:)
                      e % U_y = e % Q_y(1:NGRADVARS,:,:,:)
@@ -293,6 +295,10 @@ module Storage
                   end if
                   
                end if
+!Read the dynamic viscosity  
+     
+               allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+               read(fid) e % mu_NS
    
                end associate
             end do
@@ -357,6 +363,7 @@ module Storage
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Mach number: ", self % refs(MACH_REF)
+         write(STD_OUT,'(30X,A,A30,F10.1)') "->","Reference Reynolds number: ", self % refs(RE_REF)
 
       end subroutine Mesh_ReadSolution
       
