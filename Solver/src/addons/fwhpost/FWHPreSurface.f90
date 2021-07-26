@@ -72,8 +72,8 @@ Module FWHPreSurface  !
 
         integer, dimension(:), allocatable                  :: allE, allgE, allF
         integer, dimension(:), allocatable                  :: nE, newElemID, allNewElemID, allExcludedElemID, discElemID, secIdsNot
-        integer, dimension(:,:), allocatable                :: oldIds, secIds, realSecIds, oldIdsTemp, secIdsTemp
-        integer                                             :: nNe, NelemDir, numberOfBCElemNew, numberOfBCElemDisc
+        integer, dimension(:,:), allocatable                :: oldIds, secIds, realSecIds, oldIdsTemp, secIdsTemp, bcFaces
+        integer                                             :: nNe, NelemDir, numberOfBCElemNew, numberOfBCElemDisc, numberOfBCFaces
 
 !       Get the solution and mesh file names
 !       ------------------------------------
@@ -175,7 +175,6 @@ Module FWHPreSurface  !
         call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, globaleIDs, useFilter, zoneMarkers)
         numberOfElements = size(eIDs)
 
-
 !       get the firs faces ids and construct the faces
 !       ----------------------------------------------
         allocate(firstFIDs(numberOfElements))
@@ -189,17 +188,17 @@ Module FWHPreSurface  !
 !       ------------------
         allocate(elementsOfFaces(numberOfElements))
         do i = 1, numberOfElements
-            call elementsOfFaces(i) % construct(mesh, eIDs(i), globaleIDs(i), firstFIDs(i), zoneMarkers, numberOfBCZones, connectedAtBoundary)
+            call elementsOfFaces(i) % construct(mesh, eIDs(i), globaleIDs(i), firstFIDs(i), zoneMarkers, numberOfBCZones, .false.)
         end do     
 
 !       update faces connections
 !       ------------------------
-        if (.not. connectedAtBoundary) then
+        ! if (.not. connectedAtBoundary) then
             do i = 1, numberOfElements
                 if (.not. elementsOfFaces(i) % isInBCZone) cycle
                 call firstFaces(i) % setNoConnections(mode=1)
             end do
-        end if 
+        ! end if 
 
 !       get the elements that need second faces
 !       ---------------------------------------
@@ -324,7 +323,7 @@ Module FWHPreSurface  !
 
 !       update faces connections
 !       ------------------------
-        if (.not. connectedAtBoundary) then
+        ! if (.not. connectedAtBoundary) then
             do i = 1, numberOfSecondFaces
                 eID = secondFaces(i) % globaleID
                 eIndex = findloc(globaleIDs, eID, dim=1)
@@ -332,7 +331,7 @@ Module FWHPreSurface  !
                 if (.not. elementsOfFaces(eIndex) % needSecondFace) cycle
                 call secondFaces(i) % setNoConnections(mode=1)
             end do
-        end if 
+        ! end if 
 
         ! set num of con for sec faces at bc
         allocate( allCreatedFaces(numberOfFaces) )
@@ -423,6 +422,17 @@ Module FWHPreSurface  !
         end do
         if (numberOfFaces .ne. numberOfVerifiedFaces) print *, "Warning, not all possible faces have been created. Check results first"
 
+!       get bounday faces if needed
+!       --------------------------------------------
+        if (connectedAtBoundary) then
+            call getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, allExcludedElemID, allNewElemID, zoneMarkers, numberOfBCZones, bcFaces, numberOfBCFaces)
+            allocate(oldIdsTemp(numberOfVerifiedFaces+numberOfBCFaces,3))
+            oldIdsTemp(1:numberOfVerifiedFaces,:) = oldIds
+            oldIdsTemp(numberOfVerifiedFaces+1:,:) = bcFaces
+            call move_alloc(oldIdsTemp,oldIds)
+            numberOfVerifiedFaces = numberOfVerifiedFaces + numberOfBCFaces
+        end if 
+
 !       create final surface and create output files
 !       --------------------------------------------
         allocate(surface)
@@ -451,17 +461,100 @@ Module FWHPreSurface  !
         logical, intent(in)                                     :: useFilter
 
         !local variables
-        real(kind=RP), dimension(:), pointer                    :: x, y, z
-        real(kind=RP), dimension(3,NODES_PER_ELEMENT), target   :: xx
         integer                                                 :: eID, i, j, k
-        integer                                                 :: Nx, Ny, Nz
         integer, dimension(:,:), allocatable                    :: allElements, elementsTemp
         integer                                                 :: nElements, extrudedDirectionIndex, numberOfNeighbours, totalNeighbours
         integer, dimension(:), allocatable                      :: neighboursIndex
         character(len=LINE_LENGTH), dimension(:), allocatable   :: BCNames
 
-        k = 1
+        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, useFilter, toExclude, toInclude, allElements, nElements)
+
+        if (.not. useFilter) then
+            allocate(elementsTemp(nElements,2))
+            elementsTemp = allElements(1:nElements,:)
+            deallocate(allElements)
+            allocate(allElements(nElements,2))
+            k = 0
+            ! index of BC direction in normalAxis
+            elems_loop:do eID = 1, nElements
+                do j = 1, FACES_PER_ELEMENT
+                    associate ( e => mesh % elements(elementsTemp(eID,1)) )
+                        if ( trim(mesh % zones(zoneMarkers(1)) % Name) .eq. trim(e % boundaryName(j)) ) then
+                            extrudedDirectionIndex = abs(normalAxis(j))
+                            exit elems_loop
+                        end if
+                    end associate
+                end do
+            end do elems_loop
+            j = 0
+            allocate(neighboursIndex(FACES_PER_ELEMENT-2))
+            do i = 1, FACES_PER_ELEMENT
+                if (j .gt. FACES_PER_ELEMENT - 2) exit
+                if (abs(normalAxis(i)) .eq. extrudedDirectionIndex) cycle
+                j = j + 1
+                ! neighboursIndex(j) = normalAxis(i)
+                neighboursIndex(j) = i
+            end do
+            allocate(BCNames(size(zoneMarkers) ))
+            do i = 1, size(zoneMarkers)
+                BCNames(i) = trim(mesh % zones(zoneMarkers(i)) % Name)
+            end do
+            BCNames = [BCNames, emptyBCName]
+            do eID = 1, nElements
+                totalNeighbours = FACES_PER_ELEMENT - 2
+                numberOfNeighbours = 0
+                associate ( e => mesh % elements(elementsTemp(eID,1)) )
+                    do j = 1, FACES_PER_ELEMENT - 2
+                        if ( any(elementsTemp(:,2) .eq. e % Connection(neighboursIndex(j)) % globID) ) then
+                            numberOfNeighbours = numberOfNeighbours + 1
+                        end if 
+                        ! remove elements of other BC
+                        if (.not. any(BCNames .eq. trim(e % boundaryName(neighboursIndex(j))))) then
+                            totalNeighbours = totalNeighbours - 1
+                        end if 
+                    end do
+                end associate
+                if (numberOfNeighbours .lt. totalNeighbours) then
+                    k = k + 1
+                    allElements(k,:) = elementsTemp(eID,:)
+                end if 
+            end do 
+            nElements = k
+            deallocate(elementsTemp)
+        end if 
+
+        allocate(geIDArray(nElements), eIDArray(nElements))
+        eIDArray = allElements(1:nElements,1)
+        geIDArray = allElements(1:nElements,2)
+        deallocate(allElements)
+
+    End Subroutine getElements
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Subroutine getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, useFilter, toExclude, toInclude, allElements, nElements)
+
+
+        use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
+        implicit none
+
+        type(HexMesh)                     , intent(in)          :: mesh
+        procedure(elementInGeo)                                 :: isInGeometry
+        real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
+        real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
+        logical, intent(in)                                     :: useFilter
+        integer, dimension(:), intent(in)                       :: toInclude, toExclude
+        integer, dimension(:,:), allocatable, intent(out)       :: allElements
+        integer, intent(out)                                    :: nElements
+
+        !local variables
+        real(kind=RP), dimension(:), pointer                    :: x, y, z
+        real(kind=RP), dimension(3,NODES_PER_ELEMENT), target   :: xx
+        integer                                                 :: eID, k
+        integer                                                 :: Nx, Ny, Nz
+
         allocate(allElements(mesh % no_of_elements,2))
+        k = 1
 
         do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
@@ -470,9 +563,9 @@ Module FWHPreSurface  !
                     cycle
                 elseif (any(toInclude .eq. e % globID)) then
 
-                            allElements(k,1) = e % eID
-                            allElements(k,2) = e % globID
-                            k = k + 1
+                    allElements(k,1) = e % eID
+                    allElements(k,2) = e % globID
+                    k = k + 1
 
                 else find_or_not
 
@@ -508,66 +601,75 @@ Module FWHPreSurface  !
 
         nElements = k - 1
 
-        if (.not. useFilter) then
-            allocate(elementsTemp(nElements,2))
-            elementsTemp = allElements(1:nElements,:)
-            deallocate(allElements)
-            allocate(allElements(nElements,2))
-            k = 0
-            ! index of BC direction in normalAxis
-            elems_loop:do eID = 1, nElements
-                do j = 1, FACES_PER_ELEMENT
-                    associate ( e => mesh % elements(elementsTemp(eID,1)) )
-                        if ( trim(mesh % zones(zoneMarkers(1)) % Name) .eq. trim(e % boundaryName(j)) ) then
-                            extrudedDirectionIndex = abs(normalAxis(j))
-                            exit elems_loop
-                        end if
-                    end associate
-                end do
-            end do elems_loop
-            j = 0
-            allocate(neighboursIndex(FACES_PER_ELEMENT-2))
-            do i = 1, FACES_PER_ELEMENT
-                if (j .gt. FACES_PER_ELEMENT - 2) exit
-                if (abs(normalAxis(i)) .eq. extrudedDirectionIndex) cycle
-                j = j + 1
-                ! neighboursIndex(j) = normalAxis(i)
-                neighboursIndex(j) = i
-            end do
-            allocate(BCNames(size(mesh % zones) ))
-            do i = 1, size(mesh % zones)
-                BCNames(i) = trim(mesh % zones(zoneMarkers(i)) % Name)
-            end do
-            BCNames = [BCNames, emptyBCName]
-            do eID = 1, nElements
-                totalNeighbours = FACES_PER_ELEMENT - 2
-                numberOfNeighbours = 0
-                associate ( e => mesh % elements(elementsTemp(eID,1)) )
-                    do j = 1, FACES_PER_ELEMENT - 2
-                        if ( any(elementsTemp(:,2) .eq. e % Connection(neighboursIndex(j)) % globID) ) then
-                            numberOfNeighbours = numberOfNeighbours + 1
-                        end if 
-                        ! remove elements of other BC
-                        if (.not. any(BCNames .eq. trim(e%boundaryName(neighboursIndex(j))))) then
-                            totalNeighbours = totalNeighbours - 1
-                        end if 
-                    end do
-                end associate
-                if (numberOfNeighbours .lt. totalNeighbours) then
-                    k = k + 1
-                    allElements(k,:) = elementsTemp(eID,:)
-                end if 
-            end do 
-            nElements = k
-            deallocate(elementsTemp)
-        end if 
+    End Subroutine getAllInteriorElements
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Subroutine getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, toExclude, toInclude, zoneMarkers, nBC, BCFaces, nBCFaces)
 
-        allocate(geIDArray(nElements), eIDArray(nElements))
-        eIDArray = allElements(1:nElements,1)
-        geIDArray = allElements(1:nElements,2)
+        use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT
+        implicit none
+
+        type(HexMesh)                     , intent(in)          :: mesh
+        procedure(elementInGeo)                                 :: isInGeometry
+        real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
+        real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
+        integer, dimension(:), intent(in)                       :: toInclude, toExclude
+        integer, dimension(nBC), intent(in)                     :: zoneMarkers
+        integer, intent(in)                                     :: nBC
+        integer, dimension(:,:), allocatable, intent(out)       :: BCFaces
+        integer, intent(out)                                    :: nBCFaces
+
+        !local variables
+        integer                                                 :: eID, i, k, fID
+        integer, dimension(:,:), allocatable                    :: allElements, elementsTemp
+        integer                                                 :: nElements
+        character(len=LINE_LENGTH), dimension(nBC)              :: boundaryNames
+
+        do i = 1, nBC
+            boundaryNames(i) = trim(mesh % zones(zoneMarkers(i)) % Name)
+        end do
+
+        !get all BC elements IDs
+        call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, .false., toExclude, toInclude, allElements, nElements)
+        allocate(elementsTemp(nElements,2))
+        elementsTemp = allElements(1:nElements,:)
         deallocate(allElements)
+        allocate(allElements(nElements,2))
+        k = 0
+        elems_loop:do eID = 1, nElements
+            associate ( e => mesh % elements(elementsTemp(eID,1)) )
+                do i = 1, FACES_PER_ELEMENT
+                    if (any(boundaryNames .eq. e % boundaryName(i))) then
+                        k = k + 1
+                        allElements(k,:) = elementsTemp(eID,:)
+                        cycle elems_loop
+                    end if 
+                end do
+            end associate
+        end do elems_loop
 
-    End Subroutine getElements
+        nBCFaces = k
+        deallocate(elementsTemp)
+        allocate(elementsTemp(nBCFaces,2))
+        elementsTemp = allElements(1:nBCFaces,:)
+        call move_alloc(elementsTemp, allElements)
+        
+        ! get ID of the face that is on the corresponded BC
+        allocate(BCFaces(nBCFaces,3))
+        elem_loop:do eID = 1, nBCFaces
+            do i = 1, FACES_PER_ELEMENT
+                fID = mesh % elements(allElements(eID,1)) % faceIDs(i)
+                if (any(zoneMarkers .eq. mesh % faces(fID) % zone)) then
+                    BCFaces(eID,1:2) = allElements(eID,:)
+                    BCFaces(eID,3) = fID
+                    cycle elem_loop
+                end if 
+            end do
+            print *, "Warning, the element ", allElements(eID,1), "didn't found a BC face"
+        end do elem_loop
+
+    End Subroutine getBCFaces
 !
 !////////////////////////////////////////////////////////////////////////
 !
