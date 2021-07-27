@@ -81,8 +81,9 @@ module ConstructMeshAndSpectralBasis_MOD
 !
 !           Skip to the next element data
 !           -----------------------------
-            pos = pos + 5*SIZEOF_INT + &
-                        padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP 
+            pos = pos + 7*SIZEOF_INT + &
+                        padding*(Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)*SIZEOF_RP + &
+                        SIZEOF_RP
 
             NDOF = NDOF + (Nx(eID)+1)*(Ny(eID)+1)*(Nz(eID)+1)
          end do

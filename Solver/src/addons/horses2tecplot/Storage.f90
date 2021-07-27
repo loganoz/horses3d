@@ -42,6 +42,7 @@ module Storage
       real(kind=RP), pointer     :: Q_x(:,:,:,:)
       real(kind=RP), pointer     :: Q_y(:,:,:,:)
       real(kind=RP), pointer     :: Q_z(:,:,:,:)
+      real(kind=RP)              :: sensor
       real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
@@ -176,6 +177,7 @@ module Storage
 !
          integer       :: no_of_elements
          integer       :: arrayDimensions(4)
+         integer       :: sensorDimension
          integer       :: fid, eID, pos
          integer       :: i,j,k
          integer       :: iter
@@ -303,6 +305,12 @@ module Storage
                   end if
                   
                end if
+!
+!              Read Shock-capturing sensor
+!              ---------------------------
+               read(fID) sensorDimension  ! TODO: move to 'getSolutionScalar' or similar
+               read(fID) sensorDimension
+               read(fID) e % sensor
    
                end associate
             end do

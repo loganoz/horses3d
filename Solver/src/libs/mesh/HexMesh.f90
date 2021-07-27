@@ -2676,8 +2676,11 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
-            
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            pos =   POS_INIT_DATA                    &  ! Initial position
+                  + (e % globID-1)*7*SIZEOF_INT      &  ! Dimensions (nodal + cell)
+                  + padding*e % offsetIO * SIZEOF_RP &  ! Nodal data
+                  + (e % globID-1)*SIZEOF_RP            ! Cell data
+
             call writeArray(fid, Q, position=pos)
 
             deallocate(Q)
@@ -2711,6 +2714,11 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+!
+!           Shock-capturing sensor (TODO: only for NS and when active)
+!           ----------------------------------------------------------
+            call writeArray(fID, e % storage % sensor)
+
             end associate
          end do
          close(fid)
@@ -2988,7 +2996,11 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInReadDataMode(trim(fileName))
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+            pos =   POS_INIT_DATA                    &  ! Initial position
+                  + (e % globID-1)*7*SIZEOF_INT      &  ! Dimensions (nodal + cell)
+                  + padding*e % offsetIO * SIZEOF_RP &  ! Nodal data
+                  + (e % globID-1)*SIZEOF_RP            ! Cell data
+
             read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
@@ -3050,6 +3062,12 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+!
+!           Read sensor
+!           -----------
+            read(fID) array_rank
+            read(fID) Nxp1
+            read(fID) e % storage % sensor
             
            end associate
          end do

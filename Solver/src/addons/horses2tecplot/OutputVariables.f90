@@ -48,7 +48,8 @@ module OutputVariables
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
       enumerator :: Nzeta_V, Nav_V, N_V
-      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V, MPIRANK_V
+      enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
+      enumerator :: SENSOR_V, MPIRANK_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
@@ -82,12 +83,13 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: NzetaKey      = "Nzeta"
    character(len=STR_VAR_LEN), parameter  :: NavKey        = "Nav"
    character(len=STR_VAR_LEN), parameter  :: NKey          = "N"
-   character(len=STR_VAR_LEN), parameter  :: XiKey   = "Ax_Xi"
-   character(len=STR_VAR_LEN), parameter  :: EtaKey  = "Ax_Eta"
-   character(len=STR_VAR_LEN), parameter  :: ZetaKey = "Ax_Zeta"
-   character(len=STR_VAR_LEN), parameter  :: ThreeAxesKey = "ThreeAxes"
-   character(len=STR_VAR_LEN), parameter  :: AxesKey = "Axes"   
-   character(len=STR_VAR_LEN), parameter  :: eIDKey  = "eID"   
+   character(len=STR_VAR_LEN), parameter  :: XiKey         = "Ax_Xi"
+   character(len=STR_VAR_LEN), parameter  :: EtaKey        = "Ax_Eta"
+   character(len=STR_VAR_LEN), parameter  :: ZetaKey       = "Ax_Zeta"
+   character(len=STR_VAR_LEN), parameter  :: ThreeAxesKey  = "ThreeAxes"
+   character(len=STR_VAR_LEN), parameter  :: AxesKey       = "Axes"
+   character(len=STR_VAR_LEN), parameter  :: eIDKey        = "eID"
+   character(len=STR_VAR_LEN), parameter  :: sensorKey     = "SC_sensor"
    character(len=STR_VAR_LEN), parameter  :: mpiRankKey    = "mpi_rank"
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
@@ -108,18 +110,19 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: omegazKey     = "omega_z"
    character(len=STR_VAR_LEN), parameter  :: omegaAbsKey   = "omega_abs"
    character(len=STR_VAR_LEN), parameter  :: QCriterionKey = "Qcrit"
-   
+
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
-                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, mpiRankKey, &
+                                                                            XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
+                                                                            sensorKey, mpiRankKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
                                                                             omegaKey, omegaxKey, omegayKey, omegazKey, &
                                                                             omegaAbsKey, QCriterionKey/)
-                                                               
+
    integer                :: no_of_outputVariables
    integer, allocatable   :: outputVariableNames(:)
    logical                :: outScale
@@ -414,6 +417,9 @@ module OutputVariables
                
                case(eID_V)
                   output(var,:,:,:) = e % eID
+
+               case(SENSOR_V)
+                  output(var,:,:,:) = e % sensor
                   
                case(MPIRANK_V)
                   output(var,:,:,:) = e % mpi_rank
