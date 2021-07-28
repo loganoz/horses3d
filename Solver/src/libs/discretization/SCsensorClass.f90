@@ -1,8 +1,21 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    ShockCapturing.f90
+!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
+!   @Created: Thu Jun 17 2021
+!   @Last revision date: Thu Wed 28 2021
+!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
+!
+!//////////////////////////////////////////////////////
+!
+#include "Includes.h"
 module SCsensorClass
 
-   use SMConstants,  only: RP, PI
-   use ElementClass, only: Element
-   use HexMeshClass, only: HexMesh
+   use SMConstants,       only: RP, PI, STD_OUT
+   use PhysicsStorage_NS, only: grad_vars, GRADVARS_STATE, GRADVARS_ENTROPY
+   use ElementClass,      only: Element
+   use HexMeshClass,      only: HexMesh
 
    use ShockCapturingKeywords
 
@@ -73,9 +86,24 @@ module SCsensorClass
 !     Sensor type
 !     -----------
       select case (sensorType)
+      case (SC_RHOS_VAL)
+         sensor % sens_type = SC_RHOS_ID
+         sensor % Compute  => Sensor_rho
+
       case (SC_MODAL_VAL)
-         sensor % sens_type = SC_MODAL_ID
-         sensor % Compute  => Sensor_modal
+         if (grad_vars == GRADVARS_STATE .or. grad_vars == GRADVARS_ENTROPY) then
+            sensor % sens_type = SC_MODAL_ID
+            sensor % Compute  => Sensor_modal
+         else
+            write(STD_OUT,*) "ERROR. The density sensor only works with state or entropy variables."
+            errorMessage(STD_OUT)
+         end if
+
+      case default
+         write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
+         write(STD_OUT,*) '   * ', SC_RHOS_VAL
+         write(STD_OUT,*) '   * ', SC_MODAL_VAL
+         errorMessage(STD_OUT)
 
       end select
 !
@@ -108,6 +136,65 @@ module SCsensorClass
 !///////////////////////////////////////////////////////////////////////////////
 !
 !     Sensors
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function Sensor_rho(sensor, mesh, e) result(val)
+!
+!     -------
+!     Modules
+!     -------
+      use NodalStorageClass, only: NodalStorage
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), intent(in) :: sensor
+      type(HexMesh),     intent(in) :: mesh
+      type(Element),     intent(in) :: e
+      real(RP)                      :: val
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i
+      integer  :: j
+      integer  :: k
+      real(RP) :: grad_rho2
+
+
+      val = 0.0_RP
+      do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+!
+!        Compute the square of the norm of the density gradient
+!        ------------------------------------------------------
+         if ( grad_vars == GRADVARS_STATE ) then
+            grad_rho2 = POW2(e % storage % U_x(1,i,j,k)) &
+                      + POW2(e % storage % U_y(1,i,j,k)) &
+                      + POW2(e % storage % U_z(1,i,j,k))
+         else if (grad_vars == GRADVARS_ENTROPY) then
+            grad_rho2 = POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_x(:,i,j,k))) &
+                      + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_y(:,i,j,k))) &
+                      + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_z(:,i,j,k)))
+         else
+            val = -999.0_RP
+            return
+         end if
+!
+!        Integral of the squared gradient
+!        --------------------------------
+         val = val + NodalStorage(e % Nxyz(1)) % w(i) &
+                   * NodalStorage(e % Nxyz(2)) % w(j) &
+                   * NodalStorage(e % Nxyz(3)) % w(k) &
+                   * e % geom % jacobian(i,j,k)       *
+                   * grad_rho2
+
+      end do               ; end do               ; end do
+
+      val = sqrt(val)
+
+   end function Sensor_rho
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
