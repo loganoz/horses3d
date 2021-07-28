@@ -43,3 +43,14 @@ Tests/*/*/*.fide
 Tests/Euler/BoxAroundCircle/nslite3BoxAroundCircle
 Tests/Euler/UniformFlow/nslite3DUF
 Tests/TestMeshes/CylinderNSpol3_v2.mesh
+
+# Andres
+*.mu
+*.ch
+*.ns
+*.ins
+bin/
+Makefile*
+utils/modulefile/horses/dev
+Solver/include/
+.local.vimrc
