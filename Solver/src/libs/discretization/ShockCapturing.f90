@@ -27,7 +27,6 @@ module ShockCapturing
    implicit none
 
    public :: Initialize_ShockCapturing
-   public :: Destruct_ShockCapturing
    public :: ShockCapturingDriver
 
    type SCdriver_t
@@ -112,7 +111,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-!     Public variable initializer & destructor
+!     Public variable initializer
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -382,29 +381,6 @@ module ShockCapturing
       call self % Describe
 
    end subroutine Initialize_ShockCapturing
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   pure subroutine Destruct_ShockCapturing(self)
-!
-!     Interface
-!     ---------
-      class(SCdriver_t), intent(inout) :: self
-
-
-      select type (self)
-      type is (ArtViscDriver_t)
-         call ArtVisc_destruct(self)
-
-      type is (SVVdriver_t)
-         call SC_destruct(self % SCdriver_t)
-
-      type is (SSFVdriver_t)
-         call SC_destruct(self % SCdriver_t)
-
-      end select
-
-   end subroutine Destruct_ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

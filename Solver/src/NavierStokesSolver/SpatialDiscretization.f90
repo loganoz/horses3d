@@ -219,8 +219,7 @@ module SpatialDiscretization
 
          if ( allocated(HyperbolicDiscretization) ) deallocate( HyperbolicDiscretization )
          if ( allocated(LESModel) )                 deallocate( LESModel )
-
-         call Destruct_ShockCapturing(ShockCapturingDriver)
+         if ( allocated(ShockCapturingDriver) )     deallocate( ShockCapturingDriver )
 
       end subroutine Finalize_SpaceAndTimeMethods
 !
