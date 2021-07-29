@@ -295,6 +295,7 @@ module NoSlipWallBCClass
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
 #if defined (SPALARTALMARAS)
          Q(IRHOTHETA) = - Q(IRHOTHETA)
+
 #endif
 !        This boundary condition should be
 !        ---------------------------------
@@ -375,9 +376,7 @@ module NoSlipWallBCClass
 
          flux(IRHO)  = 0.0_RP
          flux(IRHOE) = sum(self % vWall*flux(IRHOU:IRHOW)) + self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-!#if defined(SPALARTALMARAS)
-!         flux(IRHOTHETA) = 0.0_RP
-!#endif
+
       end subroutine NoSlipWallBC_FlowNeumann
 #endif
 !

@@ -2655,7 +2655,7 @@ slavecoord:             DO l = 1, 4
 #if defined(SPALARTALMARAS)
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*NGRAD + 1
+            padding = NCONS + 3*NGRAD + 1 + NCONS
 #else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
@@ -2729,6 +2729,12 @@ slavecoord:             DO l = 1, 4
                write(fid) Q
 
                deallocate(Q)
+
+               allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1:NCONS,:,:,:)  = e % storage % QDot(1:NCONS,:,:,:)
+               write(fid) Q
+               deallocate(Q)
+
 #endif            
 
             end associate

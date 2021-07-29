@@ -9,9 +9,9 @@ autosave interval     = 100000
 
 Convergence tolerance = 1.d-12
 !dt                    = 1.00d0 ! for implicit
-!dt                     = 0.00001d0 ! for explicit
-cfl                    = 0.01d0
-dcfl                   = 0.01d0
+dt                     = 0.00001d0 ! for explicit
+!cfl                    = 0.01d0
+!dcfl                   = 0.01d0
 mach number            = 0.4d0
 Reynolds number        = 200000.0d0
 
@@ -27,9 +27,9 @@ viscous discretization = "BR1"
 manufactured solution  = 3D
 simulation type       = steady-state
 !time integration      = explicit  
-time integration      = fas
-multigrid levels      = 3
-delta n = 1
+!time integration      = fas
+!multigrid levels      = 3
+!delta n = 1
 !mg sweeps exact = [4,4,4]
 !mg preconditioner = LTS ! for all runge kutta explicit
 

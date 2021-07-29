@@ -128,8 +128,16 @@ module RiemannSolvers_NSSA
             errorMessage(STD_OUT)
   	        STOP
 #else
+         case ( RIEMANN_ROE )
+            RiemannSolver => RoeRiemannSolver
+
          case ( RIEMANN_LXF)
             RiemannSolver => LxFRiemannSolver
+
+         case ( RIEMANN_RUSANOV)
+            RiemannSolver => RusanovRiemannSolver
+
+
 #endif
          end select
 
@@ -1119,11 +1127,11 @@ module RiemannSolvers_NSSA
          aL = sqrt(gamma * pL * invRhoL)
          aR = sqrt(gamma * pR * invRhoR)
 !
-
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
-     !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
-         lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
+         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
+
+         !lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
 !
 !        ****************
 !        Compute the flux
@@ -1360,6 +1368,8 @@ module RiemannSolvers_NSSA
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
+#endif
+
       SUBROUTINE RoeRiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
 !
 !        **************************************************************
@@ -1393,32 +1403,39 @@ module RiemannSolvers_NSSA
          REAL(KIND=RP) :: dw1 , sp1  , sp1m , hd1m  , eta1, udw1, rql
          REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
          REAL(KIND=RP)                   :: ds = 1.0_RP
-      
+         REAL(KIND=RP) :: rhotheta, rhothetan, thetal, thetar, ttd
+
          associate ( gamma => thermodynamics % gamma )
-            
+
          rho  = QLeft(1)
          rhou = QLeft(2)
          rhov = QLeft(3)
          rhow = QLeft(4)
          rhoe = QLeft(5)
-   
+         rhotheta= QLeft(6)
+
          rhon  = QRight(1)
          rhoun = QRight(2)
          rhovn = QRight(3)
          rhown = QRight(4)
          rhoen = QRight(5)
+         rhothetan= QRight(6)
          
          ul = rhou/rho 
          vl = rhov/rho 
          wl = rhow/rho 
          pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
         &                           (rhou**2 + rhov**2 + rhow**2 )) 
+         thetal = rhotheta/rho
+
 !
          ur = rhoun/rhon 
          vr = rhovn/rhon 
          wr = rhown/rhon 
          pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
         &                           (rhoun**2 + rhovn**2+ rhown**2)) 
+         thetar = rhothetan/rhon
+
 !
          ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl
          qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr
@@ -1438,6 +1455,7 @@ module RiemannSolvers_NSSA
          vtd = betal*vl + betar*vr 
          wtd = betal*wl + betar*wr 
          htd = betal*hl + betar*hr 
+         ttd = betal*thetal + betar*thetar 
          atd2 = (gamma-1._RP)*(htd - 0.5_RP*(utd*utd + vtd*vtd + wtd*wtd)) 
          atd = sqrt(atd2) 
          qtd = utd*nHat(1) + vtd*nHat(2)  + wtd*nHat(3)
@@ -1456,7 +1474,8 @@ module RiemannSolvers_NSSA
             flux(3) = ds*(rql*vl + pleft*nHat(2) + udw1*(vtd - atd*nHat(2))) 
             flux(4) = ds*(rql*wl + pleft*nHat(3) + udw1*(wtd - atd*nHat(3))) 
             flux(5) = ds*(rql*hl + udw1*(htd - qtd*atd)) 
-   
+            flux(6) = ds*(rql*thetal + udw1*(ttd - qtd*atd)) 
+
          ELSE 
    
             dw4 = 0.5_RP*((pright - pleft)/atd2 + (qr - ql)*rtd/atd) 
@@ -1471,6 +1490,8 @@ module RiemannSolvers_NSSA
             flux(3) = ds*(rqr*vr + pright*nHat(2) - udw4*(vtd + atd*nHat(2))) 
             flux(4) = ds*(rqr*wr + pright*nHat(3) - udw4*(wtd + atd*nHat(3))) 
             flux(5) = ds*(rqr*hr - udw4*(htd + qtd*atd)) 
+            flux(6) = ds*(rqr*thetar + udw4*(ttd + qtd*atd)) 
+
          ENDIF
 
          end associate
@@ -1508,7 +1529,7 @@ module RiemannSolvers_NSSA
          REAL(KIND=RP) :: dw1 , sp1  , sp1m , hd1m  , eta1, udw1, rql
          REAL(KIND=RP) :: dw4 , sp4  , sp4p , hd4   , eta4, udw4, rqr
          REAL(KIND=RP)                   :: ds = 1.0_RP
-         
+         REAL(KIND=RP) :: rhotheta, rhothetan, thetal, thetar
          REAL(KIND=RP) :: smax, smaxL, smaxR
          REAL(KIND=RP) :: Leigen(2), Reigen(2)
       
@@ -1519,24 +1540,29 @@ module RiemannSolvers_NSSA
          rhov = QLeft(3)
          rhow = QLeft(4)
          rhoe = QLeft(5)
-   
+         rhotheta= QLeft(6)
+
          rhon  = QRight(1)
          rhoun = QRight(2)
          rhovn = QRight(3)
          rhown = QRight(4)
          rhoen = QRight(5)
-   
+         rhothetan= QRight(6)
+
          ul = rhou/rho 
          vl = rhov/rho 
          wl = rhow/rho 
          pleft = (gamma-1._RP)*(rhoe - 0.5_RP/rho*                        &
         &                           (rhou**2 + rhov**2 + rhow**2 )) 
-!
+         thetal = rhotheta/rho
+!        
          ur = rhoun/rhon 
          vr = rhovn/rhon 
          wr = rhown/rhon 
          pright = (gamma-1._RP)*(rhoen - 0.5_RP/rhon*                    &
         &                           (rhoun**2 + rhovn**2+ rhown**2)) 
+         thetar = rhothetan/rhon
+
 !
          ql = nHat(1)*ul + nHat(2)*vl + nHat(3)*wl
          qr = nHat(1)*ur + nHat(2)*vr + nHat(3)*wr
@@ -1572,6 +1598,7 @@ module RiemannSolvers_NSSA
          flux(3) = ds*(rql*vl + pleft*nHat(2) + rqr*vr + pright*nHat(2))
          flux(4) = ds*(rql*wl + pleft*nHat(3) + rqr*wr + pright*nHat(3)) 
          flux(5) = ds*(rql*hl + rqr*hr) 
+         flux(6) = ds*(rql*thetal + rqr*thetar) 
 
          smax = MAX(ar+ABS(qr),al+ABS(ql))
 
@@ -1582,7 +1609,6 @@ module RiemannSolvers_NSSA
          end associate
          
       END SUBROUTINE RusanovRiemannSolver           
-#endif
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !

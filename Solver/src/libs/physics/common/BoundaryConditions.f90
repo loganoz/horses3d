@@ -16,7 +16,7 @@ module BoundaryConditions
    use FTValueDictionaryClass,        only: FTValueDictionary
    use FileReaders,                   only: controlFileName
    use FileReadingUtilities,          only: GetKeyword, GetValueAsString, PreprocessInputLine
-   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, C_BC, MU_BC, NSSA_BC, CheckIfBoundaryNameIsContained
+   use GenericBoundaryConditionClass, only: GenericBC_t, NS_BC, NSSA_BC,C_BC, MU_BC, CheckIfBoundaryNameIsContained
    use InflowBCClass,                 only: InflowBC_t
    use OutflowBCClass,                only: OutflowBC_t
    use NoSlipWallBCClass,             only: NoSlipWallBC_t
@@ -28,7 +28,7 @@ module BoundaryConditions
 
    private
    public   BCs, ConstructBoundaryConditions, DestructBoundaryConditions, SetBoundaryConditionsEqn
-   public   NS_BC, C_BC, MU_BC, NSSA_BC
+   public   NS_BC, NSSA_BC, C_BC, MU_BC
 
    enum, bind(C)
       enumerator :: INFLOW_BC = 1 , OUTFLOW_BC

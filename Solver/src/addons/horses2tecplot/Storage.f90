@@ -29,6 +29,7 @@ module Storage
 !                                /* Solution quantities */
       integer                    :: Nsol(NDIM)
       real(kind=RP), pointer     :: Q(:,:,:,:)
+      real(kind=RP), pointer     :: QDot(:,:,:,:)
       real(kind=RP), pointer     :: U_x(:,:,:,:)
       real(kind=RP), pointer     :: U_y(:,:,:,:)
       real(kind=RP), pointer     :: U_z(:,:,:,:)
@@ -41,6 +42,7 @@ module Storage
       integer                    :: Nout(NDIM)
       real(kind=RP), pointer     :: xOut(:,:,:,:)
       real(kind=RP), pointer     :: Qout(:,:,:,:)
+      real(kind=RP), pointer     :: QDot_out(:,:,:,:)
       real(kind=RP), pointer     :: U_xout(:,:,:,:)
       real(kind=RP), pointer     :: U_yout(:,:,:,:)
       real(kind=RP), pointer     :: U_zout(:,:,:,:)
@@ -299,7 +301,10 @@ module Storage
      
                allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                read(fid) e % mu_NS
-   
+               
+               allocate( e % QDot(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+               read(fid) e % QDot
+
                end associate
             end do
 

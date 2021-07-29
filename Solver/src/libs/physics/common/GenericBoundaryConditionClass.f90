@@ -43,9 +43,8 @@ module GenericBoundaryConditionClass
 !
    enum, bind(C)
       enumerator :: NONE_BC
-      enumerator :: NS_BC
+      enumerator :: NS_BC, NSSA_BC
       enumerator :: C_BC, MU_BC
-      enumerator :: NSSA_BC
    end enum
 !
 !  ****************

@@ -195,6 +195,7 @@ module Solution2PltModule
             e % U_zout(1:,0:,0:,0:) => e % U_z
          end if
          e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
+         e % QDot_out(1:,0:,0:,0:) => e % QDot
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -359,7 +360,8 @@ module Solution2PltModule
             end if
 
             e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
-   
+            e % QDot_out(1:,0:,0:,0:) => e % QDot
+
          else
             allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % Q, e % Nout, e % Qout, Tx, Ty, Tz)
@@ -375,6 +377,9 @@ module Solution2PltModule
 
             allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_NS, e % Nout, e % mu_NSout, Tx, Ty, Tz)            
+
+            allocate( e % QDot_out(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % QDot, e % Nout, e % QDot_out, Tx, Ty, Tz)
 
          end if
 
