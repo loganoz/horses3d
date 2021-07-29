@@ -70,9 +70,10 @@ module ShockCapturing
    type, extends(SCdriver_t) :: SVVdriver_t
       real(RP), private :: sqrt_mu
       real(RP), private :: sqrt_alpha
+      real(RP), private :: sqrt_mu2alpha
    contains
-      !procedure :: Viscosity  => SVV_viscosity
-      !procedure :: Describe   => SVV_describe
+      procedure :: Viscosity  => SVV_viscosity
+      procedure :: Describe   => SVV_describe
    end type SVVdriver_t
 
    type, extends(SVVdriver_t) :: SSFVdriver_t
@@ -292,6 +293,19 @@ module ShockCapturing
             end select
 
          end select
+
+      type is (SVVdriver_t)
+
+         ! Set the square root of the viscosities
+         self % sqrt_mu    = sqrt(self % mu)
+         if (self % alphaIsPropToMu) then
+            self % sqrt_mu2alpha = sqrt(self % mu2alpha)
+         else
+            self % sqrt_alpha = sqrt(self % alpha)
+         end if
+
+         ! Start the SVV module
+         call InitializeSVV(SVV, controlVariables, mesh)
 
       class default
          call InitializeSVV(SVV, controlVariables, mesh)
@@ -559,7 +573,6 @@ module ShockCapturing
       integer  :: k
       integer  :: fIDs(6)
       real(RP) :: switch
-      real(RP) :: factor
       real(RP) :: delta
       real(RP) :: kappa
       real(RP) :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -660,5 +673,101 @@ module ShockCapturing
       end select
 
    end subroutine ArtVisc_describe
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+!     SVV filtered viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SVV_viscosity(self, mesh, e, SCflux)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SVVdriver_t), intent(in)    :: self
+      type(HexMesh),      intent(inout) :: mesh
+      type(Element),      intent(inout) :: e
+      real(RP),           intent(out)   :: &
+         SCflux(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), 1:NDIM)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i
+      integer  :: j
+      integer  :: k
+      integer  :: fIDs(6)
+      real(RP) :: switch
+      real(RP) :: delta
+      real(RP) :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
+
+!
+!     Scale the sensed value to the range [0,1]
+!     -----------------------------------------
+      switch = self % sensor % Rescale(e % storage % sensor)
+!
+!     Compute viscosities
+!     -------------------
+      select case (self % updateMethod)
+      case (SC_CONST_ID)
+         sqrt_mu = self % sqrt_mu
+
+      case (SC_SENSOR_ID)
+         sqrt_mu = switch * self % sqrt_mu
+
+      case (SC_SMAG_ID)
+
+         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                e % storage % Q(:,i,j,k),       &
+                                                e % storage % U_x(:,i,j,k),     &
+                                                e % storage % U_y(:,i,j,k),     &
+                                                e % storage % U_z(:,i,j,k),     &
+                                                sqrt_mu(i,j,k))
+            sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
+         end do                ; end do                ; end do
+
+      end select
+
+      if (self % alphaIsPropToMu) then
+         sqrt_alpha = self % sqrt_mu2alpha * self % sqrt_mu
+      else
+         sqrt_alpha = self % sqrt_alpha
+      end if
+!
+!     Compute the viscous flux
+!     ------------------------
+      call SVV % ComputeInnerFluxes(mesh, e, sqrt_mu, sqrt_alpha, SCflux, &
+                                    filter=(switch == 1.0_RP))
+
+   end subroutine SVV_viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SVV_describe(self)
+!
+!     -------
+!     Modules
+!     -------
+      use MPI_Process_Info, only: MPI_Process
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SVVdriver_t), intent(in) :: self
+
+
+      if (.not. MPI_Process % isRoot) return
+
+      call self % SCdriver_t % Describe()
+      call SVV % Describe()
+
+   end subroutine SVV_describe
 
 end module ShockCapturing

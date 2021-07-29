@@ -34,11 +34,8 @@ module SpectralVanishingViscosity
 !
 !  Keywords
 !  --------
-   character(len=*), parameter  :: SVV_KEY          =  "enable svv"
-   character(len=*), parameter  :: SVV_MU_KEY       =  "svv viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_KEY    =  "svv alpha viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_MU_KEY =  "svv alpha/mu ratio"
    character(len=*), parameter  :: SVV_CUTOFF_KEY   =  "svv filter cutoff"
+   character(len=*), parameter  :: SVV_CAPPED_KEY   =  "svv limited"
    character(len=*), parameter  :: FILTER_SHAPE_KEY =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY  =  "svv filter type"
 !
@@ -71,8 +68,8 @@ module SpectralVanishingViscosity
    end type FilterMatrices_t
 
    type  SVV_t
-      logical                                     :: automatic_Psvv
       logical                                     :: enabled
+      logical                                     :: capped
       integer                                     :: filterType
       integer                                     :: filterShape
       integer                                     :: diss_type
@@ -133,26 +130,9 @@ module SpectralVanishingViscosity
 !
          integer     :: eID
          character(len=LINE_LENGTH) :: mu, filter_type
-!
-!        -------------------------
-!        Check if SVV is requested
-!        -------------------------
-!
-         if ( controlVariables % containsKey(SVV_KEY) ) then
-            if ( controlVariables % logicalValueForKey(SVV_KEY) ) then
-               self % enabled = .true.
 
-            else
-               self % enabled = .false.
 
-            end if
-
-         else
-            self % enabled = .false.
-
-         end if
-
-         if ( .not. self % enabled ) return
+         self % enabled = .true.
 !
 !        --------------
 !        Type of filter
@@ -201,20 +181,18 @@ module SpectralVanishingViscosity
 !        -------------------------
 !
          if ( controlVariables % containsKey(SVV_CUTOFF_KEY) ) then
-            if ( trim(controlVariables % StringValueForKey(SVV_CUTOFF_KEY,LINE_LENGTH)) .eq. "automatic") then
-               self % automatic_Psvv = .true.
-               self % Psvv = 0.0_RP
-
-            else
-               self % automatic_Psvv = .false.
-               self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
-
-            end if
-
+            self % Psvv = controlVariables % doublePrecisionValueForKey(SVV_CUTOFF_KEY)
          else
-            self % automatic_Psvv = .true.
-            self % Psvv = 0.0_RP
-
+            self % Psvv = 4.0_RP
+         end if
+!
+!        --------------------------------
+!        Limit the filtering if requested
+!        --------------------------------
+         if ( controlVariables % containsKey(SVV_CAPPED_KEY) ) then
+            self % capped = controlVariables % logicalValueForKey(SVV_CAPPED_KEY)
+         else
+            self % capped = .false.
          end if
 !
 !        Construct the filters
@@ -298,8 +276,6 @@ module SpectralVanishingViscosity
 
          if (.not. MPI_Process % isRoot) return
 
-         write(STD_OUT,'(/)')
-
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","SVV dissipation type: "
          select case (this % diss_type)
             case (PHYSICAL_DISS)   ; write(STD_OUT,'(A)') 'Physical'
@@ -319,35 +295,37 @@ module SpectralVanishingViscosity
             case (SHARP_FILTER) ; write(STD_OUT,'(A)') 'sharp kernel'
          end select
 
-         if (this % automatic_Psvv) then
-            write(STD_OUT,'(30X,A,A30,A)') "->","SVV filter cutoff: ", "automatic"
+         write(STD_OUT,'(30X,A,A30,F10.3)',advance="no") "->","SVV filter cutoff: ", &
+                                                         this % Psvv
+         if ( this % capped ) then
+            write(STD_OUT,'(A)') " (Limited by the sensor)"
          else
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","SVV filter cutoff: ", this % Psvv
+            write(STD_OUT,'(A)') ""
          end if
 
       end subroutine SVV_Describe
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes(self, mesh, e, mu, alpha, contravariantFlux)
+      subroutine SVV_ComputeInnerFluxes(self, mesh, e, sqrt_mu, sqrt_alpha, contravariantFlux, filter)
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(SVV_t)                :: self
-         type(HexMesh)               :: mesh
-         type(Element)               :: e
-         real(kind=RP), intent (in)  :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP), intent (in)  :: alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP), intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         class(SVV_t)                    :: self
+         type(HexMesh)                   :: mesh
+         type(Element)                   :: e
+         real(kind=RP),     intent (in)  :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP),     intent (in)  :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP),     intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         logical, optional, intent (in)  :: filter
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
+         logical             :: filter_
          integer             :: i, j, k, l, fIDs(6), i_f, fID
-         real(kind=RP)       :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)       :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hx(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hy(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hz(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -365,115 +343,19 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Qz(0:e % Nxyz(3),0:e % Nxyz(3))
 
 !
-!        --------------------------------------------
-!        Get the square root of the viscosities
-!        --------------------------------------------
-!
-         sqrt_mu    = sqrt(mu)
-         sqrt_alpha = sqrt(alpha)
-!
-!        ---------------------------------
-!        Compute the viscosity and filters
-!        ---------------------------------
-!
-         if ( self % muIsSmagorinsky ) then
-
-            delta = (e % geom % volume / product(e % Nxyz + 1)) ** (1.0_RP/3.0_RP)
-
-            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
-               call Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                   e % storage % Q(:,i,j,k),       &
-                                                   e % storage % U_x(:,i,j,k),     &
-                                                   e % storage % U_y(:,i,j,k),     &
-                                                   e % storage % U_z(:,i,j,k),     &
-                                                   sqrt_mu(i,j,k))
-               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
-            end do               ; end do               ; end do
-
+!        ----------
+!        Initialize
+!        ----------
+         if (present(filter)) then
+            filter_ = filter
          else
-            sqrt_mu = self % sqrt_muSVV1
-
+            filter_ = .true.
          end if
 
-         sqrt_alpha = self % sqrt_alphaSVV1
-
-         if ( self % automatic_Psvv ) then
-!
-!           Use a density sensor to compute the P_svv parameter
-!           ---------------------------------------------------
-            rho_sensor = 0.0_RP
-
-            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
-
-               if (self % diss_type == PHYSICAL_DISS) then
-                  grad_rho2 = POW2(e % storage % U_x(1,i,j,k)) &
-                            + POW2(e % storage % U_y(1,i,j,k)) &
-                            + POW2(e % storage % U_z(1,i,j,k))
-               else if (self % diss_type == GUERMOND_DISS) then
-                  grad_rho2 = POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_x(:,i,j,k))) &
-                            + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_y(:,i,j,k))) &
-                            + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_z(:,i,j,k)))
-               end if
-
-               rho_sensor = rho_sensor + NodalStorage(e % Nxyz(1)) % w(i) &
-                                       * NodalStorage(e % Nxyz(2)) % w(j) &
-                                       * NodalStorage(e % Nxyz(3)) % w(k) &
-                                       * e % geom % jacobian(i,j,k)       &
-                                       * grad_rho2
-
-            end do               ; end do               ; end do
-
-            rho_sensor = sqrt(rho_sensor)
-!
-!           Also update the viscosities if SVV-LES is not active
-!           ----------------------------------------------------
-            if ( rho_sensor < 1.0_RP ) then
-               Psvv = 4.0_RP
-
-               if (.not. self % muIsSmagorinsky ) then
-                  sqrt_mu    = self % sqrt_muSVV2
-                  sqrt_alpha = self % sqrt_alphaSVV2
-               end if
-
-            else
-               Psvv = 0.0_RP
-
-               if (.not. self % muIsSmagorinsky ) then
-                  sqrt_mu    = self % sqrt_muSVV1
-                  sqrt_alpha = self % sqrt_alphaSVV1
-               end if
-
-            end if
-!
-!           Recompute the filters
-!           ---------------------
-            if ( e % Nxyz(1) > 0 ) then
-               call self % filters(e % Nxyz(1)) % Recompute(Psvv, self % filtertype,Qx)
-            else
-               Qx = self % filters(e % Nxyz(1)) % Q
-            end if
-
-            if ( e % Nxyz(2) > 0 ) then
-               call self % filters(e % Nxyz(2)) % Recompute(Psvv, self % filtertype,Qy)
-            else
-               Qy = self % filters(e % Nxyz(2)) % Q
-            end if
-
-            if ( e % Nxyz(3) > 0 ) then
-               call self % filters(e % Nxyz(3)) % Recompute(Psvv, self % filtertype,Qz)
-            else
-               Qz = self % filters(e % Nxyz(3)) % Q
-            end if
-
-            e % Psvv = Psvv
-
-         else
-            e % Psvv = self % Psvv
-            Qx = self % filters(e % Nxyz(1)) % Q
-            Qy = self % filters(e % Nxyz(2)) % Q
-            Qz = self % filters(e % Nxyz(3)) % Q
-
-         end if
+         e % Psvv = self % Psvv
+         Qx = self % filters(e % Nxyz(1)) % Q
+         Qy = self % filters(e % Nxyz(2)) % Q
+         Qz = self % filters(e % Nxyz(3)) % Q
 
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
                    spA_eta  => NodalStorage(e % Nxyz(2)), &
@@ -496,39 +378,48 @@ module SpectralVanishingViscosity
 !        ----------------
 !        Filter the Hflux
 !        ----------------
-!
-!        Perform filtering in xi Hf_aux -> Hf
-!        -----------------------
-         Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
-         Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
-               Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
-               Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
-               Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
-         end do                ; end do                ; end do                ; end do
-!
-!        Perform filtering in eta Hf -> Hf_aux
-!        ------------------------
-         Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
-            Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
-            Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
-         end do                ; end do                ; end do                ; end do
-!
-!        Perform filtering in zeta Hf_aux -> Hf
-!        -------------------------
-         Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
-         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
-            Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
-            Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
-         end do                ; end do                ; end do                ; end do
+         if (self % capped .and. .not. filter_) then
 
-         if (self % filterType == LPASS_FILTER) then
-            Hxf = Hx - Hxf
-            Hyf = Hy - Hyf
-            Hzf = Hz - Hzf
+            Hxf = Hx
+            Hyf = Hy
+            Hzf = Hz
+
+         else
+!
+!           Perform filtering in xi Hf_aux -> Hf
+!           -----------------------
+            Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
+            Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+                  Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
+                  Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
+                  Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
+            end do                ; end do                ; end do                ; end do
+!
+!           Perform filtering in eta Hf -> Hf_aux
+!           ------------------------
+            Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
+            do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
+               Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
+               Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
+            end do                ; end do                ; end do                ; end do
+!
+!           Perform filtering in zeta Hf_aux -> Hf
+!           -------------------------
+            Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
+            do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
+               Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
+               Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
+            end do                ; end do                ; end do                ; end do
+
+            if (self % filterType == LPASS_FILTER) then
+               Hxf = Hx - Hxf
+               Hyf = Hy - Hyf
+               Hzf = Hz - Hzf
+            end if
+
          end if
 !
 !        ----------------
