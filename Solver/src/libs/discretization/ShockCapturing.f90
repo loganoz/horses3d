@@ -332,7 +332,7 @@ module ShockCapturing
       if (controlVariables % containsKey(SC_SENSOR_KEY)) then
          sType = controlVariables % stringValueForKey(SC_SENSOR_KEY, LINE_LENGTH)
       else
-         sType = SC_RHOS_VAL
+         sType = SC_GRADRHO_VAL
       end if
       call toLower(sType)
 !
@@ -505,7 +505,8 @@ module ShockCapturing
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
       select case (self % sensor % sens_type)
-         case (SC_MODAL_ID); write(STD_OUT,"(A)") SC_MODAL_VAL
+         case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
+         case (SC_GRADRHO_ID); write(STD_OUT,"(A)") SC_GRADRHO_VAL
       end select
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "

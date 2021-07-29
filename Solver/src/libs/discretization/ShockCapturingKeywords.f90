@@ -29,11 +29,11 @@ module ShockCapturingKeywords
 !
 !  Sensor types
 !  ------------
-   character(len=*), parameter :: SC_RHOS_VAL  = "rho"
-   character(len=*), parameter :: SC_MODAL_VAL = "modal"
+   character(len=*), parameter :: SC_GRADRHO_VAL = "grad rho"
+   character(len=*), parameter :: SC_MODAL_VAL   = "modal"
 
-   integer, parameter :: SC_RHOS_ID  = 1
-   integer, parameter :: SC_MODAL_ID = 2
+   integer, parameter :: SC_GRADRHO_ID = 1
+   integer, parameter :: SC_MODAL_ID   = 2
 !
 !  Shock-capturing methods
 !  -----------------------

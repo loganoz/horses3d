@@ -86,8 +86,8 @@ module SCsensorClass
 !     Sensor type
 !     -----------
       select case (sensorType)
-      case (SC_RHOS_VAL)
-         sensor % sens_type = SC_RHOS_ID
+      case (SC_GRADRHO_VAL)
+         sensor % sens_type = SC_GRADRHO_ID
          sensor % Compute  => Sensor_rho
 
       case (SC_MODAL_VAL)
@@ -101,7 +101,7 @@ module SCsensorClass
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
-         write(STD_OUT,*) '   * ', SC_RHOS_VAL
+         write(STD_OUT,*) '   * ', SC_GRADRHO_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          errorMessage(STD_OUT)
 
@@ -187,7 +187,7 @@ module SCsensorClass
          val = val + NodalStorage(e % Nxyz(1)) % w(i) &
                    * NodalStorage(e % Nxyz(2)) % w(j) &
                    * NodalStorage(e % Nxyz(3)) % w(k) &
-                   * e % geom % jacobian(i,j,k)       *
+                   * e % geom % jacobian(i,j,k)       &
                    * grad_rho2
 
       end do               ; end do               ; end do

@@ -903,7 +903,7 @@ module SpatialDiscretization
          use FaceClass
          use RiemannSolvers_NS
          implicit none
-         type(Face)   , intent(inout) :: f   
+         type(Face)   , intent(inout) :: f
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -955,8 +955,6 @@ module SpatialDiscretization
                                                      dWall = f % geom % dWall(i,j), &
                                                      flux  = visc_flux(:,i,j) )
 
-                  visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
-
                end do
             end do
          else
@@ -979,7 +977,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
 
             end do
          end do
@@ -1116,7 +1114,7 @@ module SpatialDiscretization
 
       if ( ShockCapturingDriver % isActive ) then
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-            Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j)! / f % geom % jacobian(i,j)  !CHECK
+            Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j) / f % geom % jacobian(i,j)
          end do              ; end do
       else
          Avisc_flux = 0.0_RP
