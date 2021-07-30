@@ -711,6 +711,7 @@ module ShockCapturing
       integer  :: fIDs(6)
       real(RP) :: switch
       real(RP) :: delta
+      real(RP) :: saplha
       real(RP) :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
 
@@ -726,9 +727,11 @@ module ShockCapturing
          select case (self % updateMethod)
          case (SC_CONST_ID)
             sqrt_mu = self % sqrt_mu
+            salpha  = self % sqrt_alpha
 
          case (SC_SENSOR_ID)
             sqrt_mu = switch * self % sqrt_mu
+            salpha  = switch * self % sqrt_alpha
 
          case (SC_SMAG_ID)
 
@@ -748,7 +751,7 @@ module ShockCapturing
          if (self % alphaIsPropToMu) then
             sqrt_alpha = self % sqrt_mu2alpha * self % sqrt_mu
          else
-            sqrt_alpha = self % sqrt_alpha
+            sqrt_alpha = salpha
          end if
 !
 !        Compute the viscous flux
