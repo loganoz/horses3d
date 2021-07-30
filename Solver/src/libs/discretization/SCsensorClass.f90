@@ -87,17 +87,17 @@ module SCsensorClass
 !     -----------
       select case (sensorType)
       case (SC_GRADRHO_VAL)
-         sensor % sens_type = SC_GRADRHO_ID
-         sensor % Compute  => Sensor_rho
-
-      case (SC_MODAL_VAL)
          if (grad_vars == GRADVARS_STATE .or. grad_vars == GRADVARS_ENTROPY) then
-            sensor % sens_type = SC_MODAL_ID
-            sensor % Compute  => Sensor_modal
+            sensor % sens_type = SC_GRADRHO_ID
+            sensor % Compute  => Sensor_rho
          else
             write(STD_OUT,*) "ERROR. The density sensor only works with state or entropy variables."
             errorMessage(STD_OUT)
          end if
+
+      case (SC_MODAL_VAL)
+         sensor % sens_type = SC_MODAL_ID
+         sensor % Compute  => Sensor_modal
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"

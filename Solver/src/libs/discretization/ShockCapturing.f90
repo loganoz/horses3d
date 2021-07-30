@@ -45,7 +45,7 @@ module ShockCapturing
          real(RP), private :: mu2alpha         !< Ratio alpha/mu
          logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
 
-         type(SCsensor_t),     private :: sensor  !< Sensor to find discontinuities
+         type(SCsensor_t), private :: sensor  !< Sensor to find discontinuities
 
       contains
 
@@ -196,6 +196,8 @@ module ShockCapturing
 !     -------------------------------
       if (controlVariables % containsKey(SC_MU_KEY)) then
          self % mu = controlVariables % doublePrecisionValueForKey(SC_MU_KEY)
+      else
+         write(STD_OUT,*) "ERROR. A value for the artificial mu must be given."
       end if
 
       if (controlVariables % containsKey(SC_ALPHA_KEY)) then
@@ -297,7 +299,7 @@ module ShockCapturing
       type is (SVVdriver_t)
 
          ! Set the square root of the viscosities
-         self % sqrt_mu    = sqrt(self % mu)
+         self % sqrt_mu = sqrt(self % mu)
          if (self % alphaIsPropToMu) then
             self % sqrt_mu2alpha = sqrt(self % mu2alpha)
          else
@@ -711,7 +713,6 @@ module ShockCapturing
       real(RP) :: delta
       real(RP) :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-      real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
 
 !
 !     Scale the sensed value to the range [0,1]
@@ -753,7 +754,7 @@ module ShockCapturing
 !        Compute the viscous flux
 !        ------------------------
          call SVV % ComputeInnerFluxes(mesh, e, sqrt_mu, sqrt_alpha, SCflux, &
-                                       filter=(switch == 1.0_RP))
+                                       filter=(switch < 1.0_RP))
 
       else
 
