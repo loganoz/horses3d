@@ -711,7 +711,7 @@ module ShockCapturing
       integer  :: fIDs(6)
       real(RP) :: switch
       real(RP) :: delta
-      real(RP) :: saplha
+      real(RP) :: salpha
       real(RP) :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
 
