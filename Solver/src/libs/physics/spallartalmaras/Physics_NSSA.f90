@@ -38,11 +38,11 @@
       implicit none
 
       private
-      public  EulerFlux
+      public  EulerFlux 
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
-      public  getStressTensor 
+      public  getStressTensor
 !
 !     ========
       CONTAINS 
@@ -671,4 +671,46 @@
    END Module Physics_NSSA
 !@mark -
 !
+!----------------------------------------------------------------------
+!! This routine returns the maximum eigenvalues for the Euler equations 
+!! for the given solution value in each spatial direction. 
+!! These are to be used to compute the local time step.
+!----------------------------------------------------------------------
+!
+      SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
+      
+      USE SMConstants
+      USE PhysicsStorage_NSSA
+      USE VariableConversion_NSSA, ONLY:Pressure
+      use FluidData_NSSA,          only: Thermodynamics
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=Rp), DIMENSION(NCONS) :: Q
+      REAL(KIND=Rp), DIMENSION(3)     :: eigen
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=Rp) :: u, v, w, p, a
+!      
+      associate ( gamma => thermodynamics % gamma ) 
+
+      u = ABS( Q(2)/Q(1) )
+      v = ABS( Q(3)/Q(1) )
+      w = ABS( Q(4)/Q(1) )
+      p = Pressure(Q)
+      a = SQRT(gamma*p/Q(1))
+      
+      eigen(1) = u + a
+      eigen(2) = v + a
+      eigen(3) = w + a
+
+      end associate
+      
+      END SUBROUTINE ComputeEigenvaluesForState
 ! /////////////////////////////////////////////////////////////////////
