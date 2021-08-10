@@ -37,7 +37,7 @@
                         Time integration = Explicit
                                      CFL = 0.4
                                     dCFL = 0.4
-                    Number of time steps = 100
+                    Number of time steps = 50
                          Output interval = 10
                    Convergence tolerance = 1.0e-10
   Compute time derivative after timestep = .true.
@@ -85,26 +85,6 @@
 #end
 
 #define volume monitor 3
-    Name = Entropy
-    Variable = Entropy
-#end
-
-#define volume monitor 4
-    Name = EntropyBal
-    Variable = Entropy balance
-#end
-
-#define volume monitor 5
-    Name = EntropyRate
-    Variable = Entropy rate
-#end
-
-#define volume monitor 6
    name = SVV
    variable = SVV Dissipation
-#end
-
-#define volume monitor 7
-    name = enstrophy
-    variable = enstrophy
 #end
