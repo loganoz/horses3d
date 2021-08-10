@@ -35,14 +35,14 @@ done
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
-	    ./Euler/Diffuser \
-	    ./Euler/PeriodicFlow \
-	    ./Euler/UniformFlow \
-	    ./Euler/UniformFlowPETSc \
-	    ./Euler/VortexTransport2D \
-	    ./Euler/Benchmark \
-	    ./Euler/JFNK \
-	    ./Euler/TaylorGreenKEPEC \
+	    		./Euler/Diffuser \
+	    		./Euler/PeriodicFlow \
+	    		./Euler/UniformFlow \
+	    		./Euler/UniformFlowPETSc \
+	    		./Euler/VortexTransport2D \
+	    		./Euler/Benchmark \
+	    		./Euler/JFNK \
+	    		./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -58,39 +58,40 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
-	    ./NavierStokes/FlatPlate \
-	    ./NavierStokes/TaylorGreen \
-	    ./NavierStokes/TaylorGreenKEPEC_IP \
-	    ./NavierStokes/TaylorGreenKEP_BR2 \
-	    ./NavierStokes/ManufacturedSolutions \
-	    ./NavierStokes/NACA0012 \
+	    		./NavierStokes/FlatPlate \
+				./NavierStokes/ForwardFacingStepSVV \
+	    		./NavierStokes/TaylorGreen \
+	    		./NavierStokes/TaylorGreenKEPEC_IP \
+	    		./NavierStokes/TaylorGreenKEP_BR2 \
+	    		./NavierStokes/ManufacturedSolutions \
+	    		./NavierStokes/NACA0012 \
             ./NavierStokes/TaylorGreenSVVLES \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-	    ./CahnHilliard/SpinodalDecomposition \
-	    ./CahnHilliard/TJokisaari \
-	    ./CahnHilliard/Bubble \
-	    ./CahnHilliard/Pipe \
+	    		./CahnHilliard/SpinodalDecomposition \
+	    		./CahnHilliard/TJokisaari \
+	    		./CahnHilliard/Bubble \
+	    		./CahnHilliard/Pipe \
             ./iNSCH/RisingBubble \
             ./iNSCH/TJokisaari \
-	    ./Multiphase/Convergence \
-	    ./Multiphase/EntropyConservingTest \
-	    ./Multiphase/RisingBubble \
-	    ./Multiphase/Pipe \
-		./Particles/FreeFall \
-		./Particles/RadiationHeat \
-		./Particles/Pouransari \
-		./Particles/ParticleBoundaryCond " 
+	    		./Multiphase/Convergence \
+	    		./Multiphase/EntropyConservingTest \
+	    		./Multiphase/RisingBubble \
+	    		./Multiphase/Pipe \
+				./Particles/FreeFall \
+				./Particles/RadiationHeat \
+				./Particles/Pouransari \
+				./Particles/ParticleBoundaryCond "
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \
 		       HexMappings \
  		       MeshConsistency \
 		       NodalStorage"
-		       
+
 cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
 
@@ -126,5 +127,3 @@ cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
 mkdir -p ./test/Components/Gradients/MESH
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
 rm -f ./test/Components/Gradients/Makefile-e
-
-
