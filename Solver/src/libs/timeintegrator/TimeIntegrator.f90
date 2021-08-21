@@ -4,9 +4,9 @@
 !   @File:    TimeIntegrator.f90
 !   @Author:  David kopriva
 !   @Created: 2007-10-23 09:25:32 -0400 
-!   @Last revision date: Fri Jul 16 20:04:09 2021
+!   @Last revision date: Sun Aug 22 00:47:44 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
+!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
 !
 !   Module for general time integration.
 !
@@ -36,6 +36,7 @@
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
+      use JacobianComputerClass
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
