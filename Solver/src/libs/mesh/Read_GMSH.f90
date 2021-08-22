@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Fri Jul 16 20:04:06 2021
+!   @Last revision date: Mon Jul 26 16:33:20 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
+!   @Last revision commit: 8baa6b2541f2216919b94908d8b5116d15fed916
 !
 !//////////////////////////////////////////////////////
 !
@@ -489,6 +489,7 @@ MODULE Read_GMSH
 
          ! assign surfaces and curves
          allocate(tmpi_vec1(256))
+         tmpi_vec1 = 0
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          jj = 1
@@ -508,6 +509,7 @@ MODULE Read_GMSH
          ! assign points
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
+         tmpi_vec1 = 0
          do j=1, msh_no_curves
             tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
@@ -1133,6 +1135,7 @@ MODULE Read_GMSH
 
          ! assign surfaces and curves
          allocate(tmpi_vec1(256))
+         tmpi_vec1 = 0
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          jj = 1
@@ -1152,6 +1155,7 @@ MODULE Read_GMSH
          ! assign points
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
+         tmpi_vec1 = 0
          do j=1, msh_no_curves
             tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
@@ -1863,6 +1867,7 @@ MODULE Read_GMSH
 
          ! assign surfaces and curves
          allocate(tmpi_vec1(256))
+         tmpi_vec1 = 0
          allocate(msh_bcs(i) % surface_tags(msh_bcs(i) % no_of_surfaces))
          k = 0
          jj = 1
@@ -1882,6 +1887,7 @@ MODULE Read_GMSH
          ! assign points
          k = 0
          allocate(tmpi_vec1(2 * msh_bcs(i) % no_of_curves))
+         tmpi_vec1 = 0
          do j=1, msh_no_curves
             tmpi = my_findloc(msh_bcs(i) % curve_tags, msh_curves(j)%tag, 1)
             if (tmpi .gt. 0) then
