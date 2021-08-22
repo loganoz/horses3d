@@ -29,6 +29,7 @@ Module DGSEMClass
    use ManufacturedSolutionsNS
 #elif defined(SPALARTALMARAS)
    use ManufacturedSolutionsNSSA
+   use SpallartAlmarasTurbulence
 #endif
    use MonitorsClass
    use ParticlesClass
@@ -601,20 +602,21 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
+      real(kind=RP)                 :: kinematicviscocity, musa, etasa
       real(kind=RP)                 :: Q(NCONS)                             ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
-#ifndef SPALARTALMARAS
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
-#endif
 #if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
+#endif
+#if defined(SPALARTALMARAS)
+      type(Spalart_Almaras_t)       :: SAModel 
 #endif
       !--------------------------------------------------------
 !     Initializations
 !     ---------------
-      
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
@@ -664,9 +666,7 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
-#ifndef SPALARTALMARAS
             CALL ComputeEigenvaluesForState( Q , eValues )
-#endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 !           ----------------------------
@@ -689,9 +689,21 @@ Module DGSEMClass
             if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
 
 #if defined(NAVIERSTOKES)            
+
             if (flowIsNavierStokes) then
                T        = Temperature(Q)
                mu       = SutherlandsLaw(T)
+#if defined(SPALARTALMARAS)
+
+               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
+            
+               call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
+                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, &
+                                                musa, etasa)
+               mu = mu + musa        
+
+
+#endif
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
                lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))

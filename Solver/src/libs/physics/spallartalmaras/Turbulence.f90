@@ -28,7 +28,7 @@ module SpallartAlmarasTurbulence
 !  *****************************
 !
    private
-   public SAmodel, InitializeTurbulenceModel, Spalart_Almaras_t
+   public SAmodel, InitializeTurbulenceModel, Spalart_Almaras_t, SA_ComputeViscosity
 
 !  ****************
 !  Class definition
@@ -64,8 +64,8 @@ module SpallartAlmarasTurbulence
          procedure, private ::      Compute_DestructionTerm
          procedure, private ::      Compute_AdditionalSourceTermKappa
 
-         procedure            :: ComputeViscosity    => SA_ComputeViscosity
-         procedure            :: ComputeSourceTerms  => SA_Compute_SourceTerms          
+         procedure, public  :: ComputeViscosity    => SA_ComputeViscosity
+         procedure          :: ComputeSourceTerms  => SA_Compute_SourceTerms          
    end type Spalart_Almaras_t
 !
 
