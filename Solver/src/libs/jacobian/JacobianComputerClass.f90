@@ -4,9 +4,9 @@
 !   @File:    JacobianComputerClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Sun Aug  4 16:39:41 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Sun Aug 22 12:53:05 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
 !
 !//////////////////////////////////////////////////////
 !
@@ -27,6 +27,7 @@ module JacobianComputerClass
    use ParamfileRegions                , only: readValueInRegion
    use DenseBlockDiagonalMatrixClass   , only: DenseBlockDiagMatrix_t
    use SparseBlockDiagonalMatrixClass  , only: SparseBlockDiagMatrix_t
+   use FTValueDictionaryClass
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -92,12 +93,13 @@ module JacobianComputerClass
 !     ------------------------------------
 !     Construct the JacobianInfo variables
 !     ------------------------------------
-      subroutine Jacobian_Construct(this, mesh, nEqn)
+      subroutine Jacobian_Construct(this, mesh, nEqn, controlVariables)
          implicit none
          !-arguments-----------------------------------------
          class(JacobianComputer_t), intent(inout) :: this
          type(HexMesh)            , intent(inout) :: mesh
          integer                  , intent(in)    :: nEqn
+         type(FTValueDictionary)  , intent(in)    :: controlVariables
          !-local-variables-----------------------------------
          integer :: eID, ierr
          integer :: all_globIDs(mesh % no_of_allElements)

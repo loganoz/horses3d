@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Fri Jul 16 20:04:07 2021
+!   @Last revision date: Sun Aug 22 12:53:08 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
+!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
 !
 !//////////////////////////////////////////////////////
 !
@@ -142,7 +142,14 @@ module FASMultigridClass
    integer        :: MatrixType = JACOBIAN_MATRIX_NONE
    integer        :: StepsForJac = 1e8
    integer        :: StepsSinceJac
-!========SweepNumPost
+!-----Initilization-------------------------------------------------------------------
+   integer              :: ini_Preconditioner(2)
+   integer              :: ini_Smoother(2)
+   real(kind=RP)        :: ini_res
+   real(kind=RP)        :: ini_cfl(4)
+   logical              :: mg_Initialization = .false.
+   logical              :: mg_Initialization_Present = .false.
+!========
  contains
 !========
 !
@@ -400,6 +407,46 @@ module FASMultigridClass
       end if
 
 !
+!     Read variables for the initial solution cycle
+!     -------------------------
+      if (controlVariables % containsKey("mg initialization")) then
+         mg_Initialization = controlVariables % logicalValueForKey("mg initialization")
+         if (mg_Initialization) then
+            mg_Initialization_Present = .true.
+
+            if (controlVariables % containsKey("initial residual")) then
+               ini_res = controlVariables % doublePrecisionValueForKey("initial residual")
+            else
+               ini_res = 1.0d0
+            end if
+
+            ini_Preconditioner(1) = PRECONDIIONER_LTS ! preconditioner for initialization
+            ini_Preconditioner(2) = Preconditioner ! desired preconditioner
+            ini_Smoother(1) = RK5_SMOOTHER ! smoother for initialization
+            ini_Smoother(2) = Smoother ! desired smoother
+            
+            ! cfl/dcfl for initialization
+            if (controlVariables % containsKey("initial cfl")) then
+               ini_cfl(1) = controlVariables % doublePrecisionValueForKey("initial cfl")
+               ini_cfl(2) = controlVariables % doublePrecisionValueForKey("initial cfl")
+            else
+               ini_cfl(1) = 0.5d0
+               ini_cfl(2) = 0.5d0
+            end if
+            ! desired cfl/dcfl
+            if (controlVariables % containsKey("cfl")) then
+               ini_cfl(3) = cfl
+               ini_cfl(4) = dcfl
+            else if (controlVariables % containsKey("pseudo cfl")) then
+               ini_cfl(3) = p_cfl
+               ini_cfl(4) = p_dcfl
+            else
+               ERROR STOP "FASMultigridClass :: "
+            end if
+
+         end if
+      end if
+!
 !     ------------------------------------------
 !     Get the minimum multigrid polynomial order
 !     ------------------------------------------
@@ -501,7 +548,7 @@ module FASMultigridClass
       end if
 
       ! allocate array for LTS
-      if (Preconditioner .eq. PRECONDIIONER_LTS) allocate( Solver % lts_dt(nelem))
+      if (Preconditioner .eq. PRECONDIIONER_LTS .or. mg_Initialization) allocate( Solver % lts_dt(nelem))
 !
 !     --------------------------------------------------------------
 !     Fill MGStorage(iEl) % Scase if required (manufactured solutions)
@@ -558,7 +605,7 @@ module FASMultigridClass
             case default
                ERROR stop 'Invalid jacobian type'
          end select
-         call Solver % Jacobian % construct(Solver % p_sem % mesh, NCONS)
+         call Solver % Jacobian % construct(Solver % p_sem % mesh, NCONS, controlVariables)
 !
 !        Construct Jacobian
 !        ---------------------
@@ -682,13 +729,15 @@ module FASMultigridClass
          FMG = .FALSE.
       end if
 
-      if (this % computeA) then
-         StepsSinceJac = 0
-      else
-         StepsSinceJac = StepsSinceJac + 1
-         if (StepsSinceJac .eq. StepsForJac) then
-            call computeA_AllLevels(this,MGlevels)
+      if (.not. DualTimeStepping) then
+         if (this % computeA) then
             StepsSinceJac = 0
+         else
+            StepsSinceJac = StepsSinceJac + 1
+            if (StepsSinceJac .eq. StepsForJac) then
+               call computeA_AllLevels(this,MGlevels)
+               StepsSinceJac = 0
+            end if
          end if
       end if
 !
@@ -742,6 +791,15 @@ module FASMultigridClass
 !     Solve local steady-state problem
 !     -----------------------
 !
+      if (this % computeA) then
+         StepsSinceJac = 0
+      else
+         StepsSinceJac = StepsSinceJac + 1
+         if (StepsSinceJac .eq. StepsForJac) then
+            call computeA_AllLevels(this,MGlevels)
+            StepsSinceJac = 0
+         end if
+      end if
 
       tk = t
       if (Compute_Global_dt) call MaxTimeStep( self=this % p_sem, cfl=cfl, dcfl=dcfl , MaxDt=dt)
@@ -791,6 +849,8 @@ module FASMultigridClass
 !$omp end parallel do
 
       call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+
+      if (mg_Initialization_Present) mg_Initialization = .true. ! set back explicit initialization for the next step
       
    end subroutine TakePseudoStep  
 !
@@ -838,10 +898,38 @@ module FASMultigridClass
 #if defined(NAVIERSTOKES)      
 !
 !     -----------------------
-!     Pre-smoothing procedure
+!     Initialization
 !     -----------------------
 !
+      if (mg_Initialization) then
+         Preconditioner = ini_Preconditioner(1)
+         Smoother = ini_Smoother(1)
+         this % computeA = .false.
 
+         if (DualTimeStepping) then
+            p_cfl = ini_cfl(1)
+            p_dcfl = ini_cfl(2)
+         else
+            cfl = ini_cfl(1)
+            dcfl = ini_cfl(2)
+         end if
+
+         if (MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) .le. ini_res) then
+            mg_Initialization = .false.
+            call computeA_AllLevels(this,lvl)
+            Preconditioner = ini_Preconditioner(2)
+            Smoother = ini_Smoother(2)
+            if (DualTimeStepping) then
+               p_cfl = ini_cfl(3)
+               p_dcfl = ini_cfl(4)
+            else
+               cfl = ini_cfl(3)
+               dcfl = ini_cfl(4)
+            end if
+         end if
+      end if
+!     Check if we solve local or global problem
+!     -----------------------------------------
       if (DualTimeStepping) then
          fasvcycle_dt  => p_dt
          fasvcycle_cfl  => p_cfl
@@ -851,14 +939,21 @@ module FASMultigridClass
          fasvcycle_cfl  => cfl
          fasvcycle_dcfl => dcfl
       end if
+
+!     Compute dt and 1/dt
+!     -------------------
       if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=fasvcycle_cfl, dcfl=fasvcycle_dcfl, MaxDt=fasvcycle_dt )
       invdt = -1._RP/fasvcycle_dt
 
+!     Taking care of Jacobian (for implicit residual relaxation)
+!     ----------------------------------------------------------
       if (this % computeA) then
 
          select type (Amat => this % A)
          type is (csrMat_t)
             call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative)
+            ! call Amat % Visualize('Jac.txt') ! FINDME1
+            ! error stop "Save Jac"
             call Amat % shift(invdt)
          type is (DenseBlockDiagMatrix_t)
             call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, BlockDiagonalized=.true.)
@@ -880,6 +975,8 @@ module FASMultigridClass
          this % computeA = .false.
       end if
 
+!     Pre-smoothing procedure
+!     -----------------------
       sweepcount = 0
       do
          call this % Smooth(MGSweepsPre(lvl),t, ComputeTimeDerivative)

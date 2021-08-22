@@ -125,7 +125,7 @@ contains
 !     ***************************
 !
       if ( present(sem) ) then
-         call this % Jacobian % construct(sem % mesh, nEqn)
+         call this % Jacobian % construct(sem % mesh, nEqn, controlVariables)
       end if
    end subroutine Construct
 !

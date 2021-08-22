@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug  4 16:39:54 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Sun Aug 22 12:53:07 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,6 +36,7 @@ module AnalyticalJacobian
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
    use ConnectivityClass               , only: Connectivity
+   use FTValueDictionaryClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
@@ -80,12 +81,13 @@ contains
 !  AnJacobian_Construct:
 !  Main class constructor
 !  -------------------------------------------------------
-   subroutine AnJacobian_Construct(this, mesh, nEqn)
+   subroutine AnJacobian_Construct(this, mesh, nEqn, controlVariables)
       implicit none
       !-arguments-----------------------------------------
       class(AnJacobian_t)  , intent(inout) :: this
       type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      type(FTValueDictionary)  , intent(in)    :: controlVariables
       !-local-variables-----------------------------------
       integer :: fID, eID
       !---------------------------------------------------
@@ -93,7 +95,7 @@ contains
 !
 !     Construct parent
 !     ----------------
-      call this % JacobianComputer_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
 !
 !     Create stopwatch event
 !     ----------------------
