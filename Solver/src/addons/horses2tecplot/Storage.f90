@@ -236,6 +236,9 @@ module Storage
 !        Read coordinates
 !        ----------------
          fid = putSolutionFileInReadDataMode(solutionName)
+         
+         ! call set_getVelocityGradients(GRADVARS_STATE) ! FIXME: MIGHT BE NEEDED FOR HORSES2PLT
+         ! write(STD_OUT,'(15X,A)') " WARNING horses2tecplot.90 :: Velocity Gradients set to default (GRADVARS_STATE)"
       
          if ( .not. self % isStatistics ) then
             do eID = 1, self % no_of_elements
