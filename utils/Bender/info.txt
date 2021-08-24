@@ -1,3 +1,0 @@
-module load gcc/5.3.0
-export LD_LIBRARY_PATH=/opt/intel/compilers_and_libraries_2016.1.150/linux/compiler/lib/intel64_lin/:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/opt/intel/mkl/lib/intel64:$LD_LIBRARY_PATH
