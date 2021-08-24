@@ -47,9 +47,6 @@ MODULE ColorsClass
          integer                             :: ntotal, maxcolor
          integer, DIMENSION(:), allocatable  :: colors
          !----------------------------------------------------------------
-         
-         allcolored = .false.
-         ncolored = 0
 
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
