@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Sun Aug 22 00:47:40 2021
+!   @Last revision date: Tue Aug 24 08:00:10 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
+!   @Last revision commit: 367993a60410bcba2536576cdc54b53e11ebc523
 !
 !//////////////////////////////////////////////////////
 !
@@ -815,13 +815,15 @@ module FASMultigridClass
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
          call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, dt)
          dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
-         if (PseudoConvergenceMonitor) write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
+         if (PseudoConvergenceMonitor) then
+            if (MPI_Process % isRoot ) write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
+         end if
          if (dQdtau_norm .le. conv_tolerance) exit
 
       end do
 
       dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
-      write(STD_OUT,'(20X,A,I4,A,ES10.3)') "--- Pseudo time step converged in ", i, " iterations to Res= ", dQdtau_norm
+      if (MPI_Process % isRoot ) write(STD_OUT,'(20X,A,I4,A,ES10.3)') "--- Pseudo time step converged in ", i, " iterations to Res= ", dQdtau_norm
 
       tk = tk + dt
 
