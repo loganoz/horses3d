@@ -336,7 +336,7 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                 :: t
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
-      integer                       :: k,i,j
+      integer                       :: k
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
@@ -510,6 +510,8 @@ print*, "Method selected: RK5"
             endif 
 
          endif 
+
+
 #endif
 !
 !        Print monitors
@@ -540,12 +542,12 @@ print*, "Method selected: RK5"
          
          sem % numberOfTimeSteps = k + 1
       END DO
+
 !
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
-         call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients) ! laskwj
       end if
       
       sem % maxResidual       = maxval(maxResidual)
