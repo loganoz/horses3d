@@ -207,10 +207,6 @@ module PetscSolverClass
          case ('ILU')
             
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
-         case ('Block-Jacobi2')
-
-            call PCSetType(this%pc,PCBJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
-            call PCBJacobiSetTotalBlocks(this % pc, size(this % Jacobian % ndofelm_l), this % Jacobian % ndofelm_l(1), ierr) ; call CheckPetscErr(ierr, 'error in PCBJacobiSetBlocks')
          case default
          
             ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
@@ -244,7 +240,7 @@ module PetscSolverClass
       PetscErrorCode                                  :: ierr
       PetscInt                                        :: nresvec=500
       PetscReal ,dimension(500)                       :: resvec
-      type(csrMat_t) :: Afull ! to save matrix
+      type(csrMat_t) :: Afull ! to save & visualize the matrix if needed
       !---------------------------------------------------------------------
       
       if ( present(ComputeA)) then
@@ -265,8 +261,7 @@ module PetscSolverClass
          
          call this % SetPreconditioner
       end if
-      ! error stop "NEEDED ONLY TO COMPUTE JACOBIAN" ! FINDME1
-
+      
       ! call this % A % GetCSRMatrix (Afull)
       ! call Afull % Visualize('Afull_f.txt') ! visualize
       
@@ -283,8 +278,7 @@ module PetscSolverClass
          this%maxiter = PETSC_DEFAULT_integer
       end if
       
-      ! call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr) ! OLD
-      call KSPSetTolerances(this%ksp,this % tol,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr) ! laskwj fix
+      call KSPSetTolerances(this%ksp,this % tol,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetTolerances')
       
       ! Set initial guess to P⁻¹b
@@ -295,7 +289,7 @@ module PetscSolverClass
       call KSPSetResidualHistory(this%ksp,resvec,nresvec,PETSC_TRUE,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetResidualHistory')
 
-      ! set different type of solver other than GMRES
+      ! set type of solver
       call KSPSetType(this % ksp,KSPGMRES,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
       ! call KSPSetType(this % ksp,KSPRICHARDSON,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
       
