@@ -201,7 +201,6 @@ contains
 !     Prolong Q to faces
 !     ------------------
 !
-!      print *, "[AJ] Moje Q: ", sem % mesh % elements(1) % storage % Q ! laskwj_test
       call sem % mesh % ProlongSolutionToFaces(NCONS)
 !
 !     ----------------
@@ -1552,7 +1551,7 @@ contains
       
       ! Nodal storage
       ! --------------------------------------
-      ! This doesn't work since ifort ver. 19.1!
+      ! TODO: Why this doesn't work since ifort ver. 19.1?
       ! --------------------------------------
       ! spA_plus  = NodalStorage(e_plus  % Nxyz)
       ! spA_minus = NodalStorage(e_minus % Nxyz)
