@@ -1,4 +1,0 @@
-WITH_MKL=y
-LIB_LAPACK=/opt/intel/mkl/lib/intel64/libmkl_lapack95_lp64.a
-LIB_BLAS=/opt/intel/mkl/lib/intel64/libmkl_blas95_lp64.a  -L/opt/intel/mkl/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_intel_thread -lmkl_core  -lpthread -lm -ldl -L/opt/intel/lib/intel64_lin/ -liomp5
-
