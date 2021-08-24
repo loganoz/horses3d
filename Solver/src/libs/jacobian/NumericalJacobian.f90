@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Nov 16 18:49:24 2020
+!   @Last revision date: Sun Aug 22 00:47:38 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: c05e3c92c9c273d1ec4f68bca621f9b56c2a9511
+!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,6 +29,7 @@ module NumericalJacobian
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
+   use FTValueDictionaryClass
    implicit none
    
    private
@@ -61,18 +62,21 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Construct(this, mesh, nEqn)
+   subroutine NumJacobian_Construct(this, mesh, nEqn, controlVariables)
       implicit none
       !-arguments-----------------------------------------
       class(NumJacobian_t) , intent(inout) :: this
       type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      type(FTValueDictionary)  , intent(in)  :: controlVariables
       !---------------------------------------------------
       
 !
 !     Construct parent
 !     ----------------
-      call this % JacobianComputer_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
+
+      call SetNoNeighbours(this, controlVariables)
       
       call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
       
@@ -141,23 +145,6 @@ contains
 
          nelm = size(sem % mesh % elements)
 
-!
-!        Define the number of needed neighbors
-!        -> TODO: Define according to physics and discretization
-!        -------------------------------------------------------
-#if defined(CAHNHILLIARD)
-         num_of_neighbor_levels = 4
-print*, "4 NEIGHBORS!!!!!!!!!!!!"
-#elif defined(NAVIERSTOKES)
-         if (flowIsNavierStokes) then
-            num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
-         else
-            num_of_neighbor_levels = 1
-         end if
-#else
-         num_of_neighbor_levels = 2
-#endif
-         
 !
 !        Initialize the colorings structure
 !        ----------------------------------
@@ -602,4 +589,51 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
       end do
 
    end subroutine GetRowsAndColsVector
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------
+!     Destruct the JacobianInfo variables
+!     ------------------------------------
+   subroutine SetNoNeighbours(this, controlVariables)
+      implicit none
+      !-arguments-----------------------------------------
+      class(NumJacobian_t), intent(inout)   :: this
+      type(FTValueDictionary)  , intent(in) :: controlVariables
+      !---------------------------------------------------
+      character(len=LINE_LENGTH)                     :: tmpc
+      !---------------------------------------------------
+
+#if defined(CAHNHILLIARD)
+      num_of_neighbor_levels = 4
+#elif defined(NAVIERSTOKES)
+      if (flowIsNavierStokes) then
+         if (controlVariables % containsKey("viscous discretization")) then
+
+            tmpc = controlVariables % StringValueForKey("viscous discretization",LINE_LENGTH)
+            select case (tmpc)
+            case('BR1')
+               num_of_neighbor_levels = 2
+            case('BR2')
+               num_of_neighbor_levels = 1
+            case('IP')
+               num_of_neighbor_levels = 1
+            case default 
+               if (MPI_Process % isRoot) ERROR STOP 'JacobianComputerClass :: Viscous discretization not recognized.'
+            end select
+         else
+            if (MPI_Process % isRoot) write(STD_OUT,*) 'JacobianComputerClass :: Viscous discretization not defined. Jacobian assumes BR1.'
+            num_of_neighbor_levels = 2
+         end if 
+      else
+         num_of_neighbor_levels = 1
+      end if
+#else
+      num_of_neighbor_levels = 2
+#endif
+
+   end subroutine SetNoNeighbours
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module NumericalJacobian

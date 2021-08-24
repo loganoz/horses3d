@@ -55,6 +55,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
+            ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
 	    ./NavierStokes/FlatPlate \
@@ -62,6 +63,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	    ./NavierStokes/TaylorGreenKEPEC_IP \
 	    ./NavierStokes/TaylorGreenKEP_BR2 \
 	    ./NavierStokes/ManufacturedSolutions \
+	    ./NavierStokes/NACA0012 \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

@@ -1,13 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      TimeIntegration.f95
-!      Created: 2007-10-23 09:25:32 -0400 
-!      By: David Kopriva  
+!   @File:    TimeIntegrator.f90
+!   @Author:  David kopriva
+!   @Created: 2007-10-23 09:25:32 -0400 
+!   @Last revision date: Sun Aug 22 00:47:44 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
 !
-!      Third order RK integrator for DG approximation to conservation
-!      laws in 2D
-!      @Last revision author: Wojciech Laskowski 
+!   Module for general time integration.
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -35,6 +36,7 @@
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
+      use JacobianComputerClass
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -261,7 +263,7 @@ print*, "Method selected: RK5"
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
+         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
          
          call FMGSolver % destruct
       end if
@@ -449,9 +451,9 @@ print*, "Method selected: RK5"
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
-               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+               call FASSolver % solve(k, t, ComputeTimeDerivative)
             elseif (self % integratorType .eq. TIME_ACCURATE) then
-               call FASSolver % TakePseudoStep(k, t, dt, ComputeTimeDerivative)
+               call FASSolver % TakePseudoStep(k, t, ComputeTimeDerivative)
             else
                error stop "FAS SOLVER :: Wrong simulation type."
             end if

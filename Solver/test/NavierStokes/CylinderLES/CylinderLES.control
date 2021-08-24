@@ -12,6 +12,7 @@ Reynolds number       = 200.0
 AOA theta             = 0.0
 AOA phi               = 90.0
 LES model             = Smagorinsky
+wall model            = linear
 solution file name    = "RESULTS/Cylinder.hsol"
 save gradients with solution = .true.
 restart               = .false.

@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Nov 16 18:49:22 2020
+!   @Last revision date: Sun Aug 22 00:47:35 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: c05e3c92c9c273d1ec4f68bca621f9b56c2a9511
+!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
 !
 !//////////////////////////////////////////////////////
 !
@@ -40,9 +40,9 @@ MODULE ColorsClass
          type(Neighbor_t), intent(in)         :: nbr(:)
          integer        , intent(in)         :: depth
          !-local-variables------------------------------------------------
-         integer                             :: ncolored = 0
+         integer                             :: ncolored
          LOGICAL, DIMENSION(:), allocatable  :: colored, used
-         LOGICAL                             :: allcolored = .FALSE.
+         LOGICAL                             :: allcolored
          integer                             :: i, j, counter, idx
          integer                             :: ntotal, maxcolor
          integer, DIMENSION(:), allocatable  :: colors
@@ -57,7 +57,9 @@ MODULE ColorsClass
          ALLOCATE(colored(ntotal))
          ALLOCATE(colors(ntotal))
          colored(:) = .FALSE.
+         allcolored = .FALSE.
          maxcolor = 0
+         ncolored = 0
          
 !        Create colors and assign elements
 !        *********************************
