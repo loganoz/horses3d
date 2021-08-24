@@ -1,718 +1,711 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    StaticCondensationSolverClass.f90
+!   @File:    StaticCondensedMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May 19 16:54:16 2019
+!   @Last revision date: Wed Jul 17 11:52:40 2019
 !   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
+!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
 !
 !//////////////////////////////////////////////////////
 !
-!  StaticCondensationSolverClass:
-!     Routines for solving Gauss-Lobatto DGSEM representations using static-condensation/substructuring
+!  StaticCondensedMatrixClass:
+!  -> This type of matrix reorganizes the Jacobian matrix as 
 !
-module StaticCondensationSolverClass
+!      +-----+-------+
+!      | Mbb | Mib   |
+!      |     |       |
+!      +-----+-------+
+!      |     |       |
+!      | Mbi | Mii   |
+!      |     |       |
+!      +-----+-------+
+!
+!  -> Mii is DenseBlockDiagMatrix_t
+!  -> Mbb, Mib and Mbi can be either csrMat_t or PETSCMatrix_t
+!
+#include "Includes.h"
+module StaticCondensedMatrixClass
    use SMConstants
-   use DGSEMClass                   , only: DGSem, ComputeTimeDerivative_f
-   ! Linear solvers
-   use GenericLinSolverClass
-   use MKLPardisoSolverClass        , only: MKLPardisoSolver_t
-   use PetscSolverClass             , only: PetscKspLinearSolver_t
-   ! Matrices
-   use GenericMatrixClass           , only: Matrix_t
-   use StaticCondensedMatrixClass   , only: StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF, SC_MATRIX_CSR, SC_MATRIX_PETSC
-   use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
-   use CSRMatrixClass               , only: csrMat_t, CSR_MatAdd
+   use GenericMatrixClass
+   use CSRMatrixClass               , only: csrMat_t
    use PETScMatrixClass             , only: PETSCMatrix_t
-   ! Extras
-   use Utilities                    , only: AlmostEqual
-   use StopwatchClass               , only: Stopwatch
-   use NodalStorageClass            , only: GAUSSLOBATTO
-   use MatrixFreeGMRESClass         , only: MatFreeGMRES_t
+   use DenseBlockDiagonalMatrixClass, only: DenseBlockDiagMatrix_t
+   use HexMeshClass                 , only: HexMesh
+   use ElementClass                 , only: Element
+   use MeshTypes                    , only: EFRONT, EBACK, EBOTTOM, ERIGHT, ETOP, ELEFT
+   
    implicit none
    
    private
-   public StaticCondSolver_t
+   public StaticCondensedMatrix_t, INNER_DOF, BOUNDARY_DOF, SC_MATRIX_CSR, SC_MATRIX_PETSC
    
-!
-!  ********************************************
-!  Main type for the static condensation solver
-!  ********************************************
-   type, extends(GenericLinSolver_t)   :: StaticCondSolver_t
-      type(StaticCondensedMatrix_t)    :: A              ! System matrix
-      integer                          :: linsolver      ! Currently used linear solver
+   type ElemInfo_t
+      integer, allocatable :: dof_association(:)   ! Whether it is an INNER_DOF or a BOUNDARY_DOF
+      integer, allocatable :: perm_Indexes(:)      ! Permutation indexes for the map: element DOF -> Condensed system DOF (Mii- or Mbb-based according to dof_association )
+      integer, allocatable :: perm_Indexes_i(:)    ! Permutation indexes for the map: element DOF -> relative index of the corresponding block in Mii
+   end type ElemInfo_t
+   
+   type, extends(Matrix_t) :: StaticCondensedMatrix_t
+      class(Matrix_t), allocatable  :: Mbb         ! Boundary to boundary matrix
+      class(Matrix_t), allocatable  :: Mib         ! Interior to boundary matrix
+      class(Matrix_t), allocatable  :: Mbi         ! Boundary to interior matrix
+      type(DenseBlockDiagMatrix_t)  :: Mii         ! Interior to interior matirx
       
-!     Variables for the matrix (pardiso/PETSc) solvers
-!     ------------------------------------------------
-      class(Matrix_t)          , allocatable :: Mii_inv           ! Inverse of the inner blocks in CSR (only needed for matrix solvers)
-      class(GenericLinSolver_t), allocatable :: matSolver         ! Solver for the condensed system
+      type(ElemInfo_t), allocatable :: ElemInfo(:)
+      integer, allocatable          :: inner_blockSizes(:)
       
-!     Variables for the matrix-free (GMRES) solver
-!     --------------------------------------------
-      type(DenseBlockDiagMatrix_t)     :: Mii_LU
-      type(MatFreeGMRES_t)             :: gmresSolver
+      integer                       :: MatrixType
+      integer                       :: size_b      ! Size of condensed system (size of Mbb)
+      integer                       :: size_i      ! Size of inner system (size of Mii)
+      integer                       :: maxnumCon   ! Maximum number of connections of any element
       
-      real(kind=RP)                    :: Ashift = 0._RP    ! Current shift of the Jacobian matrix
-      real(kind=RP), allocatable       :: x(:)              ! Solution vector
-      real(kind=RP), allocatable       :: bi(:)             ! Right hand side (inner DOFs)
-      real(kind=RP), allocatable       :: bb(:)             ! Right hand side ("boundary" DOFs)
-   contains
-      procedure :: construct           => SCS_construct
-      procedure :: destroy             => SCS_destruct
-      procedure :: SetOperatorDt       => SCS_SetOperatorDt
-      procedure :: ReSetOperatorDt     => SCS_ReSetOperatorDt
-      procedure :: solve               => SCS_solve
-      procedure :: SetRHS              => SCS_SetRHS
-      procedure :: getCondensedSystem  => SCS_getCondensedSystem
-      procedure :: getCondensedRHS     => SCS_getCondensedRHS
-      procedure :: getGlobalArray      => SCS_getGlobalArray
-      procedure :: getLocalArrays      => SCS_getLocalArrays
-      procedure :: getSolution         => SCS_getSolution
-      procedure :: getX                => SCS_GetX
-      procedure :: GetXnorm            => SCS_GetXnorm
-      procedure :: GetRnorm            => SCS_GetRnorm
-      procedure :: MatrixAction        => SCS_MatrixAction
-   end type StaticCondSolver_t
+      logical                       :: ignore_boundaries = .FALSE. ! When .TRUE., Mii, does not contain the DOFs on the physical boundaries
+      
+      contains
+         procedure :: construct                    => Static_construct
+         procedure :: destruct                     => Static_destruct
+         procedure :: Preallocate                  => Static_Preallocate
+         procedure :: reset                        => Static_reset
+         procedure :: SpecifyBlockInfo             => Static_SpecifyBlockInfo
+         procedure :: SetBlockEntry                => Static_SetBlockEntry
+         procedure :: AddToBlockEntry              => Static_AddToBlockEntry
+         procedure :: Assembly                     => Static_Assembly
+         procedure :: shift                        => Static_Shift
+         procedure :: getSchurComplement           => Static_getSchurComplement
+         
+         procedure :: constructPermutationArrays   => Static_constructPermutationArrays
+         procedure :: getCSR                       => Static_getCSR
+   end type StaticCondensedMatrix_t
    
 !
-!  *****************
-!  Module parameters
-!  *****************
-   
+!  **********
+!  Parameters
+!  **********
 !
-!  Sub solvers
-!  -----------
-   integer, parameter :: SSOLVER_PARDISO    = 0
-   integer, parameter :: SSOLVER_PETSC      = 1
-   integer, parameter :: SSOLVER_MATF_GMRES = 2
-   
+!  DOF types
+!  ---------
+   integer, parameter :: INNER_DOF = 1
+   integer, parameter :: BOUNDARY_DOF = 2
 !
-!  ****************
-!  Module variables
-!  ****************
-   type(StaticCondSolver_t), pointer :: Current_Solver => null()
-   
+!  Matrix types
+!  ------------
+   integer, parameter :: SC_MATRIX_CSR   = 1
+   integer, parameter :: SC_MATRIX_PETSC = 2
 contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------
-!  Constructor
-!  -----------
-   subroutine SCS_construct(this,DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
+   subroutine Static_construct(this,num_of_Rows,num_of_Cols,num_of_Blocks,num_of_TotalRows,withMPI)
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout), target :: this
-      integer                  , intent(in)            :: DimPrb
-      integer                  , intent(in)            :: globalDimPrb
-      integer                  , intent(in)            :: nEqn
-      type(FTValueDictionary)  , intent(in), optional  :: controlVariables
-      type(DGSem), target                  , optional  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc
-      !-local-variables-----------------------------------------------------
-      integer :: nelem
-      character(len=LINE_LENGTH) :: linsolver
-      integer :: MatrixType
-      !---------------------------------------------------------------------
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t) :: this     !<> This matrix
+      integer, optional, intent(in)  :: num_of_Rows
+      integer, optional, intent(in)  :: num_of_Cols
+      integer, optional, intent(in)  :: num_of_Blocks
+      integer, optional, intent(in)  :: num_of_TotalRows
+      logical, optional, intent(in)  :: WithMPI
+      !---------------------------------------------
       
-      call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
-!
-!     **********************
-!     Check needed arguments
-!     **********************
-!
-      if (.not. present(controlVariables)) ERROR stop 'StaticCondSolver_t needs controlVariables'
-      if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
-      
-      ! TODO: Add conformity check?
-!
-!     Gauss-Lobatto check
-!     -------------------
-      
-      if (sem % mesh % nodeType /= GAUSSLOBATTO) then
-         ERROR stop 'Static Condensation only valid for Gauss-Lobatto discretizations'
+      if ( .not. present(num_of_Rows) ) then
+         ERROR stop 'StaticCondensedMatrix_t needs num_of_Rows'
       end if
-      
-      this % DimPrb = DimPrb
-      this % p_sem => sem
-       
-      MatrixShift => MatrixShiftFunc
-!
-!     ****************
-!     Select subsolver
-!     ****************
-!
-      linsolver = trim( controlVariables % StringValueForKey("static condensed subsolver",LINE_LENGTH) )
-      if ( trim(linsolver) == '' ) linsolver = 'pardiso' ! default value
-      
-      select case ( trim(linsolver) )
-         case('pardiso')
-            this % linsolver = SSOLVER_PARDISO
-            allocate(csrMat_t :: this % Mii_inv)
-            allocate(MKLPardisoSolver_t :: this % matSolver)
-            MatrixType = SC_MATRIX_CSR
-         case('petsc')
-            this % linsolver = SSOLVER_PETSC
-            allocate(csrMat_t :: this % Mii_inv)
-            allocate(PetscKspLinearSolver_t :: this % matSolver)
-            MatrixType = SC_MATRIX_CSR !SC_MATRIX_PETSC
-         case('gmres')
-            this % linsolver = SSOLVER_MATF_GMRES
-         case default   
-            write(*,'(A)') 'Not recognized static condensed subsolver.'
-            write(*,'(A)') 'Options are:'
-            write(*,'(A)') '  * pardiso'
-            write(*,'(A)') '  * petsc'
-            write(*,'(A)') '  * gmres (matrix-free)'
-            stop
-      end select
-!
-!     ***************************
-!     Construct the system matrix
-!     ***************************
-!
-      nelem  = sem % mesh % no_of_elements
-      
-      call this % A % construct  (num_of_Rows = DimPrb, &
-                                  num_of_Blocks = nelem )
-      
-!
-!     Construct the permutation
-!     -------------------------
-!
-      call this % A % constructPermutationArrays(sem % mesh, nEqn, MatrixType) !,.TRUE. ) ! For ignoring (physical) boundary DOFs 
-
-!
-!     ***********
-!     Allocations
-!     ***********
-!
-      allocate(this % x(DimPrb))
-      allocate ( this % bi(this % A % size_i) ) 
-      allocate ( this % bb(DimPrb - this % A % size_i) ) 
-!
-!     ***********************
-!     Construct linear solver
-!     ***********************
-!     
-      select case (this % linsolver)
-         case(SSOLVER_PARDISO, SSOLVER_PETSC)
-!
-!           Matrix solvers
-!           **************
-
-            ! Construct solver
-            call this % matSolver % construct(DimPrb = DimPrb - this % A % size_i, &
-                                              globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
-                                              nEqn = nEqn, &
-                                              MatrixShiftFunc = MatrixShiftFunc, &
-                                              controlVariables = controlVariables)
-            
-            ! This is for adding the block sizes to the subsolver Jacobian definition (only valid in sequential)
-            allocate ( this % matSolver % Jacobian % ndofelm_l(nelem) )
-            this % matSolver % Jacobian % ndofelm_l = this % A % BlockSizes - this % A % inner_blockSizes
-            
-            ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
-!~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
-            
-         case(SSOLVER_MATF_GMRES)
-!
-!           Matrix-free solver
-!           ******************
-            
-            ! Construct auxiliar CSR matrices
-            call this % Mii_LU % construct (num_of_Blocks = this % A % num_of_Blocks)
-            call this % Mii_LU % PreAllocate(nnzs = this % A % inner_blockSizes)
-            
-            ! Construct solver
-            call this % gmresSolver % construct (DimPrb = DimPrb - this % A % size_i, &
-                                                 globalDimPrb = globalDimPrb - this % A % size_i, & ! change this for MPI
-                                                 nEqn = nEqn, &
-                                                 MatrixShiftFunc = MatrixShiftFunc, &
-                                                 controlVariables = controlVariables)
-            call this % gmresSolver % SetMatrixAction (MatrixAction)
-            
-      end select
-      
-      call Stopwatch % CreateNewEvent ("System condensation")
-      
-   end subroutine SCS_construct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  ----------
-!  Destructor
-!  ----------
-   subroutine SCS_destruct(this)
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      !---------------------------------------------------------------------
-      
-      call this % A % destruct
-      
-      deallocate (this % x)
-      deallocate (this % bi)
-      deallocate (this % bb)
-      
-      select case (this % linsolver)
-!
-!        Matrix solvers
-!        **************
-         case(SSOLVER_PARDISO, SSOLVER_PETSC)
-!
-!           Destroy auxiliar matrix (must be done prior to destroying solver)
-!           -----------------------------------------------------------------
-            call this % Mii_inv   % destruct
-            deallocate (this % Mii_inv)
-!
-!           Destroy solver
-!           --------------
-            call this % matSolver % destroy
-            deallocate (this % matSolver)
-!
-!        Matrix-free solvers
-!        *******************
-         case(SSOLVER_MATF_GMRES)
-            call this % gmresSolver % destroy
-            call this % Mii_LU   % destruct
-      end select
-   end subroutine SCS_destruct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine SCS_SetOperatorDt(this,dt)       
-      implicit none
-      !-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: dt
-      !-----------------------------------------------------------
-      
-      this % Ashift = MatrixShift(dt)
-      call this % A % Shift(this % Ashift)
-      
-    end subroutine SCS_SetOperatorDt
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine SCS_ReSetOperatorDt(this,dt)       
-      implicit none
-      !-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: dt
-      !-----------------------------------------------------------
-      real(kind=RP)                            :: shift
-      !-----------------------------------------------------------
-      
-      shift = MatrixShift(dt)
-      
-      if ( AlmostEqual(shift,this % Ashift) ) return
-      
-      call this % A % Shift(-this % Ashift)
-      call this % A % Shift(shift)
-      this % Ashift = shift
-      
-      call this % getCondensedSystem
-      
-   end subroutine SCS_ReSetOperatorDt
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine SCS_SetRHS(this, RHS)
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
-      !---------------------------------------------------------------------
-      
-      call this % getLocalArrays(RHS, this % bi, this % bb)
-      
-   end subroutine SCS_SetRHS
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   function SCS_GetX(this) result(x)
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)                            :: x(this % DimPrb)
-      !---------------------------------------------------------------------
-      
-      x = this % x
-      
-   end function SCS_GetX
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   function SCS_GetXnorm(this,TypeOfNorm) result(xnorm)
-      implicit none
-      !-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      character(len=*)                         :: TypeOfNorm
-      real(kind=RP)                            :: xnorm
-      !-----------------------------------------------------------
-      
-      select case (TypeOfNorm)
-         case ('infinity')
-            xnorm = maxval(abs(this % x))
-         case ('l2')
-            xnorm = norm2(this % x)
-         case default
-            stop 'StaticCondensationSolverClass ERROR: Norm not implemented yet'
-      end select 
-   end function SCS_GetXnorm
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   function SCS_GetRnorm(this) result(rnorm)
-      implicit none
-!
-!     ----------------------------------------
-!     Currently implemented with infinity norm
-!     ----------------------------------------
-!
-      !-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)                            :: rnorm
-      !-----------------------------------------------------------
-      real(kind=RP)                            :: residual(this % DimPrb)
-      !-----------------------------------------------------------
-      
-      select case (this % linsolver)
-         case (SSOLVER_MATF_GMRES)
-            rnorm = this % gmresSolver % GetRnorm()
-         case default
-            rnorm = this % matSolver % GetRnorm()
-      end select
-      
-   end function SCS_GetRnorm
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  --------------------------------------------------
-!  SCS_getGlobalArray:
-!  Get global array from boundary and interior arrays
-!  --------------------------------------------------
-   subroutine SCS_getGlobalArray(this,x,xi,xb)
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout)  :: this
-      real(kind=RP)            , intent(out)    :: x(this % DimPrb)
-      real(kind=RP)            , intent(in)     :: xi(this % A % size_i)
-      real(kind=RP)            , intent(in)     :: xb(this % A % size_b)
-      !-local-variables-----------------------------------------------------
-      integer :: eID    ! Element (block) index
-      integer :: i_ind  ! xi index
-      integer :: b_ind  ! xb index
-      integer :: x_ind  ! x  index
-      integer :: i      ! Element DOF index (eq included)
-      !---------------------------------------------------------------------
-      
-      i_ind = 1
-      b_ind = 1
-      x_ind = 1
-      
-      do eID = 1, this % A % num_of_Blocks
-         do i = 1, this % A % BlockSizes(eID)
-            select case (this % A % ElemInfo(eID) % dof_association(i))
-               case (INNER_DOF)
-                  x(x_ind) = xi(i_ind)
-                  i_ind = i_ind + 1
-               case (BOUNDARY_DOF)
-                  x(x_ind) = xb(b_ind)
-                  b_ind = b_ind + 1
-            end select
-            x_ind = x_ind + 1
-         end do  
-      end do
-      
-   end subroutine SCS_getGlobalArray
-   
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  --------------------------------------------------
-!  SCS_getGlobalArray:
-!  Get boundary and interior arrays from global array 
-!  --------------------------------------------------
-   subroutine SCS_getLocalArrays(this,x,xi,xb)
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: x(this % DimPrb)
-      real(kind=RP)            , intent(out)   :: xi(this % A % size_i)
-      real(kind=RP)            , intent(out)   :: xb(this % A % size_b)
-      !-local-variables-----------------------------------------------------
-      integer :: eID    ! Element (block) index
-      integer :: i_ind  ! xi index
-      integer :: b_ind  ! xb index
-      integer :: x_ind  ! x  index
-      integer :: i      ! Element DOF index (eq included)
-      !---------------------------------------------------------------------
-      
-      i_ind = 1
-      b_ind = 1
-      x_ind = 1
-      
-      do eID = 1, this % A % num_of_Blocks
-         do i = 1, this % A % BlockSizes(eID)
-            select case (this % A % ElemInfo(eID) % dof_association(i))
-               case (INNER_DOF)
-                  xi(i_ind) = x(x_ind)
-                  i_ind = i_ind + 1
-               case (BOUNDARY_DOF)
-                  xb(b_ind) = x(x_ind)
-                  b_ind = b_ind + 1
-            end select
-            x_ind = x_ind + 1
-         end do  
-      end do
-      
-   end subroutine SCS_getLocalArrays
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   subroutine SCS_solve(this,nEqn, nGradEqn, ComputeTimeDerivative,tol,maxiter,time,dt,computeA)
-      use CSRMatrixClass ! debug
-      implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), target, intent(inout) :: this
-      integer,       intent(in)                :: nEqn
-      integer,       intent(in)                :: nGradEqn
-      procedure(ComputeTimeDerivative_f)       :: ComputeTimeDerivative
-      real(kind=RP), optional                  :: tol
-      integer      , optional                  :: maxiter
-      real(kind=RP), optional                  :: time
-      real(kind=RP), optional                  :: dt
-      logical      , optional  , intent(inout) :: computeA
-      !-local-variables-----------------------------------------------------
-      logical        :: subCompA
-      real(kind=RP)  :: xb(this % A % size_b)
-      !---------------------------------------------------------------------
-      
-      Current_Solver => this
-      
-!     Compute Jacobian matrix if needed
-!     ---------------------------------    
-      
-      if ( present(ComputeA)) then
-         if (ComputeA) then
-            call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
-            call this % SetOperatorDt(dt)
-            
-            ComputeA = .FALSE.
-            call this % getCondensedSystem
+      if ( .not. present(num_of_Blocks) ) then
+         ERROR stop 'StaticCondensedMatrix_t needs num_of_Blocks'
+      end if
+      if ( present(num_of_Cols) ) then
+         if (num_of_Cols /= num_of_Rows) then
+            ERROR stop 'StaticCondensedMatrix_t must be a square matrix'
          end if
-      else
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
-         call this % SetOperatorDt(dt)
-         
-         call this % getCondensedSystem
       end if
       
-      call this % getCondensedRHS
+      this % num_of_Rows   = num_of_Rows
+      this % num_of_Cols   = num_of_Rows     ! Only for square matrices
+      this % num_of_Blocks = num_of_Blocks
       
-      subCompA = .FALSE.
-      
-      select case (this % linsolver)
-         case (SSOLVER_PARDISO, SSOLVER_PETSC)
-            call this % matSolver % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = tol, maxiter=maxiter, time = time, dt=dt, &
-                                    ComputeTimeDerivative = ComputeTimeDerivative, computeA = subCompA)
-            this % niter = this % matSolver % niter
-            xb = this % matSolver % getX()
-         case (SSOLVER_MATF_GMRES)
-            call this % gmresSolver   % solve( nEqn=nEqn, nGradEqn=nGradEqn, tol = tol, maxiter=maxiter, time = time, dt=dt, &
-                                    ComputeTimeDerivative = ComputeTimeDerivative, computeA = subCompA)
-            this % niter = this % gmresSolver % niter
-            xb = this % gmresSolver % getX()
-      end select
-      
-      call this % getSolution(xb)
-      
-   end subroutine SCS_solve
+   end subroutine Static_construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -------------------------------------------------
-!  SCS_getCondensedSystem:
-!  Get condensed system matrix
-!  -------------------------------------------------
-   subroutine SCS_getCondensedSystem(this)
+   subroutine Static_destruct(this)
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      !-local-variables-----------------------------------------------------
-      type(DenseBlockDiagMatrix_t) :: Mii_inv
-      type(csrMat_t)               :: SchurComp
-      !---------------------------------------------------------------------
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
+      !---------------------------------------------
       
-      select case (this % linsolver)
-         case (SSOLVER_PARDISO, SSOLVER_PETSC)
-            call Stopwatch % Start("System condensation")
-            
-            ! Construct auxiliar matrix for Mii⁻¹
-            call Mii_inv % construct (num_of_Blocks = this % A % num_of_Blocks)
-            call Mii_inv % PreAllocate(nnzs = this % A % inner_blockSizes)
-            
-            ! Invert blocks and get corresponding sparse matrix
-            call this % A % Mii % InvertBlocks_LU (Mii_inv)
-            call this % Mii_inv % ConstructFromDiagBlocks(Mii_inv % num_of_Blocks, Mii_inv % Blocks, Mii_inv % BlockIdx, Mii_inv % BlockSizes)
-            call Mii_inv % destruct
-            
-            ! Additional operations (solver specific)
-            select type (matSolver => this % matSolver)
-               class is (PetscKspLinearSolver_t)
-                  ! Get condensed matrix
+      call this % Mii % destruct
+      call this % Mbb % destruct
+      deallocate (this % Mbb)
+      call this % Mib % destruct
+      deallocate (this % Mib)
+      call this % Mbi % destruct
+      deallocate (this % Mbi)
+      
+      deallocate (this % ElemInfo)
+      deallocate (this % inner_blockSizes)
+      deallocate (this % BlockSizes)
+      
+      this % size_b        = 0
+      this % size_i        = 0
+      this % num_of_Rows   = 0
+      this % num_of_Cols   = 0
+      this % num_of_Blocks = 0
+   end subroutine Static_destruct
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_Preallocate(this, nnz, nnzs)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
+      integer, optional             , intent(in)    :: nnz     !<  Not needed here
+      integer, optional             , intent(in)    :: nnzs(:) !<  nnzs contains the block sizes!
+      !---------------------------------------------
+      
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+!
+!           CSR: Preallocate with standard linked-list
+!           ------------------------------------------
+            call this % Mbb % Preallocate()
+            call this % Mib % Preallocate()
+            call this % Mbi % Preallocate()
+         case (SC_MATRIX_PETSC)
+!
+!           PETSc: Preallocate with a (very conservative) estimate of the maximum nnz
+!           -------------------------------------------------------------------------
+            call this % Mbb % Preallocate( nnz = this % maxnumCon * maxval(this % BlockSizes - this % inner_blockSizes) )
+            call this % Mib % Preallocate( nnz = this % maxnumCon * maxval(this % inner_blockSizes) )
+            call this % Mbi % Preallocate( nnz = this % maxnumCon * maxval(this % BlockSizes - this % inner_blockSizes) )
+      end select
+      call this % Mii % Preallocate(nnzs = this % inner_blockSizes)
+      
+   end subroutine Static_Preallocate
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_Reset(this, ForceDiagonal)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      logical, optional             , intent(in)    :: ForceDiagonal
+      !-local-variables-----------------------------
+      logical :: mustForceDiagonal
+      !---------------------------------------------
+      
+      if ( present(ForceDiagonal) ) then
+         mustForceDiagonal = ForceDiagonal
+      else
+         mustForceDiagonal = .FALSE.
+      end if
+      
+      call this % Mii % reset(ForceDiagonal = mustForceDiagonal)
+      call this % Mbb % reset(ForceDiagonal = mustForceDiagonal)
+      call this % Mbi % reset
+      call this % Mib % reset
+      
+   end subroutine Static_Reset
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_SpecifyBlockInfo(this,BlockIdx,BlockSize)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      integer                       , intent(in)    :: BlockIdx(:)
+      integer                       , intent(in)    :: BlockSize(:)
+      !---------------------------------------------
+      ! do nothing
+   end subroutine Static_SpecifyBlockInfo
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------------------
+!  Subroutine to set the entries of a block with relative index
+!  ------------------------------------------------------------
+   subroutine Static_SetBlockEntry(this, iBlock, jBlock, i, j, value )
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      integer                       , intent(in)    :: iBlock, jBlock
+      integer                       , intent(in)    :: i, j
+      real(kind=RP)                 , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: dof_association(2) ! local DOF associtions
+      integer :: perm_Indexes(2)    ! local permutation indexes
+      !---------------------------------------------
+      
+      dof_association = [ this % ElemInfo(iBlock) % dof_association(i) , this % ElemInfo(jBlock) % dof_association(j) ]
+      
+      select case ( dof_association(1) )
+         case (INNER_DOF)
+            select case ( dof_association(2) )
+               case (INNER_DOF)
+!
+!                 Contribution to Mii matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes_i (i) , this % ElemInfo(jBlock) % perm_Indexes_i (j) ]
+                  call this % Mii % SetBlockEntry (iBlock, jBlock, perm_Indexes(1), perm_Indexes(2), value)
                   
-                  call SchurComp % construct(num_of_Rows = this % A % size_b, withMPI = .false.)
+               case (BOUNDARY_DOF)
+!
+!                 Contribution to Mbi matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mbi % SetEntry(perm_Indexes(1), perm_Indexes(2), value )
                   
-                  call this % A % getSchurComplement(this % Mii_inv, SchurComp)
+               case default
+                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
                   
-                  call matSolver % A % constructWithCSRArrays(SchurComp % Rows,SchurComp % Cols,SchurComp % Values)
-                  
-                  call SchurComp % destruct
-                  
-                  call Stopwatch % Pause("System condensation")
-                  
-                  ! Set PETSc matrix and preconditioner
-                  call matSolver % SetPreconditioner
-                  
-               class is (MKLPardisoSolver_t)
-                  ! Get condensed matrix
-                  call this % A % getSchurComplement(this % Mii_inv, matSolver % A)
-                  call Stopwatch % Pause("System condensation")
-                  
-                  ! Factorize Jacobian
-                  call matSolver % FactorizeJacobian
             end select
+         case (BOUNDARY_DOF)
+            select case ( dof_association(2) )
+               case (INNER_DOF)
+!
+!                 Contribution to Mib matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mib % SetEntry(perm_Indexes(1), perm_Indexes(2), value )
+                  
+               case (BOUNDARY_DOF)
+!
+!                 Contribution to Mbb matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mbb % SetEntry(perm_Indexes(1), perm_Indexes(2), value )
+                  
+               case default
+                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  
+            end select
+         
+         case default
+            ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
             
-         case (SSOLVER_MATF_GMRES)
-            call Stopwatch % Start("System condensation")
-            call this % A % Mii % FactorizeBlocks_LU (this % Mii_LU)
-            call Stopwatch % Pause("System condensation")
       end select
-   end subroutine SCS_getCondensedSystem
+   end subroutine Static_SetBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  --------------------------------------------------------
-!  SCS_getCondensedRHS:
-!  Get condensed RHS (Mii blocks are already inverted)
-!  --------------------------------------------------------
-   subroutine SCS_getCondensedRHS(this)
+!  -----------------------------------------------------------------------
+!  Subroutine to add a value to the entries of a block with relative index
+!  -----------------------------------------------------------------------
+   subroutine Static_AddToBlockEntry(this, iBlock, jBlock, i, j, value )
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      !-local-variables-----------------------------------------------------
-      real(kind=RP)  :: Minv_bi(this % A % size_i)
-      real(kind=RP)  :: bb     (this % A % size_b)
-      !---------------------------------------------------------------------
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      integer                       , intent(in)    :: iBlock, jBlock
+      integer                       , intent(in)    :: i, j
+      real(kind=RP)                 , intent(in)    :: value
+      !-local-variables-----------------------------
+      integer :: dof_association(2) ! local DOF associtions
+      integer :: perm_Indexes(2)    ! local permutation indexes
+      !---------------------------------------------
       
-      call Stopwatch % Start("System condensation")
+      dof_association = [ this % ElemInfo(iBlock) % dof_association(i) , this % ElemInfo(jBlock) % dof_association(j) ]
       
-      select case (this % linsolver)
-         case (SSOLVER_PARDISO, SSOLVER_PETSC)
-            Minv_bi = this % Mii_inv % MatVecMul (this % bi)
-            bb = this % A % Mib % MatVecMul (Minv_bi)
-            call this % matSolver % SetRHS (this % bb - bb)
-         case (SSOLVER_MATF_GMRES)
-            call this % Mii_LU % SolveBlocks_LU (Minv_bi, this % bi)
-            this % gmresSolver % RHS = this % A % Mib % MatVecMul (Minv_bi)
-            this % gmresSolver % RHS = this % bb - this % gmresSolver % RHS
+      select case ( dof_association(1) )
+         case (INNER_DOF)
+            select case ( dof_association(2) )
+               case (INNER_DOF)
+!
+!                 Contribution to Mii matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes_i (i) , this % ElemInfo(jBlock) % perm_Indexes_i (j) ]
+                  call this % Mii % AddToBlockEntry (iBlock, jBlock, perm_Indexes(1), perm_Indexes(2), value)
+                  
+               case (BOUNDARY_DOF)
+!
+!                 Contribution to Mbi matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mbi % AddToEntry(perm_Indexes(1), perm_Indexes(2), value )
+                  
+               case default
+                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  
+            end select
+         case (BOUNDARY_DOF)
+            select case ( dof_association(2) )
+               case (INNER_DOF)
+!
+!                 Contribution to Mib matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mib % AddToEntry(perm_Indexes(1), perm_Indexes(2), value )
+                  
+               case (BOUNDARY_DOF)
+!
+!                 Contribution to Mbb matrix
+!                 --------------------------
+                  perm_Indexes = [ this % ElemInfo(iBlock) % perm_Indexes   (i) , this % ElemInfo(jBlock) % perm_Indexes   (j) ]
+                  call this % Mbb % AddToEntry(perm_Indexes(1), perm_Indexes(2), value )
+                  
+               case default
+                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  
+            end select
+         
+         case default
+            ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+            
       end select
       
-      call Stopwatch % Pause("System condensation")
-      
-   end subroutine SCS_getCondensedRHS
+   end subroutine Static_AddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  -----------------------------------------------------
-!  SCS_getSolution:
-!  Get global solution out of the boundary solution (xb)
-!  -----------------------------------------------------
-   subroutine SCS_getSolution(this, xb)
+   subroutine Static_Assembly(this)
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: xb(this % A % size_b)
-      !-local-variables-----------------------------------------------------
-      real(kind=RP) :: xi (this % A % size_i)
-      !---------------------------------------------------------------------
-      call Stopwatch % Start("System condensation")
+      !---------------------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      !---------------------------------------------
       
-      xi = this % A % Mbi % MatVecMul (xb)
+      call this % Mii % Assembly
+      call this % Mbb % Assembly
+      call this % Mib % Assembly
+      call this % Mbi % Assembly
       
-      select case (this % linsolver)
-         case (SSOLVER_PARDISO, SSOLVER_PETSC)
-            xi = this % Mii_inv % MatVecMul (this % bi - xi)
-         case(SSOLVER_MATF_GMRES)
-            call this % Mii_LU % SolveBlocks_LU (xi, this % bi - xi)
+   end subroutine Static_Assembly
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Static_Shift(this, shiftval)
+      implicit none
+      !---------------------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this
+      real(kind=RP)                 , intent(in)    :: shiftval
+      !---------------------------------------------
+      
+      call this % Mbb % shift(shiftval)
+      call this % Mii % shift(shiftval)
+      
+   end subroutine Static_Shift
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  --------------------------------------
+!  constructPermutationArrays:
+!     Routine to construct the "ElemInfo"
+!  --------------------------------------
+   subroutine Static_constructPermutationArrays(this,mesh,nEqn,MatrixType,ignore_boundaries)
+      implicit none
+      !-arguments-----------------------------------
+      class(StaticCondensedMatrix_t), intent(inout) :: this    !<> This matrix
+      type(HexMesh), target         , intent(in)    :: mesh
+      integer                       , intent(in)    :: nEqn
+      integer                       , intent(in)    :: MatrixType
+      logical      , optional       , intent(in)    :: ignore_boundaries
+      !-local-variables-----------------------------
+      integer :: eID
+      integer :: i,j,k,eq
+      integer :: count_el  ! counter for the element's DOFs
+      integer :: count_i   ! counter for the inner    (elemental) DOFs
+      integer :: count_b   ! counter for the boundary (elemental) DOFs
+      integer :: count_ii  ! counter for the inner    (elemental) DOFs, relative to the corresponding block of the Mii matrix
+      integer :: nelem
+      integer :: NDOF
+      integer        , pointer :: Nx(:)
+      integer        , pointer :: Ny(:)
+      integer        , pointer :: Nz(:)
+      type(Element)  , pointer :: e
+      !---------------------------------------------
+      
+      if ( present(ignore_boundaries) ) then
+         this % ignore_boundaries = ignore_boundaries
+      end if
+      
+      this % MatrixType = MatrixType
+      
+      count_i = 0
+      count_b = 0
+      
+      nelem = mesh % no_of_elements
+      this % num_of_Blocks = nelem
+      Nx => mesh % Nx
+      Ny => mesh % Ny
+      Nz => mesh % Nz
+      
+      safedeallocate(this % ElemInfo)
+      safedeallocate(this % inner_blockSizes)
+      safedeallocate(this % BlockSizes)
+      
+      allocate ( this % ElemInfo(nelem) )
+      allocate ( this % inner_blockSizes(nelem) )
+      allocate ( this % BlockSizes(nelem) )
+      
+      this % maxnumCon = 0
+      
+      if (this % ignore_boundaries) then
+!
+!        Do not assign (physical) boundary DOFs to Mii
+!        ---------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = nEqn * (Nx(eID) - 1) * (Ny(eID) - 1) * (Nz(eID) - 1)
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
+            
+            this % maxnumCon = max(this % maxnumCon,sum(e % NumberOfConnections))
+            
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if ( (i==0) .or. (i==Nx(eID)) .or. (j==0) .or. (j==Ny(eID)) .or. (k==0) .or. (k==Nz(eID)) ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      else
+!
+!        Assign (physical) boundary DOFs to Mii (DEFAULT)
+!        ------------------------------------------------
+         do eID = 1, nelem
+            e => mesh % elements(eID)
+            NDOF = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            this % inner_blockSizes(eID) = 0
+            this %       BlockSizes(eID) = nEqn * (Nx(eID) + 1) * (Ny(eID) + 1) * (Nz(eID) + 1)
+            
+            allocate ( this % ElemInfo(eID) % perm_Indexes   (NDOF) )
+            allocate ( this % ElemInfo(eID) % perm_Indexes_i (NDOF) )
+            allocate ( this % ElemInfo(eID) % dof_association(NDOF) )
+            this % ElemInfo(eID) % perm_Indexes_i = -1
+            
+            this % maxnumCon = max(this % maxnumCon,sum(e % NumberOfConnections))
+            
+            count_ii = 0
+            count_el = 0
+            do k=0, Nz(eID) ; do j=0, Ny(eID) ; do i=0, Nx(eID) ; do eq=1, nEqn
+               count_el = count_el + 1
+               
+               if (     (j==0       .and. e % NumberOfConnections(EFRONT ) > 0 ) &
+                   .or. (j==Ny(eID) .and. e % NumberOfConnections(EBACK  ) > 0 ) &
+                   .or. (k==0       .and. e % NumberOfConnections(EBOTTOM) > 0 ) &
+                   .or. (i==Nx(eID) .and. e % NumberOfConnections(ERIGHT ) > 0 ) &
+                   .or. (k==Nz(eID) .and. e % NumberOfConnections(ETOP   ) > 0 ) &
+                   .or. (i==0       .and. e % NumberOfConnections(ELEFT  ) > 0 )    ) then
+                  this % ElemInfo(eID) % dof_association(count_el) = BOUNDARY_DOF
+                  count_b = count_b + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_b
+               else
+                  this % ElemInfo(eID) % dof_association(count_el) = INNER_DOF
+                  count_i = count_i + 1
+                  this % ElemInfo(eID) % perm_Indexes(count_el) = count_i
+                  count_ii = count_ii + 1
+                  this % ElemInfo(eID) % perm_Indexes_i(count_el) = count_ii
+                  this % inner_blockSizes(eID) = this % inner_blockSizes(eID) + 1
+               end if
+               
+            end do          ; end do          ; end do          ; end do
+            
+         end do
+      end if
+      
+      if ( (count_i+count_b) /= this % num_of_Rows ) then
+         ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
+      end if
+      
+      this % size_i        = count_i
+      this % size_b        = count_b
+!
+!     Assign matrix types
+!     -------------------
+!
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+            allocate(csrMat_t :: this % Mbb)
+            allocate(csrMat_t :: this % Mbi)
+            allocate(csrMat_t :: this % Mib)
+         case (SC_MATRIX_PETSC)
+            allocate(PETSCMatrix_t :: this % Mbb)
+            allocate(PETSCMatrix_t :: this % Mbi)
+            allocate(PETSCMatrix_t :: this % Mib)
       end select
+!
+!     Construct matrices
+!     ------------------
+!
+      call this % Mii % construct (num_of_Blocks = this % num_of_Blocks)
+      call this % Mbb % construct (num_of_Rows   = this % size_b)
+      call this % Mib % construct (num_of_Rows   = this % size_b , num_of_Cols = this % size_i)
+      call this % Mbi % construct (num_of_Rows   = this % size_i , num_of_Cols = this % size_b)
       
-      call this % getGlobalArray(this % x, xi, xb)
-      
-      call Stopwatch % Pause("System condensation")
-   end subroutine SCS_getSolution   
+   end subroutine Static_constructPermutationArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  --------------------------------------------------------------
-!  SCS_MatrixAction:
-!  Perform the product v = Ax, where A is the condensed system matrix
-!  --------------------------------------------------------------
-   function SCS_MatrixAction(this,x) result(v)
+!  ---------------------------------------------
+!  Convert static-condensed matrix to CSR matrix
+!  ---------------------------------------------
+   subroutine Static_getCSR(this,Acsr)
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(StaticCondSolver_t), intent(inout) :: this
-      real(kind=RP)            , intent(in)    :: x(this % A % size_b)
-      real(kind=RP)                            :: v(this % A % size_b)
-      !-local-variables-----------------------------------------------------
-      real(kind=RP) :: Mbi_xb (this % A % size_i)   ! Auxiliar vector with size of Mii
-      real(kind=RP) :: vi (this % A % size_i)
-      real(kind=RP) :: vb (this % A % size_b)
-      !---------------------------------------------------------------------
+      !-arguments------------------------------------------------------
+      class(StaticCondensedMatrix_t), intent(inout)  :: this
+      type(csrMat_t)                , intent(inout)  :: Acsr
+      !-local-variables------------------------------------------------
+      integer :: i, j         ! Indexes of global matrix
+      integer :: ii           ! Indexes of submatrices
+      integer :: k            ! Current value number of global matrix
+      integer :: kk           ! Current value number of submatrix
+      integer :: bi, bj       ! Row and column index in a block
+      integer :: bID, lastbID
+      integer :: num_of_entries
+      real(kind=RP), allocatable  :: Values(:)
+      integer      , allocatable  :: Cols(:), Rows(:)
+      !----------------------------------------------------------------
       
-      call Stopwatch % Start("System condensation")
+      select type(Mbb => this % Mbb) ; class is(csrMat_t) ; select type(Mbi => this % Mbi) ; class is(csrMat_t) ; select type(Mib => this % Mib) ; class is(csrMat_t)
       
-      ! Compute M_{bi} x_b
-      Mbi_xb = this % A % Mbi % MatVecMul (x)
+      num_of_entries = size(Mbb % Values) + size(Mib % Values) + size(Mbi % Values) + sum(this % Mii % BlockSizes**2)
       
-      ! Compute M_{ii}^{-1} M_{bi} x_b
-      call this % Mii_LU % SolveBlocks_LU (vi, Mbi_xb)
+      allocate ( Rows  (this % num_of_Rows + 1) )
+      allocate ( Cols  (num_of_entries) )
+      allocate ( Values(num_of_entries) )
       
-      ! Compute M_{ib} M_{ii}^{-1} M_{bi} x_b
-      v = this % A % Mib % MatVecMul (vi)
+      k = 1
       
-      ! Compute M_{bb} x_ b
-      vb = this % A % Mbb % MatVecMul (x)
+!     Fill the boundary degrees of freedom
+!     ------------------------------------
       
-      ! Compute M_{bb} x_ b - M_{ib} M_{ii}^{-1} M_{bi} x_b
-      v = vb - v
+      do i=1, this % size_b
+         Rows(i) = k
+         
+!        Mbb contribution
+!        ----------------
+         do kk=Mbb % Rows(i), Mbb % Rows(i+1)-1
+            Cols(k)   = Mbb % Cols  (kk)
+            Values(k) = Mbb % Values(kk)
+            k = k + 1
+         end do
+         
+!        Mib contribution
+!        ----------------
+         do kk=Mib % Rows(i), Mib % Rows(i+1)-1
+            Cols(k)   = Mib % Cols  (kk) + this % size_b
+            Values(k) = Mib % Values(kk)
+            k = k + 1
+         end do
+      end do
       
-      call Stopwatch % Pause("System condensation")
+!     Fill the inner degrees of freedom
+!     ---------------------------------
+      lastbID = 1
       
-   end function SCS_MatrixAction
+      do ii=1, this % size_i
+         i = ii + this % size_b
+         Rows(i) = k
+         
+!        Mbi contribution
+!        ----------------
+         do kk=Mbi % Rows(ii), Mbi % Rows(ii+1)-1
+            Cols(k)   = Mbi % Cols  (kk)
+            Values(k) = Mbi % Values(kk)
+            k = k + 1
+         end do
+         
+!        Mii contribution
+!        ----------------
+         do bID=lastbID, this % Mii % num_of_Blocks   ! Search the block where this row is contained
+            if (this % Mii % BlockIdx(bID+1) > ii) then
+               
+               do bi=1, this % Mii % BlockSizes(bID)  ! Search the block row that corresponds to this row
+                  
+                  if ( this % Mii % BlockIdx(bID) + bi -1 == ii) then
+                     
+                     do bj=1, this % Mii % BlockSizes(bID)
+                        Cols(k)   = (this % Mii % BlockIdx(bID) + bj - 1) + this % size_b
+                        Values(k) = this % Mii % Blocks(bID) % Matrix(bi,bj)
+                        k = k + 1
+                     end do
+                     
+                     exit
+                  end if
+               end do
+               
+               lastbID = bID
+               exit
+            end if
+         end do
+      end do
+      Rows (this % num_of_Rows + 1) = k
+      
+!     Finish constructing the matrix
+!     ------------------------------
+      call Acsr % constructWithCSRArrays(Rows, Cols, Values, this % num_of_Cols)
+      
+      class default
+         stop 'ERROR :: Static_getCSR not defined for submatrices /= cstMat_t'
+      end select ; end select ; end select
+      
+   end subroutine Static_getCSR
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  Auxiliar subroutines
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   function MatrixAction(x) result(v)
+!  ----------------------------------------------------------------------
+!  Static_getSchurComplement:
+!  Compute the Schur complement with the inverse of Mii in correct format
+!  ----------------------------------------------------------------------
+   subroutine Static_getSchurComplement(this, Mii_inv, SchurComp)
       implicit none
-      !-arguments-----------------------------------------------------------
-      real(kind=RP)            , intent(in)    :: x(:)
-      real(kind=RP)                            :: v(size(x))
-      !---------------------------------------------------------------------
+      !-arguments------------------------------------------------------
+      class(StaticCondensedMatrix_t), intent(in)  :: this
+      class(Matrix_t)               , intent(in)  :: Mii_inv
+      class(Matrix_t)               , intent(inout) :: SchurComp
+      !-local-variables------------------------------------------------
+      class(Matrix_t), allocatable :: Mii_inv_Mbi 
+      class(Matrix_t), allocatable :: Mib_Mii_inv_Mbi
+      integer :: BlockIdx(this % num_of_Blocks+1), BlockSizes(this % num_of_Blocks), bID
+      !----------------------------------------------------------------
       
-      v = Current_Solver % MatrixAction(x)
       
-   end function MatrixAction
-end module StaticCondensationSolverClass
+!     Construct auxiliar matrices
+!     ---------------------------
+      select case (this % MatrixType)
+         case (SC_MATRIX_CSR)
+            allocate (csrMat_t :: Mii_inv_Mbi)
+            allocate (csrMat_t :: Mib_Mii_inv_Mbi)
+         case (SC_MATRIX_PETSC)
+            allocate (PETSCMatrix_t :: Mii_inv_Mbi)
+            allocate (PETSCMatrix_t :: Mib_Mii_inv_Mbi)
+      end select
+      call Mii_inv_Mbi % construct (num_of_Rows = this % size_i, num_of_Cols = this % size_b)
+      call Mib_Mii_inv_Mbi % construct (num_of_Rows = this % size_b, num_of_Cols = this % size_b)
+      
+!     Perform operations
+!     ------------------
+      call Mii_inv % MatMatMul( this % Mbi, Mii_inv_Mbi)
+      call this % Mib % MatMatMul( Mii_inv_Mbi, Mib_Mii_inv_Mbi )
+      call Mii_inv_Mbi % destruct ; deallocate (Mii_inv_Mbi)
+      
+      call this % Mbb % MatAdd (Mib_Mii_inv_Mbi, SchurComp, -1._RP)
+      call Mib_Mii_inv_Mbi % destruct ; deallocate(Mib_Mii_inv_Mbi)
+      
+!     Specify info of matrix
+!     ----------------------
+      BlockSizes = this % BlockSizes - this % inner_blockSizes
+      BlockIdx(1) = 1
+      do bID=1, this % num_of_Blocks
+         BlockIdx(bID+1) = BlockIdx(bID) + BlockSizes(bID)
+      end do
+      call SchurComp % SpecifyBlockInfo(BlockIdx, BlockSizes)
+      
+   end subroutine Static_getSchurComplement
+end module StaticCondensedMatrixClass
