@@ -3491,16 +3491,7 @@ slavecoord:             DO l = 1, 4
       
 !     Construct global and elements' storage
 !     --------------------------------------
-      if ( controlVariables % containsKey("modal storage")) then
-         modal_storage = controlVariables % logicalValueForKey("modal storage")
-         if ( modal_storage ) then 
-            call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num, .true. )
-         else 
-            call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
-         end if
-      else 
-         call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
-      end if
+      call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
 
 !     Construct faces' storage
 !     ------------------------

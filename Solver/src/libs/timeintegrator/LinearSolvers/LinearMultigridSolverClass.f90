@@ -540,7 +540,7 @@ contains
            case default
               ERROR stop 'Invalid jacobian type. FIXME: '
          end select
-         call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn)
+         call Child_p % Jacobian % construct(Child_p % p_sem % mesh, nEqn, controlVariables)
 
         call MG_Levels_Construct(Me % Child,lvl-1,controlVariables,nEqn)
       end if
