@@ -1,16 +1,16 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    MKLPardisoSolverClass.f90
+!   @File:    PetscSolverClass.f90
 !   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
 !   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Thu Dec  5 19:42:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b2a222da7caa5e69082f4e4c97752a1a5593f5a8
+!   @Last revision date: Mon Nov 16 18:23:19 2020
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: e167ddc6103906fe80427eb398a39e010103ffd6
 !
 !//////////////////////////////////////////////////////
 !
-!      Class for solving linear systems using the Krylov Subspace Methods of PETSc library
+!   Class for solving linear systems using the Krylov Subspace Methods of PETSc library
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef HAS_PETSC
@@ -18,7 +18,7 @@
 #endif
 module PetscSolverClass
    use GenericLinSolverClass
-   use MatrixClass            , only: PETSCMatrix_t
+   use MatrixClass   
    use SMConstants
    use DGSEMClass             , only: DGSem, computetimederivative_f
    use MPI_Process_Info       , only: MPI_Process
@@ -130,6 +130,9 @@ module PetscSolverClass
       MatrixShift => MatrixShiftFunc
       
       !Initialisation of the PETSc variables
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-ksp_gmres_restart","100",ierr)
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-ksp_gmres_modifiedgramschmidt","true",ierr)
+      ! call PetscOptionsSetValue(PETSC_NULL_OPTIONS,"-pc_bjacobi_blocks",size(sem % mesh % elements),ierr)
       call PetscInitialize(PETSC_NULL_character,ierr)
 
 !     PETSc matrix A 
@@ -203,8 +206,6 @@ module PetscSolverClass
             call PCSetType(this%pc,PCJACOBI,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType')
          case ('ILU')
             
-            print *, "Nothing done yet."
-            call PetscInitialize("ilu.petscrc",ierr) ! Fortran
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
          case default
          
@@ -237,11 +238,16 @@ module PetscSolverClass
       PetscInt     , optional                               :: maxiter
       !-local-variables-----------------------------------------------------
       PetscErrorCode                                  :: ierr
+      PetscInt                                        :: nresvec=500
+      PetscReal ,dimension(500)                       :: resvec
+      type(csrMat_t) :: Afull ! to save & visualize the matrix if needed
       !---------------------------------------------------------------------
       
       if ( present(ComputeA)) then
          if (ComputeA) then
             call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+            ! call this % A % GetCSRMatrix (Afull) ! FINDME!
+            ! call Afull % Visualize('Afull_f.txt') ! FINDME1
             call this % SetOperatorDt(dt)
             ComputeA = .FALSE.
             
@@ -249,10 +255,15 @@ module PetscSolverClass
          end if
       else 
          call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+         ! call this % A % GetCSRMatrix (Afull) ! FINDME1
+         ! call Afull % Visualize('Afull_f.txt') ! FINDME1
          call this % SetOperatorDt(dt)
          
          call this % SetPreconditioner
       end if
+      
+      ! call this % A % GetCSRMatrix (Afull)
+      ! call Afull % Visualize('Afull_f.txt') ! visualize
       
       ! Set , if given, solver tolerance and max number of iterations
       if (PRESENT(tol)) then
@@ -267,18 +278,36 @@ module PetscSolverClass
          this%maxiter = PETSC_DEFAULT_integer
       end if
       
-      call KSPSetTolerances(this%ksp,PETSC_DEFAULT_REAL,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
+      call KSPSetTolerances(this%ksp,this % tol,this%tol,PETSC_DEFAULT_REAL,this%maxiter,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetTolerances')
       
       ! Set initial guess to P⁻¹b
       call KSPSetInitialGuessKnoll(this%ksp,PETSC_TRUE,ierr)
       call CheckPetscErr(ierr, 'error in KSPSetInitialGuessKnoll')
+
+      ! set vector for residual history
+      call KSPSetResidualHistory(this%ksp,resvec,nresvec,PETSC_TRUE,ierr)
+      call CheckPetscErr(ierr, 'error in KSPSetResidualHistory')
+
+      ! set type of solver
+      call KSPSetType(this % ksp,KSPGMRES,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
+      ! call KSPSetType(this % ksp,KSPRICHARDSON,ierr) ; call CheckPetscErr(ierr, 'error in KSetType')
       
       call KSPSolve(this%ksp,this%b,this%x,ierr)               ; call CheckPetscErr(ierr, 'error in KSPSolve')
+
+      ! get residual vector
+      call KSPGetResidualHistory(this%ksp,resvec,nresvec,ierr)
+      call CheckPetscErr(ierr, 'error in KSPGetResidualHistory')
       
       call KSPGetIterationNumber(this%ksp,this%niter,ierr)     ; call CheckPetscErr(ierr,'error in KSPGetIterationNumber')
 !~       call KSPGetResidualNorm(this%ksp, this%residual, ierr)   ; call CheckPetscErr(ierr,'error in KSPGetResidualNorm')
 !~       call VecNorm(this%x,NORM_INFINITY,this%xnorm,ierr)       ; call CheckPetscErr(ierr,'error in VecNorm')
+
+!~      ! print stuff 
+!~      print *, "No iterations: ", this % niter
+!~      print *, "Residual history: "
+!~      write(*,"(ES14.7)") resvec(1:this%niter)
+
       if (this%niter < maxiter) then
          this%converged = .TRUE.
       else

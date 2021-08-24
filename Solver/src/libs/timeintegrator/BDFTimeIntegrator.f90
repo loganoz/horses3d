@@ -174,6 +174,8 @@ contains
             allocate (MatFreeGMRES_t         :: this % linsolver)
          case('smooth')
             allocate (IterativeSolver_t      :: this % linsolver)
+         case('multigrid')
+            allocate (LinearMultigridSolver_t      :: this % linsolver)
          case('static-condensation')
             allocate (StaticCondSolver_t     :: this % linsolver)
          case default

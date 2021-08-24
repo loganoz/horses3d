@@ -47,7 +47,7 @@ MODULE ColorsClass
          integer                             :: ntotal, maxcolor
          integer, DIMENSION(:), allocatable  :: colors
          !----------------------------------------------------------------
-         
+
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
          ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"
