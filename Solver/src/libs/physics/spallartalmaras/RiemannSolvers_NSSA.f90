@@ -1129,9 +1129,9 @@ module RiemannSolvers_NSSA
 !
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
-         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
+!         lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
 
-         !lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
+         lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
 !
 !        ****************
 !        Compute the flux

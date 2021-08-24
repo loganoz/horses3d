@@ -13,9 +13,9 @@ LIBOBJS = ./build/FluidData_NSSA.o \
 		  ./build/VariableConversion_NSSA.o \
 		  ./build/ArtificialViscosity.o \
 		  ./build/LESModels.o \
+		  ./build/Turbulence.o  \
 		  ./build/Physics_NSSA.o \
 		  ./build/RiemannSolvers_NSSA.o \
-		  ./build/Turbulence.o  \
 		  ./build/ManufacturedSolutions.o 
 
           

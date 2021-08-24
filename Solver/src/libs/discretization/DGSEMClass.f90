@@ -629,27 +629,21 @@ Module DGSEMClass
          spAzeta_p => NodalStorage(N(3))
          
          if ( N(1) .ne. 0 ) then
-            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
-
+            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )  
          else
             dcsi = 0.0_RP
-
          end if
 
          if ( N(2) .ne. 0 ) then
-            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
-         
+            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )         
          else
             deta = 0.0_RP
-
          end if
 
          if ( N(3) .ne. 0 ) then
             dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
-
          else
             dzet = 0.0_RP
-
          end if
          
          if (flowIsNavierStokes) then

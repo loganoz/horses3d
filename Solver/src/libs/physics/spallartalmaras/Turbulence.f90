@@ -16,7 +16,6 @@ module SpallartAlmarasTurbulence
    use VariableConversion_NSSA
    use FluidData_NSSA
    use PhysicsStorage_NSSA
-   use Physics_NSSA
    use FTValueDictionaryClass
    use Utilities
    use mainKeywordsModule

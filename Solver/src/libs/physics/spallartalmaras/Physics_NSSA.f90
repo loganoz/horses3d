@@ -35,6 +35,7 @@
       use VariableConversion_NSSA
       use FluidData_NSSA
       use Utilities, only: outer_product
+      use SpallartAlmarasTurbulence
       implicit none
 
       private
@@ -603,7 +604,7 @@
 
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
+      subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
          implicit none
          real(kind=RP), intent(in)      :: Q   (1:NCONS         )
          real(kind=RP), intent(in)      :: Q_x (1:NGRAD    )
@@ -618,6 +619,8 @@
          real(kind=RP) :: T , muOfT
          real(kind=RP) :: divV, p_div_rho
          real(kind=RP) :: U_x(NDIM), U_y(NDIM), U_z(NDIM), invRho, invRho2, uDivRho(NDIM), u(NDIM)
+         real(kind=RP) :: kinematicviscocity, musa, etasa
+         type(Spalart_Almaras_t)       :: SAModel 
 
          associate ( mu0 => dimensionless % mu )
 
@@ -652,18 +655,20 @@
 
          T     = Temperature(Q)
          muOfT = SutherlandsLaw(T)
-
+         call GetNSKinematicViscosity(muOfT, Q(IRHO), kinematicviscocity )
+         call SAModel % ComputeViscosity( Q(IRHOTHETA), kinematicviscocity, Q(IRHO), muOfT, musa, etasa)
+         
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         tau(IX,IX) = mu0 * muOfT * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * muOfT * ( U_x(IY) + U_y(IX) ) 
-         tau(IZ,IX) = mu0 * muOfT * ( U_x(IZ) + U_z(IX) ) 
+         tau(IX,IX) = mu0 * (muOfT + musa) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * (muOfT + musa) * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = mu0 * (muOfT + musa) * ( U_x(IZ) + U_z(IX) ) 
          tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * muOfT * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * muOfT * ( U_y(IZ) + U_z(IY) ) 
+         tau(IY,IY) = mu0 * (muOfT + musa) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * (muOfT + musa) * ( U_y(IZ) + U_z(IY) ) 
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * muOfT * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IZ) = mu0 * (muOfT + musa) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
          end associate
 
