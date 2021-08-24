@@ -144,6 +144,7 @@ contains
       end if
 
          nelm = size(sem % mesh % elements)
+
 !
 !        Initialize the colorings structure
 !        ----------------------------------

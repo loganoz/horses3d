@@ -1342,7 +1342,6 @@ module FASMultigridClass
             error stop "FASMultigrid :: LTS needs cfd & dcfl."
          end if
 
-
          select case (Smoother)
             ! Euler Smoother
             case (Euler_SMOOTHER)
