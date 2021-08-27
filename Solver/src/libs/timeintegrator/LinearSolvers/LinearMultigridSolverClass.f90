@@ -4,9 +4,9 @@
 !   @File:    LinearMultigridSolverClass.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: 2019-11-06 
-!   @Last revision date: Mon Nov 16 19:02:57 2020
+!   @Last revision date: Fri Aug 27 15:25:20 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 35d7f508b47c79852b1d8f0417a4ac81d805c1fc
+!   @Last revision commit: 887f53c23a642a9979c49ff9c58386051199099b
 !
 !//////////////////////////////////////////////////////
 !
@@ -528,7 +528,8 @@ contains
         allocate (Child_p % nProl3D( 1:( (Me%Nx+1) * (Me%Ny+1) * (Me%Nz+1) ) * nEqn, & 
                                         1:( (Child_p%Nx+1) * (Child_p%Ny+1) * (Child_p%Nz+1) * nEqn ) )  )
 
-        call MG_CreateRestrictionOperator  ( Me , .false.)
+        call MG_CreateRestrictionOperator  ( Me , .true.)
+        ! call MG_CreateRestrictionOperator  ( Me , .true.)
         call MG_CreateProlongationOperator ( Child_p )
 
         ! ------------------------------------------------------------------
@@ -706,8 +707,8 @@ contains
       this % resvec = 0._RP
 
       solver_type = S_SOLVER
-      ! this % x = 0.0_RP ! setting initial solution
-      this % x = this % p_sem % mesh % storage % Q ! setting initial solution
+      this % x = 0.0_RP ! setting initial solution
+      ! this % x = this % p_sem % mesh % storage % Q ! setting initial solution
 
       select case (solver_type)
          case (SOLVER_PMG_NONE)
