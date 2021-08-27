@@ -113,7 +113,7 @@ contains
       real(kind=RP), allocatable, save                   :: Q0(:)
       real(kind=RP), allocatable, save                   :: QDot0(:)
       
-      integer :: i, j ! General counters
+      integer :: i, j, ii, jj, kk, eID ! General counters
       integer, dimension(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
       
@@ -260,6 +260,29 @@ contains
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
+
+#if defined(NAVIERSTOKES)
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#endif
+
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
@@ -308,6 +331,29 @@ contains
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
+
+#if defined(NAVIERSTOKES)
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#endif
+
             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             call sem % mesh % storage % global2LocalQdot

@@ -66,6 +66,7 @@ module StorageClass
       integer                                         :: currentlyLoaded
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: Nxyz(NDIM)
+      real(kind=RP)                                   :: min_lcl_dst       ! Minimum local distance between nodal points for CFL calculation (physical space)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !

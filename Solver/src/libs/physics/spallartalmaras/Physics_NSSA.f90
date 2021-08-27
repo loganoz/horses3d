@@ -657,18 +657,19 @@
          muOfT = SutherlandsLaw(T)
          call GetNSKinematicViscosity(muOfT, Q(IRHO), kinematicviscocity )
          call SAModel % ComputeViscosity( Q(IRHOTHETA), kinematicviscocity, Q(IRHO), muOfT, musa, etasa)
-         
+         !print *, musa, muOfT
+
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         tau(IX,IX) = mu0 * (muOfT + musa) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * (muOfT + musa) * ( U_x(IY) + U_y(IX) ) 
-         tau(IZ,IX) = mu0 * (muOfT + musa) * ( U_x(IZ) + U_z(IX) ) 
+         tau(IX,IX) = mu0 * (muOfT) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * (muOfT) * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = mu0 * (muOfT) * ( U_x(IZ) + U_z(IX) ) 
          tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * (muOfT + musa) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * (muOfT + musa) * ( U_y(IZ) + U_z(IY) ) 
+         tau(IY,IY) = mu0 * (muOfT) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * (muOfT) * ( U_y(IZ) + U_z(IY) ) 
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * (muOfT + musa) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IZ) = mu0 * (muOfT) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
          end associate
 
@@ -701,7 +702,7 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=Rp) :: u, v, w, p, a
+      REAL(KIND=Rp) :: u, v, w, p, a, vel_mag
 !      
       associate ( gamma => thermodynamics % gamma ) 
 
@@ -711,7 +712,9 @@
       p = Pressure(Q)
       a = SQRT(gamma*p/Q(1))
       
-      eigen(1) = u + a
+      vel_mag = sqrt(u*u + v*v + w*w)
+
+      eigen(1) = vel_mag + a
       eigen(2) = v + a
       eigen(3) = w + a
 

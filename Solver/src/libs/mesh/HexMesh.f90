@@ -2963,9 +2963,14 @@ slavecoord:             DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
+#ifdef SPALARTALMARAS
+            padding = NCONS + 3 * NGRAD + 1 +NCONS 
+            gradients = .TRUE.
+#else
             padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
+#endif
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
@@ -3074,8 +3079,19 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
-
                deallocate(Q)
+
+#if defined(SPALARTALMARAS)
+            allocate(Q(1, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            read(fID) Q
+            !e % storage % mu_ns = Q(1,:,:,:)
+            deallocate(Q)
+
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            read(fID) Q
+            !e % storage % QDotNS = Q(1:NCONS,:,:,:)
+            deallocate(Q)
+#endif 
             end if
             
            end associate

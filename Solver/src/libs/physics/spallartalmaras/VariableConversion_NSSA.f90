@@ -28,7 +28,7 @@ module VariableConversion_NSSA
    public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
 
 #if defined SPALARTALMARAS
-   public   geteddyviscositygradients
+   public   geteddyviscositygradients, ComputeVelocityViscosityforDt
 #else
    public  TemperatureDeriv
 #endif
@@ -634,7 +634,18 @@ module VariableConversion_NSSA
          theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
 
       end subroutine geteddyviscositygradients
-#endif
+subroutine ComputeVelocityViscosityforDt(Q, mu, musa, eig)
+         implicit none
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(inout)  :: mu
+         real(kind=RP), intent(in)  :: musa
+         real(kind=RP), intent(inout)  :: eig
 
+         
+         mu = (mu/Q(IRHO) * refValues % niu + musa/Q(IRHO) * refValues % niu)/ refValues % V  
+         eig  = eig * refValues % V / refValues % V
+
+      end subroutine ComputeVelocityViscosityforDt
+#endif
 
 end module VariableConversion_NSSA

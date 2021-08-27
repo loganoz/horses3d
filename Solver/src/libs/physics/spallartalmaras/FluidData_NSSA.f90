@@ -135,6 +135,7 @@ module FluidData_NSSA
          refValues % rho      = refValues_ % rho
          refValues % V        = refValues_ % V
          refValues % mu       = refValues_ % mu
+         refValues % niu      = refValues_ % niu
          refValues % kappa    = refValues_ % kappa
          refValues % AoATheta = refValues_ % AoATheta
          refValues % AoAPhi   = refValues_ % AoAPhi
