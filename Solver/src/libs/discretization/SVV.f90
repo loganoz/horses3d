@@ -35,7 +35,7 @@ module SpectralVanishingViscosity
 !  Keywords
 !  --------
    character(len=*), parameter  :: SVV_CUTOFF_KEY   =  "svv filter cutoff"
-   character(len=*), parameter  :: SVV_CAPPED_KEY   =  "svv limited"
+   character(len=*), parameter  :: SVV_LIMIT_KEY    =  "svv limited"
    character(len=*), parameter  :: FILTER_SHAPE_KEY =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY  =  "svv filter type"
 !
@@ -69,7 +69,7 @@ module SpectralVanishingViscosity
 
    type  SVV_t
       logical                                     :: enabled
-      logical                                     :: capped
+      logical                                     :: limited
       integer                                     :: filterType
       integer                                     :: filterShape
       integer                                     :: diss_type
@@ -189,10 +189,10 @@ module SpectralVanishingViscosity
 !        --------------------------------
 !        Limit the filtering if requested
 !        --------------------------------
-         if ( controlVariables % containsKey(SVV_CAPPED_KEY) ) then
-            self % capped = controlVariables % logicalValueForKey(SVV_CAPPED_KEY)
+         if ( controlVariables % containsKey(SVV_LIMIT_KEY) ) then
+            self % limited = controlVariables % logicalValueForKey(SVV_LIMIT_KEY)
          else
-            self % capped = .false.
+            self % limited = .false.
          end if
 !
 !        Construct the filters
@@ -297,7 +297,7 @@ module SpectralVanishingViscosity
 
          write(STD_OUT,'(30X,A,A30,F10.3)',advance="no") "->","SVV filter cutoff: ", &
                                                          this % Psvv
-         if ( this % capped ) then
+         if ( this % limited ) then
             write(STD_OUT,'(A)') " (Limited by the sensor)"
          else
             write(STD_OUT,'(A)') ""
@@ -325,7 +325,7 @@ module SpectralVanishingViscosity
 !        ---------------
 !
          logical             :: filter_
-         integer             :: i, j, k, l, fIDs(6), i_f, fID
+         integer             :: i, j, k, l, fIDs(6), i_f
          real(kind=RP)       :: Hx(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hy(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hz(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -378,7 +378,7 @@ module SpectralVanishingViscosity
 !        ----------------
 !        Filter the Hflux
 !        ----------------
-         if (self % capped .and. .not. filter_) then
+         if (self % limited .and. .not. filter_) then
 
             Hxf = Hx
             Hyf = Hy
@@ -719,19 +719,19 @@ module SpectralVanishingViscosity
          F(IRHOU,IX) = sqrt_mu * (2.0_RP * Hx(IRHOU) - 2.0_RP/3.0_RP * divV )
          F(IRHOV,IX) = sqrt_mu * ( Hx(IRHOV) + Hy(IRHOU) )
          F(IRHOW,IX) = sqrt_mu * ( Hx(IRHOW) + Hz(IRHOU) )
-         F(IRHOE,IX) = F(IRHOU,IX) * u(1) + F(IRHOV,IX) * u(2) + F(IRHOW,IX) * u(3) + kappa * Hx(IRHOE)
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IRHOU) + F(IRHOV,IX) * u(IRHOV) + F(IRHOW,IX) * u(IRHOW) + kappa * Hx(IRHOE)
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX)
          F(IRHOV,IY) = sqrt_mu * (2.0_RP * Hy(IRHOV) - 2.0_RP / 3.0_RP * divV )
          F(IRHOW,IY) = sqrt_mu * ( Hy(IRHOW) + Hz(IRHOV) )
-         F(IRHOE,IY) = F(IRHOU,IY) * u(1) + F(IRHOV,IY) * u(2) + F(IRHOW,IY) * u(3) + kappa * Hy(IRHOE)
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IRHOU) + F(IRHOV,IY) * u(IRHOV) + F(IRHOW,IY) * u(IRHOW) + kappa * Hy(IRHOE)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX)
          F(IRHOV,IZ) = F(IRHOW,IY)
          F(IRHOW,IZ) = sqrt_mu * ( 2.0_RP * Hz(IRHOW) - 2.0_RP / 3.0_RP * divV )
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u(1) + F(IRHOV,IZ) * u(2) + F(IRHOW,IZ) * u(3) + kappa * Hz(IRHOE)
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IRHOU) + F(IRHOV,IZ) * u(IRHOV) + F(IRHOW,IZ) * u(IRHOW) + kappa * Hz(IRHOE)
 
       end subroutine SVV_physical_dissipation_ENERGY
 
