@@ -705,7 +705,7 @@ module SpectralVanishingViscosity
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)  :: invRho, divV, u(2:1+NDIM)
+         real(kind=RP)  :: invRho, divV, u(NDIM)
          real(kind=RP)  :: kappa
 
          kappa = sqrt_mu * dimensionless % mu_to_kappa
@@ -719,19 +719,19 @@ module SpectralVanishingViscosity
          F(IRHOU,IX) = sqrt_mu * (2.0_RP * Hx(IRHOU) - 2.0_RP/3.0_RP * divV )
          F(IRHOV,IX) = sqrt_mu * ( Hx(IRHOV) + Hy(IRHOU) )
          F(IRHOW,IX) = sqrt_mu * ( Hx(IRHOW) + Hz(IRHOU) )
-         F(IRHOE,IX) = F(IRHOU,IX) * u(IRHOU) + F(IRHOV,IX) * u(IRHOV) + F(IRHOW,IX) * u(IRHOW) + kappa * Hx(IRHOE)
+         F(IRHOE,IX) = F(IRHOU,IX) * u(IX) + F(IRHOV,IX) * u(IY) + F(IRHOW,IX) * u(IZ) + kappa * Hx(IRHOE)
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX)
          F(IRHOV,IY) = sqrt_mu * (2.0_RP * Hy(IRHOV) - 2.0_RP / 3.0_RP * divV )
          F(IRHOW,IY) = sqrt_mu * ( Hy(IRHOW) + Hz(IRHOV) )
-         F(IRHOE,IY) = F(IRHOU,IY) * u(IRHOU) + F(IRHOV,IY) * u(IRHOV) + F(IRHOW,IY) * u(IRHOW) + kappa * Hy(IRHOE)
+         F(IRHOE,IY) = F(IRHOU,IY) * u(IX) + F(IRHOV,IY) * u(IY) + F(IRHOW,IY) * u(IZ) + kappa * Hy(IRHOE)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX)
          F(IRHOV,IZ) = F(IRHOW,IY)
          F(IRHOW,IZ) = sqrt_mu * ( 2.0_RP * Hz(IRHOW) - 2.0_RP / 3.0_RP * divV )
-         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IRHOU) + F(IRHOV,IZ) * u(IRHOV) + F(IRHOW,IZ) * u(IRHOW) + kappa * Hz(IRHOE)
+         F(IRHOE,IZ) = F(IRHOU,IZ) * u(IX) + F(IRHOV,IZ) * u(IY) + F(IRHOW,IZ) * u(IZ) + kappa * Hz(IRHOE)
 
       end subroutine SVV_physical_dissipation_ENERGY
 
