@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Sun Aug 22 00:47:38 2021
+!   @Last revision date: Sun Sep  5 16:56:47 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
+!   @Last revision commit: 8a32ada0a1eee764154d7b551efce39785eb5059
 !
 !//////////////////////////////////////////////////////
 !
@@ -349,6 +349,7 @@ contains
       call sem % mesh % SetStorageToEqn(NS_BC)
 #endif
       
+      ! call Matrix % Visualize('Jacobian.txt')
    end subroutine NumJacobian_Compute
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
