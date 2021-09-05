@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug 22 00:47:39 2021
+!   @Last revision date: Sun Sep  5 16:56:48 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
+!   @Last revision commit: 8a32ada0a1eee764154d7b551efce39785eb5059
 !
 !//////////////////////////////////////////////////////
 !
@@ -271,6 +271,8 @@ contains
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
+
+   ! call Matrix % Visualize('Jacobian.txt')
    end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES)
 !

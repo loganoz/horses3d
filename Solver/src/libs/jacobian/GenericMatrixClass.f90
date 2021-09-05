@@ -44,6 +44,7 @@ module GenericMatrixClass
          procedure :: constructWithCSRArrays
          procedure :: SolveBlocks_LU
          procedure :: FactorizeBlocks_LU
+         procedure :: Visualize
    end type Matrix_t
 contains
 !
@@ -408,4 +409,23 @@ contains
       !-------------------------------------------------------------
       ERROR stop ' :: SolveBlocks_LU not implemented for current matrix type'
    end subroutine SolveBlocks_LU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Visualize(this, filename, FirstRow)
+!  ---------------------------------------------------------
+!  Save Jacobian matrix in the ASCII file. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(Matrix_t)   , intent(in) :: this
+      character(len=*)  , intent(in) :: filename
+      logical, optional , intent(in) :: FirstRow   !< Write First row?
+!-----Local-Variables-----------------------------------------------------
+!  -----------------------------------------------------------------------
+      ERROR stop ' :: Visualize not implemented for current matrix type'
+   end subroutine Visualize
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module GenericMatrixClass

@@ -4,7 +4,7 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Mon Nov 16 18:49:20 2020
+!   @Last revision date: Sun Sep  5 16:56:40 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
@@ -561,9 +561,9 @@ MODULE CSRMatrixClass
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat_t)             :: this
-      CHARACTER(len=*)            :: FileName
-      LOGICAL, OPTIONAL           :: FirstRow   !< Write First row?
+      class(csrMat_t)   , intent(in) :: this
+      character(len=*)  , intent(in) :: filename
+      logical, optional , intent(in) :: FirstRow   !< Write First row?
       !------------------------------------------
       integer                     :: n, nnz, i, fd
       LOGICAL                     :: First
