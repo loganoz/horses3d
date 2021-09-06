@@ -35,10 +35,10 @@ LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		./build_nssa/AnalyticalJacobian.o \
 		./build_nssa/GenericLinSolverClass.o \
 		./build_nssa/PetscSolverClass.o \
-		./build_nssa/MultigridSolverClass.o \
+		./build_nssa/MatrixFreeSmootherClass.o \
+		./build_nssa/LinearMultigridSolverClass.o \
 		./build_nssa/MKLPardisoSolverClass.o \
 		./build_nssa/IterativeSolverClass.o \
-		./build_nssa/MatrixFreeSmootherClass.o \
 		./build_nssa/MatrixFreeGMRESClass.o \
 		./build_nssa/StaticCondensationSolverClass.o \
 		./build_nssa/LinearSolverClass.o \

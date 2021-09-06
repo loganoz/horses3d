@@ -34,6 +34,7 @@ LIBOBJS_NSSA = ./build_nssa/JacobianDefinitions.o \
 			    ./build_nssa/DenseBlockDiagonalMatrixClass.o \
 			    ./build_nssa/SparseBlockDiagonalMatrixClass.o \
 			    ./build_nssa/StaticCondensedMatrixClass.o \
+			    ./build_nssa/MatrixFreeClass.o \
 			    ./build_nssa/MatrixClass.o \
 				./build_nssa/JacobianComputerClass.o \
 				./build_nssa/NumericalJacobian.o
