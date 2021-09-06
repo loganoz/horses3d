@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Mon Jul 26 16:33:20 2021
+!   @Last revision date: Mon Sep  6 22:07:58 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 8baa6b2541f2216919b94908d8b5116d15fed916
+!   @Last revision commit: fbcac81edbbdfe27e856a7a67ea58df2c52a7474
 !
 !//////////////////////////////////////////////////////
 !
@@ -68,7 +68,7 @@ MODULE Read_GMSH
       implicit none
       
       private
-      public ConstructMesh_FromGMSHFile_, NumOfElems_GMSH
+      public ConstructMesh_FromGMSHFile_v4_, ConstructMesh_FromGMSHFile_v2_, CheckGMSHversion, NumOfElems_GMSH_v4, NumOfElems_GMSH_v2
 
 !
 !  ------------------------------------------------
@@ -159,6 +159,8 @@ MODULE Read_GMSH
       integer, dimension(:,:), allocatable   :: BCs
       integer, dimension(:), allocatable     :: tags
       integer, dimension(:,:), allocatable   :: nodes
+      integer, dimension(:), allocatable   :: no_ptags
+      integer, dimension(:,:), allocatable     :: ptags
       contains
 !--   ---Subroutines-----------------------------------------------------------
       procedure                                  :: Construct => MSH_ConstructElementBlock
@@ -173,11 +175,48 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ConstructMesh_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   subroutine CheckGMSHversion( fileName, ver )
+!  -----------------------------------------------------------------------
+!  Build mesh from GMSH file. 
+!  -----------------------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      character(len=*) , intent(in)    :: fileName
+      integer          , intent(inout) :: ver
+!-----Local-Variables-----------------------------------------------------
+      integer                         :: fUnit, fileStat
+      real(kind=RP)                   :: tmpd
+      character(len=1024)             :: tmps
+      integer                         :: tmpi
+!-------------------------------------------------------------------------
+
+!-----Check-mesh-file-----------------------------------------------------
+      fUnit = UnusedUnit()
+      OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+      IF ( fileStat /= 0 )     THEN
+         error stop "CheckGMSHversion :: error opening mesh file."
+      END IF
+!-------------------------------------------------------------------------
+
+!-----Read-header-info----------------------------------------------------
+      read(fUnit,*) tmps
+      if (trim(tmps) .ne. '$MeshFormat') error stop "READ_GMSH :: Wrong input file." 
+      read(fUnit,*) tmpd, tmpi, tmpi 
+!-------------------------------------------------------------------------
+
+      ver = floor(tmpd) ! .msh version
+
+      close(fUnit)
+
+   end subroutine CheckGMSHversion
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
-      USE Physics
+      use Physics
       use PartitionedMeshClass
       use MPI_Process_Info
       implicit none
@@ -236,9 +275,9 @@ MODULE Read_GMSH
 !-----Check-if-a-mesh-partition-exists-----------------------------------
       if ( MPI_Process % doMPIAction ) then
          if ( mpi_partition % Constructed ) then
-            call ConstructMeshPartition_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            call ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
          else         
-            call ConstructSimplestMesh_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            call ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
          end if
          return
       end if
@@ -812,14 +851,14 @@ MODULE Read_GMSH
       
       call self % ExportBoundaryMesh (trim(fileName))
          
-   end subroutine ConstructMesh_FromGMSHFile_
+   end subroutine ConstructMesh_FromGMSHFile_v4_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     ------------------------------
 !     Constructor of mesh partitions
 !     ------------------------------
-   SUBROUTINE ConstructMeshPartition_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
@@ -873,7 +912,7 @@ MODULE Read_GMSH
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
       integer                         :: numberOfFaces
-       
+
       integer                         :: bFaceOrder, numBFacePoints
       integer                         :: i, j, k, l, pNode, pElement
       integer                         :: jj, ii
@@ -1556,10 +1595,10 @@ MODULE Read_GMSH
       deallocate(globalToLocalNodeID)
       deallocate(globalToLocalElementID)
 
-   END SUBROUTINE ConstructMeshPartition_FromGMSHFile_
+   END SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   subroutine ConstructSimplestMesh_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   subroutine ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
@@ -2148,11 +2187,1626 @@ MODULE Read_GMSH
       call self % SetConnectivitiesAndLinkFaces(nodes)
       
       call self % ExportBoundaryMesh (trim(fileName))
-   end subroutine ConstructSimplestMesh_FromGMSHFile_
+   end subroutine ConstructSimplestMesh_FromGMSHFile_v4_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-    function NumOfElems_GMSH( fileName ) result(nelem)
+   subroutine ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      !  ---------------------------------------------------------
+      !  Build mesh from GMSH file. 
+      !  ---------------------------------------------------------
+            USE Physics
+            use PartitionedMeshClass
+            use MPI_Process_Info
+            implicit none
+      !-----Arguments-----------------------------------------------------------
+            type(HexMesh)                   :: self
+            integer                         :: nodes
+            character(len=*)                :: fileName
+            integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+            integer                         :: dir2D
+            logical           , intent(out) :: success
+      !-----Local-Variables-----------------------------------------------------
+            character(len=1024)             :: tmps
+            real(kind=RP)                   :: tmpd
+            integer                         :: tmpi, tmpi1, tmpi2, tmpi3, tmp_eltag
+            logical                         :: tmpb
+            integer, dimension(:), allocatable :: tmpi_vec1, tmpi_vec2, el_types
+            character(len=127),    allocatable :: tmps_vec(:)
+            type(MSH_BCinfo_t), dimension(:), allocatable :: msh_bcs
+            integer                         :: msh_no_BCs
+            integer                    :: element_type, org_element_type, org_element_type_2D
+      
+            character(len=1024) :: msh_entity
+            real(kind=RP), allocatable :: msh_entity_vec(:)
+            integer, dimension(4)      :: check_eltype
+
+            type(MSH_node_block_t)     :: msh_nodes
+            type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
+      
+            integer                         :: numberOfElements
+            integer                         :: numberOfElements2D
+            integer                         :: numberOfNodes
+            integer                         :: numberOfBoundaryFaces
+            integer                         :: numberOfFaces
+            integer                         :: no_nodes_i, msh_node, msh_el
+             
+            integer                         :: bFaceOrder, numBFacePoints, innerEdgePoints
+            integer                         :: i, j, k, l, jj, ii
+            integer                         :: fUnit, fileStat
+            integer                         :: nodeIDs(NODES_PER_ELEMENT)
+            real(kind=RP)                   :: x(NDIM)
+            CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
+            real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+      !-----Curved-patches------------------------------------------------------
+            real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+            real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+      !  -----------------------------------------------------------------------
+      
+      !-----Check-if-a-mesh-partition-exists-----------------------------------
+            if ( MPI_Process % doMPIAction ) then
+               if ( mpi_partition % Constructed ) then
+                  call ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+               else         
+                  call ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+               end if
+               return
+            end if
+             
+            numberOfBoundaryFaces = 0
+            success               = .TRUE.
+      
+            fUnit = UnusedUnit()
+            OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+            IF ( fileStat /= 0 )     THEN
+               PRINT *, "Error opening file: ", fileName
+               success = .FALSE.
+               RETURN 
+            END IF
+      !------------------------------------------------------------------------
+      
+      !-----Read-header-info---------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$MeshFormat') error stop "READ_GMSH :: Wrong input file." 
+            read(fUnit,*) tmpd, tmpi, tmpi 
+            read(fUnit,*) tmps
+      !------------------------------------------------------------------------
+      
+      !-----Read-BC-info-------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$PhysicalNames') error stop "READ_GMSH :: Wrong input file - no boundary conditions defined." 
+            read(fUnit,*) tmpi
+      
+            allocate(tmpi_vec1(tmpi))
+            allocate(tmpi_vec2(tmpi))
+            allocate(tmps_vec(tmpi))
+      
+            msh_no_BCs = 0 ! only surfaces count!
+            do i=1, tmpi
+               read(fUnit,*) tmpi_vec1(i), tmpi_vec2(i), tmps_vec(i)
+               if(tmpi_vec1(i) .eq. 2) msh_no_BCs=msh_no_BCs+1 ! check if surface
+            end do ! tmpi
+            if (msh_no_BCs .eq. 0) print *, "READ_GMSH :: No boundary conditions detected."
+      
+            allocate(msh_bcs(msh_no_BCs))
+      
+            j = 0
+            do i=1, msh_no_BCs
+               if(tmpi_vec1(i) .eq. 2) then
+                  j = j + 1
+                  msh_bcs(j)%dim  = tmpi_vec1(i)
+                  msh_bcs(j)%tag  = tmpi_vec2(i)
+                  msh_bcs(j)%name = tmps_vec(i)
+               end if
+            end do ! msh_no_BCs
+       
+            deallocate(tmpi_vec1)
+            deallocate(tmpi_vec2)
+            deallocate(tmps_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndPhysicalNames') error stop "READ_GMSH :: Wrong input file - not all boundary conditions detected." 
+      !------------------------------------------------------------------------
+      
+      !-----Read-nodes---------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Nodes') error stop "READ_GMSH :: Wrong input file - no nodes found." 
+      
+            read(fUnit,*) numberOfNodes
+
+            call msh_nodes % Construct(0, 0, .false., numberOfNodes)
+      
+            do i=1, numberOfNodes
+                  read(fUnit,*) msh_nodes % tags(i), msh_nodes % cords(i,:)
+            end do ! numberOfNodes
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndNodes') error stop "READ_GMSH :: Wrong input file - not all nodes detected." 
+      !------------------------------------------------------------------------
+      
+      !-----Read-elements------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Elements') error stop "READ_GMSH :: Wrong input file - no elements found." 
+      
+            read(fUnit,*) numberOfElements
+            call msh_elements % Construct(element_type,numberOfElements)
+            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(el_types(numberOfElements)) ! arbitrary number
+            do i=1, numberOfElements
+
+               read(fUnit,'(1024a)') msh_entity ! read row
+
+               msh_entity_vec=0.0_RP
+               
+               call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
+
+               msh_elements % tags(i)     = int(msh_entity_vec(1))
+               el_types(i)                = int(msh_entity_vec(2))
+               msh_elements % no_ptags(i) = int(msh_entity_vec(3))
+               if (msh_elements % no_ptags(i) .gt. 0) msh_elements % ptags(i,1:msh_elements % no_ptags(i)) = &
+                  int(msh_entity_vec(4:3+msh_elements % no_ptags(i))) 
+
+               select case (el_types(i))
+               case (5) ! 3D - 1st order
+                  no_nodes_i = 8
+               case (12) ! 3D - 2st order
+                  no_nodes_i = 27
+               case (92) ! 3D - 3rd order
+                  no_nodes_i = 64
+               case (93) ! 3D - 4th order
+                  no_nodes_i = 125
+               case (3) ! 2D - 1st order
+                  no_nodes_i = 4
+               case (10) ! 2D - 2st order
+                  no_nodes_i = 9
+               case (36) ! 2D - 3rd order
+                  no_nodes_i = 16
+               case (37) ! 2D - 4th order
+                  no_nodes_i = 25
+               case default
+                  no_nodes_i = 0
+               end select
+
+               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+      
+            end do ! numberOfElements
+
+            deallocate(msh_entity_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndElements') error stop "READ_GMSH :: Wrong input file - not all elements detected." 
+            close( fUnit )
+      !------------------------------------------------------------------------
+      
+      !-----Mesh-info----------------------------------------------------------
+            ! find order of elements curvature
+            check_eltype(1) = count(el_types .eq.  5)
+            check_eltype(2) = count(el_types .eq. 12)
+            check_eltype(3) = count(el_types .eq. 92)
+            check_eltype(4) = count(el_types .eq. 93)
+            if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
+            if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
+            bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
+            check_eltype = (/5,12,92,93/)
+            org_element_type = check_eltype(bFaceOrder)
+            msh_elements % el_type = org_element_type
+
+            select case (bFaceOrder)
+            case (1)
+               org_element_type_2D = 3
+            case (2)
+               org_element_type_2D = 10
+            case (3)
+               org_element_type_2D = 36
+            case (4)
+               org_element_type_2D = 37
+            case default
+            end select
+
+            if (numberOfElements .ne. (count(el_types .eq. org_element_type) + count(el_types .eq. org_element_type_2D)) ) & 
+               error stop "READ_GMSH :: Too many different types of elements."
+            numberOfElements = count(el_types .eq. org_element_type)
+            numberOfElements2D = count(el_types .eq. org_element_type_2D)
+
+            call msh_elements_3D % Construct(org_element_type,numberOfElements)
+            call msh_elements_2D % Construct(org_element_type_2D,numberOfElements2D)
+
+            j = 0
+            k = 0
+            do i=1, size(el_types)
+
+               if ( el_types(i) .eq. org_element_type ) then
+                  j = j + 1
+                  msh_elements_3D % tags(j) = msh_elements % tags(i)
+                  msh_elements_3D % no_ptags(j) = msh_elements % no_ptags(i)
+                  msh_elements_3D % ptags(j,:) = msh_elements % ptags(i,1)
+                  msh_elements_3D % nodes(j,:) = msh_elements % nodes(i,1:size(msh_elements_3D % nodes(j,:)))
+               elseif ( el_types(i) .eq. org_element_type_2D ) then
+                  k = k + 1
+                  msh_elements_2D % tags(k) = msh_elements % tags(i)
+                  msh_elements_2D % no_ptags(k) = msh_elements % no_ptags(i)
+                  msh_elements_2D % ptags(k,:) = msh_elements % ptags(i,1)
+                  msh_elements_2D % nodes(k,:) = msh_elements % nodes(i,1:size(msh_elements_2D % nodes(k,:)))
+               else 
+                  error stop "READ_GMSH :: Unknown element type in the mesh."
+               end if
+
+            end do
+
+            deallocate(el_types)
+            call msh_elements % Destruct()
+      !------------------------------------------------------------------------
+
+      !-----Reorder-nodes-in-elements------------------------------------------
+            allocate(tmpi_vec1((bFaceOrder + 1)**3))
+            do j=1, msh_elements_3D % no_els 
+               ! re-order nodes within element to match HORSES ordering
+               tmpi_vec1 = msh_elements_3D % nodes(j,:)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_elements_3D % nodes(j,:) = tmpi_vec1
+            end do
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+      
+      !-----Assign-BCs---------------------------------------------------------
+            do i=1,msh_no_BCs
+               ! find # of surfaces, in this version of the reader surfaces are 2D element faces
+               msh_bcs(i) % no_of_surfaces = 0
+               allocate(tmpi_vec1(numberOfNodes*3)) ! upper bound
+               tmpi_vec1 = 0
+               k = 0
+
+               do j=1, numberOfElements2D
+
+                  tmpi = my_findloc(msh_elements_2D%ptags(j,:), msh_bcs(i)%tag, 1)
+                  if (tmpi .gt. 0) then
+                     msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
+                     tmpi_vec1(k+1 : k+size(msh_elements_2D % nodes(j,:))) = msh_elements_2D % nodes(j,:)
+                     k = k + size(msh_elements_2D % nodes(j,:))
+                  end if
+
+               end do ! msh_no_surfaces
+
+               call unique(tmpi_vec1(1:k),msh_bcs(i) % node_tags)
+               msh_bcs(i) % no_of_nodes = size(msh_bcs(i) % node_tags,1)
+               deallocate(tmpi_vec1)
+      
+            end do ! msh_no_BCs
+      !------------------------------------------------------------------------
+      
+      !-----Assign-BC-to-nodes-------------------------------------------------
+            allocate(tmpi_vec1(8)) ! help array for the walls
+            do i=1, msh_no_BCs
+               do j=1, msh_elements_3D % no_els
+
+                  ! find matching nodes
+                  tmpi_vec1=0
+                  do l=1,8
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
+                     if(tmpi .gt. 0) tmpi_vec1(l) = 1
+                     ! TODO: Check why this doesn't work with older ifort
+                     ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
+                     ! tmpi_vec1(l)=tmpi
+                  end do
+
+                  ! assign BC face to the elements nodes 
+                  if ( (sum(tmpi_vec1(1:2)+tmpi_vec1(5:6))) .eq. 4) msh_elements_3D % BCs(j,1) = msh_bcs(i) % tag ! 1:west
+                  if ( (sum(tmpi_vec1(3:4)+tmpi_vec1(7:8))) .eq. 4) msh_elements_3D % BCs(j,2) = msh_bcs(i) % tag ! 2:east
+                  if ( (sum(tmpi_vec1(1:4))) .eq. 4) msh_elements_3D % BCs(j,3) = msh_bcs(i) % tag ! 3:south
+                  if ( (sum(tmpi_vec1(2:3)+tmpi_vec1(6:7))) .eq. 4) msh_elements_3D % BCs(j,4) = msh_bcs(i) % tag ! 4:front 
+                  if ( (sum(tmpi_vec1(5:8))) .eq. 4) msh_elements_3D % BCs(j,5) = msh_bcs(i) % tag ! 5:north
+                  if ( (tmpi_vec1(1)+tmpi_vec1(4)+tmpi_vec1(5)+tmpi_vec1(8)) .eq. 4) msh_elements_3D % BCs(j,6) = msh_bcs(i) % tag ! 6:back
+
+               end do ! msh_elements_3D % no_els 
+            end do ! msh_no_BCs
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+
+      !-----Assign-new-tags----------------------------------------------------
+            tmp_eltag = 0
+            do j=1, msh_elements_3D % no_els 
+               tmp_eltag = tmp_eltag + 1
+               msh_elements_3D % tags(j) = tmp_eltag
+            end do
+            if (.not. (tmp_eltag .eq. numberOfElements)) error stop "Read_GMSH :: Number of elements inconsistent."
+      !------------------------------------------------------------------------
+      
+      !-----Build-nodes--------------------------------------------------------
+            self % nodeType = nodes
+            self % no_of_elements = numberOfElements
+            self % no_of_allElements = numberOfElements
+      !------------------------------------------------------------------------
+      
+      !-----Set-up-face-patches------------------------------------------------
+            numBFacePoints = bFaceOrder + 1
+            innerEdgePoints = bFaceOrder - 1
+            allocate(uNodes(numBFacePoints))
+            allocate(vNodes(numBFacePoints))
+            allocate(values(3,numBFacePoints,numBFacePoints))
+            do i = 1, numBFacePoints
+               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            end do
+      !------------------------------------------------------------------------
+      
+      !-----Allocate-mem-for-elements-and-nodes--------------------------------
+            allocate( self % elements(numberOfelements) )
+            allocate( self % nodes(numberOfNodes) )
+            allocate( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+            self % Nx = Nx
+            self % Ny = Ny
+            self % Nz = Nz
+      !------------------------------------------------------------------------
+      
+      !----Set-nodes-----------------------------------------------------------
+            do msh_node=1, msh_nodes % no_nodes
+               x = msh_nodes % cords(msh_node,1:NDIM)/Lref
+               call ConstructNode( self % nodes(msh_nodes % tags(msh_node)), x, msh_nodes % tags(msh_node) )
+            end do ! msh_nodes % no_nodes
+      !------------------------------------------------------------------------
+      
+      !----Set-elements-----------------------------------------------------------
+            j = 0
+            do msh_el = 1, msh_elements_3D % no_els 
+               j = j + 1
+               ! setting l'th element
+               l =  msh_elements_3D % tags(msh_el)
+               nodeIDs = msh_elements_3D % nodes(msh_el,1:8) ! only non-curved nodes
+
+               if (bFaceOrder .eq. 1) then ! non-curved mesh
+                  do k = 1, NODES_PER_ELEMENT
+                     corners(:,k) = self % nodes(nodeIDs(k)) % x
+                  end do
+                  self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+                  self % elements(l) % SurfInfo % corners = corners
+               else ! curved mesh              
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
+
+                  tmpi_vec2 = msh_elements_3D % nodes(msh_el,:)       
+
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = self % nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
+               end if
+
+               call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
+
+               ! set element boundaries
+               do k = 1, 6
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_elements_3D % BCs(msh_el,k),1)
+                  if (tmpi1 .gt. 0) then
+                     self % elements(l) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
+                  else
+                     self % elements(l) % boundaryName(k) = emptyBCName
+                  end if
+               end do ! k
+
+               ! set BC names to faces
+               do k = 1, 6
+                  if(trim(self % elements(l) % boundaryName(k)) /= emptyBCName) then
+                     call toLower( self % elements(l) % boundaryName(k) )
+                     numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(self % elements(l) % boundaryName(k)) .ne. zoneNames) ) then
+                        call zoneNameDictionary % addValueForKey(trim(self % elements(l) % boundaryName(k)), trim(self % elements(l) % boundaryName(k)))
+                     end if
+                     deallocate (zoneNames)
+                  end if
+               end do ! k
+            end do ! msh_elements_3D % no_els
+            if (.not. (j .eq. numberOfElements)) error stop "Read_GMSH :: Not all elements assigned."
+      !------------------------------------------------------------------------
+      
+      !-----Deallocate-msh-vairables-------------------------------------------
+            do i=1,msh_no_BCs
+               call msh_bcs(i) % Destruct()
+            end do
+            deallocate(msh_bcs)
+
+            call msh_nodes % Destruct()
+            call msh_elements_3D % Destruct()
+            call msh_elements_2D % Destruct()            
+      
+            deallocate(uNodes) ! Check if we can do it! FIXME
+            deallocate(vNodes) ! Check if we can do it! FIXME
+            deallocate(values) ! Check if we can do it! FIXME
+      !------------------------------------------------------------------------
+      !
+      !     ---------------------------
+      !     Construct the element faces
+      !     ---------------------------
+      !
+            numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
+            self % numberOfFaces = numberOfFaces
+            allocate( self % faces(self % numberOfFaces) )
+            CALL ConstructFaces( self, success )
+      !
+      !     -------------------------
+      !     Build the different zones
+      !     -------------------------
+      !
+            call self % ConstructZones()
+      !
+      !     ---------------------------
+      !     Construct periodic faces
+      !     ---------------------------
+      !
+            CALL ConstructPeriodicFaces( self ) 
+      !
+      !     ---------------------------
+      !     Delete periodic- faces
+      !     ---------------------------
+      !
+            CALL DeletePeriodicMinusFaces( self ) 
+      !
+      !     ---------------------------
+      !     Assign faces ID to elements
+      !     ---------------------------
+      !
+            CALL getElementsFaceIDs(self)
+      !
+      !     ---------------------
+      !     Define boundary faces
+      !     ---------------------
+      !
+            call self % DefineAsBoundaryFaces()
+      !
+      !     -----------------------------------
+      !     Check if this is a 2D extruded mesh
+      !     -----------------------------------
+      !
+            call self % CheckIfMeshIs2D()
+      !
+      !     -------------------------------
+      !     Set the mesh as 2D if requested
+      !     -------------------------------
+      !
+            self % dir2D_ctrl = dir2D
+            if ( dir2D .ne. 0 ) then
+               call SetMappingsToCrossProduct
+               call self % CorrectOrderFor2DMesh(dir2D,1)
+            end if
+      !
+      !     ------------------------------
+      !     Set the element connectivities
+      !     ------------------------------
+      !
+            call self % SetConnectivitiesAndLinkFaces(nodes)
+      !
+      !     ---------------------------------------
+      !     Construct elements' and faces' geometry
+      !     ---------------------------------------
+      !
+            call self % ConstructGeometry()
+      !
+      !     -------------------------------
+      !     Set the mesh as 2D if requested
+      !     -------------------------------
+      !
+            if ( dir2D .ne. 0 ) then
+               call self % CorrectOrderFor2DMesh(dir2D,0)
+            end if
+      !
+      !     ---------------------------------
+      !     Describe mesh and prepare for I/O
+      !     ---------------------------------
+      !
+            if (.not. self % child) CALL self % Describe( trim(fileName), bFaceOrder )
+            call self % PrepareForIO
+            
+            call self % ExportBoundaryMesh (trim(fileName))
+               
+         end subroutine ConstructMesh_FromGMSHFile_v2_
+      !
+      !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      !
+      !     ------------------------------
+      !     Constructor of mesh partitions
+      !     ------------------------------
+         SUBROUTINE ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      !  ---------------------------------------------------------
+      !  Build mesh from GMSH file. 
+      !  ---------------------------------------------------------
+            USE Physics
+            use PartitionedMeshClass
+            use MPI_Process_Info
+            use MPI_Face_Class
+            implicit none
+      !-----Arguments-----------------------------------------------------------
+            type(HexMesh)                   :: self
+            integer                         :: nodes
+            character(len=*)                :: fileName
+            integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+            integer                         :: dir2D
+            logical           , intent(out) :: success
+      !-----Local-Variables-----------------------------------------------------
+            character(len=1024)             :: tmps
+            real(kind=RP)                   :: tmpd
+            integer                         :: tmpi, tmpi1, tmpi2, tmpi3, tmp_eltag
+            logical                         :: tmpb
+            integer, dimension(:), allocatable :: tmpi_vec1, tmpi_vec2, el_types
+            character(len=127),    allocatable :: tmps_vec(:)
+            type(MSH_BCinfo_t), dimension(:), allocatable :: msh_bcs
+            integer                         :: msh_no_BCs
+            integer                    :: element_type, org_element_type, org_element_type_2D
+      
+            character(len=1024) :: msh_entity
+            real(kind=RP), allocatable :: msh_entity_vec(:)
+            integer, dimension(4)      :: check_eltype
+
+            type(MSH_node_block_t)     :: msh_nodes
+            type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
+
+            type(Node)  , dimension(:), allocatable  :: local_nodes
+ 
+            integer                         :: numberOfAllElements
+            integer                         :: numberOfAllNodes
+            integer, allocatable            :: globalToLocalNodeID(:)
+            integer, allocatable            :: globalToLocalElementID(:)
+      
+            integer                         :: numberOfElements
+            integer                         :: numberOfElements2D
+            integer                         :: numberOfNodes
+            integer                         :: numberOfBoundaryFaces
+            integer                         :: numberOfFaces
+            integer                         :: no_nodes_i, msh_node, msh_el
+             
+            integer                         :: bFaceOrder, numBFacePoints, innerEdgePoints
+            integer                         :: i, j, k, l, jj, ii, pNode, pElement
+            integer                         :: fUnit, fileStat
+            integer                         :: nodeIDs(NODES_PER_ELEMENT)
+            real(kind=RP)                   :: x(NDIM)
+            CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
+            CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
+            real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+      !-----Curved-patches------------------------------------------------------
+            real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+            real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+      !  -----------------------------------------------------------------------
+      
+            success               = .TRUE.
+      
+            fUnit = UnusedUnit()
+            OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+            IF ( fileStat /= 0 )     THEN
+               PRINT *, "Error opening file: ", fileName
+               success = .FALSE.
+               RETURN 
+            END IF
+      !------------------------------------------------------------------------
+      
+      !-----Read-header-info---------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$MeshFormat') error stop "READ_GMSH :: Wrong input file." 
+            read(fUnit,*) tmpd, tmpi, tmpi 
+            read(fUnit,*) tmps
+      !------------------------------------------------------------------------
+      
+      !-----Read-BC-info-------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$PhysicalNames') error stop "READ_GMSH :: Wrong input file - no boundary conditions defined." 
+            read(fUnit,*) tmpi
+      
+            allocate(tmpi_vec1(tmpi))
+            allocate(tmpi_vec2(tmpi))
+            allocate(tmps_vec(tmpi))
+      
+            msh_no_BCs = 0 ! only surfaces count!
+            do i=1, tmpi
+               read(fUnit,*) tmpi_vec1(i), tmpi_vec2(i), tmps_vec(i)
+               if(tmpi_vec1(i) .eq. 2) msh_no_BCs=msh_no_BCs+1 ! check if surface
+            end do ! tmpi
+            if (msh_no_BCs .eq. 0) print *, "READ_GMSH :: No boundary conditions detected."
+      
+            allocate(msh_bcs(msh_no_BCs))
+      
+            j = 0
+            do i=1, msh_no_BCs
+               if(tmpi_vec1(i) .eq. 2) then
+                  j = j + 1
+                  msh_bcs(j)%dim  = tmpi_vec1(i)
+                  msh_bcs(j)%tag  = tmpi_vec2(i)
+                  msh_bcs(j)%name = tmps_vec(i)
+               end if
+            end do ! msh_no_BCs
+       
+            deallocate(tmpi_vec1)
+            deallocate(tmpi_vec2)
+            deallocate(tmps_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndPhysicalNames') error stop "READ_GMSH :: Wrong input file - not all boundary conditions detected." 
+      !------------------------------------------------------------------------
+      
+      !-----Read-nodes---------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Nodes') error stop "READ_GMSH :: Wrong input file - no nodes found." 
+      
+            read(fUnit,*) numberOfNodes
+
+            call msh_nodes % Construct(0, 0, .false., numberOfNodes)
+      
+            do i=1, numberOfNodes
+                  read(fUnit,*) msh_nodes % tags(i), msh_nodes % cords(i,:)
+            end do ! numberOfNodes
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndNodes') error stop "READ_GMSH :: Wrong input file - not all nodes detected." 
+            numberOfAllNodes = numberOfNodes
+      !------------------------------------------------------------------------
+      
+      !-----Read-elements------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Elements') error stop "READ_GMSH :: Wrong input file - no elements found." 
+      
+            read(fUnit,*) numberOfElements
+            call msh_elements % Construct(element_type,numberOfElements)
+            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(el_types(numberOfElements)) ! arbitrary number
+            do i=1, numberOfElements
+
+               read(fUnit,'(1024a)') msh_entity ! read row
+
+               msh_entity_vec=0.0_RP
+               
+               call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
+
+               msh_elements % tags(i)     = int(msh_entity_vec(1))
+               el_types(i)                = int(msh_entity_vec(2))
+               msh_elements % no_ptags(i) = int(msh_entity_vec(3))
+               if (msh_elements % no_ptags(i) .gt. 0) msh_elements % ptags(i,1:msh_elements % no_ptags(i)) = &
+                  int(msh_entity_vec(4:3+msh_elements % no_ptags(i))) 
+
+               select case (el_types(i))
+               case (5) ! 3D - 1st order
+                  no_nodes_i = 8
+               case (12) ! 3D - 2st order
+                  no_nodes_i = 27
+               case (92) ! 3D - 3rd order
+                  no_nodes_i = 64
+               case (93) ! 3D - 4th order
+                  no_nodes_i = 125
+               case (3) ! 2D - 1st order
+                  no_nodes_i = 4
+               case (10) ! 2D - 2st order
+                  no_nodes_i = 9
+               case (36) ! 2D - 3rd order
+                  no_nodes_i = 16
+               case (37) ! 2D - 4th order
+                  no_nodes_i = 25
+               case default
+                  no_nodes_i = 0
+               end select
+
+               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+      
+            end do ! numberOfElements
+
+            deallocate(msh_entity_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndElements') error stop "READ_GMSH :: Wrong input file - not all elements detected." 
+            close( fUnit )
+      !------------------------------------------------------------------------
+      
+      !-----Mesh-info----------------------------------------------------------
+            ! find order of elements curvature
+            check_eltype(1) = count(el_types .eq.  5)
+            check_eltype(2) = count(el_types .eq. 12)
+            check_eltype(3) = count(el_types .eq. 92)
+            check_eltype(4) = count(el_types .eq. 93)
+            if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
+            if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
+            bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
+            check_eltype = (/5,12,92,93/)
+            org_element_type = check_eltype(bFaceOrder)
+            msh_elements % el_type = org_element_type
+
+            select case (bFaceOrder)
+            case (1)
+               org_element_type_2D = 3
+            case (2)
+               org_element_type_2D = 10
+            case (3)
+               org_element_type_2D = 36
+            case (4)
+               org_element_type_2D = 37
+            case default
+            end select
+
+            if (numberOfElements .ne. (count(el_types .eq. org_element_type) + count(el_types .eq. org_element_type_2D)) ) & 
+               error stop "READ_GMSH :: Too many different types of elements."
+            numberOfElements = count(el_types .eq. org_element_type)
+            numberOfElements2D = count(el_types .eq. org_element_type_2D)
+
+            call msh_elements_3D % Construct(org_element_type,numberOfElements)
+            call msh_elements_2D % Construct(org_element_type_2D,numberOfElements2D)
+
+            j = 0
+            k = 0
+            do i=1, size(el_types)
+
+               if ( el_types(i) .eq. org_element_type ) then
+                  j = j + 1
+                  msh_elements_3D % tags(j) = msh_elements % tags(i)
+                  msh_elements_3D % no_ptags(j) = msh_elements % no_ptags(i)
+                  msh_elements_3D % ptags(j,:) = msh_elements % ptags(i,1)
+                  msh_elements_3D % nodes(j,:) = msh_elements % nodes(i,1:size(msh_elements_3D % nodes(j,:)))
+               elseif ( el_types(i) .eq. org_element_type_2D ) then
+                  k = k + 1
+                  msh_elements_2D % tags(k) = msh_elements % tags(i)
+                  msh_elements_2D % no_ptags(k) = msh_elements % no_ptags(i)
+                  msh_elements_2D % ptags(k,:) = msh_elements % ptags(i,1)
+                  msh_elements_2D % nodes(k,:) = msh_elements % nodes(i,1:size(msh_elements_2D % nodes(k,:)))
+               else 
+                  error stop "READ_GMSH :: Unknown element type in the mesh."
+               end if
+
+            end do
+
+            deallocate(el_types)
+            call msh_elements % Destruct()
+            numberOfAllElements = numberOfElements
+      !------------------------------------------------------------------------
+      
+      !-----Reorder-nodes-in-elements------------------------------------------
+            allocate(tmpi_vec1((bFaceOrder + 1)**3))
+            do j=1, msh_elements_3D % no_els 
+               ! re-order nodes within element to match HORSES ordering
+               tmpi_vec1 = msh_elements_3D % nodes(j,:)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_elements_3D % nodes(j,:) = tmpi_vec1
+            end do
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+      
+      !-----Assign-BCs---------------------------------------------------------
+            do i=1,msh_no_BCs
+               ! find # of surfaces, in this version of the reader surfaces are 2D element faces
+               msh_bcs(i) % no_of_surfaces = 0
+               allocate(tmpi_vec1(numberOfNodes*3)) ! upper bound
+               tmpi_vec1 = 0
+               k = 0
+
+               do j=1, numberOfElements2D
+
+                  tmpi = my_findloc(msh_elements_2D%ptags(j,:), msh_bcs(i)%tag, 1)
+                  if (tmpi .gt. 0) then
+                     msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
+                     tmpi_vec1(k+1 : k+size(msh_elements_2D % nodes(j,:))) = msh_elements_2D % nodes(j,:)
+                     k = k + size(msh_elements_2D % nodes(j,:))
+                  end if
+
+               end do ! msh_no_surfaces
+
+               call unique(tmpi_vec1(1:k),msh_bcs(i) % node_tags)
+               msh_bcs(i) % no_of_nodes = size(msh_bcs(i) % node_tags,1)
+               deallocate(tmpi_vec1)
+      
+            end do ! msh_no_BCs
+      !------------------------------------------------------------------------
+
+      !-----Assign-BC-to-nodes-------------------------------------------------
+            allocate(tmpi_vec1(8)) ! help array for the walls
+            do i=1, msh_no_BCs
+               do j=1, msh_elements_3D % no_els
+
+                  ! find matching nodes
+                  tmpi_vec1=0
+                  do l=1,8
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
+                     if(tmpi .gt. 0) tmpi_vec1(l) = 1
+                     ! TODO: Check why this doesn't work with older ifort
+                     ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
+                     ! tmpi_vec1(l)=tmpi
+                  end do
+
+                  ! assign BC face to the elements nodes 
+                  if ( (sum(tmpi_vec1(1:2)+tmpi_vec1(5:6))) .eq. 4) msh_elements_3D % BCs(j,1) = msh_bcs(i) % tag ! 1:west
+                  if ( (sum(tmpi_vec1(3:4)+tmpi_vec1(7:8))) .eq. 4) msh_elements_3D % BCs(j,2) = msh_bcs(i) % tag ! 2:east
+                  if ( (sum(tmpi_vec1(1:4))) .eq. 4) msh_elements_3D % BCs(j,3) = msh_bcs(i) % tag ! 3:south
+                  if ( (sum(tmpi_vec1(2:3)+tmpi_vec1(6:7))) .eq. 4) msh_elements_3D % BCs(j,4) = msh_bcs(i) % tag ! 4:front 
+                  if ( (sum(tmpi_vec1(5:8))) .eq. 4) msh_elements_3D % BCs(j,5) = msh_bcs(i) % tag ! 5:north
+                  if ( (tmpi_vec1(1)+tmpi_vec1(4)+tmpi_vec1(5)+tmpi_vec1(8)) .eq. 4) msh_elements_3D % BCs(j,6) = msh_bcs(i) % tag ! 6:back
+
+               end do ! msh_elements_3D % no_els 
+            end do ! msh_no_BCs
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+      
+      !-----Assign-new-tags----------------------------------------------------
+            tmp_eltag = 0
+            do j=1, msh_elements_3D % no_els 
+               tmp_eltag = tmp_eltag + 1
+               msh_elements_3D % tags(j) = tmp_eltag
+            end do
+            if (.not. (tmp_eltag .eq. numberOfElements)) error stop "Read_GMSH :: Number of elements inconsistent."
+      !------------------------------------------------------------------------
+      
+      !-----Build-nodes--------------------------------------------------------
+            self % nodeType = nodes
+            self % no_of_elements = mpi_partition % no_of_elements
+            self % no_of_allElements = numberOfAllElements
+      !------------------------------------------------------------------------
+      
+      !-----Set-up-face-patches------------------------------------------------
+            numBFacePoints = bFaceOrder + 1
+            allocate(uNodes(numBFacePoints))
+            allocate(vNodes(numBFacePoints))
+            allocate(values(3,numBFacePoints,numBFacePoints))
+            do i = 1, numBFacePoints
+               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            end do
+      !------------------------------------------------------------------------
+      
+      !-----Allocate-mem-for-elements-and-nodes--------------------------------
+            allocate( self % elements(mpi_partition % no_of_elements) )
+            allocate( self % nodes(mpi_partition % no_of_nodes) )
+            allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
+            allocate( globalToLocalNodeID(numberOfAllNodes) )
+            allocate( globalToLocalElementID(numberOfAllElements) )
+            
+            globalToLocalNodeID = -1
+            globalToLocalElementID = -1
+      !------------------------------------------------------------------------
+      
+      !----Set-nodes-----------------------------------------------------------
+            pNode = 1
+            do msh_node=1, msh_nodes % no_nodes
+               x = msh_nodes % cords(msh_node,1:NDIM)/Lref
+
+               if ( pNode .gt. mpi_partition % no_of_nodes ) cycle
+
+               ! Construct only nodes that belong to the partition
+               if ( msh_nodes % tags(msh_node) .eq. mpi_partition % nodeIDs(pNode) ) then
+                  call ConstructNode( self % nodes(pNode), x, msh_nodes % tags(msh_node) )
+                  globalToLocalNodeID(msh_nodes % tags(msh_node)) = pNode
+                  pNode = pNode + 1 
+               end if
+            end do ! msh_nodes % no_nodes
+      !------------------------------------------------------------------------
+      
+      !----Set-local-nodes-----------------------------------------------------
+            allocate(local_nodes(numberOfAllNodes))
+            do msh_node=1, msh_nodes % no_nodes
+               x = msh_nodes % cords(msh_node,1:NDIM)/Lref
+               call ConstructNode( local_nodes(msh_nodes % tags(msh_node)), x, msh_nodes % tags(msh_node) )
+            end do ! msh_nodes % no_nodes
+      !------------------------------------------------------------------------
+      
+      !----Set-elements-----------------------------------------------------------
+            j = 0
+            pElement = 1
+            do msh_el = 1, msh_elements_3D % no_els 
+               j = j + 1
+               ! setting l'th element
+               l =  msh_elements_3D % tags(msh_el)
+               nodeIDs = msh_elements_3D % nodes(msh_el,1:8) ! only non-curved nodes
+               nodeIDs = globalToLocalNodeID(nodeIDs)
+
+               if ( pElement .gt. mpi_partition % no_of_elements ) then
+
+                  ! set element boundaries
+                  do k = 1, 6
+                     tmpi1 = my_findloc( msh_bcs % tag,msh_elements_3D % BCs(msh_el,k),1)
+                     if (tmpi1 .gt. 0) then
+                        names(k) = trim(msh_bcs(tmpi1) % name)
+                     else
+                        names(k) = emptyBCName
+                     end if
+                  end do ! k
+
+                  ! set BC names to faces
+                  do k = 1, 6
+                     if(trim(names(k)) /= emptyBCName) then
+                        call toLower( names(k) )
+                        zoneNames => zoneNameDictionary % allKeys()
+                        if ( all(trim(names(k)) .ne. zoneNames) ) then
+                           call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                        end if
+                        deallocate (zoneNames)
+                     end if
+                  end do ! k
+
+                  cycle
+               else if ( l .ne. mpi_partition % elementIDs(pElement) ) then
+
+                  ! set element boundaries
+                  do k = 1, 6
+                     tmpi1 = my_findloc( msh_bcs % tag,msh_elements_3D % BCs(msh_el,k),1)
+                     if (tmpi1 .gt. 0) then
+                        names(k) = trim(msh_bcs(tmpi1) % name)
+                     else
+                        names(k) = emptyBCName
+                     end if
+                  end do ! k
+
+                  ! set BC names to faces
+                  do k = 1, 6
+                     if(trim(names(k)) /= emptyBCName) then
+                        call toLower( names(k) )
+                        zoneNames => zoneNameDictionary % allKeys()
+                        if ( all(trim(names(k)) .ne. zoneNames) ) then
+                           call zoneNameDictionary % addValueForKey(trim(names(k)), trim(names(k)))
+                        end if
+                        deallocate (zoneNames)
+                     end if
+                  end do ! k
+
+                  cycle
+               end if
+
+               if (bFaceOrder .eq. 1) then ! non-curved mesh
+                  do k = 1, NODES_PER_ELEMENT
+                     corners(:,k) = self % nodes(nodeIDs(k)) % x
+                  end do
+                  self % elements(pElement) % SurfInfo % IsHex8 = .TRUE.
+                  self % elements(pElement) % SurfInfo % corners = corners
+               else ! curved mesh
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
+                  tmpi_vec2 = msh_elements_3D % nodes(msh_el,:)       
+
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = local_nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
+               end if
+
+               call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
+
+               self % Nx(pElement) = Nx(l)
+               self % Ny(pElement) = Ny(l)
+               self % Nz(pElement) = Nz(l)
+
+               ! set element boundaries
+               do k = 1, 6
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_elements_3D % BCs(msh_el,k),1)
+                  if (tmpi1 .gt. 0) then
+                     self % elements(pElement) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
+                  else
+                     self % elements(pElement) % boundaryName(k) = emptyBCName
+                  end if
+               end do ! k
+
+               ! set BC names to faces
+               do k = 1, 6
+                  if(trim(self % elements(pElement) % boundaryName(k)) /= emptyBCName) then
+                     call toLower( self % elements(pElement) % boundaryName(k) )
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(self % elements(pElement) % boundaryName(k)) .ne. zoneNames) ) then
+                        call zoneNameDictionary % addValueForKey(trim(self % elements(pElement) % boundaryName(k)), trim(self % elements(pElement) % boundaryName(k)))
+                     end if
+                     deallocate (zoneNames)
+                  end if
+               end do ! k
+
+               globalToLocalElementID(l) = pElement
+               pElement = pElement + 1
+            end do ! msh_elements_3D % no_els
+      !------------------------------------------------------------------------
+      
+      !-----Deallocate-msh-vairables-------------------------------------------
+            do i=1,msh_no_BCs
+               call msh_bcs(i) % Destruct()
+            end do
+            deallocate(msh_bcs)
+      
+            call msh_nodes % Destruct()
+            call msh_elements_3D % Destruct()
+            call msh_elements_2D % Destruct()     
+      
+            deallocate(uNodes) ! Check if we can do it! FIXME
+            deallocate(vNodes) ! Check if we can do it! FIXME
+            deallocate(values) ! Check if we can do it! FIXME
+      
+            ! deallocate local nodes
+            deallocate(local_nodes)
+      !------------------------------------------------------------------------
+      !
+      !     ---------------------------
+      !     Construct the element faces
+      !     ---------------------------
+      !
+            numberOfFaces        = GetOriginalNumberOfFaces(self)
+            self % numberOfFaces = numberOfFaces
+            allocate( self % faces(self % numberOfFaces) )
+            CALL ConstructFaces( self, success )
+      !        --------------------------------
+      !        Get actual mesh element face IDs
+      !        --------------------------------
+      !
+            CALL getElementsFaceIDs(self)
+      !
+      !     --------------
+      !     Cast MPI faces
+      !     --------------
+      !
+            call ConstructMPIFaces( self % MPIfaces )
+            call self % UpdateFacesWithPartition(mpi_partition, &
+                                                 numberOfAllElements, &
+                                                 globalToLocalElementID)
+      !
+      !     -------------------------
+      !     Build the different zones
+      !     -------------------------
+      !
+            call self % ConstructZones()
+      !
+      !     ---------------------------
+      !     Construct periodic faces
+      !     ---------------------------
+      !
+            CALL ConstructPeriodicFaces( self )
+      !
+      !     ---------------------------
+      !     Delete periodic- faces
+      !     ---------------------------
+      !
+            CALL DeletePeriodicMinusFaces( self )
+      !
+      !     ---------------------------
+      !     Assign faces ID to elements
+      !     ---------------------------
+      !
+            CALL getElementsFaceIDs(self)
+      !
+      !     ---------------------
+      !     Define boundary faces
+      !     ---------------------
+      !
+            call self % DefineAsBoundaryFaces()
+      !
+      !     -----------------------------------
+      !     Check if this is a 2D extruded mesh
+      !     -----------------------------------
+      !
+            call self % CheckIfMeshIs2D()
+      !
+      !     -------------------------------
+      !     Set the mesh as 2D if requested
+      !     -------------------------------
+      !
+            if ( dir2D .ne. 0 ) then
+               call SetMappingsToCrossProduct
+               call self % CorrectOrderFor2DMesh(dir2D,1)
+            end if
+      !
+      !     ------------------------------
+      !     Set the element connectivities
+      !     ------------------------------
+      !
+            call self % SetConnectivitiesAndLinkFaces(nodes)
+      !
+      !     ---------------------------------------
+      !     Construct elements' and faces' geometry
+      !     ---------------------------------------
+      !
+            call self % ConstructGeometry()
+      
+            if ( dir2D .ne. 0 ) then
+               call self % CorrectOrderFor2DMesh(dir2D,0)
+            end if
+      !
+      !     ---------
+      !     Finish up
+      !     ---------
+      !
+            if (.not. self % child) then
+               CALL self % Describe         ( trim(fileName), bFaceOrder )
+               CALL self % DescribePartition( )
+            end if
+      !
+      !     --------------------
+      !     Prepare mesh for I/O
+      !     --------------------
+      !
+            call self % PrepareForIO
+      
+            deallocate(globalToLocalNodeID)
+            deallocate(globalToLocalElementID)
+      
+         END SUBROUTINE ConstructMeshPartition_FromGMSHFile_v2_
+      !
+      !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+         subroutine ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      !  ---------------------------------------------------------
+      !  Build mesh from GMSH file. 
+      !  ---------------------------------------------------------
+            USE Physics
+            use PartitionedMeshClass
+            use MPI_Process_Info
+            implicit none
+      !-----Arguments-----------------------------------------------------------
+            type(HexMesh)                   :: self
+            integer                         :: nodes
+            character(len=*)                :: fileName
+            integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+            integer                         :: dir2D
+            logical           , intent(out) :: success
+      !-----Local-Variables-----------------------------------------------------
+            character(len=1024)             :: tmps
+            real(kind=RP)                   :: tmpd
+            integer                         :: tmpi, tmpi1, tmpi2, tmpi3, tmp_eltag
+            logical                         :: tmpb
+            integer, dimension(:), allocatable :: tmpi_vec1, tmpi_vec2, el_types
+            character(len=127),    allocatable :: tmps_vec(:)
+            type(MSH_BCinfo_t), dimension(:), allocatable :: msh_bcs
+            integer                         :: msh_no_BCs
+            integer                    :: element_type, org_element_type, org_element_type_2D
+      
+            character(len=1024) :: msh_entity
+            real(kind=RP), allocatable :: msh_entity_vec(:)
+            integer, dimension(4)      :: check_eltype
+
+            type(MSH_node_block_t)     :: msh_nodes
+            type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
+      
+            integer                         :: numberOfElements
+            integer                         :: numberOfElements2D
+            integer                         :: numberOfNodes
+            integer                         :: numberOfBoundaryFaces
+            integer                         :: numberOfFaces
+            integer                         :: no_nodes_i, msh_node, msh_el
+             
+            integer                         :: bFaceOrder, numBFacePoints, innerEdgePoints
+            integer                         :: i, j, k, l, jj, ii
+            integer                         :: fUnit, fileStat
+            integer                         :: nodeIDs(NODES_PER_ELEMENT)
+            real(kind=RP)                   :: x(NDIM)
+            CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
+            real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
+      !-----Curved-patches------------------------------------------------------
+            real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+            real(kind=RP)  , DIMENSION(:,:,:), ALLOCATABLE :: values
+      !  -----------------------------------------------------------------------
+      
+            numberOfBoundaryFaces = 0
+            success               = .TRUE.
+      
+            fUnit = UnusedUnit()
+            OPEN( UNIT = fUnit, FILE = fileName, iostat = fileStat )
+            IF ( fileStat /= 0 )     THEN
+               PRINT *, "Error opening file: ", fileName
+               success = .FALSE.
+               RETURN 
+            END IF
+      
+      !------------------------------------------------------------------------
+      
+      !-----Read-header-info---------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$MeshFormat') error stop "READ_GMSH :: Wrong input file." 
+            read(fUnit,*) tmpd, tmpi, tmpi 
+            read(fUnit,*) tmps
+      !------------------------------------------------------------------------
+      
+      !-----Read-BC-info-------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$PhysicalNames') error stop "READ_GMSH :: Wrong input file - no boundary conditions defined." 
+            read(fUnit,*) tmpi
+      
+            allocate(tmpi_vec1(tmpi))
+            allocate(tmpi_vec2(tmpi))
+            allocate(tmps_vec(tmpi))
+      
+            msh_no_BCs = 0 ! only surfaces count!
+            do i=1, tmpi
+               read(fUnit,*) tmpi_vec1(i), tmpi_vec2(i), tmps_vec(i)
+               if(tmpi_vec1(i) .eq. 2) msh_no_BCs=msh_no_BCs+1 ! check if surface
+            end do ! tmpi
+            if (msh_no_BCs .eq. 0) print *, "READ_GMSH :: No boundary conditions detected."
+      
+            allocate(msh_bcs(msh_no_BCs))
+      
+            j = 0
+            do i=1, msh_no_BCs
+               if(tmpi_vec1(i) .eq. 2) then
+                  j = j + 1
+                  msh_bcs(j)%dim  = tmpi_vec1(i)
+                  msh_bcs(j)%tag  = tmpi_vec2(i)
+                  msh_bcs(j)%name = tmps_vec(i)
+               end if
+            end do ! msh_no_BCs
+       
+            deallocate(tmpi_vec1)
+            deallocate(tmpi_vec2)
+            deallocate(tmps_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndPhysicalNames') error stop "READ_GMSH :: Wrong input file - not all boundary conditions detected." 
+      !------------------------------------------------------------------------
+      
+      !-----Read-nodes---------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Nodes') error stop "READ_GMSH :: Wrong input file - no nodes found." 
+      
+            read(fUnit,*) numberOfNodes
+
+            call msh_nodes % Construct(0, 0, .false., numberOfNodes)
+      
+            do i=1, numberOfNodes
+                  read(fUnit,*) msh_nodes % tags(i), msh_nodes % cords(i,:)
+            end do ! numberOfNodes
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndNodes') error stop "READ_GMSH :: Wrong input file - not all nodes detected." 
+      !------------------------------------------------------------------------
+      
+      !-----Read-elements------------------------------------------------------
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$Elements') error stop "READ_GMSH :: Wrong input file - no elements found." 
+      
+            read(fUnit,*) numberOfElements
+            call msh_elements % Construct(element_type,numberOfElements)
+            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(el_types(numberOfElements)) ! arbitrary number
+            do i=1, numberOfElements
+
+               read(fUnit,'(1024a)') msh_entity ! read row
+
+               msh_entity_vec=0.0_RP
+               
+               call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
+
+               msh_elements % tags(i)     = int(msh_entity_vec(1))
+               el_types(i)                = int(msh_entity_vec(2))
+               msh_elements % no_ptags(i) = int(msh_entity_vec(3))
+               if (msh_elements % no_ptags(i) .gt. 0) msh_elements % ptags(i,1:msh_elements % no_ptags(i)) = &
+                  int(msh_entity_vec(4:3+msh_elements % no_ptags(i))) 
+
+               select case (el_types(i))
+               case (5) ! 3D - 1st order
+                  no_nodes_i = 8
+               case (12) ! 3D - 2st order
+                  no_nodes_i = 27
+               case (92) ! 3D - 3rd order
+                  no_nodes_i = 64
+               case (93) ! 3D - 4th order
+                  no_nodes_i = 125
+               case (3) ! 2D - 1st order
+                  no_nodes_i = 4
+               case (10) ! 2D - 2st order
+                  no_nodes_i = 9
+               case (36) ! 2D - 3rd order
+                  no_nodes_i = 16
+               case (37) ! 2D - 4th order
+                  no_nodes_i = 25
+               case default
+                  no_nodes_i = 0
+               end select
+
+               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+      
+            end do ! numberOfElements
+
+            deallocate(msh_entity_vec)
+      
+            read(fUnit,*) tmps
+            if (trim(tmps) .ne. '$EndElements') error stop "READ_GMSH :: Wrong input file - not all elements detected." 
+            close( fUnit )
+      !------------------------------------------------------------------------
+      
+      !-----Mesh-info----------------------------------------------------------
+            ! find order of elements curvature
+            check_eltype(1) = count(el_types .eq.  5)
+            check_eltype(2) = count(el_types .eq. 12)
+            check_eltype(3) = count(el_types .eq. 92)
+            check_eltype(4) = count(el_types .eq. 93)
+            if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
+            if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
+            bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
+            check_eltype = (/5,12,92,93/)
+            org_element_type = check_eltype(bFaceOrder)
+            msh_elements % el_type = org_element_type
+
+            select case (bFaceOrder)
+            case (1)
+               org_element_type_2D = 3
+            case (2)
+               org_element_type_2D = 10
+            case (3)
+               org_element_type_2D = 36
+            case (4)
+               org_element_type_2D = 37
+            case default
+            end select
+
+            if (numberOfElements .ne. (count(el_types .eq. org_element_type) + count(el_types .eq. org_element_type_2D)) ) & 
+               error stop "READ_GMSH :: Too many different types of elements."
+            numberOfElements = count(el_types .eq. org_element_type)
+            numberOfElements2D = count(el_types .eq. org_element_type_2D)
+
+            call msh_elements_3D % Construct(org_element_type,numberOfElements)
+            call msh_elements_2D % Construct(org_element_type_2D,numberOfElements2D)
+
+            j = 0
+            k = 0
+            do i=1, size(el_types)
+
+               if ( el_types(i) .eq. org_element_type ) then
+                  j = j + 1
+                  msh_elements_3D % tags(j) = msh_elements % tags(i)
+                  msh_elements_3D % no_ptags(j) = msh_elements % no_ptags(i)
+                  msh_elements_3D % ptags(j,:) = msh_elements % ptags(i,1)
+                  msh_elements_3D % nodes(j,:) = msh_elements % nodes(i,1:size(msh_elements_3D % nodes(j,:)))
+               elseif ( el_types(i) .eq. org_element_type_2D ) then
+                  k = k + 1
+                  msh_elements_2D % tags(k) = msh_elements % tags(i)
+                  msh_elements_2D % no_ptags(k) = msh_elements % no_ptags(i)
+                  msh_elements_2D % ptags(k,:) = msh_elements % ptags(i,1)
+                  msh_elements_2D % nodes(k,:) = msh_elements % nodes(i,1:size(msh_elements_2D % nodes(k,:)))
+               else 
+                  error stop "READ_GMSH :: Unknown element type in the mesh."
+               end if
+
+            end do
+
+            deallocate(el_types)
+            call msh_elements % Destruct()
+      !------------------------------------------------------------------------
+      
+      !-----Reorder-nodes-in-elements------------------------------------------
+            allocate(tmpi_vec1((bFaceOrder + 1)**3))
+            do j=1, msh_elements_3D % no_els 
+               ! re-order nodes within element to match HORSES ordering
+               tmpi_vec1 = msh_elements_3D % nodes(j,:)
+               call ReorderElement(tmpi_vec1,bFaceOrder)
+               msh_elements_3D % nodes(j,:) = tmpi_vec1
+            end do
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+      
+      !-----Assign-BCs---------------------------------------------------------
+            do i=1,msh_no_BCs
+               ! find # of surfaces, in this version of the reader surfaces are 2D element faces
+               msh_bcs(i) % no_of_surfaces = 0
+               allocate(tmpi_vec1(numberOfNodes*3)) ! upper bound
+               tmpi_vec1 = 0
+               k = 0
+
+               do j=1, numberOfElements2D
+
+                  tmpi = my_findloc(msh_elements_2D%ptags(j,:), msh_bcs(i)%tag, 1)
+                  if (tmpi .gt. 0) then
+                     msh_bcs(i) % no_of_surfaces = msh_bcs(i) % no_of_surfaces + 1
+                     tmpi_vec1(k+1 : k+size(msh_elements_2D % nodes(j,:))) = msh_elements_2D % nodes(j,:)
+                     k = k + size(msh_elements_2D % nodes(j,:))
+                  end if
+
+               end do ! msh_no_surfaces
+
+               call unique(tmpi_vec1(1:k),msh_bcs(i) % node_tags)
+               msh_bcs(i) % no_of_nodes = size(msh_bcs(i) % node_tags,1)
+               deallocate(tmpi_vec1)
+      
+            end do ! msh_no_BCs
+      !------------------------------------------------------------------------
+      
+      !-----Assign-BC-to-nodes-------------------------------------------------
+            allocate(tmpi_vec1(8)) ! help array for the walls
+            do i=1, msh_no_BCs
+               do j=1, msh_elements_3D % no_els
+
+                  ! find matching nodes
+                  tmpi_vec1=0
+                  do l=1,8
+                     tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
+                     if(tmpi .gt. 0) tmpi_vec1(l) = 1
+                     ! TODO: Check why this doesn't work with older ifort
+                     ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
+                     ! tmpi_vec1(l)=tmpi
+                  end do
+
+                  ! assign BC face to the elements nodes 
+                  if ( (sum(tmpi_vec1(1:2)+tmpi_vec1(5:6))) .eq. 4) msh_elements_3D % BCs(j,1) = msh_bcs(i) % tag ! 1:west
+                  if ( (sum(tmpi_vec1(3:4)+tmpi_vec1(7:8))) .eq. 4) msh_elements_3D % BCs(j,2) = msh_bcs(i) % tag ! 2:east
+                  if ( (sum(tmpi_vec1(1:4))) .eq. 4) msh_elements_3D % BCs(j,3) = msh_bcs(i) % tag ! 3:south
+                  if ( (sum(tmpi_vec1(2:3)+tmpi_vec1(6:7))) .eq. 4) msh_elements_3D % BCs(j,4) = msh_bcs(i) % tag ! 4:front 
+                  if ( (sum(tmpi_vec1(5:8))) .eq. 4) msh_elements_3D % BCs(j,5) = msh_bcs(i) % tag ! 5:north
+                  if ( (tmpi_vec1(1)+tmpi_vec1(4)+tmpi_vec1(5)+tmpi_vec1(8)) .eq. 4) msh_elements_3D % BCs(j,6) = msh_bcs(i) % tag ! 6:back
+
+               end do ! msh_elements_3D % no_els 
+            end do ! msh_no_BCs
+            deallocate(tmpi_vec1)
+      !------------------------------------------------------------------------
+      
+      !-----Assign-new-tags----------------------------------------------------
+            tmp_eltag = 0
+            do j=1, msh_elements_3D % no_els 
+               tmp_eltag = tmp_eltag + 1
+               msh_elements_3D % tags(j) = tmp_eltag
+            end do
+            if (.not. (tmp_eltag .eq. numberOfElements)) error stop "Read_GMSH :: Number of elements inconsistent."
+      !------------------------------------------------------------------------
+      
+      !-----Build-nodes--------------------------------------------------------
+            self % nodeType = nodes
+            self % no_of_elements = numberOfElements
+      !------------------------------------------------------------------------
+      
+      !-----Set-up-face-patches------------------------------------------------
+            numBFacePoints = bFaceOrder + 1
+            allocate(uNodes(numBFacePoints))
+            allocate(vNodes(numBFacePoints))
+            allocate(values(3,numBFacePoints,numBFacePoints))
+            do i = 1, numBFacePoints
+               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            end do
+      !------------------------------------------------------------------------
+      
+      !-----Allocate-mem-for-elements-and-nodes--------------------------------
+            allocate( self % elements(numberOfelements) )
+            allocate( self % nodes(numberOfNodes) )
+            allocate( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
+            self % Nx = Nx
+            self % Ny = Ny
+            self % Nz = Nz
+      !------------------------------------------------------------------------
+      
+      !----Set-nodes-----------------------------------------------------------
+            do msh_node=1, msh_nodes % no_nodes
+               x = msh_nodes % cords(msh_node,1:NDIM)/Lref
+               call ConstructNode( self % nodes(msh_nodes % tags(msh_node)), x, msh_nodes % tags(msh_node) )
+            end do ! msh_nodes % no_nodes
+      !------------------------------------------------------------------------
+      
+      !----Set-elements-----------------------------------------------------------
+            j = 0
+            do msh_el = 1, msh_elements_3D % no_els 
+               j = j + 1
+               ! setting l'th element
+               l =  msh_elements_3D % tags(msh_el)
+               nodeIDs = msh_elements_3D % nodes(msh_el,1:8) ! only non-curved nodes
+
+               if (bFaceOrder .eq. 1) then ! non-curved mesh
+                  do k = 1, NODES_PER_ELEMENT
+                     corners(:,k) = self % nodes(nodeIDs(k)) % x
+                  end do
+                  self % elements(l) % SurfInfo % IsHex8 = .TRUE.
+                  self % elements(l) % SurfInfo % corners = corners
+               else ! curved mesh              
+                  ! allocate tmp arrays for curved face node tags and coordinates
+                  allocate(tmpi_vec1(numBFacePoints*numBFacePoints))
+                  allocate(tmpi_vec2(numBFacePoints**3))
+
+                  tmpi_vec2 = msh_elements_3D % nodes(msh_el,:)       
+
+                  do k = 1, FACES_PER_ELEMENT                          
+                     call GetOrderedFaceNodeTags(tmpi_vec1,k,bFaceOrder,tmpi_vec2)
+                     do jj = 1, numBFacePoints
+                        do ii = 1, numBFacePoints
+                           values(:,ii,jj) = self % nodes(tmpi_vec1(ii + (jj-1)*numBFacePoints)) % x
+                        end do  
+                     end do
+                     values = values / Lref
+                     call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
+
+                  end do
+
+                  deallocate(tmpi_vec1)
+                  deallocate(tmpi_vec2)
+               end if
+
+               call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
+
+               ! set element boundaries
+               do k = 1, 6
+                  tmpi1 = my_findloc( msh_bcs % tag,msh_elements_3D % BCs(msh_el,k),1)
+                  if (tmpi1 .gt. 0) then
+                     self % elements(l) % boundaryName(k) = trim(msh_bcs(tmpi1) % name)
+                  else
+                     self % elements(l) % boundaryName(k) = emptyBCName
+                  end if
+               end do ! k
+
+               ! set BC names to faces
+               do k = 1, 6
+                  if(trim(self % elements(l) % boundaryName(k)) /= emptyBCName) then
+                     call toLower( self % elements(l) % boundaryName(k) )
+                     numberOfBoundaryFaces = numberOfBoundaryFaces + 1
+                     zoneNames => zoneNameDictionary % allKeys()
+                     if ( all(trim(self % elements(l) % boundaryName(k)) .ne. zoneNames) ) then
+                        call zoneNameDictionary % addValueForKey(trim(self % elements(l) % boundaryName(k)), trim(self % elements(l) % boundaryName(k)))
+                     end if
+                     deallocate (zoneNames)
+                  end if
+               end do ! k
+            end do ! msh_elements_3D % no_els
+            if (.not. (j .eq. numberOfElements)) error stop "Read_GMSH :: Not all elements assigned."
+      !------------------------------------------------------------------------
+      
+      !-----Deallocate-msh-vairables-------------------------------------------
+            do i=1,msh_no_BCs
+               call msh_bcs(i) % Destruct()
+            end do
+            deallocate(msh_bcs)
+
+            call msh_nodes % Destruct()
+            call msh_elements_3D % Destruct()
+            call msh_elements_2D % Destruct()    
+      
+            deallocate(uNodes) ! Check if we can do it! FIXME
+            deallocate(vNodes) ! Check if we can do it! FIXME
+            deallocate(values) ! Check if we can do it! FIXME
+      !------------------------------------------------------------------------
+      !
+      !     ---------------------------
+      !     Construct the element faces
+      !     ---------------------------
+      !
+            numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
+            self % numberOfFaces = numberOfFaces
+            allocate( self % faces(self % numberOfFaces) )
+            CALL ConstructFaces( self, success )
+      !
+      !     -------------------------
+      !     Build the different zones
+      !     -------------------------
+      !
+            call self % ConstructZones()
+      !
+      !     ---------------------------
+      !     Construct periodic faces
+      !     ---------------------------
+      !
+            CALL ConstructPeriodicFaces( self ) 
+      !
+      !     ---------------------------
+      !     Delete periodic- faces
+      !     ---------------------------
+      !
+            CALL DeletePeriodicMinusFaces( self ) 
+      !
+      !     ---------------------------
+      !     Assign faces ID to elements
+      !     ---------------------------
+      !
+            CALL getElementsFaceIDs(self)
+      !
+      !     ---------------------
+      !     Define boundary faces
+      !     ---------------------
+      !
+            call self % DefineAsBoundaryFaces()
+      !
+      !     ------------------------------
+      !     Set the element connectivities
+      !     ------------------------------
+      !
+            call self % SetConnectivitiesAndLinkFaces(nodes)
+            
+            call self % ExportBoundaryMesh (trim(fileName))
+         end subroutine ConstructSimplestMesh_FromGMSHFile_v2_
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+    function NumOfElems_GMSH_v4( fileName ) result(nelem)
         implicit none
         !----------------------------------
         CHARACTER(LEN=*), intent(in) :: fileName
@@ -2197,7 +3851,53 @@ MODULE Read_GMSH
 
         close(fUnit)
 
-    end function NumOfElems_GMSH
+    end function NumOfElems_GMSH_v4
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+    function NumOfElems_GMSH_v2( fileName ) result(nelem)
+      implicit none
+      !----------------------------------
+      CHARACTER(LEN=*), intent(in) :: fileName
+      integer                      :: nelem
+      !----------------------------------
+      integer :: i, j, k, fUnit, nEltotal, ElsInBlock, eltype, elem_tmp
+      integer :: ierr
+      logical :: success=.false.
+      character (len=100) :: cline
+      character (len=10)  :: cword
+      integer, dimension(4) :: check_eltype = (/5,12,92,93/)
+      !----------------------------------
+       
+      open(newunit = fUnit, FILE = trim(fileName) )  
+
+      nelem = 0
+      do
+          read(fUnit,'(A)',iostat=ierr) cline
+          if (ierr /= 0) exit
+          read (cline,*) cword ! read first word of line
+          if (cword == "$Elements") then
+             read(fUnit,*) nEltotal         
+             do i=1, nEltotal
+               read(fUnit,*) k, eltype
+               if (my_findloc(check_eltype,eltype,1) .ge. 1) nelem = nelem + 1
+             end do
+             read(fUnit,*) cline
+             if (trim(cline) .ne. '$EndElements') error stop "NumOfElems_GMSH :: Wrong input file - not all elements read." 
+             success=.true.
+             exit
+          end if
+      end do
+
+      if (success) then
+      else
+         print *, cline
+         error stop "NumOfElems_GMSH :: Could not read number of elements."
+      end if
+
+      close(fUnit)
+
+  end function NumOfElems_GMSH_v2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -2292,8 +3992,8 @@ MODULE Read_GMSH
       case (93) ! 3D 4th order hexahedron
          allocate(this % nodes(no_els,125))
       case default
-         print *, " READ_GMSH :: Wrong element type. Only proper tags will be stored."
-         allocate(this % nodes(no_els,1))
+         ! print *, " READ_GMSH :: Warning! Wrong element type. Allocation for Q3 3D."
+         allocate(this % nodes(no_els,64))
       end select
 
       ! allocate BCs only if 3D element is detected
@@ -2301,6 +4001,9 @@ MODULE Read_GMSH
          allocate(this % BCs(no_els,6))
          this % BCs = 0
       end if
+
+      allocate(this % no_ptags(no_els))
+      allocate(this % ptags(no_els,8))
    end subroutine MSH_ConstructElementBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2316,6 +4019,8 @@ MODULE Read_GMSH
 !  -----------------------------------------------------------------------
       deallocate(this % tags)
       deallocate(this % nodes)
+      deallocate(this % no_ptags)
+      deallocate(this % ptags)
       if(allocated(this % BCs)) deallocate(this % BCs)
 
    end subroutine MSH_DestructElementBlock
