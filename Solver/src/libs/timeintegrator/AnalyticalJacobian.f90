@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug 22 12:53:07 2021
+!   @Last revision date: Mon Sep  6 22:45:03 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !//////////////////////////////////////////////////////
 !
@@ -276,6 +276,8 @@ contains
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
+
+   ! call Matrix % Visualize('Jacobian.txt')
    end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES) 
 !
@@ -1556,8 +1558,19 @@ contains
       normAx_minus = abs(normAx_minus)
       
       ! Nodal storage
-      spA_plus  = NodalStorage(e_plus  % Nxyz)
-      spA_minus = NodalStorage(e_minus % Nxyz)
+      ! --------------------------------------
+      ! TODO: Why this doesn't work since ifort ver. 19.1?
+      ! --------------------------------------
+      ! spA_plus  = NodalStorage(e_plus  % Nxyz)
+      ! spA_minus = NodalStorage(e_minus % Nxyz)
+      
+      spA_plus(1)  = NodalStorage(e_plus  % Nxyz(1))
+      spA_plus(2)  = NodalStorage(e_plus  % Nxyz(2))
+      spA_plus(3)  = NodalStorage(e_plus  % Nxyz(3))
+      spA_minus(1)  = NodalStorage(e_minus  % Nxyz(1))
+      spA_minus(2)  = NodalStorage(e_minus  % Nxyz(2))
+      spA_minus(3)  = NodalStorage(e_minus  % Nxyz(3))
+
       spAnorm_plus  => spA_plus( normAx_plus   )
       spAtan1_plus  => spA_plus( tanAx_plus(1) )
       spAtan2_plus  => spA_plus( tanAx_plus(2) )

@@ -12,7 +12,7 @@ module LinearSolverClass
    use MKLPardisoSolverClass
    use StaticCondensationSolverClass
    use IterativeSolverClass
-   use MultigridSolverClass
+   use LinearMultigridSolverClass
    use MatrixFreeSmootherClass
    use MatrixFreeGMRESClass
    implicit none

@@ -4,9 +4,9 @@
 !   @File:    RosenbrockTimeIntegrator.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Thu Dec  5 17:31:40 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 1cfb3505b3f0568a0a62298c9b939c6a1cc54b4f
+!   @Last revision date: Mon Sep  6 22:45:07 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !//////////////////////////////////////////////////////
 !
@@ -100,7 +100,7 @@ contains
          case('smooth')
             allocate (IterativeSolver_t      :: this % linsolver)
          case('multigrid')
-            allocate (MultigridSolver_t      :: this % linsolver)
+            allocate (LinearMultigridSolver_t      :: this % linsolver)
          case default
             print*, "Keyword 'linear solver' missing... Using PETSc as default"
             allocate (PetscKspLinearSolver_t :: this % linsolver)

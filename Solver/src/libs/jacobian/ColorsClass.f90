@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Sun Aug 22 12:53:03 2021
+!   @Last revision date: Mon Sep  6 22:44:56 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !//////////////////////////////////////////////////////
 !
@@ -47,7 +47,7 @@ MODULE ColorsClass
          integer                             :: ntotal, maxcolor
          integer, DIMENSION(:), allocatable  :: colors
          !----------------------------------------------------------------
-         
+
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
          ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"

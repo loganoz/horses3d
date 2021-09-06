@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f95
 !   @Author:  David Kopriva
 !   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Mon Sep  6 22:44:53 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -719,5 +719,5 @@ Module DGSEMClass
    end subroutine MaxTimeStep
 
 !////////////////////////////////////////////////////////////////////////
-
+!
 end module DGSEMClass

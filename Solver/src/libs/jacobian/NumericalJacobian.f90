@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Sun Aug 22 12:53:06 2021
+!   @Last revision date: Mon Sep  6 22:45:00 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: f25736e2c99ea391777ac1ea2e57fb316bf5dd5a
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !//////////////////////////////////////////////////////
 !
@@ -144,6 +144,7 @@ contains
       end if
 
          nelm = size(sem % mesh % elements)
+
 !
 !        Initialize the colorings structure
 !        ----------------------------------
@@ -394,6 +395,7 @@ contains
       call sem % mesh % SetStorageToEqn(NS_BC)
 #endif
       
+      ! call Matrix % Visualize('Jacobian.txt')
    end subroutine NumJacobian_Compute
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
