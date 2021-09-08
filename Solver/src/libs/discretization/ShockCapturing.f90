@@ -40,8 +40,10 @@ module ShockCapturing
          real(RP), private :: s1     !< Threshold one (from 0 to 1)
          real(RP), private :: s2     !< Threshold two (from 0 to 1), higher that s1
 
-         real(RP), private :: mu               !< First viscosity parameter
-         real(RP), private :: alpha            !< Second viscosity parameter
+         real(RP), private :: mu1              !< First viscosity parameter (low)
+         real(RP), private :: alpha1           !< Second viscosity parameter (low)
+         real(RP), private :: mu2              !< First viscosity parameter (high)
+         real(RP), private :: alpha2           !< Second viscosity parameter (high)
          real(RP), private :: mu2alpha         !< Ratio alpha/mu
          logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
 
@@ -49,6 +51,7 @@ module ShockCapturing
 
       contains
 
+         procedure :: Initialize => SC_initialize
          procedure :: Detect     => SC_detect
          procedure :: Viscosity  => SC_viscosity
          !procedure :: Hyperbolic => SC_hyperbolic
@@ -62,16 +65,20 @@ module ShockCapturing
       integer                                          :: fluxType
       procedure(Viscous_Int), nopass, pointer, private :: ViscousFlux => null()
    contains
+      procedure :: Initialize => ArtVisc_initialize
       procedure :: Viscosity  => ArtVisc_viscosity
       procedure :: Describe   => ArtVisc_describe
       final :: ArtVisc_destruct
    end type ArtViscDriver_t
 
    type, extends(SCdriver_t) :: SVVdriver_t
-      real(RP), private :: sqrt_mu
-      real(RP), private :: sqrt_alpha
+      real(RP), private :: sqrt_mu1
+      real(RP), private :: sqrt_alpha1
+      real(RP), private :: sqrt_mu2
+      real(RP), private :: sqrt_alpha2
       real(RP), private :: sqrt_mu2alpha
    contains
+      procedure :: Initialize => SVV_Initialize
       procedure :: Viscosity  => SVV_viscosity
       procedure :: Describe   => SVV_describe
    end type SVVdriver_t
@@ -79,6 +86,7 @@ module ShockCapturing
    type, extends(SVVdriver_t) :: SSFVdriver_t
       real(RP) :: c
    contains
+      !procedure :: Initialize => SSFV_initialize
       !procedure :: Viscosity  => SSFV_viscosity
       !procedure :: Hyperbolic => SSFV_hyperbolic
       !procedure :: Describe   => SSFV_describe
@@ -112,7 +120,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-!     Public variable initializer
+!     Initializers
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -122,10 +130,6 @@ module ShockCapturing
 !     Modules
 !     -------
       use FTValueDictionaryClass
-      use PhysicsStorage_NS, only: grad_vars, GRADVARS_STATE, &
-                                   GRADVARS_ENTROPY, GRADVARS_ENERGY
-      use Physics_NS,        only: ViscousFlux_STATE, ViscousFlux_ENTROPY, &
-                                   ViscousFlux_ENERGY, GuermondPopovFlux_ENTROPY
 !
 !     ---------
 !     Interface
@@ -144,7 +148,6 @@ module ShockCapturing
       real(RP)                      :: thr2
       character(len=:), allocatable :: method
       character(len=:), allocatable :: update
-      character(len=:), allocatable :: flux
       character(len=:), allocatable :: sType
       character(len=:), allocatable :: sVar
       integer                       :: sVarID
@@ -194,24 +197,41 @@ module ShockCapturing
 !
 !     Viscosity values (mu and alpha)
 !     -------------------------------
-      if (controlVariables % containsKey(SC_MU_KEY)) then
-         self % mu = controlVariables % doublePrecisionValueForKey(SC_MU_KEY)
+      if (controlVariables % containsKey(SC_MU1_KEY)) then
+         self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
       else
-         write(STD_OUT,*) "ERROR. A value for the artificial mu must be given."
+         write(STD_OUT,*) "ERROR. A value for the artificial 'mu 1' must be given."
       end if
 
-      if (controlVariables % containsKey(SC_ALPHA_KEY)) then
-         self % alpha = controlVariables % doublePrecisionValueForKey(SC_ALPHA_KEY)
-         self % alphaIsPropToMu = .false.
+      if (controlVariables % containsKey(SC_MU2_KEY)) then
+         self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
+      else
+         self % mu2 = self % mu1
+      end if
 
-      else if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
+      ! AQUI
+      if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
+
          self % alphaIsPropToMu = .true.
          self % mu2alpha        = controlVariables % doublePrecisionValueForKey(SC_ALPHA_MU_KEY)
-         self % alpha           = self % mu2alpha * self % mu
+         self % alpha1          = self % mu2alpha * self % mu1
+         self % alpha2          = self % mu2alpha * self % mu2
 
       else
-         self % alpha = 0.0_RP
+
          self % alphaIsPropToMu = .false.
+
+         if (controlVariables % containsKey(SC_ALPHA1_KEY)) then
+            self % alpha1 = controlVariables % doublePrecisionValueForKey(SC_ALPHA1_KEY)
+         else
+            self % alpha1 = 0.0_RP
+         end if
+
+         if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
+            self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
+         else
+            self % alpha2 = self % alpha1
+         end if
 
       end if
 !
@@ -229,14 +249,18 @@ module ShockCapturing
             self % updateMethod = SC_SENSOR_ID
 
          case (SC_SMAG_VAL)
+
             self % updateMethod = SC_SMAG_ID
+            if (.not. self%alphaIsPropToMu) then
+               write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using SVV-LES.'
+               stop
+            end if
 
             ! TODO: Use the default constructor
             Smagorinsky % active = .true.
             Smagorinsky % requiresWallDistances = .false.
             Smagorinsky % WallModel = 0  ! No wall model
-            Smagorinsky % CS = self % mu
-            self % mu = 0.0_RP
+            Smagorinsky % CS = self % mu1
 
          case default
             self % updateMethod = SC_CONST_ID
@@ -248,71 +272,9 @@ module ShockCapturing
 
       end if
 !
-!     Artificial viscosity flux
-!     -------------------------
-      select type (self)
-      type is (ArtViscDriver_t)
-
-         ! Set the flux type
-         if (controlVariables % containsKey(SC_VISC_FLUX_KEY)) then
-            flux = controlVariables%stringValueForKey(SC_VISC_FLUX_KEY, LINE_LENGTH)
-            call toLower(flux)
-
-            select case (trim(flux))
-            case (SC_PHYS_VAL); self % fluxType = SC_PHYS_ID
-            case (SC_GP_VAL);   self % fluxType = SC_GP_ID
-            case default
-               write(STD_OUT,*) 'ERROR. Artificial viscosity type not recognized. Options are:'
-               write(STD_OUT,*) '   * ', SC_PHYS_VAL
-               write(STD_OUT,*) '   * ', SC_GP_VAL
-               errorMessage(STD_OUT)
-               stop
-            end select
-
-         else
-            self % fluxType = SC_PHYS_ID
-
-         end if
-
-         ! Now point to the correct function
-         select case (self % fluxType)
-         case (SC_PHYS_ID)
-            select case (grad_vars)
-            case (GRADVARS_STATE);   self % ViscousFlux => ViscousFlux_STATE
-            case (GRADVARS_ENTROPY); self % ViscousFlux => ViscousFlux_ENTROPY
-            case (GRADVARS_ENERGY);  self % ViscousFlux => ViscousFlux_ENERGY
-            end select
-
-         case (SC_GP_ID)
-            select case (grad_vars)
-            case (GRADVARS_ENTROPY); self % ViscousFlux => GuermondPopovFlux_ENTROPY
-            case default
-               write(STD_OUT,*) "ERROR. Guermond-Popov (2014) artificial ",  &
-                                "viscosity is only configured for Entropy ", &
-                                "gradient variables"
-               errorMessage(STD_OUT)
-               stop
-            end select
-
-         end select
-
-      type is (SVVdriver_t)
-
-         ! Set the square root of the viscosities
-         self % sqrt_mu = sqrt(self % mu)
-         if (self % alphaIsPropToMu) then
-            self % sqrt_mu2alpha = sqrt(self % mu2alpha)
-         else
-            self % sqrt_alpha = sqrt(self % alpha)
-         end if
-
-         ! Start the SVV module
-         call InitializeSVV(SVV, controlVariables, mesh)
-
-      class default
-         call InitializeSVV(SVV, controlVariables, mesh)
-
-      end select
+!     Implementation-specific intialization
+!     -------------------------------------
+      call self % Initialize(controlVariables, mesh)
 !
 !     Sensor thresholds
 !     --------------
@@ -391,12 +353,134 @@ module ShockCapturing
 !     Construct sensor
 !     ----------------
       call Set_SCsensor(self % sensor, sType, sVarID, lowThr, highThr)
-!
-!     Describe
-!     --------
-      call self % Describe
 
    end subroutine Initialize_ShockCapturing
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SC_initialize(self, controlVariables, mesh)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCdriver_t),       intent(inout) :: self
+      type(FTValueDictionary), intent(in)    :: controlVariables
+      type(HexMesh),           intent(in)    :: mesh
+
+
+   end subroutine SC_initialize
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ArtVisc_initialize(self, controlVariables, mesh)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
+      use PhysicsStorage_NS, only: grad_vars, GRADVARS_STATE, &
+                                   GRADVARS_ENTROPY, GRADVARS_ENERGY
+      use Physics_NS,        only: ViscousFlux_STATE, ViscousFlux_ENTROPY, &
+                                   ViscousFlux_ENERGY, GuermondPopovFlux_ENTROPY
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(ArtViscDriver_t),  intent(inout) :: self
+      type(FTValueDictionary), intent(in)    :: controlVariables
+      type(HexMesh),           intent(in)    :: mesh
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      character(len=:), allocatable :: flux
+
+
+      ! Set the flux type
+      if (controlVariables % containsKey(SC_VISC_FLUX_KEY)) then
+         flux = controlVariables%stringValueForKey(SC_VISC_FLUX_KEY, LINE_LENGTH)
+         call toLower(flux)
+
+         select case (trim(flux))
+         case (SC_PHYS_VAL); self % fluxType = SC_PHYS_ID
+         case (SC_GP_VAL);   self % fluxType = SC_GP_ID
+         case default
+            write(STD_OUT,*) 'ERROR. Artificial viscosity type not recognized. Options are:'
+            write(STD_OUT,*) '   * ', SC_PHYS_VAL
+            write(STD_OUT,*) '   * ', SC_GP_VAL
+            errorMessage(STD_OUT)
+            stop
+         end select
+
+      else
+         self % fluxType = SC_PHYS_ID
+
+      end if
+
+      ! Now point to the correct function
+      select case (self % fluxType)
+      case (SC_PHYS_ID)
+         select case (grad_vars)
+         case (GRADVARS_STATE);   self % ViscousFlux => ViscousFlux_STATE
+         case (GRADVARS_ENTROPY); self % ViscousFlux => ViscousFlux_ENTROPY
+         case (GRADVARS_ENERGY);  self % ViscousFlux => ViscousFlux_ENERGY
+         end select
+
+      case (SC_GP_ID)
+         select case (grad_vars)
+         case (GRADVARS_ENTROPY); self % ViscousFlux => GuermondPopovFlux_ENTROPY
+         case default
+            write(STD_OUT,*) "ERROR. Guermond-Popov (2014) artificial ",  &
+                              "viscosity is only configured for Entropy ", &
+                              "gradient variables"
+            errorMessage(STD_OUT)
+            stop
+         end select
+
+      end select
+
+   end subroutine ArtVisc_initialize
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SVV_initialize(self, controlVariables, mesh)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SVVdriver_t),      intent(inout) :: self
+      type(FTValueDictionary), intent(in)    :: controlVariables
+      type(HexMesh),           intent(in)    :: mesh
+
+
+      ! Set the square root of the viscosities
+      self % sqrt_mu1 = sqrt(self % mu1)
+      self % sqrt_mu2 = sqrt(self % mu2)
+
+      if (self % alphaIsPropToMu) then
+         self % sqrt_mu2alpha = sqrt(self % mu2alpha)
+      else
+         self % sqrt_alpha1 = sqrt(self % alpha1)
+         self % sqrt_alpha2 = sqrt(self % alpha2)
+      end if
+
+      ! Start the SVV module
+      call InitializeSVV(SVV, controlVariables, mesh)
+
+   end subroutine SVV_initialize
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -530,14 +614,15 @@ module ShockCapturing
       if (self % updateMethod == SC_SMAG_ID) then
          write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", Smagorinsky % CS
       else
-         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity: ", self % mu
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2
       end if
 
-      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Alpha viscosity: "
       if (self % alphaIsPropToMu) then
-         write(STD_OUT,"(F7.3,A)") self % mu2alpha, "x mu"
+         write(STD_OUT,"(30X,A,A30,F7.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
       else
-         write(STD_OUT,"(F10.6)") self % alpha
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 1: ", self % alpha1
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 2: ", self % alpha2
       end if
 
       ! The rest goes in the derived clases
@@ -564,8 +649,11 @@ module ShockCapturing
       class(ArtViscDriver_t), intent(in)    :: self
       type(HexMesh),          intent(inout) :: mesh
       type(Element),          intent(inout) :: e
-      real(RP),               intent(out)   :: &
-         SCflux(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), 1:NDIM)
+      real(RP),               intent(out)   :: SCflux(1:NCONS,       &
+                                                      0:e % Nxyz(1), &
+                                                      0:e % Nxyz(2), &
+                                                      0:e % Nxyz(3), &
+                                                      1:NDIM)
 !
 !     ---------------
 !     Local variables
@@ -591,10 +679,10 @@ module ShockCapturing
 !        -----------------
          select case (self % updateMethod)
          case (SC_CONST_ID)
-            mu = self % mu
+            mu = merge(self % mu2, self % mu1, switch >= 1.0_RP)
 
          case (SC_SENSOR_ID)
-            mu = switch * self % mu
+            mu = self % mu1 * (1.0_RP-switch) + self % mu2 * switch
 
          case (SC_SMAG_ID)
 
@@ -699,8 +787,11 @@ module ShockCapturing
       class(SVVdriver_t), intent(in)    :: self
       type(HexMesh),      intent(inout) :: mesh
       type(Element),      intent(inout) :: e
-      real(RP),           intent(out)   :: &
-         SCflux(1:NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), 1:NDIM)
+      real(RP),           intent(out)   :: SCflux(1:NCONS,       &
+                                                  0:e % Nxyz(1), &
+                                                  0:e % Nxyz(2), &
+                                                  0:e % Nxyz(3), &
+                                                  1:NDIM)
 !
 !     ---------------
 !     Local variables
@@ -726,12 +817,12 @@ module ShockCapturing
 !        -------------------
          select case (self % updateMethod)
          case (SC_CONST_ID)
-            sqrt_mu = self % sqrt_mu
-            salpha  = self % sqrt_alpha
+            sqrt_mu = merge(self % sqrt_mu2,    self % sqrt_mu1,    switch >= 1.0_RP)
+            salpha  = merge(self % sqrt_alpha2, self % sqrt_alpha1, switch >= 1.0_RP)
 
          case (SC_SENSOR_ID)
-            sqrt_mu = switch * self % sqrt_mu
-            salpha  = switch * self % sqrt_alpha
+            sqrt_mu = self % sqrt_mu1 * (1.0_RP-switch) + self % sqrt_mu2 * switch
+            salpha  = self % sqrt_alpha1 * (1.0_RP-switch) + self % sqrt_alpha2 * switch
 
          case (SC_SMAG_ID)
 
@@ -749,31 +840,31 @@ module ShockCapturing
          end select
 
          if (self % alphaIsPropToMu) then
-            sqrt_alpha = self % sqrt_mu2alpha * self % sqrt_mu
+            sqrt_alpha = self % sqrt_mu2alpha * sqrt_mu
          else
             sqrt_alpha = salpha
          end if
 !
 !        Compute the viscous flux
 !        ------------------------
-         call SVV % ComputeInnerFluxes(mesh, e, sqrt_mu, sqrt_alpha, SCflux, &
-                                       filter=(switch < 1.0_RP))
+         call SVV % ComputeInnerFluxes(mesh, e, sqrt_mu, sqrt_alpha, switch, SCflux)
 
       else
 
+         e % storage % SVV_diss = 0.0_RP
          SCflux = 0.0_RP
-!
-!        Project to faces
-!        ----------------
-         fIDs = e % faceIDs
-         call e % ProlongAviscFluxToFaces(NCONS, SCflux, mesh % faces(fIDs(1)), &
-                                                         mesh % faces(fIDs(2)), &
-                                                         mesh % faces(fIDs(3)), &
-                                                         mesh % faces(fIDs(4)), &
-                                                         mesh % faces(fIDs(5)), &
-                                                         mesh % faces(fIDs(6))  )
 
       end if
+!
+!     Project to faces
+!     ----------------
+      fIDs = e % faceIDs
+      call e % ProlongAviscFluxToFaces(NCONS, SCflux, mesh % faces(fIDs(1)), &
+                                                      mesh % faces(fIDs(2)), &
+                                                      mesh % faces(fIDs(3)), &
+                                                      mesh % faces(fIDs(4)), &
+                                                      mesh % faces(fIDs(5)), &
+                                                      mesh % faces(fIDs(6))  )
 
    end subroutine SVV_viscosity
 !

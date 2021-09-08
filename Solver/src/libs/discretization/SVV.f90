@@ -307,24 +307,23 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes(self, mesh, e, sqrt_mu, sqrt_alpha, contravariantFlux, filter)
+      subroutine SVV_ComputeInnerFluxes(self, mesh, e, sqrt_mu, sqrt_alpha, sensor, contravariantFlux)
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
-         class(SVV_t)                    :: self
-         type(HexMesh)                   :: mesh
-         type(Element)                   :: e
-         real(kind=RP),     intent (in)  :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP),     intent (in)  :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP),     intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
-         logical, optional, intent (in)  :: filter
+         class(SVV_t)                :: self
+         type(HexMesh)               :: mesh
+         type(Element)               :: e
+         real(kind=RP), intent (in)  :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP), intent (in)  :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+         real(kind=RP), intent (in)  :: sensor
+         real(kind=RP), intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         logical             :: filter_
          integer             :: i, j, k, l, fIDs(6), i_f
          real(kind=RP)       :: Hx(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: Hy(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
@@ -342,20 +341,6 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Qy(0:e % Nxyz(2),0:e % Nxyz(2))
          real(kind=RP)       :: Qz(0:e % Nxyz(3),0:e % Nxyz(3))
 
-!
-!        ----------
-!        Initialize
-!        ----------
-         if (present(filter)) then
-            filter_ = filter
-         else
-            filter_ = .true.
-         end if
-
-         e % Psvv = self % Psvv
-         Qx = self % filters(e % Nxyz(1)) % Q
-         Qy = self % filters(e % Nxyz(2)) % Q
-         Qz = self % filters(e % Nxyz(3)) % Q
 
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
                    spA_eta  => NodalStorage(e % Nxyz(2)), &
@@ -378,13 +363,19 @@ module SpectralVanishingViscosity
 !        ----------------
 !        Filter the Hflux
 !        ----------------
-         if (self % limited .and. .not. filter_) then
+         if (self % limited .and. sensor >= 1.0_RP) then
 
+            e % Psvv = 0.0_RP
             Hxf = Hx
             Hyf = Hy
             Hzf = Hz
 
          else
+
+            e % Psvv = self % Psvv
+            Qx = self % filters(e % Nxyz(1)) % Q
+            Qy = self % filters(e % Nxyz(2)) % Q
+            Qz = self % filters(e % Nxyz(3)) % Q
 !
 !           Perform filtering in xi Hf_aux -> Hf
 !           -----------------------
@@ -459,20 +450,6 @@ module SpectralVanishingViscosity
          end do               ; end do            ; end do
 
          e % storage % SVV_diss = SVV_diss
-!
-!        --------------------
-!        Prolong to the faces
-!        --------------------
-!
-         fIDs = e % faceIDs
-         call e % ProlongAviscFluxToFaces(NCONS, contravariantFlux, &
-                                          mesh % faces(fIDs(1)),    &
-                                          mesh % faces(fIDs(2)),    &
-                                          mesh % faces(fIDs(3)),    &
-                                          mesh % faces(fIDs(4)),    &
-                                          mesh % faces(fIDs(5)),    &
-                                          mesh % faces(fIDs(6))     )
-
 
          end associate
 
@@ -941,9 +918,13 @@ module SpectralVanishingViscosity
 !        ---------------------------
          select case (self % filterShape)
             case (POW_FILTER)
-               do k = 0, N
-                  filterCoefficients(k) = (real(k, kind=RP) / N + 1.0e-12_RP) ** self % Psvv
-               end do
+               if (N == 0) then
+                  filterCoefficients(0) = 0.0_RP
+               else
+                  do k = 0, N
+                     filterCoefficients(k) = (real(k, kind=RP) / N) ** self % Psvv
+                  end do
+               end if
 
             case (SHARP_FILTER)
                sharpCutOff = nint(self % Psvv)

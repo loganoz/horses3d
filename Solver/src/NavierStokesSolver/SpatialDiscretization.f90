@@ -2,8 +2,8 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400 
-!      By: David Kopriva  
+!      Created: 2008-07-13 16:13:12 -0400
+!      By: David Kopriva
 !
 !      3D version by D.A. Kopriva 6/17/15, 12:35 PM
 !
@@ -47,9 +47,9 @@ module SpatialDiscretization
 
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
-!     ========      
-      CONTAINS 
-!     ========      
+!     ========
+      CONTAINS
+!     ========
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -71,9 +71,9 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
-         
+
          if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
-         
+
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")
@@ -85,7 +85,7 @@ module SpatialDiscretization
             inviscidDiscretizationName = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
             call toLower(inviscidDiscretizationName)
-         
+
             select case ( trim(inviscidDiscretizationName) )
             case ( "standard" )
                if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
@@ -99,17 +99,17 @@ module SpatialDiscretization
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
                errorMessage(STD_OUT)
-               stop 
+               stop
 
             end select
-               
+
             call HyperbolicDiscretization % Initialize(controlVariables)
    !
    !        Initialize viscous discretization
-   !        ---------------------------------         
+   !        ---------------------------------
             if ( flowIsNavierStokes ) then
-               if ( controlVariables % ContainsKey(gradient_variables_key) ) then   
-                  gradient_variables = controlVariables % StringValueForKey(gradient_variables_key, LINE_LENGTH)   
+               if ( controlVariables % ContainsKey(gradient_variables_key) ) then
+                  gradient_variables = controlVariables % StringValueForKey(gradient_variables_key, LINE_LENGTH)
                   call toLower(gradient_variables)
 
                   select case (trim(gradient_variables))
@@ -118,7 +118,7 @@ module SpatialDiscretization
                      GetGradients => NSGradientVariables_STATE
                      ViscousFlux  => ViscousFlux_STATE
                      call set_getVelocityGradients(GRADVARS_STATE)
-   
+
                   case ("entropy")
                      call SetGradientVariables(GRADVARS_ENTROPY)
                      GetGradients => NSGradientVariables_ENTROPY
@@ -160,7 +160,7 @@ module SpatialDiscretization
 
                viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
                call toLower(viscousDiscretizationName)
-               
+
                select case ( trim(viscousDiscretizationName) )
                case("br1")
                   allocate(BassiRebay1_t     :: ViscousDiscretization)
@@ -178,13 +178,13 @@ module SpatialDiscretization
                   write(STD_OUT,'(A)') "  * BR2"
                   write(STD_OUT,'(A)') "  * IP"
                   errorMessage(STD_OUT)
-                  stop 
+                  stop
 
                end select
 
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
                call ViscousDiscretization % Describe
-      
+
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
@@ -195,19 +195,20 @@ module SpatialDiscretization
                GetGradients => NSGradientVariables_STATE
                ViscousFlux  => ViscousFlux_STATE
                call set_getVelocityGradients(GRADVARS_STATE)
-               
+
             end if
 
    !
    !        Initialize models
    !        -----------------
             call InitializeLESModel(LESModel, controlVariables)
-         
+
          end if
 !
 !        Initialize Shock-Capturing
 !        --------------------------
          call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, mesh)
+         call ShockCapturingDriver % Describe
 
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -226,7 +227,7 @@ module SpatialDiscretization
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
-         IMPLICIT NONE 
+         IMPLICIT NONE
 !
 !        ---------
 !        Arguments
@@ -297,7 +298,7 @@ module SpatialDiscretization
 !
       SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
          use EllipticDiscretizationClass
-         IMPLICIT NONE 
+         IMPLICIT NONE
 !
 !        ---------
 !        Arguments
@@ -403,11 +404,11 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             call TimeDerivative_VolumetricContribution( mesh, mesh % elements(eID) , t)
          end do
-!$omp end do 
+!$omp end do
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -425,22 +426,22 @@ module SpatialDiscretization
             fID = mesh % faces_boundary(iFace)
             call computeBoundaryFlux(mesh % faces(fID), t)
          end do
-!$omp end do 
+!$omp end do
 !
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k,eID)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
-            associate(e => mesh % elements(eID)) 
-            call TimeDerivative_FacesContribution(e, t, mesh) 
- 
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-            end do         ; end do          ; end do 
-            end associate 
+            associate(e => mesh % elements(eID))
+            call TimeDerivative_FacesContribution(e, t, mesh)
+
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+            end associate
          end do
 !$omp end do
 !
@@ -451,11 +452,11 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            if ( flowIsNavierStokes ) then 
+            if ( flowIsNavierStokes ) then
                call mesh % GatherMPIFacesGradients(NGRAD)
-            else  
+            else
                call mesh % GatherMPIFacesSolution(NCONS)
-            end if          
+            end if
 !$omp end single
 !
 !           Compute viscosity at MPI faces
@@ -471,22 +472,22 @@ module SpatialDiscretization
                fID = mesh % faces_mpi(iFace)
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
-!$omp end do 
+!$omp end do
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k,eID)
             do iEl = 1, size(mesh % elements_mpi)
                eID = mesh % elements_mpi(iEl)
-               associate(e => mesh % elements(eID)) 
-               call TimeDerivative_FacesContribution(e, t, mesh) 
-   
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-               end do         ; end do          ; end do 
-               end associate 
+               associate(e => mesh % elements(eID))
+               call TimeDerivative_FacesContribution(e, t, mesh)
+
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               end do         ; end do          ; end do
+               end associate
             end do
 !$omp end do
 !
@@ -519,42 +520,42 @@ module SpatialDiscretization
 !
 !           Add Particles source
 !           ********************
-            if ( particles % active ) then            
-!$omp do schedule(runtime)            
+            if ( particles % active ) then
+!$omp do schedule(runtime)
                do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
+                  associate ( e => mesh % elements(eID) )
                      e % storage % S_NSP = 0.0_RP
                   end associate
-               enddo 
-!$omp end do             
-               
-!$omp do schedule(runtime) 
+               enddo
+!$omp end do
+
+!$omp do schedule(runtime)
                do i = 1, particles % injection % injected + 1
-                  if (particles % particle(i) % active) then 
+                  if (particles % particle(i) % active) then
 
                      associate ( eID => particles % particle(i) % eID )
-                        
+
                      call particles % AddSource(i, mesh % elements( eID ), &
                         t, thermodynamics, dimensionless, refValues)
 
                      ! If this is uncommented, private(j) should be added to openmp.
                         !this commented section permits the computation of source term in neighbor elements
                      !do j = 1, 6
-                     !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then  
+                     !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then
                      !      call particles % AddSource(i, &
                      !      mesh % elements( particles % particle(i) % mesh%elements( eID )%Connection(j)%ElementIDs(1)  ), &
                      !      t, thermodynamics, dimensionless, refValues)
-                     !   else 
+                     !   else
                      !      !
                      !   end if
-                     !end do   
-                     end associate   
-                  endif 
+                     !end do
+                     end associate
+                  endif
                end do
 !$omp end do
-!$omp do schedule(runtime)  
+!$omp do schedule(runtime)
                do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
+                  associate ( e => mesh % elements(eID) )
                      e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
                   end associate
                enddo
@@ -576,7 +577,7 @@ module SpatialDiscretization
 !$omp end do
 
       end subroutine TimeDerivative_ComputeQDot
-   
+
       subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
          implicit none
          integer, intent(in)           :: no_of_faces
@@ -599,7 +600,7 @@ module SpatialDiscretization
                   do side = 1, no_of_sides
                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
                   end do
-               end do              ; end do         
+               end do              ; end do
                end associate
             end do
 !$omp end do
@@ -621,7 +622,7 @@ module SpatialDiscretization
                      f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
                      f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
                   end do
-               end do              ; end do         
+               end do              ; end do
                end associate
             end do
 !$omp end do
@@ -653,7 +654,7 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             call TimeDerivative_StrongVolumetricContribution(mesh, mesh % elements(eID) , t)
          end do
@@ -662,15 +663,15 @@ module SpatialDiscretization
 !        *******************
 !        Scaling of elements
 !        *******************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, size(mesh % elements) 
+         do eID = 1, size(mesh % elements)
             associate(e => mesh % elements(eID))
 
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-            end do         ; end do          ; end do 
-            end associate 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+            end associate
          end do
 !$omp end do
 !
@@ -687,7 +688,7 @@ module SpatialDiscretization
             end do
 !$omp end do
          end if
-         
+
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
@@ -697,7 +698,7 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
-         
+
       end subroutine TimeDerivative_ComputeQDotIsolated
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -715,13 +716,13 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: AviscContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          integer       :: eID
 !
 !        *************************************
@@ -730,11 +731,11 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux) 
+         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux)
 !
 !        Compute the artificial dissipation
 !        ----------------------------------
@@ -763,7 +764,7 @@ module SpatialDiscretization
 !
 !              Perform the Weak Volume Green integral
 !              --------------------------------------
-               e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux ) 
+               e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
 
             type is (SplitDG_t)
                ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
@@ -799,13 +800,13 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          integer       :: eID
 !
 !        *************************************
@@ -814,12 +815,12 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
 !
 !           Compute the artificial dissipation
 !           ----------------------------------
@@ -852,7 +853,7 @@ module SpatialDiscretization
 !
 !              Perform the Weak Volume Green integral
 !              --------------------------------------
-               e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
+               e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
 
             type is (SplitDG_t)
 !
@@ -891,13 +892,13 @@ module SpatialDiscretization
 
       end subroutine TimeDerivative_FacesContribution
 !
-!///////////////////////////////////////////////////////////////////////////////////////////// 
-! 
-!        Riemann solver drivers 
-!        ---------------------- 
-! 
-!///////////////////////////////////////////////////////////////////////////////////////////// 
-! 
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
+!        Riemann solver drivers
+!        ----------------------
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
       subroutine computeElementInterfaceFlux(f)
          use FaceClass
          use RiemannSolvers_NS
@@ -915,7 +916,7 @@ module SpatialDiscretization
 !        Artifical viscosity fluxes
 !        --------------------------
 !
-         if ( ShockCapturingDriver % isActive ) then 
+         if ( ShockCapturingDriver % isActive ) then
             Avisc_Flux = 0.5_RP * (f % storage(1) % AviscFlux + &
                                    f % storage(2) % AviscFlux)
          else
@@ -994,7 +995,7 @@ module SpatialDiscretization
          use FaceClass
          use RiemannSolvers_NS
          implicit none
-         type(Face)   , intent(inout) :: f   
+         type(Face)   , intent(inout) :: f
          integer       :: i, j
          integer       :: thisSide
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -1147,7 +1148,7 @@ module SpatialDiscretization
 
                visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
-                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
+                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j)
 
                visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
 
@@ -1174,7 +1175,7 @@ module SpatialDiscretization
 !           Hyperbolic part
 !           -------------
             call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                               QRight = f % storage(2) % Q(:,i,j), &   
+                               QRight = f % storage(2) % Q(:,i,j), &
                                nHat   = f % geom % normal(:,i,j), &
                                t1     = f % geom % t1(:,i,j), &
                                t2     = f % geom % t2(:,i,j), &
