@@ -24,14 +24,19 @@
                       Gradient variables = Energy
                   Viscous discretization = BR1
 
-!------------------------------------ SVV:-
-                              enable SVV = .true.
-                    SVV dissipation type = Physical
-                         SVV viscosity 1 = Smagorinsky
-                   SVV alpha viscosity 1 = 0.0
-                       SVV filter cutoff = 0.1
-                         SVV filter type = high-pass
-                        SVV filter shape = power
+!----------------------- Shock-capturing:-
+                 Enable shock-capturing = .true.
+                           Shock sensor = ones
+                           Shock method = SVV
+                     Shock viscous flux = physical
+                 Shock update viscosity = Smagorinsky
+                             Shock mu 1 = 0.2
+                         Shock alpha/mu = 1.0
+                     Sensor lower limit = 0.0
+                    Sensor higher limit = 1.0
+                      SVV filter cutoff = 0.1
+                       SVV filter shape = power
+                        SVV filter type = high-pass
 
 !----------------------- Time integration:-
                         Time integration = Explicit
