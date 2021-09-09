@@ -209,7 +209,6 @@ module ShockCapturing
          self % mu2 = self % mu1
       end if
 
-      ! AQUI
       if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
 
          self % alphaIsPropToMu = .true.
@@ -343,6 +342,7 @@ module ShockCapturing
             write(STD_OUT,*) '   * ', SC_P_VAL
             write(STD_OUT,*) '   * ', SC_RHOP_VAL
             errorMessage(STD_OUT)
+            stop
          end select
 
       else
@@ -581,6 +581,8 @@ module ShockCapturing
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
       select case (self % sensor % sens_type)
+         case (SC_ZERO_ID);    write(STD_OUT,"(A)") SC_ZERO_VAL
+         case (SC_ONE_ID);     write(STD_OUT,"(A)") SC_ONE_VAL
          case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
          case (SC_GRADRHO_ID); write(STD_OUT,"(A)") SC_GRADRHO_VAL
       end select

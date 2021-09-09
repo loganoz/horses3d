@@ -86,6 +86,14 @@ module SCsensorClass
 !     Sensor type
 !     -----------
       select case (sensorType)
+      case (SC_ZERO_VAL)
+         sensor % sens_type = SC_ZERO_ID
+         sensor % Compute  => Sensor_zero
+
+      case (SC_ONE_VAL)
+         sensor % sens_type = SC_ONE_ID
+         sensor % Compute  => Sensor_one
+
       case (SC_GRADRHO_VAL)
          if (grad_vars == GRADVARS_STATE .or. grad_vars == GRADVARS_ENTROPY) then
             sensor % sens_type = SC_GRADRHO_ID
@@ -93,6 +101,7 @@ module SCsensorClass
          else
             write(STD_OUT,*) "ERROR. The density sensor only works with state or entropy variables."
             errorMessage(STD_OUT)
+            stop
          end if
 
       case (SC_MODAL_VAL)
@@ -101,9 +110,12 @@ module SCsensorClass
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
+         write(STD_OUT,*) '   * ', SC_ZERO_VAL
+         write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_GRADRHO_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          errorMessage(STD_OUT)
+         stop
 
       end select
 !
@@ -136,6 +148,42 @@ module SCsensorClass
 !///////////////////////////////////////////////////////////////////////////////
 !
 !     Sensors
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function Sensor_zero(sensor, mesh, e) result(val)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), intent(in) :: sensor
+      type(HexMesh),     intent(in) :: mesh
+      type(Element),     intent(in) :: e
+      real(RP)                      :: val
+
+
+      val = 0.0_RP
+
+   end function Sensor_zero
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function Sensor_one(sensor, mesh, e) result(val)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), intent(in) :: sensor
+      type(HexMesh),     intent(in) :: mesh
+      type(Element),     intent(in) :: e
+      real(RP)                      :: val
+
+
+      val = 1.0_RP
+
+   end function Sensor_one
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
