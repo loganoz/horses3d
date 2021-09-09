@@ -37,8 +37,10 @@ module SpectralVanishingViscosity
 !  Keywords
 !  --------
    character(len=*), parameter  :: SVV_KEY               =  "enable svv"
-   character(len=*), parameter  :: SVV_MU_KEY            =  "svv viscosity"
-   character(len=*), parameter  :: SVV_ALPHA_KEY         =  "svv alpha viscosity"
+   character(len=*), parameter  :: SVV_MU1_KEY           =  "svv viscosity 1"
+   character(len=*), parameter  :: SVV_ALPHA1_KEY        =  "svv alpha viscosity 1"
+   character(len=*), parameter  :: SVV_MU2_KEY           =  "svv viscosity 2"
+   character(len=*), parameter  :: SVV_ALPHA2_KEY        =  "svv alpha viscosity 2"
    character(len=*), parameter  :: SVV_CUTOFF_KEY        =  "svv filter cutoff"
    character(len=*), parameter  :: FILTER_SHAPE_KEY      =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY       =  "svv filter type"
@@ -80,8 +82,10 @@ module SpectralVanishingViscosity
       integer                                     :: filterShape
       integer                                     :: diss_type
       integer, allocatable                        :: entropy_indexes(:)
-      real(kind=RP)                               :: muSVV,    sqrt_muSVV
-      real(kind=RP)                               :: alphaSVV, sqrt_alphaSVV
+      real(kind=RP)                               :: muSVV1,    sqrt_muSVV1
+      real(kind=RP)                               :: alphaSVV1, sqrt_alphaSVV1
+      real(kind=RP)                               :: muSVV2,    sqrt_muSVV2
+      real(kind=RP)                               :: alphaSVV2, sqrt_alphaSVV2
       real(kind=RP)                               :: Psvv
       type(FilterMatrices_t)                      :: filters(0:Nmax)
       procedure(Compute_Hflux_f), nopass, pointer :: Compute_Hflux
@@ -163,33 +167,56 @@ module SpectralVanishingViscosity
 !        Get the SVV viscosity: the viscosity is later multiplied by 1/N
 !        ---------------------
 !
-         if ( controlVariables % containsKey(SVV_MU_KEY) ) then
-            
-            mu = trim(controlVariables % StringValueForKey(SVV_MU_KEY,LINE_LENGTH) )
+         if ( controlVariables % containsKey(SVV_MU1_KEY) ) then
+
+            mu = trim(controlVariables % StringValueForKey(SVV_MU1_KEY,LINE_LENGTH) )
             call ToLower(mu)
-            
+
             select case ( mu )
                case ('smagorinsky')
+                  ! TODO: Use default constructor
                   self % muIsSmagorinsky = .TRUE.
-                  call Smagorinsky % Initialize (controlVariables)
-                  self % muSVV = 0.0_RP
+                  Smagorinsky % active = .TRUE.
+                  Smagorinsky % requiresWallDistances = .FALSE.
+                  Smagorinsky % WallModel = 0  ! No wall model
+                  if ( controlVariables%containsKey(SVV_MU2_KEY) ) then
+                     Smagorinsky % CS = controlVariables%doublePrecisionValueForKey(SVV_MU2_KEY)
+                  else
+                     Smagorinsky % CS = 0.2_RP
+                  end if
+
                case default
-                  self % muSVV = controlVariables % doublePrecisionValueForKey(SVV_MU_KEY)
+                  self % muSVV1 = controlVariables % doublePrecisionValueForKey(SVV_MU1_KEY)
+
             end select
 
          else
-            self % muSVV = 0.1_RP
+            self % muSVV1 = 0.0_RP
 
-         end if 
-
-         if ( controlVariables % containsKey(SVV_ALPHA_KEY) ) then
-            self % alphaSVV = controlVariables % doublePrecisionValueForKey(SVV_ALPHA_KEY)
-         else
-            self % alphaSVV = 0.0_RP
          end if
 
-         self % sqrt_muSVV    = sqrt(self % muSVV)
-         self % sqrt_alphaSVV = sqrt(self % alphaSVV)
+         if ( controlVariables % containsKey(SVV_MU2_KEY) ) then
+            self % muSVV2 = controlVariables % doublePrecisionValueForKey(SVV_MU2_KEY)
+         else
+            self % muSVV2 = 0.0_RP
+         end if
+
+         if ( controlVariables % containsKey(SVV_ALPHA1_KEY) ) then
+            self % alphaSVV1 = controlVariables % doublePrecisionValueForKey(SVV_ALPHA1_KEY)
+         else
+            self % alphaSVV1 = 0.0_RP
+         end if
+
+         if ( controlVariables % containsKey(SVV_ALPHA2_KEY) ) then
+            self % alphaSVV2 = controlVariables % doublePrecisionValueForKey(SVV_ALPHA2_KEY)
+         else
+            self % alphaSVV2 = 0.0_RP
+         end if
+
+         self % sqrt_muSVV1    = sqrt(self % muSVV1)
+         self % sqrt_muSVV2    = sqrt(self % muSVV2)
+         self % sqrt_alphaSVV1 = sqrt(self % alphaSVV1)
+         self % sqrt_alphaSVV2 = sqrt(self % alphaSVV2)
 !
 !        --------------
 !        Type of filter
@@ -327,7 +354,6 @@ module SpectralVanishingViscosity
 !        -------------------------
          call self % Describe
 
-
       end subroutine InitializeSVV
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
@@ -352,9 +378,12 @@ module SpectralVanishingViscosity
          
          if (this % muIsSmagorinsky) then
             write(STD_OUT,'(30X,A,A30,A,F4.2,A)') "->","Viscosity: ", "Smagorinsky (Cs = ", Smagorinsky % CS,  ")"
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV1
          else
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity: ", this % muSVV
-            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity: ", this % alphaSVV
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity 1 : ", this % muSVV1
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity 1: ", this % alphaSVV1
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Viscosity 2 : ", this % muSVV2
+            write(STD_OUT,'(30X,A,A30,F10.3)') "->","Alpha viscosity 2: ", this % alphaSVV2
          end if
          
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter type: "
@@ -365,7 +394,7 @@ module SpectralVanishingViscosity
          
          write(STD_OUT,'(30X,A,A30)',advance="no") "->","Filter shape: "
          select case (this % filterShape)
-            case (POW_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
+            case (POW_FILTER)   ; write(STD_OUT,'(A)') 'power kernel'
             case (EXP_FILTER)   ; write(STD_OUT,'(A)') 'exponential kernel'
             case (SHARP_FILTER) ; write(STD_OUT,'(A)') 'sharp kernel'
          end select
@@ -409,58 +438,87 @@ module SpectralVanishingViscosity
          real(kind=RP)       :: Hzf_aux(1:NGRAD, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)       :: cartesianFlux(1:NCONS, 1:NDIM)
          real(kind=RP)       :: SVV_diss, delta
-         real(kind=RP)       :: rho_ratio, Psvv, rho_jump, area, volume, rho_L2
+         real(kind=RP)       :: grad_rho2, rho_sensor, Psvv
          real(kind=RP)       :: Qx(0:e % Nxyz(1),0:e % Nxyz(1))
          real(kind=RP)       :: Qy(0:e % Nxyz(2),0:e % Nxyz(2))
          real(kind=RP)       :: Qz(0:e % Nxyz(3),0:e % Nxyz(3))
 
-         sqrt_mu    = self % sqrt_muSVV
-         sqrt_alpha = self % sqrt_alphaSVV
+!
+!        ---------------------------------
+!        Compute the viscosity and filters
+!        ---------------------------------
+!
+         if ( self % muIsSmagorinsky ) then
 
-         delta = (e % geom % volume)**(1.0_RP/3.0_RP) / (maxval(e % Nxyz) + 1.0_RP)
-!
-!        -----------------------------------------
-!        Compute the highest mode intensity of rho
-!        -----------------------------------------
-!
+            delta = (e % geom % volume / product(e % Nxyz + 1)) ** (1.0_RP/3.0_RP)
+
+            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+               call Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                   e % storage % Q(:,i,j,k),       &
+                                                   e % storage % U_x(:,i,j,k),     &
+                                                   e % storage % U_y(:,i,j,k),     &
+                                                   e % storage % U_z(:,i,j,k),     &
+                                                   sqrt_mu(i,j,k))
+               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
+            end do               ; end do               ; end do
+
+         else
+            sqrt_mu = self % sqrt_muSVV1
+
+         end if
+
+         sqrt_alpha = self % sqrt_alphaSVV1
+
          if ( self % automatic_Psvv ) then
-             rho_jump = 0.0_RP
-             area = 0.0_RP
-             do i_f = 1, 6
-                fID = e % faceIDs(i_f)
-                associate(f => mesh % faces(fID))
-                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-                   rho_jump = rho_jump + NodalStorage(f % Nf(1)) % w(i)*NodalStorage(f % Nf(2)) % w(j)*abs(f % storage(1) % Q(IRHO,i,j) - f % storage(2) % Q(IRHO,i,j))*f % geom % jacobian(i,j)
-                   area     = area     + NodalStorage(f % Nf(1)) % w(i)*NodalStorage(f % Nf(2)) % w(j)*f % geom % jacobian(i,j)
-                end do               ; end do
-                end associate
-             end do
-                
-             rho_L2 = 0.0_RP
-             volume = 0.0_RP
-             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                rho_L2 = rho_L2 + NodalStorage(e % Nxyz(1)) % w(i) * NodalStorage(e % Nxyz(2)) % w(j) * NodalStorage(e % Nxyz(3)) % w(k) * e % geom % jacobian(i,j,k) * POW2(e % storage % Q(IRHO,i,j,k)) 
-                volume = volume + NodalStorage(e % Nxyz(1)) % w(i) * NodalStorage(e % Nxyz(2)) % w(j) * NodalStorage(e % Nxyz(3)) % w(k) * e % geom % jacobian(i,j,k)
-             end do                ; end do                ; end do
-             rho_L2 = sqrt(rho_L2) / volume
+!
+!           Use a density sensor to compute the P_svv parameter
+!           ---------------------------------------------------
+            rho_sensor = 0.0_RP
 
-             Psvv = rho_jump / (area * rho_L2)
-!            rho_ratio = maxval(e % storage % Q(IRHO,:,:,:)) / minval(e % storage % Q(IRHO,:,:,:))
-!   
-!            if (rho_ratio < 1.2_RP) then
-!               Psvv = 5.0_RP
-!   
-!            elseif ( rho_ratio < 2.0_RP ) then
-!               Psvv = 10.0**(-10.0_RP/8.0_RP*log10(5.0_RP)*(rho_ratio-1.2_RP) + log10(5.0_RP))
-!   
-!            elseif ( rho_ratio < 3.0_RP ) then
-!               Psvv = 10.0**(-log10(5.0_RP)*(rho_ratio-2.0_RP))
-!   
-!            else
-!               Psvv = 0.0_RP ! 0.2_RP
-!   
-!            end if
+            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
 
+               if (self % diss_type == PHYSICAL_DISS) then
+                  grad_rho2 = POW2(e % storage % U_x(1,i,j,k)) &
+                            + POW2(e % storage % U_y(1,i,j,k)) &
+                            + POW2(e % storage % U_z(1,i,j,k))
+               else if (self % diss_type == GUERMOND_DISS) then
+                  grad_rho2 = POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_x(:,i,j,k))) &
+                            + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_y(:,i,j,k))) &
+                            + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_z(:,i,j,k)))
+               end if
+
+               rho_sensor = rho_sensor + NodalStorage(e % Nxyz(1)) % w(i) &
+                                       * NodalStorage(e % Nxyz(2)) % w(j) &
+                                       * NodalStorage(e % Nxyz(3)) % w(k) &
+                                       * e % geom % jacobian(i,j,k)       &
+                                       * grad_rho2
+
+            end do               ; end do               ; end do
+
+            rho_sensor = sqrt(rho_sensor)
+!
+!           Also update the viscosities if SVV-LES is not active
+!           ----------------------------------------------------
+            if ( rho_sensor < 1.0_RP ) then
+               Psvv = 4.0_RP
+
+               if (.not. self % muIsSmagorinsky ) then
+                  sqrt_mu    = self % sqrt_muSVV2
+                  sqrt_alpha = self % sqrt_alphaSVV2
+               end if
+
+            else
+               Psvv = 0.0_RP
+
+               if (.not. self % muIsSmagorinsky ) then
+                  sqrt_mu    = self % sqrt_muSVV1
+                  sqrt_alpha = self % sqrt_alphaSVV1
+               end if
+
+            end if
+!
+!           Recompute the filters
+!           ---------------------
             if ( e % Nxyz(1) > 0 ) then
                call self % filters(e % Nxyz(1)) % Recompute(Psvv, self % filtertype,Qx)
             else
@@ -486,6 +544,7 @@ module SpectralVanishingViscosity
             Qx = self % filters(e % Nxyz(1)) % Q
             Qy = self % filters(e % Nxyz(2)) % Q
             Qz = self % filters(e % Nxyz(3)) % Q
+
          end if
 
          associate(spA_xi   => NodalStorage(e % Nxyz(1)), &
