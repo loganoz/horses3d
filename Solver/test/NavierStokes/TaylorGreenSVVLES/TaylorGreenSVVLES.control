@@ -31,7 +31,7 @@
                      Shock viscous flux = physical
                  Shock update viscosity = Smagorinsky
                              Shock mu 1 = 0.2
-                         Shock alpha/mu = 1.0
+                         Shock alpha/mu = 0.0
                      Sensor lower limit = 0.0
                     Sensor higher limit = 1.0
                       SVV filter cutoff = 0.1
