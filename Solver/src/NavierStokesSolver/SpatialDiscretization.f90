@@ -739,17 +739,17 @@ module SpatialDiscretization
 !
 !        Compute the artificial dissipation
 !        ----------------------------------
-         if ( .not. ShockCapturingDriver % isActive ) then
-            AviscContravariantFlux = 0.0_RP
+         if ( ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasEllipticTerm ) then
+            call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
          else
-            call ShockCapturingDriver % Viscosity(mesh, e, AviscContravariantFlux)
+            AviscContravariantFlux = 0.0_RP
          end if
 !
 !        ************************
 !        Perform volume integrals
 !        ************************
 !
-         if (ShockCapturingDriver % hasHyperbolicTerm) then
+         if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
 
             ! AQUI: Add hyperbolic shock-capturing term
 
@@ -824,8 +824,8 @@ module SpatialDiscretization
 !
 !           Compute the artificial dissipation
 !           ----------------------------------
-            if ( ShockCapturingDriver % isActive ) then
-               call ShockCapturingDriver % Viscosity(mesh, e, AviscContravariantFlux)
+            if ( ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasEllipticTerm ) then
+               call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
             else
                AviscContravariantFlux = 0.0_RP
             end if
@@ -838,7 +838,7 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         if (ShockCapturingDriver % hasHyperbolicTerm) then
+         if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
 
             ! AQUI: Add hyperbolic shock-capturing term
 
@@ -916,7 +916,7 @@ module SpatialDiscretization
 !        Artifical viscosity fluxes
 !        --------------------------
 !
-         if ( ShockCapturingDriver % isActive ) then
+         if ( ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasEllipticTerm ) then
             Avisc_Flux = 0.5_RP * (f % storage(1) % AviscFlux + &
                                    f % storage(2) % AviscFlux)
          else
@@ -1112,7 +1112,7 @@ module SpatialDiscretization
       real(kind=RP)         :: fv_3d(NCONS,NDIM)
       integer               :: Sidearray(2)
 
-      if ( ShockCapturingDriver % isActive ) then
+      if ( ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasEllipticTerm ) then
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
             Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j) / f % geom % jacobian(i,j)
          end do              ; end do

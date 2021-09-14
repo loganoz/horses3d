@@ -33,7 +33,8 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = grad rho
-                           Shock method = SVV
+                   Shock viscous method = SVV
+                Shock hyperbolic method = none
                      Shock viscous flux = Guermond-Popov
                  Shock update viscosity = constant
                              Shock mu 1 = 0.5e-3

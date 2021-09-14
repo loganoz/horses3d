@@ -13,21 +13,22 @@ module ShockCapturingKeywords
 !
 !  Keywords
 !  --------
-   character(len=*), parameter :: SC_KEY            = "enable shock-capturing"
-   character(len=*), parameter :: SC_SENSOR_KEY     = "shock sensor"
-   character(len=*), parameter :: SC_METHOD_KEY     = "shock method"
-   character(len=*), parameter :: SC_VISC_FLUX_KEY  = "shock viscous flux"
-   character(len=*), parameter :: SC_UPDATE_KEY     = "shock update viscosity"
-   character(len=*), parameter :: SC_MU1_KEY        = "shock mu 1"
-   character(len=*), parameter :: SC_ALPHA1_KEY     = "shock alpha 1"
-   character(len=*), parameter :: SC_MU2_KEY        = "shock mu 2"
-   character(len=*), parameter :: SC_ALPHA2_KEY     = "shock alpha 2"
-   character(len=*), parameter :: SC_ALPHA_MU_KEY   = "shock alpha/mu"
-   character(len=*), parameter :: SC_VARIABLE_KEY   = "sensor variable"
-   character(len=*), parameter :: SC_LOW_THRES_KEY  = "sensor lower limit"
-   character(len=*), parameter :: SC_HIGH_THRES_KEY = "sensor higher limit"
-   character(len=*), parameter :: SC_THRES_1_KEY    = "sensor threshold 1"
-   character(len=*), parameter :: SC_THRES_2_KEY    = "sensor threshold 2"
+   character(len=*), parameter :: SC_KEY             = "enable shock-capturing"
+   character(len=*), parameter :: SC_SENSOR_KEY      = "shock sensor"
+   character(len=*), parameter :: SC_VISC_METHOD_KEY = "shock viscous method"
+   character(len=*), parameter :: SC_HYP_METHOD_KEY  = "shock hyperbolic method"
+   character(len=*), parameter :: SC_VISC_FLUX_KEY   = "shock viscous flux"
+   character(len=*), parameter :: SC_VISC_UPDATE_KEY = "shock update viscosity"
+   character(len=*), parameter :: SC_MU1_KEY         = "shock mu 1"
+   character(len=*), parameter :: SC_ALPHA1_KEY      = "shock alpha 1"
+   character(len=*), parameter :: SC_MU2_KEY         = "shock mu 2"
+   character(len=*), parameter :: SC_ALPHA2_KEY      = "shock alpha 2"
+   character(len=*), parameter :: SC_ALPHA_MU_KEY    = "shock alpha/mu"
+   character(len=*), parameter :: SC_VARIABLE_KEY    = "sensor variable"
+   character(len=*), parameter :: SC_LOW_THRES_KEY   = "sensor lower limit"
+   character(len=*), parameter :: SC_HIGH_THRES_KEY  = "sensor higher limit"
+   character(len=*), parameter :: SC_THRES_1_KEY     = "sensor threshold 1"
+   character(len=*), parameter :: SC_THRES_2_KEY     = "sensor threshold 2"
 !
 !  Sensor types
 !  ------------
@@ -43,6 +44,7 @@ module ShockCapturingKeywords
 !
 !  Shock-capturing methods
 !  -----------------------
+   character(len=*), parameter :: SC_NO_VAL    = "none"
    character(len=*), parameter :: SC_NOSVV_VAL = "non-filtered"
    character(len=*), parameter :: SC_SVV_VAL   = "svv"
    character(len=*), parameter :: SC_SSFV_VAL  = "ssfv-svv"

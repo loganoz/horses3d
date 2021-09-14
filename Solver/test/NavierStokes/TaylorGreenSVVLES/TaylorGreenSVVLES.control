@@ -27,7 +27,8 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = ones
-                           Shock method = SVV
+                   Shock viscous method = SVV
+                Shock hyperbolic method = none
                      Shock viscous flux = physical
                  Shock update viscosity = Smagorinsky
                              Shock mu 1 = 0.2
