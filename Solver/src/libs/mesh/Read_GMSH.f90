@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Mon Sep  6 22:07:58 2021
+!   @Last revision date: Wed Sep 15 12:15:47 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: fbcac81edbbdfe27e856a7a67ea58df2c52a7474
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
@@ -320,7 +320,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -964,7 +964,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -1698,7 +1698,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -2291,7 +2291,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -2814,7 +2814,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -3424,7 +3424,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
