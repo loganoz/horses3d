@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Wed Sep 15 12:15:46 2021
+!   @Last revision date: Thu Sep 16 19:17:17 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
+!   @Last revision commit: ff143c84ce3ae71970edc2365ac77f86ca725d8c
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +30,9 @@ module NumericalJacobian
    use StopwatchClass         , only: StopWatch
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
    use FTValueDictionaryClass
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
    private
@@ -153,6 +156,15 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
+         select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            ! No need for colors for Block Diagonal Matrix
+            do i=1,nelm 
+               nbr(i)%elmnt(1:6) = 0
+            end do
+         class default
+            ! do nothing
+         end select
          call ecolors % construct(nbr, num_of_neighbor_levels)
          
 !
@@ -325,7 +337,7 @@ contains
                do eid = 1, nelm
                   used    = 0
                   usedctr = 1
-                  call this % AssignColToJacobian(Matrix_p, sem % mesh % storage, eid, eid, thisdof, num_of_neighbor_levels)
+                  call this % AssignColToJacobian(Matrix_p, sem % mesh, eid, eid, thisdof, num_of_neighbor_levels)
                END DO           
    !
    !           Restore original values for Q (TODO: this can be improved)
@@ -383,7 +395,7 @@ contains
                      used    = 0
                      usedctr = 1
                      
-                     call this % AssignColToJacobian(Matrix, sem % mesh % storage, thiselm, thiselm, thisdof, num_of_neighbor_levels)
+                     call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
                      
                   END DO           
       !
@@ -421,12 +433,12 @@ contains
 !  Assign to Jacobian the column that corresponds to the element "eID" and the degree of freedom "thisdof" 
 !  taking into account the contribution of the neighbors [(depth-1) * "of neighbors"]
 !  -------------------------------------------------------------------------------------------------------
-   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, storage, eID, eIDn, thisdof, depth)
+   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, mesh, eID, eIDn, thisdof, depth)
       implicit none
       !-arguments---------------------------------------
       class(NumJacobian_t)           , intent(inout) :: this
       class(Matrix_t)                , intent(inout) :: Matrix  !<> Jacobian Matrix
-      type(SolutionStorage_t), target, intent(in)    :: storage !<  storage
+      type(HexMesh)                  , intent(in)    :: mesh
       integer                        , intent(in)    :: eID     !<  Element ID 
       integer                        , intent(in)    :: eIDn    !<  ID of the element, whose neighbors' contributions are added
       integer                        , intent(in)    :: thisdof !<  Current degree of freedom
@@ -447,17 +459,17 @@ contains
       
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)
-            pbuffer(1:ndof) => storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
+            pbuffer(1:ndof) => mesh % storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
             
             do j=1, this % ndofelm(elmnbr)
-               call Matrix % AddToBlockEntry (elmnbr, eID, j, thisdof, pbuffer(j) )
+               call Matrix % AddToBlockEntry (mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID, j, thisdof, pbuffer(j) )
             end do
             
             used(usedctr) = elmnbr
             usedctr = usedctr + 1
          end if
          
-         if (depth > 1) call this % AssignColToJacobian(Matrix, storage, eID, elmnbr, thisdof, depth-1)
+         if (depth > 1) call this % AssignColToJacobian(Matrix, mesh, eID, elmnbr, thisdof, depth-1)
          
       end do
       
