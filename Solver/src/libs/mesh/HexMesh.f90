@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Jul 16 20:04:05 2021
+!   @Last revision date: Thu Sep 16 12:53:37 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
+!   @Last revision commit: aaac6258d3482b4e39a7955a8e3507c904fc66b1
 !
 !//////////////////////////////////////////////////////
 !
@@ -656,7 +656,7 @@ slavecoord:             DO l = 1, 4
       IF (coord == 0) THEN
 
          DO i = 1,3
-            IF ( AlmostEqual( x1(i), x2(i) ) ) THEN 
+            IF ( AlmostEqual( x1(i), x2(i) ,1d-8 ) ) THEN 
                counter = counter + 1
             ELSE 
                coord = i
@@ -673,7 +673,7 @@ slavecoord:             DO l = 1, 4
 
          DO i = 1,3
             IF (i /= coord) THEN 
-               IF ( AlmostEqual( x1(i), x2(i) ) ) THEN 
+               IF ( AlmostEqual( x1(i), x2(i), 1d-8 ) ) THEN 
                   counter = counter + 1
                ENDIF 
             ENDIF 
