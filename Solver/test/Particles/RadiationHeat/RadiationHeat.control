@@ -36,6 +36,7 @@ minimum box           = [0,0,0]
 maximum box           = [1,1,1]
 bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic 
 number of particles   = 1000
+particles per parcel  = 1
 stokes number         = 0.0468652
 Gamma                 = 5.83008
 phi_m                 = 8.18442d-7
