@@ -3294,10 +3294,11 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer       :: eID, ii, i, j, k, no_of_wallDOFS, num_of_elems, num_of_faces
-         real(kind=RP) :: currentDistance, minimumDistance
+         real(kind=RP) :: currentDistancepos, currentDistanceneg , minimumDistance
          integer       :: fID
          real(kind=RP) :: xP(NDIM)
          real(kind=RP), allocatable    :: Xwall(:,:)
+         real(kind=RP) ::  xNACA, yNACApos, yNACAneg , xn  
 !
 !        Gather all walls coordinates
 !        ----------------------------
@@ -3323,11 +3324,24 @@ slavecoord:             DO l = 1, 4
                xP = e % geom % x(:,i,j,k) 
 
                minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
-               end do 
 
+               do xn = 1, 10000
+                     xNACA = xn / 10000.0_RP
+                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
+                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
+                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
+
+                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
+                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
+                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
+
+               !do fID = 1, no_of_wallDOFS
+                  currentDistancepos = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACApos)
+                  currentDistanceneg = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACAneg)
+                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
+               !end do 
+               end do
+               
                e % geom % dWall(i,j,k) = sqrt(minimumDistance)
 
             end do                  ; end do                ; end do
@@ -3355,9 +3369,23 @@ slavecoord:             DO l = 1, 4
                xP = fe % geom % x(:,i,j) 
 
                minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
+
+               do xn = 1, 10000
+                     xNACA = xn / 10000.0_RP
+                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
+                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
+                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
+
+                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
+                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
+                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
+
+!               do fID = 1, no_of_wallDOFS
+                  currentDistancepos = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACApos)
+                  currentDistanceneg = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACAneg)
+                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
+!               end do 
+               
                end do 
 
                fe % geom % dWall(i,j) = sqrt(minimumDistance)
