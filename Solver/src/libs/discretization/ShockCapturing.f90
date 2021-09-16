@@ -543,6 +543,7 @@ module ShockCapturing
          self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
       else
          write(STD_OUT,*) "ERROR. A value for the artificial 'mu 1' must be given."
+         stop
       end if
 
       if (controlVariables % containsKey(SC_MU2_KEY)) then
