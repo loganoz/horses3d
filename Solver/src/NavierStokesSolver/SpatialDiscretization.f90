@@ -750,7 +750,7 @@ module SpatialDiscretization
 !
          if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
 
-            ! AQUI: Add hyperbolic shock-capturing term
+               ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for shock-capturing.'
 
          else
 

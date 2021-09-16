@@ -262,7 +262,7 @@ module ShockCapturing
 !     Initialize viscous and hyperbolic terms
 !     ---------------------------------------
       if (allocated(self % viscosity)) call self % viscosity % Initialize(controlVariables, mesh)
-      if (allocated(self % advection)) call self % advection % Initialize(controlVariables, mesh)
+      if (allocated(self % advection)) call self % advection % Initialize(controlVariables)
 !
 !     Sensor thresholds
 !     --------------
@@ -663,7 +663,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AA_initialize(self, controlVariables, mesh)  ! AQUI
+   subroutine AA_initialize(self, controlVariables)
 !
 !     -------
 !     Modules
@@ -676,7 +676,6 @@ module ShockCapturing
       implicit none
       class(ArtificialAdvection_t), intent(inout) :: self
       type(FTValueDictionary),      intent(in)    :: controlVariables
-      type(HexMesh),                intent(in)    :: mesh
 
    end subroutine AA_initialize
 !
@@ -1159,7 +1158,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SSFV_initialize(self, controlVariables, mesh)  ! AQUI
+   subroutine SSFV_initialize(self, controlVariables)
 !
 !     -------
 !     Modules
@@ -1172,10 +1171,14 @@ module ShockCapturing
       implicit none
       class(SC_SSFV_t),        intent(inout) :: self
       type(FTValueDictionary), intent(in)    :: controlVariables
-      type(HexMesh),           intent(in)    :: mesh
 
 
-      self % c = 10.0_RP
+      if (controlVariables % containsKey(SC_BLENDING_KEY)) then
+         self % c = controlVariables % doublePrecisionValueForKey(SC_BLENDING_KEY)
+      else
+         write(STD_OUT,*) "ERROR. A value for the blending parameter must be given."
+         stop
+      end if
 
    end subroutine SSFV_initialize
 !
