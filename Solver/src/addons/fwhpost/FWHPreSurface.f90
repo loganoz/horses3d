@@ -476,6 +476,7 @@ Module FWHPreSurface  !
             allocate(allElements(nElements,2))
             k = 0
             ! index of BC direction in normalAxis
+            extrudedDirectionIndex = 0
             elems_loop:do eID = 1, nElements
                 do j = 1, FACES_PER_ELEMENT
                     associate ( e => mesh % elements(elementsTemp(eID,1)) )
@@ -486,6 +487,12 @@ Module FWHPreSurface  !
                     end associate
                 end do
             end do elems_loop
+            ! hardcoded for periodic BC since the faces does not have a zone associated. The direction may change
+            ! todo: generalize this hardcoded direction
+            if (extrudedDirectionIndex .eq. 0) then
+                extrudedDirectionIndex = 2
+                print *, "Warning BC faces not found, use default direction"
+            end if 
             j = 0
             allocate(neighboursIndex(FACES_PER_ELEMENT-2))
             do i = 1, FACES_PER_ELEMENT
