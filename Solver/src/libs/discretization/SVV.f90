@@ -307,13 +307,12 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes(self, mesh, e, sqrt_mu, sqrt_alpha, sensor, contravariantFlux)
+      subroutine SVV_ComputeInnerFluxes(self, e, sqrt_mu, sqrt_alpha, sensor, contravariantFlux)
          use ElementClass
          use PhysicsStorage
          use Physics
          implicit none
          class(SVV_t)                :: self
-         type(HexMesh)               :: mesh
          type(Element)               :: e
          real(kind=RP), intent (in)  :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP), intent (in)  :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))

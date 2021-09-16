@@ -20,6 +20,7 @@ module ShockCapturing
    use ElementClass,               only: Element
    use LESModels,                  only: Smagorinsky_t
    use SpectralVanishingViscosity, only: SVV, InitializeSVV
+   use DGIntegrals,                only: ScalarWeakIntegrals
 
    use ShockCapturingKeywords
    use SCsensorClass, only: SCsensor_t, Set_SCsensor, Destruct_SCsensor
@@ -122,7 +123,7 @@ module ShockCapturing
    contains
 
       procedure :: Initialize => SSFV_initialize
-      !procedure :: Compute    => SSFV_hyperbolic
+      procedure :: Compute    => SSFV_hyperbolic
       !procedure :: Describe   => SSFV_describe
 
    end type SC_SSFV_t
@@ -398,20 +399,23 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SC_advection(self, mesh, e, SCflux)
+   function SC_advection(self, e, Fv, Qdot) result(computed)
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
       class(SCdriver_t), intent(in)    :: self
-      type(HexMesh),     intent(inout) :: mesh
-      type(Element),     intent(inout) :: e
-      real(RP),          intent(out)   :: SCflux(1:NCONS,       &
-                                                 0:e % Nxyz(1), &
-                                                 0:e % Nxyz(2), &
-                                                 0:e % Nxyz(3), &
-                                                 1:NDIM)
+      type(Element),     intent(in)    :: e
+      real(RP),          intent(out)   :: Fv(1:NCONS,       &
+                                             0:e % Nxyz(1), &
+                                             0:e % Nxyz(2), &
+                                             0:e % Nxyz(3)  )
+      real(RP),          intent(inout) :: Qdot(1:NCONS,      &
+                                             0:e % Nxyz(1), &
+                                             0:e % Nxyz(2), &
+                                             0:e % Nxyz(3)  )
+      logical                          :: computed
 !
 !     ---------------
 !     Local variables
@@ -423,9 +427,14 @@ module ShockCapturing
 !     -----------------------------------------
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      call self % advection % Compute()
+      if (switch >= 1.0_RP) then
+         Qdot = Qdot + self % advection % Compute(e, Fv)
+         computed = .true.
+      else
+         computed = .false.
+      end if
 
-   end subroutine SC_advection
+   end function SC_advection
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -671,15 +680,27 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AA_compute(self)
+   function AA_compute(self, e, Fv) result(div)
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
       class(ArtificialAdvection_t), intent(in) :: self
+      type(Element),                intent(in) :: e
+      real(RP),                     intent(in) :: Fv(1:NCONS,       &
+                                                     0:e % Nxyz(1), &
+                                                     0:e % Nxyz(2), &
+                                                     0:e % Nxyz(3), &
+                                                     1:NDIM)
+      real(RP)                                 :: div(1:NCONS,       &
+                                                       0:e % Nxyz(1), &
+                                                       0:e % Nxyz(2), &
+                                                       0:e % Nxyz(3))
 
-   end subroutine AA_compute
+      div = 0.0_RP
+
+   end function AA_compute
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1062,7 +1083,7 @@ module ShockCapturing
 !
 !        Compute the viscous flux
 !        ------------------------
-         call SVV % ComputeInnerFluxes(mesh, e, sqrt_mu, sqrt_alpha, switch, SCflux)
+         call SVV % ComputeInnerFluxes(e, sqrt_mu, sqrt_alpha, switch, SCflux)
 
       else
 
@@ -1147,8 +1168,318 @@ module ShockCapturing
       type(FTValueDictionary), intent(in)    :: controlVariables
       type(HexMesh),           intent(in)    :: mesh
 
+
+      self % c = 10.0_RP
+
    end subroutine SSFV_initialize
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
+   function SSFV_hyperbolic(self, e, Fv) result(div)
+!
+!     -------
+!     Modules
+!     -------
+      use PhysicsStorage_NS,     only: IRHO
+      use NodalStorageClass,     only: NodalStorage
+      use RiemannSolvers_NS,     only: AveragedStates
+      use Physics_NS,            only: EulerFlux
+      use VariableConversion_NS, only: Pressure, getEntropyVariables
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SC_SSFV_t), intent(in) :: self
+      type(Element),    intent(in) :: e
+      real(RP),         intent(in) :: Fv(1:NCONS,     &
+                                         0:e%Nxyz(1), &
+                                         0:e%Nxyz(2), &
+                                         0:e%Nxyz(3), &
+                                         1:NDIM)
+      real(RP)                     :: div(1:NCONS,     &
+                                          0:e%Nxyz(1), &
+                                          0:e%Nxyz(2), &
+                                          0:e%Nxyz(3))
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i, j, k, r, s
+      real(RP) :: FSx(NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
+      real(RP) :: FSy(NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
+      real(RP) :: FSz(NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
+      real(RP) :: FVx(NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
+      real(RP) :: FVy(NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
+      real(RP) :: FVz(NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
+      real(RP) :: F1(NCONS, NDIM)
+      real(RP) :: F2(NCONS, NDIM)
+      real(RP) :: F(NCONS, NDIM)
+      real(RP) :: w1(NCONS)
+      real(RP) :: w2(NCONS)
+      real(RP) :: p
+      real(RP) :: invRho
+      real(RP) :: b
+      real(RP) :: d
+
+
+      associate(Nx => e % Nxyz(1), &
+                Ny => e % Nxyz(2), &
+                Nz => e % Nxyz(3)  )
+      associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                spAeta  => NodalStorage(Ny), &
+                spAzeta => NodalStorage(Nz)  )
+!
+!     Entropy-conservative averaging in complementary points
+!     ------------------------------------------------------
+      do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
+         FSx(:,i,j,k) = 0.0_RP
+         do s = i+1, Nx ; do r = 1, i
+            FSx(:,i,j,k) = FSx(:,i,j,k) + spAxi % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,j,k),    &
+                                                                        e % storage % Q(:,s,j,k),    &
+                                                                        e % geom % jGradXi(:,r,j,k), &
+                                                                        e % geom % jGradXi(:,s,j,k)  )
+         end do                  ; end do
+         FSx(:,i,j,k) = 2.0_RP * FSx(:,i,j,k)
+      end do                ; end do                ; end do
+
+      do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
+         FSy(:,j,i,k) = 0.0_RP
+         do s = j+1, Ny ; do r = 1, j
+            FSy(:,j,i,k) = FSx(:,j,i,k) + spAeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,i,k),     &
+                                                                         e % storage % Q(:,s,i,k),     &
+                                                                         e % geom % jGradEta(:,r,i,k), &
+                                                                         e % geom % jGradEta(:,s,i,k)  )
+         end do                  ; end do
+         FSy(:,j,i,k) = 2.0_RP * FSy(:,j,i,k)
+      end do                ; end do                ; end do
+
+      do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
+         FSz(:,k,i,j) = 0.0_RP
+         do s = k+1, Nz ; do r = 1, k
+            FSz(:,k,i,j) = FSx(:,k,i,j) + spAzeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,i,j),      &
+                                                                          e % storage % Q(:,s,i,j),      &
+                                                                          e % geom % jGradZeta(:,r,i,j), &
+                                                                          e % geom % jGradZeta(:,s,i,j)  )
+         end do                  ; end do
+         FSz(:,k,i,j) = 2.0_RP * FSz(:,k,i,j)
+      end do                ; end do                ; end do
+!
+!     Dissipative averaging in complementary points
+!     ---------------------------------------------
+      do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
+         call EulerFlux(e % storage % Q(:,i-1,j,k), F1)
+         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
+         F = AVERAGE(F1, F2)
+         FVx(:,i,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradXi(:,i-1,j,k), e % geom % jGradXi(:,i,j,k))
+      end do                ; end do                ; end do
+
+      do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
+         call EulerFlux(e % storage % Q(:,i,j-1,k), F1)
+         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
+         F = AVERAGE(F1, F2)
+         FVy(:,j,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradEta(:,i,j-1,k), e % geom % jGradEta(:,i,j,k))
+      end do                ; end do                ; end do
+
+      do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
+         call EulerFlux(e % storage % Q(:,i,j,k-1), F1)
+         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
+         F = AVERAGE(F1, F2)
+         FVz(:,k,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradZeta(:,i,j,k-1), e % geom % jGradZeta(:,i,j,k))
+      end do                ; end do                ; end do
+!
+!     Boundaries
+!     ----------
+      do k = 0, Nz ; do j = 0, Ny
+
+         call EulerFlux(e % storage % Q(:,0,j,k), F)
+         FSx(:,0,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradXi(:,0,j,k), e % geom % jGradXi(:,0,j,k))
+
+         call EulerFlux(e % storage % Q(:,Nx,j,k), F)
+         FSx(:,Nx+1,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                         e % geom % jGradXi(:,Nx,j,k), e % geom % jGradXi(:,Nx,j,k))
+
+      end do       ; end do
+
+      do k = 0, Nz ; do i = 0, Nx
+
+         call EulerFlux(e % storage % Q(:,i,0,k), F)
+         FSy(:,0,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradEta(:,i,0,k), e % geom % jGradEta(:,i,0,k))
+
+         call EulerFlux(e % storage % Q(:,i,Ny,k), F)
+         FSy(:,Ny+1,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                         e % geom % jGradEta(:,i,Ny,k), e % geom % jGradEta(:,i,Ny,k))
+
+      end do       ; end do
+
+      do j = 0, Ny ; do i = 0, Nx
+
+         call EulerFlux(e % storage % Q(:,i,j,0), F)
+         FSz(:,0,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                      e % geom % jGradZeta(:,i,j,0), e % geom % jGradZeta(:,i,j,0))
+
+         call EulerFlux(e % storage % Q(:,i,j,Nz), F)
+         FSz(:,Nz,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                       e % geom % jGradZeta(:,i,j,Nz), e % geom % jGradZeta(:,i,j,Nz))
+
+      end do       ; end do
+!
+!     Blending
+!     --------
+      do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
+
+         p = Pressure(e % storage % Q(:,i-1,j,k))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i-1,j,k)
+         call getEntropyVariables(e % storage % Q(:,i-1,j,k), p, invRho, w1)
+
+         p = Pressure(e % storage % Q(:,i,j,k))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+
+         b = dot_product(w2-w1, FSx(:,i,j,k)-FVx(:,i,j,k))
+         d = sqrt(b**2 + self % c**2)
+         d = (d-b) / d
+
+         FSx(:,i,j,k) = FVx(:,i,j,k) + d*(FSx(:,i,j,k)-FVx(:,i,j,k))
+
+      end do       ; end do       ; end do
+
+      do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
+
+         p = Pressure(e % storage % Q(:,i,j-1,k))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i,j-1,k)
+         call getEntropyVariables(e % storage % Q(:,i,j-1,k), p, invRho, w1)
+
+         p = Pressure(e % storage % Q(:,i,j,k))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+
+         b = dot_product(w2-w1, FSy(:,j,i,k)-FVy(:,j,i,k))
+         d = sqrt(b**2 + self % c**2)
+         d = (d-b) / d
+
+         FSy(:,j,i,k) = FVy(:,j,i,k) + d*(FSy(:,j,i,k)-FVy(:,j,i,k))
+
+      end do       ; end do       ; end do
+
+      do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
+
+         p = Pressure(e % storage % Q(:,i,j,k-1))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k-1)
+         call getEntropyVariables(e % storage % Q(:,i,j,k-1), p, invRho, w1)
+
+         p = Pressure(e % storage % Q(:,i,j,k))
+         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+
+         b = dot_product(w2-w1, FSz(:,k,i,j)-FVz(:,k,i,j))
+         d = sqrt(b**2 + self % c**2)
+         d = (d-b) / d
+
+         FSz(:,k,i,j) = FVz(:,k,i,j) + d*(FSz(:,k,i,j)-FVz(:,k,i,j))
+
+      end do       ; end do       ; end do
+!
+!     Volume integral
+!     ---------------
+      div = -ScalarWeakIntegrals%TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
+
+      end associate
+      end associate
+
+   end function SSFV_hyperbolic
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   function TwoPointFlux(Qleft, Qright, JaL, JaR) result(F)
+!
+!     -------
+!     Modules
+!     -------
+      use PhysicsStorage_NS
+      use VariableConversion_NS, only: Pressure
+      use RiemannSolvers_NS,     only: AveragedStates
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      real(RP), intent(in) :: Qleft(NCONS)
+      real(RP), intent(in) :: Qright(NCONS)
+      real(RP), intent(in) :: JaL(NDIM)
+      real(RP), intent(in) :: JaR(NDIM)
+      real(RP)             :: F(NCONS)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      real(RP) :: tmp
+      real(RP) :: pl, pr
+      real(RP) :: iRhoL, iRhoR
+      real(RP) :: uL, uR
+      real(RP) :: vL, vR
+      real(RP) :: wL, wR
+      real(RP) :: Ql(NCONS)
+      real(RP) :: Qr(NCONS)
+      real(RP) :: Fx(NCONS)
+      real(RP) :: Fy(NCONS)
+      real(RP) :: Fz(NCONS)
+      real(RP) :: Ja(NDIM)
+
+
+      iRhoL = 1.0_RP / Qleft(IRHO) ; iRhoR = 1.0_RP / Qright(IRHO)
+      uL    = Qleft(IRHOU) * iRhoL ; uR    = Qright(iRHOU) * iRhoR
+      vL    = Qleft(IRHOV) * iRhoL ; vR    = Qright(iRHOV) * iRhoR
+      wL    = Qleft(IRHOW) * iRhoL ; wR    = Qright(iRHOW) * iRhoR
+      pL    = Pressure(Qleft)      ; pR    = Pressure(Qright)
+
+      Ql = Qleft
+      Qr = Qright
+      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fx)
+
+      Ql(IRHOU) = Qleft(IRHOV)  ; Ql(IRHOV) = Qleft(IRHOU)
+      Qr(IRHOU) = Qright(IRHOV) ; Qr(IRHOV) = Qright(IRHOU)
+      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fy)
+      tmp = Fy(IRHOU) ; Fy(IRHOU) = Fy(IRHOV) ; Fy(IRHOV) = tmp
+
+      Ql = Qleft  ; Ql(IRHOU) = Qleft(IRHOW)  ; Ql(IRHOW) = Qleft(IRHOU)
+      Qr = Qright ; Qr(IRHOU) = Qright(IRHOW) ; Qr(IRHOW) = Qright(IRHOU)
+      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fz)
+      tmp = Fy(IRHOU) ; Fy(IRHOU) = Fy(IRHOW) ; Fy(IRHOW) = tmp
+
+      F = contravariant(Fx, Fy, Fz, JaL, JaR)
+
+   end function TwoPointFlux
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function contravariant(Fx, Fy, Fz, JaL, JaR) result(Fcont)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      real(RP), intent(in) :: Fx(NCONS)
+      real(RP), intent(in) :: Fy(NCONS)
+      real(RP), intent(in) :: Fz(NCONS)
+      real(RP), intent(in) :: JaL(NDIM)
+      real(RP), intent(in) :: JaR(NDIM)
+      real(RP)             :: Fcont(NCONS)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      real(RP) :: Ja(NDIM)
+
+
+      Ja = AVERAGE(JaL, JaR)
+      Fcont = Fx*Ja(IX) + Fy*Ja(IY) + Fz*Ja(IZ)
+
+   end function contravariant
+
 end module ShockCapturing

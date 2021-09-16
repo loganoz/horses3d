@@ -723,7 +723,6 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         integer       :: eID
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -800,6 +799,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
+         logical       :: hyperbolicSC
          real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
@@ -807,7 +807,6 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         integer       :: eID
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -815,11 +814,17 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
+         if (.not. ShockCapturingDriver % isActive .or.         &
+             .not. ShockCapturingDriver % hasHyperbolicTerm) then
+
+            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
+
+         end if
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
+
             call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
 !
 !           Compute the artificial dissipation
@@ -829,20 +834,25 @@ module SpatialDiscretization
             else
                AviscContravariantFlux = 0.0_RP
             end if
+
          else
+
             viscousContravariantFlux = 0.0_RP
             AviscContravariantFlux   = 0.0_RP
+
          end if
 !
 !        ************************
 !        Perform volume integrals
 !        ************************
 !
+         hyperbolicSC = .false.
          if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
+            viscousContravariantFlux = ViscousContravariantFlux + AviscContravariantFlux
+            hyperbolicSC = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, e % storage % QDot)
+         end if
 
-            ! AQUI: Add hyperbolic shock-capturing term
-
-         else
+         if (.not. hyperbolicSC) then
 
             select type ( HyperbolicDiscretization )
             type is (StandardDG_t)

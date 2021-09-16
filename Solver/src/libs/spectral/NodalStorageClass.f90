@@ -2,11 +2,11 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      NodalStorage.f95
-!      Created: 2008-01-15 10:35:59 -0500 
-!      By: David Kopriva 
+!      Created: 2008-01-15 10:35:59 -0500
+!      By: David Kopriva
 !
 !     Algorithms:
-!        Algorithm 
+!        Algorithm
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -17,17 +17,17 @@ MODULE NodalStorageClass
    USE GaussQuadrature
    use FTValueDictionaryClass          , only: FTValueDictionary
    use mainKeywordsModule              , only: discretizationNodesKey
-   IMPLICIT NONE 
+   IMPLICIT NONE
 
    private
    public GAUSS, GAUSSLOBATTO                                              ! parameters
    public NodalStorage_t                                                   ! type
    public NodalStorage, NodalStorage_Gauss, NodalStorage_GaussLobatto      ! Nodal storage variables
    public InitializeNodalStorage, DestructGlobalNodalStorage, CurrentNodes ! Main nodal storage used in the simulation
-   
+
    integer, parameter      :: GAUSS = 1
    integer, parameter      :: GAUSSLOBATTO = 2
-   
+
 !
 !  -------------------
 !  Nodal storage class
@@ -48,11 +48,12 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: DT                        ! Trasposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatG                      ! Weak form Laplacian derivative matrix hatG := W⁻¹DᵀWD (where W is the diagonal matrix with the quadrature weights)
+      real(kind=RP), dimension(:,:), allocatable :: Q                         ! SBP matrix Q = MD
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: Fwd                       ! Projection matrix from Lagrange to Legendre
       real(kind=RP), dimension(:,:), allocatable :: Bwd                       ! Projection matrix from Legendre to Lagrange
-      real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL      
-      real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss         
+      real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL
+      real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss
       contains
          procedure :: construct => ConstructNodalStorage
          procedure :: destruct  => DestructNodalStorage
@@ -60,25 +61,25 @@ MODULE NodalStorageClass
          procedure :: dlj      => NodalStorage_getdlj
 
    END TYPE NodalStorage_t
-   
+
 !  ------------------------------------------------
-!  NodalStorage contains the nodal storage information  
+!  NodalStorage contains the nodal storage information
 !  for every possible polynomial order of the mesh
 !  ------------------------------------------------
    type(NodalStorage_t), target, allocatable :: NodalStorage_Gauss(:)
    type(NodalStorage_t), target, allocatable :: NodalStorage_GaussLobatto(:)
-   
-   
+
+
    type(NodalStorage_t), pointer :: NodalStorage(:)   ! Default nodal storage
    integer  :: CurrentNodes
-   
+
    interface InitializeNodalStorage
       module procedure InitializeNodalStorage_controlVars, InitializeNodalStorage_nodeType
    end interface InitializeNodalStorage
-   
-!      
+
+!
 !     ========
-      CONTAINS 
+      CONTAINS
 !     ========
 !
 !////////////////////////////////////////////////////////////////////////
@@ -89,19 +90,19 @@ MODULE NodalStorageClass
       type(FTValueDictionary), intent(in) :: controlVariables
       integer                , intent(in) :: Nmax
       !---------------------------------------
-      
+
       select case ( trim(controlVariables % stringValueForKey(trim(discretizationNodesKey), requestedLength = LINE_LENGTH)) )
          case("Gauss")
             safedeallocate(NodalStorage_Gauss)
             allocate ( NodalStorage_Gauss (0:Nmax) )
-            
+
             NodalStorage => NodalStorage_Gauss
             CurrentNodes = GAUSS
-            
+
          case("Gauss-Lobatto")
             safedeallocate(NodalStorage_GaussLobatto)
             allocate ( NodalStorage_GaussLobatto (0:Nmax) )
-            
+
             NodalStorage => NodalStorage_GaussLobatto
             CurrentNodes = GAUSSLOBATTO
          case default
@@ -112,30 +113,30 @@ MODULE NodalStorageClass
             errorMessage(STD_OUT)
             stop
       end select
-      
+
    end subroutine InitializeNodalStorage_controlVars
-   
+
    subroutine InitializeNodalStorage_nodeType(nodeType, Nmax)
       implicit none
       !---------------------------------------
       integer, intent(in) :: nodeType
       integer, intent(in) :: Nmax
       !---------------------------------------
-      
+
       CurrentNodes = nodeType
-      
+
       select case ( nodeType )
          case(GAUSS)
             safedeallocate(NodalStorage_Gauss)
             allocate ( NodalStorage_Gauss (0:Nmax) )
-            
+
             NodalStorage => NodalStorage_Gauss
-            
-            
+
+
          case(GAUSSLOBATTO)
             safedeallocate(NodalStorage_GaussLobatto)
             allocate ( NodalStorage_GaussLobatto (0:Nmax) )
-            
+
             NodalStorage => NodalStorage_GaussLobatto
          case default
             print*, "Unknown discretization nodes."
@@ -145,7 +146,7 @@ MODULE NodalStorageClass
             errorMessage(STD_OUT)
             stop
       end select
-      
+
    end subroutine InitializeNodalStorage_nodeType
 !
 !////////////////////////////////////////////////////////////////////////
@@ -155,7 +156,7 @@ MODULE NodalStorageClass
       !---------------------
       integer :: k
       !---------------------
-      
+
       if ( allocated(NodalStorage_Gauss) ) then
          do k=lbound(NodalStorage_Gauss,1), ubound(NodalStorage_Gauss,1)
             IF (.NOT. NodalStorage_Gauss(k) % Constructed) cycle
@@ -163,7 +164,7 @@ MODULE NodalStorageClass
          end do
          deallocate (NodalStorage_Gauss)
       end if
-      
+
       if ( allocated(NodalStorage_GaussLobatto) ) then
          do k=lbound(NodalStorage_GaussLobatto,1), ubound(NodalStorage_GaussLobatto,1)
             IF (.NOT. NodalStorage_GaussLobatto(k) % Constructed) cycle
@@ -171,7 +172,7 @@ MODULE NodalStorageClass
          end do
          deallocate (NodalStorage_GaussLobatto)
       end if
-      
+
       nullify (NodalStorage)
    end subroutine DestructGlobalNodalStorage
 !
@@ -189,12 +190,12 @@ MODULE NodalStorageClass
       real(kind=RP)      :: Lkj(0:N,0:N), dLk_dummy
       real(kind=RP)      :: normLk(0:N)
       !--------------------------------------
-      
+
       if (this % Constructed) return
-      
+
       this % nodes = nodes
       this % N = N
-      
+
       ALLOCATE( this % x    (0:N) )
       ALLOCATE( this % w    (0:N) )
       ALLOCATE( this % wb   (0:N) )
@@ -206,6 +207,7 @@ MODULE NodalStorageClass
       ALLOCATE( this % DT   (0:N,0:N) )
       ALLOCATE( this % hatD (0:N,0:N) )
       ALLOCATE( this % hatG (0:N,0:N) )
+      ALLOCATE( this % Q    (0:N,0:N) )
       ALLOCATE( this % Fwd  (0:N,0:N) )
       ALLOCATE( this % Bwd  (0:N,0:N) )
       ALLOCATE( this % xCGL (0:N) )
@@ -246,9 +248,10 @@ MODULE NodalStorageClass
          DO i = 0, N
             this % DT  (i,j) = this % D (j,i)
             this % hatD(i,j) = this % DT(i,j) * this % w(j) / this % w(i)
+            this % Q   (i,j) = this % D (i,j) * this % w(i)
          END DO
       END DO
-      
+
       this % hatG = matmul(this % hatD, this % D)
 !
 !     --------------------------------------------------------------
@@ -260,7 +263,7 @@ MODULE NodalStorageClass
             this % sharpD = 2.0_RP * this % D
             this % sharpD(0,0) = 2.0_RP * this % D(0,0) + 1.0_RP / this % w(0)
             this % sharpD(N,N) = 2.0_RP * this % D(N,N) - 1.0_RP / this % w(N)
-   
+
          else
             this % sharpD = 0.0_RP
 
@@ -272,16 +275,16 @@ MODULE NodalStorageClass
 !     ---------------------
 !
       CALL BarycentricWeights( N, this % x, wb )
-      
+
       CALL InterpolatingPolynomialVector(  1.0_RP, N, this % x, wb, this % b(:,RIGHT) )
       CALL InterpolatingPolynomialVector( -1.0_RP, N, this % x, wb, this % b(:,LEFT)  )
-      
+
       this % wb = wb
       this % v  = this % b
-      
+
       this % b(0:N,LEFT)  = this % b(0:N,LEFT) /this % w
       this % b(0:N,RIGHT) = this % b(0:N,RIGHT)/this % w
-      
+
 !
 !     ------------------
 !     Derivative vectors
@@ -289,9 +292,9 @@ MODULE NodalStorageClass
 !
       CALL PolyDerivativeVector(  1.0_RP, N, this % x, this % bd(:,RIGHT) )
       CALL PolyDerivativeVector( -1.0_RP, N, this % x, this % bd(:,LEFT)  )
-      
+
       this % vd = this % bd
-      
+
       this % bd(0:N,LEFT)  = this % bd(0:N,LEFT) /this % w
       this % bd(0:N,RIGHT) = this % bd(0:N,RIGHT)/this % w
 !
@@ -310,7 +313,7 @@ MODULE NodalStorageClass
 
       end if
 
-      call BarycentricWeights(N, this % xCGL, this % wbCGL) 
+      call BarycentricWeights(N, this % xCGL, this % wbCGL)
       call PolynomialDerivativeMatrix( this % N, this % xCGL, this % DCGL)
       call PolynomialInterpolationMatrix(this % N, this % N, this % xCGL, this % wbCGL, this % x,&
                                          this % TCheb2Gauss)
@@ -337,7 +340,7 @@ MODULE NodalStorageClass
       end do         ; end do
 !
 !     Set the nodal storage as constructed
-!     ------------------------------------      
+!     ------------------------------------
       this % Constructed = .TRUE.
 
    END SUBROUTINE ConstructNodalStorage
@@ -355,7 +358,7 @@ MODULE NodalStorageClass
 !     Destruct otherwise
 !     ------------------
       this % constructed = .FALSE.
-      
+
       DEALLOCATE( this % x )
       DEALLOCATE( this % w  )
       DEALLOCATE( this % wb  )
@@ -363,6 +366,7 @@ MODULE NodalStorageClass
       DEALLOCATE( this % DT )
       DEALLOCATE( this % hatD)
       DEALLOCATE( this % hatG)
+      DEALLOCATE( this % Q )
       DEALLOCATE( this % xCGL )
       DEALLOCATE( this % wbCGL )
       DEALLOCATE( this % DCGL )
