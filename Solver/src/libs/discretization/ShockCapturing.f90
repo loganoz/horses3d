@@ -393,7 +393,7 @@ module ShockCapturing
 !     -----------------------------------------
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      call self % viscosity % Compute(mesh, e, switch, SCflux)
+      call self % viscosity % Compute(mesh, e, switch, self % hasHyperbolicTerm,  SCflux)
 
    end subroutine SC_viscosity
 !
@@ -617,7 +617,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AV_compute(self, mesh, e, switch, SCflux)
+   subroutine AV_compute(self, mesh, e, switch, limit, SCflux)
 !
 !     ---------
 !     Interface
@@ -627,6 +627,7 @@ module ShockCapturing
       type(HexMesh),                intent(inout) :: mesh
       type(Element),                intent(inout) :: e
       real(RP),                     intent(in)    :: switch
+      logical,                      intent(in)    :: limit
       real(RP),                     intent(out)   :: SCflux(1:NCONS,       &
                                                             0:e % Nxyz(1), &
                                                             0:e % Nxyz(2), &
@@ -805,7 +806,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NoSVV_viscosity(self, mesh, e, switch, SCflux)
+   subroutine NoSVV_viscosity(self, mesh, e, switch, limit, SCflux)
 !
 !     --------------------------------------------------------------------------
 !     TODO: Introduce alpha viscosity, which probably means reimplementing here
@@ -820,6 +821,7 @@ module ShockCapturing
       type(HexMesh),     intent(inout) :: mesh
       type(Element),     intent(inout) :: e
       real(RP),          intent(in)    :: switch
+      logical,           intent(in)    :: limit
       real(RP),          intent(out)   :: SCflux(1:NCONS,       &
                                                  0:e % Nxyz(1), &
                                                  0:e % Nxyz(2), &
@@ -839,7 +841,8 @@ module ShockCapturing
       real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
 
 
-      if (switch > 0.0_RP) then
+      if ((.not. limit .and. switch > 0.0_RP) .or. &
+          (limit .and. switch > 0.0_RP .and. switch < 1.0_RP)) then
 !
 !        Compute viscosity
 !        -----------------
@@ -1018,7 +1021,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SVV_viscosity(self, mesh, e, switch, SCflux)
+   subroutine SVV_viscosity(self, mesh, e, switch, limit, SCflux)
 !
 !     ---------
 !     Interface
@@ -1028,6 +1031,7 @@ module ShockCapturing
       type(HexMesh),   intent(inout) :: mesh
       type(Element),   intent(inout) :: e
       real(RP),        intent(in)    :: switch
+      logical,         intent(in)    :: limit
       real(RP),        intent(out)   :: SCflux(1:NCONS,       &
                                                0:e % Nxyz(1), &
                                                0:e % Nxyz(2), &
@@ -1047,7 +1051,8 @@ module ShockCapturing
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
 
 
-      if (switch > 0.0_RP) then
+      if ((.not. limit .and. switch > 0.0_RP) .or. &
+          (limit .and. switch > 0.0_RP .and. switch < 1.0_RP)) then
 !
 !        Compute viscosities
 !        -------------------
