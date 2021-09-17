@@ -813,27 +813,28 @@ use VariableConversion, only: Pressure, PressureDot
                    LM = dot_product(matmul(Lij, n(:)), M0(:))
 
                    ! loading term integrals
-                   ! Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
+                   Pl = Pl +  dot_product(matmul(LijDot,n(:)),self%reUnitVect(:,i,j)) / (self%reStar(i,j) * c0) * &
+                             spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
+                             spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   ! Pl = Pl + LdotR / ( c0 * self % re(i,j) * (UmMr**2) ) * &
                    !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                   ! Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
+                   ! Pl = Pl + (LR - LM) / ( (self % re(i,j) * UmMr)**2 ) * &
                    !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                   Pl = Pl + LdotR / ( c0 * self % re(i,j) * (UmMr**2) ) * &
-                             spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                   Pl = Pl + (LR - LM) / ( (self % re(i,j) * UmMr)**2 ) * &
-                             spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                   Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
-                             spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   ! Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
+                   !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
                    ! thickness term integrals, only for permable surfaces
                    if (.not. isSolid) then
-                       ! Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
-                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                       ! Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
-                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                       Pt = Pt + dot_product(QiDot(:),n(:)) / (self%reStar(i,j) * (UmMr**2)) * &
+                       Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
-                       Pt = Pt + (dot_product(Qi(:), n(:)) * c0 * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
+                       Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                       ! Pt = Pt + dot_product(QiDot(:),n(:)) / (self%reStar(i,j) * (UmMr**2)) * &
+                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                       ! Pt = Pt + (dot_product(Qi(:), n(:)) * c0 * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
+                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+
                    end if  
                 end do          ;    end do
            end associate
