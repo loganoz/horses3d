@@ -121,7 +121,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL pure FUNCTION AlmostEqual( a, b ) 
+      LOGICAL pure FUNCTION AlmostEqual( a, b, tol ) 
       USE SMConstants
       IMPLICIT NONE
 !
@@ -130,15 +130,20 @@ module Utilities
 !     ---------
 !
       REAL(KIND=RP), intent(in) :: a, b
+      REAL(KIND=RP), intent(in), optional :: tol
+      REAL(KIND=RP) :: mytol
 !
+      mytol = 2*epsilon(b)
+      if (present(tol)) mytol = tol
+
       IF ( a == 0.0_RP .OR. b == 0.0_RP )     THEN
-         IF ( ABS(a-b) <= 2*EPSILON(b) )     THEN
+         IF ( ABS(a-b) <= mytol )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
          END IF
       ELSE
-         IF( ABS( b - a ) <= 2*EPSILON(b)*MAX(ABS(a), ABS(b)) )     THEN
+         IF( ABS( b - a ) <= mytol*MAX(ABS(a), ABS(b)) )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
