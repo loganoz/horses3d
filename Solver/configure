@@ -66,6 +66,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
 	        ./NavierStokes/NACA0012 \
 			./NavierStokes/ForwardFacingStep/NonFiltered \
 			./NavierStokes/ForwardFacingStep/SVV \
+            ./NavierStokes/ForwardFacingStep/SSFV_SVV \
 			./NavierStokes/TaylorGreenSVVLES \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
