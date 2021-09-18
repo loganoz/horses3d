@@ -807,19 +807,7 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-!
-!        *************************************
-!        Compute interior contravariant fluxes
-!        *************************************
-!
-!        Compute inviscid contravariant flux
-!        -----------------------------------
-         if (.not. ShockCapturingDriver % isActive .or.         &
-             .not. ShockCapturingDriver % hasHyperbolicTerm) then
 
-            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
-
-         end if
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -846,13 +834,20 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         hyperbolicSC = .false.
          if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
             viscousContravariantFlux = ViscousContravariantFlux + AviscContravariantFlux
             hyperbolicSC = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, e % storage % QDot)
+         else
+            hyperbolicSC = .false.
          end if
-
+!
+!        Usual hyperbolic term for non-detected elements
+!        -----------------------------------------------
          if (.not. hyperbolicSC) then
+!
+!           Compute inviscid contravariant flux
+!           -----------------------------------
+            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 
             select type ( HyperbolicDiscretization )
             type is (StandardDG_t)

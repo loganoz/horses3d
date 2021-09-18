@@ -124,7 +124,7 @@ module ShockCapturing
 
       procedure :: Initialize => SSFV_initialize
       procedure :: Compute    => SSFV_hyperbolic
-      !procedure :: Describe   => SSFV_describe
+      procedure :: Describe   => SSFV_describe
 
    end type SC_SSFV_t
 !
@@ -228,7 +228,7 @@ module ShockCapturing
       call toLower(method)
 
       select case (trim(method))
-      case (SC_HYP_METHOD_KEY)
+      case (SC_SSFV_VAL)
          allocate (SC_SSFV_t :: self % advection)
          self % hasHyperbolicTerm = .true.
 
@@ -410,7 +410,8 @@ module ShockCapturing
       real(RP),          intent(out)   :: Fv(1:NCONS,       &
                                              0:e % Nxyz(1), &
                                              0:e % Nxyz(2), &
-                                             0:e % Nxyz(3)  )
+                                             0:e % Nxyz(3), &
+                                             1:NDIM         )
       real(RP),          intent(inout) :: Qdot(1:NCONS,      &
                                              0:e % Nxyz(1), &
                                              0:e % Nxyz(2), &
@@ -428,7 +429,7 @@ module ShockCapturing
       switch = self % sensor % Rescale(e % storage % sensor)
 
       if (switch >= 1.0_RP) then
-         Qdot = Qdot + self % advection % Compute(e, Fv)
+         Qdot = self % advection % Compute(e, Fv)
          computed = .true.
       else
          computed = .false.
@@ -1243,7 +1244,7 @@ module ShockCapturing
 !     ------------------------------------------------------
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
          FSx(:,i,j,k) = 0.0_RP
-         do s = i+1, Nx ; do r = 1, i
+         do s = i, Nx ; do r = 0, i-1
             FSx(:,i,j,k) = FSx(:,i,j,k) + spAxi % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,j,k),    &
                                                                         e % storage % Q(:,s,j,k),    &
                                                                         e % geom % jGradXi(:,r,j,k), &
@@ -1254,22 +1255,22 @@ module ShockCapturing
 
       do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
          FSy(:,j,i,k) = 0.0_RP
-         do s = j+1, Ny ; do r = 1, j
-            FSy(:,j,i,k) = FSx(:,j,i,k) + spAeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,i,k),     &
-                                                                         e % storage % Q(:,s,i,k),     &
-                                                                         e % geom % jGradEta(:,r,i,k), &
-                                                                         e % geom % jGradEta(:,s,i,k)  )
+         do s = j, Ny ; do r = 0, j-1
+            FSy(:,j,i,k) = FSy(:,j,i,k) + spAeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,i,r,k),     &
+                                                                         e % storage % Q(:,i,s,k),     &
+                                                                         e % geom % jGradEta(:,i,r,k), &
+                                                                         e % geom % jGradEta(:,i,s,k)  )
          end do                  ; end do
          FSy(:,j,i,k) = 2.0_RP * FSy(:,j,i,k)
       end do                ; end do                ; end do
 
       do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
          FSz(:,k,i,j) = 0.0_RP
-         do s = k+1, Nz ; do r = 1, k
-            FSz(:,k,i,j) = FSx(:,k,i,j) + spAzeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,i,j),      &
-                                                                          e % storage % Q(:,s,i,j),      &
-                                                                          e % geom % jGradZeta(:,r,i,j), &
-                                                                          e % geom % jGradZeta(:,s,i,j)  )
+         do s = k, Nz ; do r = 0, k-1
+            FSz(:,k,i,j) = FSz(:,k,i,j) + spAzeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,i,j,r),      &
+                                                                          e % storage % Q(:,i,j,s),      &
+                                                                          e % geom % jGradZeta(:,i,j,r), &
+                                                                          e % geom % jGradZeta(:,i,j,s)  )
          end do                  ; end do
          FSz(:,k,i,j) = 2.0_RP * FSz(:,k,i,j)
       end do                ; end do                ; end do
@@ -1333,8 +1334,8 @@ module ShockCapturing
                                       e % geom % jGradZeta(:,i,j,0), e % geom % jGradZeta(:,i,j,0))
 
          call EulerFlux(e % storage % Q(:,i,j,Nz), F)
-         FSz(:,Nz,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                       e % geom % jGradZeta(:,i,j,Nz), e % geom % jGradZeta(:,i,j,Nz))
+         FSz(:,Nz+1,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
+                                         e % geom % jGradZeta(:,i,j,Nz), e % geom % jGradZeta(:,i,j,Nz))
 
       end do       ; end do
 !
@@ -1396,12 +1397,34 @@ module ShockCapturing
 !
 !     Volume integral
 !     ---------------
-      div = -ScalarWeakIntegrals%TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
+      div = -ScalarWeakIntegrals % TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
 
       end associate
       end associate
 
    end function SSFV_hyperbolic
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine SSFV_describe(self)
+!
+!     -------
+!     Modules
+!     -------
+      use MPI_Process_Info, only: MPI_Process
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SC_SSFV_t), intent(in) :: self
+
+
+      if (.not. MPI_Process % isRoot) return
+
+      write(STD_OUT,"(30X,A,A30,G10.3)") "->", "SSFV blending parameter: ", self % c
+
+   end subroutine SSFV_describe
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1459,7 +1482,7 @@ module ShockCapturing
       Ql = Qleft  ; Ql(IRHOU) = Qleft(IRHOW)  ; Ql(IRHOW) = Qleft(IRHOU)
       Qr = Qright ; Qr(IRHOU) = Qright(IRHOW) ; Qr(IRHOW) = Qright(IRHOU)
       call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fz)
-      tmp = Fy(IRHOU) ; Fy(IRHOU) = Fy(IRHOW) ; Fy(IRHOW) = tmp
+      tmp = Fz(IRHOU) ; Fz(IRHOU) = Fz(IRHOW) ; Fz(IRHOW) = tmp
 
       F = contravariant(Fx, Fy, Fz, JaL, JaR)
 

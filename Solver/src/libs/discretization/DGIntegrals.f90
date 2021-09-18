@@ -162,11 +162,11 @@ module DGIntegrals
 !        ---------
          implicit none
          class(Element), intent(in) :: e
-         real(RP),       intent(in) :: Fx(1:NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), e%Nxyz(3), 1:NDIM)
-         real(RP),       intent(in) :: Fy(1:NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), e%Nxyz(3), 1:NDIM)
-         real(RP),       intent(in) :: Fz(1:NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), e%Nxyz(2), 1:NDIM)
-         real(RP),       intent(in) :: Fv(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
-         real(RP)                   :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), e%Nxyz(3))
+         real(RP),       intent(in) :: Fx    (1:NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(RP),       intent(in) :: Fy    (1:NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
+         real(RP),       intent(in) :: Fz    (1:NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
+         real(RP),       intent(in) :: Fv    (1:NCONS, 0:e%Nxyz(1),   0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         real(RP)                   :: volInt(1:NCONS, 0:e%Nxyz(1),   0:e%Nxyz(2), 0:e%Nxyz(3))
 !
 !        ---------------
 !        Local variables
@@ -186,12 +186,12 @@ module DGIntegrals
 !        Xi
 !        --
          do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fx(:,i+1,j,k,IX)-Fx(:,i,j,k,IX)) / spAxi % w(i)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fx(:,i+1,j,k)-Fx(:,i,j,k)) / spAxi % w(i)
          end do       ; end do       ; end do
 
          do k = 0, Nz ; do j = 0, Ny
-            volInt(:,0,j,k)  = volInt(:,0,j,k)  + Fx(:,0,j,k,IX)    / spAxi % w(0)
-            volInt(:,Nx,j,k) = volInt(:,Nx,j,k) - Fx(:,Nx+1,j,k,IX) / spAxi % w(Nx)
+            volInt(:,0,j,k)  = volInt(:,0,j,k)  + Fx(:,0,j,k)    / spAxi % w(0)
+            volInt(:,Nx,j,k) = volInt(:,Nx,j,k) - Fx(:,Nx+1,j,k) / spAxi % w(Nx)
          end do       ; end do
 
          do k = 0, Nz ; do j = 0, Ny ; do l = 0, Nx ; do i = 0, Nx
@@ -201,12 +201,12 @@ module DGIntegrals
 !        Eta
 !        ---
          do k = 0, Nz ; do i = 0, Nx ; do j = 0, Ny
-            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fy(:,j+1,i,k,IY)-Fy(:,j,i,k,IY)) / spAeta % w(j)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fy(:,j+1,i,k)-Fy(:,j,i,k)) / spAeta % w(j)
          end do       ; end do       ; end do
 
          do k = 0, Nz ; do i = 0, Nx
-            volInt(:,i,0,k)  = volInt(:,i,0,k)  + Fy(:,0,i,k,IY)    / spAeta % w(0)
-            volInt(:,i,Ny,k) = volInt(:,i,Ny,k) - Fy(:,Ny+1,i,k,IY) / spAeta % w(Ny)
+            volInt(:,i,0,k)  = volInt(:,i,0,k)  + Fy(:,0,i,k)    / spAeta % w(0)
+            volInt(:,i,Ny,k) = volInt(:,i,Ny,k) - Fy(:,Ny+1,i,k) / spAeta % w(Ny)
          end do       ; end do
 
          do k = 0, Nz ; do l = 0, Ny ; do j = 0, Ny ; do i = 0, Nx
@@ -216,12 +216,12 @@ module DGIntegrals
 !        Zeta
 !        ----
          do j = 0, Ny ; do i = 0, Nx ; do k = 0, Nz
-            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fz(:,k+1,i,j,IZ)-Fz(:,k,i,j,IZ)) / spAzeta % w(k)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fz(:,k+1,i,j)-Fz(:,k,i,j)) / spAzeta % w(k)
          end do       ; end do       ; end do
 
          do j = 0, Ny ; do i = 0, Nx
-            volInt(:,i,j,0)  = volInt(:,i,j,0)  + Fz(:,0,i,j,IZ)    / spAzeta % w(0)
-            volInt(:,i,j,Nz) = volInt(:,i,j,Nz) - Fz(:,Nz+1,i,j,IZ) / spAzeta % w(Nz)
+            volInt(:,i,j,0)  = volInt(:,i,j,0)  + Fz(:,0,i,j)    / spAzeta % w(0)
+            volInt(:,i,j,Nz) = volInt(:,i,j,Nz) - Fz(:,Nz+1,i,j) / spAzeta % w(Nz)
          end do       ; end do
 
          do l = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
