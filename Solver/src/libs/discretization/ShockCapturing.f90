@@ -405,18 +405,18 @@ module ShockCapturing
 !     Interface
 !     ---------
       implicit none
-      class(SCdriver_t), intent(in)    :: self
-      type(Element),     intent(in)    :: e
-      real(RP),          intent(out)   :: Fv(1:NCONS,       &
-                                             0:e % Nxyz(1), &
-                                             0:e % Nxyz(2), &
-                                             0:e % Nxyz(3), &
-                                             1:NDIM         )
-      real(RP),          intent(inout) :: Qdot(1:NCONS,      &
+      class(SCdriver_t), intent(in)  :: self
+      type(Element),     intent(in)  :: e
+      real(RP),          intent(in)  :: Fv(1:NCONS,       &
+                                           0:e % Nxyz(1), &
+                                           0:e % Nxyz(2), &
+                                           0:e % Nxyz(3), &
+                                           1:NDIM         )
+      real(RP),          intent(out) :: Qdot(1:NCONS,       &
                                              0:e % Nxyz(1), &
                                              0:e % Nxyz(2), &
                                              0:e % Nxyz(3)  )
-      logical                          :: computed
+      logical                        :: computed
 !
 !     ---------------
 !     Local variables
@@ -694,11 +694,11 @@ module ShockCapturing
                                                      0:e % Nxyz(1), &
                                                      0:e % Nxyz(2), &
                                                      0:e % Nxyz(3), &
-                                                     1:NDIM)
+                                                     1:NDIM         )
       real(RP)                                 :: div(1:NCONS,       &
-                                                       0:e % Nxyz(1), &
-                                                       0:e % Nxyz(2), &
-                                                       0:e % Nxyz(3))
+                                                      0:e % Nxyz(1), &
+                                                      0:e % Nxyz(2), &
+                                                      0:e % Nxyz(3)  )
 
       div = 0.0_RP
 
@@ -1206,11 +1206,11 @@ module ShockCapturing
                                          0:e%Nxyz(1), &
                                          0:e%Nxyz(2), &
                                          0:e%Nxyz(3), &
-                                         1:NDIM)
+                                         1:NDIM       )
       real(RP)                     :: div(1:NCONS,     &
                                           0:e%Nxyz(1), &
                                           0:e%Nxyz(2), &
-                                          0:e%Nxyz(3))
+                                          0:e%Nxyz(3)  )
 !
 !     ---------------
 !     Local variables
