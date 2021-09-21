@@ -13,8 +13,8 @@
 module ShockCapturing
 
    use SMConstants,                only: RP, STD_OUT, LINE_LENGTH, NDIM, IX, IY, IZ
-   use PhysicsStorage_NS,          only: NCONS, NGRAD
-   use FluidData_NS,               only: dimensionless
+   use PhysicsStorage,             only: NCONS, NGRAD
+   use FluidData,                  only: dimensionless
    use Utilities,                  only: toLower
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
@@ -1190,11 +1190,10 @@ module ShockCapturing
 !     -------
 !     Modules
 !     -------
-      use PhysicsStorage_NS,     only: IRHO
-      use NodalStorageClass,     only: NodalStorage
-      use RiemannSolvers_NS,     only: AveragedStates
-      use Physics_NS,            only: EulerFlux
-      use VariableConversion_NS, only: Pressure, getEntropyVariables
+      use PhysicsStorage,     only: IRHO
+      use NodalStorageClass,  only: NodalStorage
+      use Physics,            only: EulerFlux
+      use VariableConversion, only: Pressure, getEntropyVariables
 !
 !     ---------
 !     Interface
@@ -1222,8 +1221,6 @@ module ShockCapturing
       real(RP) :: FVx(NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
       real(RP) :: FVy(NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
       real(RP) :: FVz(NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
-      real(RP) :: F1(NCONS, NDIM)
-      real(RP) :: F2(NCONS, NDIM)
       real(RP) :: F(NCONS, NDIM)
       real(RP) :: w1(NCONS)
       real(RP) :: w2(NCONS)
@@ -1278,25 +1275,19 @@ module ShockCapturing
 !     Dissipative averaging in complementary points
 !     ---------------------------------------------
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
-         call EulerFlux(e % storage % Q(:,i-1,j,k), F1)
-         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
-         F = AVERAGE(F1, F2)
+         F = dissipativeFlux(e % storage % Q(:,i-1,j,k), e % storage % Q(:,i,j,k))
          FVx(:,i,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
                                       e % geom % jGradXi(:,i-1,j,k), e % geom % jGradXi(:,i,j,k))
       end do                ; end do                ; end do
 
       do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
-         call EulerFlux(e % storage % Q(:,i,j-1,k), F1)
-         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
-         F = AVERAGE(F1, F2)
+         F = dissipativeFlux(e % storage % Q(:,i,j-1,k), e % storage % Q(:,i,j,k))
          FVy(:,j,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
                                       e % geom % jGradEta(:,i,j-1,k), e % geom % jGradEta(:,i,j,k))
       end do                ; end do                ; end do
 
       do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
-         call EulerFlux(e % storage % Q(:,i,j,k-1), F1)
-         call EulerFlux(e % storage % Q(:,i,j,k),   F2)
-         F = AVERAGE(F1, F2)
+         F = dissipativeFlux(e % storage % Q(:,i,j,k-1), e % storage % Q(:,i,j,k))
          FVz(:,k,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
                                       e % geom % jGradZeta(:,i,j,k-1), e % geom % jGradZeta(:,i,j,k))
       end do                ; end do                ; end do
@@ -1433,9 +1424,9 @@ module ShockCapturing
 !     -------
 !     Modules
 !     -------
-      use PhysicsStorage_NS
-      use VariableConversion_NS, only: Pressure
-      use RiemannSolvers_NS,     only: AveragedStates
+      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW
+      use VariableConversion, only: Pressure
+      use RiemannSolvers_NS,  only: AveragedStates
 !
 !     ---------
 !     Interface
@@ -1453,9 +1444,6 @@ module ShockCapturing
       real(RP) :: tmp
       real(RP) :: pl, pr
       real(RP) :: iRhoL, iRhoR
-      real(RP) :: uL, uR
-      real(RP) :: vL, vR
-      real(RP) :: wL, wR
       real(RP) :: Ql(NCONS)
       real(RP) :: Qr(NCONS)
       real(RP) :: Fx(NCONS)
@@ -1465,9 +1453,6 @@ module ShockCapturing
 
 
       iRhoL = 1.0_RP / Qleft(IRHO) ; iRhoR = 1.0_RP / Qright(IRHO)
-      uL    = Qleft(IRHOU) * iRhoL ; uR    = Qright(iRHOU) * iRhoR
-      vL    = Qleft(IRHOV) * iRhoL ; vR    = Qright(iRHOV) * iRhoR
-      wL    = Qleft(IRHOW) * iRhoL ; wR    = Qright(iRHOW) * iRhoR
       pL    = Pressure(Qleft)      ; pR    = Pressure(Qright)
 
       Ql = Qleft
@@ -1487,6 +1472,69 @@ module ShockCapturing
       F = contravariant(Fx, Fy, Fz, JaL, JaR)
 
    end function TwoPointFlux
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   function dissipativeFlux(Q1, Q2) result(FV)
+!
+!     -------
+!     Modules
+!     -------
+      use Physics,            only: EulerFlux
+      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW
+      use VariableConversion, only: Pressure
+      use FluidData,          only: thermodynamics
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      real(RP), intent(in) :: Q1(NCONS)
+      real(RP), intent(in) :: Q2(NCONS)
+      real(RP)             :: FV(NCONS, NDIM)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      real(RP) :: F1(NCONS, NDIM)
+      real(RP) :: F2(NCONS, NDIM)
+      real(RP) :: invRho1, invRho2
+      real(RP) :: p1, p2
+      real(RP) :: u1, u2
+      real(RP) :: v1, v2
+      real(RP) :: w1, w2
+      real(RP) :: a1, a2
+      real(RP) :: lambda
+      real(RP) :: jump(NCONS)
+
+
+      call EulerFlux(Q1, F1)
+      call EulerFlux(Q2, F2)
+      FV = AVERAGE(F1, F2)
+
+      invRho1 = 1.0_RP / Q1(IRHO)   ; invRho2 = 1.0_RP / Q2(IRHO)
+      u1      = Q1(IRHOU) * invRho1 ; u2      = Q2(iRHOU) * invRho2
+      v1      = Q1(IRHOV) * invRho1 ; v2      = Q2(iRHOV) * invRho2
+      w1      = Q1(IRHOW) * invRho1 ; w2      = Q2(iRHOW) * invRho2
+      p1      = Pressure(Q1)        ; p2      = Pressure(Q2)
+
+      associate(g => thermodynamics % gamma)
+
+      jump = Q2 - Q1
+      a1 = sqrt(g * p1 * invRho1) ; a2 = sqrt(g * p2 * invRho2)
+
+      lambda = max(abs(u1)+a1, abs(u2)+a2)
+      FV(:,IX) = FV(:,IX) - lambda/2.0_RP * jump
+
+      lambda = max(abs(v1)+a1, abs(v2)+a2)
+      FV(:,IY) = FV(:,IY) - lambda/2.0_RP * jump
+
+      lambda = max(abs(w1)+a1, abs(w2)+a2)
+      FV(:,IZ) = FV(:,IZ) - lambda/2.0_RP * jump
+
+      end associate
+
+   end function dissipativeFlux
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
