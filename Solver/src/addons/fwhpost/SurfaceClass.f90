@@ -40,6 +40,8 @@ Module SurfaceClass  !
             procedure :: isTwiceEdConnected => FaceIsConnectedByEdgeTwice
             procedure :: getBCPostion       => FaceGetBCPosition
             procedure :: shareCorner        => FaceShareCorner 
+            procedure :: reconstructPeriod  => FaceReconstructPeriodic 
+            procedure :: updateEdgesPeriod  => FaceUpdateEdgesOnPeriodic
 
     end type SurfaceFace_t
 
@@ -61,6 +63,7 @@ Module SurfaceClass  !
             procedure :: setNeedSecond      => ElementSetNeedSecond
             procedure :: setNeedNotSecond   => ElementSetNotNeedSecond
             procedure :: getNotConnectedN   => ElementGetNotConnectedN
+            procedure :: reconstructPeriod  => ElementReconstructPeriodic
 
     end type SurfaceElement_t
 
@@ -601,6 +604,67 @@ Module SurfaceClass  !
     End Function FaceShareCorner
 !
 !////////////////////////////////////////////////////////////////////////
+!
+    Subroutine FaceReconstructPeriodic(self, old, new, oldNewMap)
+
+        class(SurfaceFace_t)                                        :: self
+        real(kind=RP), dimension(NDIM,NODES_PER_FACE), intent(in)   :: old, new
+        integer, dimension(NODES_PER_FACE), intent(in)              :: oldNewMap
+
+        !local variables
+        integer                                                     :: i, j, k
+
+        do i = 1, NODES_PER_FACE
+            do j = 1, 2
+                old_loop: do k = 1, NODES_PER_FACE
+                    if (testEqualCorners(self % edges(i) % corners(:,j), old(:,k))) then
+                        self % edges(i) % corners(:,j) = new(:,oldNewMap(k))
+                        exit old_loop
+                    end if 
+                end do old_loop
+            end do
+        end do
+
+    End Subroutine FaceReconstructPeriodic
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Subroutine FaceUpdateEdgesOnPeriodic(self, surfaceElements, N)
+
+        implicit none
+
+        class(SurfaceFace_t)                                :: self
+        class(SurfaceElement_t), dimension(N), intent(in)   :: surfaceElements
+        integer, intent(in)                                 :: N
+
+        !local variables
+        integer                                             :: i, j
+        integer                                             :: eIndex, faceIndex
+
+        ! get the index of the element and the face
+        do i = 1, N
+            if (self % globaleID .eq. surfaceElements(i) % globaleID) then
+                eIndex = i
+                exit
+            end if 
+        end do
+
+        do i = 1, FACES_PER_ELEMENT
+            if (self % fID .eq. surfaceElements(eIndex) % faces(i) % fID) then
+                faceIndex = i
+                exit
+            end if 
+        end do
+
+        !replace corners of edges with element ones that have been modified by reconstructPeriod
+        do i = 1, NODES_PER_FACE
+            self % edges(i) % corners = surfaceElements(eIndex) % faces(faceIndex) % edges(i) % corners
+        end do
+
+
+    End Subroutine FaceUpdateEdgesOnPeriodic
+!
+!////////////////////////////////////////////////////////////////////////
 ! surface face methods
 !////////////////////////////////////////////////////////////////////////
 !
@@ -668,6 +732,7 @@ Module SurfaceClass  !
         !local variables
         integer                                         :: zoneID, fID, i, j
         integer, dimension(2)                           :: eIDs
+        real(kind=RP)                                   :: limits
 
         do j = 1, M
             zoneID = zoneMarkers(j)
@@ -683,6 +748,25 @@ Module SurfaceClass  !
                 end do
             end associate
         end do 
+
+        ! limits = 1.98_RP
+        ! do j = 1, NUM_OF_NEIGHBORS
+        !     do i = 1, NODES_PER_FACE
+        !     ! if (self%eID .eq. 1377) then
+        !     !     print *, "j: ", j
+        !     !     print *, "i: ", i
+        !     !     print *, "self%faces(j)%edges(i)%corners: ", self%faces(j)%edges(i)%corners(:,1)
+        !     !     print *, "self%faces(j)%edges(i)%corners: ", self%faces(j)%edges(i)%corners(:,2)
+        !     ! end if 
+        !         if ( (self % faces(j) % edges(i) % corners(3,2) > limits) ) then
+        !         ! if ( (self % faces(j) % edges(i) % corners(3,2) > limits(2)) .or. &
+        !         !     (self % faces(j) % edges(i) % corners(3,1) < limits(1)) ) then
+        !             self % isInBCZone = .true.
+        !             ! print *, "is gt limit, eID: ", self%eID
+        !             return
+        !         end if 
+        !     end do 
+        ! end do
 
     End Subroutine ElementUpdateIsInZone
 !
@@ -799,7 +883,13 @@ Module SurfaceClass  !
                     if (self % faces(i) % isConnected(surfaceElements(eID) % faces(j))) then
                         numE = numE + 1
                         allElements(numE) = eID
-                        ! allElements(numE) = surfaceElements(eID) % eID
+                        ! if (self%eID .eq. 1377) then
+                        !     print *, "eID: ", eID
+                        !     print *, "i: ", i
+                        !     print *, "j: ", j
+                        !     print *, "surfaceElements(eID)%faces(j)%fID: ", surfaceElements(eID)%faces(j)%fID
+                        !     print *, "self%faces(i)%fID: ", self%faces(i)%fID
+                        ! end if 
                         cycle elems_loop
                     end if 
                 end do ext_elem_loop 
@@ -842,13 +932,14 @@ Module SurfaceClass  !
                     if (surfaceFace % shareCorner(surfaceElements(eID) % faces(j))) cycle pos_elems_loop
                 end do
                 targetEID = eID
+                exit
                 i = i + 1
             end do pos_elems_loop
-            if (i .gt. 1) print *, "Warning: more than one element is possible to be neightbour"
+            ! if (i .gt. 1) print *, "Warning: more than one element is possible to be neightbour"
         end if 
 
         if (targetEID .eq. 0) then 
-            print *, "Warning: for element ", self%globaleID, "a neightbour was not found"
+            ! print *, "Warning: for element ", self%globaleID, "a neightbour was not found"
             return
         end if
 
@@ -865,7 +956,7 @@ Module SurfaceClass  !
             if (self % faces(i) % isConnected(surfaceElements(targetEID) % faces(targertEfID))) then
                 if (.not. surfaceFace % isConnected(self % faces(i))) cycle
                 newFaceID = self % faces(i) % fID
-    ! print *, "newFaceID: ", newFaceID
+                ! print *, "newFaceID: ", newFaceID
                 self % extrafIDs(1) = newFaceID
                 exit
             end if 
@@ -889,6 +980,110 @@ Module SurfaceClass  !
         ! print *, "newFaceID: ", newFaceID
 
     End Subroutine ElementGetNotConnectedN
+!
+!////////////////////////////////////////////////////////////////////////
+!
+    Subroutine ElementReconstructPeriodic(self)
+
+        use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT
+        implicit none
+
+        class(SurfaceElement_t), target                     :: self
+
+        !local variables
+        class(SurfaceFace_t), pointer                       :: faceNew=>null(), faceOposite=>null()
+        integer                                             :: faceConnections
+        real(kind=RP), dimension(:,:), allocatable          :: allCorners
+        real(kind=RP), dimension(NDIM,FACES_PER_ELEMENT)    :: newCorners, notChangeCorners, oldCorners
+        integer                                             :: i,j,k
+        integer, dimension(NODES_PER_FACE)                  :: oldNewCornersMap
+        real(kind=RP), dimension(NODES_PER_FACE)            :: residual
+
+        ! get the new face and the oposite to it: the one without any conections and the one with FACES_PER_ELEMENT-2 conections
+        ! --------------------------------------
+        faces_loop: do i = 1, FACES_PER_ELEMENT
+            faceConnections = 0
+            do j = 1, FACES_PER_ELEMENT
+                if (i .eq. j) cycle
+                if (self % faces(i) % isConnected(self % faces(j))) faceConnections = faceConnections + 1
+            end do
+            if (faceConnections .eq. 0) then
+                faceNew => self % faces(i)
+                ! print *, "i new: ", i 
+                cycle faces_loop
+            elseif (faceConnections .eq. FACES_PER_ELEMENT-2) then
+                faceOposite => self % faces(i)
+                ! print *, "i op: ", i 
+                cycle faces_loop
+            end if 
+        end do faces_loop
+
+        if (.not. associated(faceNew)) then
+            ! print *, "self%eID: ", self%eID, " not period"
+            return
+        end if
+
+        ! get corners arrays
+        ! -----------------
+
+        ! first get all the cornes, new and original
+        allocate( allCorners(NDIM,NODES_PER_FACE*FACES_PER_ELEMENT) )
+        do i = 1, FACES_PER_ELEMENT
+            do j = 1, NODES_PER_FACE
+                allCorners(:,(i-1)*NODES_PER_FACE+j) = self % faces(i) % edges(j) % corners(:,1)
+                ! print *, "i: ", i
+                ! print *, "j: ", j
+                ! print *, "old c:", self % faces(i) % edges(j) % corners(:,1)
+            end do
+        end do 
+        ! get new and oposite corners
+        do j = 1, NODES_PER_FACE
+            newCorners(:,j) = faceNew % edges(j) % corners(:,1)
+            notChangeCorners(:,j) = faceOposite % edges(j) % corners(:,1)
+        end do
+        ! get old corners, the ones that are not new nor oposite corners, remove duplicated
+        k = 0
+        outer: do i = 1, size(allCorners(1,:))
+            if (k .ge. NODES_PER_FACE) exit outer
+            do j = 1, NODES_PER_FACE
+                if (testEqualCorners(newCorners(:,j), allCorners(:,i))) cycle outer
+                if (testEqualCorners(notChangeCorners(:,j), allCorners(:,i))) cycle outer
+            end do
+            do j = 1, k
+                if (testEqualCorners(oldCorners(:,j), allCorners(:,i))) cycle outer
+            end do
+            k = k + 1
+            oldCorners(:,k) = allCorners(:,i)
+        end do outer
+
+        ! map old vs new
+        ! --------------
+        do i = 1, NODES_PER_FACE
+            residual = huge(newCorners(1,1))
+            do j = 1, NODES_PER_FACE
+                residual(j) = POW2(oldCorners(1,i) - newCorners(1,j)) + POW2(oldCorners(2,i) - newCorners(2,j))
+            end do
+            oldNewCornersMap(i) = minloc(residual,dim=1)
+        end do
+
+        do i = 1, FACES_PER_ELEMENT
+            if (associated(faceNew, target=self % faces(i))) cycle
+            if (associated(faceOposite, target=self % faces(i))) cycle
+            ! print *, "i change: ", i
+            call self % faces(i) % reconstructPeriod(oldCorners, newCorners, oldNewCornersMap)
+        end do
+
+        nullify(faceNew, faceOposite)
+        ! do i = 1, FACES_PER_ELEMENT
+        !     do j = 1, NODES_PER_FACE
+        !         print *, "i: ", i
+        !         print *, "j: ", j
+        !         print *, "new c:", self % faces(i) % edges(j) % corners(:,1)
+        !         print *, "new c:", self % faces(i) % edges(j) % corners(:,2)
+        !     end do
+        ! end do 
+
+    End Subroutine ElementReconstructPeriodic
 !
 !////////////////////////////////////////////////////////////////////////
 ! helper procedures

@@ -189,12 +189,14 @@ Module FWHPreSurface  !
         allocate(elementsOfFaces(numberOfElements))
         do i = 1, numberOfElements
             call elementsOfFaces(i) % construct(mesh, eIDs(i), globaleIDs(i), firstFIDs(i), zoneMarkers, numberOfBCZones, .false.)
+            call elementsOfFaces(i) % reconstructPeriod()
         end do     
 
 !       update faces connections
 !       ------------------------
         ! if (.not. connectedAtBoundary) then
             do i = 1, numberOfElements
+            call firstFaces(i)%updateEdgesPeriod(elementsOfFaces, numberOfElements)
                 if (.not. elementsOfFaces(i) % isInBCZone) cycle
                 call firstFaces(i) % setNoConnections(mode=1)
             end do
@@ -229,6 +231,7 @@ Module FWHPreSurface  !
 !       --------------------------------
 
         do j = 1, 4
+        ! print *, "j: ", j
 
 !       get the second faces ids
 !       ------------------------
@@ -318,6 +321,7 @@ Module FWHPreSurface  !
         allocate( secondFaces(numberOfNewFaces) )
         do i = 1, numberOfNewFaces
             call secondFaces(i) % construct(mesh, secIds(i,1), secIds(i,2), secIds(i,3))
+            call secondFaces(i)%updateEdgesPeriod(elementsOfFaces, numberOfElements)
         end do
         deallocate(secIds)
 
@@ -375,6 +379,7 @@ Module FWHPreSurface  !
         allocate( secondFaces(numberOfSecondFaces) )
         do i = 1, numberOfSecondFaces
             call secondFaces(i) % construct(mesh, realSecIds(i,1), realSecIds(i,2), realSecIds(i,3))
+            call secondFaces(i) % updateEdgesPeriod(elementsOfFaces, numberOfElements)
         end do
 
         k = numberOfVerifiedFaces - numberOfElements
@@ -482,6 +487,7 @@ Module FWHPreSurface  !
                     associate ( e => mesh % elements(elementsTemp(eID,1)) )
                         if ( trim(mesh % zones(zoneMarkers(1)) % Name) .eq. trim(e % boundaryName(j)) ) then
                             extrudedDirectionIndex = abs(normalAxis(j))
+                            print *, "extrudedDirectionIndex: ", extrudedDirectionIndex
                             exit elems_loop
                         end if
                     end associate
