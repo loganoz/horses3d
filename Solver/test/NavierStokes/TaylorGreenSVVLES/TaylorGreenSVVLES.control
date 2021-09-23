@@ -34,7 +34,7 @@
                              Shock mu 1 = 0.2
                          Shock alpha/mu = 0.0
                      Sensor lower limit = 0.0
-                    Sensor higher limit = 1.0
+                    Sensor higher limit = 2.0  ! Make sure the sensor falls in the range
                       SVV filter cutoff = 0.1
                        SVV filter shape = power
                         SVV filter type = high-pass
