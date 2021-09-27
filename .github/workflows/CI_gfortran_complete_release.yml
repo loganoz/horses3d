@@ -2,6 +2,7 @@
 
 name: CI gfortran complete release
 
+########################################################################  
 # Controls when the action will run. 
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
@@ -20,14 +21,16 @@ jobs:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
+    # Define strategy matrix
+    strategy:
+      matrix:
+        compile: ['make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES']
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      ########################################################################
-      compile_command: 'make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES' 
-      ########################################################################      
+    
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -48,7 +51,7 @@ jobs:
         working-directory: ./Solver  
         run: |
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
-         ${{compile_command}}
+         ${{ matrix.compile }}
 
 ########################################################################
 #######                         COMPONENTS                      ########
