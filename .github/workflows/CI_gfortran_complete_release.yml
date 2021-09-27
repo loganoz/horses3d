@@ -24,12 +24,13 @@ jobs:
     # Define strategy matrix
     strategy:
       matrix:
-        compile: ['make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES']
+        compile: |
+         ['make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES', 
+          'make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES']
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-
     
       # Runs a single command using the runners shell
       ##- name: Install gfortran
@@ -47,7 +48,7 @@ jobs:
         working-directory: ./Solver
         run: ./configure
       
-      - name: Compile horses3d gfortran release
+      - name: Compile horses3d
         working-directory: ./Solver  
         run: |
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
@@ -60,11 +61,11 @@ jobs:
 # 1) FACE PATCHES TEST
 # --------------------
 
-      - name: Build FacePatches gfortran release
+      - name: Build FacePatches
         working-directory: ./Solver/test/Components/FacePatches
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run FacePatches gfortran release
+      - name: Run FacePatches
         working-directory: ./Solver/test/Components/FacePatches
         run: ./bin/FacePatches
 
@@ -76,11 +77,11 @@ jobs:
 # 3) HEXMAPPINGS TEST
 # -------------------            
 
-      - name: Build HexMappings gfortran release
+      - name: Build HexMappings
         working-directory: ./Solver/test/Components/HexMappings
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run HexMappings gfortran release
+      - name: Run HexMappings
         working-directory: ./Solver/test/Components/HexMappings
         run: ./bin/HexMappings
 
@@ -88,11 +89,11 @@ jobs:
 # 4) HEXMESH TEST
 # ---------------
 
-      - name: Build HexMesh gfortran release
+      - name: Build HexMesh
         working-directory: ./Solver/test/Components/HexMesh
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run HexMesh gfortran release
+      - name: Run HexMesh
         working-directory: ./Solver/test/Components/HexMesh
         run: ./bin/HexMesh
 
@@ -100,11 +101,11 @@ jobs:
 # 5) MESHCONSISTENCY TEST
 # -----------------------
 
-      - name: Build MeshConsistency gfortran release
+      - name: Build MeshConsistency
         working-directory: ./Solver/test/Components/MeshConsistency
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run MeshConsistency gfortran release
+      - name: Run MeshConsistency
         working-directory: ./Solver/test/Components/MeshConsistency
         run: ./bin/MeshConsistency
 
@@ -112,11 +113,11 @@ jobs:
 # 6) NODALSTORAGE TEST
 # --------------------
 
-      - name: Build NodalStorage gfortran release
+      - name: Build NodalStorage
         working-directory: ./Solver/test/Components/NodalStorage
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       
-      - name: Run NodalStorage gfortran release
+      - name: Run NodalStorage
         working-directory: ./Solver/test/Components/NodalStorage
         run: ./bin/NodalStorage
 
@@ -127,11 +128,11 @@ jobs:
 # 1) DIFFUSER
 # -----------
 
-      - name: Build Diffuser gfortran release
+      - name: Build Diffuser
         working-directory: ./Solver/test/Euler/Diffuser/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run Diffuser gfortran release
+      - name: Run Diffuser
         working-directory: ./Solver/test/Euler/Diffuser
         run: ./horses3d.ns DiffuserFlow.control
 
@@ -139,11 +140,11 @@ jobs:
 # 2) UNIFORM FLOW
 # ---------------
 
-      - name: Build UniformFlow gfortran release
+      - name: Build UniformFlow
         working-directory: ./Solver/test/Euler/UniformFlow/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run UniformFlow gfortran release
+      - name: Run UniformFlow
         working-directory: ./Solver/test/Euler/UniformFlow
         run: ./horses3d.ns UniformFlow.control
 
@@ -151,11 +152,11 @@ jobs:
 # 3) BOX AROUND CIRCLE
 # --------------------
 
-      - name: Build BoxAroundCircle gfortran release
+      - name: Build BoxAroundCircle
         working-directory: ./Solver/test/Euler/BoxAroundCircle/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run BoxAroundCircle gfortran release
+      - name: Run BoxAroundCircle
         working-directory: ./Solver/test/Euler/BoxAroundCircle
         run: ./horses3d.ns BoxAroundCircle.control
 
@@ -163,11 +164,11 @@ jobs:
 # 4) BOX AROUND CIRCLE PIROZZOLI
 # ------------------------------
 
-      - name: Build BoxAroundCirclePirozzoli gfortran release
+      - name: Build BoxAroundCirclePirozzoli
         working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run BoxAroundCirclePirozzoli gfortran release
+      - name: Run BoxAroundCirclePirozzoli
         working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
         run: ./horses3d.ns BoxAroundCirclePirozzoli.control
         
@@ -175,11 +176,11 @@ jobs:
 # 5) Inviscid TGV with KEPEC
 # --------------------------
 
-      - name: Build TaylorGreenKEPEC gfortran release
+      - name: Build TaylorGreenKEPEC
         working-directory: ./Solver/test/Euler/TaylorGreenKEPEC/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run TaylorGreenKEPEC gfortran release
+      - name: Run TaylorGreenKEPEC
         working-directory: ./Solver/test/Euler/TaylorGreenKEPEC
         run: ./horses3d.ns TaylorGreenKEPEC.control
 
@@ -187,11 +188,11 @@ jobs:
 # 6) Vortex transport 2D with KEPEC
 # ---------------------------------
 
-      - name: Build VortexTransport2DKEPEC gfortran release
+      - name: Build VortexTransport2DKEPEC
         working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run VortexTransport2DKEPEC gfortran release
+      - name: Run VortexTransport2DKEPEC
         working-directory: ./Solver/test/Euler/VortexTransport2D
         run: ./horses3d.ns VortexTransport2D.control
 
@@ -204,11 +205,11 @@ jobs:
       #  Final maximum residual
       #  Expected [1.6257217794191102E-011], Got [3.4106051316484809E-013]
 
-      # - name: Build JFNK Uniform Flow gfortran release
+      # - name: Build JFNK Uniform Flow
       #   working-directory: ./Solver/test/Euler/JFNK/SETUP
       #   run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      # - name: Run JFNK Uniform Flow gfortran release
+      # - name: Run JFNK Uniform Flow
       #   working-directory: ./Solver/test/Euler/JFNK
       #   run: ./horses3d.ns UniformFlowJFNK.control
 
@@ -216,11 +217,11 @@ jobs:
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
 # ------------------------------------
 
-      - name: Build BoxAroundCircle_pAdapted gfortran release
+      - name: Build BoxAroundCircle_pAdapted
         working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run BoxAroundCircle_pAdapted gfortran release
+      - name: Run BoxAroundCircle_pAdapted
         working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
         run: ./horses3d.ns BoxAroundCircle_pAdapted.control
 
@@ -232,11 +233,11 @@ jobs:
 # 0) Convergence
 # ------------------------------
 
-      - name: Build Convergence gfortran release
+      - name: Build Convergence
         working-directory: ./Solver/test/NavierStokes/Convergence/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run Convergence gfortran release
+      - name: Run Convergence
         working-directory: ./Solver/test/NavierStokes/Convergence
         run: ./horses3d.ns Convergence.control
 
@@ -244,11 +245,11 @@ jobs:
 # 0) Convergence energy
 # --------------------------
 
-      - name: Build Convergence_energy gfortran release
+      - name: Build Convergence_energy
         working-directory: ./Solver/test/NavierStokes/Convergence_energy/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run Convergence_energy gfortran release
+      - name: Run Convergence_energy
         working-directory: ./Solver/test/NavierStokes/Convergence_energy
         run: ./horses3d.ns Convergence_energy.control
 
@@ -256,11 +257,11 @@ jobs:
 # 0) Convergence entropy
 # ---------------------------------
 
-      - name: Build Convergence_entropy gfortran release
+      - name: Build Convergence_entropy
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run Convergence_entropy gfortran release
+      - name: Run Convergence_entropy
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy
         run: ./horses3d.ns Convergence_entropy.control
 
@@ -268,11 +269,11 @@ jobs:
 # 1) CYLINDER
 # -----------
 
-      - name: Build NSCylinder gfortran release
+      - name: Build NSCylinder
         working-directory: ./Solver/test/NavierStokes/Cylinder/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinder gfortran release
+      - name: Run NSCylinder
         working-directory: ./Solver/test/NavierStokes/Cylinder
         run: ./horses3d.ns Cylinder.control
 
@@ -280,11 +281,11 @@ jobs:
 # 2) CYLINDER IP
 # --------------
 
-      - name: Build NSCylinderIP gfortran release
+      - name: Build NSCylinderIP
         working-directory: ./Solver/test/NavierStokes/CylinderIP/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderIP gfortran release
+      - name: Run NSCylinderIP
         working-directory: ./Solver/test/NavierStokes/CylinderIP
         run: ./horses3d.ns CylinderIP.control
 
@@ -292,11 +293,11 @@ jobs:
 # 3) CYLINDER BR2
 # ---------------
 
-      - name: Build NSCylinderBR2 gfortran release
+      - name: Build NSCylinderBR2
         working-directory: ./Solver/test/NavierStokes/CylinderBR2/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderBR2 gfortran release
+      - name: Run NSCylinderBR2
         working-directory: ./Solver/test/NavierStokes/CylinderBR2
         run: ./horses3d.ns CylinderBR2.control
 
@@ -304,11 +305,11 @@ jobs:
 # 4) CYLINDER DUCROS
 # ------------------
 
-      - name: Build NSCylinderDucros gfortran release
+      - name: Build NSCylinderDucros
         working-directory: ./Solver/test/NavierStokes/CylinderDucros/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderDucros gfortran release
+      - name: Run NSCylinderDucros
         working-directory: ./Solver/test/NavierStokes/CylinderDucros
         run: ./horses3d.ns CylinderDucros.control
 
@@ -316,11 +317,11 @@ jobs:
 # 5) CYLINDER LES
 # ------------------
 
-      - name: Build NSCylinderLES gfortran release
+      - name: Build NSCylinderLES
         working-directory: ./Solver/test/NavierStokes/CylinderLES/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderLES gfortran release
+      - name: Run NSCylinderLES
         working-directory: ./Solver/test/NavierStokes/CylinderLES
         run: ./horses3d.ns CylinderLES.control
 
@@ -328,11 +329,11 @@ jobs:
 # 6) TAYLOR GREEN VORTEX
 # ----------------------
 
-      - name: Build TaylorGreen gfortran release
+      - name: Build TaylorGreen
         working-directory: ./Solver/test/NavierStokes/TaylorGreen/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run TaylorGreen gfortran release
+      - name: Run TaylorGreen
         working-directory: ./Solver/test/NavierStokes/TaylorGreen
         run: ./horses3d.ns TaylorGreen.control
 
@@ -340,11 +341,11 @@ jobs:
 # 7) TAYLOR GREEN VORTEX KEP BR2
 # -----------------------------
 
-      - name: Build TaylorGreenKEP_BR2 gfortran release
+      - name: Build TaylorGreenKEP_BR2
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run TaylorGreenKEP_BR2 gfortran release
+      - name: Run TaylorGreenKEP_BR2
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2
         run: ./horses3d.ns TaylorGreenKEP_BR2.control
 
@@ -352,11 +353,11 @@ jobs:
 # 8) TAYLOR GREEN VORTEX KEPEC IP
 # -------------------------------
 
-      - name: Build TaylorGreenKEPEC_IP gfortran release
+      - name: Build TaylorGreenKEPEC_IP
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run TaylorGreenKEPEC_IP gfortran release
+      - name: Run TaylorGreenKEPEC_IP
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
         run: ./horses3d.ns TaylorGreenKEPEC_IP.control
 
@@ -364,11 +365,11 @@ jobs:
 # 9) CYLINDER FAS
 # ---------------
 
-      - name: Build NSCylinderFAS gfortran release
+      - name: Build NSCylinderFAS
         working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderFAS gfortran release
+      - name: Run NSCylinderFAS
         working-directory: ./Solver/test/NavierStokes/CylinderFAS
         run: ./horses3d.ns CylinderFAS.control
 
@@ -377,11 +378,11 @@ jobs:
 # -------------------
 
       #Deactivated because a mismatch in the accuracy
-      #- name: Build NSCylinderIP_BDF2 gfortran release
+      #- name: Build NSCylinderIP_BDF2
       #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
       #  run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
       #
-      #- name: Run NSCylinderIP_BDF2 gfortran release
+      #- name: Run NSCylinderIP_BDF2
       #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
       #  run: ./horses3d.ns CylinderIP_BDF2.control
 
@@ -389,11 +390,11 @@ jobs:
 # 11) CYLINDER DIFFERENT ORDERS
 # ----------------------------
 
-      - name: Build NSCylinderDifferentOrders gfortran release
+      - name: Build NSCylinderDifferentOrders
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NSCylinderDifferentOrders gfortran release
+      - name: Run NSCylinderDifferentOrders
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
         run: ./horses3d.ns CylinderDifferentOrders.control
 
@@ -401,11 +402,11 @@ jobs:
 # 12) ENTROPY CONSERVING TEST
 # ----------------------------
 
-      - name: Build EntropyConservingTest gfortran release
+      - name: Build EntropyConservingTest
         working-directory: ./Solver/test/NavierStokes/EntropyConservingTest/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run EntropyConservingTest gfortran release
+      - name: Run EntropyConservingTest
         working-directory: ./Solver/test/NavierStokes/EntropyConservingTest
         run: ./horses3d.ns EntropyConservingTest.control
 
@@ -413,11 +414,11 @@ jobs:
 # 13) ENERGY CONSERVING TEST
 # ----------------------------
 
-      - name: Build EnergyConservingTest gfortran release
+      - name: Build EnergyConservingTest
         working-directory: ./Solver/test/NavierStokes/EnergyConservingTest/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run EnergyConservingTest gfortran release
+      - name: Run EnergyConservingTest
         working-directory: ./Solver/test/NavierStokes/EnergyConservingTest
         run: ./horses3d.ns EnergyConservingTest.control
 
@@ -425,11 +426,11 @@ jobs:
 # 14) NACA0012 Steady
 # ----------------------------
 
-      - name: Build NACA0012 gfortran release
+      - name: Build NACA0012
         working-directory: ./Solver/test/NavierStokes/NACA0012/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run NACA0012 gfortran release
+      - name: Run NACA0012
         working-directory: ./Solver/test/NavierStokes/NACA0012
         run: ./horses3d.ns NACA0012.control
 
@@ -437,11 +438,11 @@ jobs:
 # 15) NACA0012 Unsteady Dual Time Stepping
 # ----------------------------
 
-      - name: Build DualTimeStepping gfortran release
+      - name: Build DualTimeStepping
         working-directory: ./Solver/test/NavierStokes/DualTimeStepping/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run DualTimeStepping gfortran release
+      - name: Run DualTimeStepping
         working-directory: ./Solver/test/NavierStokes/DualTimeStepping
         run: ./horses3d.ns DualTimeStepping.control
 
@@ -452,21 +453,21 @@ jobs:
 #
 # 1) FreeFall
 # ----------------------------
-      - name: Build ParticlesFreeFall gfortran release
+      - name: Build ParticlesFreeFall
         working-directory: ./Solver/test/Particles/FreeFall/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run ParticlesFreeFall gfortran release
+      - name: Run ParticlesFreeFall
         working-directory: ./Solver/test/Particles/FreeFall
         run: ./horses3d.ns FreeFall.control
 #
 # 2) RadiationHeat
 # ----------------------------
-      - name: Build RadiationHeat gfortran release
+      - name: Build RadiationHeat
         working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run RadiationHeat gfortran release
+      - name: Run RadiationHeat
         working-directory: ./Solver/test/Particles/RadiationHeat
         run: ./horses3d.ns RadiationHeat.control
 #
@@ -474,11 +475,11 @@ jobs:
 # ----------------------------
       # This case uses a random initialization that affects the solution.
       # it only works in Alderaan
-      # - name: Build ParticleBoundaryCond gfortran release
+      # - name: Build ParticleBoundaryCond
       #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
       #   run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      # - name: Run ParticleBoundaryCond gfortran release
+      # - name: Run ParticleBoundaryCond
       #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond
       #   run: ./horses3d.ns BoundaryCondition.control
 #
@@ -486,11 +487,11 @@ jobs:
 # ----------------------------
       # This case uses a random initialization that affects the solution.
       # it only works in Alderaan
-      # - name: Build Pouransari gfortran release
+      # - name: Build Pouransari
       #   working-directory: ./Solver/test/Particles/Pouransari/SETUP
       #   run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      # - name: Run Pouransari gfortran release
+      # - name: Run Pouransari
       #   working-directory: ./Solver/test/Particles/Pouransari
       #   run: ./horses3d.ns Pouransari_St0041.control
 
@@ -501,11 +502,11 @@ jobs:
 # 1) Convergence
 # ----------------------------
 
-      - name: Build MultiphaseConvergence gfortran release
+      - name: Build MultiphaseConvergence
         working-directory: ./Solver/test/Multiphase/Convergence/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run MultiphaseConvergence gfortran release
+      - name: Run MultiphaseConvergence
         working-directory: ./Solver/test/Multiphase/Convergence
         run: ./horses3d.mu Convergence.control
 
@@ -513,11 +514,11 @@ jobs:
 # 2) RisingBubble
 # ----------------------------
 
-      - name: Build MultiphaseRisingBubble gfortran release
+      - name: Build MultiphaseRisingBubble
         working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run MultiphaseRisingBubble gfortran release
+      - name: Run MultiphaseRisingBubble
         working-directory: ./Solver/test/Multiphase/RisingBubble
         run: ./horses3d.mu RisingBubble.control
 
@@ -525,11 +526,11 @@ jobs:
 # 3) Pipe
 # ----------------------------
 
-      - name: Build MultiphasePipe gfortran release
+      - name: Build MultiphasePipe
         working-directory: ./Solver/test/Multiphase/Pipe/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run MultiphasePipe gfortran release
+      - name: Run MultiphasePipe
         working-directory: ./Solver/test/Multiphase/Pipe
         run: ./horses3d.mu AnnularFlow.control
 
@@ -537,11 +538,11 @@ jobs:
 # 4) Entropy conserving test
 # ----------------------------
 
-      - name: Build MultiphaseEntropyConservingTest gfortran release
+      - name: Build MultiphaseEntropyConservingTest
         working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run MultiphaseEntropyConservingTest gfortran release
+      - name: Run MultiphaseEntropyConservingTest
         working-directory: ./Solver/test/Multiphase/EntropyConservingTest
         run: ./horses3d.mu EntropyConservingTest.control
 
@@ -552,11 +553,11 @@ jobs:
 # 1) Convergence
 # ----------------------------
 
-      - name: Build iNS-Convergence gfortran release
+      - name: Build iNS-Convergence
         working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run iNS-Convergence gfortran release
+      - name: Run iNS-Convergence
         working-directory: ./Solver/test/IncompressibleNS/Convergence
         run: ./horses3d.ins Convergence4P5.control
 
@@ -564,11 +565,11 @@ jobs:
 # 2) Kovasznay 
 # ----------------------------
 
-      - name: Build iNS-Kovasznay gfortran release
+      - name: Build iNS-Kovasznay
         working-directory: ./Solver/test/IncompressibleNS/Kovasznay/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run iNS-Kovasznay gfortran release
+      - name: Run iNS-Kovasznay
         working-directory: ./Solver/test/IncompressibleNS/Kovasznay
         run: ./horses3d.ins Kovasznay.control
 
@@ -576,11 +577,11 @@ jobs:
 # 3) Lid driven cavity 
 # ----------------------------
 
-      - name: Build iNS-LidDrivenCavity gfortran release
+      - name: Build iNS-LidDrivenCavity
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run iNS-LidDrivenCavity gfortran release
+      - name: Run iNS-LidDrivenCavity
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
         run: ./horses3d.ins LidDrivenCavity.control
 
@@ -588,11 +589,11 @@ jobs:
 # 4) Taylor Green Vortex
 # ----------------------------
 
-      - name: Build iNS-TaylorGreenVortex gfortran release
+      - name: Build iNS-TaylorGreenVortex
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run iNS-TaylorGreenVortex gfortran release
+      - name: Run iNS-TaylorGreenVortex
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
         run: ./horses3d.ins TaylorGreen.control
 
@@ -600,10 +601,10 @@ jobs:
 # 5) Rayleigh-Taylor instability 
 # -------------------------------
 
-      - name: Build iNS-RayleighTaylor gfortran release
+      - name: Build iNS-RayleighTaylor
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor/SETUP
         run: make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
 
-      - name: Run iNS-RayleighTaylor gfortran release
+      - name: Run iNS-RayleighTaylor
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
         run: ./horses3d.ins RayleighTaylor.control
