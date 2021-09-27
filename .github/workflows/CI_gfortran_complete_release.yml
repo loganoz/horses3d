@@ -23,13 +23,12 @@ jobs:
 
     # Define strategy matrix
     strategy:
-      matrix:
-        compiler: ['ifort'] #['gfortran', 'ifort']
-        mode: ['DEBUG'] #['RELEASE', 'DEBUG']
-        comm: ['SEQUENTIAL', 'PARALLEL']
-        enable_threads: ['YES']
       fail-fast: false 
-      #fail-fast: false only for testing. In the future, it should be true.
+      matrix:
+        compiler: ['gfortran', 'ifort']
+        mode: ['RELEASE', 'DEBUG']
+        comm: ['SEQUENTIAL']
+        enable_threads: ['YES']
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -97,21 +96,11 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - if: (matrix.comm == 'SEQUENTIAL') 
-        name: Run FacePatches
+      - name: Run FacePatches
         working-directory: ./Solver/test/Components/FacePatches
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./bin/FacePatches    
-          
-      - if: (matrix.comm == 'PARALLEL') 
-        name: Run FacePatches
-        working-directory: ./Solver/test/Components/FacePatches
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./bin/FacePatches 
-       
-    
+          ./bin/FacePatches         
 
 #
 # 2) GRADIENTS TEST
