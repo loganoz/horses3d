@@ -24,7 +24,7 @@ jobs:
     # Define strategy matrix
     strategy:
       matrix:
-        compiler: ['ifort'] #['gfortran', 'ifort']
+        compiler: ['gfortran', 'ifort']
         mode: ['DEBUG'] #['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
