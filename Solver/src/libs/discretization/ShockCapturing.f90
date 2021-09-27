@@ -118,7 +118,8 @@ module ShockCapturing
 
    type, extends(ArtificialAdvection_t) :: SC_SSFV_t
 
-      real(RP) :: c
+      real(RP) :: c1  ! Lower limit of the blending parameter ("More FV")
+      real(RP) :: c2  ! Higher limit of the blending parameter ("More FS")
 
    contains
 
@@ -393,13 +394,13 @@ module ShockCapturing
 !     -----------------------------------------
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      call self % viscosity % Compute(mesh, e, switch, self % hasHyperbolicTerm,  SCflux)
+      call self % viscosity % Compute(mesh, e, switch, SCflux)
 
    end subroutine SC_viscosity
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function SC_advection(self, e, Fv, Qdot) result(computed)
+   subroutine SC_advection(self, e, Fv, Qdot)
 !
 !     ---------
 !     Interface
@@ -416,7 +417,6 @@ module ShockCapturing
                                              0:e % Nxyz(1), &
                                              0:e % Nxyz(2), &
                                              0:e % Nxyz(3)  )
-      logical                        :: computed
 !
 !     ---------------
 !     Local variables
@@ -428,14 +428,9 @@ module ShockCapturing
 !     -----------------------------------------
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      if (switch >= 1.0_RP) then
-         Qdot = self % advection % Compute(e, Fv)
-         computed = .true.
-      else
-         computed = .false.
-      end if
+      Qdot = self % advection % Compute(e, switch, Fv)
 
-   end function SC_advection
+   end subroutine SC_advection
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -619,7 +614,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AV_compute(self, mesh, e, switch, limit, SCflux)
+   subroutine AV_compute(self, mesh, e, switch, SCflux)
 !
 !     ---------
 !     Interface
@@ -629,7 +624,6 @@ module ShockCapturing
       type(HexMesh),                intent(inout) :: mesh
       type(Element),                intent(inout) :: e
       real(RP),                     intent(in)    :: switch
-      logical,                      intent(in)    :: limit
       real(RP),                     intent(out)   :: SCflux(1:NCONS,       &
                                                             0:e % Nxyz(1), &
                                                             0:e % Nxyz(2), &
@@ -682,7 +676,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function AA_compute(self, e, Fv) result(div)
+   function AA_compute(self, e, switch, Fv) result(div)
 !
 !     ---------
 !     Interface
@@ -690,6 +684,7 @@ module ShockCapturing
       implicit none
       class(ArtificialAdvection_t), intent(in) :: self
       type(Element),                intent(in) :: e
+      real(RP),                     intent(in) :: switch
       real(RP),                     intent(in) :: Fv(1:NCONS,       &
                                                      0:e % Nxyz(1), &
                                                      0:e % Nxyz(2), &
@@ -719,9 +714,6 @@ module ShockCapturing
 !     ---------
       implicit none
       class(ArtificialAdvection_t), intent(in) :: self
-
-
-      if (.not. MPI_Process % isRoot) return
 
    end subroutine AA_describe
 !
@@ -807,7 +799,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NoSVV_viscosity(self, mesh, e, switch, limit, SCflux)
+   subroutine NoSVV_viscosity(self, mesh, e, switch, SCflux)
 !
 !     --------------------------------------------------------------------------
 !     TODO: Introduce alpha viscosity, which probably means reimplementing here
@@ -822,7 +814,6 @@ module ShockCapturing
       type(HexMesh),     intent(inout) :: mesh
       type(Element),     intent(inout) :: e
       real(RP),          intent(in)    :: switch
-      logical,           intent(in)    :: limit
       real(RP),          intent(out)   :: SCflux(1:NCONS,       &
                                                  0:e % Nxyz(1), &
                                                  0:e % Nxyz(2), &
@@ -842,8 +833,7 @@ module ShockCapturing
       real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
 
 
-      if ((.not. limit .and. switch > 0.0_RP) .or. &
-          (limit .and. switch > 0.0_RP .and. switch < 1.0_RP)) then
+      if (switch > 0.0_RP) then
 !
 !        Compute viscosity
 !        -----------------
@@ -1022,7 +1012,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SVV_viscosity(self, mesh, e, switch, limit, SCflux)
+   subroutine SVV_viscosity(self, mesh, e, switch, SCflux)
 !
 !     ---------
 !     Interface
@@ -1032,7 +1022,6 @@ module ShockCapturing
       type(HexMesh),   intent(inout) :: mesh
       type(Element),   intent(inout) :: e
       real(RP),        intent(in)    :: switch
-      logical,         intent(in)    :: limit
       real(RP),        intent(out)   :: SCflux(1:NCONS,       &
                                                0:e % Nxyz(1), &
                                                0:e % Nxyz(2), &
@@ -1052,8 +1041,7 @@ module ShockCapturing
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
 
 
-      if ((.not. limit .and. switch > 0.0_RP) .or. &
-          (limit .and. switch > 0.0_RP .and. switch < 1.0_RP)) then
+      if (switch > 0.0_RP) then
 !
 !        Compute viscosities
 !        -------------------
@@ -1174,18 +1162,24 @@ module ShockCapturing
       type(FTValueDictionary), intent(in)    :: controlVariables
 
 
-      if (controlVariables % containsKey(SC_BLENDING_KEY)) then
-         self % c = controlVariables % doublePrecisionValueForKey(SC_BLENDING_KEY)
+      if (controlVariables % containsKey(SC_BLENDING1_KEY)) then
+         self % c1 = controlVariables % doublePrecisionValueForKey(SC_BLENDING1_KEY)
       else
-         write(STD_OUT,*) "ERROR. A value for the blending parameter must be given."
+         write(STD_OUT,*) "ERROR. A value for the blending parameter 1 must be given."
          stop
+      end if
+
+      if (controlVariables % containsKey(SC_BLENDING2_KEY)) then
+         self % c2 = controlVariables % doublePrecisionValueForKey(SC_BLENDING2_KEY)
+      else
+         self % c2 = self % c1
       end if
 
    end subroutine SSFV_initialize
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function SSFV_hyperbolic(self, e, Fv) result(div)
+   function SSFV_hyperbolic(self, e, switch, Fv) result(div)
 !
 !     -------
 !     Modules
@@ -1201,6 +1195,7 @@ module ShockCapturing
       implicit none
       class(SC_SSFV_t), intent(in) :: self
       type(Element),    intent(in) :: e
+      real(RP),         intent(in) :: switch
       real(RP),         intent(in) :: Fv(1:NCONS,     &
                                          0:e%Nxyz(1), &
                                          0:e%Nxyz(2), &
@@ -1227,6 +1222,7 @@ module ShockCapturing
       real(RP) :: p
       real(RP) :: invRho
       real(RP) :: b
+      real(RP) :: c
       real(RP) :: d
 
 
@@ -1335,6 +1331,8 @@ module ShockCapturing
 !
 !     Blending
 !     --------
+      c = self % c2 * (1.0_RP-switch) + self % c1 * switch
+
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
 
          p = Pressure(e % storage % Q(:,i-1,j,k))
@@ -1346,8 +1344,9 @@ module ShockCapturing
          call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
          b = dot_product(w2-w1, FSx(:,i,j,k)-FVx(:,i,j,k))
-         d = sqrt(b**2 + self % c**2)
+         d = sqrt(b**2 + c**2)
          d = (d-b) / d
+         d = min(d, 1.0_RP)
 
          FSx(:,i,j,k) = FVx(:,i,j,k) + d*(FSx(:,i,j,k)-FVx(:,i,j,k))
 
@@ -1364,8 +1363,9 @@ module ShockCapturing
          call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
          b = dot_product(w2-w1, FSy(:,j,i,k)-FVy(:,j,i,k))
-         d = sqrt(b**2 + self % c**2)
+         d = sqrt(b**2 + c**2)
          d = (d-b) / d
+         d = min(d, 1.0_RP)
 
          FSy(:,j,i,k) = FVy(:,j,i,k) + d*(FSy(:,j,i,k)-FVy(:,j,i,k))
 
@@ -1382,8 +1382,9 @@ module ShockCapturing
          call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
          b = dot_product(w2-w1, FSz(:,k,i,j)-FVz(:,k,i,j))
-         d = sqrt(b**2 + self % c**2)
+         d = sqrt(b**2 + c**2)
          d = (d-b) / d
+         d = min(d, 1.0_RP)
 
          FSz(:,k,i,j) = FVz(:,k,i,j) + d*(FSz(:,k,i,j)-FVz(:,k,i,j))
 
@@ -1416,7 +1417,8 @@ module ShockCapturing
 
       if (.not. MPI_Process % isRoot) return
 
-      write(STD_OUT,"(30X,A,A30,G10.3)") "->", "SSFV blending parameter: ", self % c
+      write(STD_OUT,"(30X,A,A30,G10.3,A,G10.3)") "->", "SSFV blending parameter: ", &
+                                                 self % c1, " - ", self % c2
 
    end subroutine SSFV_describe
 !

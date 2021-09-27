@@ -835,15 +835,13 @@ module SpatialDiscretization
 !        ************************
 !
          if (ShockCapturingDriver % isActive .and. ShockCapturingDriver % hasHyperbolicTerm) then
-            viscousContravariantFlux = ViscousContravariantFlux + AviscContravariantFlux
-            hyperbolicSC = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, e % storage % QDot)
-         else
-            hyperbolicSC = .false.
-         end if
+
+            viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
+            call ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, e % storage % QDot)
 !
-!        Usual hyperbolic term for non-detected elements
-!        -----------------------------------------------
-         if (.not. hyperbolicSC) then
+!        Usual hyperbolic term if shock-capturing does not modify the advection
+!        ----------------------------------------------------------------------
+         else
 !
 !           Compute inviscid contravariant flux
 !           -----------------------------------
