@@ -25,6 +25,9 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      ########################################################################
+      compile_command: 'make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES' 
+      ########################################################################      
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -45,7 +48,7 @@ jobs:
         working-directory: ./Solver  
         run: |
          make allclean MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
-         make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES
+         ${{compile_command}}
 
 ########################################################################
 #######                         COMPONENTS                      ########
