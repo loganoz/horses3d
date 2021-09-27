@@ -38,7 +38,7 @@ jobs:
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
       - name: cache-intel-compilers
-        if: matrix.compiler == 'ifort'
+        if: (matrix.compiler == 'ifort')
         id: cache-intel-compilers
         uses: actions/cache@v2
         with:
@@ -96,20 +96,22 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-      
-      - if: matrix.comm == 'PARALLEL' 
+
+      - if: (matrix.comm == 'SEQUENTIAL') 
+        name: Run FacePatches
+        working-directory: ./Solver/test/Components/FacePatches
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/FacePatches    
+          
+      - if: (matrix.comm == 'PARALLEL') 
         name: Run FacePatches
         working-directory: ./Solver/test/Components/FacePatches
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./bin/FacePatches 
        
-      - if: matrix.comm == 'SEQUENTIAL' 
-        name: Run FacePatches
-        working-directory: ./Solver/test/Components/FacePatches
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/FacePatches        
+    
 
 #
 # 2) GRADIENTS TEST
