@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI HORSES3D
+name: CI PARALLEL (MPI)
 
 ########################################################################  
 # Controls when the action will run. 
@@ -25,10 +25,10 @@ jobs:
     strategy:
       fail-fast: false 
       matrix:
-        compiler: ['gfortran', 'ifort']
-        mode: ['RELEASE', 'DEBUG']
-        comm: ['SEQUENTIAL']
-        enable_threads: ['YES']
+        compiler: ['ifort']
+        mode: ['RELEASE']
+        comm: ['PARALLEL']
+        enable_threads: ['NO']
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -83,112 +83,10 @@ jobs:
          make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-########################################################################
-#######                         COMPONENTS                      ########
-########################################################################
-#
-# 1) FACE PATCHES TEST
-# --------------------
-
-      - name: Build FacePatches
-        working-directory: ./Solver/test/Components/FacePatches
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-
-      - name: Run FacePatches
-        working-directory: ./Solver/test/Components/FacePatches
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/FacePatches         
-
-#
-# 2) GRADIENTS TEST
-# -----------------
-    # This test has been inactive in Alderaan for quite a long time
-#
-# 3) HEXMAPPINGS TEST
-# -------------------            
-
-      - name: Build HexMappings
-        working-directory: ./Solver/test/Components/HexMappings
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-      
-      - name: Run HexMappings
-        working-directory: ./Solver/test/Components/HexMappings
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/HexMappings
-
-#
-# 4) HEXMESH TEST
-# ---------------
-
-      - name: Build HexMesh
-        working-directory: ./Solver/test/Components/HexMesh
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-      
-      - name: Run HexMesh
-        working-directory: ./Solver/test/Components/HexMesh
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/HexMesh
-
-#        
-# 5) MESHCONSISTENCY TEST
-# -----------------------
-
-      - name: Build MeshConsistency
-        working-directory: ./Solver/test/Components/MeshConsistency
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-      
-      - name: Run MeshConsistency
-        working-directory: ./Solver/test/Components/MeshConsistency
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/MeshConsistency
-
-#
-# 6) NODALSTORAGE TEST
-# --------------------
-
-      - name: Build NodalStorage
-        working-directory: ./Solver/test/Components/NodalStorage
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-      
-      - name: Run NodalStorage
-        working-directory: ./Solver/test/Components/NodalStorage
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./bin/NodalStorage
 
 ########################################################################
 #######                         EULER                           ########
 ########################################################################
-#
-# 1) DIFFUSER
-# -----------
-
-      - name: Build Diffuser
-        working-directory: ./Solver/test/Euler/Diffuser/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
-
-      - name: Run Diffuser
-        working-directory: ./Solver/test/Euler/Diffuser
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns DiffuserFlow.control
-
 #
 # 2) UNIFORM FLOW
 # ---------------
@@ -203,7 +101,7 @@ jobs:
         working-directory: ./Solver/test/Euler/UniformFlow
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns UniformFlow.control
+          mpiexec -n 8 ./horses3d.ns UniformFlow.control
 
 #
 # 3) BOX AROUND CIRCLE
@@ -219,7 +117,7 @@ jobs:
         working-directory: ./Solver/test/Euler/BoxAroundCircle
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns BoxAroundCircle.control
+          mpiexec -n 8 ./horses3d.ns BoxAroundCircle.control
 
 #
 # 4) BOX AROUND CIRCLE PIROZZOLI
@@ -235,7 +133,7 @@ jobs:
         working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns BoxAroundCirclePirozzoli.control
+          mpiexec -n 8 ./horses3d.ns BoxAroundCirclePirozzoli.control
         
 #
 # 5) Inviscid TGV with KEPEC
@@ -251,7 +149,7 @@ jobs:
         working-directory: ./Solver/test/Euler/TaylorGreenKEPEC
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns TaylorGreenKEPEC.control
+          mpiexec -n 8 ./horses3d.ns TaylorGreenKEPEC.control
 
 #
 # 6) Vortex transport 2D with KEPEC
@@ -267,7 +165,7 @@ jobs:
         working-directory: ./Solver/test/Euler/VortexTransport2D
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns VortexTransport2D.control
+          mpiexec -n 8 ./horses3d.ns VortexTransport2D.control
 
 #
 # 7) Jacobian-Free Newton-Krylov
@@ -284,7 +182,7 @@ jobs:
 
       # - name: Run JFNK Uniform Flow
       #   working-directory: ./Solver/test/Euler/JFNK
-      #   run: ./horses3d.ns UniformFlowJFNK.control
+      #   run: mpiexec -n 8 ./horses3d.ns UniformFlowJFNK.control
 
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
@@ -300,7 +198,7 @@ jobs:
         working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns BoxAroundCircle_pAdapted.control
+          mpiexec -n 8 ./horses3d.ns BoxAroundCircle_pAdapted.control
 
 ########################################################################
 #######                         NAVIER-STOKES                   ########
@@ -320,7 +218,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Convergence.control
+          mpiexec -n 8 ./horses3d.ns Convergence.control
 
 #
 # 0) Convergence energy
@@ -336,7 +234,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_energy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Convergence_energy.control
+          mpiexec -n 8 ./horses3d.ns Convergence_energy.control
 
 #
 # 0) Convergence entropy
@@ -352,7 +250,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Convergence_entropy.control
+          mpiexec -n 8 ./horses3d.ns Convergence_entropy.control
 
 #
 # 1) CYLINDER
@@ -368,7 +266,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Cylinder
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Cylinder.control
+          mpiexec -n 8 ./horses3d.ns Cylinder.control
 
 #
 # 2) CYLINDER IP
@@ -384,7 +282,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderIP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderIP.control
+          mpiexec -n 8 ./horses3d.ns CylinderIP.control
 
 #
 # 3) CYLINDER BR2
@@ -400,7 +298,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderBR2
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderBR2.control
+          mpiexec -n 8 ./horses3d.ns CylinderBR2.control
 
 #
 # 4) CYLINDER DUCROS
@@ -416,7 +314,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderDucros
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderDucros.control
+          mpiexec -n 8 ./horses3d.ns CylinderDucros.control
 
 #
 # 5) CYLINDER LES
@@ -432,7 +330,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderLES
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderLES.control
+          mpiexec -n 8 ./horses3d.ns CylinderLES.control
 
 #
 # 6) TAYLOR GREEN VORTEX
@@ -448,7 +346,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns TaylorGreen.control
+          mpiexec -n 8 ./horses3d.ns TaylorGreen.control
 
 #
 # 7) TAYLOR GREEN VORTEX KEP BR2
@@ -464,7 +362,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns TaylorGreenKEP_BR2.control
+          mpiexec -n 8 ./horses3d.ns TaylorGreenKEP_BR2.control
 
 #
 # 8) TAYLOR GREEN VORTEX KEPEC IP
@@ -480,7 +378,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns TaylorGreenKEPEC_IP.control
+          mpiexec -n 8 ./horses3d.ns TaylorGreenKEPEC_IP.control
 
 #
 # 9) CYLINDER FAS
@@ -496,7 +394,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderFAS
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderFAS.control
+          mpiexec -n 8 ./horses3d.ns CylinderFAS.control
 
 #
 # 10) CYLINDER IP+BDF2
@@ -509,7 +407,7 @@ jobs:
       #
       #- name: Run NSCylinderIP_BDF2
       #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
-      #  run: ./horses3d.ns CylinderIP_BDF2.control
+      #  run: mpiexec -n 8 ./horses3d.ns CylinderIP_BDF2.control
 
 #
 # 11) CYLINDER DIFFERENT ORDERS
@@ -525,7 +423,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderDifferentOrders.control
+          mpiexec -n 8 ./horses3d.ns CylinderDifferentOrders.control
 
 #
 # 12) ENTROPY CONSERVING TEST
@@ -541,7 +439,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/EntropyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns EntropyConservingTest.control
+          mpiexec -n 8 ./horses3d.ns EntropyConservingTest.control
 
 #
 # 13) ENERGY CONSERVING TEST
@@ -557,7 +455,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/EnergyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns EnergyConservingTest.control
+          mpiexec -n 8 ./horses3d.ns EnergyConservingTest.control
 
 #
 # 14) NACA0012 Steady
@@ -573,7 +471,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/NACA0012
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns NACA0012.control
+          mpiexec -n 8 ./horses3d.ns NACA0012.control
 
 #
 # 15) NACA0012 Unsteady Dual Time Stepping
@@ -589,7 +487,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/DualTimeStepping
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns DualTimeStepping.control
+          mpiexec -n 8 ./horses3d.ns DualTimeStepping.control
 
 ########################################################################
 #######                       PARTICLES                         ########
@@ -598,31 +496,31 @@ jobs:
 #
 # 1) FreeFall
 # ----------------------------
-      - name: Build ParticlesFreeFall
-        working-directory: ./Solver/test/Particles/FreeFall/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      # - name: Build ParticlesFreeFall
+      #   working-directory: ./Solver/test/Particles/FreeFall/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run ParticlesFreeFall
-        working-directory: ./Solver/test/Particles/FreeFall
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns FreeFall.control
+      # - name: Run ParticlesFreeFall
+      #   working-directory: ./Solver/test/Particles/FreeFall
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns FreeFall.control
 #
 # 2) RadiationHeat
 # ----------------------------
-      - name: Build RadiationHeat
-        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      # - name: Build RadiationHeat
+      #   working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run RadiationHeat
-        working-directory: ./Solver/test/Particles/RadiationHeat
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns RadiationHeat.control
+      # - name: Run RadiationHeat
+      #   working-directory: ./Solver/test/Particles/RadiationHeat
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns RadiationHeat.control
 #
 # 3) ParticleBoundaryCond
 # ----------------------------
@@ -634,7 +532,7 @@ jobs:
 
       # - name: Run ParticleBoundaryCond
       #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond
-      #   run: ./horses3d.ns BoundaryCondition.control
+      #   run: mpiexec -n 8 ./horses3d.ns BoundaryCondition.control
 #
 # 4) Pouransari
 # ----------------------------
@@ -646,7 +544,7 @@ jobs:
 
       # - name: Run Pouransari
       #   working-directory: ./Solver/test/Particles/Pouransari
-      #   run: ./horses3d.ns Pouransari_St0041.control
+      #   run: mpiexec -n 8 ./horses3d.ns Pouransari_St0041.control
 
 ########################################################################
 #######                       MULTIPHASE                        ########
@@ -665,7 +563,7 @@ jobs:
         working-directory: ./Solver/test/Multiphase/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu Convergence.control
+          mpiexec -n 8 ./horses3d.mu Convergence.control
 
 #
 # 2) RisingBubble
@@ -681,7 +579,7 @@ jobs:
         working-directory: ./Solver/test/Multiphase/RisingBubble
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu RisingBubble.control
+          mpiexec -n 8 ./horses3d.mu RisingBubble.control
 
 #
 # 3) Pipe
@@ -697,7 +595,7 @@ jobs:
         working-directory: ./Solver/test/Multiphase/Pipe
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu AnnularFlow.control
+          mpiexec -n 8 ./horses3d.mu AnnularFlow.control
 
 #
 # 4) Entropy conserving test
@@ -713,7 +611,7 @@ jobs:
         working-directory: ./Solver/test/Multiphase/EntropyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu EntropyConservingTest.control
+          mpiexec -n 8 ./horses3d.mu EntropyConservingTest.control
 
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
@@ -732,7 +630,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins Convergence4P5.control
+          mpiexec -n 8 ./horses3d.ins Convergence4P5.control
 
 #
 # 2) Kovasznay 
@@ -748,7 +646,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/Kovasznay
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins Kovasznay.control
+          mpiexec -n 8 ./horses3d.ins Kovasznay.control
 
 #
 # 3) Lid driven cavity 
@@ -764,7 +662,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins LidDrivenCavity.control
+          mpiexec -n 8 ./horses3d.ins LidDrivenCavity.control
 
 #
 # 4) Taylor Green Vortex
@@ -780,7 +678,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins TaylorGreen.control
+          mpiexec -n 8 ./horses3d.ins TaylorGreen.control
 
 #
 # 5) Rayleigh-Taylor instability 
@@ -796,4 +694,4 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins RayleighTaylor.control
+          mpiexec -n 8 ./horses3d.ins RayleighTaylor.control
