@@ -24,8 +24,8 @@ jobs:
     # Define strategy matrix
     strategy:
       matrix:
-        compiler: ['gfortran', 'ifort']
-        mode: ['RELEASE', 'DEBUG']
+        compiler: ['ifort'] #['gfortran', 'ifort']
+        mode: ['DEBUG'] #['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -52,6 +52,7 @@ jobs:
           sudo apt-get install intel-hpckit-getting-started intel-oneapi-clck intel-oneapi-common-licensing intel-oneapi-common-vars
           sudo apt-get install intel-oneapi-dev-utilities  intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-compiler-fortran intel-oneapi-itac
           sudo apt-get install intel-oneapi-mkl intel-oneapi-mpi intel-oneapi-mpi-devel
+          source /opt/intel/oneapi/setvars.sh || true 
           # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
           # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
@@ -67,7 +68,7 @@ jobs:
       ##  run: gfortran-9 --version
       - name: Show ${{matrix.compiler}} version
         run: ${{matrix.compiler}} --version
-
+        
       - name: Configure
         working-directory: ./Solver
         run: ./configure
