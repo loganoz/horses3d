@@ -42,8 +42,8 @@ jobs:
       
       ##- name: Show gfortran version
       ##  run: gfortran-9 --version
-      - name: Show gfortran version
-        run: gfortran --version
+      - name: Show ${{matrix.compiler}} version
+        run: ${{matrix.compiler}} --version
 
       - name: Configure
         working-directory: ./Solver
