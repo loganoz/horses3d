@@ -57,6 +57,8 @@ jobs:
           # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
           # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
+      - name: Install METIS
+        run: sudo apt install metis
 
       # Runs a single command using the runners shell
       ##- name: Install gfortran
