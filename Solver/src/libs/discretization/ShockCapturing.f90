@@ -1275,21 +1275,18 @@ module ShockCapturing
 !     Dissipative averaging in complementary points
 !     ---------------------------------------------
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
-         F = dissipativeFlux(e % storage % Q(:,i-1,j,k), e % storage % Q(:,i,j,k))
-         FVx(:,i,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradXi(:,i-1,j,k), e % geom % jGradXi(:,i,j,k))
+         FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), e % storage % Q(:,i,j,k),     &
+                                        e % geom % jGradXi(:,i-1,j,k), e % geom % jGradXi(:,i,j,k))
       end do                ; end do                ; end do
 
       do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
-         F = dissipativeFlux(e % storage % Q(:,i,j-1,k), e % storage % Q(:,i,j,k))
-         FVy(:,j,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradEta(:,i,j-1,k), e % geom % jGradEta(:,i,j,k))
+         FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), e % storage % Q(:,i,j,k),       &
+                                        e % geom % jGradEta(:,i,j-1,k), e % geom % jGradEta(:,i,j,k))
       end do                ; end do                ; end do
 
       do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
-         F = dissipativeFlux(e % storage % Q(:,i,j,k-1), e % storage % Q(:,i,j,k))
-         FVz(:,k,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradZeta(:,i,j,k-1), e % geom % jGradZeta(:,i,j,k))
+         FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1), e % storage % Q(:,i,j,k),         &
+                                        e % geom % jGradZeta(:,i,j,k-1), e % geom % jGradZeta(:,i,j,k))
       end do                ; end do                ; end do
 !
 !     Boundaries
@@ -1297,36 +1294,42 @@ module ShockCapturing
       do k = 0, Nz ; do j = 0, Ny
 
          call EulerFlux(e % storage % Q(:,0,j,k), F)
-         FSx(:,0,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradXi(:,0,j,k), e % geom % jGradXi(:,0,j,k))
+         FSx(:,0,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),   &
+                                      e % geom % jGradXi(:,0,j,k), &
+                                      e % geom % jGradXi(:,0,j,k))
 
          call EulerFlux(e % storage % Q(:,Nx,j,k), F)
-         FSx(:,Nx+1,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                         e % geom % jGradXi(:,Nx,j,k), e % geom % jGradXi(:,Nx,j,k))
+         FSx(:,Nx+1,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),    &
+                                         e % geom % jGradXi(:,Nx,j,k), &
+                                         e % geom % jGradXi(:,Nx,j,k))
 
       end do       ; end do
 
       do k = 0, Nz ; do i = 0, Nx
 
          call EulerFlux(e % storage % Q(:,i,0,k), F)
-         FSy(:,0,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradEta(:,i,0,k), e % geom % jGradEta(:,i,0,k))
+         FSy(:,0,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),    &
+                                      e % geom % jGradEta(:,i,0,k), &
+                                      e % geom % jGradEta(:,i,0,k))
 
          call EulerFlux(e % storage % Q(:,i,Ny,k), F)
-         FSy(:,Ny+1,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                         e % geom % jGradEta(:,i,Ny,k), e % geom % jGradEta(:,i,Ny,k))
+         FSy(:,Ny+1,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),     &
+                                         e % geom % jGradEta(:,i,Ny,k), &
+                                         e % geom % jGradEta(:,i,Ny,k))
 
       end do       ; end do
 
       do j = 0, Ny ; do i = 0, Nx
 
          call EulerFlux(e % storage % Q(:,i,j,0), F)
-         FSz(:,0,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                      e % geom % jGradZeta(:,i,j,0), e % geom % jGradZeta(:,i,j,0))
+         FSz(:,0,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ),     &
+                                      e % geom % jGradZeta(:,i,j,0), &
+                                      e % geom % jGradZeta(:,i,j,0))
 
          call EulerFlux(e % storage % Q(:,i,j,Nz), F)
-         FSz(:,Nz+1,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ), &
-                                         e % geom % jGradZeta(:,i,j,Nz), e % geom % jGradZeta(:,i,j,Nz))
+         FSz(:,Nz+1,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ),      &
+                                         e % geom % jGradZeta(:,i,j,Nz), &
+                                         e % geom % jGradZeta(:,i,j,Nz))
 
       end do       ; end do
 !
@@ -1475,13 +1478,13 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function dissipativeFlux(Q1, Q2) result(FV)
+   function dissipativeFlux(Q1, Q2, JaL, JaR) result(FV)
 !
 !     -------
 !     Modules
 !     -------
       use Physics,            only: EulerFlux
-      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW
+      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
       use VariableConversion, only: Pressure
       use FluidData,          only: thermodynamics
 !
@@ -1491,50 +1494,131 @@ module ShockCapturing
       implicit none
       real(RP), intent(in) :: Q1(NCONS)
       real(RP), intent(in) :: Q2(NCONS)
-      real(RP)             :: FV(NCONS, NDIM)
+      real(RP), intent(in) :: JaL(NDIM)
+      real(RP), intent(in) :: JaR(NDIM)
+      real(RP)             :: FV(NCONS)
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: F1(NCONS, NDIM)
-      real(RP) :: F2(NCONS, NDIM)
+      real(RP) :: Ja(NDIM)
+      real(RP) :: Jf
+      real(RP) :: n(NDIM)
+      real(RP) :: t1(NDIM)
+      real(RP) :: t2(NDIM)
+      real(RP) :: Qn1(NCONS)
+      real(RP) :: Qn2(NCONS)
+      real(RP) :: F1(NCONS)
+      real(RP) :: F2(NCONS)
       real(RP) :: invRho1, invRho2
       real(RP) :: p1, p2
       real(RP) :: u1, u2
-      real(RP) :: v1, v2
-      real(RP) :: w1, w2
       real(RP) :: a1, a2
       real(RP) :: lambda
-      real(RP) :: jump(NCONS)
 
+!
+!     Rotate to normal reference frame
+!     --------------------------------
+      Ja  = AVERAGE(JaL, JaR) ; Jf = norm2(Ja) ; n = Ja / Jf
+      if (n(IZ) < 0.9_RP) then
+         t1 = [n(IY), -n(IX), 0.0_RP]
+      else
+         t1 = [n(IZ), 0.0_RP, -n(IX)]
+      end if
+      t1 = t1 / norm2(t1)
+      t2 = cross(n, t1)
 
-      call EulerFlux(Q1, F1)
-      call EulerFlux(Q2, F2)
-      FV = AVERAGE(F1, F2)
+      Qn1(IRHO)  = Q1(IRHO)
+      Qn1(IRHOU) = Q1(IRHOU)*n(IX)  + Q1(IRHOV)*n(IY)  + Q1(IRHOW)*n(IZ)
+      Qn1(IRHOV) = Q1(IRHOU)*t1(IX) + Q1(IRHOV)*t1(IY) + Q1(IRHOW)*t1(IZ)
+      Qn1(IRHOW) = Q1(IRHOU)*t2(IX) + Q1(IRHOV)*t2(IY) + Q1(IRHOW)*t2(IZ)
+      Qn1(IRHOE) = Q1(IRHOE)
 
-      invRho1 = 1.0_RP / Q1(IRHO)   ; invRho2 = 1.0_RP / Q2(IRHO)
-      u1      = Q1(IRHOU) * invRho1 ; u2      = Q2(iRHOU) * invRho2
-      v1      = Q1(IRHOV) * invRho1 ; v2      = Q2(iRHOV) * invRho2
-      w1      = Q1(IRHOW) * invRho1 ; w2      = Q2(iRHOW) * invRho2
-      p1      = Pressure(Q1)        ; p2      = Pressure(Q2)
-
+      Qn2(IRHO)  = Q2(IRHO)
+      Qn2(IRHOU) = Q2(IRHOU)*n(IX)  + Q2(IRHOV)*n(IY)  + Q2(IRHOW)*n(IZ)
+      Qn2(IRHOV) = Q2(IRHOU)*t1(IX) + Q2(IRHOV)*t1(IY) + Q2(IRHOW)*t1(IZ)
+      Qn2(IRHOW) = Q2(IRHOU)*t2(IX) + Q2(IRHOV)*t2(IY) + Q2(IRHOW)*t2(IZ)
+      Qn2(IRHOE) = Q2(IRHOE)
+!
+!     Intermediate variables
+!     ----------------------
       associate(g => thermodynamics % gamma)
-
-      jump = Q2 - Q1
-      a1 = sqrt(g * p1 * invRho1) ; a2 = sqrt(g * p2 * invRho2)
-
-      lambda = max(abs(u1)+a1, abs(u2)+a2)
-      FV(:,IX) = FV(:,IX) - lambda/2.0_RP * jump
-
-      lambda = max(abs(v1)+a1, abs(v2)+a2)
-      FV(:,IY) = FV(:,IY) - lambda/2.0_RP * jump
-
-      lambda = max(abs(w1)+a1, abs(w2)+a2)
-      FV(:,IZ) = FV(:,IZ) - lambda/2.0_RP * jump
-
+      invRho1 = 1.0_RP / Qn1(IRHO)     ; invRho2 = 1.0_RP / Qn2(IRHO)
+      u1      = Qn1(IRHOU) * invRho1   ; u2      = Qn2(iRHOU) * invRho2
+      p1      = Pressure(Qn1)          ; p2      = Pressure(Qn2)
+      a1      = sqrt(g * p1 * invRho1) ; a2      = sqrt(g * p2 * invRho2)
       end associate
+!
+!     Average
+!     -------
+      F1 = EulerFlux1D(Qn1, p1)
+      F2 = EulerFlux1D(Qn2, p2)
+      FV = AVERAGE(F1, F2)
+!
+!     Dissipation
+!     -----------
+      lambda = max(abs(u1)+a1, abs(u2)+a2)
+      FV = FV - lambda/2.0_RP * (Qn2-Qn1)
+!
+!     Projection to physical reference frame and contravariant scaling
+!     ----------------------------------------------------------------
+      FV(IRHOU:IRHOW) = FV(IRHOU)*n + FV(IRHOV)*t1 + FV(IRHOW)*t2
+      FV = FV * Jf
 
    end function dissipativeFlux
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function EulerFlux1D(Q, p) result(F)
+!
+!     Modules
+!     -------
+      use PhysicsStorage, only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      real(RP), intent(in) :: Q(NCONS)
+      real(RP), intent(in) :: p
+      real(RP)             :: F(NCONS)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP) :: u, v, w
+
+      u = Q(IRHOU) / Q(IRHO)
+      v = Q(IRHOV) / Q(IRHO)
+      w = Q(IRHOW) / Q(IRHO)
+
+      F(IRHO)  = Q(IRHOU)
+      F(IRHOU) = Q(IRHOU) * u + p
+      F(IRHOV) = Q(IRHOU) * v
+      F(IRHOW) = Q(IRHOU) * w
+      F(IRHOE) = ( Q(IRHOE) + p ) * u
+
+   end function EulerFlux1D
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function cross(u,v) result(res)
+!
+!     ---------
+!     Interface
+!     ---------
+      IMPLICIT NONE
+      real(RP), intent(in) :: u(NDIM)
+      real(RP), intent(in) :: v(NDIM)
+      real(RP)             :: res(NDIM)
+
+
+      res(1) = u(2)*v(3) - v(2)*u(3)
+      res(2) = u(3)*v(1) - v(3)*u(1)
+      res(3) = u(1)*v(2) - v(1)*u(2)
+
+   end function cross
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

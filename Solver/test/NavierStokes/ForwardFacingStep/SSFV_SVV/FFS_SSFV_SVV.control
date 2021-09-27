@@ -41,7 +41,7 @@
                           Shock alpha 1 = 0.0
                              Shock mu 2 = 0.5e-3
                           Shock alpha 2 = 0.5e-3
-                    Shock SSFV blending = 1d-5
+                    Shock SSFV blending = 1d-4
                      Sensor lower limit = -1.0
                     Sensor higher limit = 1.0
                       SVV filter cutoff = 4.0
