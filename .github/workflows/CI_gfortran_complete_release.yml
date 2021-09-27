@@ -24,9 +24,7 @@ jobs:
     # Define strategy matrix
     strategy:
       matrix:
-        compile: |
-         ['make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES', 
-          'make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES']
+        compile: ['make MODE=RELEASE COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES', 'make MODE=DEBUG COMPILER=gfortran COMM=SEQUENTIAL ENABLE_THREADS=YES']
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
