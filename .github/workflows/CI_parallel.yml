@@ -60,15 +60,15 @@ jobs:
           # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
           # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
-      - name: cache-metis
-        id: cache-metis
-        uses: actions/cache@v2
-        with:
-          path: /home/runner/metis-5.1.0
-          key: metis-${{ runner.os }}-b
+      # - name: cache-metis
+      #   id: cache-metis
+      #   uses: actions/cache@v2
+      #   with:
+      #     path: /home/runner/metis-5.1.0
+      #     key: metis-${{ runner.os }}-b
 
       - name: Install METIS
-        if: (steps.cache-metis.outputs.cache-hit != 'true')
+        # if: (steps.cache-metis.outputs.cache-hit != 'true')
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           wget "http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz"
@@ -76,6 +76,8 @@ jobs:
           cd metis-5.1.0
           make config cc=icc
           make
+          mv /home/runner/metis-5.1.0/build/Linux-x86_64/libmetis /home/runner/metis-5.1.0/build/Linux-x86_64/lib
+          mv /home/runner/metis-5.1.0/build/Linux-x86_64/programs /home/runner/metis-5.1.0/build/Linux-x86_64/bin
 #          export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
 #          echo $METIS_HOME
 
