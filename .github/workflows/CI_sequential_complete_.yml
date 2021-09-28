@@ -336,7 +336,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_energy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Convergence_energy.control
+          ./horses3d.ns Convergence.control
 
 #
 # 0) Convergence entropy
@@ -352,7 +352,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Convergence_entropy.control
+          ./horses3d.ns Convergence.control
 
 #
 # 1) CYLINDER
