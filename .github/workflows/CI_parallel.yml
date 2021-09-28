@@ -31,7 +31,7 @@ jobs:
         enable_threads: ['NO']
 
     env: 
-      METIS_HOME:  /home/runner/metis-5.1.0/build/Linux-x86_64    
+      METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64   
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -76,11 +76,8 @@ jobs:
           cd metis-5.1.0
           make config cc=icc
           make
-          ls /home/runner/metis-5.1.0/
-          ls /home/runner/metis-5.1.0/build/
-          ls /home/runner/metis-5.1.0/build/Linux-x86_64/
-          mv /home/runner/metis-5.1.0/build/Linux-x86_64/libmetis /home/runner/metis-5.1.0/build/Linux-x86_64/lib
-          mv /home/runner/metis-5.1.0/build/Linux-x86_64/programs /home/runner/metis-5.1.0/build/Linux-x86_64/bin
+          mv /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/libmetis /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/lib
+          mv /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/programs /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64/bin
 #          export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
 #          echo $METIS_HOME
 
