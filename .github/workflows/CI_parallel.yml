@@ -29,6 +29,9 @@ jobs:
         mode: ['RELEASE']
         comm: ['PARALLEL']
         enable_threads: ['NO']
+
+    env: 
+      METIS_HOME:  /home/runner/metis-5.1.0/build/Linux-x86_64    
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -65,8 +68,8 @@ jobs:
           cd metis-5.1.0
           make config cc=icc
           make
-          export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
-          echo $METIS_HOME
+#          export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
+#          echo $METIS_HOME
 
       - name: Check METIS PATH
         run: echo $METIS_HOME
