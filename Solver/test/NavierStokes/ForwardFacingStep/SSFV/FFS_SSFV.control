@@ -38,10 +38,6 @@
                         SSFV blending 2 = 1d-2
                      Sensor lower limit = 0.0
                     Sensor higher limit = 1.0
-                      SVV filter cutoff = 4.0
-                            SVV limited = .false.
-                       SVV filter shape = power
-                        SVV filter type = low-pass
 
 !----------------------- Time integration:-
                         Time integration = Explicit
@@ -75,9 +71,4 @@
 
 #define boundary top
    type = FreeSlipWall
-#end
-
-#define volume monitor 1
-   name = SVV
-   variable = SVV Dissipation
 #end
