@@ -161,8 +161,8 @@ module MultigridTypes
       integer                   :: eqn
       !--------------------------------------------------------
       
-      if (present(white) .AND. white) then
-         color1 = achar(27)//'[00m'
+      if (present(white)) then
+         if (white) color1 = achar(27)//'[00m'
       else
          color1 = achar(27)//'[34m'
       end if

@@ -706,9 +706,11 @@ module FASMultigridClass
       
       ThisTimeStep = timestep
       
-      if (PRESENT(FullMG) .AND. FullMG) then
-         if (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
-         FMG = .TRUE.
+      if (PRESENT(FullMG)) then
+         if (FullMG) then
+            if (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
+            FMG = .TRUE.
+         end if
       else
          FMG = .FALSE.
       end if
@@ -1461,7 +1463,9 @@ module FASMultigridClass
          tk = t + a(k)*deltaT
 
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+         end if
          call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
 
 
