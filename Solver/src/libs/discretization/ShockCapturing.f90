@@ -1278,7 +1278,7 @@ module ShockCapturing
       associate(Nx => e % Nxyz(1), &
                 Ny => e % Nxyz(2), &
                 Nz => e % Nxyz(3)  )
-      associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+      associate(spAxi   => NodalStorage(Nx), &
                 spAeta  => NodalStorage(Ny), &
                 spAzeta => NodalStorage(Nz)  )
 !
@@ -1315,35 +1315,6 @@ module ShockCapturing
                                                                           e % geom % jGradZeta(:,i,j,s)  )
          end do                  ; end do
          FSz(:,k,i,j) = 2.0_RP * FSz(:,k,i,j)
-      end do                ; end do                ; end do
-!
-!     Dissipative averaging in complementary points
-!     ---------------------------------------------
-      do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
-         FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), &
-                                        e % storage % Q(:,i,j,k),   &
-                                        e % geom % ncXi(:,i,j,k),   &
-                                        e % geom % t1cXi(:,i,j,k),  &
-                                        e % geom % t2cXi(:,i,j,k),  &
-                                        e % geom % JfcXi(i,j,k))
-      end do                ; end do                ; end do
-
-      do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
-         FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), &
-                                        e % storage % Q(:,i,j,k),   &
-                                        e % geom % ncEta(:,i,j,k),  &
-                                        e % geom % t1cEta(:,i,j,k), &
-                                        e % geom % t2cEta(:,i,j,k), &
-                                        e % geom % JfcEta(i,j,k))
-      end do                ; end do                ; end do
-
-      do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
-         FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1),  &
-                                        e % storage % Q(:,i,j,k),    &
-                                        e % geom % ncZeta(:,i,j,k),  &
-                                        e % geom % t1cZeta(:,i,j,k), &
-                                        e % geom % t2cZeta(:,i,j,k), &
-                                        e % geom % JfcZeta(i,j,k))
       end do                ; end do                ; end do
 !
 !     Boundaries
@@ -1390,66 +1361,101 @@ module ShockCapturing
 
       end do       ; end do
 !
-!     Blending
-!     --------
-      c = self % c2 * (1.0_RP-switch) + self % c1 * switch
+!     Add dissipation if required only
+!     --------------------------------
+      if (switch > 0.0_RP) then
+!
+!        Dissipative averaging in complementary points
+!        ---------------------------------------------
+         do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
+            FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), &
+                                          e % storage % Q(:,i,j,k),   &
+                                          e % geom % ncXi(:,i,j,k),   &
+                                          e % geom % t1cXi(:,i,j,k),  &
+                                          e % geom % t2cXi(:,i,j,k),  &
+                                          e % geom % JfcXi(i,j,k))
+         end do                ; end do                ; end do
 
-      do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
+         do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
+            FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), &
+                                          e % storage % Q(:,i,j,k),   &
+                                          e % geom % ncEta(:,i,j,k),  &
+                                          e % geom % t1cEta(:,i,j,k), &
+                                          e % geom % t2cEta(:,i,j,k), &
+                                          e % geom % JfcEta(i,j,k))
+         end do                ; end do                ; end do
 
-         p = Pressure(e % storage % Q(:,i-1,j,k))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i-1,j,k)
-         call getEntropyVariables(e % storage % Q(:,i-1,j,k), p, invRho, w1)
+         do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
+            FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1),  &
+                                          e % storage % Q(:,i,j,k),    &
+                                          e % geom % ncZeta(:,i,j,k),  &
+                                          e % geom % t1cZeta(:,i,j,k), &
+                                          e % geom % t2cZeta(:,i,j,k), &
+                                          e % geom % JfcZeta(i,j,k))
+         end do                ; end do                ; end do
+!
+!        Blending
+!        --------
+         c = self % c2 * (1.0_RP-switch) + self % c1 * switch
 
-         p = Pressure(e % storage % Q(:,i,j,k))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
-         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+         do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
 
-         b = dot_product(w2-w1, FSx(:,i,j,k)-FVx(:,i,j,k))
-         d = sqrt(b**2 + c**2)
-         d = (d-b) / d
-         d = min(d, 1.0_RP)
+            p = Pressure(e % storage % Q(:,i-1,j,k))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i-1,j,k)
+            call getEntropyVariables(e % storage % Q(:,i-1,j,k), p, invRho, w1)
 
-         FSx(:,i,j,k) = FVx(:,i,j,k) + d*(FSx(:,i,j,k)-FVx(:,i,j,k))
+            p = Pressure(e % storage % Q(:,i,j,k))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+            call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
-      end do       ; end do       ; end do
+            b = dot_product(w2-w1, FSx(:,i,j,k)-FVx(:,i,j,k))
+            d = sqrt(b**2 + c**2)
+            d = (d-b) / d
+            d = min(d, 1.0_RP)
 
-      do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
+            FSx(:,i,j,k) = FVx(:,i,j,k) + d*(FSx(:,i,j,k)-FVx(:,i,j,k))
 
-         p = Pressure(e % storage % Q(:,i,j-1,k))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i,j-1,k)
-         call getEntropyVariables(e % storage % Q(:,i,j-1,k), p, invRho, w1)
+         end do       ; end do       ; end do
 
-         p = Pressure(e % storage % Q(:,i,j,k))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
-         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+         do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
 
-         b = dot_product(w2-w1, FSy(:,j,i,k)-FVy(:,j,i,k))
-         d = sqrt(b**2 + c**2)
-         d = (d-b) / d
-         d = min(d, 1.0_RP)
+            p = Pressure(e % storage % Q(:,i,j-1,k))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i,j-1,k)
+            call getEntropyVariables(e % storage % Q(:,i,j-1,k), p, invRho, w1)
 
-         FSy(:,j,i,k) = FVy(:,j,i,k) + d*(FSy(:,j,i,k)-FVy(:,j,i,k))
+            p = Pressure(e % storage % Q(:,i,j,k))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+            call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
-      end do       ; end do       ; end do
+            b = dot_product(w2-w1, FSy(:,j,i,k)-FVy(:,j,i,k))
+            d = sqrt(b**2 + c**2)
+            d = (d-b) / d
+            d = min(d, 1.0_RP)
 
-      do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
+            FSy(:,j,i,k) = FVy(:,j,i,k) + d*(FSy(:,j,i,k)-FVy(:,j,i,k))
 
-         p = Pressure(e % storage % Q(:,i,j,k-1))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k-1)
-         call getEntropyVariables(e % storage % Q(:,i,j,k-1), p, invRho, w1)
+         end do       ; end do       ; end do
 
-         p = Pressure(e % storage % Q(:,i,j,k))
-         invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
-         call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
+         do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
 
-         b = dot_product(w2-w1, FSz(:,k,i,j)-FVz(:,k,i,j))
-         d = sqrt(b**2 + c**2)
-         d = (d-b) / d
-         d = min(d, 1.0_RP)
+            p = Pressure(e % storage % Q(:,i,j,k-1))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k-1)
+            call getEntropyVariables(e % storage % Q(:,i,j,k-1), p, invRho, w1)
 
-         FSz(:,k,i,j) = FVz(:,k,i,j) + d*(FSz(:,k,i,j)-FVz(:,k,i,j))
+            p = Pressure(e % storage % Q(:,i,j,k))
+            invRho = 1.0_RP / e % storage % Q(IRHO,i,j,k)
+            call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
-      end do       ; end do       ; end do
+            b = dot_product(w2-w1, FSz(:,k,i,j)-FVz(:,k,i,j))
+            d = sqrt(b**2 + c**2)
+            d = (d-b) / d
+            d = min(d, 1.0_RP)
+
+            FSz(:,k,i,j) = FVz(:,k,i,j) + d*(FSz(:,k,i,j)-FVz(:,k,i,j))
+
+         end do       ; end do       ; end do
+
+      end if
 !
 !     Volume integral
 !     ---------------
