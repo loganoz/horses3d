@@ -181,17 +181,17 @@ jobs:
 # 6) Vortex transport 2D with KEPEC
 # ---------------------------------
 
-      - name: Build VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      # - name: Build VortexTransport2DKEPEC
+      #   working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns VortexTransport2D.control
+      # - name: Run VortexTransport2DKEPEC
+      #   working-directory: ./Solver/test/Euler/VortexTransport2D
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns VortexTransport2D.control
 
 #
 # 7) Jacobian-Free Newton-Krylov
@@ -213,7 +213,7 @@ jobs:
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
 # ------------------------------------
-
+#?
       - name: Build BoxAroundCircle_pAdapted
         working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
         run: |
@@ -409,7 +409,7 @@ jobs:
 #
 # 9) CYLINDER FAS
 # ---------------
-
+#?
       - name: Build NSCylinderFAS
         working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
         run: |
@@ -438,7 +438,7 @@ jobs:
 #
 # 11) CYLINDER DIFFERENT ORDERS
 # ----------------------------
-
+#?
       - name: Build NSCylinderDifferentOrders
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
         run: |
@@ -522,31 +522,31 @@ jobs:
 #
 # 1) FreeFall
 # ----------------------------
-      # - name: Build ParticlesFreeFall
-      #   working-directory: ./Solver/test/Particles/FreeFall/SETUP
-      #   run: |
-      #     source /opt/intel/oneapi/setvars.sh || true
-      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      - name: Build ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      # - name: Run ParticlesFreeFall
-      #   working-directory: ./Solver/test/Particles/FreeFall
-      #   run: |
-      #     source /opt/intel/oneapi/setvars.sh || true
-      #     mpiexec -n 8 ./horses3d.ns FreeFall.control
+      - name: Run ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns FreeFall.control
 #
 # 2) RadiationHeat
 # ----------------------------
-      # - name: Build RadiationHeat
-      #   working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
-      #   run: |
-      #     source /opt/intel/oneapi/setvars.sh || true
-      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      - name: Build RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      # - name: Run RadiationHeat
-      #   working-directory: ./Solver/test/Particles/RadiationHeat
-      #   run: |
-      #     source /opt/intel/oneapi/setvars.sh || true
-      #     mpiexec -n 8 ./horses3d.ns RadiationHeat.control
+      - name: Run RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns RadiationHeat.control
 #
 # 3) ParticleBoundaryCond
 # ----------------------------
