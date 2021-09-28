@@ -60,8 +60,8 @@ jobs:
       - name: Install METIS
         run: |
           wget "http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz"
-          cd metis-5.1.0
           tar -xvf metis-5.1.0.tar.gz
+          cd metis-5.1.0
           make config cc=icc
           make
           export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
