@@ -213,18 +213,18 @@ jobs:
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
 # ------------------------------------
-#?
-      - name: Build BoxAroundCircle_pAdapted
-        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run BoxAroundCircle_pAdapted
-        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns BoxAroundCircle_pAdapted.control
+      # - name: Build BoxAroundCircle_pAdapted
+      #   working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      # - name: Run BoxAroundCircle_pAdapted
+      #   working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns BoxAroundCircle_pAdapted.control
 
 ########################################################################
 #######                         NAVIER-STOKES                   ########
@@ -409,18 +409,18 @@ jobs:
 #
 # 9) CYLINDER FAS
 # ---------------
-#?
-      - name: Build NSCylinderFAS
-        working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run NSCylinderFAS
-        working-directory: ./Solver/test/NavierStokes/CylinderFAS
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns CylinderFAS.control
+      # - name: Build NSCylinderFAS
+      #   working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      # - name: Run NSCylinderFAS
+      #   working-directory: ./Solver/test/NavierStokes/CylinderFAS
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns CylinderFAS.control
 
 #
 # 10) CYLINDER IP+BDF2
