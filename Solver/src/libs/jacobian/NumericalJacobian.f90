@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Thu Sep 16 19:17:17 2021
+!   @Last revision date: Tue Sep 28 11:34:35 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: ff143c84ce3ae71970edc2365ac77f86ca725d8c
+!   @Last revision commit: 0b8b49ef742bce3e02d3138ef5e95597b5d3a726
 !
 !//////////////////////////////////////////////////////
 !
@@ -271,20 +271,11 @@ contains
       
       call Matrix % Reset(ForceDiagonal = .TRUE.)
       
-      select type(Matrix_p => Matrix)
-      type is(DenseBlockDiagMatrix_t) ! for dense block-diagonal each element has it's own color
 #if defined(CAHNHILLIARD)
-         CALL TimeDerivativeIsolated( sem % mesh, sem % particles, time, mode)
+      CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
-         CALL TimeDerivativeIsolated( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+      CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
-      class default
-#if defined(CAHNHILLIARD)
-         CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
-#else
-         CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
-#endif
-      end select 
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
@@ -300,113 +291,61 @@ contains
 !     ------------------------------------------
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
-      select type(Matrix_p => Matrix)
-         ! class default
-         type is(DenseBlockDiagMatrix_t) ! for dense block-diagonal each element has it's own color
-
-            ! compute DOF in each element
-            allocate(ndof_per_elm(nelm))
-            do thiselmidx = 1, nelm  
-               ndof_per_elm(thiselmidx) = sem % mesh % elements(thiselmidx) % storage % NDOF * nEqn
-               if (.not. (ndof_per_elm(thiselmidx) .eq. ndof_per_elm(1))) error stop "Non uniform N in different elements."
-            end do
-
-            do thisdof = 1, ndof_per_elm(1) ! FIXME - works only for uniform polynomial order
-
-               DO thiselmidx = 1, nelm           
-                  thiselm = thiselmidx
-                  ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
-                  sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                      sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
-               ENDDO
-   !
-   !           Compute the time derivative
-   !           ---------------------------
-#if defined(CAHNHILLIARD)
-               CALL TimeDerivativeIsolated( sem % mesh, sem % particles, time, mode)
-#else
-               CALL TimeDerivativeIsolated( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
-#endif
-               call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
-               sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
-               call sem % mesh % storage % global2LocalQdot
+!
+!     Go through every color to obtain its elements' contribution to the Jacobian
+!     ***************************************************************************
+      do thiscolor = 1 , ecolors % num_of_colors
+         ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
+         felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
+!         
+!        Iterate through the DOFs in thiscolor
+!           ( Computes one column for each dof within an elment )
+!        ********************************************************
+         do thisdof = 1, ndofcol(thiscolor)
+            
+!           Perturb the current degree of freedom in all elements within current color
+!           --------------------------------------------------------------------------
+            DO thiselmidx = ielm, felm-1              
+               thiselm = ecolors%elmnts(thiselmidx)
+               IF (this % ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
                
-   !
-   !           Add the contributions to the Jacobian
-   !           -------------------------------------
-               do eid = 1, nelm
-                  used    = 0
-                  usedctr = 1
-                  call this % AssignColToJacobian(Matrix_p, sem % mesh, eid, eid, thisdof, num_of_neighbor_levels)
-               END DO           
-   !
-   !           Restore original values for Q (TODO: this can be improved)
-   !           ----------------------------------------------------------
-               sem % mesh % storage % Q = Q0
-               call sem % mesh % storage % global2LocalQ
+               ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+               
+               sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
             ENDDO
-
-            deallocate(ndof_per_elm)
-         class default
-         ! type is(DenseBlockDiagMatrix_t)
-
-      !
-      !     Go through every color to obtain its elements' contribution to the Jacobian
-      !     ***************************************************************************
-            do thiscolor = 1 , ecolors % num_of_colors
-               ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
-               felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
-      !         
-      !        Iterate through the DOFs in thiscolor
-      !           ( Computes one column for each dof within an elment )
-      !        ********************************************************
-               do thisdof = 1, ndofcol(thiscolor)
-                  
-      !           Perturb the current degree of freedom in all elements within current color
-      !           --------------------------------------------------------------------------
-                  DO thiselmidx = ielm, felm-1              
-                     thiselm = ecolors%elmnts(thiselmidx)
-                     IF (this % ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
-                     
-                     ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
-                     
-                     sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                         sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
-                  ENDDO
-      !
-      !           Compute the time derivative
-      !           ---------------------------
+!
+!           Compute the time derivative
+!           ---------------------------
 #if defined(CAHNHILLIARD)
-                  CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+            CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
-                  CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+            CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
-                  call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
-                  sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
-                  call sem % mesh % storage % global2LocalQdot
-                  
-      !
-      !           Add the contributions to the Jacobian
-      !           -------------------------------------
-                  do thiselmidx = ielm, felm-1
-                     thiselm = ecolors%elmnts(thiselmidx)
-                     IF (this % ndofelm(thiselm)<thisdof) CYCLE
-                     ! Redifine used array and counter
-                     used    = 0
-                     usedctr = 1
-                     
-                     call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
-                     
-                  END DO           
-      !
-      !           Restore original values for Q (TODO: this can be improved)
-      !           ----------------------------------------------------------
-                  sem % mesh % storage % Q = Q0
-                  call sem % mesh % storage % global2LocalQ
-               ENDDO
-            ENDDO
-
-      end select
+            call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
+            sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+            call sem % mesh % storage % global2LocalQdot
+            
+!
+!           Add the contributions to the Jacobian
+!           -------------------------------------
+            do thiselmidx = ielm, felm-1
+               thiselm = ecolors%elmnts(thiselmidx)
+               IF (this % ndofelm(thiselm)<thisdof) CYCLE
+               ! Redifine used array and counter
+               used    = 0
+               usedctr = 1
+               
+               call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
+               
+            END DO           
+!
+!           Restore original values for Q (TODO: this can be improved)
+!           ----------------------------------------------------------
+            sem % mesh % storage % Q = Q0
+            call sem % mesh % storage % global2LocalQ
+         ENDDO
+      ENDDO
 
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
       
