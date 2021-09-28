@@ -80,7 +80,9 @@ MODULE ExplicitMethods
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            if ( present(dts) ) then
+                  if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
          
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
@@ -104,7 +106,9 @@ MODULE ExplicitMethods
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            if ( present(dts) ) then
+                  if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
 
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
@@ -174,7 +178,9 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -198,7 +204,9 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -260,7 +268,9 @@ MODULE ExplicitMethods
       integer                    :: id, k
 
       CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
-      if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+      if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+      end if
          
       if (present(dt_vec)) then
 !$omp parallel do schedule(runtime)
@@ -486,9 +496,11 @@ MODULE ExplicitMethods
       if (present(dt_vec)) then 
 
       DO k = 1, N_STAGES
-         
+
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -511,7 +523,9 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )

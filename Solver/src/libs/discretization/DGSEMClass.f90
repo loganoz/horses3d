@@ -127,7 +127,9 @@ Module DGSEMClass
       logical, parameter          :: computeGradients = .true.
 #endif
       
-      if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
+      if (present(ChildSem)) then
+         if (ChildSem) self % mesh % child = .true.
+      end if
       
 !
 !     Measure preprocessing time
