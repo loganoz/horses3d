@@ -522,31 +522,31 @@ jobs:
 #
 # 1) FreeFall
 # ----------------------------
-      - name: Build ParticlesFreeFall
-        working-directory: ./Solver/test/Particles/FreeFall/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      # - name: Build ParticlesFreeFall
+      #   working-directory: ./Solver/test/Particles/FreeFall/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run ParticlesFreeFall
-        working-directory: ./Solver/test/Particles/FreeFall
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns FreeFall.control
+      # - name: Run ParticlesFreeFall
+      #   working-directory: ./Solver/test/Particles/FreeFall
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns FreeFall.control
 #
 # 2) RadiationHeat
 # ----------------------------
-      - name: Build RadiationHeat
-        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+      # - name: Build RadiationHeat
+      #   working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run RadiationHeat
-        working-directory: ./Solver/test/Particles/RadiationHeat
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns RadiationHeat.control
+      # - name: Run RadiationHeat
+      #   working-directory: ./Solver/test/Particles/RadiationHeat
+      #   run: |
+      #     source /opt/intel/oneapi/setvars.sh || true
+      #     mpiexec -n 8 ./horses3d.ns RadiationHeat.control
 #
 # 3) ParticleBoundaryCond
 # ----------------------------
@@ -572,152 +572,152 @@ jobs:
       #   working-directory: ./Solver/test/Particles/Pouransari
       #   run: mpiexec -n 8 ./horses3d.ns Pouransari_St0041.control
 
-########################################################################
-#######                       MULTIPHASE                        ########
-########################################################################
-#
-# 1) Convergence
-# ----------------------------
+# ########################################################################
+# #######                       MULTIPHASE                        ########
+# ########################################################################
+# #
+# # 1) Convergence
+# # ----------------------------
 
-      - name: Build MultiphaseConvergence
-        working-directory: ./Solver/test/Multiphase/Convergence/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build MultiphaseConvergence
+#         working-directory: ./Solver/test/Multiphase/Convergence/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run MultiphaseConvergence
-        working-directory: ./Solver/test/Multiphase/Convergence
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.mu Convergence.control
+#       - name: Run MultiphaseConvergence
+#         working-directory: ./Solver/test/Multiphase/Convergence
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.mu Convergence.control
 
-#
-# 2) RisingBubble
-# ----------------------------
+# #
+# # 2) RisingBubble
+# # ----------------------------
 
-      - name: Build MultiphaseRisingBubble
-        working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build MultiphaseRisingBubble
+#         working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run MultiphaseRisingBubble
-        working-directory: ./Solver/test/Multiphase/RisingBubble
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.mu RisingBubble.control
+#       - name: Run MultiphaseRisingBubble
+#         working-directory: ./Solver/test/Multiphase/RisingBubble
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.mu RisingBubble.control
 
-#
-# 3) Pipe
-# ----------------------------
+# #
+# # 3) Pipe
+# # ----------------------------
 
-      - name: Build MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build MultiphasePipe
+#         working-directory: ./Solver/test/Multiphase/Pipe/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.mu AnnularFlow.control
+#       - name: Run MultiphasePipe
+#         working-directory: ./Solver/test/Multiphase/Pipe
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.mu AnnularFlow.control
 
-#
-# 4) Entropy conserving test
-# ----------------------------
+# #
+# # 4) Entropy conserving test
+# # ----------------------------
 
-      - name: Build MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build MultiphaseEntropyConservingTest
+#         working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.mu EntropyConservingTest.control
+#       - name: Run MultiphaseEntropyConservingTest
+#         working-directory: ./Solver/test/Multiphase/EntropyConservingTest
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.mu EntropyConservingTest.control
 
-########################################################################
-#######                      INCOMPRESSIBLE                     ########
-########################################################################
-#
-# 1) Convergence
-# ----------------------------
+# ########################################################################
+# #######                      INCOMPRESSIBLE                     ########
+# ########################################################################
+# #
+# # 1) Convergence
+# # ----------------------------
 
-      - name: Build iNS-Convergence
-        working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build iNS-Convergence
+#         working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run iNS-Convergence
-        working-directory: ./Solver/test/IncompressibleNS/Convergence
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ins Convergence4P5.control
+#       - name: Run iNS-Convergence
+#         working-directory: ./Solver/test/IncompressibleNS/Convergence
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.ins Convergence4P5.control
 
-#
-# 2) Kovasznay 
-# ----------------------------
+# #
+# # 2) Kovasznay 
+# # ----------------------------
 
-      - name: Build iNS-Kovasznay
-        working-directory: ./Solver/test/IncompressibleNS/Kovasznay/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build iNS-Kovasznay
+#         working-directory: ./Solver/test/IncompressibleNS/Kovasznay/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run iNS-Kovasznay
-        working-directory: ./Solver/test/IncompressibleNS/Kovasznay
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ins Kovasznay.control
+#       - name: Run iNS-Kovasznay
+#         working-directory: ./Solver/test/IncompressibleNS/Kovasznay
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.ins Kovasznay.control
 
-#
-# 3) Lid driven cavity 
-# ----------------------------
+# #
+# # 3) Lid driven cavity 
+# # ----------------------------
 
-      - name: Build iNS-LidDrivenCavity
-        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build iNS-LidDrivenCavity
+#         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run iNS-LidDrivenCavity
-        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ins LidDrivenCavity.control
+#       - name: Run iNS-LidDrivenCavity
+#         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.ins LidDrivenCavity.control
 
-#
-# 4) Taylor Green Vortex
-# ----------------------------
+# #
+# # 4) Taylor Green Vortex
+# # ----------------------------
 
-      - name: Build iNS-TaylorGreenVortex
-        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build iNS-TaylorGreenVortex
+#         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run iNS-TaylorGreenVortex
-        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ins TaylorGreen.control
+#       - name: Run iNS-TaylorGreenVortex
+#         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.ins TaylorGreen.control
 
-#
-# 5) Rayleigh-Taylor instability 
-# -------------------------------
+# #
+# # 5) Rayleigh-Taylor instability 
+# # -------------------------------
 
-      - name: Build iNS-RayleighTaylor
-        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#       - name: Build iNS-RayleighTaylor
+#         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor/SETUP
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run iNS-RayleighTaylor
-        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ins RayleighTaylor.control
+#       - name: Run iNS-RayleighTaylor
+#         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
+#         run: |
+#           source /opt/intel/oneapi/setvars.sh || true
+#           mpiexec -n 8 ./horses3d.ins RayleighTaylor.control
