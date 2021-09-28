@@ -58,13 +58,16 @@ jobs:
           # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
       - name: Install METIS
-        run: sudo apt install metis
+        run: |
+          wget "http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz"
+          tar -xvf metis-5.1.0.tar.gz
+          make config cc=icc
+          make
+          export METIS_HOME=~/metis-5.1.0/build/Linux-x86_64
+          echo $METIS_HOME
 
       - name: Check METIS PATH
         run: echo $METIS_HOME
-
-      - name: Check METIS PATH 2
-        run: ls /apps/metis
 
 #       # Runs a single command using the runners shell
 #       ##- name: Install gfortran
