@@ -173,7 +173,7 @@ module ShockCapturing
       implicit none
       type(SCdriver_t), allocatable, intent(inout) :: self
       class(FTValueDictionary),      intent(in)    :: controlVariables
-      class(HexMesh),                intent(in)    :: mesh
+      class(HexMesh),                intent(inout) :: mesh
 !
 !     ---------------
 !     Local variables
@@ -263,7 +263,7 @@ module ShockCapturing
 !     Initialize viscous and hyperbolic terms
 !     ---------------------------------------
       if (allocated(self % viscosity)) call self % viscosity % Initialize(controlVariables, mesh)
-      if (allocated(self % advection)) call self % advection % Initialize(controlVariables)
+      if (allocated(self % advection)) call self % advection % Initialize(controlVariables, mesh)
 !
 !     Sensor thresholds
 !     --------------
@@ -658,7 +658,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AA_initialize(self, controlVariables)
+   subroutine AA_initialize(self, controlVariables, mesh)
 !
 !     -------
 !     Modules
@@ -671,6 +671,7 @@ module ShockCapturing
       implicit none
       class(ArtificialAdvection_t), intent(inout) :: self
       type(FTValueDictionary),      intent(in)    :: controlVariables
+      type(HexMesh),                intent(inout) :: mesh
 
    end subroutine AA_initialize
 !
@@ -1147,12 +1148,14 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SSFV_initialize(self, controlVariables)
+   subroutine SSFV_initialize(self, controlVariables, mesh)
 !
 !     -------
 !     Modules
 !     -------
       use FTValueDictionaryClass
+      use TransfiniteMapClass, only: TransfiniteHexMap
+      use NodalStorageClass,   only: NodalStorage
 !
 !     ---------
 !     Interface
@@ -1160,8 +1163,20 @@ module ShockCapturing
       implicit none
       class(SC_SSFV_t),        intent(inout) :: self
       type(FTValueDictionary), intent(in)    :: controlVariables
+      type(HexMesh),           intent(inout) :: mesh
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer                          :: eID
+      type(TransfiniteHexMap), pointer :: hexMap    => null()
+      type(TransfiniteHexMap), pointer :: hex8Map   => null()
+      type(TransfiniteHexMap), pointer :: genHexMap => null()
 
-
+!
+!     Blending parameters
+!     -------------------
       if (controlVariables % containsKey(SC_BLENDING1_KEY)) then
          self % c1 = controlVariables % doublePrecisionValueForKey(SC_BLENDING1_KEY)
       else
@@ -1174,6 +1189,40 @@ module ShockCapturing
       else
          self % c2 = self % c1
       end if
+!
+!     Compute the geometry for the complementary grid
+!     -----------------------------------------------
+      allocate(hex8Map)
+      call hex8Map % constructWithCorners(mesh % elements(1) % SurfInfo % corners)
+      allocate(genHexMap)
+
+      do eID = 1, mesh % no_of_elements
+
+         associate(e => mesh % elements(eID))
+
+         if (e % SurfInfo % IsHex8) then
+            call hex8Map % setCorners(e % SurfInfo % corners)
+            hexMap => hex8Map
+         else
+            call genHexMap % destruct()
+            call genHexMap % constructWithFaces(e % SurfInfo % facePatches)
+            hexMap => genHexMap
+         end if
+
+         call e % geom % updateComplementaryGrid(NodalStorage(e % Nxyz(IX)), &
+                                                 NodalStorage(e % Nxyz(IY)), &
+                                                 NodalStorage(e % Nxyz(IZ)), &
+                                                 hexMap)
+
+         end associate
+
+      end do
+!
+!     Release the memory
+!     ------------------
+      deallocate(hex8Map)
+      deallocate(genHexMap)
+      nullify(hexMap)
 
    end subroutine SSFV_initialize
 !
@@ -1271,18 +1320,30 @@ module ShockCapturing
 !     Dissipative averaging in complementary points
 !     ---------------------------------------------
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
-         FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), e % storage % Q(:,i,j,k),     &
-                                        e % geom % jGradXi(:,i-1,j,k), e % geom % jGradXi(:,i,j,k))
+         FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), &
+                                        e % storage % Q(:,i,j,k),   &
+                                        e % geom % ncXi(:,i,j,k),   &
+                                        e % geom % t1cXi(:,i,j,k),  &
+                                        e % geom % t2cXi(:,i,j,k),  &
+                                        e % geom % JfcXi(i,j,k))
       end do                ; end do                ; end do
 
       do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
-         FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), e % storage % Q(:,i,j,k),       &
-                                        e % geom % jGradEta(:,i,j-1,k), e % geom % jGradEta(:,i,j,k))
+         FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), &
+                                        e % storage % Q(:,i,j,k),   &
+                                        e % geom % ncEta(:,i,j,k),  &
+                                        e % geom % t1cEta(:,i,j,k), &
+                                        e % geom % t2cEta(:,i,j,k), &
+                                        e % geom % JfcEta(i,j,k))
       end do                ; end do                ; end do
 
       do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
-         FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1), e % storage % Q(:,i,j,k),         &
-                                        e % geom % jGradZeta(:,i,j,k-1), e % geom % jGradZeta(:,i,j,k))
+         FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1),  &
+                                        e % storage % Q(:,i,j,k),    &
+                                        e % geom % ncZeta(:,i,j,k),  &
+                                        e % geom % t1cZeta(:,i,j,k), &
+                                        e % geom % t2cZeta(:,i,j,k), &
+                                        e % geom % JfcZeta(i,j,k))
       end do                ; end do                ; end do
 !
 !     Boundaries
@@ -1480,7 +1541,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function dissipativeFlux(Q1, Q2, JaL, JaR) result(FV)
+   function dissipativeFlux(Q1, Q2, n, t1, t2, Jf) result(FV)
 !
 !     -------
 !     Modules
@@ -1496,18 +1557,15 @@ module ShockCapturing
       implicit none
       real(RP), intent(in) :: Q1(NCONS)
       real(RP), intent(in) :: Q2(NCONS)
-      real(RP), intent(in) :: JaL(NDIM)
-      real(RP), intent(in) :: JaR(NDIM)
+      real(RP), intent(in) :: n(NDIM)
+      real(RP), intent(in) :: t1(NDIM)
+      real(RP), intent(in) :: t2(NDIM)
+      real(RP), intent(in) :: Jf
       real(RP)             :: FV(NCONS)
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: Ja(NDIM)
-      real(RP) :: Jf
-      real(RP) :: n(NDIM)
-      real(RP) :: t1(NDIM)
-      real(RP) :: t2(NDIM)
       real(RP) :: Qn1(NCONS)
       real(RP) :: Qn2(NCONS)
       real(RP) :: F1(NCONS)
@@ -1521,15 +1579,6 @@ module ShockCapturing
 !
 !     Rotate to normal reference frame
 !     --------------------------------
-      Ja  = AVERAGE(JaL, JaR) ; Jf = norm2(Ja) ; n = Ja / Jf
-      if (n(IZ) < 0.9_RP) then
-         t1 = [n(IY), -n(IX), 0.0_RP]
-      else
-         t1 = [n(IZ), 0.0_RP, -n(IX)]
-      end if
-      t1 = t1 / norm2(t1)
-      t2 = cross(n, t1)
-
       Qn1(IRHO)  = Q1(IRHO)
       Qn1(IRHOU) = Q1(IRHOU)*n(IX)  + Q1(IRHOV)*n(IY)  + Q1(IRHOW)*n(IZ)
       Qn1(IRHOV) = Q1(IRHOU)*t1(IX) + Q1(IRHOV)*t1(IY) + Q1(IRHOW)*t1(IZ)
@@ -1602,25 +1651,6 @@ module ShockCapturing
       F(IRHOE) = ( Q(IRHOE) + p ) * u
 
    end function EulerFlux1D
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   pure function cross(u,v) result(res)
-!
-!     ---------
-!     Interface
-!     ---------
-      IMPLICIT NONE
-      real(RP), intent(in) :: u(NDIM)
-      real(RP), intent(in) :: v(NDIM)
-      real(RP)             :: res(NDIM)
-
-
-      res(1) = u(2)*v(3) - v(2)*u(3)
-      res(2) = u(3)*v(1) - v(3)*u(1)
-      res(3) = u(1)*v(2) - v(1)*u(2)
-
-   end function cross
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
