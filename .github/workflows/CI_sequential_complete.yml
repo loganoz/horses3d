@@ -5,11 +5,10 @@ name: CI SEQUENTIAL COMPLETE
 ########################################################################  
 # Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # Triggers the workflow monthly
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '0 0 1 * *'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -37,7 +36,7 @@ jobs:
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
       - name: cache-intel-compilers
-        if: (matrix.compiler == 'ifort')
+        # if: (matrix.compiler == 'ifort')
         id: cache-intel-compilers
         uses: actions/cache@v2
         with:
@@ -45,7 +44,8 @@ jobs:
           key: intel-${{ runner.os }}-compilers-b
       
       - name: Install Intel compilers and libraries
-        if: (matrix.compiler == 'ifort' && steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        # if: (matrix.compiler == 'ifort' && steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
           sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
