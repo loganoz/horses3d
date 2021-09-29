@@ -167,8 +167,7 @@
          END IF 
          
          current => self % testCasesHead
-         tmp => current
-         DO WHILE (ASSOCIATED(tmp))
+         DO WHILE (ASSOCIATED(current))
             tmp => current % next
             
             IF(ASSOCIATED(current % assertionsManager)) THEN
