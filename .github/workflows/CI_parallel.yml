@@ -23,7 +23,7 @@ jobs:
 
     # Define strategy matrix
     strategy:
-      fail-fast: false 
+      fail-fast: true 
       matrix:
         compiler: ['ifort']
         mode: ['RELEASE']
