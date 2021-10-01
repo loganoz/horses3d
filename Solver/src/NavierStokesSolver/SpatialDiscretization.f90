@@ -53,7 +53,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
+      subroutine Initialize_SpaceAndTimeMethods(controlVariables, sem)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -61,7 +61,7 @@ module SpatialDiscretization
          use MPI_Process_Info
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
-         class(HexMesh)                         :: mesh
+         class(DGSem)                           :: sem
 !
 !        ---------------
 !        Local variables
@@ -72,7 +72,7 @@ module SpatialDiscretization
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
 
-         if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
+         if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
@@ -202,13 +202,14 @@ module SpatialDiscretization
    !        Initialize models
    !        -----------------
             call InitializeLESModel(LESModel, controlVariables)
+!
+!           Initialize Shock-Capturing
+!           --------------------------
+            call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, sem, &
+                                           ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call ShockCapturingDriver % Describe
 
          end if
-!
-!        Initialize Shock-Capturing
-!        --------------------------
-         call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, mesh)
-         call ShockCapturingDriver % Describe
 
       end subroutine Initialize_SpaceAndTimeMethods
 !

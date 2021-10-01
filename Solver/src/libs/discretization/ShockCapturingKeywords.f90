@@ -29,8 +29,9 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_VARIABLE_KEY    = "sensor variable"
    character(len=*), parameter :: SC_LOW_THRES_KEY   = "sensor lower limit"
    character(len=*), parameter :: SC_HIGH_THRES_KEY  = "sensor higher limit"
-   character(len=*), parameter :: SC_THRES_1_KEY     = "sensor threshold 1"
-   character(len=*), parameter :: SC_THRES_2_KEY     = "sensor threshold 2"
+   character(len=*), parameter :: SC_TE_NMIN_KEY     = "sensor te min n"
+   character(len=*), parameter :: SC_TE_DELTA_KEY    = "sensor te delta n"
+   character(len=*), parameter :: SC_TE_DTYPE_KEY    = "sensor te derivative"
 !
 !  Sensor types
 !  ------------
@@ -38,11 +39,13 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_ONE_VAL     = "ones"
    character(len=*), parameter :: SC_GRADRHO_VAL = "grad rho"
    character(len=*), parameter :: SC_MODAL_VAL   = "modal"
+   character(len=*), parameter :: SC_TE_VAL      = "truncation error"
 
    integer, parameter :: SC_ZERO_ID    = 1
    integer, parameter :: SC_ONE_ID     = 2
    integer, parameter :: SC_GRADRHO_ID = 3
    integer, parameter :: SC_MODAL_ID   = 4
+   integer, parameter :: SC_TE_ID      = 5
 !
 !  Shock-capturing methods
 !  -----------------------
@@ -92,5 +95,10 @@ module ShockCapturingKeywords
    integer, parameter :: SC_W_ID    = 8
    integer, parameter :: SC_P_ID    = 9
    integer, parameter :: SC_RHOP_ID = 10
+!
+!  Derivative types
+!  ----------------
+   character(len=*), parameter :: SC_ISOLATED_KEY     = "isolated"
+   character(len=*), parameter :: SC_NON_ISOLATED_KEY = "non-isolated"
 
 end module ShockCapturingKeywords

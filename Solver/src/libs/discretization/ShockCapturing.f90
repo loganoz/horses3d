@@ -16,6 +16,7 @@ module ShockCapturing
    use PhysicsStorage,             only: NCONS, NGRAD
    use FluidData,                  only: dimensionless
    use Utilities,                  only: toLower
+   use DGSEMClass,                 only: ComputeTimeDerivative_f, DGSem
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
    use LESModels,                  only: Smagorinsky_t
@@ -35,9 +36,6 @@ module ShockCapturing
          logical :: isActive = .false.  !< On/Off flag
          logical :: hasEllipticTerm     !< .true. if the elliptic term is computed
          logical :: hasHyperbolicTerm   !< .true. if the inviscid term is computed
-
-         real(RP), private :: s1  !< Threshold one (from 0 to 1)
-         real(RP), private :: s2  !< Threshold two (from 0 to 1), higher than s1
 
          type(SCsensor_t),             private              :: sensor     !< Sensor to find discontinuities
          class(ArtificialViscosity_t), private, allocatable :: viscosity  !< Artificial viscosity
@@ -160,7 +158,8 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Initialize_ShockCapturing(self, controlVariables, mesh)
+   subroutine Initialize_ShockCapturing(self, controlVariables, sem, &
+                                        TimeDerivative, TimeDerivativeIsolated)
 !
 !     -------
 !     Modules
@@ -173,19 +172,14 @@ module ShockCapturing
       implicit none
       type(SCdriver_t), allocatable, intent(inout) :: self
       class(FTValueDictionary),      intent(in)    :: controlVariables
-      class(HexMesh),                intent(inout) :: mesh
+      class(DGSem),                  intent(inout) :: sem
+      procedure(ComputeTimeDerivative_f)           :: TimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: TimeDerivativeIsolated
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP)                      :: lowThr
-      real(RP)                      :: highThr
-      real(RP)                      :: thr1
-      real(RP)                      :: thr2
       character(len=:), allocatable :: method
-      character(len=:), allocatable :: sType
-      character(len=:), allocatable :: sVar
-      integer                       :: sVarID
 
 !
 !     Shock-capturing methods
@@ -255,94 +249,17 @@ module ShockCapturing
 
       if (.not. self % isActive) then
          deallocate(self)
-         if (allocated(self % viscosity)) deallocate(self % viscosity)
-         if (allocated(self % advection)) deallocate(self % advection)
          return
       end if
 !
 !     Initialize viscous and hyperbolic terms
 !     ---------------------------------------
-      if (allocated(self % viscosity)) call self % viscosity % Initialize(controlVariables, mesh)
-      if (allocated(self % advection)) call self % advection % Initialize(controlVariables, mesh)
-!
-!     Sensor thresholds
-!     --------------
-      if (controlVariables % containsKey(SC_LOW_THRES_KEY)) then
-         lowThr = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
-      else
-         write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
-         stop
-      end if
-
-      if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
-         highThr = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
-      else
-         write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
-         stop
-      end if
-
-      if (controlVariables % containsKey(SC_THRES_1_KEY)) then
-         self % s1 = controlVariables % doublePrecisionValueForKey(SC_THRES_1_KEY)
-      else
-         self % s1 = lowThr + (highThr-lowThr) / 3.0_RP
-      end if
-
-      if (controlVariables % containsKey(SC_THRES_2_KEY)) then
-         self % s2 = controlVariables % doublePrecisionValueForKey(SC_THRES_2_KEY)
-      else
-         self % s2 = lowThr + (highThr-lowThr) * 2.0_RP / 3.0_RP
-      end if
-!
-!     Sensor type
-!     -----------
-      if (controlVariables % containsKey(SC_SENSOR_KEY)) then
-         sType = controlVariables % stringValueForKey(SC_SENSOR_KEY, LINE_LENGTH)
-      else
-         sType = SC_GRADRHO_VAL
-      end if
-      call toLower(sType)
-!
-!     Sensed variable
-!     ---------------
-      if (controlVariables % containsKey(SC_VARIABLE_KEY)) then
-         sVar = controlVariables % stringValueForKey(SC_VARIABLE_KEY, LINE_LENGTH)
-         call toLower(sVar)
-
-         select case (trim(sVar))
-         case (SC_RHO_VAL);  sVarID = SC_RHO_ID
-         case (SC_RHOU_VAL); sVarID = SC_RHOU_ID
-         case (SC_RHOV_VAL); sVarID = SC_RHOV_ID
-         case (SC_RHOW_VAL); sVarID = SC_RHOW_ID
-         case (SC_RHOE_VAL); sVarID = SC_RHOE_ID
-         case (SC_U_VAL);    sVarID = SC_U_ID
-         case (SC_V_VAL);    sVarID = SC_V_ID
-         case (SC_W_VAL);    sVarID = SC_W_ID
-         case (SC_P_VAL);    sVarID = SC_P_ID
-         case (SC_RHOP_VAL); sVarID = SC_RHOP_ID
-         case default
-            write(STD_OUT,*) 'ERROR. The sensor variable is unknown. Options are:'
-            write(STD_OUT,*) '   * ', SC_RHO_VAL
-            write(STD_OUT,*) '   * ', SC_RHOU_VAL
-            write(STD_OUT,*) '   * ', SC_RHOV_VAL
-            write(STD_OUT,*) '   * ', SC_RHOW_VAL
-            write(STD_OUT,*) '   * ', SC_RHOE_VAL
-            write(STD_OUT,*) '   * ', SC_U_VAL
-            write(STD_OUT,*) '   * ', SC_V_VAL
-            write(STD_OUT,*) '   * ', SC_W_VAL
-            write(STD_OUT,*) '   * ', SC_P_VAL
-            write(STD_OUT,*) '   * ', SC_RHOP_VAL
-            errorMessage(STD_OUT)
-            stop
-         end select
-
-      else
-         sVarID = SC_RHOP_ID
-
-      end if
+      if (allocated(self % viscosity)) call self % viscosity % Initialize(controlVariables, sem % mesh)
+      if (allocated(self % advection)) call self % advection % Initialize(controlVariables, sem % mesh)
 !
 !     Construct sensor
 !     ----------------
-      call Set_SCsensor(self % sensor, sType, sVarID, lowThr, highThr)
+      call Set_SCsensor(self % sensor, sem, controlVariables, TimeDerivative, TimeDerivativeIsolated)
 
    end subroutine Initialize_ShockCapturing
 !
@@ -352,18 +269,18 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine SC_detect(self, mesh, e)
+   subroutine SC_detect(self, sem, t)
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SCdriver_t), intent(in)    :: self
-      type(HexMesh),     intent(inout) :: mesh
-      type(Element),     intent(inout) :: e
+      class(SCdriver_t), intent(inout) :: self
+      type(DGSem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
 
 
-      e % storage % sensor = self % sensor % Compute(mesh, e)
+      call self % sensor % Compute(sem, t)
 
    end subroutine SC_detect
 !
@@ -454,33 +371,7 @@ module ShockCapturing
       write(STD_OUT, "(/)")
       call Subsection_Header("Shock-Capturing")
 
-      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
-      select case (self % sensor % sens_type)
-         case (SC_ZERO_ID);    write(STD_OUT,"(A)") SC_ZERO_VAL
-         case (SC_ONE_ID);     write(STD_OUT,"(A)") SC_ONE_VAL
-         case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
-         case (SC_GRADRHO_ID); write(STD_OUT,"(A)") SC_GRADRHO_VAL
-      end select
-
-      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
-      select case (self % sensor % sVar)
-         case (SC_RHO_ID);  write(STD_OUT,"(A)") SC_RHO_VAL
-         case (SC_RHOU_ID); write(STD_OUT,"(A)") SC_RHOU_VAL
-         case (SC_RHOV_ID); write(STD_OUT,"(A)") SC_RHOV_VAL
-         case (SC_RHOW_ID); write(STD_OUT,"(A)") SC_RHOW_VAL
-         case (SC_RHOE_ID); write(STD_OUT,"(A)") SC_RHOE_VAL
-         case (SC_U_ID);    write(STD_OUT,"(A)") SC_U_VAL
-         case (SC_V_ID);    write(STD_OUT,"(A)") SC_V_VAL
-         case (SC_W_ID);    write(STD_OUT,"(A)") SC_W_VAL
-         case (SC_P_ID);    write(STD_OUT,"(A)") SC_P_VAL
-         case (SC_RHOP_ID); write(STD_OUT,"(A)") SC_RHOP_VAL
-      end select
-
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", self % sensor % low
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Threshold s1: ",  self % s1
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Threshold s2: ",  self % s2
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", self % sensor % high
-
+      call self % sensor % Describe()
       if (allocated(self % viscosity)) call self % viscosity % Describe()
       if (allocated(self % advection)) call self % advection % Describe()
 
@@ -488,7 +379,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine SC_destruct(self)
+   subroutine SC_destruct(self)
 !
 !     ---------
 !     Interface

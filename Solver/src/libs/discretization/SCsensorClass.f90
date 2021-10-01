@@ -12,10 +12,11 @@
 #include "Includes.h"
 module SCsensorClass
 
-   use SMConstants,       only: RP, PI, STD_OUT
-   use PhysicsStorage_NS, only: grad_vars, GRADVARS_STATE, GRADVARS_ENTROPY
-   use ElementClass,      only: Element
-   use HexMeshClass,      only: HexMesh
+   use SMConstants,       only: RP, PI, STD_OUT, NDIM, IX, IY, IZ, LINE_LENGTH
+   use DGSEMClass,        only: ComputeTimeDerivative_f, DGSem
+   use PhysicsStorage,    only: grad_vars, GRADVARS_STATE, GRADVARS_ENTROPY, NCONS
+   use NodalStorageClass, only: NodalStorage
+   use Utilities,         only: toLower
 
    use ShockCapturingKeywords
 
@@ -38,25 +39,35 @@ module SCsensorClass
          real(RP) :: high  !< Upper threshold
          integer  :: sVar  !< Variable used as input for the sensor
 
+         type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
+
          procedure(Compute_Int), pointer :: Compute => null()
          procedure(Rescale_Int), pointer :: Rescale => SinRamp
 
       contains
 
-         final :: Destruct_SCsensor
+         procedure :: Describe => Describe_SCsensor
+         final     :: Destruct_SCsensor
 
    end type SCsensor_t
+
+   type :: TruncationError_t
+      integer                  :: Nmin       !< Min order N
+      integer                  :: deltaN     !< N' of coarser mesh is max(Nmin, N-deltaN)
+      integer                  :: derivType  !< Whether the time derivative isolated or not
+      type(DGSem), allocatable :: coarseSem  !< DGSEM for the coarser mesh
+      procedure(ComputeTimeDerivative_f), nopass, pointer :: TimeDerivative => null()
+   end type TruncationError_t
 !
 !  Interfaces
 !  ----------
    abstract interface
-      pure function Compute_Int(this, mesh, e) result(val)
-         import RP, SCsensor_t, HexMesh, Element
-         class(SCsensor_t), intent(in) :: this
-         type(HexMesh),     intent(in) :: mesh
-         type(Element),     intent(in) :: e
-         real(RP)                      :: val
-      end function Compute_Int
+      subroutine Compute_Int(this, sem, t)
+         import RP, SCsensor_t, DGsem
+         class(SCsensor_t), intent(inout) :: this
+         type(DGSem),       intent(inout) :: sem
+         real(RP),          intent(in)    :: t
+      end subroutine Compute_Int
 
       pure function Rescale_Int(this, sensVal) result(scaled)
          import RP, SCsensor_t
@@ -66,25 +77,49 @@ module SCsensorClass
       end function Rescale_Int
    end interface
 !
+!  Private variables
+!  -----------------
+   integer, parameter :: ISOLATED_TE     = 0
+   integer, parameter :: NON_ISOLATED_TE = 1
+!
 !  ========
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, sensorType, variable, sensorLow, sensorHigh)
+   subroutine Set_SCsensor(sensor, sem, controlVariables, &
+                           ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      type(SCsensor_t), intent(inout) :: sensor
-      character(len=*), intent(in)    :: sensorType
-      integer,          intent(in)    :: variable
-      real(RP),         intent(in)    :: sensorLow
-      real(RP),         intent(in)    :: sensorHigh
+      type(SCsensor_t),                   intent(inout) :: sensor
+      type(FTValueDictionary),            intent(in)    :: controlVariables
+      type(DGSem),                        intent(in)    :: sem
+      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      character(len=:), allocatable :: sensorType
+      character(len=:), allocatable :: sVar
 
 !
 !     Sensor type
 !     -----------
+      if (controlVariables % containsKey(SC_SENSOR_KEY)) then
+         sensorType = controlVariables % stringValueForKey(SC_SENSOR_KEY, LINE_LENGTH)
+      else
+         sensorType = SC_GRADRHO_VAL
+      end if
+      call toLower(sensorType)
+
       select case (sensorType)
       case (SC_ZERO_VAL)
          sensor % sens_type = SC_ZERO_ID
@@ -100,7 +135,6 @@ module SCsensorClass
             sensor % Compute  => Sensor_rho
          else
             write(STD_OUT,*) "ERROR. The density sensor only works with state or entropy variables."
-            errorMessage(STD_OUT)
             stop
          end if
 
@@ -108,31 +142,223 @@ module SCsensorClass
          sensor % sens_type = SC_MODAL_ID
          sensor % Compute  => Sensor_modal
 
+      case (SC_TE_VAL)
+         sensor % sens_type = SC_TE_ID
+         sensor % Compute  => Sensor_truncation
+         call Construct_TEsensor(sensor, controlVariables, sem, &
+                                 ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_GRADRHO_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
-         errorMessage(STD_OUT)
+         write(STD_OUT,*) '   * ', SC_TE_VAL
          stop
 
       end select
 !
+!     Sensor thresholds
+!     --------------
+      if (controlVariables % containsKey(SC_LOW_THRES_KEY)) then
+         sensor % low = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
+      else
+         write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
+         stop
+      end if
+
+      if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
+         sensor % high = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
+      else
+         write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
+         stop
+      end if
+!
+!     Sensed variable
+!     ---------------
+      if (controlVariables % containsKey(SC_VARIABLE_KEY)) then
+         sVar = controlVariables % stringValueForKey(SC_VARIABLE_KEY, LINE_LENGTH)
+         call toLower(sVar)
+
+         select case (trim(sVar))
+         case (SC_RHO_VAL);  sensor % sVar = SC_RHO_ID
+         case (SC_RHOU_VAL); sensor % sVar = SC_RHOU_ID
+         case (SC_RHOV_VAL); sensor % sVar = SC_RHOV_ID
+         case (SC_RHOW_VAL); sensor % sVar = SC_RHOW_ID
+         case (SC_RHOE_VAL); sensor % sVar = SC_RHOE_ID
+         case (SC_U_VAL);    sensor % sVar = SC_U_ID
+         case (SC_V_VAL);    sensor % sVar = SC_V_ID
+         case (SC_W_VAL);    sensor % sVar = SC_W_ID
+         case (SC_P_VAL);    sensor % sVar = SC_P_ID
+         case (SC_RHOP_VAL); sensor % sVar = SC_RHOP_ID
+         case default
+            write(STD_OUT,*) 'ERROR. The sensor variable is unknown. Options are:'
+            write(STD_OUT,*) '   * ', SC_RHO_VAL
+            write(STD_OUT,*) '   * ', SC_RHOU_VAL
+            write(STD_OUT,*) '   * ', SC_RHOV_VAL
+            write(STD_OUT,*) '   * ', SC_RHOW_VAL
+            write(STD_OUT,*) '   * ', SC_RHOE_VAL
+            write(STD_OUT,*) '   * ', SC_U_VAL
+            write(STD_OUT,*) '   * ', SC_V_VAL
+            write(STD_OUT,*) '   * ', SC_W_VAL
+            write(STD_OUT,*) '   * ', SC_P_VAL
+            write(STD_OUT,*) '   * ', SC_RHOP_VAL
+            errorMessage(STD_OUT)
+            stop
+         end select
+
+      else
+         sensor % sVar = SC_RHOP_ID
+
+      end if
+!
 !     Sensor parameters
 !     -----------------
-      sensor % sVar = variable
-      sensor % low  = sensorLow
-      sensor % high = sensorHigh
-      sensor % s0   = (sensorHigh + sensorLow) / 2.0_RP
-      sensor % ds   = (sensorHigh - sensorLow)
+      sensor % s0   = (sensor % high + sensor % low) / 2.0_RP
+      sensor % ds   = (sensor % high - sensor % low)
       sensor % ds2  = sensor % ds / 2.0_RP
 
    end subroutine Set_SCsensor
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine Destruct_SCsensor(sensor)
+   subroutine Construct_TEsensor(sensor, controlVariables, sem, &
+                                 ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      type(SCsensor_t),                   intent(inout) :: sensor
+      type(FTValueDictionary),            intent(in)    :: controlVariables
+      type(DGSem),                        intent(in)    :: sem
+      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      character(len=:), allocatable :: derivType
+      integer                       :: eID
+      integer,          allocatable :: N(:,:)
+
+!
+!     Read the control file
+!     ---------------------
+      allocate(sensor % TEestim)
+      if (controlVariables % containsKey(SC_TE_NMIN_KEY)) then
+         sensor % TEestim % Nmin = controlVariables % integerValueForKey(SC_TE_NMIN_KEY)
+      else
+         sensor % TEestim % Nmin = 1
+      end if
+
+      if (controlVariables % containsKey(SC_TE_DELTA_KEY)) then
+         sensor % TEestim % deltaN = controlVariables % integerValueForKey(SC_TE_DELTA_KEY)
+      else
+         sensor % TEestim % deltaN = 1
+      end if
+
+      if (controlVariables % containsKey(SC_TE_DTYPE_KEY)) then
+         derivType = controlVariables % stringValueForKey(SC_TE_DTYPE_KEY, LINE_LENGTH)
+      else
+         derivType = SC_ISOLATED_KEY
+      end if
+      call toLower(derivType)
+
+      select case (derivType)
+      case (SC_ISOLATED_KEY)
+         sensor % TEestim % derivType = ISOLATED_TE
+         sensor % TEestim % TimeDerivative => ComputeTimeDerivativeIsolated
+      case (SC_NON_ISOLATED_KEY)
+         sensor % TEestim % derivType = NON_ISOLATED_TE
+         sensor % TEestim % TimeDerivative => ComputeTimeDerivative
+      case default
+         write(STD_OUT,*) "ERROR. The TE sensor can only use the (non-)isolated time derivatives."
+         stop
+      end select
+!
+!     Coarse mesh
+!     -----------
+      allocate(sensor % TEestim % coarseSem)
+      sensor % TEestim % coarseSem = sem
+      sensor % TEestim % coarseSem % mesh % child = .true.
+      sensor % TEestim % coarseSem % mesh % ignoreBCnonConformities = .true.
+
+      allocate(N(NDIM, sem % mesh % no_of_elements))
+!$omp parallel do schedule(runtime) private(eID)
+      do eID = 1, sem % mesh % no_of_elements
+         N(IX,eID) = max(sem % mesh % Nx(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
+         N(IY,eID) = max(sem % mesh % Ny(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
+         N(IZ,eID) = max(sem % mesh % Nz(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
+      end do
+!$omp end parallel do
+      call sensor % TEestim % coarseSem % mesh % pAdapt(N, controlVariables)
+      call sensor % TEestim % coarseSem % mesh % storage % PointStorage()
+
+   end subroutine Construct_TEsensor
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Describe_SCsensor(sensor)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), intent(in) :: sensor
+
+
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
+      select case (sensor % sens_type)
+         case (SC_ZERO_ID);    write(STD_OUT,"(A)") SC_ZERO_VAL
+         case (SC_ONE_ID);     write(STD_OUT,"(A)") SC_ONE_VAL
+         case (SC_GRADRHO_ID); write(STD_OUT,"(A)") SC_GRADRHO_VAL
+         case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
+         case (SC_TE_ID);      write(STD_OUT,"(A)") SC_TE_VAL
+      end select
+
+      if (sensor % sens_type == SC_TE_ID) then
+         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Time derivative: "
+         select case (sensor % TEestim % derivType)
+            case (ISOLATED_TE);     write(STD_OUT,"(A)") SC_ISOLATED_KEY
+            case (NON_ISOLATED_TE); write(STD_OUT,"(A)") SC_NON_ISOLATED_KEY
+         end select
+
+         write(STD_OUT,"(30X,A,A30,I0,A,I0,A)") "->", "Delta N: ", sensor % TEestim % deltaN, &
+                                                " (min. order is ", sensor % TEestim % Nmin, ")"
+
+      else
+         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
+         select case (sensor % sVar)
+            case (SC_RHO_ID);  write(STD_OUT,"(A)") SC_RHO_VAL
+            case (SC_RHOU_ID); write(STD_OUT,"(A)") SC_RHOU_VAL
+            case (SC_RHOV_ID); write(STD_OUT,"(A)") SC_RHOV_VAL
+            case (SC_RHOW_ID); write(STD_OUT,"(A)") SC_RHOW_VAL
+            case (SC_RHOE_ID); write(STD_OUT,"(A)") SC_RHOE_VAL
+            case (SC_U_ID);    write(STD_OUT,"(A)") SC_U_VAL
+            case (SC_V_ID);    write(STD_OUT,"(A)") SC_V_VAL
+            case (SC_W_ID);    write(STD_OUT,"(A)") SC_W_VAL
+            case (SC_P_ID);    write(STD_OUT,"(A)") SC_P_VAL
+            case (SC_RHOP_ID); write(STD_OUT,"(A)") SC_RHOP_VAL
+         end select
+
+      end if
+
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
+      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
+
+
+   end subroutine Describe_SCsensor
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Destruct_SCsensor(sensor)
 !
 !     ---------
 !     Interface
@@ -140,6 +366,7 @@ module SCsensorClass
       type(SCsensor_t), intent(inout) :: sensor
 
 
+      if (allocated(sensor % TEestim))  deallocate(sensor % TEestim)
       if (associated(sensor % Compute)) nullify(sensor % Compute)
       if (associated(sensor % Rescale)) nullify(sensor % Rescale)
 
@@ -151,43 +378,59 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function Sensor_zero(sensor, mesh, e) result(val)
+   subroutine Sensor_zero(sensor, sem, t)
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(in) :: sensor
-      type(HexMesh),     intent(in) :: mesh
-      type(Element),     intent(in) :: e
-      real(RP)                      :: val
+      class(SCsensor_t), intent(inout) :: sensor
+      type(DGsem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: eID
 
 
-      val = 0.0_RP
+!$omp parallel do schedule(runtime) private(eID)
+      do eID = 1, sem % mesh % no_of_elements
+         sem % mesh % elements(eID) % storage % sensor = 0.0_RP
+      end do
+!$omp end parallel do
 
-   end function Sensor_zero
+   end subroutine Sensor_zero
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function Sensor_one(sensor, mesh, e) result(val)
+   subroutine Sensor_one(sensor, sem, t)
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(in) :: sensor
-      type(HexMesh),     intent(in) :: mesh
-      type(Element),     intent(in) :: e
-      real(RP)                      :: val
+      class(SCsensor_t), intent(inout) :: sensor
+      type(DGSem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: eID
 
 
-      val = 1.0_RP
+!$omp parallel do schedule(runtime) private(eID)
+      do eID = 1, sem % mesh % no_of_elements
+         sem % mesh % elements(eID) % storage % sensor = 1.0_RP
+      end do
+!$omp end parallel do
 
-   end function Sensor_one
+   end subroutine Sensor_one
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function Sensor_rho(sensor, mesh, e) result(val)
+   subroutine Sensor_rho(sensor, sem, t)
 !
 !     -------
 !     Modules
@@ -198,126 +441,223 @@ module SCsensorClass
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(in) :: sensor
-      type(HexMesh),     intent(in) :: mesh
-      type(Element),     intent(in) :: e
-      real(RP)                      :: val
+      class(SCsensor_t), intent(inout) :: sensor
+      type(DGSem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
 !
 !     ---------------
 !     Local variables
 !     ---------------
+      integer  :: eID
       integer  :: i
       integer  :: j
       integer  :: k
       real(RP) :: grad_rho2
+      real(RP) :: val
 
+!$omp parallel do schedule(runtime) private(eID)
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID))
 
-      val = 0.0_RP
-      do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+         val = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 !
-!        Compute the square of the norm of the density gradient
-!        ------------------------------------------------------
-         if ( grad_vars == GRADVARS_STATE ) then
-            grad_rho2 = POW2(e % storage % U_x(1,i,j,k)) &
-                      + POW2(e % storage % U_y(1,i,j,k)) &
-                      + POW2(e % storage % U_z(1,i,j,k))
-         else if (grad_vars == GRADVARS_ENTROPY) then
-            grad_rho2 = POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_x(:,i,j,k))) &
-                      + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_y(:,i,j,k))) &
-                      + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_z(:,i,j,k)))
-         else
-            val = -999.0_RP
-            return
-         end if
+!           Compute the square of the norm of the density gradient
+!           ------------------------------------------------------
+            if ( grad_vars == GRADVARS_STATE ) then
+               grad_rho2 = POW2(e % storage % U_x(1,i,j,k)) &
+                         + POW2(e % storage % U_y(1,i,j,k)) &
+                         + POW2(e % storage % U_z(1,i,j,k))
+            else if (grad_vars == GRADVARS_ENTROPY) then
+               grad_rho2 = POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_x(:,i,j,k))) &
+                         + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_y(:,i,j,k))) &
+                         + POW2(sum(e % storage % Q(:,i,j,k) * e % storage % U_z(:,i,j,k)))
+            end if
 !
-!        Integral of the squared gradient
-!        --------------------------------
-         val = val + NodalStorage(e % Nxyz(1)) % w(i) &
-                   * NodalStorage(e % Nxyz(2)) % w(j) &
-                   * NodalStorage(e % Nxyz(3)) % w(k) &
-                   * e % geom % jacobian(i,j,k)       &
-                   * grad_rho2
+!           Integral of the squared gradient
+!           --------------------------------
+            val = val + NodalStorage(e % Nxyz(1)) % w(i) &
+                      * NodalStorage(e % Nxyz(2)) % w(j) &
+                      * NodalStorage(e % Nxyz(3)) % w(k) &
+                      * e % geom % jacobian(i,j,k)       &
+                      * grad_rho2
 
-      end do               ; end do               ; end do
+         end do                ; end do                ; end do
 
-      val = sqrt(val)
+         e % storage % sensor = sqrt(val)
 
-   end function Sensor_rho
+      end associate
+      end do
+!$omp end parallel do
+
+   end subroutine Sensor_rho
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function Sensor_modal(sensor, mesh, e) result(val)
+   subroutine Sensor_modal(sensor, sem, t)
 !
 !     -------
 !     Modules
 !     -------
-      use NodalStorageClass, only: NodalStorage
-      use Utilities,         only: AlmostEqual
+      use Utilities, only: AlmostEqual
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(in) :: sensor
-      type(HexMesh),     intent(in) :: mesh
-      type(Element),     intent(in) :: e
-      real(RP)                      :: val
+      class(SCsensor_t), intent(inout) :: sensor
+      type(DGSem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
 !
 !     ---------------
 !     Local variables
 !     ---------------
+      integer               :: eID
       integer               :: i, j, k, r
       real(RP), allocatable :: sVar(:,:,:)
       real(RP), allocatable :: sVarMod(:,:,:)
 
 
-      associate(Nx => e % Nxyz(1), Ny => e % Nxyz(2), Nz => e % Nxyz(3))
-!
-!     Compute the sensed variable
-!     ---------------------------
-      allocate(sVar(0:Nx, 0:Ny, 0:Nz))
-      do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-         sVar(i,j,k) = GetSensedVariable(sensor % sVar, e % storage % Q(:,i,j,k))
-      end do       ; end do       ; end do
-!
-!     Switch to modal space
-!     ---------------------
-      allocate(sVarMod(0:Nx, 0:Ny, 0:Nz), source=0.0_RP)
+!$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID))
 
-      ! Xi direction
-      do k = 0, Nz ; do j = 0, Ny ; do r = 0, Nx ; do i = 0, Nx
-         sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nx) % Fwd(i,r) * sVar(r,j,k)
-      end do       ; end do       ; end do       ; end do
+         associate(Nx => e % Nxyz(1), Ny => e % Nxyz(2), Nz => e % Nxyz(3))
+   !
+   !     Compute the sensed variable
+   !     ---------------------------
+         allocate(sVar(0:Nx, 0:Ny, 0:Nz))
+         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            sVar(i,j,k) = GetSensedVariable(sensor % sVar, e % storage % Q(:,i,j,k))
+         end do       ; end do       ; end do
+   !
+   !     Switch to modal space
+   !     ---------------------
+         allocate(sVarMod(0:Nx, 0:Ny, 0:Nz), source=0.0_RP)
 
-      ! Eta direction
-      do k = 0, Nz ; do r = 0, Ny ; do j = 0, Ny ; do i = 0, Nx
-         sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Ny) % Fwd(j,r) * sVar(i,r,k)
-      end do       ; end do       ; end do       ; end do
+         ! Xi direction
+         do k = 0, Nz ; do j = 0, Ny ; do r = 0, Nx ; do i = 0, Nx
+            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nx) % Fwd(i,r) * sVar(r,j,k)
+         end do       ; end do       ; end do       ; end do
 
-      ! Zeta direction
-      do r = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-         sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
-      end do       ; end do       ; end do       ; end do
-!
-!     Check almost zero values
-!     ------------------------
-      do k = 0, Nz ; do j = 0, Ny ; do i = 0 , Nx
-         if (AlmostEqual(sVarMod(i,j,k), 0.0_RP)) then
-            sVarMod(i,j,k) = abs(sVarMod(i,j,k))
+         ! Eta direction
+         do k = 0, Nz ; do r = 0, Ny ; do j = 0, Ny ; do i = 0, Nx
+            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Ny) % Fwd(j,r) * sVar(i,r,k)
+         end do       ; end do       ; end do       ; end do
+
+         ! Zeta direction
+         do r = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
+         end do       ; end do       ; end do       ; end do
+   !
+   !     Check almost zero values
+   !     ------------------------
+         do k = 0, Nz ; do j = 0, Ny ; do i = 0 , Nx
+            if (AlmostEqual(sVarMod(i,j,k), 0.0_RP)) then
+               sVarMod(i,j,k) = abs(sVarMod(i,j,k))
+            end if
+         end do       ; end do       ; end do
+   !
+   !     Ratio of higher modes vs all the modes
+   !     --------------------------------------
+         if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
+            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
+         else
+            e % storage % sensor = log10( sVarMod(Nx,Ny,Nz)**2 / sum(sVarMod**2) )
          end if
-      end do       ; end do       ; end do
+
+         end associate
+
+      end associate
+      end do
+!$omp end parallel do
+
+   end subroutine Sensor_modal
 !
-!     Ratio of higher modes vs all the modes
-!     --------------------------------------
-      if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
-         val = -999.0_RP  ! This is likely to be big enough ;)
-      else
-         val = log10( abs(sVarMod(Nx,Ny,Nz)) / norm2(sVarMod) )
-      end if
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_truncation(sensor, sem, t)
+!
+!     -------
+!     Modules
+!     -------
+      use InterpolationMatrices, only: Interp3DArrays
+      use ProblemFileFunctions,  only: UserDefinedSourceTermNS_f
+      use PhysicsStorage,        only: CTD_IGNORE_MODE
+      use FluidData,             only: thermodynamics, dimensionless, refValues
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), intent(inout) :: sensor
+      type(DGSem),       intent(inout) :: sem
+      real(RP),          intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer                              :: eID
+      integer                              :: i, j, k
+      integer                              :: iEq
+      real(RP)                             :: wx, wy, wz
+      real(RP)                             :: Jac
+      real(RP)                             :: S(NCONS)
+      real(RP)                             :: mTE
+      procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+
+
+      associate(csem => sensor % TEestim % coarseSem)
+!
+!     Time derivative
+!     ---------------
+!$omp parallel do schedule(runtime) private(eID)
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID), ce => csem % mesh % elements(eID))
+         call Interp3DArrays(NCONS, e % Nxyz, e % storage % Q, ce % Nxyz, ce % storage % Q)
+         ce % storage % sensor = e % storage % sensor
+      end associate
+      end do
+!$omp end parallel do
+
+      call sensor % TEestim % TimeDerivative(csem % mesh, csem % particles, t, CTD_IGNORE_MODE)
+!
+!     Maximum TE computation
+!     ----------------------
+!$omp parallel do schedule(runtime) private(eID, i, j, k, iEq, S, mTE, wx, wy, wz, Jac)
+      do eID = 1, csem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID), ce => csem % mesh % elements(eID))
+
+         ! Use Q as temporary storage for Qdot
+         call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % Q)
+
+         mTE = 0.0
+         do k = 1, ce % Nxyz(IZ) ; do j = 1, ce % Nxyz(IY) ; do i = 1, ce % Nxyz(IX)
+
+            call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q, t, S, &
+                                         thermodynamics, dimensionless, refValues)
+
+            wx = NodalStorage(ce % Nxyz(IX)) % w(i)
+            wy = NodalStorage(ce % Nxyz(IY)) % w(i)
+            wz = NodalStorage(ce % Nxyz(IZ)) % w(i)
+            Jac = ce % geom % jacobian(i,j,k)
+
+            do iEq = 1, NCONS
+               mTE = max(mTE, Jac*wx*wy*wz * &
+                         abs(ce % storage % QDot(iEq,i,j,k) + S(iEq) - ce % storage % Q(iEq,i,j,k)))
+            end do
+
+         end do                  ; end do                  ; end do
+
+         e % storage % sensor = mTE
+
+      end associate
+      end do
+!$omp end parallel do
 
       end associate
 
-   end function Sensor_modal
+   end subroutine Sensor_truncation
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
