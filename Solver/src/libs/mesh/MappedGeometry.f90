@@ -242,7 +242,7 @@ Module MappedGeometryClass
 !     Interpolate normal vectors from the existing ones
 !     -------------------------------------------------
 !
-      allocate(l(Nx))
+      allocate(l(0:Nx))
       do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx+1
          x(IX) = sum(spAxi % w(:i-1)) - 1.0_RP
          call InterpolatingPolynomialVector(x(IX), Nx, spAxi % x, spAxi % wb, l)
@@ -255,7 +255,7 @@ Module MappedGeometryClass
       end do       ; end do       ; end do
 
       deallocate(l)
-      allocate(l(Ny))
+      allocate(l(0:Ny))
       do k = 0, Nz ; do j = 0, Ny+1 ; do i = 0, Nx
          x(IY) = sum(spAeta % w(:j-1)) - 1.0_RP
          call InterpolatingPolynomialVector(x(IY), Ny, spAeta % x, spAeta % wb, l)
@@ -268,7 +268,7 @@ Module MappedGeometryClass
       end do       ; end do       ; end do
 
       deallocate(l)
-      allocate(l(Nz))
+      allocate(l(0:Nz))
       do k = 0, Nz+1 ; do j = 0, Ny ; do i = 0, Nx
          x(IZ) = sum(spAzeta % w(:k-1)) - 1.0_RP
          call InterpolatingPolynomialVector(x(IZ), Nz, spAzeta % x, spAzeta % wb, l)
