@@ -451,6 +451,7 @@ Module DGSEMClass
          to % nodes              = from % nodes
          to % numberOfTimeSteps  = from % numberOfTimeSteps
          to % NDOF               = from % NDOF
+         to % totalNDOF          = from % totalNDOF
 
          to % mesh               = from % mesh
          to % ManufacturedSol    = from % ManufacturedSol
