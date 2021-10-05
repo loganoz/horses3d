@@ -400,7 +400,7 @@ module SCsensorClass
          write(STD_OUT,"(30X,A,A30,I0,A,I0,A)") "->", "Delta N: ", sensor % TEestim % deltaN, &
                                                 " (min. order is ", sensor % TEestim % Nmin, ")"
 
-      else
+      else if (sensor % sens_type /= SC_GRADRHO_ID) then
          write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
          select case (sensor % sVar)
             case (SC_RHO_ID);  write(STD_OUT,"(A)") SC_RHO_VAL
