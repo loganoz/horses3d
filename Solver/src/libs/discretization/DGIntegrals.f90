@@ -32,6 +32,10 @@ module DGIntegrals
    type  ScalarStrongIntegrals_t
       contains
          procedure, nopass    :: StdVolumeGreen  => ScalarStrongIntegrals_StdVolumeGreen
+#if defined(NAVIERSTOKES) || defined(INCNS)
+         procedure, nopass    :: SplitVolumeDivergence => ScalarStrongIntegrals_SplitVolumeDivergence
+         procedure, nopass    :: TelescopicVolumeDivergence => ScalarStrongIntegrals_TelescopicVolumeDivergence
+#endif
    end type ScalarStrongIntegrals_t
 
    type(ScalarWeakIntegrals_t)   :: ScalarWeakIntegrals
@@ -81,40 +85,9 @@ module DGIntegrals
 
          end associate
       end function ScalarWeakIntegrals_StdVolumeGreen
-
-      function ScalarStrongIntegrals_StdVolumeGreen( e, NEQ, F ) result ( volInt )
-         implicit none
-         class(Element),      intent(in)  :: e
-         integer,             intent(in)  :: NEQ
-         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
-         real(kind=RP)                    :: volInt(1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
 !
-!        ---------------
-!        Local variables
-!        ---------------
+!/////////////////////////////////////////////////////////////////////////////////
 !
-         integer     :: i, j, k, l
-
-         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
-                   spAeta  => NodalStorage(e % Nxyz(2)), &
-                   spAzeta => NodalStorage(e % Nxyz(3)) )
-         volInt = 0.0_RP
-
-         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % D(i,l) * F(:,l,j,k,IX)
-         end do             ; end do               ; end do             ; end do
-
-         do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % D(j,l) * F(:,i,l,k,IY)
-         end do             ; end do               ; end do             ; end do
-
-         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
-            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % D(k,l) * F(:,i,j,l,IZ)
-         end do             ; end do             ; end do               ; end do
-
-         end associate
-      end function ScalarStrongIntegrals_StdVolumeGreen
-
 #if defined(NAVIERSTOKES) || defined(INCNS)
       function ScalarWeakIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
          implicit none
@@ -154,7 +127,9 @@ module DGIntegrals
 
          end associate
       end function ScalarWeakIntegrals_SplitVolumeDivergence
-
+!
+!/////////////////////////////////////////////////////////////////////////////////
+!
       function ScalarWeakIntegrals_TelescopicVolumeDivergence(e, Fx, Fy, Fz, Fv) result(volInt)
 !
 !        ---------
@@ -466,4 +441,154 @@ module DGIntegrals
 
          end associate
       end subroutine VectorWeakIntegrals_StdFace
+!
+!/////////////////////////////////////////////////////////////////////////////
+!
+!>       Strong integrals with scalar test function
+!        ------------------------------------------
+!/////////////////////////////////////////////////////////////////////////////
+!
+      function ScalarStrongIntegrals_StdVolumeGreen( e, NEQ, F ) result ( volInt )
+         implicit none
+         class(Element),      intent(in)  :: e
+         integer,             intent(in)  :: NEQ
+         real(kind=RP),       intent(in)  :: F     (1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)                    :: volInt(1:NEQ, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: i, j, k, l
+
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+         volInt = 0.0_RP
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % D(i,l) * F(:,l,j,k,IX)
+         end do             ; end do               ; end do             ; end do
+
+         do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % D(j,l) * F(:,i,l,k,IY)
+         end do             ; end do               ; end do             ; end do
+
+         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % D(k,l) * F(:,i,j,l,IZ)
+         end do             ; end do             ; end do               ; end do
+
+         end associate
+      end function ScalarStrongIntegrals_StdVolumeGreen
+!
+!/////////////////////////////////////////////////////////////////////////////////
+!
+#if defined(NAVIERSTOKES) || defined(INCNS)
+      function ScalarStrongIntegrals_SplitVolumeDivergence( e, fSharp, gSharp, hSharp, Fv ) result ( volInt )
+         implicit none
+         class(Element), intent(in)  :: e
+         real(kind=RP),  intent(in)  :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(in)  :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(in)  :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(kind=RP),  intent(in)  :: Fv(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP)               :: volInt(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: i, j, k, l
+
+
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)) )
+
+         volInt = 0.0_RP
+
+         do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do l = 0, e%Nxyz(1) ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + 2.0_RP * spAxi % D(i,l) * fSharp(:,l,i,j,k) &
+                                              + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
+         end do             ; end do               ; end do             ; end do
+
+         do k = 0, e%Nxyz(3) ; do l = 0, e%Nxyz(2) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + 2.0_RP * spAeta % D(j,l) * gSharp(:,l,i,j,k) &
+                                              + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
+         end do             ; end do               ; end do             ; end do
+
+         do l = 0, e%Nxyz(3) ; do k = 0, e%Nxyz(3) ; do j = 0, e%Nxyz(2)   ; do i = 0, e%Nxyz(1)
+            volInt(:,i,j,k) = volInt(:,i,j,k) + 2.0_RP * spAzeta % D(k,l) * hSharp(:,l,i,j,k) &
+                                              + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
+         end do             ; end do             ; end do               ; end do
+
+         end associate
+
+      end function ScalarStrongIntegrals_SplitVolumeDivergence
+!
+!/////////////////////////////////////////////////////////////////////////////////
+!
+      function ScalarStrongIntegrals_TelescopicVolumeDivergence(e, Fx, Fy, Fz, Fv) result(volInt)
+!
+!        ---------
+!        Interface
+!        ---------
+         implicit none
+         class(Element), intent(in) :: e
+         real(RP),       intent(in) :: Fx    (1:NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
+         real(RP),       intent(in) :: Fy    (1:NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
+         real(RP),       intent(in) :: Fz    (1:NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
+         real(RP),       intent(in) :: Fv    (1:NCONS, 0:e%Nxyz(1),   0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
+         real(RP)                   :: volInt(1:NCONS, 0:e%Nxyz(1),   0:e%Nxyz(2), 0:e%Nxyz(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         integer :: i, j, k, l
+
+
+         associate(Nx => e % Nxyz(1), &
+                   Ny => e % Nxyz(2), &
+                   Nz => e % Nxyz(3)  )
+         associate(spAxi   => NodalStorage(Nx), &
+                   spAeta  => NodalStorage(Ny), &
+                   spAzeta => NodalStorage(Nz)  )
+
+         volInt = 0.0_RP
+!
+!        Xi
+!        --
+         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fx(:,i+1,j,k)-Fx(:,i,j,k)) / spAxi % w(i)
+         end do       ; end do       ; end do
+
+         do k = 0, Nz ; do j = 0, Ny ; do l = 0, Nx ; do i = 0, Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
+         end do       ; end do       ; end do       ; end do
+!
+!        Eta
+!        ---
+         do k = 0, Nz ; do i = 0, Nx ; do j = 0, Ny
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fy(:,j+1,i,k)-Fy(:,j,i,k)) / spAeta % w(j)
+         end do       ; end do       ; end do
+
+         do k = 0, Nz ; do l = 0, Ny ; do j = 0, Ny ; do i = 0, Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
+         end do       ; end do       ; end do       ; end do
+!
+!        Zeta
+!        ----
+         do j = 0, Ny ; do i = 0, Nx ; do k = 0, Nz
+            volInt(:,i,j,k) = volInt(:,i,j,k) + (Fz(:,k+1,i,j)-Fz(:,k,i,j)) / spAzeta % w(k)
+         end do       ; end do       ; end do
+
+         do l = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            volInt(:,i,j,k) = volInt(:,i,j,k) + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
+         end do       ; end do       ; end do       ; end do
+
+         end associate
+         end associate
+
+      end function ScalarStrongIntegrals_TelescopicVolumeDivergence
+#endif
+
 end module DGIntegrals

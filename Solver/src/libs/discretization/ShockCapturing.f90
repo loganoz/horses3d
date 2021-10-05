@@ -21,7 +21,7 @@ module ShockCapturing
    use ElementClass,               only: Element
    use LESModels,                  only: Smagorinsky_t
    use SpectralVanishingViscosity, only: SVV, InitializeSVV
-   use DGIntegrals,                only: ScalarWeakIntegrals
+   use DGIntegrals,                only: ScalarWeakIntegrals, ScalarStrongIntegrals
 
    use ShockCapturingKeywords
    use SCsensorClass, only: SCsensor_t, Set_SCsensor, Destruct_SCsensor
@@ -319,7 +319,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SC_advection(self, e, Fv, Qdot)
+   subroutine SC_advection(self, e, Fv, Qdot, isStrong)
 !
 !     ---------
 !     Interface
@@ -327,6 +327,7 @@ module ShockCapturing
       implicit none
       class(SCdriver_t), intent(in)  :: self
       type(Element),     intent(in)  :: e
+      logical, optional, intent(in)  :: isStrong
       real(RP),          intent(in)  :: Fv(1:NCONS,       &
                                            0:e % Nxyz(1), &
                                            0:e % Nxyz(2), &
@@ -341,13 +342,20 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       real(RP) :: switch
+      logical  :: strongIntegral
 
 !
 !     Scale the sensed value to the range [0,1]
 !     -----------------------------------------
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      Qdot = self % advection % Compute(e, switch, Fv)
+      if (present(isStrong)) then
+         strongIntegral = isStrong
+      else
+         strongIntegral = .false.
+      end if
+
+      Qdot = self % advection % Compute(e, switch, Fv, strongIntegral)
 
    end subroutine SC_advection
 !
@@ -570,7 +578,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function AA_compute(self, e, switch, Fv) result(div)
+   function AA_compute(self, e, switch, Fv, isStrong) result(div)
 !
 !     ---------
 !     Interface
@@ -579,6 +587,7 @@ module ShockCapturing
       class(ArtificialAdvection_t), intent(in) :: self
       type(Element),                intent(in) :: e
       real(RP),                     intent(in) :: switch
+      logical,                      intent(in) :: isStrong
       real(RP),                     intent(in) :: Fv(1:NCONS,       &
                                                      0:e % Nxyz(1), &
                                                      0:e % Nxyz(2), &
@@ -1119,7 +1128,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function SSFV_hyperbolic(self, e, switch, Fv) result(div)
+   function SSFV_hyperbolic(self, e, switch, Fv, isStrong) result(div)
 !
 !     -------
 !     Modules
@@ -1136,6 +1145,7 @@ module ShockCapturing
       class(SC_SSFV_t), intent(in) :: self
       type(Element),    intent(in) :: e
       real(RP),         intent(in) :: switch
+      logical,          intent(in) :: isStrong
       real(RP),         intent(in) :: Fv(1:NCONS,     &
                                          0:e%Nxyz(1), &
                                          0:e%Nxyz(2), &
@@ -1350,7 +1360,11 @@ module ShockCapturing
 !
 !     Volume integral
 !     ---------------
-      div = -ScalarWeakIntegrals % TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
+      if (isStrong) then
+         div = -ScalarStrongIntegrals % TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
+      else
+         div = -ScalarWeakIntegrals % TelescopicVolumeDivergence(e, FSx, FSy, FSz, Fv)
+      end if
 
       end associate
       end associate
