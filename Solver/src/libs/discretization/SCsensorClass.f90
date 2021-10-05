@@ -64,9 +64,9 @@ module SCsensorClass
    abstract interface
       subroutine Compute_Int(this, sem, t)
          import RP, SCsensor_t, DGsem
-         class(SCsensor_t), intent(inout) :: this
-         type(DGSem),       intent(inout) :: sem
-         real(RP),          intent(in)    :: t
+         class(SCsensor_t), target, intent(inout) :: this
+         type(DGSem),       target, intent(inout) :: sem
+         real(RP),                  intent(in)    :: t
       end subroutine Compute_Int
 
       pure function Rescale_Int(this, sensVal) result(scaled)
@@ -303,7 +303,7 @@ module SCsensorClass
       sensor % TEestim % coarseSem % mesh % ignoreBCnonConformities = .true.
 
       allocate(N(NDIM, sem % mesh % no_of_elements))
-!$omp parallel do schedule(runtime) private(eID)
+!$omp parallel do schedule(runtime)
       do eID = 1, sem % mesh % no_of_elements
 
          if (sem % mesh % Nx(eID) < Nmin) then
@@ -451,9 +451,9 @@ module SCsensorClass
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(inout) :: sensor
-      type(DGsem),       intent(inout) :: sem
-      real(RP),          intent(in)    :: t
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGsem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
 !
 !     ---------------
 !     Local variables
@@ -461,7 +461,7 @@ module SCsensorClass
       integer :: eID
 
 
-!$omp parallel do schedule(runtime) private(eID)
+!$omp parallel do schedule(runtime)
       do eID = 1, sem % mesh % no_of_elements
          sem % mesh % elements(eID) % storage % sensor = 0.0_RP
       end do
@@ -477,9 +477,9 @@ module SCsensorClass
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(inout) :: sensor
-      type(DGSem),       intent(inout) :: sem
-      real(RP),          intent(in)    :: t
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
 !
 !     ---------------
 !     Local variables
@@ -487,7 +487,7 @@ module SCsensorClass
       integer :: eID
 
 
-!$omp parallel do schedule(runtime) private(eID)
+!$omp parallel do schedule(runtime)
       do eID = 1, sem % mesh % no_of_elements
          sem % mesh % elements(eID) % storage % sensor = 1.0_RP
       end do
@@ -508,9 +508,9 @@ module SCsensorClass
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(inout) :: sensor
-      type(DGSem),       intent(inout) :: sem
-      real(RP),          intent(in)    :: t
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
 !
 !     ---------------
 !     Local variables
@@ -522,7 +522,7 @@ module SCsensorClass
       real(RP) :: grad_rho2
       real(RP) :: val
 
-!$omp parallel do schedule(runtime) private(eID)
+!$omp parallel do schedule(runtime)
       do eID = 1, sem % mesh % no_of_elements
       associate(e => sem % mesh % elements(eID))
 
@@ -572,18 +572,26 @@ module SCsensorClass
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(inout) :: sensor
-      type(DGSem),       intent(inout) :: sem
-      real(RP),          intent(in)    :: t
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
 !
 !     ---------------
 !     Local variables
 !     ---------------
       integer               :: eID
       integer               :: i, j, k, r
+      integer               :: Nx, Ny, Nz
       real(RP), allocatable :: sVar(:,:,:)
       real(RP), allocatable :: sVarMod(:,:,:)
 
+
+      ! Only allocate once
+      Nx = maxval(sem % mesh % Nx)
+      Ny = maxval(sem % mesh % Ny)
+      Nz = maxval(sem % mesh % Nz)
+      allocate(sVar(Nx,Ny,Nz))
+      allocate(sVarMod(Nx,Ny,Nz))
 
 !$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
       do eID = 1, sem % mesh % no_of_elements
@@ -593,14 +601,13 @@ module SCsensorClass
 !
 !        Compute the sensed variable
 !        ---------------------------
-         allocate(sVar(0:Nx, 0:Ny, 0:Nz))
          do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
             sVar(i,j,k) = GetSensedVariable(sensor % sVar, e % storage % Q(:,i,j,k))
          end do       ; end do       ; end do
 !
 !        Switch to modal space
 !        ---------------------
-         allocate(sVarMod(0:Nx, 0:Ny, 0:Nz), source=0.0_RP)
+         sVarMod = 0.0_RP
 
          ! Xi direction
          do k = 0, Nz ; do j = 0, Ny ; do r = 0, Nx ; do i = 0, Nx
@@ -653,14 +660,15 @@ module SCsensorClass
       use PhysicsStorage,        only: CTD_IGNORE_MODE
       use FluidData,             only: thermodynamics, dimensionless, refValues
       use Utilities,             only: AlmostEqual
+      use ElementClass,          only: Element
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SCsensor_t), intent(inout) :: sensor
-      type(DGSem),       intent(inout) :: sem
-      real(RP),          intent(in)    :: t
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
 !
 !     ---------------
 !     Local variables
@@ -672,6 +680,8 @@ module SCsensorClass
       real(RP)                             :: Jac
       real(RP)                             :: S(NCONS)
       real(RP)                             :: mTE
+      type(Element), pointer               :: e  => null()
+      type(Element), pointer               :: ce => null()
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 
 
@@ -679,12 +689,16 @@ module SCsensorClass
 !
 !     Time derivative
 !     ---------------
-!$omp parallel do schedule(runtime) private(eID)
+!$omp parallel do schedule(runtime) private(eID, e, ce)
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID), ce => csem % mesh % elements(eID))
+
+         ! TODO: ifort does not like associates with OpenMP
+         e  => sem % mesh % elements(eID)
+         ce => csem % mesh % elements(eID)
+
          call Interp3DArrays(NCONS, e % Nxyz, e % storage % Q, ce % Nxyz, ce % storage % Q)
          ce % storage % sensor = e % storage % sensor
-      end associate
+
       end do
 !$omp end parallel do
 
@@ -692,9 +706,12 @@ module SCsensorClass
 !
 !     Maximum TE computation
 !     ----------------------
-!$omp parallel do schedule(runtime) private(eID, i, j, k, iEq, S, mTE, wx, wy, wz, Jac)
+!$omp parallel do schedule(runtime) private(eID, e, ce, i, j, k, iEq, S, mTE, wx, wy, wz, Jac)
       do eID = 1, csem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID), ce => csem % mesh % elements(eID))
+
+         ! TODO: ifort does not like associates with OpenMP
+         e  => sem % mesh % elements(eID)
+         ce => csem % mesh % elements(eID)
 
          ! Use G_NS as temporary storage for Qdot
          call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % G_NS)
@@ -723,9 +740,11 @@ module SCsensorClass
             e % storage % sensor = log10(mTE)
          end if
 
-      end associate
       end do
 !$omp end parallel do
+
+      if (associated(e))  nullify(e)
+      if (associated(ce)) nullify(ce)
 
       end associate
 
