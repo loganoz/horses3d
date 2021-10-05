@@ -17,7 +17,7 @@ module VolumeIntegrals
 
 #if defined(NAVIERSTOKES)
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, ARTIFICIAL_DISSIPATION
    public ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 
@@ -42,7 +42,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES)
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
-      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
+      enumerator :: ARTIFICIAL_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -252,7 +252,7 @@ module VolumeIntegrals
                    + correction_term(i,j,k))
             end do            ; end do           ; end do
 
-            val = val + e % storage % SVV_diss
+            val = val + e % storage % artificialDiss
 
 
          case ( ENSTROPHY )
@@ -347,7 +347,7 @@ module VolumeIntegrals
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
 
-               val = val + e % storage % SVV_diss
+               val = val + e % storage % artificialDiss
 
             case(GRADVARS_ENERGY)
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
@@ -360,8 +360,8 @@ module VolumeIntegrals
 
             end select
 
-         case (SVV_DISSIPATION)
-            val = val + e % storage % SVV_diss
+         case (ARTIFICIAL_DISSIPATION)
+            val = val + e % storage % artificialDiss
 
          case ( INTERNAL_ENERGY )
             !

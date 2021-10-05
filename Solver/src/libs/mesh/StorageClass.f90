@@ -87,7 +87,7 @@ module StorageClass
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
-      real(kind=RP)                        :: SVV_diss
+      real(kind=RP)                        :: artificialDiss
 #endif
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:,:),   allocatable :: c     ! CHE concentration
@@ -855,7 +855,7 @@ module StorageClass
             self % U_zNS = 0.0_RP
          end if
 
-         self % SVV_diss = 0.0_RP
+         self % artificialDiss = 0.0_RP
 #endif
 
 #ifdef CAHNHILLIARD

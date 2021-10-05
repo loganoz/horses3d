@@ -92,5 +92,5 @@
 
 #define volume monitor 3
    name = SVV
-   variable = SVV Dissipation
+   variable = Artificial dissipation
 #end

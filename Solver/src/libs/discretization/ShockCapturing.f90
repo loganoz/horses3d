@@ -973,7 +973,7 @@ module ShockCapturing
 
       else
 
-         e % storage % SVV_diss = 0.0_RP
+         e % storage % artificialDiss = 0.0_RP
          SCflux = 0.0_RP
 
       end if

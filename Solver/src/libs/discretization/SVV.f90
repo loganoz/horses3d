@@ -448,7 +448,7 @@ module SpectralVanishingViscosity
 
          end do               ; end do            ; end do
 
-         e % storage % SVV_diss = SVV_diss
+         e % storage % artificialDiss = SVV_diss
 
          end associate
 
