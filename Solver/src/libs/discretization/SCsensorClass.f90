@@ -86,7 +86,7 @@ module SCsensorClass
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, sem, controlVariables, &
+   subroutine Set_SCsensor(sensor, controlVariables, sem, complementaryGeometry, &
                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
@@ -101,6 +101,7 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
+      logical,                            intent(in)    :: complementaryGeometry
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
@@ -145,7 +146,7 @@ module SCsensorClass
       case (SC_TE_VAL)
          sensor % sens_type = SC_TE_ID
          sensor % Compute  => Sensor_truncation
-         call Construct_TEsensor(sensor, controlVariables, sem, &
+         call Construct_TEsensor(sensor, controlVariables, sem, complementaryGeometry, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
       case default
@@ -223,13 +224,15 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Construct_TEsensor(sensor, controlVariables, sem, &
+   subroutine Construct_TEsensor(sensor, controlVariables, sem, complementaryGeometry, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
 !     Modules
 !     -------
       use FTValueDictionaryClass
+      use TransfiniteMapClass, only: TransfiniteHexMap
+      use NodalStorageClass,   only: NodalStorage
 !
 !     ---------
 !     Interface
@@ -238,30 +241,36 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
+      logical,                            intent(in)    :: complementaryGeometry
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable :: derivType
-      integer                       :: eID
-      integer,          allocatable :: N(:,:)
+      character(len=:), allocatable    :: derivType
+      real(RP)                         :: Nmin
+      real(RP)                         :: deltaN
+      integer                          :: eID
+      integer,          allocatable    :: N(:,:)
+      type(TransfiniteHexMap), pointer :: hexMap    => null()
+      type(TransfiniteHexMap), pointer :: hex8Map   => null()
+      type(TransfiniteHexMap), pointer :: genHexMap => null()
 
 !
 !     Read the control file
 !     ---------------------
       allocate(sensor % TEestim)
       if (controlVariables % containsKey(SC_TE_NMIN_KEY)) then
-         sensor % TEestim % Nmin = controlVariables % integerValueForKey(SC_TE_NMIN_KEY)
+         Nmin = controlVariables % integerValueForKey(SC_TE_NMIN_KEY)
       else
-         sensor % TEestim % Nmin = 1
+         Nmin = 1
       end if
 
       if (controlVariables % containsKey(SC_TE_DELTA_KEY)) then
-         sensor % TEestim % deltaN = controlVariables % integerValueForKey(SC_TE_DELTA_KEY)
+         deltaN = controlVariables % integerValueForKey(SC_TE_DELTA_KEY)
       else
-         sensor % TEestim % deltaN = 1
+         deltaN = 1
       end if
 
       if (controlVariables % containsKey(SC_TE_DTYPE_KEY)) then
@@ -282,6 +291,9 @@ module SCsensorClass
          write(STD_OUT,*) "ERROR. The TE sensor can only use the (non-)isolated time derivatives."
          stop
       end select
+
+      sensor % TEestim % Nmin   = Nmin
+      sensor % TEestim % deltaN = deltaN
 !
 !     Coarse mesh
 !     -----------
@@ -293,13 +305,68 @@ module SCsensorClass
       allocate(N(NDIM, sem % mesh % no_of_elements))
 !$omp parallel do schedule(runtime) private(eID)
       do eID = 1, sem % mesh % no_of_elements
-         N(IX,eID) = max(sem % mesh % Nx(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
-         N(IY,eID) = max(sem % mesh % Ny(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
-         N(IZ,eID) = max(sem % mesh % Nz(eID) - sensor % TEestim % deltaN, sensor % TEestim % Nmin)
+
+         if (sem % mesh % Nx(eID) < Nmin) then
+            N(IX,eID) = sem % mesh % Nx(eID)
+         else
+            N(IX,eID) = max(sem % mesh % Nx(eID) - deltaN, Nmin)
+         end if
+
+         if (sem % mesh % Ny(eID) < Nmin) then
+            N(IY,eID) = sem % mesh % Ny(eID)
+         else
+            N(IY,eID) = max(sem % mesh % Ny(eID) - deltaN, Nmin)
+         end if
+
+         if (sem % mesh % Nz(eID) < Nmin) then
+            N(IZ,eID) = sem % mesh % Nz(eID)
+         else
+            N(IZ,eID) = max(sem % mesh % Nz(eID) - deltaN, Nmin)
+         end if
+
       end do
 !$omp end parallel do
+
       call sensor % TEestim % coarseSem % mesh % pAdapt(N, controlVariables)
       call sensor % TEestim % coarseSem % mesh % storage % PointStorage()
+!
+!     Generate the complementary geometry if needed
+!     ---------------------------------------------
+      if (complementaryGeometry) then
+      associate(mesh => sensor % TEestim % coarseSem % mesh)
+
+         allocate(hex8Map)
+         call hex8Map % constructWithCorners(mesh % elements(1) % SurfInfo % corners)
+         allocate(genHexMap)
+
+         do eID = 1, mesh % no_of_elements
+
+            associate(e => mesh % elements(eID))
+
+            if (e % SurfInfo % IsHex8) then
+               call hex8Map % setCorners(e % SurfInfo % corners)
+               hexMap => hex8Map
+            else
+               call genHexMap % destruct()
+               call genHexMap % constructWithFaces(e % SurfInfo % facePatches)
+               hexMap => genHexMap
+            end if
+
+            call e % geom % updateComplementaryGrid(NodalStorage(e % Nxyz(IX)), &
+                                                    NodalStorage(e % Nxyz(IY)), &
+                                                    NodalStorage(e % Nxyz(IZ)), &
+                                                    hexMap)
+
+            end associate
+
+         end do
+
+         deallocate(hex8Map)
+         deallocate(genHexMap)
+         nullify(hexMap)
+
+      end associate
+      end if
 
    end subroutine Construct_TEsensor
 !
@@ -523,16 +590,16 @@ module SCsensorClass
       associate(e => sem % mesh % elements(eID))
 
          associate(Nx => e % Nxyz(1), Ny => e % Nxyz(2), Nz => e % Nxyz(3))
-   !
-   !     Compute the sensed variable
-   !     ---------------------------
+!
+!        Compute the sensed variable
+!        ---------------------------
          allocate(sVar(0:Nx, 0:Ny, 0:Nz))
          do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
             sVar(i,j,k) = GetSensedVariable(sensor % sVar, e % storage % Q(:,i,j,k))
          end do       ; end do       ; end do
-   !
-   !     Switch to modal space
-   !     ---------------------
+!
+!        Switch to modal space
+!        ---------------------
          allocate(sVarMod(0:Nx, 0:Ny, 0:Nz), source=0.0_RP)
 
          ! Xi direction
@@ -549,17 +616,17 @@ module SCsensorClass
          do r = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
             sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
          end do       ; end do       ; end do       ; end do
-   !
-   !     Check almost zero values
-   !     ------------------------
+!
+!        Check almost zero values
+!        ------------------------
          do k = 0, Nz ; do j = 0, Ny ; do i = 0 , Nx
             if (AlmostEqual(sVarMod(i,j,k), 0.0_RP)) then
                sVarMod(i,j,k) = abs(sVarMod(i,j,k))
             end if
          end do       ; end do       ; end do
-   !
-   !     Ratio of higher modes vs all the modes
-   !     --------------------------------------
+!
+!        Ratio of higher modes vs all the modes
+!        --------------------------------------
          if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
             e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
          else
@@ -585,6 +652,7 @@ module SCsensorClass
       use ProblemFileFunctions,  only: UserDefinedSourceTermNS_f
       use PhysicsStorage,        only: CTD_IGNORE_MODE
       use FluidData,             only: thermodynamics, dimensionless, refValues
+      use Utilities,             only: AlmostEqual
 !
 !     ---------
 !     Interface
@@ -628,11 +696,11 @@ module SCsensorClass
       do eID = 1, csem % mesh % no_of_elements
       associate(e => sem % mesh % elements(eID), ce => csem % mesh % elements(eID))
 
-         ! Use Q as temporary storage for Qdot
-         call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % Q)
+         ! Use G_NS as temporary storage for Qdot
+         call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % G_NS)
 
          mTE = 0.0
-         do k = 1, ce % Nxyz(IZ) ; do j = 1, ce % Nxyz(IY) ; do i = 1, ce % Nxyz(IX)
+         do k = 0, ce % Nxyz(IZ) ; do j = 0, ce % Nxyz(IY) ; do i = 0, ce % Nxyz(IX)
 
             call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q, t, S, &
                                          thermodynamics, dimensionless, refValues)
@@ -643,13 +711,17 @@ module SCsensorClass
             Jac = ce % geom % jacobian(i,j,k)
 
             do iEq = 1, NCONS
-               mTE = max(mTE, Jac*wx*wy*wz * &
-                         abs(ce % storage % QDot(iEq,i,j,k) + S(iEq) - ce % storage % Q(iEq,i,j,k)))
+               mTE = max(mTE, Jac*wx*wy*wz * abs(ce % storage % QDot(iEq,i,j,k) + S(iEq) - &
+                                                 ce % storage % G_NS(iEq,i,j,k)))
             end do
 
          end do                  ; end do                  ; end do
 
-         e % storage % sensor = mTE
+         if (AlmostEqual(mTE, 0.0_RP)) then
+            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
+         else
+            e % storage % sensor = log10(mTE)
+         end if
 
       end associate
       end do

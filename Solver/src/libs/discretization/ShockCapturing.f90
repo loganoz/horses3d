@@ -180,6 +180,7 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       character(len=:), allocatable :: method
+      logical                       :: updateCompGeometry
 
 !
 !     Shock-capturing methods
@@ -210,7 +211,6 @@ module ShockCapturing
          write(STD_OUT,*) '   * ', SC_NO_VAL
          write(STD_OUT,*) '   * ', SC_NOSVV_VAL
          write(STD_OUT,*) '   * ', SC_SVV_VAL
-         errorMessage(STD_OUT)
          stop
 
       end select
@@ -226,15 +226,16 @@ module ShockCapturing
       case (SC_SSFV_VAL)
          allocate (SC_SSFV_t :: self % advection)
          self % hasHyperbolicTerm = .true.
+         updateCompGeometry = .true.
 
       case (SC_NO_VAL)
          self % hasHyperbolicTerm = .false.
+         updateCompGeometry = .false.
 
       case default
          write(STD_OUT,*) 'ERROR. Unavailable shock-capturing hyperbolic method. Options are:'
          write(STD_OUT,*) '   * ', SC_NO_VAL
          write(STD_OUT,*) '   * ', SC_SSFV_VAL
-         errorMessage(STD_OUT)
          stop
 
       end select
@@ -259,7 +260,8 @@ module ShockCapturing
 !
 !     Construct sensor
 !     ----------------
-      call Set_SCsensor(self % sensor, sem, controlVariables, TimeDerivative, TimeDerivativeIsolated)
+      call Set_SCsensor(self % sensor, controlVariables, sem, updateCompGeometry, &
+                        TimeDerivative, TimeDerivativeIsolated)
 
    end subroutine Initialize_ShockCapturing
 !
@@ -657,7 +659,6 @@ module ShockCapturing
             write(STD_OUT,*) 'ERROR. Artificial viscosity type not recognized. Options are:'
             write(STD_OUT,*) '   * ', SC_PHYS_VAL
             write(STD_OUT,*) '   * ', SC_GP_VAL
-            errorMessage(STD_OUT)
             stop
          end select
 
@@ -681,7 +682,6 @@ module ShockCapturing
             write(STD_OUT,*) "ERROR. Guermond-Popov (2014) artificial ",  &
                               "viscosity is only configured for Entropy ", &
                               "gradient variables"
-            errorMessage(STD_OUT)
             stop
          end select
 

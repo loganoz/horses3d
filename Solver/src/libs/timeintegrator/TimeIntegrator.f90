@@ -383,16 +383,6 @@ print*, "Method selected: RK5"
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
 !
-!     -----------------------------
-!     Update shock-capturing sensor
-!     -----------------------------
-!
-#ifdef NAVIERSTOKES
-      if (ShockCapturingDriver % isActive) then
-         call ShockCapturingDriver % Detect(sem, t)
-      end if
-#endif
-!
 !     -----------------------
 !     Check initial residuals
 !     -----------------------
@@ -420,6 +410,16 @@ print*, "Method selected: RK5"
             return
          END IF
       end if
+!
+!     -----------------------------
+!     Update shock-capturing sensor
+!     -----------------------------
+!
+#ifdef NAVIERSTOKES
+      if (ShockCapturingDriver % isActive) then
+         call ShockCapturingDriver % Detect(sem, t)
+      end if
+#endif
 !
 !     -----------------
 !     Integrate in time
