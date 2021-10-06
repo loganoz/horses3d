@@ -38,6 +38,9 @@ MODULE HexMeshClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
+#if defined(SPALARTALMARAS)
+      use cobyla_module
+#endif
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -2724,7 +2727,7 @@ slavecoord:             DO l = 1, 4
 #if defined(SPALARTALMARAS)
                allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
-               Q(1,:,:,:) = e % storage % mu_ns(1,:,:,:)
+               Q(1,:,:,:) = e % geom % dwall(:,:,:)   !storage % mu_ns(1,:,:,:)
 
                write(fid) Q
 
@@ -3294,11 +3297,13 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer       :: eID, ii, i, j, k, no_of_wallDOFS, num_of_elems, num_of_faces
-         real(kind=RP) :: currentDistancepos, currentDistanceneg , minimumDistance
+         real(kind=RP) :: currentDistance, currentDistancepos, currentDistanceneg , minimumDistance
          integer       :: fID
          real(kind=RP) :: xP(NDIM)
          real(kind=RP), allocatable    :: Xwall(:,:)
-         real(kind=RP) ::  xNACA, yNACApos, yNACAneg , xn  
+         real(kind=RP) ::  xNACA, yNACApos, yNACAneg 
+         integer       :: xnodes   
+         real(kind=RP) :: xNACAp1, xNACAp2, xNACAp3, xNACAp4
 !
 !        Gather all walls coordinates
 !        ----------------------------
@@ -3311,6 +3316,7 @@ slavecoord:             DO l = 1, 4
          else
             num_of_elems = self % no_of_elements
          end if
+
          do ii = 1, num_of_elems
             if ( present(elementList) ) then
                eID = elementList (ii)
@@ -3322,75 +3328,87 @@ slavecoord:             DO l = 1, 4
 
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                xP = e % geom % x(:,i,j,k) 
+#if defined(SPALARTALMARAS)
+               call NacaWallDistanceCalculator (xP, e % geom % dWall(i,j,k))
+#endif
+               if (e % geom % dWall(i,j,k) .LT. 0.000001_RP) then 
+                     
+                     minimumDistance = HUGE(1.0_RP)
+                     do fID = 1, no_of_wallDOFS
+                        currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                        minimumDistance = min(minimumDistance, currentDistance)
+                     end do 
+                     e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+               endif
 
-               minimumDistance = HUGE(1.0_RP)
-
-               do xn = 1, 10000
-                     xNACA = xn / 10000.0_RP
-                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
-                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
-                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
-
-                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
-                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
-                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
-
-               !do fID = 1, no_of_wallDOFS
-                  currentDistancepos = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACApos)
-                  currentDistanceneg = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACAneg)
-                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
-               !end do 
-               end do
-               
-               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
-
-            end do                  ; end do                ; end do
-            end associate
-         end do
-!
-!        Get the minimum distance to each face nodal degree of freedom
-!        -------------------------------------------------------------            
-         if ( present(facesList) ) then
-            num_of_faces = size (facesList)
-         else
-            num_of_faces = size (self % faces)
-         end if
-         do ii = 1, num_of_faces
-            if ( present(facesList) ) then
-               eID = facesList (ii)
-            else
-               eID = ii
-            end if
+        !    end do                  ; end do                ; end do
+   
+        ! do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+        !    xP = e % geom % x(:,i,j,k) 
             
-            associate(fe => self % faces(eID))
-            allocate(fe % geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+        !    if ((xP(1) .LT. 0.0001_RP) .AND. (xP(1) .GT. -0.001_RP)) then 
+        !       if ((xP(2) .LT. 0.001_RP) .AND. (xP(2) .GT. -0.001_RP)) then 
+        !             minimumDistance = HUGE(1.0_RP)
+        !             do fID = 1, no_of_wallDOFS
+        !                currentDistance = sum(POW2(xP - Xwall(:,fID)))
+        !                minimumDistance = min(minimumDistance, currentDistance)
+        !             end do 
 
-            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
-               xP = fe % geom % x(:,i,j) 
+        !             e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+        !       endif
+        !    endif 
 
-               minimumDistance = HUGE(1.0_RP)
-
-               do xn = 1, 10000
-                     xNACA = xn / 10000.0_RP
-                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
-                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
-                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
-
-                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACA) & 
-                             - 0.127125232_RP * xNACA - 0.357907906_RP * xNACA**(2.0_RP) &
-                             + 0.291984971_RP * xNACA**(3.0_RP) - 0.105174606_RP * xNACA**(4.0_RP) )
-
-!               do fID = 1, no_of_wallDOFS
-                  currentDistancepos = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACApos)
-                  currentDistanceneg = POW2(xP(1) - xNACA) + POW2(xP(2) - yNACAneg)
-                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
+!               minimumDistance = HUGE(1.0_RP)
+!               currentDistancepos = HUGE(1.0_RP)
+!               currentDistanceneg = HUGE(1.0_RP)
+!
+!               do xnodes = 0, 500000
+!                     xNACA = xnodes / 500000.0_RP
+!
+!               if (AlmostEqual(xNACA,0.0_RP) ) then 
+!                  xNACAp1 = 0.0_RP
+!               else
+!                  xNACAp1 = xNACA
+!               endif
+!
+!               if (AlmostEqual(xNACA**(2.0_RP),0.0_RP) ) then 
+!                  xNACAp2 = 0.0_RP
+!               else
+!                  xNACAp2 = xNACA**(2.0_RP)
+!               endif
+!
+!               if (AlmostEqual(xNACA**(3.0_RP),0.0_RP) ) then 
+!                  xNACAp3 = 0.0_RP
+!               else
+!                  xNACAp3 = xNACA**(3.0_RP)
+!               endif
+!               
+!               if (AlmostEqual(xNACA**(4.0_RP),0.0_RP) ) then 
+!                  xNACAp4 = 0.0_RP
+!               else
+!                  xNACAp4 = xNACA**(4.0_RP)
+!               endif
+!
+!                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACAp1) & 
+!                             - 0.127125232_RP * xNACAp1 - 0.357907906_RP * xNACAp2 &
+!                             + 0.291984971_RP * xNACAp3 - 0.105174606_RP * xNACAp4 )
+!
+!                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACAp1) & 
+!                             - 0.127125232_RP * xNACAp1 - 0.357907906_RP * xNACAp2 &
+!                             + 0.291984971_RP * xNACAp3 - 0.105174606_RP * xNACAp4 )
+!
+!                  currentDistancepos = POW2(xP(1) - xNACAp1) + POW2(xP(2) - yNACApos)
+!                  currentDistanceneg = POW2(xP(1) - xNACAp1) + POW2(xP(2) - yNACAneg)
+!                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
 !               end do 
-               
-               end do 
-
-               fe % geom % dWall(i,j) = sqrt(minimumDistance)
-
-            end do                ; end do
+!
+!               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+!         if ( isnan(e % geom % dWall(i,j,k))) then
+!            print*, "Wall distance is Nan"
+!            call exit(99)
+!         endif
+            end do                  ; end do                ; end do
+!!!!!!!!!!$omp end parallel do
             end associate
          end do
 

@@ -608,7 +608,6 @@ Module DGSEMClass
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
-      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
       logical             , save    :: isFirst
       real(kind=RP)                 :: lcldst
 
@@ -617,6 +616,7 @@ Module DGSEMClass
 #endif
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t)       :: SAModel 
+      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
 #endif
       !--------------------------------------------------------
 !     Initializations
@@ -657,7 +657,9 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
+#if defined(SPALARTALMARAS)
             CALL ComputeEigenvaluesForState( Q , eValues )
+#endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 #if defined(NAVIERSTOKES)            
@@ -690,7 +692,13 @@ Module DGSEMClass
 #else
             TimeStep_Visc = huge(1.0_RP)
 #endif
-                  
+        if (present(MaxDtVec)) then            
+            if ( (isnan(MaxDtVec(eID))) ) then
+               print*, "The time step for the element", eID, "is nan"
+               call exit(99)
+            endif
+         endif 
+
          end do ; end do ; end do
 
      end do 

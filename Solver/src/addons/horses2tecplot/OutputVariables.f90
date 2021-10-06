@@ -565,7 +565,7 @@ module OutputVariables
 
                case(MU)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = mu_NS(1,i,j,k) * refs(RE_REF)
+                     output(var,i,j,k) = mu_NS(1,i,j,k) !* refs(RE_REF)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
 

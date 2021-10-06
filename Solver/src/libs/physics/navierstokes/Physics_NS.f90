@@ -946,7 +946,7 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=Rp) :: u, v, w, p, a
+      REAL(KIND=Rp) :: u, v, w, p, a, vel_mag
 !      
       associate ( gamma => thermodynamics % gamma ) 
 
@@ -956,7 +956,9 @@
       p = Pressure(Q)
       a = SQRT(gamma*p/Q(1))
       
-      eigen(1) = u + a
+      vel_mag = sqrt(u*u + v*v + w*w)
+
+      eigen(1) = vel_mag + a
       eigen(2) = v + a
       eigen(3) = w + a
 

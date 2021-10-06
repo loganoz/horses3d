@@ -374,6 +374,9 @@ module SurfaceIntegrals
                val = val + ( p * f % geom % normal(:,i,j) - matmul(tau,f % geom % normal(:,i,j)) ) &
                            * f % geom % jacobian(i,j) * spAxi % w(i) * spAeta % w(j)
 
+               !print*, f % geom % x(:,i,j),  ( matmul(tau,f % geom % normal(:,i,j)) )
+            !write(*, 111) f % geom % x(:,i,j), matmul(tau,f % geom % normal(:,i,j)), p 
+            !111 format(1X,7E24.16)
             end do          ;    end do
 
          case ( PRESSURE_FORCE ) 

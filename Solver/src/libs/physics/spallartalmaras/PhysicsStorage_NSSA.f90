@@ -170,7 +170,7 @@
 !
      type(Thermodynamics_t), target, private :: ThermodynamicsAir = Thermodynamics_t( &
                                                               "Air", & ! Name
-                                                      287.15_RP, & ! R  ! J / (kg * °K)
+                                                      287.058_RP, & ! R  ! J / (kg * °K)
                                                          1.4_RP, & ! gamma
                                                    sqrt(1.4_RP), & ! sqrtGamma
                                                 1.4_RP - 1.0_RP, & ! gammaMinus1         
@@ -182,8 +182,8 @@
                                      1.0_RP / (1.4_RP - 1.0_RP), & ! InvGammaMinus1
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
-                       287.15_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
-                                287.15_RP / ( 1.4_RP - 1.0_RP ), & ! cv
+                       287.058_RP * 1.4_RP / ( 1.4_RP - 1.0_RP ), & ! cp
+                                287.058_RP / ( 1.4_RP - 1.0_RP ), & ! cv
                                                         0.0_RP  & ! Bulk viscosity ratio
 )
 !
