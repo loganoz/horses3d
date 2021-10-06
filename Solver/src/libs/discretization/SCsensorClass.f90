@@ -231,8 +231,9 @@ module SCsensorClass
 !     Modules
 !     -------
       use FTValueDictionaryClass
-      use TransfiniteMapClass, only: TransfiniteHexMap
-      use NodalStorageClass,   only: NodalStorage
+      use TransfiniteMapClass,        only: TransfiniteHexMap
+      use NodalStorageClass,          only: NodalStorage
+      use SpectralVanishingViscosity, only: SVV
 !
 !     ---------
 !     Interface
@@ -366,6 +367,12 @@ module SCsensorClass
          nullify(hexMap)
 
       end associate
+      end if
+!
+!     Update the SVV if active
+!     ------------------------
+      if (SVV % enabled) then
+         call SVV % UpdateFilters(sensor % TEestim % coarseSem % mesh)
       end if
 
    end subroutine Construct_TEsensor
@@ -680,19 +687,21 @@ module SCsensorClass
       real(RP)                             :: Jac
       real(RP)                             :: S(NCONS)
       real(RP)                             :: mTE
-      type(Element), pointer               :: e  => null()
-      type(Element), pointer               :: ce => null()
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 
+      ! TODO: ifort does not like associates with OpenMP
+      type(DGSem),   pointer :: csem => null()
+      type(Element), pointer :: e  => null()
+      type(Element), pointer :: ce => null()
 
-      associate(csem => sensor % TEestim % coarseSem)
+
+      csem => sensor % TEestim % coarseSem
 !
 !     Time derivative
 !     ---------------
 !$omp parallel do schedule(runtime) private(eID, e, ce)
       do eID = 1, sem % mesh % no_of_elements
 
-         ! TODO: ifort does not like associates with OpenMP
          e  => sem % mesh % elements(eID)
          ce => csem % mesh % elements(eID)
 
@@ -707,9 +716,8 @@ module SCsensorClass
 !     Maximum TE computation
 !     ----------------------
 !$omp parallel do schedule(runtime) private(eID, e, ce, i, j, k, iEq, S, mTE, wx, wy, wz, Jac)
-      do eID = 1, csem % mesh % no_of_elements
+      do eID = 1, sem % mesh % no_of_elements
 
-         ! TODO: ifort does not like associates with OpenMP
          e  => sem % mesh % elements(eID)
          ce => csem % mesh % elements(eID)
 
@@ -719,12 +727,11 @@ module SCsensorClass
          mTE = 0.0
          do k = 0, ce % Nxyz(IZ) ; do j = 0, ce % Nxyz(IY) ; do i = 0, ce % Nxyz(IX)
 
-            call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q, t, S, &
+            call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q(:,i,j,k), t, S, &
                                          thermodynamics, dimensionless, refValues)
-
             wx = NodalStorage(ce % Nxyz(IX)) % w(i)
-            wy = NodalStorage(ce % Nxyz(IY)) % w(i)
-            wz = NodalStorage(ce % Nxyz(IZ)) % w(i)
+            wy = NodalStorage(ce % Nxyz(IY)) % w(j)
+            wz = NodalStorage(ce % Nxyz(IZ)) % w(k)
             Jac = ce % geom % jacobian(i,j,k)
 
             do iEq = 1, NCONS
@@ -743,10 +750,9 @@ module SCsensorClass
       end do
 !$omp end parallel do
 
+      nullify(csem)
       if (associated(e))  nullify(e)
       if (associated(ce)) nullify(ce)
-
-      end associate
 
    end subroutine Sensor_truncation
 !

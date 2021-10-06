@@ -81,6 +81,7 @@ module SpectralVanishingViscosity
       contains
          procedure :: ConstructFilter    => SVV_ConstructFilter
          procedure :: ComputeInnerFluxes => SVV_ComputeInnerFluxes
+         procedure :: UpdateFilters      => SVV_UpdateFilters
          procedure :: Describe           => SVV_Describe
          procedure :: destruct           => SVV_destruct
    end type SVV_t
@@ -197,13 +198,7 @@ module SpectralVanishingViscosity
 !
 !        Construct the filters
 !        ---------------------
-         do eID = 1, mesh % no_of_elements
-            associate(Nxyz => mesh % elements(eID) % Nxyz)
-            call self % ConstructFilter(Nxyz(1))
-            call self % ConstructFilter(Nxyz(2))
-            call self % ConstructFilter(Nxyz(3))
-            end associate
-         end do
+         call self % UpdateFilters(mesh)
 !
 !        -----------------------------------------------------
 !        Select the appropriate HFlux functions (keys from SC)
@@ -304,6 +299,29 @@ module SpectralVanishingViscosity
          end if
 
       end subroutine SVV_Describe
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine SVV_UpdateFilters(self, mesh)
+         use HexMeshClass, only: HexMesh
+         implicit none
+         class(SVV_t)                 :: self
+         type(HexMesh), intent(in)    :: mesh
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: eID
+
+
+         do eID = 1, mesh % no_of_elements
+            call self % ConstructFilter(mesh % Nx(eID))
+            call self % ConstructFilter(mesh % Ny(eID))
+            call self % ConstructFilter(mesh % Nz(eID))
+         end do
+
+      end subroutine SVV_UpdateFilters
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
