@@ -34,10 +34,10 @@
                  Enable shock-capturing = .true.
                            Shock sensor = truncation error
                 Shock hyperbolic method = SSFV
-                    Shock SSFV blending = 1d-5
-                        SSFV blending 2 = 1d-2
-                     Sensor lower limit = -2.0
-                    Sensor higher limit = -1.0
+                        SSFV blending 1 = 1d-1
+                        SSFV blending 2 = 5d+0
+                     Sensor lower limit = -8.0
+                    Sensor higher limit = -2.0
                    Sensor TE derivative = isolated
                       Sensor TE delta N = 6
 

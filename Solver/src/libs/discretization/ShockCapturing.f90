@@ -355,7 +355,7 @@ module ShockCapturing
          strongIntegral = .false.
       end if
 
-      Qdot = self % advection % Compute(e, switch, Fv, strongIntegral)
+      call self % advection % Compute(e, switch, Fv, strongIntegral, Qdot)
 
    end subroutine SC_advection
 !
@@ -578,7 +578,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function AA_compute(self, e, switch, Fv, isStrong) result(div)
+   subroutine AA_compute(self, e, switch, Fv, isStrong, div)
 !
 !     ---------
 !     Interface
@@ -600,7 +600,7 @@ module ShockCapturing
 
       div = 0.0_RP
 
-   end function AA_compute
+   end subroutine AA_compute
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1128,7 +1128,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function SSFV_hyperbolic(self, e, switch, Fv, isStrong) result(div)
+   subroutine SSFV_hyperbolic(self, e, switch, Fv, isStrong, div)
 !
 !     -------
 !     Modules
@@ -1146,33 +1146,33 @@ module ShockCapturing
       type(Element),    intent(in) :: e
       real(RP),         intent(in) :: switch
       logical,          intent(in) :: isStrong
-      real(RP),         intent(in) :: Fv(1:NCONS,     &
-                                         0:e%Nxyz(1), &
-                                         0:e%Nxyz(2), &
-                                         0:e%Nxyz(3), &
-                                         1:NDIM       )
-      real(RP)                     :: div(1:NCONS,     &
-                                          0:e%Nxyz(1), &
-                                          0:e%Nxyz(2), &
-                                          0:e%Nxyz(3)  )
+      real(RP),         intent(in) :: Fv(1:NCONS,       &
+                                         0:e % Nxyz(1), &
+                                         0:e % Nxyz(2), &
+                                         0:e % Nxyz(3), &
+                                         1:NDIM         )
+      real(RP)                     :: div(1:NCONS,       &
+                                          0:e % Nxyz(1), &
+                                          0:e % Nxyz(2), &
+                                          0:e % Nxyz(3)  )
 !
 !     ---------------
 !     Local variables
 !     ---------------
       integer  :: i, j, k, r, s
-      real(RP) :: FSx(NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
-      real(RP) :: FSy(NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
-      real(RP) :: FSz(NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
-      real(RP) :: FVx(NCONS, 0:e%Nxyz(1)+1, 0:e%Nxyz(2), 0:e%Nxyz(3))
-      real(RP) :: FVy(NCONS, 0:e%Nxyz(2)+1, 0:e%Nxyz(1), 0:e%Nxyz(3))
-      real(RP) :: FVz(NCONS, 0:e%Nxyz(3)+1, 0:e%Nxyz(1), 0:e%Nxyz(2))
+      real(RP) :: FSx(NCONS, 0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: FSy(NCONS, 0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
+      real(RP) :: FSz(NCONS, 0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
+      real(RP) :: FVx(NCONS, 0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: FVy(NCONS, 0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
+      real(RP) :: FVz(NCONS, 0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
       real(RP) :: F(NCONS, NDIM)
       real(RP) :: w1(NCONS)
       real(RP) :: w2(NCONS)
       real(RP) :: p
       real(RP) :: invRho
       real(RP) :: b
-      real(RP) :: c
+      real(RP) :: c2
       real(RP) :: d
 
 
@@ -1207,7 +1207,7 @@ module ShockCapturing
          FSy(:,j,i,k) = 2.0_RP * FSy(:,j,i,k)
       end do                ; end do                ; end do
 
-      do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
+      do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
          FSz(:,k,i,j) = 0.0_RP
          do s = k, Nz ; do r = 0, k-1
             FSz(:,k,i,j) = FSz(:,k,i,j) + spAzeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,i,j,r),      &
@@ -1286,7 +1286,7 @@ module ShockCapturing
                                           e % geom % JfcEta(i,j,k))
          end do                ; end do                ; end do
 
-         do j = 0, Ny ; do i = 1, Nx ; do k = 1, Nz
+         do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
             FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1),  &
                                           e % storage % Q(:,i,j,k),    &
                                           e % geom % ncZeta(:,i,j,k),  &
@@ -1297,7 +1297,7 @@ module ShockCapturing
 !
 !        Blending
 !        --------
-         c = self % c2 * (1.0_RP-switch) + self % c1 * switch
+         c2 = (self % c2 * (1.0_RP-switch) + self % c1 * switch)**2
 
          do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
 
@@ -1310,9 +1310,8 @@ module ShockCapturing
             call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
             b = dot_product(w2-w1, FSx(:,i,j,k)-FVx(:,i,j,k))
-            d = sqrt(b**2 + c**2)
+            d = sqrt(b**2 + c2)
             d = (d-b) / d
-            d = min(d, 1.0_RP)
 
             FSx(:,i,j,k) = FVx(:,i,j,k) + d*(FSx(:,i,j,k)-FVx(:,i,j,k))
 
@@ -1329,9 +1328,8 @@ module ShockCapturing
             call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
             b = dot_product(w2-w1, FSy(:,j,i,k)-FVy(:,j,i,k))
-            d = sqrt(b**2 + c**2)
+            d = sqrt(b**2 + c2)
             d = (d-b) / d
-            d = min(d, 1.0_RP)
 
             FSy(:,j,i,k) = FVy(:,j,i,k) + d*(FSy(:,j,i,k)-FVy(:,j,i,k))
 
@@ -1348,9 +1346,8 @@ module ShockCapturing
             call getEntropyVariables(e % storage % Q(:,i,j,k), p, invRho, w2)
 
             b = dot_product(w2-w1, FSz(:,k,i,j)-FVz(:,k,i,j))
-            d = sqrt(b**2 + c**2)
+            d = sqrt(b**2 + c2)
             d = (d-b) / d
-            d = min(d, 1.0_RP)
 
             FSz(:,k,i,j) = FVz(:,k,i,j) + d*(FSz(:,k,i,j)-FVz(:,k,i,j))
 
@@ -1369,7 +1366,7 @@ module ShockCapturing
       end associate
       end associate
 
-   end function SSFV_hyperbolic
+   end subroutine SSFV_hyperbolic
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

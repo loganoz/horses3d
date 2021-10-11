@@ -724,7 +724,7 @@ module SCsensorClass
          ! Use G_NS as temporary storage for Qdot
          call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % G_NS)
 
-         mTE = 0.0
+         mTE = 0.0_RP
          do k = 0, ce % Nxyz(IZ) ; do j = 0, ce % Nxyz(IY) ; do i = 0, ce % Nxyz(IX)
 
             call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q(:,i,j,k), t, S, &
@@ -734,15 +734,14 @@ module SCsensorClass
             wz = NodalStorage(ce % Nxyz(IZ)) % w(k)
             Jac = ce % geom % jacobian(i,j,k)
 
-            do iEq = 1, NCONS
-               mTE = max(mTE, Jac*wx*wy*wz * abs(ce % storage % QDot(iEq,i,j,k) + S(iEq) - &
-                                                 ce % storage % G_NS(iEq,i,j,k)))
-            end do
+            mTE = max(mTE, Jac*wx*wy*wz * maxval(abs(ce % storage % QDot(:,i,j,k) + S(:) - &
+                                                     ce % storage % G_NS(:,i,j,k))))
+
 
          end do                  ; end do                  ; end do
 
          if (AlmostEqual(mTE, 0.0_RP)) then
-            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
+            e % storage % sensor = -999.0_RP  ! This is likely to be small enough ;)
          else
             e % storage % sensor = log10(mTE)
          end if

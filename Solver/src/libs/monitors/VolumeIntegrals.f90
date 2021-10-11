@@ -717,11 +717,11 @@ module VolumeIntegrals
 
       end subroutine GetPressureLocalGradient
 
-      subroutine GetSensorRange(mesh, minVal, maxVal)
+      subroutine GetSensorRange(mesh, minSensor, maxSensor)
          implicit none
          class(HexMesh), intent(in)  :: mesh
-         real(RP),       intent(out) :: minVal
-         real(RP),       intent(out) :: maxVal
+         real(RP),       intent(out) :: minSensor
+         real(RP),       intent(out) :: maxSensor
 !
 !        ---------------
 !        Local variables
@@ -729,27 +729,25 @@ module VolumeIntegrals
 !
          integer  :: ielem
          integer  :: ierr
-         real(RP) :: sensor
          real(RP) :: localMin
          real(RP) :: localMax
 
 
-         minVal =  huge(1.0_RP)/10.0_RP
-         maxVal = -huge(1.0_RP)/10.0_RP
+         minSensor =  huge(1.0_RP)/10.0_RP
+         maxSensor = -huge(1.0_RP)/10.0_RP
 
 !$omp parallel do schedule(runtime) private(ielem)
          do ielem = 1, mesh % no_of_elements
-            sensor = mesh % elements(ielem) % storage % sensor
-            minVal = min(minVal, sensor)
-            maxVal = max(maxVal, sensor)
+            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+            maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
          end do
 !$omp end parallel do
 
 #ifdef _HAS_MPI_
-         localMin = minVal
-         localMax = maxVal
-         call mpi_allreduce(localMin, minVal, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
-         call mpi_allreduce(localMax, maxVal, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+         localMin = minSensor
+         localMax = maxSensor
+         call mpi_allreduce(localMin, minSensor, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localMax, maxSensor, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
 #endif
 
       end subroutine GetSensorRange
