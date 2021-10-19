@@ -535,38 +535,38 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: residuals(5) = [3.3579582636004E-03_RP, &
-                                                                  9.8682581724463E-02_RP, &
-                                                                  1.0338094944636E-01_RP, &
-                                                                  6.7837086395846E-06_RP, &
-                                                                  8.8231580081655E-02_RP]
+            real(kind=RP), parameter           :: residuals(5) = [3.3579583160904E-03_RP, &
+                                                                  9.86825755137163E-02_RP, &
+                                                                  1.0338095868075E-01_RP, &
+                                                                  6.8756833346E-06_RP, &
+                                                                  8.82317348139755E-02_RP]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
             CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
-                               tol           = 1.d-9, &
+                               tol           = 1.d-10, &
                                msg           = "Continuity residual")
 
             CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
                                actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
-                               tol           = 1.d-9, &
+                               tol           = 1.d-10, &
                                msg           = "X-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-9, &
+                               tol           = 1.d-10, &
                                msg           = "Y-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
                                actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
-                               tol           = 1.d-9, &
+                               tol           = 1.d-10, &
                                msg           = "Z-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
-                               tol           = 1.d-9, &
+                               tol           = 1.d-10, &
                                msg           = "Energy residual")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
