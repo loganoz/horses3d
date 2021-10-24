@@ -1109,12 +1109,12 @@ contains
             xP = xPOINT
             xP(1) = xP(1) + 100.0_RP 
             
-            if ( xP(2) .EQ. 0.0_RP ) then
+            if ( ALMOSTEQUAL(xP(2),0.0_RP) ) then
             
-                if ( xP(1) .LT. 100.0_RP ) then
+                if ( xP(1) .LE. 100.0_RP ) then
                     x(1) = 100.0_RP
                     x(2) = 0.0_RP
-                elseif ( xP(1) .GT. 101.0_RP ) then 
+                elseif ( xP(1) .GE. 101.0_RP ) then 
                     x(1) = 101.0_RP
                     x(2) = 0.0_RP
                 end if 
@@ -1129,18 +1129,18 @@ contains
                 m = 6
                 iprint = 0
                 maxfun = 100000
-                if (xP(1) .lt. 100.01_RP) then 
-                    x(1) = 100.001_RP
-                    rhobeg = 0.001_RP
-                    rhoend = 0.00000000001_RP 
-                else
-                    x(1) = 100.5_RP
-                    rhobeg = 0.5_RP
-                    rhoend = 0.00000000001_RP 
-                endif
-                !x(1) = 100.5_RP
-                !rhobeg = 0.5_RP
-                !rhoend = 0.000000000001_RP 
+                !if (xP(1) .lt. 100.02_RP) then 
+                !    x(1) = 100.001_RP
+                !    rhobeg = 0.001_RP
+                !    rhoend = 0.00000000001_RP 
+                !else
+                !    x(1) = 100.5_RP
+                !    rhobeg = 0.5_RP
+                !    rhoend = 0.00000000001_RP 
+                !endif
+                x(1) = 100.5_RP
+                rhobeg = 0.5_RP
+                rhoend = 0.000000000001_RP 
                 x(2) =   0.594689181_RP * ( 0.298222773_RP * SQRT(x(1)-100.0_RP) & 
                            - 0.127125232_RP * (x(1)-100.0_RP) - 0.357907906_RP * (x(1)-100.0_RP)**2.0_RP &
                            + 0.291984971_RP * (x(1)-100.0_RP)**3.0_RP - 0.105174606_RP * (x(1)-100.0_RP)**4.0_RP )

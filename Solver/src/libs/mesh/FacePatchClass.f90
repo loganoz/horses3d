@@ -33,6 +33,7 @@
 !
      USE SMConstants
      use PolynomialInterpAndDerivsModule
+     use InterpolationMatrices
      IMPLICIT NONE
      PRIVATE
 !
@@ -50,6 +51,7 @@
          REAL(kind=RP), dimension(:),     allocatable :: wbu, wbv
          REAL(kind=RP), dimension(:,:),   allocatable :: Du, Dv
          INTEGER      , DIMENSION(2)                  :: noOfKnots
+
 !
 !        ========         
          CONTAINS 
@@ -63,7 +65,7 @@
      PUBLIC:: FacePatch
      PUBLIC:: ConstructFacePatch, DestructFacePatch
      PUBLIC:: ComputeFacePoint  , ComputeFaceDerivative
-     PUBLIC:: ProjectFaceToNewPoints
+     PUBLIC:: ProjectFaceToNewPoints, ProjectEquiToChebyshev
      PUBLIC:: PrintFacePatch    , FaceIs4CorneredQuad
 !
 !    ========
@@ -194,7 +196,7 @@
 !     --------------------------------------------------------------------------
 !
       SUBROUTINE ComputeFacePoint(self, u, p)
-!
+      IMPLICIT NONE
 !     ---------
 !     Arguments
 !     ---------
@@ -305,6 +307,57 @@
          end do       ; end do
 
       end subroutine ProjectFaceToNewPoints
+
+      subroutine ProjectEquiToChebyshev(patch, x, Nx, y, Ny, facecoords)
+         use DenseMatUtilities
+         implicit none
+         type(FacePatch),  intent(inout)     :: patch
+         REAL(KIND=RP),    intent(in), DIMENSION(:)             :: x,y
+         integer,          intent(in)     :: Nx
+         integer,          intent(in)     :: Ny
+         real(kind=RP),    intent(out)    :: faceCoords(1:3,Nx+1,Nx+1)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         !external                      :: Interp3DArrays       ! Advective eigenvalues
+         integer        , dimension(3)                    :: Npol
+         real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: uNodes, vNodes
+         real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: xCGLlocal
+         integer     :: i, j, m, l 
+         real(kind=RP)  , DIMENSION(:)    , ALLOCATABLE :: weights
+         real(kind=RP)  , DIMENSION(NDIM,0:Nx,0:Nx)            :: facepoints
+         real(kind=RP)  , DIMENSION(NDIM,0:Nx,0:Nx)            :: facepointsout
+         REAL(kind=RP), dimension(:,:),   allocatable :: T
+
+         
+            allocate( T(0:(Nx),0:(Nx) )  )
+            allocate( weights( 0:Nx  ))
+            allocate( uNodes(1:(Nx+1) ))
+            allocate( xCGLlocal(1:(Nx+1) ))
+            
+            do i = 1, (Nx + 1)
+                  xCGLlocal(i) = -cos((i-1.0_RP)*PI/Nx) 
+                  uNodes(i)    = (-1._RP + (i-1) * (2._RP/Nx))
+            end do
+
+            call BarycentricWeights(Nx, xCGLlocal , weights)
+            call PolynomialInterpolationMatrix( Nx, Nx , xCGLlocal , weights, uNodes, T)
+            T = inverse(T)
+
+         Npol(1:3) = Nx
+         facepoints(:,0:Nx,0:Nx) = patch % points
+         call Interp3DArrays(NDIM, Npol, facepoints, Npol, facepointsout, T, T )
+         faceCoords = facepointsout
+!     
+         DEALLOCATE(T)
+         DEALLOCATE(weights)
+         DEALLOCATE(uNodes)
+         DEALLOCATE(xCGLlocal)
+
+      end subroutine ProjectEquiToChebyshev
+
 !
 !     ///////////////////////////////////////////////////////////////////////
 !
@@ -693,6 +746,9 @@
 !                                                                       
       END FUNCTION EvaluateLagrangePolyDeriv
 
+!
+!
+! /////////////////////////////////////////////////////////////////////
 !
 !  **********     
    END MODULE FacePatchClass

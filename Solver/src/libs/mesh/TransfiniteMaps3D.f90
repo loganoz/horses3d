@@ -66,7 +66,8 @@
          PROCEDURE :: metricDerivativesAt
          PROCEDURE :: isHex8
          PROCEDURE :: setCorners
-         
+         PROCEDURE :: setFaces
+
       END TYPE TransfiniteHexMap
 !
 !     ========
@@ -134,13 +135,24 @@
          IMPLICIT NONE  
          CLASS(TransFiniteHexMap) :: self
          REAL(KIND=RP)            :: corners(3,8)
-         
-         self % corners = corners
-         
+
+          self % corners = corners
+
       END SUBROUTINE setCorners
 !
 !//////////////////////////////////////////////////////////////////////// 
-! 
+!  
+      SUBROUTINE setFaces(self, faces)  
+         IMPLICIT NONE  
+         CLASS(TransFiniteHexMap) :: self
+         TYPE(FacePatch)          :: faces(6)
+         
+         if (.NOT. ALLOCATED(self % faces) ) ALLOCATE( self % faces(6))
+         self % faces = faces
+
+      END SUBROUTINE setFaces
+!
+!//////////////////////////////////////////////////////////////////////// 
       FUNCTION isHex8(self) RESULT(ans)  
          IMPLICIT NONE  
          CLASS(TransfiniteHexMap) :: self
@@ -440,7 +452,7 @@
                      - edge(j,4) *(1._RP - xi(1))*(1._RP - xi(2)) &
                      - edge(j,8) *(1._RP - xi(1))*         xi(2)  &
                      - edge(j,2) *         xi(1) *(1._RP - xi(2)) &
-                     - edge(j,6) *         xi(1) *         xi(2)
+                     - edge(j,6) *         xi(1) *         xi(2)  
 !
 !        ------------------
 !        Corner contributions

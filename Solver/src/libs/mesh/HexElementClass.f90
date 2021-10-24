@@ -87,6 +87,7 @@
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
             procedure   :: ConstructGeometry       => HexElement_ConstructGeometry
+            procedure   :: AssignTransfiniteMapping=> HexElement_AssignTransfiniteMapping
             procedure   :: FindPointInLinElement   => HexElement_FindPointInLinearizedElement
             procedure   :: FindPointWithCoords     => HexElement_FindPointWithCoords
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
@@ -146,6 +147,23 @@
       end subroutine HexElement_ConstructGeometry
 !
 !////////////////////////////////////////////////////////////////////////
+!
+!     ------------------------------------------------------------
+!     Constructs the mapped geometry of the element (metric terms)
+!     ------------------------------------------------------------
+      subroutine HexElement_AssignTransfiniteMapping( self, hexMap)
+         implicit none
+         !--------------------------------------
+         class(Element)         , intent(inout) :: self
+         TYPE(TransfiniteHexMap), intent(in)    :: hexMap
+         !--------------------------------------
+         
+         self % hexMap = hexMap
+         
+      end subroutine HexElement_AssignTransfiniteMapping
+!
+!////////////////////////////////////////////////////////////////////////
+
 !
       SUBROUTINE SetElementBoundaryNames( self, names ) 
          use Utilities, only: toLower

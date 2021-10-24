@@ -104,8 +104,7 @@ module SpallartAlmarasTurbulence
 
          self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma
          print *, "Turbulence model initialised", self % cw1 
-         print *,  1.0_RP/0.0_RP
-         print *,  0.0_RP/0.0_RP
+
       end subroutine SAmodel_Initialize
 !
 
@@ -180,6 +179,10 @@ module SpallartAlmarasTurbulence
          theta = rhotheta / rho
          call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
          call ComputeVorticity(U_x, U_y, U_z, vort)
+         if ( isnan(vort) ) then
+               print*, "The vorticity is nan", vort 
+               call exit(99)
+         endif
          call geteddyviscositygradients(Q, Q_x, Q_y, Q_z, Theta_x, Theta_y, Theta_z)
 
          call self % Compute_chi(theta, kinematic_viscocity, chi)
@@ -266,7 +269,7 @@ module SpallartAlmarasTurbulence
             production_G = self % cb1 * stilda * rho * theta
             
             if ( isnan(production_G) ) then
-               print*, "In line 268 is nan",  fv1, fv2, sbar, stilda, rho, theta 
+               print*, "In line 268 is nan",  fv1, fv2, sbar, vort, stilda, rho, theta 
                call exit(99)
             endif
 

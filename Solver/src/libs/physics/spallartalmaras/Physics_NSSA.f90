@@ -631,7 +631,7 @@
             invRho2 = invRho * invRho
             
             uDivRho = [Q(IRHOU) , Q(IRHOV) , Q(IRHOW) ] * invRho2
-            
+
             u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
             u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
             u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
@@ -661,15 +661,15 @@
 
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
-         tau(IX,IX) = mu0 * (muOfT) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
-         tau(IY,IX) = mu0 * (muOfT) * ( U_x(IY) + U_y(IX) ) 
-         tau(IZ,IX) = mu0 * (muOfT) * ( U_x(IZ) + U_z(IX) ) 
+         tau(IX,IX) = mu0 * (muOfT+musa) * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV )
+         tau(IY,IX) = mu0 * (muOfT+musa) * ( U_x(IY) + U_y(IX) ) 
+         tau(IZ,IX) = mu0 * (muOfT+musa) * ( U_x(IZ) + U_z(IX) ) 
          tau(IX,IY) = tau(IY,IX)
-         tau(IY,IY) = mu0 * (muOfT) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
-         tau(IZ,IY) = mu0 * (muOfT) * ( U_y(IZ) + U_z(IY) ) 
+         tau(IY,IY) = mu0 * (muOfT+musa) * (2.0_RP * U_y(IY) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IY) = mu0 * (muOfT+musa) * ( U_y(IZ) + U_z(IY) ) 
          tau(IX,IZ) = tau(IZ,IX)
          tau(IY,IZ) = tau(IZ,IY)
-         tau(IZ,IZ) = mu0 * (muOfT) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
+         tau(IZ,IZ) = mu0 * (muOfT+musa) * (2.0_RP * U_z(IZ) - 2.0_RP/3.0_RP * divV )
 
          end associate
 

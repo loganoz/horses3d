@@ -287,7 +287,7 @@ module OutflowBCClass
             Q(2) = rho*u
             Q(3) = rho*v
             Q(4) = rho*w
-            Q(5) = self % pExt/gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
+            Q(5) = (2.0_RP*self % pExt - p)/gammaMinus1 + 0.5_RP*rho*(u*u + v*v + w*w)
 #if defined(SPALARTALMARAS)
             Q(6) = eddy_theta * rho 
 #endif

@@ -4,9 +4,9 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Mon Sep  6 22:45:01 2021
+!   @Last revision date: Wed Sep 15 12:15:47 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
@@ -320,7 +320,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -648,8 +648,10 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+         vNodes(i) = uNodes(i)
       end do
 !------------------------------------------------------------------------
 
@@ -964,7 +966,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -1293,8 +1295,10 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+         vNodes(i) = uNodes(i)
       end do
 !------------------------------------------------------------------------
 
@@ -1698,7 +1702,7 @@ MODULE Read_GMSH
       allocate(msh_bcs(msh_no_BCs))
 
       j = 0
-      do i=1, msh_no_BCs
+      do i=1, tmpi
          if(tmpi_vec1(i) .eq. 2) then
             j = j + 1
             msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -2024,8 +2028,10 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+         uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+         vNodes(i) = uNodes(i)
       end do
 !------------------------------------------------------------------------
 
@@ -2291,7 +2297,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -2524,8 +2530,8 @@ MODULE Read_GMSH
             allocate(vNodes(numBFacePoints))
             allocate(values(3,numBFacePoints,numBFacePoints))
             do i = 1, numBFacePoints
-               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+               vNodes(i) = uNodes(i)
             end do
       !------------------------------------------------------------------------
       
@@ -2814,7 +2820,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -3048,8 +3054,10 @@ MODULE Read_GMSH
             allocate(vNodes(numBFacePoints))
             allocate(values(3,numBFacePoints,numBFacePoints))
             do i = 1, numBFacePoints
-               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+               vNodes(i) = uNodes(i)
             end do
       !------------------------------------------------------------------------
       
@@ -3424,7 +3432,7 @@ MODULE Read_GMSH
             allocate(msh_bcs(msh_no_BCs))
       
             j = 0
-            do i=1, msh_no_BCs
+            do i=1, tmpi
                if(tmpi_vec1(i) .eq. 2) then
                   j = j + 1
                   msh_bcs(j)%dim  = tmpi_vec1(i)
@@ -3655,8 +3663,10 @@ MODULE Read_GMSH
             allocate(vNodes(numBFacePoints))
             allocate(values(3,numBFacePoints,numBFacePoints))
             do i = 1, numBFacePoints
-               uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-               vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+               uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
+               vNodes(i) = uNodes(i)
             end do
       !------------------------------------------------------------------------
       
