@@ -32,7 +32,7 @@ module Utilities
    implicit none
 
    private
-   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
    public   toLower, Qsort, QsortWithFriend
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
@@ -151,6 +151,30 @@ module Utilities
       END IF
 
       END FUNCTION AlmostEqual
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      LOGICAL pure FUNCTION AlmostEqualRelax( a, b, reference_length) 
+      USE SMConstants
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), intent(in) :: a, b, reference_length
+!
+      REAL(KIND=RP)             :: mytol
+!
+      mytol = 1.0E-2_RP
+
+      IF( ABS( b - a ) <= mytol * reference_length) THEN
+          AlmostEqualRelax = .TRUE.
+      ELSE
+          AlmostEqualRelax = .FALSE.
+      END IF
+
+      END FUNCTION AlmostEqualRelax
 !
 ! /////////////////////////////////////////////////////////////////////
 !
