@@ -536,12 +536,13 @@ mloop:      do jFace = 1, self % zones(zIDMinus) % no_of_faces
                master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
                slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
 
-               ! compute minimum edge length to make matching tolerance relative to element size, periodic in z-direction only!!!
+               ! compute minimum edge length to make matching tolerance relative to element size. Assumes that the periodic
+               ! coordinate of all the nodes not vary significativelly compared to the other two coordinates.
                if (useRelaxTol) then
-                   edge_length(1)=NORM2(self % nodes(self % faces(i) % nodeIDs(1)) % x(1:2) - self % nodes(self % faces(i) % nodeIDs(2)) % x(1:2))
-                   edge_length(2)=NORM2(self % nodes(self % faces(i) % nodeIDs(2)) % x(1:2) - self % nodes(self % faces(i) % nodeIDs(3)) % x(1:2))
-                   edge_length(3)=NORM2(self % nodes(self % faces(i) % nodeIDs(3)) % x(1:2) - self % nodes(self % faces(i) % nodeIDs(4)) % x(1:2))
-                   edge_length(4)=NORM2(self % nodes(self % faces(i) % nodeIDs(4)) % x(1:2) - self % nodes(self % faces(i) % nodeIDs(1)) % x(1:2))
+                   edge_length(1)=NORM2(self % nodes(self % faces(i) % nodeIDs(1)) % x - self % nodes(self % faces(i) % nodeIDs(2)) % x)
+                   edge_length(2)=NORM2(self % nodes(self % faces(i) % nodeIDs(2)) % x - self % nodes(self % faces(i) % nodeIDs(3)) % x)
+                   edge_length(3)=NORM2(self % nodes(self % faces(i) % nodeIDs(3)) % x - self % nodes(self % faces(i) % nodeIDs(4)) % x)
+                   edge_length(4)=NORM2(self % nodes(self % faces(i) % nodeIDs(4)) % x - self % nodes(self % faces(i) % nodeIDs(1)) % x)
                    min_edge_length=minval(edge_length) 
                end if
 
@@ -584,9 +585,9 @@ slavecoord:             DO l = 1, 4
                         IF (.NOT.slave_matched(l)) THEN 
                            x2 = self%nodes(self%faces(j)%nodeIDs(l))%x
                            IF (useRelaxTol) THEN
-                               CALL CompareTwoNodesRelax(x1, x2, master_matched(k), localCoord, min_edge_length)
+                               CALL CompareTwoNodesRelax(x1, x2, master_matched(k), coord, min_edge_length)
                            ELSE
-                               CALL CompareTwoNodes(x1, x2, master_matched(k), localCoord)
+                               CALL CompareTwoNodes(x1, x2, master_matched(k), coord)
                            END IF 
                            IF (master_matched(k)) THEN 
                               slave_matched(l) = .TRUE. 
@@ -615,9 +616,9 @@ slavecoord:             DO l = 1, 4
                      do l = 1, 4
                         x2 = self % nodes ( self % faces(j) % nodeIDs(l) ) % x
                         IF (useRelaxTol) THEN
-                            CALL CompareTwoNodesRelax(x1, x2, master_matched(k), localCoord, min_edge_length)
+                            CALL CompareTwoNodesRelax(x1, x2, success, coord, min_edge_length)
                         ELSE
-                            CALL CompareTwoNodes(x1, x2, master_matched(k), localCoord)
+                            CALL CompareTwoNodes(x1, x2, success, coord)
                         END IF 
                         if ( success ) then
                            slaveNodeIDs(l) = self % faces(i) % nodeIDs(k)

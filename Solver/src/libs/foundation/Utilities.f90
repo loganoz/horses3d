@@ -154,7 +154,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL pure FUNCTION AlmostEqualRelax( a, b, reference_length) 
+      LOGICAL pure FUNCTION AlmostEqualRelax( a, b, reference_length, tol) 
       USE SMConstants
       IMPLICIT NONE
 !
@@ -163,10 +163,12 @@ module Utilities
 !     ---------
 !
       REAL(KIND=RP), intent(in) :: a, b, reference_length
+      REAL(KIND=RP), intent(in), optional :: tol
 !
       REAL(KIND=RP)             :: mytol
 !
-      mytol = 1.0E-2_RP
+      mytol = 1.0E-4_RP
+      if (present(tol)) mytol = tol
 
       IF( ABS( b - a ) <= mytol * reference_length) THEN
           AlmostEqualRelax = .TRUE.
