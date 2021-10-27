@@ -161,7 +161,7 @@ contains
 !    ********************************
 !
       if ( mpi_partition % Constructed ) then
-         call ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success ) 
+         call ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, periodRelative, success ) 
          return
       end if
       
@@ -468,7 +468,7 @@ contains
 !  -----------------------------------------------------------------------------------------------------------------------
 !  Subroutine to construct individual mesh partitions from an HDF5 mesh file
 !  -----------------------------------------------------------------------------------------------------------------------
-   subroutine ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, success )
+   subroutine ConstructMeshPartition_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves, dir2D, periodRelative, success )
       implicit none
       !-arguments--------------------------------------------------------------
       class(HexMesh)  , intent(inout) :: self
@@ -477,6 +477,7 @@ contains
       integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical         , intent(in)    :: MeshInnerCurves
       integer         , intent(in)    :: dir2D
+      logical                         :: periodRelative
       logical         , intent(out)   :: success
       !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
