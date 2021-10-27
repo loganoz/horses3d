@@ -120,7 +120,7 @@ module ConstructMeshAndSpectralBasis_MOD
 !        Construct mesh
 !        --------------
 !      
-         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , 0, success )
+         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , 0, .false., success )
 !
 !     ------------------------
 !     Allocate and zero memory
