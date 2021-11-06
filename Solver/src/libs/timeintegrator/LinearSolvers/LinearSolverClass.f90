@@ -15,7 +15,5 @@ module LinearSolverClass
    use LinearMultigridSolverClass
    use MatrixFreeSmootherClass
    use MatrixFreeGMRESClass
-   use MAGMASolverClass
-   use CuSparseSolverClass
    implicit none
 end module LinearSolverClass
