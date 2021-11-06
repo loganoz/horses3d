@@ -15,6 +15,8 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/MatrixFreeSmootherClass.o \
 		./build_ns/LinearMultigridSolverClass.o \
 		./build_ns/MKLPardisoSolverClass.o \
+		./build_ns/MAGMASolverClass.o \
+		./build_ns/CuSparseSolverClass.o \
 		./build_ns/IterativeSolverClass.o \
 		./build_ns/MatrixFreeGMRESClass.o \
 		./build_ns/StaticCondensationSolverClass.o \
@@ -38,6 +40,8 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/MatrixFreeSmootherClass.o \
 		./build_ins/LinearMultigridSolverClass.o \
 		./build_ins/MKLPardisoSolverClass.o \
+		./build_ins/MAGMASolverClass.o \
+		./build_ins/CuSparseSolverClass.o \
 		./build_ins/IterativeSolverClass.o \
 		./build_ins/MatrixFreeGMRESClass.o \
 		./build_ins/StaticCondensationSolverClass.o \
@@ -62,6 +66,8 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/MatrixFreeSmootherClass.o \
 		./build_ch/LinearMultigridSolverClass.o \
 		./build_ch/MKLPardisoSolverClass.o \
+		./build_ch/MAGMASolverClass.o \
+		./build_ch/CuSparseSolverClass.o \
 		./build_ch/IterativeSolverClass.o \
 		./build_ch/MatrixFreeGMRESClass.o \
 		./build_ch/StaticCondensationSolverClass.o \
@@ -85,6 +91,8 @@ LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/MatrixFreeSmootherClass.o \
 		./build_mu/LinearMultigridSolverClass.o \
 		./build_mu/MKLPardisoSolverClass.o \
+		./build_mu/MAGMASolverClass.o \
+		./build_mu/CuSparseSolverClass.o \
 		./build_mu/IterativeSolverClass.o \
 		./build_mu/MatrixFreeGMRESClass.o \
 		./build_mu/StaticCondensationSolverClass.o \

@@ -15,6 +15,7 @@ MODE?=RELEASE
 COMM?=SEQUENTIAL
 ENABLE_THREADS?=YES
 WITH_PETSC?=NO
+WITH_MAGMA?=NO
 
 MAKE=make
 AR=ar
@@ -156,6 +157,29 @@ ifeq ($(WITH_PETSC),YES)
     MACROS+= -DHAS_PETSC
     LIBS += -L$(PETSC_DIR)/lib -lpetsc
     EXTLIB_INC+= -I$(PETSC_DIR)/include
+  endif
+endif
+
+##########################
+## 	Link MAGMA 	##
+##########################
+ifeq ($(WITH_MAGMA),YES)
+  ifdef MAGMA_DIR
+    MACROS+= -DHAS_MAGMA -Dmagma_devptr_t="integer(kind=8)"
+    LIBS += -L$(CUDA_HOME)/lib/stubs -L${MAGMA_DIR}/lib64 -lcuda -lcudart -lcublas -lopenblas -lmagma
+    EXTLIB_INC += -I${MAGMA_DIR}/include
+  endif
+endif
+
+##########################
+## 	Link CUDA 	##
+##########################
+ifeq ($(WITH_CUDA),YES)
+  ifdef CUDA_HOME
+    MACROS+= -DHAS_CUDA 
+    LIBS += -L$(CUDA_HOME)/lib/stubs -lcuda -lcusparse #-lcudart -lcublas -lopenblas
+    # LIBS += -L$(CUDA_HOME)/lib/stubs -lcuda -lcusparse_static -lculibos
+    EXTLIB_INC +=
   endif
 endif
 

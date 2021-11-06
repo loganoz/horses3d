@@ -178,6 +178,10 @@ contains
             allocate (LinearMultigridSolver_t      :: this % linsolver)
          case('static-condensation')
             allocate (StaticCondSolver_t     :: this % linsolver)
+         case('magma')
+            allocate (MAGMASolver_t     :: this % linsolver)
+         case('cusparse')
+            allocate (CuSparseSolver_t     :: this % linsolver)
          case default
             write(STD_OUT,*) "Keyword 'linear solver' missing... Using PETSc as default"
             allocate (PetscKspLinearSolver_t :: this % linsolver)
