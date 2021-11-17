@@ -22,6 +22,7 @@ Gravity direction = [0,0,-1]
 #################
 lagrangian particles  = .true.
 number of particles   = 1
+particles per parcel  = 1
 injection             = .false.
 particles file        = "RandomParticles.txt"
 vel and temp from file = .false.

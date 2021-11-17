@@ -4,9 +4,9 @@
 !   @File:    TimeIntegrator.f90
 !   @Author:  David kopriva
 !   @Created: 2007-10-23 09:25:32 -0400 
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Wed Sep 15 12:15:51 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !   Module for general time integration.
 !
@@ -36,6 +36,7 @@
       use pAdaptationClass                , only: pAdaptation_t, ADAPT_DYNAMIC_TIME, ADAPT_STATIC
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
+      use JacobianComputerClass
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -265,7 +266,7 @@ print*, "Method selected: RK5"
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
          
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, 0._RP, ComputeTimeDerivative, .TRUE.,FMGres) 
+         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, .TRUE.,FMGres) 
          
          call FMGSolver % destruct
       end if
@@ -468,9 +469,10 @@ print*, "Method selected: RK5"
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
-               call FASSolver % solve(k, t, dt, ComputeTimeDerivative)
+               ! call FASSolver % solve(k, t, ComputeTimeDerivative)
+               call FASSolver % solve(k, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             elseif (self % integratorType .eq. TIME_ACCURATE) then
-               call FASSolver % TakePseudoStep(k, t, dt, ComputeTimeDerivative)
+               call FASSolver % TakePseudoStep(k, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             else
                error stop "FAS SOLVER :: Wrong simulation type."
             end if

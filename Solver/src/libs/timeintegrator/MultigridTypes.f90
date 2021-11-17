@@ -4,9 +4,9 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Fri Jul 16 20:04:08 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
 !
 !//////////////////////////////////////////////////////
 !
@@ -34,7 +34,6 @@ module MultigridTypes
       real(kind=RP), dimension(:,:,:,:), allocatable :: Scase ! Source term from the specific case that is running (this is actually not necessary for the MG scheme, but it's needed to estimate the truncation error) .. Currently, it only considers the source term from manufactured solutions (state of the code when this module was written)
       real(kind=RP), dimension(:,:,:,:), allocatable :: R     ! 
       real(kind=RP), dimension(:,:,:,:), allocatable :: Q0    ! 
-      real(kind=RP), dimension(:,:,:,:), allocatable :: dQ    ! 
    end type MGSolStorage_t
    
 !
@@ -77,8 +76,10 @@ module MultigridTypes
    integer, parameter :: RK5_SMOOTHER     = 2 ! 
    integer, parameter :: RKOPT_SMOOTHER   = 3 ! 
    integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
-   integer, parameter :: BJ_SMOOTHER      = 4 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 5 ! Jacobian-Free GMRES
+   integer, parameter :: IRK_SMOOTHER = 4     ! Implicit Euler smoother (full matrix assembly)
+   integer, parameter :: BIRK5_SMOOTHER = 5   ! Semi-implicit RK smoother
+   integer, parameter :: BJ_SMOOTHER      = 6 ! Block Jacobi smoother
+   integer, parameter :: JFGMRES_SMOOTHER = 7 ! Jacobian-Free GMRES
    
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step
@@ -160,8 +161,8 @@ module MultigridTypes
       integer                   :: eqn
       !--------------------------------------------------------
       
-      if (present(white) .AND. white) then
-         color1 = achar(27)//'[00m'
+      if (present(white)) then
+         if (white) color1 = achar(27)//'[00m'
       else
          color1 = achar(27)//'[34m'
       end if
@@ -185,7 +186,7 @@ module MultigridTypes
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine CFLRamp(cfl_ini,cfl,n,res0,res1,CFLboost)
+   subroutine CFLRamp(cfl_max,cfl,cflboost_rate,CFLboost)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -193,33 +194,36 @@ module MultigridTypes
 !     ------------------------------------
 !
 !     ----------------------------------------------
-      real(kind=rp), intent(in)       :: cfl_ini ! initial, user-defined CFL
-      real(kind=rp), intent(inout)    :: cfl     ! previous iteration CFL
-      integer, intent(in)             :: n ! outer iteration
-      real(kind=rp), intent(in)       :: res0     ! RES before
-      real(kind=rp), intent(in)       :: res1     ! RES after
-      logical, intent(in)             :: CFLboost
+      real(kind=rp), intent(in)              :: cfl_max 
+      real(kind=rp), intent(inout)           :: cfl    
+      real(kind=rp), intent(in)              :: cflboost_rate
+      character(len=LINE_LENGTH), intent(in) :: CFLboost
 !     ----------------------------------------------
-      real(kind=rp)                :: eta = 1.01d0   ! Ideally 1.0 < eta < 1.05
-      real(kind=rp)                :: eps = 1e-10    !
+      real(kind=rp)                :: conv
 !     ----------------------------------------------
-      if (CFLboost) then
+        
 
-!     Variation of CFL ramping according to Jiang et al. 2015 (version for FAS). 
-         if ( (res1 / res0 .gt. 1.0d0) .and. (res0 .gt. eps) ) then
-            cfl = cfl / 2.0d0
-         else
-            ! cfl = cfl_ini * eta**n ! original work
-            select case(n)
-            case ( : 100)
-               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*n) ! linear variation 
-            case ( 101 : 1000)
-               cfl = cfl_ini  * (1.d0 + (eta-1.d0)*100 + (eta-1.d0)*n*0.1) ! linear variation 
-            case ( 1001 : )
-            end select
-         end if
-
+      if ( trim(CFLboost) .eq. "linear") then
+         cfl = cfl + cfl * cflboost_rate
+         if (cfl .ge. cfl_max) then
+            cfl = cfl_max
+        end if
+      elseif ( trim(CFLboost) .eq. "exponential") then
+         cfl = cfl * cflboost_rate
+         if (cfl .ge. cfl_max) then
+            cfl = cfl_max
+        end if
       end if ! CLFBoost 
+
+         ! real(kind=rp), intent(in)       :: res0     ! RES before
+         ! real(kind=rp), intent(in)       :: res1     ! RES after
+         !  conv = log10(res0/res1)
+         !  if (conv .le. 0.0_RP) then
+         !  elseif ( (conv .gt. 0.0_RP) .and. (conv .le. 1.0_RP )  ) then
+         !      cfl = cfl + cfl * conv * cflboost_rate
+         !  elseif (conv .gt. 1.0_RP ) then
+         !      cfl = cfl + cfl * cflboost_rate
+         !  end if
    
    end subroutine CFLRamp
 !

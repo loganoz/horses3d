@@ -4,9 +4,9 @@
 !   @File:    TimeIntegratorDefinitions.f90
 !   @Author:  Juan Manzanero (juan.manzanero@upm.es)
 !   @Created: Tue Feb 13 14:26:34 2018
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Thu Jun 10 18:41:09 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
 !
 !//////////////////////////////////////////////////////
 !
@@ -16,7 +16,8 @@ module TimeIntegratorDefinitions
    implicit none
 
    private
-   public   TimeStep_FCN, ComputePseudoTimeDerivative, bdf_order
+   public   TimeStep_FCN, ComputePseudoTimeDerivative, bdf_order, NOTDEF_JACOBIAN, NUMERICAL_JACOBIAN, ANALYTICAL_JACOBIAN
+   public JACOBIAN_MATRIX_NONE, JACOBIAN_MATRIX_DENSE, JACOBIAN_MATRIX_CSR
 
    abstract interface
       subroutine TimeStep_FCN( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
@@ -44,6 +45,13 @@ module TimeIntegratorDefinitions
    end interface
 
    integer       :: bdf_order       ! BDF order specified by user
+   integer, parameter :: NOTDEF_JACOBIAN     = 0
+   integer, parameter :: NUMERICAL_JACOBIAN  = 1
+   integer, parameter :: ANALYTICAL_JACOBIAN = 2
+
+   integer, parameter :: JACOBIAN_MATRIX_NONE  = 0
+   integer, parameter :: JACOBIAN_MATRIX_DENSE = 1
+   integer, parameter :: JACOBIAN_MATRIX_CSR   = 2
 !========
    contains
 !========

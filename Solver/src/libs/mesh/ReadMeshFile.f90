@@ -4,9 +4,9 @@
 !   @File:    ReadMeshFile.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Mar 18 11:59:00 2021
+!   @Last revision date: Mon Sep  6 22:07:57 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 966274b24d0fb3507260ee580cfd52143429c8ae
+!   @Last revision commit: fbcac81edbbdfe27e856a7a67ea58df2c52a7474
 !
 !//////////////////////////////////////////////////////
 !
@@ -25,7 +25,7 @@ module ReadMeshFile
    public constructMeshFromFile, NumOfElemsFromMeshFile, MeshFileType
 
 contains
-   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, periodRelative, success )
       implicit none
       !---------------------------------------------------------------
       type(HexMesh)                       :: self
@@ -34,6 +34,7 @@ contains
       INTEGER                             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical                             :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
       integer                             :: dir2D
+      logical                             :: periodRelative
       LOGICAL           , intent(out)     :: success
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
@@ -42,16 +43,25 @@ contains
       integer                    :: no_interior_faces, no_boundary_faces, no_mpi_faces
       integer                    :: no_sequential_elems, no_mpi_elems
       integer                    :: aux_array(1:3)
+      integer                    :: gmsh_version
       !---------------------------------------------------------------
       
       ext = getFileExtension(trim(filename))
       
       if (trim(ext)=='h5') then
-         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, periodRelative, success )
       elseif (trim(ext)=='mesh') then
-         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
       elseif (trim(ext)=='msh') then
-         call ConstructMesh_FromGMSHFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         call CheckGMSHversion (fileName, gmsh_version)
+         select case (gmsh_version)
+         case (4)
+            call ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
+         case (2)
+            call ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
+         case default
+            error stop "ReadMeshFile :: Unrecognized GMSH version."
+         end select
       else
          ERROR STOP 'Mesh file extension not recognized.'
       end if
@@ -142,6 +152,7 @@ contains
       integer            :: nelem
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
+      integer            :: gmsh_version
       !---------------------------------------------------------------
       
       ext = getFileExtension(trim(filename))
@@ -151,7 +162,15 @@ contains
       elseif (trim(ext)=='mesh') then
          nelem = NumOfElems_SpecMesh( fileName )
       elseif (trim(ext)=='msh') then
-         nelem = NumOfElems_GMSH( fileName )
+         call CheckGMSHversion (fileName, gmsh_version)
+         select case (gmsh_version)
+         case (4)
+            nelem = NumOfElems_GMSH_v4( fileName )
+         case (2)
+            nelem = NumOfElems_GMSH_v2( fileName )
+         case default
+            error stop "ReadMeshFile :: Unrecognized GMSH version."
+         end select
       else
          ERROR STOP 'Mesh file extension not recognized.'
       end if

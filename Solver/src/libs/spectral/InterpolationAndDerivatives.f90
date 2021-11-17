@@ -1,10 +1,14 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      InterpolationAndDerivatives.f90
-!      Created: 2009-12-15 15:36:24 -0500 
-!      By: David Kopriva  
+!   @File: InterpolationAndDerivatives.f90
+!   @Author: David Kopriva 
+!   @Created: 2009-12-15 15:36:24 -0500 
+!   @Last revision date: Thu Jan 14 01:37:40 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 396b5fba9a6f43989e9bde0a46255138543f5021
 !
+!//////////////////////////////////////////////////////
 !
 !      Contains:
 !               
@@ -50,6 +54,7 @@
       public   InterpolatingPolynomialVector, PolyDerivativeVector
       public   PolynomialInterpolationMatrix
       public   MatrixMultiplyDeriv
+      public   ComputeVandermonde, JacobiPolynomial, ComputeModalForm
 
       INTEGER, PARAMETER :: MXV_DIRECT = 1, MXV_TRANSPOSE = 2
       
@@ -1146,6 +1151,176 @@
      END DO 
 
       END SUBROUTINE DiscreteGalerkinDerivMatrix
+!
+! /////////////////////////////////////////////////////////////////////
+!
+   function JacobiPolynomial( N, x, nx, alpha, beta ) result (PolMat) 
+!  ---------------------------------------------------------
+!  General routine to evaluate orthonormal Jacobi polynomial
+!  of type (alpha,beta) recursively at points defined by an
+!  array x - essentially computes 1D Vandermonde matrix.   
+!  ---------------------------------------------------------
+      implicit none
+!-----Input---------------------------------------------------------------
+      integer,                            intent(in) :: N      !<  Polynomial order
+      real(kind=RP), dimension(0:nx),     intent(in) :: x      !<  Where to evaluate the derivative
+      integer,                            intent(in) :: nx 
+      real(kind=RP),                      intent(in) :: alpha 
+      real(kind=RP),                      intent(in) :: beta 
+!-----Output--------------------------------------------------------------
+      real(kind=RP), dimension(0:nx,0:N) :: PolMat !<  Resulting matrix with polynomials
+!-----Local-Variables-----------------------------------------------------
+      integer                        :: i,j
+      real(kind=RP)                  :: gamma0, gamma1 
+      real(kind=RP)                  :: aold, anew, bnew, tmp 
+      real(kind=RP), dimension(0:nx) :: tmp2
+!  ---------------------------------------------------------
+
+      PolMat = 0.0_RP
+
+      ! Compute initial value P1
+      gamma0 = 2.0_RP**(alpha+beta+1)/(alpha+beta+1)*gamma(alpha+1)*gamma(beta+1)/gamma(alpha+beta+1)
+      PolMat(:,0) = 1.0_RP/sqrt(gamma0)
+
+      ! Compute initial value P2
+      gamma1 = (alpha+1)*(beta+1)/(alpha+beta+3)*gamma0
+      PolMat(:,1) = ((alpha+beta+2)*x/2 + (alpha-beta)/2)/sqrt(gamma1)
+
+      ! Recurrent formula for the rest of polynomials
+      aold = 2/(2+alpha+beta)*sqrt((alpha+1)*(beta+1)/(alpha+beta+3))
+      do i=2,N 
+         tmp = 2*(i-1)+alpha+beta
+         anew = 2/(tmp+2)*sqrt( (i)*(i+alpha+beta)*(i+alpha)*(i+beta)/(tmp+1)/(tmp+3))
+         bnew = - (alpha**2-beta**2)/tmp/(tmp+2)
+         do j=0,nx
+            tmp2(j) = (x(j)-bnew) * PolMat(j,i-1)
+         end do
+         PolMat(:,i) = 1/anew*( -aold*PolMat(:,i-2) + tmp2)
+         aold = anew
+      end do
+
+   end function JacobiPolynomial
+!
+! /////////////////////////////////////////////////////////////////////
+!
+   function ComputeVandermonde( N ) result (V) 
+!  ---------------------------------------------------------
+!  Routine to compute a square Vandermonde matrix for 3D hexa.
+!  ---------------------------------------------------------
+      use GaussQuadrature
+      implicit none
+!-----Input---------------------------------------------------------------
+      integer,       dimension(3),        intent(in)    :: N      !  Polynomial order
+!-----Output--------------------------------------------------------------
+      real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1) :: V ! Vandermonde matrix 
+!-----Local-Variables-----------------------------------------------------
+      integer :: i,j,k,l,Vsize 
+      real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:N(1)) :: Vx ! 1D Vandermonde matrix in x 
+      real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:N(2)) :: Vy ! 1D Vandermonde matrix in y 
+      real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0:N(3)) :: Vz ! 1D Vandermonde matrix in z 
+      !-1D-GLL-quadrature-points-and-weights:---------
+      real(kind=RP), dimension(0:N(1))                                :: x1d, wx 
+      real(kind=RP), dimension(0:N(2))                                :: y1d, wy 
+      real(kind=RP), dimension(0:N(3))                                :: z1d, wz 
+      real(kind=RP), dimension(0:N(1),0:N(2),0:N(3))                  :: x3d,y3d,z3d ! 3d arrays for GLL points
+      real(kind=RP), dimension(0:(N(1)+1)*(N(2)+1)*(N(3)+1)-1)        :: x,y,z ! 3d arrays reshaped 
+!  ---------------------------------------------------------
+
+      ! Compute 1D quadrature points and weights
+      call LegendreLobattoNodesAndWeights( N(1), x1d, wx )
+      call LegendreLobattoNodesAndWeights( N(2), y1d, wy )
+      call LegendreLobattoNodesAndWeights( N(3), z1d, wz )
+
+      ! Create 3D grids
+      do i=0,N(3)
+         x3d(:,:,i) = spread( x1d, 1, N(2) )
+         y3d(:,:,i) = spread( y1d, 2, N(1) )
+      end do
+      do i=0,N(1)
+         z3d(i,:,:) = spread( z1d, 1, N(2))
+      end do 
+
+      ! Reshape arrays
+      x = reshape(x3d,(/ (N(1)+1)*(N(2)+1)*(N(3)+1) /)) 
+      y = reshape(y3d,(/ (N(1)+1)*(N(2)+1)*(N(3)+1) /)) 
+      z = reshape(z3d,(/ (N(1)+1)*(N(2)+1)*(N(3)+1) /)) 
+
+      ! Compute 1D polynomials
+      Vx = JacobiPolynomial(N(1),x,(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0.0_RP,0.0_RP)
+      Vy = JacobiPolynomial(N(2),y,(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0.0_RP,0.0_RP)
+      Vz = JacobiPolynomial(N(3),z,(N(1)+1)*(N(2)+1)*(N(3)+1)-1,0.0_RP,0.0_RP)
+
+      ! Build 3D hexahedra Vandermonde matrix
+      V = 0.0_RP 
+      Vsize = 0;
+      do i=0,N(1); do j=0,N(2); do k=0,N(3) 
+         do l=0,size(V,1)-1
+            V(l,Vsize) = Vx(l,i) * Vy(l,j) * Vz(l,k)
+         end do
+         Vsize = Vsize+1;
+      end do; end do; end do
+
+   end function ComputeVandermonde
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine ComputeModalForm( u, uhat, Neqn, Nel, Nx, Ny, Nz )
+!  ---------------------------------------------------------
+!  Routine to compute modal form of any 1D array.
+!  ---------------------------------------------------------
+      use DenseMatUtilities
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      real(kind=RP), dimension(Nel*Neqn*(Nx+1)*(Ny+1)*(Nz+1)) , intent(in)    :: u    ! 1D array of nodal storage
+      real(kind=RP), dimension(Nel*Neqn*(Nx+1)*(Ny+1)*(Nz+1)) , intent(inout) :: uhat ! 1D array of modal storage
+      integer                                                 , intent(in)    :: Neqn ! no. equations
+      integer                                                 , intent(in)    :: Nel  ! no. elements
+      !-polynomial-orders-in-x/y/z:-------------------
+      integer                                                 , intent(in)    :: Nx      
+      integer                                                 , intent(in)    :: Ny
+      integer                                                 , intent(in)    :: Nz
+!-----Local-Variables-----------------------------------------------------
+      real(kind=rp), dimension(0:(Nx+1)*(Ny+1)*(Nz+1)-1,0:(Nx+1)*(Ny+1)*(Nz+1)-1) :: V 
+      integer                                                                     :: i,j,k,l,iel
+      integer                                                                     :: elsize
+!  ---------------------------------------------------------
+
+      ! compute Vandermonde matrix on 3D hexahedral
+      V = ComputeVandermonde( (/ Nx, Ny, Nz /) )  
+
+      ! save Vandermonde matrix in the matrix form
+      open(25, file = 'Vandermonde3DHex.txt')  
+      do i=0,size(V,1)-1
+            do j=0,size(V,2)-1
+                  ! write(25,'(1E19.11)', advance="no") V(i,j) ! better precision 
+                  write(25,'(1F8.3)', advance="no") V(i,j) 
+            end do
+            write(25,*)
+      end do
+      close(25) 
+
+      ! compute V^(-1)
+      V = inverse(V)
+
+      elsize = (Nx+1)*(Ny+1)*(Nz+1)
+      uhat = 0.0_RP
+      do iEl = 1, Nel; do i=1,Neqn*elsize,Neqn; do j=0,Neqn-1
+         uhat( 1 + j + (iEl-1) * (elsize*Neqn) : iEl * (elsize*Neqn) : Neqn ) = &
+            matmul( V , u( 1 + j + (iEl-1) * (elsize*Neqn) : iEl * (elsize*Neqn) : Neqn ) )
+      end do; end do; end do
+
+
+      ! save uhat in the form of (Nel*elsize,Neqn) matrix
+      open(26, file = 'Qhat.txt')  
+      do i=1,Neqn*Nel*elsize,Neqn; do j=0,Neqn-1
+            write(26,'(1E22.14)', advance="no") uhat(i+j)
+      end do; write(26,*); end do
+      close(26) 
+
+   end subroutine ComputeModalForm
+!
+! /////////////////////////////////////////////////////////////////////
+!
 !
 !
 !  **********     

@@ -4,9 +4,9 @@
 !   @File:    DenseMatUtilities.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue May  5 16:26:02 2018
-!   @Last revision date: Thu Jan 31 10:44:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ebc7d57fabf133f06c19be869c1134ef5a5b86d0
+!   @Last revision date: Thu Jun 10 18:40:59 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
 !
 !//////////////////////////////////////////////////////
 !
@@ -18,7 +18,7 @@ MODULE DenseMatUtilities
    IMPLICIT NONE
 
    private
-   public inverse, Mat2File, ComputeLU, SolveLU, EstimateConditionNumber
+   public inverse, Mat2File, ComputeLU, SolveLU, EstimateConditionNumber, ComputeLUandOverwrite
 !========
  CONTAINS
 !========
@@ -57,6 +57,36 @@ MODULE DenseMatUtilities
       end if
 
    end subroutine ComputeLU
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------------------------
+!  Computes the LU factorization for a dense matrix
+!  ------------------------------------------------
+   subroutine ComputeLUandOverwrite(A,LUpivots)
+      implicit none
+      !------------------------------------------------------------
+      real(kind=RP), dimension(:,:)                , intent(inout)  :: A          !<  Matrix to factorize
+      integer      , dimension(size(A,1))          , intent(inout)  :: LUpivots   !>  LU pivots for factorization
+      !------------------------------------------------------------
+      integer :: n      ! Matrix size
+      integer :: info   ! Lapack error code
+      !------------------------------------------------------------
+
+      n = size(A,1)
+      
+#ifdef HAS_LAPACK
+      call DGETRF(n, n, A, n, LUpivots, info)
+#else
+      call LuDecomp(n, A, LUpivots, info)
+#endif
+
+      if (info /= 0) then
+         print*, 'Matrix is numerically singular. ERROR:', info
+         stop
+      end if
+
+   end subroutine ComputeLUandOverwrite
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

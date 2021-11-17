@@ -1,9 +1,12 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      LegendreAlgorithms.f95
-!      Created: 2009-12-08 13:47:42 -0500 
-!      By: David Kopriva
+!   @File:    LegendreAlgorithms.f90
+!   @Author:  David Kopriva
+!   @Created: Created: 2009-12-08 13:47:42 -0500 
+!   @Last revision date: Wed Jun  2 18:14:23 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 28e347f1c2e07ee09992b923a6ed72dacfe9ffb9
 !
 !      Contains:
 !            ALGORITHM 20: FUNCTION LegendrePolynomial( N, x ) RESULT(L_N)
@@ -307,7 +310,7 @@
          RETURN
       ELSE IF( N == 1 )     THEN
          x(0) = -1.0_RP
-         w(0) =  0.5_RP
+         w(0) =  1.0_RP
          x(1) =  1.0_RP
          w(1) =  w(0)
       ELSE

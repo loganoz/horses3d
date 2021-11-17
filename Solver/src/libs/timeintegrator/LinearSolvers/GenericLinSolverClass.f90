@@ -27,9 +27,6 @@ module GenericLinSolverClass
    
    public FTValueDictionary
    
-   integer, parameter :: NOTDEF_JACOBIAN     = 0
-   integer, parameter :: NUMERICAL_JACOBIAN  = 1
-   integer, parameter :: ANALYTICAL_JACOBIAN = 2
    
    type :: GenericLinSolver_t
       class(JacobianComputer_t), allocatable   :: Jacobian
@@ -128,7 +125,7 @@ contains
 !     ***************************
 !
       if ( present(sem) ) then
-         call this % Jacobian % construct(sem % mesh, nEqn)
+         call this % Jacobian % construct(sem % mesh, nEqn, controlVariables)
       end if
    end subroutine Construct
 !

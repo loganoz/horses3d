@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Sun Aug  4 16:39:45 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Tue Sep 28 11:34:35 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 0b8b49ef742bce3e02d3138ef5e95597b5d3a726
 !
 !//////////////////////////////////////////////////////
 !
@@ -29,6 +29,10 @@ module NumericalJacobian
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
+   use FTValueDictionaryClass
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
    private
@@ -61,18 +65,21 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Construct(this, mesh, nEqn)
+   subroutine NumJacobian_Construct(this, mesh, nEqn, controlVariables)
       implicit none
       !-arguments-----------------------------------------
       class(NumJacobian_t) , intent(inout) :: this
       type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      type(FTValueDictionary)  , intent(in)  :: controlVariables
       !---------------------------------------------------
       
 !
 !     Construct parent
 !     ----------------
-      call this % JacobianComputer_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
+
+      call SetNoNeighbours(this, controlVariables)
       
       call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
       
@@ -83,14 +90,15 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode )
+   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode )
       !-------------------------------------------------------------------
       class(NumJacobian_t)      , intent(inout)          :: this
       type(DGSem),                intent(inout)          :: sem
       integer,                    intent(in)             :: nEqn
       real(kind=RP),              intent(in)             :: time
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative      !   
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivativeIsolated
       real(kind=RP),   optional, intent(in)              :: eps_in
       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
       integer, optional, intent(in)                      :: mode
@@ -117,6 +125,8 @@ contains
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
+      integer :: eid, el_threshold
+      integer, allocatable :: ndof_per_elm(:)
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -127,31 +137,34 @@ contains
 !
       
       call Stopwatch % Start("Numerical Jacobian construction")
-      
-      if (isfirst) then   
+
+      if (.NOT. isfirst) then 
+         deallocate(nbr)
+         deallocate(Nx)
+         deallocate(Ny)
+         deallocate(Nz)
+         deallocate(used)
+         deallocate(ndofcol)
+         deallocate(QDot0)
+         deallocate(Q0)
+      end if
+
          nelm = size(sem % mesh % elements)
-!
-!        Define the number of needed neighbors
-!        -> TODO: Define according to physics and discretization
-!        -------------------------------------------------------
-#if defined(CAHNHILLIARD)
-         num_of_neighbor_levels = 4
-print*, "4 NEIGHBORS!!!!!!!!!!!!"
-#elif defined(NAVIERSTOKES)
-         if (flowIsNavierStokes) then
-            num_of_neighbor_levels = 1 ! Hard-coded: Compact schemes such as IP, BR2. For BR1 use 2
-         else
-            num_of_neighbor_levels = 1
-         end if
-#else
-         num_of_neighbor_levels = 2
-#endif
-         
+
 !
 !        Initialize the colorings structure
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
+         select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            ! No need for colors for Block Diagonal Matrix
+            do i=1,nelm 
+               nbr(i)%elmnt(1:6) = 0
+            end do
+         class default
+            ! do nothing
+         end select
          call ecolors % construct(nbr, num_of_neighbor_levels)
          
 !
@@ -218,7 +231,6 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
          
          ! All initializations done!
          isfirst = .FALSE.
-      end if !(isfirst)
 !
 !     ---------------------------------------------
 !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)
@@ -280,8 +292,6 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
-
-!
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
@@ -326,7 +336,7 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
                used    = 0
                usedctr = 1
                
-               call this % AssignColToJacobian(Matrix, sem % mesh % storage, thiselm, thiselm, thisdof, num_of_neighbor_levels)
+               call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
                
             END DO           
 !
@@ -336,7 +346,7 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
             call sem % mesh % storage % global2LocalQ
          ENDDO
       ENDDO
-      
+
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
       
       call Stopwatch % Pause("Numerical Jacobian construction")
@@ -352,6 +362,8 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
       call sem % mesh % SetStorageToEqn(NS_BC)
 #endif
       
+      ! call Matrix % Visualize('Jacobian.txt')
+      ! error stop "TBC"
    end subroutine NumJacobian_Compute
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -360,12 +372,12 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
 !  Assign to Jacobian the column that corresponds to the element "eID" and the degree of freedom "thisdof" 
 !  taking into account the contribution of the neighbors [(depth-1) * "of neighbors"]
 !  -------------------------------------------------------------------------------------------------------
-   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, storage, eID, eIDn, thisdof, depth)
+   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, mesh, eID, eIDn, thisdof, depth)
       implicit none
       !-arguments---------------------------------------
       class(NumJacobian_t)           , intent(inout) :: this
       class(Matrix_t)                , intent(inout) :: Matrix  !<> Jacobian Matrix
-      type(SolutionStorage_t), target, intent(in)    :: storage !<  storage
+      type(HexMesh)                  , intent(in)    :: mesh
       integer                        , intent(in)    :: eID     !<  Element ID 
       integer                        , intent(in)    :: eIDn    !<  ID of the element, whose neighbors' contributions are added
       integer                        , intent(in)    :: thisdof !<  Current degree of freedom
@@ -386,17 +398,17 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
       
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)
-            pbuffer(1:ndof) => storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
+            pbuffer(1:ndof) => mesh % storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
             
             do j=1, this % ndofelm(elmnbr)
-               call Matrix % AddToBlockEntry (elmnbr, eID, j, thisdof, pbuffer(j) )
+               call Matrix % AddToBlockEntry (mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID, j, thisdof, pbuffer(j) )
             end do
             
             used(usedctr) = elmnbr
             usedctr = usedctr + 1
          end if
          
-         if (depth > 1) call this % AssignColToJacobian(Matrix, storage, eID, elmnbr, thisdof, depth-1)
+         if (depth > 1) call this % AssignColToJacobian(Matrix, mesh, eID, elmnbr, thisdof, depth-1)
          
       end do
       
@@ -592,4 +604,51 @@ print*, "4 NEIGHBORS!!!!!!!!!!!!"
       end do
 
    end subroutine GetRowsAndColsVector
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------
+!     Destruct the JacobianInfo variables
+!     ------------------------------------
+   subroutine SetNoNeighbours(this, controlVariables)
+      implicit none
+      !-arguments-----------------------------------------
+      class(NumJacobian_t), intent(inout)   :: this
+      type(FTValueDictionary)  , intent(in) :: controlVariables
+      !---------------------------------------------------
+      character(len=LINE_LENGTH)                     :: tmpc
+      !---------------------------------------------------
+
+#if defined(CAHNHILLIARD)
+      num_of_neighbor_levels = 4
+#elif defined(NAVIERSTOKES)
+      if (flowIsNavierStokes) then
+         if (controlVariables % containsKey("viscous discretization")) then
+
+            tmpc = controlVariables % StringValueForKey("viscous discretization",LINE_LENGTH)
+            select case (tmpc)
+            case('BR1')
+               num_of_neighbor_levels = 2
+            case('BR2')
+               num_of_neighbor_levels = 1
+            case('IP')
+               num_of_neighbor_levels = 1
+            case default 
+               if (MPI_Process % isRoot) ERROR STOP 'JacobianComputerClass :: Viscous discretization not recognized.'
+            end select
+         else
+            if (MPI_Process % isRoot) write(STD_OUT,*) 'JacobianComputerClass :: Viscous discretization not defined. Jacobian assumes BR1.'
+            num_of_neighbor_levels = 2
+         end if 
+      else
+         num_of_neighbor_levels = 1
+      end if
+#else
+      num_of_neighbor_levels = 2
+#endif
+
+   end subroutine SetNoNeighbours
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module NumericalJacobian

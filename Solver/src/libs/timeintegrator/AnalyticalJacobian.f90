@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug  4 16:39:54 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
+!   @Last revision date: Wed Sep 15 12:15:48 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
@@ -36,6 +36,7 @@ module AnalyticalJacobian
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
    use ConnectivityClass               , only: Connectivity
+   use FTValueDictionaryClass
 #if defined(NAVIERSTOKES)
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
@@ -75,12 +76,13 @@ contains
 !  AnJacobian_Construct:
 !  Main class constructor
 !  -------------------------------------------------------
-   subroutine AnJacobian_Construct(this, mesh, nEqn)
+   subroutine AnJacobian_Construct(this, mesh, nEqn, controlVariables)
       implicit none
       !-arguments-----------------------------------------
       class(AnJacobian_t)  , intent(inout) :: this
       type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      type(FTValueDictionary)  , intent(in)    :: controlVariables
       !-local-variables-----------------------------------
       integer :: fID, eID
       !---------------------------------------------------
@@ -88,7 +90,7 @@ contains
 !
 !     Construct parent
 !     ----------------
-      call this % JacobianComputer_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
 !
 !     Create stopwatch event
 !     ----------------------
@@ -121,7 +123,7 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
       implicit none
       !-arguments----------------------------------
       class(AnJacobian_t)      , intent(inout)     :: this
@@ -130,6 +132,7 @@ contains
       real(kind=RP)            , intent(in)        :: time
       class(Matrix_t)          , intent(inout)     :: Matrix
       procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+      procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
       integer        , optional, intent(in)        :: mode
@@ -269,6 +272,8 @@ contains
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
+
+   ! call Matrix % Visualize('Jacobian.txt')
    end subroutine AnJacobian_Compute
 #if defined(NAVIERSTOKES)
 !
@@ -1548,8 +1553,19 @@ contains
       normAx_minus = abs(normAx_minus)
       
       ! Nodal storage
-      spA_plus  = NodalStorage(e_plus  % Nxyz)
-      spA_minus = NodalStorage(e_minus % Nxyz)
+      ! --------------------------------------
+      ! TODO: Why this doesn't work since ifort ver. 19.1?
+      ! --------------------------------------
+      ! spA_plus  = NodalStorage(e_plus  % Nxyz)
+      ! spA_minus = NodalStorage(e_minus % Nxyz)
+      
+      spA_plus(1)  = NodalStorage(e_plus  % Nxyz(1))
+      spA_plus(2)  = NodalStorage(e_plus  % Nxyz(2))
+      spA_plus(3)  = NodalStorage(e_plus  % Nxyz(3))
+      spA_minus(1)  = NodalStorage(e_minus  % Nxyz(1))
+      spA_minus(2)  = NodalStorage(e_minus  % Nxyz(2))
+      spA_minus(3)  = NodalStorage(e_minus  % Nxyz(3))
+
       spAnorm_plus  => spA_plus( normAx_plus   )
       spAtan1_plus  => spA_plus( tanAx_plus(1) )
       spAtan2_plus  => spA_plus( tanAx_plus(2) )

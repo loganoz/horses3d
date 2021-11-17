@@ -30,7 +30,7 @@ index a26ea4e5..e5bbfd49 100644
        
 -      END Module TestSuiteManagerClass    
 \ No newline at end of file
-+      END Module TestSuiteManagerClass    
++      END Module TestSuiteManagerClass
 diff --git a/Solver/src/libs/mesh/HexMesh.f90 b/Solver/src/libs/mesh/HexMesh.f90
 index 65a79b04..b42df6f6 100644
 --- a/Solver/src/libs/mesh/HexMesh.f90

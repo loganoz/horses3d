@@ -80,7 +80,9 @@ MODULE ExplicitMethods
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            if ( present(dts) ) then
+                  if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
          
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
@@ -104,7 +106,9 @@ MODULE ExplicitMethods
          
             tk = t + b(k)*deltaT
             call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-            if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            if ( present(dts) ) then
+                  if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
 
 !$omp parallel do schedule(runtime)
             do id = 1, SIZE( mesh % elements )
@@ -127,14 +131,7 @@ MODULE ExplicitMethods
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
 
-!$omp parallel do schedule(runtime)
-      do k=1, mesh % no_of_elements
-         if ( any(isnan(mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
-      end do
-!$omp end parallel do
+      call checkForNan(mesh, t)
       
    END SUBROUTINE TakeRK3Step
 
@@ -174,7 +171,9 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -198,7 +197,9 @@ MODULE ExplicitMethods
          
          tk = t + b(k)*deltaT
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -218,15 +219,7 @@ MODULE ExplicitMethods
 
       end if
       
-!$omp parallel do schedule(runtime)
-      do k=1, mesh % no_of_elements
-         if ( any(isnan(mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
-      end do
-!$omp end parallel do
-
+      call checkForNan(mesh, t)
 !
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
@@ -260,7 +253,9 @@ MODULE ExplicitMethods
       integer                    :: id, k
 
       CALL ComputeTimeDerivative( mesh, particles, t, CTD_IGNORE_MODE)
-      if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+      if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+      end if
          
       if (present(dt_vec)) then
 !$omp parallel do schedule(runtime)
@@ -276,6 +271,7 @@ MODULE ExplicitMethods
 !$omp end parallel do
       end if
 
+      call checkForNan(mesh, t)
 !
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
@@ -486,9 +482,11 @@ MODULE ExplicitMethods
       if (present(dt_vec)) then 
 
       DO k = 1, N_STAGES
-         
+
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -511,7 +509,9 @@ MODULE ExplicitMethods
       DO k = 1, N_STAGES
          
          CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+         end if
          
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
@@ -531,20 +531,68 @@ MODULE ExplicitMethods
 
       end if
       
-!$omp parallel do schedule(runtime)
-      do k=1, mesh % no_of_elements
-         if ( any(isnan(mesh % elements(k) % storage % Q))) then
-            print*, "Numerical divergence obtained in solver."
-            call exit(99)
-         endif
-      end do
-!$omp end parallel do
-
+      call checkForNan(mesh, t)
 !
 !     To obtain the updated residuals
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
       
    end subroutine TakeRKOptStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   Subroutine checkForNan(mesh, t)
+!  
+!        **************************************************************************************************************
+!        Look if there is a nan in the solution, if at least one if found, stops and creates a hsol for user inspection
+!        **************************************************************************************************************
+!
+      use MPI_Process_Info
+#ifdef _HAS_MPI_
+      use mpi
+#endif
+      implicit none
+
+      type(HexMesh), intent(in)     :: mesh
+      real(kind=RP), intent(in)     :: t
+
+      !local variables
+      integer                       :: eID, i, j, k
+      CHARACTER(len=LINE_LENGTH)    :: FinalName      !  Final name for particular restart file
+      logical                       :: NanNotFound, allNan
+      integer                       :: ierr
+
+      ! use not found instead of found as OMP reduction initialized the private value as true
+      ! this is redundant for the OMP but left for non parallel compilations
+      NanNotFound = .TRUE.
+
+!$omp parallel do reduction(.AND.:NanNotFound) schedule(runtime)
+      do eID=1, mesh % no_of_elements
+         if ( any(isnan(mesh % elements(eID) % storage % Q))) then
+            NanNotFound = .FALSE.
+         endif
+      end do
+!$omp end parallel do
+
+#ifdef _HAS_MPI_
+      call mpi_allreduce(NanNotFound, allNan, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierr)
+      NanNotFound = allNan
+#endif
+
+      if (.not. NanNotFound) then
+          if ( MPI_Process % isRoot ) print*, "Numerical divergence obtained in solver."
+          WRITE(FinalName,'(A,ES11.5,A)')  'RESULTS/horses_divergence_',t,'.hsol'
+          if ( MPI_Process % isRoot ) print *, "Writing failed solution: ", FinalName
+          call mesh % SaveSolution(0, t, FinalName, .FALSE.)
+      end if
+
+#ifdef _HAS_MPI_
+     call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+
+      if (.not. NanNotFound) call exit(99)
+
+
+   End Subroutine checkForNan 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
