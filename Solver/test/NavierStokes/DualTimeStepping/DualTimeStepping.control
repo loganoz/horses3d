@@ -24,7 +24,7 @@ partitioning          = SFC
 !-------------------------------------------------------------
 time integration        = fas ! we integrate using FAS
 simulation type         = time-accurate ! FAS is primarly for steady-state. for time-accurate simulations it automatically switches to DTS
-Convergence tolerance   = 2.d-4 ! convergence tolerance for each pseudo-time
+Convergence tolerance   = 5.d-4 ! convergence tolerance for each pseudo-time
 bdf order               = 2 ! order of implicit integration, Other options: 1,2,3,4,5
 
 ! We can define the physical time step either with dt or CFL like for other solvers
@@ -39,8 +39,8 @@ mg preconditioner       = LTS
 mg sweeps exact         = [1,1,1]
 
 ! CFL for pseudo-steps (pseudo dt not supported). Pseudo CFL have to smaller than CFL/dt for physical step, otehrwise stability issues may occur.
-pseudo cfl              = 0.25d0
-pseudo dcfl             = 0.25d0
+pseudo cfl              = 0.1d0
+pseudo dcfl             = 0.1d0
 
 pseudo convergence monitor = .true. ! Set .false. or just delete if the convergence details are not of interest.
 !-------------------------------------------------------------

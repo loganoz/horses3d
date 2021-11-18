@@ -137,7 +137,7 @@
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
          call NodalStorage(N(3)) % Construct(GAUSS, N(3))
-         CALL constructMeshFromFile(mesh, meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE.,  0, success)
+         CALL constructMeshFromFile(mesh, meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE.,  0, .false., success)
          
          CALL FTAssert(test = success,msg = "Mesh file properly constructed")
          IF(.NOT. success) return
@@ -310,7 +310,7 @@
          call NodalStorage(N(1)) % Construct(GAUSS, N(1))
          call NodalStorage(N(2)) % Construct(GAUSS, N(2))
          call NodalStorage(N(3)) % Construct(GAUSS, N(3))
-         CALL constructMeshFromFile(mesh,meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE., 0, success)
+         CALL constructMeshFromFile(mesh,meshfileName,GAUSS,Nvector,Nvector,Nvector, .TRUE., 0, .false., success)
          
          CALL FTAssert(test = success,msg = "Mesh file read properly")
          IF(.NOT. success) RETURN 
