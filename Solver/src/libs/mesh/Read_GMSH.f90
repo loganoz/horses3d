@@ -648,8 +648,6 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
          vNodes(i) = uNodes(i)
       end do
@@ -1295,8 +1293,6 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
          vNodes(i) = uNodes(i)
       end do
@@ -2028,8 +2024,6 @@ MODULE Read_GMSH
       allocate(vNodes(numBFacePoints))
       allocate(values(3,numBFacePoints,numBFacePoints))
       do i = 1, numBFacePoints
-         ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-         ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
          uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
          vNodes(i) = uNodes(i)
       end do
@@ -3054,8 +3048,6 @@ MODULE Read_GMSH
             allocate(vNodes(numBFacePoints))
             allocate(values(3,numBFacePoints,numBFacePoints))
             do i = 1, numBFacePoints
-               ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-               ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
                uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
                vNodes(i) = uNodes(i)
             end do
@@ -3663,8 +3655,6 @@ MODULE Read_GMSH
             allocate(vNodes(numBFacePoints))
             allocate(values(3,numBFacePoints,numBFacePoints))
             do i = 1, numBFacePoints
-               ! uNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-               ! vNodes(i) = -cos((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
                uNodes(i) = -1._RP + (i-1) * (2._RP/bFaceOrder)
                vNodes(i) = uNodes(i)
             end do

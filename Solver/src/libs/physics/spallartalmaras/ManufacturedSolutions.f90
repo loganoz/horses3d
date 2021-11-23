@@ -14,10 +14,9 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      ManufacturedSolutions.f90
-!      Created: 2017-05-18 17:00:00 +0100 
-!      By: Andrés Rueda
+!      By: Gerasimos Ntoukas
 !
-!      Manufactured solutions definitions for 2D and 3D cases (Euler and Navier-Stokes)
+!      Manufactured solutions definitions for 3D case (Navier-Stokes/Spalart-Almaras)
 !
 !
 !////////////////////////////////////////////////////////////////////////////////////////

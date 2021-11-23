@@ -104,7 +104,7 @@
       END IF
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
-      call InitializeNodalStorage (controlVariables , 10)
+      call InitializeNodalStorage (controlVariables , Nmax)
       call Initialize_InterpolationMatrices(Nmax)
 
       call sem % construct (  controlVariables  = controlVariables,       &

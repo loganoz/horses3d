@@ -18,11 +18,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
-   public ENTROPY_BALANCE, L2RHO, L2RHOU, L2RHOE
-#endif
-
-#if defined(SPALARTALMARAS)
-   public L2RHO, L2RHOU, L2RHOE, L2RHOTHETA
+   public ENTROPY_BALANCE
 #endif
 
 #if defined(INCNS)
@@ -46,10 +42,7 @@ module VolumeIntegrals
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
-      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE, L2RHO, L2RHOU, L2RHOE
-#endif
-#if defined(SPALARTALMARAS)
-      enumerator :: L2RHO, L2RHOU, L2RHOE, L2RHOTHETA
+      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -380,179 +373,6 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
             end do            ; end do           ; end do
            
-         
-         case(L2RHO)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = 1.0_RP 
-                   v = 1.0_RP
-                   w = 1.0_RP
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-
-                              val = val +  (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHO,i,j,k) - rho ) * (e % storage % Q(IRHO,i,j,k) - rho ))
-
-                   end associate
-         end do            ; end do           ; end do
-
-
-         case(L2RHOU)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = 1.0_RP 
-                   v = 1.0_RP
-                   w = 1.0_RP
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-
-                              val = val +  (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHOU,i,j,k) - rho*u ) * (e % storage % Q(IRHOU,i,j,k) - rho*u ))
-
-                   end associate
-         end do            ; end do           ; end do
-
-
-         case(L2RHOE)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = 1.0_RP 
-                   v = 1.0_RP
-                   w = 1.0_RP
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-
-                              val = val + (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHOE,i,j,k) - en ) * (e % storage % Q(IRHOE,i,j,k) - en ))
-                   end associate
-         end do            ; end do           ; end do  
-
-
-#endif
-
-#if defined(SPALARTALMARAS)
-         
-         case(L2RHO)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = COS(PI*(x + y +z )) 
-                   v = SIN(PI*(x + y +z ))
-                   w = 0.5_RP*COS(PI*(x + y +z )) + 0.5_RP*SIN(PI*(x + y +z ))
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-                   thetaeddy = COS(PI*(x + y +z ))
-
-
-                              val = val +   (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHO,i,j,k) - rho ) * (e % storage % Q(IRHO,i,j,k) - rho ))
-
-                   end associate
-         end do            ; end do           ; end do
-
-
-         case(L2RHOU)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = COS(PI*(x + y +z )) 
-                   v = SIN(PI*(x + y +z ))
-                   w = 0.5_RP*COS(PI*(x + y +z )) + 0.5_RP*SIN(PI*(x + y +z ))
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-                   thetaeddy = COS(PI*(x + y +z ))
-
-
-                              val = val +   (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHOU,i,j,k) - rho*u ) * (e % storage % Q(IRHOU,i,j,k) - rho*u ))
-
-                   end associate
-         end do            ; end do           ; end do
-
-
-         case(L2RHOE)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = COS(PI*(x + y +z )) 
-                   v = SIN(PI*(x + y +z ))
-                   w = 0.5_RP*COS(PI*(x + y +z )) + 0.5_RP*SIN(PI*(x + y +z ))
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-                   thetaeddy = COS(PI*(x + y +z ))
-
-
-                              val = val +   (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHOE,i,j,k) - en ) * (e % storage % Q(IRHOE,i,j,k) - en ))
-                   end associate
-         end do            ; end do           ; end do  
-
-
-         case(L2RHOTHETA)
-
-         do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               
-                   associate( x => e % geom % x(1,i,j,k), &
-                              y => e % geom % x(2,i,j,k), &
-                              z => e % geom % x(3,i,j,k) )
-
-
-                   rho = exp(x)*1.0_RP/10.0_RP + exp(y)*1.0_RP/10.0_RP + exp(z)*1.0_RP/10.0_RP + 1.0_RP
-                   p    = rho 
-                   u = COS(PI*(x + y +z )) 
-                   v = SIN(PI*(x + y +z ))
-                   w = 0.5_RP*COS(PI*(x + y +z )) + 0.5_RP*SIN(PI*(x + y +z ))
-                   en = p/(thermodynamics % gamma - 1._RP) + rho*3.0_RP/2.0_RP
-                   thetaeddy = COS(PI*(x + y +z ))
-
-
-                              val = val +   (wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) &
-                                  * (e % storage % Q(IRHOTHETA,i,j,k) - rho*thetaeddy ) * (e % storage % Q(IRHOTHETA,i,j,k) - rho*thetaeddy ))
-                   end associate
-         end do            ; end do           ; end do  
-
-
-
-#endif
-
 
 #if defined(INCNS)
          case (MASS)

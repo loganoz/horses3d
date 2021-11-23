@@ -581,7 +581,6 @@ Module DGSEMClass
 !  it is the only or best way. Other variations look only at the smallest
 !  mesh values, other account for differences across the element.
 !     -------------------------------------------------------------------
-  
    subroutine MaxTimeStep( self, cfl, dcfl, MaxDt , MaxDtVec)
       use VariableConversion
       use MPI_Process_Info
@@ -604,51 +603,62 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
       real(kind=RP)                 :: kinematicviscocity, musa, etasa
-      real(kind=RP)                 :: Q(NCONS)                         ! The solution in a node
+      real(kind=RP)                 :: Q(NCONS)                           ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
       type(NodalStorage_t), pointer :: spAxi_p, spAeta_p, spAzeta_p     ! Pointers to the nodal storage in every direction
-      logical             , save    :: isFirst
-      real(kind=RP)                 :: lcldst
-
+      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
 #if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
 #endif
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t)       :: SAModel 
-      external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
 #endif
       !--------------------------------------------------------
 !     Initializations
 !     ---------------
+      
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
-      isFirst = .TRUE.
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private) 
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements) 
          N = self % mesh % elements(eID) % Nxyz
-
-        self % mesh % elements(eID) % storage % min_lcl_dst = sqrt(SUM( (self % mesh % elements(eiD) % geom % x(:,1,0,0) & 
-                                       - self % mesh % elements(eiD) % geom % x(:,0,0,0))**2.0_RP ))
-         do k = 0, N(3)-1 ; do j = 0, N(2)-1 ; do i = 0, N(1)-1
-
-         self % mesh % elements(eID) % storage % min_lcl_dst = min(self % mesh % elements(eID) % storage % min_lcl_dst, &
-                                                                   sqrt(SUM( (self % mesh % elements(eiD) % geom % x(:,i,j,k) & 
-                                                                 - self % mesh % elements(eiD) % geom % x(:,i+1,j,k))**2.0_RP )))
+         spAxi_p => NodalStorage(N(1))
+         spAeta_p => NodalStorage(N(2))
+         spAzeta_p => NodalStorage(N(3))
          
-         self % mesh % elements(eID) % storage % min_lcl_dst = min(self % mesh % elements(eID) % storage % min_lcl_dst, &
-                                                                   sqrt(SUM( (self % mesh % elements(eiD) % geom % x(:,i,j,k) & 
-                                                                 - self % mesh % elements(eiD) % geom % x(:,i,j+1,k))**2.0_RP )))
+         if ( N(1) .ne. 0 ) then
+            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
 
-         self % mesh % elements(eID) % storage % min_lcl_dst = min(self % mesh % elements(eID) % storage % min_lcl_dst,& 
-                                                                   sqrt(SUM( (self % mesh % elements(eiD) % geom % x(:,i,j,k) & 
-                                                                 - self % mesh % elements(eiD) % geom % x(:,i,j,k+1))**2.0_RP )))
+         else
+            dcsi = 0.0_RP
 
-        end do ; end do ; end do
+         end if
 
-       
+         if ( N(2) .ne. 0 ) then
+            deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
+         
+         else
+            deta = 0.0_RP
+
+         end if
+
+         if ( N(3) .ne. 0 ) then
+            dzet = 1.0_RP / abs( spAzeta_p % x(1) - spAzeta_p % x (0) )
+
+         else
+            dzet = 0.0_RP
+
+         end if
+         
+         if (flowIsNavierStokes) then
+            dcsi2 = dcsi*dcsi
+            deta2 = deta*deta
+            dzet2 = dzet*dzet
+         end if
+         
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 !
 !           ------------------------------------------------------------
@@ -657,54 +667,59 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
-#if defined(SPALARTALMARAS)
             CALL ComputeEigenvaluesForState( Q , eValues )
-#endif
+            
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
-#if defined(NAVIERSTOKES)            
+!           ----------------------------
+!           Compute contravariant values
+!           ----------------------------
+!              
+            lamcsi_a =abs( self % mesh % elements(eID) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
+  
+            lameta_a =abs( self % mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
+  
+            lamzet_a =abs( self % mesh % elements(eID) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
+                           self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
+            
+            TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
+            if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
 
-           if (flowIsNavierStokes) then
+#if defined(NAVIERSTOKES)            
+            if (flowIsNavierStokes) then
                T        = Temperature(Q)
                mu       = SutherlandsLaw(T)
+
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
               call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
-                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, &
-                                                musa, etasa)
+                                               self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
+              mu = mu + musa
 
 #endif
-            end if
-#endif
-
-#if defined(SPALARTALMARAS)
-            call ComputeVelocityViscosityforDt(Q, mu, musa, eValues(IX))
-#endif
-            TimeStep_Conv = min( TimeStep_Conv, cfl*self % mesh % elements(eID) % storage % min_lcl_dst /  eValues(IX) )
-            if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), cfl*self % mesh % elements(eID) % storage % min_lcl_dst /  eValues(IX) ) 
-
-#if defined(NAVIERSTOKES)            
-
-               TimeStep_Visc = min( TimeStep_Visc, dcfl*POW2(self % mesh % elements(eID) % storage % min_lcl_dst) / mu )
+               lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
+               lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
+               lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
+               
+               TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
                if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), &
-                                                   dcfl*POW2(self % mesh % elements(eID) % storage % min_lcl_dst) / mu  )
+                                                      dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v)  )
+            end if
 #else
             TimeStep_Visc = huge(1.0_RP)
 #endif
-        if (present(MaxDtVec)) then            
-            if ( (isnan(MaxDtVec(eID))) ) then
-               print*, "The time step for the element", eID, "is nan"
-               call exit(99)
-            endif
-         endif 
-
+                  
          end do ; end do ; end do
-
-     end do 
+      end do 
 !$omp end do
 !$omp end parallel
-
+         
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localMax_dt_v = TimeStep_Visc
@@ -725,7 +740,5 @@ Module DGSEMClass
       end if
 #endif            
    end subroutine MaxTimeStep
-
-!////////////////////////////////////////////////////////////////////////
 !
 end module DGSEMClass

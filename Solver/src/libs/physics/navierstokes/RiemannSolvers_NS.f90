@@ -80,7 +80,6 @@ module RiemannSolvers_NS
          RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
          
          select case ( which )
-#ifndef SPALARTALMARAS
          case ( RIEMANN_ROE )
             RiemannSolver => RoeRiemannSolver
 
@@ -126,13 +125,9 @@ module RiemannSolvers_NS
             print*, "   * Matrix dissipation"
             print*, "   * Viscous NS"
             errorMessage(STD_OUT)
-  	        STOP
-#else
-         case ( RIEMANN_LXF)
-            RiemannSolver => LxFRiemannSolver
-#endif
+            STOP
          end select
-
+!
 !        Set up an averaging function
 !        ----------------------------
          select case ( splitType )
@@ -191,7 +186,7 @@ module RiemannSolvers_NS
          
          ERROR stop 'Requested Riemann solver not implemented for implicit time-integration'
       end subroutine BaseClass_RiemannSolver_dFdQ
-#ifndef SPALARTALMARAS
+      
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
@@ -1060,7 +1055,6 @@ module RiemannSolvers_NS
          end associate
 
       end subroutine ViscousNSRiemannSolver
-#endif
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1083,11 +1077,11 @@ module RiemannSolvers_NS
 !        ---------------
 !
 !
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, thetaL, aL, rhoV2L, thetarhoL
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, thetaR, aR, rhoV2R, thetaehoR
-         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
+         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
+         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
+         real(kind=RP)  :: QLRot(5), QRRot(5)
          real(kind=RP)  :: invRhoL, invRhoR
-         real(kind=RP)  :: lambda, stab(NCONS)
+         real(kind=RP)  :: lambda, stab(5)
 
          associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
 !
@@ -1116,10 +1110,6 @@ module RiemannSolvers_NS
          aL = sqrt(gamma * pL * invRhoL)
          aR = sqrt(gamma * pR * invRhoR)
 !
-#ifdef SPALARTALMARAS
-         thetarhoL = QLeft(6)
-         thetaehoR = QRight(6)
-#endif
 !        Eigenvalues: lambda = max(|uL|,|uR|) + max(aL,aR)
 !        -----------
      !!!    lambda = max(abs(rhouL*invRhoL),abs(rhouR*invRhoR)) + max(aL, aR)   ! This is a more dissipative version (not consistent with the Jacobian below)
@@ -1131,13 +1121,8 @@ module RiemannSolvers_NS
 !
 !        Perform the average using the averaging function
 !        ------------------------------------------------
-#if defined (SPALARTALMARAS)
-         QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL, thetaL /)
-         QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR, thetaR /)
-#else
          QLRot = (/ rhoL, rhouL, rhovL, rhowL, rhoeL /)
          QRRot = (/ rhoR, rhouR, rhovR, rhowR, rhoeR /)
-#endif
          call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
 !
 !        Compute the Lax-Friedrichs stabilization
@@ -1157,7 +1142,7 @@ module RiemannSolvers_NS
          end associate
          
       END SUBROUTINE LxFRiemannSolver
-#ifndef SPALARTALMARAS
+
       SUBROUTINE u_dissRiemannSolver( QLeft, QRight, nHat, t1, t2, flux ) 
          implicit none 
 !
@@ -1585,7 +1570,6 @@ module RiemannSolvers_NS
          end associate
          
       END SUBROUTINE RusanovRiemannSolver           
-#endif
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1639,9 +1623,7 @@ module RiemannSolvers_NS
          flux(IRHOV) = 0.5_RP * ( QLeft(IRHOU) * vL + QRight(IRHOU) * vR )
          flux(IRHOW) = 0.5_RP * ( QLeft(IRHOU) * wL + QRight(IRHOU) * wR )
          flux(IRHOE) = 0.5_RP * ( uL*(QLeft(IRHOE) + pL) + uR*(QRight(IRHOE) + pR) )
-#if defined (SPALARTALMARAS)
-         flux(IRHOTHETA) = 0.5_RP * (uL * QLeft(IRHOTHETA) + uR * QRight(IRHOTHETA)  )
-#endif
+
       end subroutine StandardAverage
 
       subroutine DucrosAverage(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux) 

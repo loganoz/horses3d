@@ -550,10 +550,15 @@ module EllipticIP
 
 #if (!defined(CAHNHILLIARD))
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
+
+#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
+         mu    = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = e % storage % mu_ns(3,:,:,:)
 
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)

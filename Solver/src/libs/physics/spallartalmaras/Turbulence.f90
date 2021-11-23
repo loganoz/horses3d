@@ -103,7 +103,6 @@ module SpallartAlmarasTurbulence
          class(FTValueDictionary),  intent(in) :: controlVariables
 
          self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma
-         print *, "Turbulence model initialised", self % cw1 
 
       end subroutine SAmodel_Initialize
 !
@@ -179,10 +178,6 @@ module SpallartAlmarasTurbulence
          theta = rhotheta / rho
          call getVelocityGradients(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
          call ComputeVorticity(U_x, U_y, U_z, vort)
-         if ( isnan(vort) ) then
-               print*, "The vorticity is nan", vort 
-               call exit(99)
-         endif
          call geteddyviscositygradients(Q, Q_x, Q_y, Q_z, Theta_x, Theta_y, Theta_z)
 
          call self % Compute_chi(theta, kinematic_viscocity, chi)
@@ -190,18 +185,7 @@ module SpallartAlmarasTurbulence
 
          if (dwall .GT. 0.0_RP) then 
             call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall,  production_G)
-            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruciton_Y)
-
-            if ( isnan(production_G) ) then
-               print*, "Production is nan",  "The wall distance is ", dwall
-               call exit(99)
-            endif
-            
-            if ( (isnan(destruciton_Y)) ) then
-               print*, "Destruction is nan", "The wall distance is ", dwall
-               call exit(99)
-            endif
-         
+            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruciton_Y)       
          else
             production_G = 0.0_RP
             destruciton_Y = 0.0_RP
@@ -212,10 +196,6 @@ module SpallartAlmarasTurbulence
          S_SA(1:5) = 0.0_RP
          S_SA(6)   = production_G - destruciton_Y + source_Kappa 
             
-            if ( (isnan(source_Kappa)) ) then
-               print*, "Kappa term is nan", "The wall distance is ", dwall
-               call exit(99)
-            endif
      end subroutine SA_Compute_SourceTerms
 
 
@@ -268,19 +248,10 @@ module SpallartAlmarasTurbulence
             stilda =  Compute_modifiedvorticity(self, vort, sbar)
             production_G = self % cb1 * stilda * rho * theta
             
-            if ( isnan(production_G) ) then
-               print*, "In line 268 is nan",  fv1, fv2, sbar, vort, stilda, rho, theta 
-               call exit(99)
-            endif
-
          else
             gn = Compute_gn(self, chi)
             production_G = self % cb1 * vort * rho * theta * gn 
             
-            if ( isnan(production_G) ) then
-               print*, "In line 278 is nan",   gn, vort, rho, theta 
-               call exit(99)
-            endif
          end if 
 
       end subroutine Compute_ProductionTerm

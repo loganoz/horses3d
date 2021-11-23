@@ -42,10 +42,7 @@
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
-      public  getStressTensor 
-#ifndef SPALARTALMARAS
-      public ViscousJacobian
-#endif
+      public  getStressTensor, ViscousJacobian
 !
 !     ========
       CONTAINS 
@@ -102,12 +99,6 @@
          F(IRHOV,IZ) = F(IRHOW,IY)
          F(IRHOW,IZ) = Q(IRHOW) * w + P
          F(IRHOE,IZ) = ( Q(IRHOE) + p ) * w
-
-#if defined (SPALARTALMARAS)
-         F(IRHOTHETA, IX ) = Q(IRHOTHETA) * u
-         F(IRHOTHETA, IY ) = Q(IRHOTHETA) * v
-         F(IRHOTHETA, IZ ) = Q(IRHOTHETA) * w
-#endif
       
          end associate
 
@@ -260,7 +251,7 @@
 !
 !//////////////////////////////////////////////////////////////////////////////////////////
 !
-      pure subroutine ViscousFlux_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, eta, kappa, F)
+      pure subroutine ViscousFlux_STATE(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
          integer,       intent(in)  :: nGradEqn
@@ -269,7 +260,7 @@
          real(kind=RP), intent(in)  :: Q_y (1:nGradEqn)
          real(kind=RP), intent(in)  :: Q_z (1:nGradEqn)
          real(kind=RP), intent(in)  :: mu
-         real(kind=RP), intent(in)  :: eta
+         real(kind=RP), intent(in)  :: beta
          real(kind=RP), intent(in)  :: kappa
          real(kind=RP), intent(out) :: F(1:nEqn, 1:NDIM)
 !
@@ -280,8 +271,7 @@
          real(kind=RP)                    :: divV
          real(kind=RP)                    :: u , v , w
          real(kind=RP)                    :: invRho, uDivRho(NDIM), u_x(NDIM), u_y(NDIM), u_z(NDIM), nablaT(NDIM)
-         real(kind=RP)                    :: theta, thetaDivRho, theta_x, theta_y,theta_z
-         
+
          invRho  = 1.0_RP / Q(IRHO)
 
          u = Q(IRHOU) * invRho
@@ -293,7 +283,7 @@
          u_x = invRho * Q_x(IRHOU:IRHOW) - uDivRho * Q_x(IRHO)
          u_y = invRho * Q_y(IRHOU:IRHOW) - uDivRho * Q_y(IRHO)
          u_z = invRho * Q_z(IRHOU:IRHOW) - uDivRho * Q_z(IRHO)
-                  
+         
          nablaT(IX) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_x(IRHOE) - Q(IRHOE)*invRho*invRho*Q_x(IRHO) - u*u_x(IX)-v*u_x(IY)-w*u_x(IZ))
          nablaT(IY) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_y(IRHOE) - Q(IRHOE)*invRho*invRho*Q_y(IRHO) - u*u_y(IX)-v*u_y(IY)-w*u_y(IZ))
          nablaT(IZ) = thermodynamics % gammaMinus1*dimensionless % gammaM2*(invRho*Q_z(IRHOE) - Q(IRHOE)*invRho*invRho*Q_z(IRHO) - u*u_z(IX)-v*u_z(IY)-w*u_z(IZ))
@@ -301,39 +291,26 @@
          divV = U_x(IX) + U_y(IY) + U_z(IZ)
 
          F(IRHO,IX)  = 0.0_RP
-         F(IRHOU,IX) = mu  * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) !+ beta * divV
+         F(IRHOU,IX) = mu  * (2.0_RP * U_x(IX) - 2.0_RP/3.0_RP * divV ) + beta * divV
          F(IRHOV,IX) = mu  * ( U_x(IY) + U_y(IX) ) 
          F(IRHOW,IX) = mu  * ( U_x(IZ) + U_z(IX) ) 
          F(IRHOE,IX) = F(IRHOU,IX) * u + F(IRHOV,IX) * v + F(IRHOW,IX) * w + kappa  * nablaT(IX) 
 
          F(IRHO,IY) = 0.0_RP
          F(IRHOU,IY) = F(IRHOV,IX) 
-         F(IRHOV,IY) = mu  * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) !+ beta * divV
+         F(IRHOV,IY) = mu  * (2.0_RP * U_y(IY) - 2.0_RP / 3.0_RP * divV ) + beta * divV
          F(IRHOW,IY) = mu  * ( U_y(IZ) + U_z(IY) ) 
          F(IRHOE,IY) = F(IRHOU,IY) * u + F(IRHOV,IY) * v + F(IRHOW,IY) * w + kappa  * nablaT(IY)
 
          F(IRHO,IZ) = 0.0_RP
          F(IRHOU,IZ) = F(IRHOW,IX) 
          F(IRHOV,IZ) = F(IRHOW,IY) 
-         F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) !+ beta * divV
+         F(IRHOW,IZ) = mu  * ( 2.0_RP * U_z(IZ) - 2.0_RP / 3.0_RP * divV ) + beta * divV
          F(IRHOE,IZ) = F(IRHOU,IZ) * u + F(IRHOV,IZ) * v + F(IRHOW,IZ) * w + kappa  * nablaT(IZ)
 
-#if defined (SPALARTALMARAS)
-         theta = Q(IRHOTHETA) * invRho
-         thetaDivRho = theta * invRho
-
-         theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
-         theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
-         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
-
-         F(IRHOTHETA,IX) = theta_x * eta
-         F(IRHOTHETA,IY) = theta_y * eta
-         F(IRHOTHETA,IZ) = theta_z * eta
-#endif
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux_STATE
 
-      
       pure subroutine ViscousFlux_ENTROPY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
          integer,       intent(in)  :: nEqn
@@ -608,7 +585,6 @@
 !
 !     ***** This routine is necessary for computing the analytical Jacobian. *****
 !     ------------------------------------------------------------------------------------------
-#ifndef SPALARTALMARAS
       pure subroutine ViscousJacobian(q, Q_x, Q_y, Q_z, df_dgradq, df_dq)
          implicit none
          !-------------------------------------------------
@@ -834,6 +810,7 @@
          
          end associate
       end subroutine ViscousJacobian
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       pure function SutherlandsLawDeriv(Q,T) result(dMu_dQ)
@@ -848,7 +825,6 @@
          
       end function SutherlandsLawDeriv
 !
-#endif
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
       pure subroutine getStressTensor(Q,Q_x,Q_y,Q_z,tau)
@@ -946,7 +922,7 @@
 !     Local Variables
 !     ---------------
 !
-      REAL(KIND=Rp) :: u, v, w, p, a, vel_mag
+      REAL(KIND=Rp) :: u, v, w, p, a
 !      
       associate ( gamma => thermodynamics % gamma ) 
 
@@ -956,9 +932,7 @@
       p = Pressure(Q)
       a = SQRT(gamma*p/Q(1))
       
-      vel_mag = sqrt(u*u + v*v + w*w)
-
-      eigen(1) = vel_mag + a
+      eigen(1) = u + a
       eigen(2) = v + a
       eigen(3) = w + a
 

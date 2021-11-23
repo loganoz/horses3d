@@ -38,9 +38,6 @@ MODULE HexMeshClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
-#if defined(SPALARTALMARAS)
-      use cobyla_module
-#endif
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -2095,8 +2092,11 @@ slavecoord:             DO l = 1, 4
                
             end do
          end if
-         
-        
+!
+!        **************************************************************
+!        Check surfaces' integrity and adapt them to the solution order
+!        **************************************************************
+!
          do ii=1, num_of_faces
             if ( present(facesList) ) then
                fID = facesList(ii)
@@ -2104,7 +2104,8 @@ slavecoord:             DO l = 1, 4
                fID = ii
             end if
             associate( f => self % faces(fID) )
-            !
+            
+!
 !           Check if the surfaces description in mesh file is consistent 
 !           ------------------------------------------------------------
             select case (f % faceType)
@@ -2118,180 +2119,130 @@ slavecoord:             DO l = 1, 4
                SideIDR  = f % elementSide(2)
                NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
             
-                  call NodalStorage (NSurfL(1)) % construct (self % nodeType, NSurfL(1))
-                  allocate(faceCL(1:3,NSurfL(1)+1,NSurfL(2)+1))
-                  call ProjectEquiToChebyshev(SurfInfo(eIDLeft) % facePatches(SideIDL), NodalStorage(NSurfL(1)) % xCGL , NSurfL(1), &
-                                                                                        NodalStorage(NSurfL(1)) % xCGL , NSurfL(1),faceCL)
+!              If both surfaces are of order 1.. There's no need to continue analyzing face
+!              ----------------------------------------------------------------------------
+               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
+                  cycle
+               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
+                  cycle
+               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
+                  cycle
+               elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
+                  cycle
+               elseif (any(NSurfL /= NSurfR)) then ! Only works for mesh files with isotropic boundary orders
+                  write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
+                  write(STD_OUT,*) '   Face:    ', fID
+                  write(STD_OUT,*) '   Elements:', f % elementIDs
+                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
+                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
+               end if
+               
+               CLN(1) = min(f % NfLeft(1),f % NfRight(1))
+               CLN(2) = min(f % NfLeft(2),f % NfRight(2))
+!
+!              Adapt the curved face order to the polynomial order
+!              ---------------------------------------------------
+               if ( any(CLN < NSurfL) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
                   call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(NSurfL(1)) % xCGL, NodalStorage(NSurfL(1)) % xCGL,faceCL) 
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
                   deallocate(faceCL)
-                                    
+               end if
+
+               select case ( f % rotation )
+               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
+                  if (CLN(1) /= CLN(2)) then
+                     buffer = CLN(1)
+                     CLN(1) = CLN(2)
+                     CLN(2) = buffer
+                  end if
+               end select
+               
+               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
+                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
+                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
+                                                                             NodalStorage(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+
             case (HMESH_BOUNDARY)
                eIDLeft  = f % elementIDs(1)
                SideIDL  = f % elementSide(1)
                NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
-                  !print *, SurfInfo(eIDLeft) % facePatches(SideIDL) % points
-                  allocate(faceCL(1:3,NSurfL(1)+1,NSurfL(2)+1))                  
-                  call ProjectEquiToChebyshev(SurfInfo(eIDLeft) % facePatches(SideIDL), NodalStorage(NSurfL(1)) % xCGL, NSurfL(1), &
-                                                                                        NodalStorage(NSurfL(1)) % xCGL, NSurfL(1),faceCL)
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(NSurfL(1)) % xCGL, NodalStorage(NSurfL(1)) % xCGL,faceCL) 
-                  deallocate(faceCL)
 
+               if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
+               
+               if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
+                  CLN = bfOrder(f % zone)
+               else
+                  CLN(1) = f % NfLeft(1)
+                  CLN(2) = f % NfLeft(2)
+               end if
+!
+!              Adapt the curved face order to the polynomial order
+!              ---------------------------------------------------
+               if ( any(CLN < NSurfL) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
+                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
+
+            case (HMESH_MPI)
+               eID = maxval(f % elementIDs)
+               thisSide = maxloc(f % elementIDs, dim=1)
+               side = f % elementSide(thisSide)
+               NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
+               
+               if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
+
+               if (self % elements(eID) % faceSide(side) == LEFT) then
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+               else
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
+               end if
+
+               if ( side .eq. 2 ) then    ! Right faces need to be rotated
+                  select case ( f % rotation )
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+                     if (CLN(1) /= CLN(2)) then
+                        buffer = CLN(1)
+                        CLN(1) = CLN(2)
+                        CLN(2) = buffer
+                     end if
+                  end select
+               end if
+
+               if ( any(CLN < NSurf) ) then
+                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
+                  call ProjectFaceToNewPoints(SurfInfo(eID) % facePatches(side), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
+                                                                                 CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
+                  call SurfInfo(eID) % facePatches(side) % Destruct()
+                  call SurfInfo(eID) % facePatches(side) % Construct(NodalStorage(CLN(1)) % xCGL, &  
+                                                                     NodalStorage(CLN(2)) % xCGL,faceCL) 
+                  deallocate(faceCL)
+               end if
             end select 
             end associate
          end do
-        
-!        **************************************************************
-!        Check surfaces' integrity and adapt them to the solution order
-!        **************************************************************
-!
-!         do ii=1, num_of_faces
-!            if ( present(facesList) ) then
-!               fID = facesList(ii)
-!            else
-!               fID = ii
-!            end if
-!            associate( f => self % faces(fID) )
-!            
-!!
-!!           Check if the surfaces description in mesh file is consistent 
-!!           ------------------------------------------------------------
-!            select case (f % faceType)
-!
-!            case (HMESH_INTERIOR)
-!               eIDLeft  = f % elementIDs(1)
-!               SideIDL  = f % elementSide(1)
-!               NSurfL   = SurfInfo(eIDLeft) % facePatches(SideIDL) % noOfKnots - 1
-!            
-!               eIDRight = f % elementIDs(2)
-!               SideIDR  = f % elementSide(2)
-!               NSurfR   = SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
-!            
-!!              If both surfaces are of order 1.. There's no need to continue analyzing face
-!!              ----------------------------------------------------------------------------
-!               if     ((SurfInfo(eIDLeft)  % IsHex8) .and. (SurfInfo(eIDRight) % IsHex8)) then
-!                  cycle
-!               elseif ((SurfInfo(eIDLeft)  % IsHex8) .and. all(NSurfR == 1) ) then
-!                  cycle
-!               elseif ((SurfInfo(eIDRight) % IsHex8) .and. all(NSurfL == 1) ) then
-!                  cycle
-!               elseif (all(NSurfL == 1) .and. all(NSurfR == 1) ) then
-!                  cycle
-!               elseif (any(NSurfL /= NSurfR)) then ! Only works for mesh files with isotropic boundary orders
-!                  write(STD_OUT,*) 'WARNING: Curved face definitions in mesh are not consistent.'
-!                  write(STD_OUT,*) '   Face:    ', fID
-!                  write(STD_OUT,*) '   Elements:', f % elementIDs
-!                  write(STD_OUT,*) '   N Left:  ', SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
-!                  write(STD_OUT,*) '   N Right: ', SurfInfo(eIDRight) % facePatches(SideIDR) % noOfKnots - 1
-!               end if
-!               
-!               CLN(1) = min(f % NfLeft(1),f % NfRight(1))
-!               CLN(2) = min(f % NfLeft(2),f % NfRight(2))
-!!
-!!              Adapt the curved face order to the polynomial order
-!!              ---------------------------------------------------
-!               if ( any(CLN < NSurfL) ) then
-!                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-!                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
-!                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-!                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-!                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
-!                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
-!                  deallocate(faceCL)
-!               end if
-!
-!               select case ( f % rotation )
-!               case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular
-!                  if (CLN(1) /= CLN(2)) then
-!                     buffer = CLN(1)
-!                     CLN(1) = CLN(2)
-!                     CLN(2) = buffer
-!                  end if
-!               end select
-!               
-!               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
-!                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-!                  call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
-!                                                                                         CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-!                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Destruct()
-!                  call SurfInfo(eIDRight) % facePatches(SideIDR) % Construct(NodalStorage(CLN(1)) % xCGL,&
-!                                                                             NodalStorage(CLN(2)) % xCGL,faceCL) 
-!                  deallocate(faceCL)
-!               end if
-!
-!            case (HMESH_BOUNDARY)
-!               eIDLeft  = f % elementIDs(1)
-!               SideIDL  = f % elementSide(1)
-!               NSurfL   = SurfInfo(eIDLeft)  % facePatches(SideIDL) % noOfKnots - 1
-!
-!               if     (SurfInfo(eIDLeft) % IsHex8 .or. all(NSurfL == 1)) cycle
-!               
-!               if (self % anisotropic  .and. (.not. self % meshIs2D) ) then
-!                  CLN = bfOrder(f % zone)
-!               else
-!                  CLN(1) = f % NfLeft(1)
-!                  CLN(2) = f % NfLeft(2)
-!               end if
-!!
-!!              Adapt the curved face order to the polynomial order
-!!              ---------------------------------------------------
-!               if ( any(CLN < NSurfL) ) then
-!                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-!                  call ProjectFaceToNewPoints(SurfInfo(eIDLeft) % facePatches(SideIDL), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
-!                                                                                        CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-!                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Destruct()
-!                  call SurfInfo(eIDLeft) % facePatches(SideIDL) % Construct(NodalStorage(CLN(1)) % xCGL, &  
-!                                                                            NodalStorage(CLN(2)) % xCGL,faceCL) 
-!                  deallocate(faceCL)
-!               end if
-!
-!            case (HMESH_MPI)
-!               eID = maxval(f % elementIDs)
-!               thisSide = maxloc(f % elementIDs, dim=1)
-!               side = f % elementSide(thisSide)
-!               NSurf = SurfInfo(eID) % facePatches(side) % noOfKnots - 1
-!               
-!               if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
-!
-!               if (self % elements(eID) % faceSide(side) == LEFT) then
-!                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
-!                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
-!               else
-!                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
-!                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
-!               end if
-!
-!               if ( side .eq. 2 ) then    ! Right faces need to be rotated
-!                  select case ( f % rotation )
-!                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
-!                     if (CLN(1) /= CLN(2)) then
-!                        buffer = CLN(1)
-!                        CLN(1) = CLN(2)
-!                        CLN(2) = buffer
-!                     end if
-!                  end select
-!               end if
-!
-!               if ( any(CLN < NSurf) ) then
-!                  allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
-!                  call ProjectFaceToNewPoints(SurfInfo(eID) % facePatches(side), CLN(1), NodalStorage(CLN(1)) % xCGL, & 
-!                                                                                 CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
-!                  call SurfInfo(eID) % facePatches(side) % Destruct()
-!                  call SurfInfo(eID) % facePatches(side) % Construct(NodalStorage(CLN(1)) % xCGL, &  
-!                                                                     NodalStorage(CLN(2)) % xCGL,faceCL) 
-!                  deallocate(faceCL)
-!               end if
-!            end select 
-!            end associate
-!         end do
          safedeallocate (bfOrder)
-        
-
+         
+!
 !        ----------------------------
 !        Construct elements' geometry
 !        ----------------------------
-!         
+!
          allocate(hex8Map)
          call hex8Map % constructWithCorners(corners)
          allocate(genHexMap)
@@ -2317,8 +2268,6 @@ slavecoord:             DO l = 1, 4
             
          end do
 !
-
-
 !        -------------------------
 !        Construct faces' geometry
 !        -------------------------
@@ -2403,7 +2352,7 @@ slavecoord:             DO l = 1, 4
 !        ---------
 !        Finish up
 !        ---------
-!                       
+!
          deallocate (SurfInfo)
          CALL hex8Map % destruct()
          DEALLOCATE(hex8Map)
@@ -2706,7 +2655,7 @@ slavecoord:             DO l = 1, 4
 #if defined(SPALARTALMARAS)
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*NGRAD + 1 + NCONS
+            padding = NCONS + 3*NGRAD + 1
 #else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
@@ -2775,17 +2724,11 @@ slavecoord:             DO l = 1, 4
 #if defined(SPALARTALMARAS)
                allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
-               Q(1,:,:,:) = e % geom % dwall(:,:,:)   !storage % mu_ns(1,:,:,:)
+               Q(1,:,:,:) = e % storage % mu_ns(1,:,:,:)
 
                write(fid) Q
 
                deallocate(Q)
-
-               allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-               Q(1:NCONS,:,:,:)  = e % storage % QDot(1:NCONS,:,:,:)
-               write(fid) Q
-               deallocate(Q)
-
 #endif            
 
             end associate
@@ -3015,7 +2958,7 @@ slavecoord:             DO l = 1, 4
 
          case(SOLUTION_AND_GRADIENTS_FILE)
 #ifdef SPALARTALMARAS
-            padding = NCONS + 3 * NGRAD + 1 +NCONS 
+            padding = NCONS + 3 * NGRAD + 1 
             gradients = .TRUE.
 #else
             padding = NCONS + 3 * NGRAD
@@ -3136,11 +3079,6 @@ slavecoord:             DO l = 1, 4
             allocate(Q(1, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
             !e % storage % mu_ns = Q(1,:,:,:)
-            deallocate(Q)
-
-            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            read(fID) Q
-            !e % storage % QDotNS = Q(1:NCONS,:,:,:)
             deallocate(Q)
 #endif 
             end if
@@ -3345,13 +3283,10 @@ slavecoord:             DO l = 1, 4
 !        ---------------
 !
          integer       :: eID, ii, i, j, k, no_of_wallDOFS, num_of_elems, num_of_faces
-         real(kind=RP) :: currentDistance, currentDistancepos, currentDistanceneg , minimumDistance
+         real(kind=RP) :: currentDistance, minimumDistance
          integer       :: fID
          real(kind=RP) :: xP(NDIM)
          real(kind=RP), allocatable    :: Xwall(:,:)
-         real(kind=RP) ::  xNACA, yNACApos, yNACAneg 
-         integer       :: xnodes   
-         real(kind=RP) :: xNACAp1, xNACAp2, xNACAp3, xNACAp4
 !
 !        Gather all walls coordinates
 !        ----------------------------
@@ -3364,7 +3299,6 @@ slavecoord:             DO l = 1, 4
          else
             num_of_elems = self % no_of_elements
          end if
-
          do ii = 1, num_of_elems
             if ( present(elementList) ) then
                eID = elementList (ii)
@@ -3376,88 +3310,48 @@ slavecoord:             DO l = 1, 4
 
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                xP = e % geom % x(:,i,j,k) 
-#if defined(SPALARTALMARAS)
-               call NacaWallDistanceCalculator (xP, e % geom % dWall(i,j,k))
-#endif
 
-               !if (e % geom % dWall(i,j,k) .LT. 0.000001_RP) then 
-                     
-               !      minimumDistance = HUGE(1.0_RP)
-               !      do fID = 1, no_of_wallDOFS
-               !         currentDistance = sum(POW2(xP - Xwall(:,fID)))
-               !         minimumDistance = min(minimumDistance, currentDistance)
-               !      end do 
-               !      e % geom % dWall(i,j,k) = sqrt(minimumDistance)
-               !endif
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do 
 
-        !    end do                  ; end do                ; end do
-   
-        ! do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-        !    xP = e % geom % x(:,i,j,k) 
-            
-        !    if ((xP(1) .LT. 0.0001_RP) .AND. (xP(1) .GT. -0.001_RP)) then 
-        !       if ((xP(2) .LT. 0.001_RP) .AND. (xP(2) .GT. -0.001_RP)) then 
-        !             minimumDistance = HUGE(1.0_RP)
-        !             do fID = 1, no_of_wallDOFS
-        !                currentDistance = sum(POW2(xP - Xwall(:,fID)))
-        !                minimumDistance = min(minimumDistance, currentDistance)
-        !             end do 
+               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
 
-        !             e % geom % dWall(i,j,k) = sqrt(minimumDistance)
-        !       endif
-        !    endif 
-
-!               minimumDistance = HUGE(1.0_RP)
-!               currentDistancepos = HUGE(1.0_RP)
-!               currentDistanceneg = HUGE(1.0_RP)
-!
-!               do xnodes = 0, 500000
-!                     xNACA = xnodes / 500000.0_RP
-!
-!               if (AlmostEqual(xNACA,0.0_RP) ) then 
-!                  xNACAp1 = 0.0_RP
-!               else
-!                  xNACAp1 = xNACA
-!               endif
-!
-!               if (AlmostEqual(xNACA**(2.0_RP),0.0_RP) ) then 
-!                  xNACAp2 = 0.0_RP
-!               else
-!                  xNACAp2 = xNACA**(2.0_RP)
-!               endif
-!
-!               if (AlmostEqual(xNACA**(3.0_RP),0.0_RP) ) then 
-!                  xNACAp3 = 0.0_RP
-!               else
-!                  xNACAp3 = xNACA**(3.0_RP)
-!               endif
-!               
-!               if (AlmostEqual(xNACA**(4.0_RP),0.0_RP) ) then 
-!                  xNACAp4 = 0.0_RP
-!               else
-!                  xNACAp4 = xNACA**(4.0_RP)
-!               endif
-!
-!                     yNACApos =   0.594689181_RP * ( 0.298222773_RP * SQRT(xNACAp1) & 
-!                             - 0.127125232_RP * xNACAp1 - 0.357907906_RP * xNACAp2 &
-!                             + 0.291984971_RP * xNACAp3 - 0.105174606_RP * xNACAp4 )
-!
-!                     yNACAneg =  - 0.594689181_RP * ( 0.298222773_RP * SQRT(xNACAp1) & 
-!                             - 0.127125232_RP * xNACAp1 - 0.357907906_RP * xNACAp2 &
-!                             + 0.291984971_RP * xNACAp3 - 0.105174606_RP * xNACAp4 )
-!
-!                  currentDistancepos = POW2(xP(1) - xNACAp1) + POW2(xP(2) - yNACApos)
-!                  currentDistanceneg = POW2(xP(1) - xNACAp1) + POW2(xP(2) - yNACAneg)
-!                  minimumDistance = min(minimumDistance, currentDistancepos, currentDistanceneg)
-!               end do 
-!
-!               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
-!         if ( isnan(e % geom % dWall(i,j,k))) then
-!            print*, "Wall distance is Nan"
-!            call exit(99)
-!         endif
             end do                  ; end do                ; end do
-!!!!!!!!!!$omp end parallel do
+            end associate
+         end do
+!
+!        Get the minimum distance to each face nodal degree of freedom
+!        -------------------------------------------------------------            
+         if ( present(facesList) ) then
+            num_of_faces = size (facesList)
+         else
+            num_of_faces = size (self % faces)
+         end if
+         do ii = 1, num_of_faces
+            if ( present(facesList) ) then
+               eID = facesList (ii)
+            else
+               eID = ii
+            end if
+            
+            associate(fe => self % faces(eID))
+            allocate(fe % geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+
+            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
+               xP = fe % geom % x(:,i,j) 
+
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do 
+
+               fe % geom % dWall(i,j) = sqrt(minimumDistance)
+
+            end do                ; end do
             end associate
          end do
 

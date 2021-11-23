@@ -44,7 +44,7 @@ module InterpolationMatrices
    
    
    interface Interp3DArrays
-      module procedure Interp3DArrays_Tset, Interp3DArrays_interp, Interp2DArrays_interp
+      module procedure Interp3DArrays_Tset, Interp3DArrays_interp
    end interface Interp3DArrays
 !========
  contains
@@ -173,35 +173,6 @@ module InterpolationMatrices
    end subroutine Interp3DArrays_Tset
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  --------------------------------------------------
-!  Subroutine for interpolating an array of 3D arrays
-!  --------------------------------------------------
-   pure subroutine Interp2DArrays_interp(Nvars, Nin, inArray, Nout, outArray, interpXi, interpEta )
-      implicit none
-      !-------------------------------------------------------
-      integer                                                        , intent(in)  :: Nvars
-      integer      , dimension(3)                                    , intent(in)  :: Nin
-      integer      , dimension(3)                                    , intent(in)  :: Nout
-      real(kind=RP), dimension(Nvars,0:Nin (1), 0:Nin (2)), intent(in)  :: inArray
-      real(kind=RP), dimension(Nvars,0:Nout(1), 0:Nout(2)), intent(out) :: outArray
-      real(kind=RP), dimension(0:Nout(1), 0:Nin(1)), target          , intent(in)  :: interpXi
-      real(kind=RP), dimension(0:Nout(2), 0:Nin(2)), target          , intent(in)  :: interpEta
-      !-------------------------------------------------------
-      integer :: i,j,k,l,m,n
-      !-------------------------------------------------------
-      
-      outArray = 0.0_RP
-      
-         do m = 0, Nin(2)  ; do j = 0, Nout(2)   
-            do l = 0, Nin(1)  ; do i = 0, Nout(1)
-               outArray(:,i,j) = outArray(:,i,j) +   interpXi   (i,l) &
-                                                       * interpEta  (j,m) &
-                                                       * inArray(:,l,m)
-            end do             ; end do
-         end do             ; end do
-      
-   end subroutine Interp2DArrays_interp
 !
 !  --------------------------------------------------
 !  Subroutine for interpolating an array of 3D arrays

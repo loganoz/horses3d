@@ -235,11 +235,7 @@ module StorageClass
 !                                          |______Jacobian for this component
 !
 #endif
-
-!#ifdef SPALARTALMARAS
-!      real(kind=RP),           allocatable :: mu_SA(:,:,:,:)         ! EddyViscocityVector, EddyetaVector
-!#endif
-
+!
 #ifdef CAHNHILLIARD
       real(kind=RP), dimension(:,:,:),   allocatable :: c
       real(kind=RP), dimension(:,:,:),   allocatable :: c_x

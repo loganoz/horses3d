@@ -80,62 +80,25 @@ module RiemannSolvers_NSSA
          RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
          
          select case ( which )
-#ifndef SPALARTALMARAS
+#if defined(SPALARTALMARAS)
+
          case ( RIEMANN_ROE )
             RiemannSolver => RoeRiemannSolver
 
          case ( RIEMANN_LXF)
             RiemannSolver => LxFRiemannSolver
-            RiemannSolver_dFdQ => LxFRiemannSolver_dFdQ
 
          case ( RIEMANN_RUSANOV)
             RiemannSolver => RusanovRiemannSolver
-
-         CASE ( RIEMANN_STDROE)
-            RiemannSolver => StdRoeRiemannSolver
-
-         case ( RIEMANN_CENTRAL )
-            RiemannSolver => CentralRiemannSolver
-
-         case ( RIEMANN_ROEPIKE )
-            RiemannSolver => RoePikeRiemannSolver
-
-         case ( RIEMANN_LOWDISSROE )
-            RiemannSolver => LowDissipationRoeRiemannSolver
-
-         case ( RIEMANN_MATRIXDISS ) 
-            RiemannSolver => MatrixDissipationRiemannSolver
-
-         case ( RIEMANN_VISCOUSNS )
-            RiemannSolver => ViscousNSRiemannSolver
-
-         case ( RIEMANN_UDISS)
-            RiemannSolver => u_dissRiemannSolver
 
          case default
             print*, "Undefined choice of Riemann Solver."
             print*, "Options available are:"
-            print*, "   * Central"
             print*, "   * Roe"
-            print*, "   * Standard Roe"
-            print*, "   * Roe-Pike"
-            print*, "   * Low dissipation Roe"
             print*, "   * Lax-Friedrichs"
-            print*, "   * u-diss"
             print*, "   * Rusanov"
-            print*, "   * Matrix dissipation"
-            print*, "   * Viscous NS"
             errorMessage(STD_OUT)
-  	        STOP
-#else
-         case ( RIEMANN_ROE )
-            RiemannSolver => RoeRiemannSolver
-
-         case ( RIEMANN_LXF)
-            RiemannSolver => LxFRiemannSolver
-
-         case ( RIEMANN_RUSANOV)
-            RiemannSolver => RusanovRiemannSolver
+           STOP
 
 
 #endif

@@ -149,21 +149,6 @@ module VolumeMonitorClass
 
             end if
          end select
-#elif defined(SPALARTALMARAS)
-         select case ( trim ( self % variable ) )
-         case ("l2rho")
-         case ("l2rhou")
-         case ("l2rhoe")
-         case ("l2rhotheta")
-         case default
-
-            if ( len_trim (self % variable) .eq. 0 ) then
-               print*, "Variable was not specified for volume monitor " , self % ID , "."
-            else
-               print *, "Mistake in the name spec of the SA monitors"
-               stop "Stopped."
-            end if
-         end select         
 #elif defined(INCNS)
          select case ( trim ( self % variable ) )
          case ("mass")
@@ -326,28 +311,6 @@ module VolumeMonitorClass
          case ("particles source")
             self % values(:,bufferPosition) = VectorVolumeIntegral(mesh, PSOURCE, self % num_of_vars) / ScalarVolumeIntegral(mesh, VOLUME)
          
-         case ("l2rho")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHO)  / ScalarVolumeIntegral(mesh, VOLUME))
-
-         case ("l2rhou")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOU)/ ScalarVolumeIntegral(mesh, VOLUME))
-
-         case ("l2rhoe")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOE) / ScalarVolumeIntegral(mesh, VOLUME))
-
-#elif defined(SPALARTALMARAS)
-         case ("l2rho")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHO)  / ScalarVolumeIntegral(mesh, VOLUME))
-           
-         case ("l2rhou")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOU)/ ScalarVolumeIntegral(mesh, VOLUME))
-        
-         case ("l2rhoe")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOE) / ScalarVolumeIntegral(mesh, VOLUME))
-        
-         case ("l2rhotheta")
-            self % values(1,bufferPosition) = sqrt (ScalarVolumeIntegral(mesh, L2RHOTHETA) / ScalarVolumeIntegral(mesh, VOLUME))
-
 #elif defined(INCNS)
          case ("mass")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, MASS)

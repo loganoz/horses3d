@@ -66,7 +66,6 @@
          PROCEDURE :: metricDerivativesAt
          PROCEDURE :: isHex8
          PROCEDURE :: setCorners
-         PROCEDURE :: setFaces
 
       END TYPE TransfiniteHexMap
 !
@@ -139,18 +138,6 @@
           self % corners = corners
 
       END SUBROUTINE setCorners
-!
-!//////////////////////////////////////////////////////////////////////// 
-!  
-      SUBROUTINE setFaces(self, faces)  
-         IMPLICIT NONE  
-         CLASS(TransFiniteHexMap) :: self
-         TYPE(FacePatch)          :: faces(6)
-         
-         if (.NOT. ALLOCATED(self % faces) ) ALLOCATE( self % faces(6))
-         self % faces = faces
-
-      END SUBROUTINE setFaces
 !
 !//////////////////////////////////////////////////////////////////////// 
       FUNCTION isHex8(self) RESULT(ans)  

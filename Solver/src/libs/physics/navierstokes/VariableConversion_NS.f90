@@ -18,20 +18,14 @@ module VariableConversion_NS
    implicit none
 
    private
-   public   Pressure, Temperature
+   public   Pressure, Temperature, TemperatureDeriv
    public   get_laminar_mu_kappa, SutherlandsLaw
    public   NSGradientVariables_STATE
    public   NSGradientVariables_ENTROPY
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
-
-#if defined SPALARTALMARAS
-   public   geteddyviscositygradients
-#else
-   public  TemperatureDeriv
-#endif
+   public   set_getVelocityGradients
   
 
    interface getTemperatureGradient
@@ -105,8 +99,7 @@ module VariableConversion_NS
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       end function Temperature
-
-#ifndef SPALARTALMARAS
+      
       pure function TemperatureDeriv (Q) result (dTdQ)
          implicit none
          !-arguments--------------------------------
@@ -127,8 +120,7 @@ module VariableConversion_NS
          dTdQ = dTdQ * thermodynamics % gammaMinus1 * dimensionless % gammaM2 * sRho
          
       end function TemperatureDeriv
-#endif
-
+      
       pure subroutine GetNSViscosity(phi, mu)
          implicit none
          real(kind=RP), intent(in)   :: phi
@@ -137,16 +129,6 @@ module VariableConversion_NS
          mu = dimensionless % mu
 
       end subroutine GetNSViscosity
-
-      pure subroutine GetNSKinematicViscosity(mu, rho, niu)
-         implicit none
-         real(kind=RP), intent(in)   :: mu
-         real(kind=RP), intent(in)   :: rho
-         real(kind=RP), intent(out)  :: niu
-                  
-         niu = mu / rho
-
-      end subroutine GetNSKinematicViscosity
 
       pure subroutine get_laminar_mu_kappa(Q,mu,kappa)
          implicit none
@@ -189,18 +171,6 @@ module VariableConversion_NS
 
       END FUNCTION SutherlandsLaw
 
-      pure subroutine ComputeVorticity(U_x, U_y, U_z, vorticity)
-         
-         real(kind=RP), intent(in)  :: U_x(NDIM)
-         real(kind=RP), intent(in)  :: U_y(NDIM)
-         real(kind=RP), intent(in)  :: U_z(NDIM)
-         real(kind=RP), intent(out) :: vorticity
-
-               vorticity = sqrt(  POW2( U_y(3) - U_z(2) ) &
-                                + POW2( U_z(1) - U_x(3) ) &
-                                + POW2( U_x(2) - U_y(1) ) )
-
-      end subroutine ComputeVorticity
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -610,31 +580,4 @@ module VariableConversion_NS
          end select
 
       end subroutine set_getVelocityGradients
-
-#if defined (SPALARTALMARAS)
-      subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
-         implicit none
-         real(kind=RP), intent(in)  :: Q   (1:NCONS)
-         real(kind=RP), intent(in)  :: Q_x (1:NCONS)
-         real(kind=RP), intent(in)  :: Q_y (1:NCONS)
-         real(kind=RP), intent(in)  :: Q_z (1:NCONS)
-         real(kind=RP), intent(out) :: theta_x
-         real(kind=RP), intent(out) :: theta_y
-         real(kind=RP), intent(out) :: theta_z
-
-         real(kind=RP)        :: invRho, theta, thetaDivRho
-
-         invRho  = 1.0_RP / Q(IRHO)
-
-         theta = Q(IRHOTHETA) * invRho
-         thetaDivRho = theta * invRho
-
-         theta_x = invRho * Q_x(IRHOTHETA) - thetaDivRho * Q_x(IRHO)
-         theta_y = invRho * Q_y(IRHOTHETA) - thetaDivRho * Q_y(IRHO)
-         theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
-
-      end subroutine geteddyviscositygradients
-#endif
-
-
 end module VariableConversion_NS

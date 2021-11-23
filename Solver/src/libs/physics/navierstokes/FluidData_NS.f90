@@ -55,7 +55,6 @@ module FluidData_NS
       real(kind=RP)        :: p
       real(kind=RP)        :: rho
       real(kind=RP)        :: mu
-      real(kind=RP)        :: niu
       real(kind=RP)        :: kappa
       real(kind=RP)        :: AoATheta
       real(kind=RP)        :: AoAPhi
@@ -69,10 +68,8 @@ module FluidData_NS
       real(kind=RP)        :: Prt      ! Turbulent Prandtl number
       real(kind=RP)        :: Fr
       real(kind=RP)        :: mu
-      real(kind=RP)        :: niu
       real(kind=RP)        :: kappa
       real(kind=RP)        :: mu_to_kappa
-      real(kind=RP)        :: mut_to_kappa_SA
       real(kind=RP)        :: Mach
       real(kind=RP)        :: gammaM2
       real(kind=RP)        :: invFr2
@@ -152,9 +149,8 @@ module FluidData_NS
          dimensionless % Prt             = dimensionless_ % Prt
          dimensionless % Fr              = dimensionless_ % Fr
          dimensionless % mu              = dimensionless_ % mu
-         dimensionless % niu              = dimensionless_ % niu
          dimensionless % kappa           = dimensionless_ % kappa
-         dimensionless % mut_to_kappa_SA = dimensionless_ % mut_to_kappa_SA
+         dimensionless % mu_to_kappa     = dimensionless_ % mu_to_kappa
          dimensionless % Mach            = dimensionless_ % Mach
          dimensionless % gammaM2         = dimensionless_ % gammaM2
          dimensionless % invFr2 = dimensionless_ % invFr2
