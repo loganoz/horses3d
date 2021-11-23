@@ -4,9 +4,9 @@
 !   @File:    AnalyticalJacobian.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Mon Sep  6 22:45:03 2021
+!   @Last revision date: Wed Sep 15 12:15:48 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
@@ -128,7 +128,7 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
       implicit none
       !-arguments----------------------------------
       class(AnJacobian_t)      , intent(inout)     :: this
@@ -137,6 +137,7 @@ contains
       real(kind=RP)            , intent(in)        :: time
       class(Matrix_t)          , intent(inout)     :: Matrix
       procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+      procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
       integer        , optional, intent(in)        :: mode

@@ -371,7 +371,7 @@ module InflowBCClass
          associate ( gammaM2 => dimensionless % gammaM2, &
                      gamma => thermodynamics % gamma )
 !        MAX Turb intensity = u_prime/u, isotropic turb. at inlet & random fluctuations with max turb
-                     call random_seed
+                     !call random_seed (Gonzalo: this was giving problems for a particular problem)
                      call random_number(u_prime)
                      call random_number(v_prime)
                      call random_number(w_prime)

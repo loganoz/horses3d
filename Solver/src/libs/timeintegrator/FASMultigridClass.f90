@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Sep  6 22:45:04 2021
+!   @Last revision date: Wed Sep 15 12:15:49 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
@@ -705,13 +705,14 @@ module FASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this, timestep, t, ComputeTimeDerivative, FullMG, tol)
+   subroutine solve(this, timestep, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, FullMG, tol)
       implicit none
       !-------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this
       integer                              :: timestep
       real(kind=RP)        , intent(in)    :: t
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
@@ -722,9 +723,11 @@ module FASMultigridClass
       
       ThisTimeStep = timestep
       
-      if (PRESENT(FullMG) .AND. FullMG) then
-         if (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
-         FMG = .TRUE.
+      if (PRESENT(FullMG)) then
+         if (FullMG) then
+            if (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
+            FMG = .TRUE.
+         end if
       else
          FMG = .FALSE.
       end if
@@ -756,9 +759,9 @@ module FASMultigridClass
       end if
 
       if (FMG) then
-         call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative)
+         call FASFMGCycle(this,t,tol,MGlevels, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       else
-         call FASVCycle(this,t,MGlevels,MGlevels, ComputetimeDerivative)
+         call FASVCycle(this,t,MGlevels,MGlevels, ComputetimeDerivative, ComputeTimeDerivativeIsolated)
       end if
 
       call CFLRamp(cfl_max,fassolve_cfl,cflboost_rate,CFLboost)
@@ -772,13 +775,14 @@ module FASMultigridClass
 !  Driver of the Dual time-stepping procedure.
 !  Q_{m+1} = Q_m + d\tau <(> (Q_m - Q_n)/dt + R(Q_m) <)> (BDF1 example)
 !  ---------------------------------------------
-   subroutine TakePseudoStep(this, timestep, t, ComputeTimeDerivative, FullMG, tol)
+   subroutine TakePseudoStep(this, timestep, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, FullMG, tol)
       implicit none
       !-------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this
       integer                              :: timestep
       real(kind=RP)        , intent(in)    :: t
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
       logical           , OPTIONAL         :: FullMG
       real(kind=RP)     , OPTIONAL         :: tol        !<  Tolerance for full multigrid
       !-------------------------------------------------
@@ -828,7 +832,7 @@ module FASMultigridClass
 
       do i = 1, tau_maxit
          
-         call this % solve(i, tk, ComputeTimeDerivative)
+         call this % solve(i, tk, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
          call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, dt)
          dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
@@ -877,7 +881,7 @@ module FASMultigridClass
 !  -----------------------------------------
 !  Recursive subroutine to perform a v-cycle
 !  -----------------------------------------
-   recursive subroutine FASVCycle(this,t,lvl,MGlevels, ComputeTimeDerivative)
+   recursive subroutine FASVCycle(this,t,lvl,MGlevels, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       implicit none
       !----------------------------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this     !<  Current level solver
@@ -885,6 +889,7 @@ module FASMultigridClass
       integer              , intent(in)    :: lvl      !<  Current multigrid level
       integer              , intent(in)    :: MGlevels !<  Number of finest multigrid level
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
       !----------------------------------------------------------------------------
       integer                       :: iEl,iEQ              !Element/equation counter
       type(FASMultigrid_t), pointer :: Child_p              !Pointer to child
@@ -953,12 +958,13 @@ module FASMultigridClass
 
          select type (Amat => this % A)
          type is (csrMat_t)
-            call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative)
+            call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             ! call Amat % Visualize('Jac.txt') ! FINDME1
             ! error stop "Save Jac"
             call Amat % shift(invdt)
          type is (DenseBlockDiagMatrix_t)
-            call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, BlockDiagonalized=.true.)
+            call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, & 
+            TimeDerivativeIsolated=ComputeTimeDerivativeIsolated, BlockDiagonalized=.true.)
             call Amat % shift(invdt)
          end select 
          
@@ -1010,7 +1016,7 @@ module FASMultigridClass
 !        Perform V-Cycle here
 !        --------------------
 !
-         call FASVCycle(this % Child, t, lvl-1,MGlevels, ComputeTimeDerivative)
+         call FASVCycle(this % Child, t, lvl-1,MGlevels, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          
          Child_p => this % Child
 !
@@ -1061,7 +1067,7 @@ module FASMultigridClass
          if (lvl > 1 .and. PostFCycle) then
             if (NewRes > PrevRes) then
                call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
-               call FASVCycle(this,t,lvl-1,lvl, ComputeTimeDerivative)
+               call FASVCycle(this,t,lvl-1,lvl, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             else
                exit
             end if
@@ -1096,7 +1102,7 @@ module FASMultigridClass
 !  ------------------------------------------------------
 !  Recursive subroutine to perform a full multigrid cycle
 !  ------------------------------------------------------
-   recursive subroutine FASFMGCycle(this,t,tol,lvl, ComputeTimeDerivative)
+   recursive subroutine FASFMGCycle(this,t,tol,lvl, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       implicit none
       !----------------------------------------------------------------------------
       class(FASMultigrid_t), intent(inout) :: this    !<> Current level solver
@@ -1104,6 +1110,7 @@ module FASMultigridClass
       real(kind=RP)        , intent(in)    :: tol     !<  Convergence tolerance
       integer              , intent(in)    :: lvl     !<  Current multigrid level
       procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f)           :: ComputeTimeDerivativeIsolated
       !----------------------------------------------------------------------------
       integer        :: iEl, iEQ             ! Element and equation counters
       integer        :: N1(3), N2(3)
@@ -1128,7 +1135,7 @@ module FASMultigridClass
          end DO
 !$omp end parallel do
 
-         call FASFMGCycle(this % Child,t,tol,lvl-1, ComputeTimeDerivative)
+         call FASFMGCycle(this % Child,t,tol,lvl-1, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       end if
 !
 !     ------------------------------
@@ -1150,7 +1157,7 @@ module FASMultigridClass
       if (lvl > 1 ) then
          DO
             counter = counter + 1
-            call FASVCycle(this,t,lvl,lvl, ComputeTimeDerivative) ! FMG is still for STEADY_STATE. TODO: Change that
+            call FASVCycle(this,t,lvl,lvl, ComputeTimeDerivative, ComputeTimeDerivativeIsolated) ! FMG is still for STEADY_STATE. TODO: Change that
             maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
             if (maxval(maxResidual) <= tol) exit
          end DO
@@ -1473,7 +1480,9 @@ module FASMultigridClass
          tk = t + a(k)*deltaT
 
          call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
-         if ( present(dts) .and. dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+         if ( present(dts) ) then
+            if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+         end if
          call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
 
 

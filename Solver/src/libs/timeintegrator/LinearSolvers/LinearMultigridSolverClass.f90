@@ -1420,10 +1420,12 @@ contains
       this % RestX = transpose(Rtmp)
       deallocate (Rtmp)
       this % RestJacX = this % RestX 
-      if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, x_Norigin ; do i = 0, x_Ndest
-            this % RestJacX(i,j) = this % RestJacX(i,j) * x_spAo % w(j) / x_spAd % w(i)
-         end do            ; end do
+      if (present(Rweighted)) then
+         if (Rweighted) then
+            do j = 0, x_Norigin ; do i = 0, x_Ndest
+               this % RestJacX(i,j) = this % RestJacX(i,j) * x_spAo % w(j) / x_spAd % w(i)
+            end do            ; end do
+         end if
       end if
       !-----------------------------------------------------
 
@@ -1434,10 +1436,12 @@ contains
       this % RestY = transpose(Rtmp)
       deallocate (Rtmp)
       this % RestJacY = this % RestY
-      if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, y_Norigin ; do i = 0, y_Ndest
-            this % RestJacY(i,j) = this % RestJacY(i,j) * y_spAo % w(j) / y_spAd % w(i)
-         end do            ; end do
+      if (present(Rweighted)) then
+         if (Rweighted) then
+            do j = 0, y_Norigin ; do i = 0, y_Ndest
+               this % RestJacY(i,j) = this % RestJacY(i,j) * y_spAo % w(j) / y_spAd % w(i)
+            end do            ; end do
+         end if
       end if
       !-----------------------------------------------------
 
@@ -1448,10 +1452,12 @@ contains
       this % RestZ = transpose(Rtmp)
       deallocate (Rtmp)
       this % RestJacZ = this % RestZ
-      if (present(Rweighted) .AND. Rweighted) then
-         do j = 0, z_Norigin ; do i = 0, z_Ndest
-            this % RestJacZ(i,j) = this % RestJacZ(i,j) * z_spAo % w(j) / z_spAd % w(i)
-         end do            ; end do
+      if (present(Rweighted)) then
+         if (Rweighted) then
+            do j = 0, z_Norigin ; do i = 0, z_Ndest
+               this % RestJacZ(i,j) = this % RestJacZ(i,j) * z_spAo % w(j) / z_spAd % w(i)
+            end do            ; end do
+         end if
       end if
       !-----------------------------------------------------
 

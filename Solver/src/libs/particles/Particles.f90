@@ -63,6 +63,7 @@ end type injection_t
 
 type Particles_t
     integer                             :: no_of_particles
+    integer                             :: part_per_parcel
     type(Particle_t),       allocatable :: particle(:)
     type(dimensionlessParticles_t)      :: dimensionless
     logical                             :: active 
@@ -117,6 +118,8 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     
     self % no_of_particles = controlVariables % integerValueForKey(numberOfParticlesKey)
     
+    self % part_per_parcel = controlVariables % integerValueForKey(particlesPerParcelKey)
+
     if (self % no_of_particles == huge(1)) then 
         self % no_of_particles = 0
     else
@@ -148,12 +151,12 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
         self % dimensionless % St * dimensionless  % Pr)
 
         ! phim / ( no_of_particles * St)
-    self % dimensionless % phimDivNo_of_particlesSt = self % dimensionless % phim &
+    self % dimensionless % phimDivNo_of_particlesSt = self % part_per_parcel * self % dimensionless % phim &
         / (self % no_of_particles * self % dimensionless % St)
 
         ! phim / (3 * no_of_particles) * Nu / ( gammaminus1 * Pr * Mach ** 2 * St )
     self % dimensionless % phimDiv3No_of_particlesNuDivgammaminus1PrM2St = &
-        self % dimensionless % phim / (3 * self % no_of_particles) * self % dimensionless % Nu / &
+        self % part_per_parcel * self % dimensionless % phim / (3 * self % no_of_particles) * self % dimensionless % Nu / &
         ( thermodynamics % gammaminus1 * dimensionless % Pr * dimensionless % Mach ** 2 * self % dimensionless % St )
 
 

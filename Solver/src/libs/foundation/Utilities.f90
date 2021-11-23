@@ -32,7 +32,7 @@ module Utilities
    implicit none
 
    private
-   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
    public   toLower, Qsort, QsortWithFriend
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
@@ -121,7 +121,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL pure FUNCTION AlmostEqual( a, b ) 
+      LOGICAL pure FUNCTION AlmostEqual( a, b, tol ) 
       USE SMConstants
       IMPLICIT NONE
 !
@@ -130,15 +130,20 @@ module Utilities
 !     ---------
 !
       REAL(KIND=RP), intent(in) :: a, b
+      REAL(KIND=RP), intent(in), optional :: tol
+      REAL(KIND=RP) :: mytol
 !
+      mytol = 2*epsilon(b)
+      if (present(tol)) mytol = tol
+
       IF ( a == 0.0_RP .OR. b == 0.0_RP )     THEN
-         IF ( ABS(a-b) <= 2*EPSILON(b) )     THEN
+         IF ( ABS(a-b) <= mytol )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
          END IF
       ELSE
-         IF( ABS( b - a ) <= 2*EPSILON(b)*MAX(ABS(a), ABS(b)) )     THEN
+         IF( ABS( b - a ) <= mytol*MAX(ABS(a), ABS(b)) )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
@@ -146,6 +151,32 @@ module Utilities
       END IF
 
       END FUNCTION AlmostEqual
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      LOGICAL pure FUNCTION AlmostEqualRelax( a, b, reference_length, tol) 
+      USE SMConstants
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), intent(in) :: a, b, reference_length
+      REAL(KIND=RP), intent(in), optional :: tol
+!
+      REAL(KIND=RP)             :: mytol
+!
+      mytol = 1.0E-4_RP
+      if (present(tol)) mytol = tol
+
+      IF( ABS( b - a ) <= mytol * reference_length) THEN
+          AlmostEqualRelax = .TRUE.
+      ELSE
+          AlmostEqualRelax = .FALSE.
+      END IF
+
+      END FUNCTION AlmostEqualRelax
 !
 ! /////////////////////////////////////////////////////////////////////
 !

@@ -212,7 +212,7 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   subroutine ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
@@ -226,6 +226,7 @@ MODULE Read_GMSH
       character(len=*)                :: fileName
       integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       integer                         :: dir2D
+      logical                         :: periodRelative
       logical           , intent(out) :: success
 !-----Local-Variables-----------------------------------------------------
       character(len=1024)             :: tmps
@@ -275,9 +276,9 @@ MODULE Read_GMSH
 !-----Check-if-a-mesh-partition-exists-----------------------------------
       if ( MPI_Process % doMPIAction ) then
          if ( mpi_partition % Constructed ) then
-            call ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            call ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
          else         
-            call ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+            call ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
          end if
          return
       end if
@@ -786,7 +787,7 @@ MODULE Read_GMSH
 !     Construct periodic faces
 !     ---------------------------
 !
-      CALL ConstructPeriodicFaces( self ) 
+      CALL ConstructPeriodicFaces( self, periodRelative ) 
 !
 !     ---------------------------
 !     Delete periodic- faces
@@ -858,7 +859,7 @@ MODULE Read_GMSH
 !     ------------------------------
 !     Constructor of mesh partitions
 !     ------------------------------
-   SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
@@ -873,6 +874,7 @@ MODULE Read_GMSH
       character(len=*)                :: fileName
       integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       integer                         :: dir2D
+      logical                         :: periodRelative
       logical           , intent(out) :: success
 !-----Local-Variables-----------------------------------------------------
       character(len=1024)             :: tmps
@@ -1526,7 +1528,7 @@ MODULE Read_GMSH
 !     Construct periodic faces
 !     ---------------------------
 !
-      CALL ConstructPeriodicFaces( self )
+      CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !     ---------------------------
 !     Delete periodic- faces
@@ -1598,7 +1600,7 @@ MODULE Read_GMSH
    END SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-   subroutine ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   subroutine ConstructSimplestMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
 !  ---------------------------------------------------------
@@ -1612,6 +1614,7 @@ MODULE Read_GMSH
       character(len=*)                :: fileName
       integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       integer                         :: dir2D
+      logical                         :: periodRelative
       logical           , intent(out) :: success
 !-----Local-Variables-----------------------------------------------------
       character(len=1024)             :: tmps
@@ -2160,7 +2163,7 @@ MODULE Read_GMSH
 !     Construct periodic faces
 !     ---------------------------
 !
-      CALL ConstructPeriodicFaces( self ) 
+      CALL ConstructPeriodicFaces( self, periodRelative ) 
 !
 !     ---------------------------
 !     Delete periodic- faces
@@ -2191,7 +2194,7 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+   subroutine ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
       !  ---------------------------------------------------------
       !  Build mesh from GMSH file. 
       !  ---------------------------------------------------------
@@ -2205,6 +2208,7 @@ MODULE Read_GMSH
             character(len=*)                :: fileName
             integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
             integer                         :: dir2D
+            logical                         :: periodRelative
             logical           , intent(out) :: success
       !-----Local-Variables-----------------------------------------------------
             character(len=1024)             :: tmps
@@ -2246,9 +2250,9 @@ MODULE Read_GMSH
       !-----Check-if-a-mesh-partition-exists-----------------------------------
             if ( MPI_Process % doMPIAction ) then
                if ( mpi_partition % Constructed ) then
-                  call ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+                  call ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
                else         
-                  call ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success ) 
+                  call ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
                end if
                return
             end if
@@ -2367,7 +2371,8 @@ MODULE Read_GMSH
                   no_nodes_i = 0
                end select
 
-               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+               msh_elements % nodes(i,1:size(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i) )) = & 
+                int(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i)) 
       
             end do ! numberOfElements
 
@@ -2644,7 +2649,7 @@ MODULE Read_GMSH
       !     Construct periodic faces
       !     ---------------------------
       !
-            CALL ConstructPeriodicFaces( self ) 
+            CALL ConstructPeriodicFaces( self, periodRelative ) 
       !
       !     ---------------------------
       !     Delete periodic- faces
@@ -2716,7 +2721,7 @@ MODULE Read_GMSH
       !     ------------------------------
       !     Constructor of mesh partitions
       !     ------------------------------
-         SUBROUTINE ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         SUBROUTINE ConstructMeshPartition_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
       !  ---------------------------------------------------------
       !  Build mesh from GMSH file. 
       !  ---------------------------------------------------------
@@ -2731,6 +2736,7 @@ MODULE Read_GMSH
             character(len=*)                :: fileName
             integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
             integer                         :: dir2D
+            logical                         :: periodRelative
             logical           , intent(out) :: success
       !-----Local-Variables-----------------------------------------------------
             character(len=1024)             :: tmps
@@ -2891,7 +2897,8 @@ MODULE Read_GMSH
                   no_nodes_i = 0
                end select
 
-               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+               msh_elements % nodes(i,1:size(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i) )) = & 
+                int(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i)) 
       
             end do ! numberOfElements
 
@@ -3261,7 +3268,7 @@ MODULE Read_GMSH
       !     Construct periodic faces
       !     ---------------------------
       !
-            CALL ConstructPeriodicFaces( self )
+            CALL ConstructPeriodicFaces( self, periodRelative )
       !
       !     ---------------------------
       !     Delete periodic- faces
@@ -3333,7 +3340,7 @@ MODULE Read_GMSH
          END SUBROUTINE ConstructMeshPartition_FromGMSHFile_v2_
       !
       !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-         subroutine ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         subroutine ConstructSimplestMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
       !  ---------------------------------------------------------
       !  Build mesh from GMSH file. 
       !  ---------------------------------------------------------
@@ -3347,6 +3354,7 @@ MODULE Read_GMSH
             character(len=*)                :: fileName
             integer                         :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
             integer                         :: dir2D
+            logical                         :: periodRelative
             logical           , intent(out) :: success
       !-----Local-Variables-----------------------------------------------------
             character(len=1024)             :: tmps
@@ -3500,7 +3508,8 @@ MODULE Read_GMSH
                   no_nodes_i = 0
                end select
 
-               msh_elements % nodes(i,:) = int(msh_entity_vec(4+msh_elements % no_ptags(i):4+msh_elements % no_ptags(i)+no_nodes_i)) 
+               msh_elements % nodes(i,1:size(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i) )) = & 
+                int(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i)) 
       
             end do ! numberOfElements
 
@@ -3775,7 +3784,7 @@ MODULE Read_GMSH
       !     Construct periodic faces
       !     ---------------------------
       !
-            CALL ConstructPeriodicFaces( self ) 
+            CALL ConstructPeriodicFaces( self, periodRelative ) 
       !
       !     ---------------------------
       !     Delete periodic- faces

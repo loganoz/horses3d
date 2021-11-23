@@ -742,6 +742,9 @@ module Solution2PltModule
             numOfFElems     = numOfFElems + product(Nf(:,fID)  )
             end associate
          end do
+
+         ! don't write if boundary doesn't have elements associated, happends for periodic conditions
+         if (numOfFElems .eq. 0) return
          
          write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &
                                                   ',ET=QUADRILATERAL, F=FEPOINT, T="boundary_', trim(boundary % Name), '"'

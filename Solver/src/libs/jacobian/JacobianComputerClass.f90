@@ -7,6 +7,7 @@
 !   @Last revision date: Mon Sep  6 22:44:58 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+
 !
 !//////////////////////////////////////////////////////
 !
@@ -262,7 +263,7 @@ module JacobianComputerClass
 !     ----------------------------------------------------
 !     Generic subroutine for computing the Jacobian matrix
 !     ----------------------------------------------------
-      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
+      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
          implicit none
          !-arguments----------------------------------
          class(JacobianComputer_t)        , intent(inout)     :: this
@@ -270,7 +271,8 @@ module JacobianComputerClass
          integer,                   intent(in)        :: nEqn               ! TODO:  Deprecate
          real(kind=RP)            , intent(in)        :: time
          class(Matrix_t)          , intent(inout)     :: Matrix
-         procedure(ComputeTimeDerivative_f), optional :: TimeDerivative      !   
+         procedure(ComputeTimeDerivative_f), optional :: TimeDerivative
+         procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated 
          real(kind=RP)  , optional, intent(in)        :: eps_in
          logical        , optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
          integer        , optional, intent(in)        :: mode

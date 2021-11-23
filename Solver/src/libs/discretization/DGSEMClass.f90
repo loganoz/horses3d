@@ -125,12 +125,15 @@ Module DGSEMClass
       integer                     :: dir2D
       integer                     :: ierr
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
+      logical                     :: useRelaxPeriodic                   ! The periodic construction in direction z use a relative tolerance
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
 #endif
       
-      if ( present(ChildSem) .and. ChildSem ) self % mesh % child = .TRUE.
+      if (present(ChildSem)) then
+         if (ChildSem) self % mesh % child = .true.
+      end if
       
 !
 !     Measure preprocessing time
@@ -226,6 +229,9 @@ Module DGSEMClass
       else
          MeshInnerCurves = .true.
       end if
+
+
+      useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -248,7 +254,7 @@ Module DGSEMClass
 !
 !           Construct the "full" mesh
 !           -------------------------
-            call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+            call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
 !
 !           Perform the partitioning
 !           ------------------------
@@ -270,8 +276,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
-      
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success ) 
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
 !     Compute wall distances

@@ -1,0 +1,90 @@
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/TaylorGreen8.mesh
+                      Solution file name = RESULTS/TGV.hsol
+                       Restart file name = RESULTS/TGV.hsol
+              Save gradients to solution = .false.
+                                 Restart = .false.
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 0.1
+                         Reynolds number = 0.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 8
+                    Discretization nodes = Gauss-Lobatto
+                 Inviscid discretization = Split-form
+                              Split form = Pirozzoli
+                          Riemann solver = Low dissipation Roe
+                      Gradient variables = Energy
+                  Viscous discretization = BR1
+
+!------------------------------------ SVV:-
+                              enable SVV = .true.
+                    SVV dissipation type = Physical
+                         SVV viscosity 1 = Smagorinsky
+                   SVV alpha viscosity 1 = 0.0
+                       SVV filter cutoff = 0.1
+                         SVV filter type = high-pass
+                        SVV filter shape = power
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                                     CFL = 0.4
+                                    dCFL = 0.4
+                    Number of time steps = 50
+                         Output interval = 10
+                   Convergence tolerance = 1.0e-10
+  Compute time derivative after timestep = .true.
+
+!------------------------------------ BCs:-
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary bottom
+   type = periodic
+   coupled boundary = top
+#end
+
+#define boundary top
+   type = periodic
+   coupled boundary = bottom
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+
+#define boundary left
+   type = periodic
+   coupled boundary = right
+#end
+
+#define boundary right
+   type = periodic
+   coupled boundary = left
+#end
+
+!------------------------------- Monitors:-
+#define volume monitor 1
+   Name = KinEn
+   Variable = Kinetic energy
+#end
+
+#define volume monitor 2
+   Name = KinEnRate
+   Variable = Kinetic energy rate
+#end
+
+#define volume monitor 3
+   name = SVV
+   variable = SVV Dissipation
+#end

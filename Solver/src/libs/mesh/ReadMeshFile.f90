@@ -25,7 +25,7 @@ module ReadMeshFile
    public constructMeshFromFile, NumOfElemsFromMeshFile, MeshFileType
 
 contains
-   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+   subroutine constructMeshFromFile( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, periodRelative, success )
       implicit none
       !---------------------------------------------------------------
       type(HexMesh)                       :: self
@@ -34,6 +34,7 @@ contains
       INTEGER                             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       logical                             :: MeshInnerCurves         !<  Describe inner curved surfaces? (only for hdf5)
       integer                             :: dir2D
+      logical                             :: periodRelative
       LOGICAL           , intent(out)     :: success
       !---------------------------------------------------------------
       character(len=LINE_LENGTH) :: ext
@@ -48,16 +49,16 @@ contains
       ext = getFileExtension(trim(filename))
       
       if (trim(ext)=='h5') then
-         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+         call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, periodRelative, success )
       elseif (trim(ext)=='mesh') then
-         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+         call ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
       elseif (trim(ext)=='msh') then
          call CheckGMSHversion (fileName, gmsh_version)
          select case (gmsh_version)
          case (4)
-            call ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+            call ConstructMesh_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
          case (2)
-            call ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+            call ConstructMesh_FromGMSHFile_v2_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
          case default
             error stop "ReadMeshFile :: Unrecognized GMSH version."
          end select

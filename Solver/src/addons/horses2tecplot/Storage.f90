@@ -166,6 +166,19 @@ module Storage
             write(STD_OUT,'(30X,A,A30,A)') "->","Discretization nodes: ","Gauss-Lobatto"
          end select
 
+!
+!        Describe the boundaries
+!        -----------------
+         if (hasBoundaries) then
+             pos = index(trim(flag),"=")
+             flag = flag(pos+1:len_trim(flag))
+             write(msg,'(A,A,A)') 'Boundary file "',trim(flag),'":'
+             write(STD_OUT,'(/)')
+             call SubSection_Header(trim(msg))
+             write(STD_OUT,'(30X,A,A30,I0)') "->","Number of Boundaries: ", size(self % boundaries)
+             
+         end if 
+
       end subroutine Mesh_ReadMesh
 
       subroutine Mesh_ReadSolution(self,solutionName)

@@ -7,6 +7,7 @@
 !   @Last revision date: Mon Sep  6 22:45:00 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+
 !
 !//////////////////////////////////////////////////////
 !
@@ -30,6 +31,9 @@ module NumericalJacobian
    use StopwatchClass         , only: StopWatch
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC, NSSA_BC
    use FTValueDictionaryClass
+#ifdef _HAS_MPI_
+   use mpi
+#endif
    implicit none
    
    private
@@ -87,14 +91,15 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode )
+   subroutine NumJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode )
       !-------------------------------------------------------------------
       class(NumJacobian_t)      , intent(inout)          :: this
       type(DGSem),                intent(inout)          :: sem
       integer,                    intent(in)             :: nEqn
       real(kind=RP),              intent(in)             :: time
       class(Matrix_t)          ,  intent(inout)          :: Matrix
-      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative      !   
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivative
+      procedure(ComputeTimeDerivative_f), optional       :: TimeDerivativeIsolated
       real(kind=RP),   optional, intent(in)              :: eps_in
       logical, optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
       integer, optional, intent(in)                      :: mode
@@ -121,6 +126,8 @@ contains
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
+      integer :: eid, el_threshold
+      integer, allocatable :: ndof_per_elm(:)
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -150,6 +157,15 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
+         select type(Matrix_p => Matrix)
+         type is(DenseBlockDiagMatrix_t)
+            ! No need for colors for Block Diagonal Matrix
+            do i=1,nelm 
+               nbr(i)%elmnt(1:6) = 0
+            end do
+         class default
+            ! do nothing
+         end select
          call ecolors % construct(nbr, num_of_neighbor_levels)
          
 !
@@ -300,8 +316,6 @@ contains
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
-
-!
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
@@ -369,7 +383,7 @@ contains
                used    = 0
                usedctr = 1
                
-               call this % AssignColToJacobian(Matrix, sem % mesh % storage, thiselm, thiselm, thisdof, num_of_neighbor_levels)
+               call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
                
             END DO           
 !
@@ -379,7 +393,7 @@ contains
             call sem % mesh % storage % global2LocalQ
          ENDDO
       ENDDO
-      
+
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
       
       call Stopwatch % Pause("Numerical Jacobian construction")
@@ -396,6 +410,7 @@ contains
 #endif
       
       ! call Matrix % Visualize('Jacobian.txt')
+      ! error stop "TBC"
    end subroutine NumJacobian_Compute
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -404,12 +419,12 @@ contains
 !  Assign to Jacobian the column that corresponds to the element "eID" and the degree of freedom "thisdof" 
 !  taking into account the contribution of the neighbors [(depth-1) * "of neighbors"]
 !  -------------------------------------------------------------------------------------------------------
-   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, storage, eID, eIDn, thisdof, depth)
+   recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, mesh, eID, eIDn, thisdof, depth)
       implicit none
       !-arguments---------------------------------------
       class(NumJacobian_t)           , intent(inout) :: this
       class(Matrix_t)                , intent(inout) :: Matrix  !<> Jacobian Matrix
-      type(SolutionStorage_t), target, intent(in)    :: storage !<  storage
+      type(HexMesh)                  , intent(in)    :: mesh
       integer                        , intent(in)    :: eID     !<  Element ID 
       integer                        , intent(in)    :: eIDn    !<  ID of the element, whose neighbors' contributions are added
       integer                        , intent(in)    :: thisdof !<  Current degree of freedom
@@ -430,17 +445,17 @@ contains
       
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)
-            pbuffer(1:ndof) => storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
+            pbuffer(1:ndof) => mesh % storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
             
             do j=1, this % ndofelm(elmnbr)
-               call Matrix % AddToBlockEntry (elmnbr, eID, j, thisdof, pbuffer(j) )
+               call Matrix % AddToBlockEntry (mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID, j, thisdof, pbuffer(j) )
             end do
             
             used(usedctr) = elmnbr
             usedctr = usedctr + 1
          end if
          
-         if (depth > 1) call this % AssignColToJacobian(Matrix, storage, eID, elmnbr, thisdof, depth-1)
+         if (depth > 1) call this % AssignColToJacobian(Matrix, mesh, eID, elmnbr, thisdof, depth-1)
          
       end do
       
