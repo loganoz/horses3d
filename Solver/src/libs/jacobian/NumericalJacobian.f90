@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Sep  6 22:45:00 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision date: Tue Nov 23 11:55:51 2021
+!   @Last revision author: Jerryntk (gerasimos.ntoukas@upm.es)
+!   @Last revision commit: 898b65703f0a5fc068dff7098b523cb2be6f7684
 
 !
 !//////////////////////////////////////////////////////
@@ -126,7 +126,7 @@ contains
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
-      integer :: eid, el_threshold
+      integer :: el_threshold
       integer, allocatable :: ndof_per_elm(:)
       !-------------------------------------------------------------------
       

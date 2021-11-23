@@ -371,8 +371,8 @@ module VolumeIntegrals
             
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
-            end do            ; end do           ; end do
-           
+            end do            ; end do           ; end do     
+#endif
 
 #if defined(INCNS)
          case (MASS)

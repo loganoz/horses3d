@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    ArtificialViscosity.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Aug 21 18:27:46 2018
-!   @Last revision date: Wed Dec 12 23:20:39 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
+!   @Author:  Gerasimos Ntoukas (gerasimos.ntoukas@upm.es)
+!   @Created: Fri May 28 11:29:03 2021
+!   @Last revision date: Tue Nov 23 11:55:54 2021
+!   @Last revision author: Jerryntk (gerasimos.ntoukas@upm.es)
+!   @Last revision commit: 898b65703f0a5fc068dff7098b523cb2be6f7684
 !
 !//////////////////////////////////////////////////////
 !
