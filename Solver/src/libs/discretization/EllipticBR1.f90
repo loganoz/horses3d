@@ -39,7 +39,7 @@ module EllipticBR1
          if (MPI_Process % isRoot) write(STD_OUT,'(/)')
 
          select case (self % eqName)
-         case (ELLIPTIC_NS,ELLIPTIC_iNS,ELLIPTIC_MU, ELLIPTIC_NSSA)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU)
             call Subsection_Header("Viscous discretization")
       
          case (ELLIPTIC_CH)
@@ -56,13 +56,7 @@ module EllipticBR1
 
 #ifdef NAVIERSTOKES
          select case (self % eqName)
-         case (ELLIPTIC_NS)
-            select case (grad_vars)
-            case(GRADVARS_STATE);   write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","State"
-            case(GRADVARS_ENTROPY); write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Entropy"
-            case(GRADVARS_ENERGY);  write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Energy"
-            end select
-            case (ELLIPTIC_NSSA)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA)
             select case (grad_vars)
             case(GRADVARS_STATE);   write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","State"
             case(GRADVARS_ENTROPY); write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Entropy"

@@ -268,7 +268,7 @@ module SpatialDiscretization
 !
          INTEGER :: k
 
-         call SetBoundaryConditionsEqn(NSSA_BC)
+         call SetBoundaryConditionsEqn(NS_BC)
 !
 !        -----------------------------------------
 !        Prolongation of the solution to the faces

@@ -29,7 +29,7 @@ module NumericalJacobian
    use StorageClass           , only: SolutionStorage_t
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
-   use BoundaryConditions     , only: NS_BC, C_BC, MU_BC, NSSA_BC
+   use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
    use FTValueDictionaryClass
 #ifdef _HAS_MPI_
    use mpi

@@ -55,7 +55,7 @@ module EllipticDiscretizationClass
    end interface
 
    enum, bind(C)
-      enumerator :: ELLIPTIC_NS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS, ELLIPTIC_NSSA
+      enumerator :: ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_iNS
    end enum
 !
 !  ========
@@ -91,17 +91,17 @@ module EllipticDiscretizationClass
          case(ELLIPTIC_NS)
             self % eqName = ELLIPTIC_NS
 
-         case(ELLIPTIC_iNS)
-            self % eqName = ELLIPTIC_iNS
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
 
          case(ELLIPTIC_CH)
             self % eqName = ELLIPTIC_CH
 
          case(ELLIPTIC_MU)
             self % eqName = ELLIPTIC_MU
-
-         case(ELLIPTIC_NSSA)
-            self % eqName = ELLIPTIC_NSSA
+         
+         case(ELLIPTIC_iNS)
+            self % eqName = ELLIPTIC_iNS
 
          case default
             print*, "Unrecognized equation"

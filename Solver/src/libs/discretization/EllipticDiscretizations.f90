@@ -22,7 +22,7 @@ module EllipticDiscretizations
    public   EllipticFlux_f, GetViscosity_f
    public   EllipticDiscretization_t, BassiRebay1_t, BassiRebay2_t, InteriorPenalty_t
    public   SIPG, IIPG, NIPG
-   public   ELLIPTIC_NS, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU, ELLIPTIC_NSSA
+   public   ELLIPTIC_NS, ELLIPTIC_NSSA, ELLIPTIC_iNS, ELLIPTIC_CH, ELLIPTIC_MU
 #ifdef FLOW
    public   ViscousDiscretization
 #endif

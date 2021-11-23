@@ -2726,9 +2726,6 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-#if defined(SPALARTALMARAS)
-         refs(RE_REF)    = dimensionless  % Re
-#endif
 #elif defined(INCNS)
          refs(GAMMA_REF) = 0.0_RP
          refs(RGAS_REF)  = 0.0_RP
@@ -2745,7 +2742,7 @@ slavecoord:             DO l = 1, 4
 #if defined(SPALARTALMARAS)
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*NGRAD + 1
+            padding = NCONS + 3*NGRAD
 #else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
@@ -2809,16 +2806,7 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
-
-#if defined(SPALARTALMARAS)
-               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-
-               Q(1,:,:,:) = e % storage % mu_ns(1,:,:,:)
-
-               write(fid) Q
-
-               deallocate(Q)
-#endif    
+   
             end associate
          end do
          close(fid)
@@ -3047,7 +3035,7 @@ slavecoord:             DO l = 1, 4
 
          case(SOLUTION_AND_GRADIENTS_FILE)
 #ifdef SPALARTALMARAS
-            padding = NCONS + 3 * NGRAD + 1 
+            padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 #else
             padding = NCONS + 3 * NGRAD
@@ -3163,13 +3151,6 @@ slavecoord:             DO l = 1, 4
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
                deallocate(Q)
-
-#if defined(SPALARTALMARAS)
-            allocate(Q(1, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            read(fID) Q
-            !e % storage % mu_ns = Q(1,:,:,:)
-            deallocate(Q)
-#endif 
             end if
             
            end associate

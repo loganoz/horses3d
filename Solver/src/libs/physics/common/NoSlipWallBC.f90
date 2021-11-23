@@ -387,6 +387,7 @@ module NoSlipWallBCClass
 !
 !////////////////////////////////////////////////////////////////////////////
 !
+!
 #if defined(INCNS)
       subroutine NoSlipWallBC_FlowState(self, x, t, nHat, Q)
 !

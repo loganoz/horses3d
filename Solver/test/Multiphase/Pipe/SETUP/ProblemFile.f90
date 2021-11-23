@@ -565,7 +565,7 @@ end module ProblemFileFunctions
                                                               147.034918533523_RP, &
                                                               865.653084759232_RP, &
                                                               72786.6199585908_RP ]
-            real(kind=RP), parameter              :: entropyRate_saved = -49.5776095754848_RP
+            real(kind=RP), parameter              :: entropyRate_saved = -49.577609575581214_RP
             integer :: i
 
             CALL initializeSharedAssertionsManager
@@ -573,7 +573,7 @@ end module ProblemFileFunctions
             
             CALL FTAssertEqual(expectedValue = entropyRate_saved+1.0_RP, &
                                actualValue   = monitors % volumeMonitors(1) % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-9, &
                                msg           = "Entropy-Rate")
 
             CALL FTAssertEqual(expectedValue = residuals_saved(1)+100.0_RP, &
