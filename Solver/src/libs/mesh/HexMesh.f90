@@ -2696,7 +2696,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2726,7 +2726,9 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
+#if defined(SPALARTALMARAS)
          refs(RE_REF)    = dimensionless  % Re
+#endif
 #elif defined(INCNS)
          refs(GAMMA_REF) = 0.0_RP
          refs(RGAS_REF)  = 0.0_RP
@@ -2734,7 +2736,6 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = 0.0_RP
          refs(MACH_REF)  = 0.0_RP
-         refs(RE_REF)    = 0.0_RP
 #else
          refs = 0.0_RP
 #endif
@@ -2757,7 +2758,6 @@ slavecoord:             DO l = 1, 4
          end if
 #endif
 !
-
 !        Write arrays
 !        ------------
          fID = putSolutionFileInWriteDataMode(trim(name))
@@ -2766,8 +2766,7 @@ slavecoord:             DO l = 1, 4
 
             allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 #ifdef FLOW
-            Q(1:NCONS,:,:,:)  = e % storage % Q(1:NCONS,:,:,:)
-
+            Q(1:NCONS,:,:,:)  = e % storage % Q
 #ifdef MULTIPHASE
             Q(IMP,:,:,:) = e % storage % Q(IMP,:,:,:) + e % storage % Q(IMC,:,:,:)*e % storage % mu(1,:,:,:)
 #endif
@@ -2810,6 +2809,7 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+
 #if defined(SPALARTALMARAS)
                allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
 
@@ -2818,8 +2818,7 @@ slavecoord:             DO l = 1, 4
                write(fid) Q
 
                deallocate(Q)
-#endif            
-
+#endif    
             end associate
          end do
          close(fid)
@@ -2829,6 +2828,7 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
+
 #if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name)
          use SolutionFile

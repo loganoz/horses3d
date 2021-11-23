@@ -60,15 +60,20 @@ module SolutionFile
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
    integer, parameter      :: BEGINNING_DATA = 88
-
+#if defined(SPALARTALMARAS)
    integer, parameter      :: NO_OF_SAVED_REFS = 7
+#else 
+   integer, parameter      :: NO_OF_SAVED_REFS = 6
+#endif
    integer, parameter      :: GAMMA_REF = 1
    integer, parameter      :: RGAS_REF  = 2
    integer, parameter      :: V_REF     = 3
    integer, parameter      :: RHO_REF   = 4
    integer, parameter      :: T_REF     = 5
    integer, parameter      :: MACH_REF  = 6
+#if defined(SPALARTALMARAS)
    integer, parameter      :: RE_REF    = 7
+#endif
 !
 !  ------------
 !  File offsets
