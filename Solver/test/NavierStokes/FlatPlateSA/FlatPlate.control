@@ -5,7 +5,7 @@ polynomial order      = 2
 Number of time steps  = 100
 Output Interval       = 10 for explicit
 autosave mode         = "iteration"
-autosave interval     = 10000
+autosave interval     = 1000
 
 Convergence tolerance = 1.d-10
 cfl                    = 0.75d0
@@ -30,7 +30,7 @@ delta n = 1
 mg sweeps exact = [2,1]
 mg smoother = RKOpt
 mg preconditioner = LTS ! for all runge kutta explicit
-
+partitioning = SFC
 !-------------------------------------------------------------
 ! Inflow
 !-------------------------------------------------------------
