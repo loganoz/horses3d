@@ -23,7 +23,7 @@
 ! 
 #include "Includes.h"
 
-#ifdef NAVIERSTOKES
+#if defined(NAVIERSTOKES) & !(defined(SPALARTALMARAS))
 module Convergence_analysis
    use SMConstants
    use PhysicsStorage
