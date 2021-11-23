@@ -545,7 +545,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/FlatPlateSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns FlatPlate.control
+          mpiexec -n 8 ./horses3d.nssa FlatPlate.control
 
 ########################################################################
 #######                       PARTICLES                         ########
