@@ -515,6 +515,38 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns DualTimeStepping.control
 
+#
+# 16) Manufactured Solution for Spalart-Almaras
+# ----------------------------
+
+#      - name: Build ManufacturedSolutionsSA
+#        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+#
+#      - name: Run ManufacturedSolutionsSA
+#        working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          mpiexec -n 8 ./horses3d.nssa MSSA.control
+
+#
+# 17) Flat-Plate test case for Spalart-Almaras
+# ----------------------------
+
+      - name: Build FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run FlatPlateSA
+        working-directory: ./Solver/test/NavierStokes/FlatPlateSA
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns FlatPlate.control
+
 ########################################################################
 #######                       PARTICLES                         ########
 ########################################################################
