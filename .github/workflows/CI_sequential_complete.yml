@@ -621,7 +621,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/FlatPlateSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns FlatPlate.control
+          ./horses3d.nssa FlatPlate.control
 
 ########################################################################
 #######                       PARTICLES                         ########
