@@ -398,7 +398,7 @@ module SurfaceIntegrals
 !
 !           ************************************************
 !           Computes the total force experienced by the zone 
-!              F = \int p \vec{n}ds - \int tau'·\vec{n}ds 
+!              F =  - \int tau'·\vec{n}ds 
 !           ************************************************
 !
             do j = 0, f % Nf(2) ;    do i = 0, f % Nf(1)

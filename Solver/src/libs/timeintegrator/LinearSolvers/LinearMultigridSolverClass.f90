@@ -3,10 +3,16 @@
 !
 !   @File:    LinearMultigridSolverClass.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: 2019-11-06 
-!   @Last revision date: Fri Aug 27 15:25:20 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 887f53c23a642a9979c49ff9c58386051199099b
+!   @Created: Mon Sep  6 22:45:10 2021
+!   @Last revision date:
+!   @Last revision author:
+!   @Last revision commit:
+!
+!//////////////////////////////////////////////////////
+!
+!
+!//////////////////////////////////////////////////////
+!
 !
 !//////////////////////////////////////////////////////
 !

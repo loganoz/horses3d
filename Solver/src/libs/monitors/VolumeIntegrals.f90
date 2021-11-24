@@ -15,7 +15,7 @@ module VolumeIntegrals
    private
    public   VOLUME
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
    public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
    public ENTROPY_BALANCE
@@ -39,7 +39,7 @@ module VolumeIntegrals
 
    enum, bind(C)
       enumerator :: VOLUME  
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
       enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
@@ -147,9 +147,9 @@ module VolumeIntegrals
          real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: p, s, dtP
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem, entr, area, rho
+         real(kind=RP)           :: free_en, fchem, entr, area, rho , u , v, w, en, thetaeddy 
          real(kind=RP)           :: Strain(NDIM,NDIM)
-         real(kind=RP)           :: mu
+         real(kind=RP)           :: mu 
 
          Nel = e % Nxyz
 
@@ -176,7 +176,7 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case ( KINETIC_ENERGY )
 !
 !           ***********************************
@@ -371,9 +371,9 @@ module VolumeIntegrals
             
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
-            end do            ; end do           ; end do
-            
+            end do            ; end do           ; end do     
 #endif
+
 #if defined(INCNS)
          case (MASS)
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
@@ -637,7 +637,7 @@ module VolumeIntegrals
 !        ---------------------------------
          select case ( integralType )
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             case ( VELOCITY )
                
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)

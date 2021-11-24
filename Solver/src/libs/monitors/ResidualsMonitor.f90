@@ -72,9 +72,12 @@ module ResidualsMonitorClass
          if (FirstCall) then
             open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
             write ( fID , ' ( A                                      ) ' ) "#Residuals file"
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Total elapsed Time (s)", "Solver elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" , "Max-Residual"
+#elif defined(SPALARTALMARAS)
+            write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
+                        "Total elapsed Time (s)", "Solver elapsed Time (s)" , "continuity" , "x-momentum" , "y-momentum" , "z-momentum", "energy" ," Turbulence Param" , "Max-Residual"
 #elif defined(INCNS)
             write ( fID , ' ( A10,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24,2X,A24 ) ' ) "#Iteration" , "Time" , &
                         "Elapsed Time (s)" , "dens-transp" , "x-momentum" , "y-momentum" , "z-momentum", "div-v" , "Max-Residual"
@@ -120,12 +123,19 @@ module ResidualsMonitorClass
 !
          implicit none
          class(Residuals_t)             :: self
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          write(STD_OUT , '(3X,A10)' , advance = "no") "continuity"
          write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
          write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+#elif defined(SPALARTALMARAS)
+         write(STD_OUT , '(3X,A10)' , advance = "no") "continuity"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "y-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "z-momentum"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "energy"
+         write(STD_OUT , '(3X,A10)' , advance = "no") "turbulence parameter"
 #elif defined(INCNS)
          write(STD_OUT , '(3X,A10)' , advance = "no") "dens-transp"
          write(STD_OUT , '(3X,A10)' , advance = "no") "x-momentum"

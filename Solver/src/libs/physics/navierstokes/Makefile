@@ -9,24 +9,22 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 
-
-
-LIBOBJS = 	./build/FluidData_NS.o \
-		./build/PhysicsStorage_NS.o \
-		./build/VariableConversion_NS.o \
-		./build/ArtificialViscosity.o \
-		./build/LESModels.o \
-		./build/Physics_NS.o \
-		./build/RiemannSolvers_NS.o \
-		./build/ManufacturedSolutions.o 
-
+LIBOBJS = ./build/FluidData_NS.o \
+		  ./build/PhysicsStorage_NS.o \
+		  ./build/VariableConversion_NS.o \
+		  ./build/ArtificialViscosity.o \
+		  ./build/LESModels.o \
+		  ./build/Physics_NS.o \
+		  ./build/RiemannSolvers_NS.o \
+		  ./build/ManufacturedSolutions.o \
 
 LIB = physicsns
 
 ############################################
 #	MAIN COMPILATION RULES 		   #
 ############################################
-.DEFAULT_GOAL := lib$(LIB).a
+.DEFAULT_GOAL:= lib$(LIB).a
+
 
 ./build/%.o: %.f90
 	@echo
@@ -42,7 +40,7 @@ lib$(LIB).a: header mkdirs $(LIBOBJS)
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
 	@$(RANLIB) $@
 
-install: lib$(LIB).a
+install : lib$(LIB).a
 	cp -p lib$(LIB).a $(INSTALL_DIR)/lib/
 	cp -p ./include/*.mod $(INSTALL_DIR)/include/
 	@echo
@@ -62,7 +60,6 @@ mkdirs: FORCE
 clean: FORCE
 	$(RM) lib$(LIB).a 
 	$(RM) ./build/*.o ./include/*.mod
-
 #############################################
 #	Dummy procedure to force a rule     #
 #############################################

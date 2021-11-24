@@ -41,8 +41,10 @@ module FASMultigridClass
    use JacobianComputerClass  , only: JacobianComputer_t, GetJacobianFlag
    use DenseMatUtilities
    use MPI_Utilities          , only: infNorm, L2Norm! , MPI_SumAll
-#if defined(NAVIERSTOKES)
-   use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
 #endif
    
    implicit none
@@ -486,8 +488,10 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine RecursiveConstructor(Solver, N1x, N1y, N1z, lvl, controlVariables)
-#if defined(NAVIERSTOKES)
-      use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
 #endif
       use FTValueDictionaryClass
       implicit none
@@ -551,7 +555,7 @@ module FASMultigridClass
 !        (only for lower meshes)
 !     --------------------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       if (ManSol) then
          DO iEl = 1, nelem
             
@@ -572,8 +576,21 @@ module FASMultigridClass
             end DO
          end DO
       end if
-#endif
-!
+#elif defined(SPALARTALMARAS)
+      if (ManSol) then
+         DO iEl = 1, nelem   
+            DO k=0, Solver % p_sem % mesh % Nz(iEl)
+               DO j=0, Solver % p_sem % mesh % Ny(iEl)
+                  DO i=0, Solver % p_sem % mesh % Nx(iEl)
+                        CALL ManufacturedSolutionSourceNSSA(Solver % p_sem % mesh % elements(iEl) % geom % x(:,i,j,k), &
+                                                            Solver % p_sem % mesh % elements(iEl) % geom % dwall(i,j,k), 0._RP, &
+                                                            Solver % MGStorage(iEl) % Scase (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
+#endif!
 !     -------------------------------------------
 !     Assemble Jacobian for implicit smoothing
 !     -------------------------------------------
@@ -1232,7 +1249,7 @@ module FASMultigridClass
 !$omp do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % MGStorage(iEl) % Q = Child_p % p_sem % mesh % elements(iEl) % storage % Q
-         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = 0._RP
+         Child_p % p_sem % mesh % elements(iEl) % storage % S_NS =  0.0_RP
       end DO
 !$omp end do
 !$omp end parallel
@@ -1247,7 +1264,7 @@ module FASMultigridClass
 !$omp parallel do schedule(runtime)
       DO iEl = 1, nelem
          Child_p % p_sem % mesh % elements(iEl) % storage % S_NS = Child_p % MGStorage(iEl) % S - &
-                                                                Child_p % p_sem % mesh % elements(iEl) % storage % Qdot
+                                                                Child_p % p_sem % mesh % elements(iEl) % storage % Qdot !- Child_p % MGStorage(iEl) % Scase
       end DO
 !$omp end parallel do
       

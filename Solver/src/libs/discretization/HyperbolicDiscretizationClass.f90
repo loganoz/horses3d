@@ -18,8 +18,10 @@
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicDiscretizationClass
    use SMConstants
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS
+#elif defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSA
 #elif defined(INCNS)
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
@@ -41,7 +43,7 @@ module HyperbolicDiscretizationClass
          procedure   :: Initialize               => BaseClass_Initialize
          procedure   :: ComputeInnerFluxes       => BaseClass_ComputeInnerFluxes
          procedure   :: ComputeSplitFormFluxes   => BaseClass_ComputeSplitFormFluxes
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          procedure   :: ComputeInnerFluxJacobian => BaseClass_ComputeInnerFluxJacobian
 #endif
    end type HyperbolicDiscretization_t
@@ -134,7 +136,7 @@ module HyperbolicDiscretizationClass
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Standard"
 
          select case (whichRiemannSolver)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case (RIEMANN_ROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
 
@@ -161,6 +163,10 @@ module HyperbolicDiscretizationClass
 
          case (RIEMANN_UDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
+#elif defined(SPALARTALMARAS)
+         
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
 #elif defined(INCNS)
          case (RIEMANN_CENTRAL)
@@ -241,7 +247,7 @@ module HyperbolicDiscretizationClass
 !                 |     |
 !              jac|coord|flux in cartesian direction dim 
 !     ----------------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
          use ElementClass
          use Physics
