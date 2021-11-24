@@ -5,7 +5,7 @@ polynomial order      = 2
 Number of time steps  = 100
 Output Interval       = 10 for explicit
 autosave mode         = "iteration"
-autosave interval     = 1000
+autosave interval     = 100
 
 Convergence tolerance = 1.d-10
 cfl                    = 0.75d0
@@ -17,7 +17,7 @@ reference temperature (k) = 300.0d0
 discretization nodes  = Gauss-Lobatto
 solution file name    = "RESULTS/FlatPlateSA.hsol"
 save gradients with solution = .true.
-restart               = .false.
+restart               = .FALSE.
 restart file name     = "RESULTS/FlatPlateSA.hsol"
 
 inviscid discretization = standard

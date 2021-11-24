@@ -320,14 +320,6 @@ module Storage
                   end if
                   
                end if
-!Read the dynamic viscosity  
-     
-               allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-               read(fid) e % mu_NS
-               
-               allocate( e % QDot(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-               read(fid) e % QDot
-
                end associate
             end do
 
@@ -391,8 +383,6 @@ module Storage
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Mach number: ", self % refs(MACH_REF)
-         write(STD_OUT,'(30X,A,A30,F10.1)') "->","Reference Reynolds number: ", self % refs(RE_REF)
-
       end subroutine Mesh_ReadSolution
       
       
