@@ -34,6 +34,7 @@ LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 
 LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		./build_nssa/AnalyticalJacobian.o \
+		./build_nssa/mkl_spblas.o \
 		./build_nssa/GenericLinSolverClass.o \
 		./build_nssa/PetscSolverClass.o \
 		./build_nssa/MatrixFreeSmootherClass.o \
@@ -57,6 +58,7 @@ LIBOBJS_NSSA =    ./build_nssa/TimeIntegratorDefinitions.o \
 		
 LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 		./build_ins/AnalyticalJacobian.o \
+		./build_ins/mkl_spblas.o \
 		./build_ins/GenericLinSolverClass.o \
 		./build_ins/PetscSolverClass.o \
 		./build_ins/MatrixFreeSmootherClass.o \
@@ -81,6 +83,7 @@ LIBOBJS_iNS =   ./build_ins/TimeIntegratorDefinitions.o \
 
 LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 		./build_ch/AnalyticalJacobian.o \
+		./build_ch/mkl_spblas.o \
 		./build_ch/GenericLinSolverClass.o \
 		./build_ch/PetscSolverClass.o \
 		./build_ch/MatrixFreeSmootherClass.o \
@@ -104,6 +107,7 @@ LIBOBJS_CH =    ./build_ch/TimeIntegratorDefinitions.o \
 
 LIBOBJS_MU =  ./build_mu/TimeIntegratorDefinitions.o \
 		./build_mu/AnalyticalJacobian.o \
+		./build_mu/mkl_spblas.o \
 		./build_mu/GenericLinSolverClass.o \
 		./build_mu/PetscSolverClass.o \
 		./build_mu/MatrixFreeSmootherClass.o \
