@@ -38,7 +38,7 @@ module MatrixFreeGMRESClass
 !  Matrix-Free GMRES class
 !  ***********************
    type, extends(GenericLinSolver_t) :: MatFreeGMRES_t
-      integer                              :: m = 60           ! Number of GMRES iterations before restart -- Default petsc value m=30 
+      integer                              :: m = 500           ! Number of GMRES iterations before restart -- Default petsc value m=30 
       integer                              :: maxiter = 500
       real(kind=RP)                        :: tol = 1e-15_RP
       real(kind=RP)                        :: res = -1._RP
