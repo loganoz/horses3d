@@ -10,6 +10,7 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS =    ./build_ns/TimeIntegratorDefinitions.o \
 		./build_ns/AnalyticalJacobian.o \
+		./build_ns/mkl_spblas.o \
 		./build_ns/GenericLinSolverClass.o \
 		./build_ns/PetscSolverClass.o \
 		./build_ns/MatrixFreeSmootherClass.o \

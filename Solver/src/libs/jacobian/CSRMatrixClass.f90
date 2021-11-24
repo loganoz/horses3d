@@ -4,7 +4,7 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Sun Sep  5 16:56:40 2021
+!   @Last revision date: Wed Nov 24 17:19:22 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
@@ -1091,7 +1091,6 @@ MODULE CSRMatrixClass
 !
 !  ---------------------------------------------------------
 !  Routine to compute forward substitution for CSR matrices.
-!  By: Wojciech Laskowski
 !  ---------------------------------------------------------
    subroutine CSR_ForwardSubstitution(this, b, y, n)
       implicit none
@@ -1116,27 +1115,17 @@ MODULE CSRMatrixClass
          y = 0.0_RP
          y(1) = b(1)
 
-         ! print *, "i=1", "b=" ,b(1), "y=", y(1)
-
          do i=2,n
             s = b(i)
             j=0
             do while ( cols(rows(i)+j) .lt. i)
-               ! print *, "s: ", s
-               ! print *, "vals: ", vals(rows(i)+j)
-               ! print *, "y: ", y(cols(rows(i)+j))
                s = s - vals(rows(i)+j) * y(cols(rows(i)+j))
                j = j + 1
             end do
-            ! print *, "i = ", i, ", j = ", j
-            ! print *, cols(size(cols,1)) 
-            ! print *, "cols(rows(i)+j+1) = ", cols(rows(i)+j+1)
-            ! print *, y(cols(rows(i)+j+1)) 
             if (i<n) then
                s = s - y(cols(rows(i)+j+1))
             end if
             y(i) = s
-            ! print *, "i=",i, "b=" ,b(i), "y=", y(i)
          end do
 
       end associate
@@ -1147,7 +1136,6 @@ MODULE CSRMatrixClass
 !
 !  ---------------------------------------------------------
 !  Routine to compute forward substitution for CSR matrices.
-!  By: Wojciech Laskowski
 !  ---------------------------------------------------------
    subroutine CSR_BackwardSubstitution(this, y, x, n)
       implicit none
@@ -1171,27 +1159,19 @@ MODULE CSRMatrixClass
 
       associate(rows => this % rows, cols => this % cols, vals => this % values)
          x = 0.0
-         ! print *, y(n-2),y(n-1),y(n)
-         ! print *,vals(size(vals,1)-2),vals(size(vals,1)-1),vals(size(vals,1))
          x(n) = y(n) / vals(size(vals,1))
 
          do i = n-1,1,-1
             s = y(i)
             j=1
             do while ( (cols(rows(i+1)-j) .ge. i) )
-               ! print *, " i= ", i, " j= ", j
-               ! print *, " val= ", vals(rows(i+1)-j), " col= ", cols(rows(i+1)-j)
-               ! print *, " x= ", x(cols(rows(i+1)-j))
                s = s - vals(rows(i+1)-j) * x(cols(rows(i+1)-j))
                j = j + 1
                if ( rows(i+1)-j .lt. 1) then
                    exit
                end if 
             end do
-            ! print *, "rows(i+1)-j+1: ", rows(i+1)-j+1
-            ! print *, "s: ", s, " vals(rows(i+1)-j+1): ", vals(rows(i+1)-j+1)
             x(i) = s / vals(rows(i+1)-j+1)
-            ! print *, "i =",i, "y =" ,y(i), "x =", x(i)
          end do
          x(1) = s / vals(1)
 

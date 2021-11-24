@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Sep 15 12:15:49 2021
+!   @Last revision date: Wed Nov 24 17:19:24 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -71,6 +71,7 @@ module FASMultigridClass
       class(Matrix_t), allocatable                 :: A                  ! Jacobian matrix
       class(LUpivots_t), allocatable, dimension(:) :: LUpivots
       real(kind=RP), dimension(:)  , allocatable   :: dQ
+      real(kind=RP), dimension(:)  , allocatable   :: dQ0
       integer                                      :: JacobianComputation = NUMERICAL_JACOBIAN
       logical                                      :: computeA              !< Compute A in this level?
       integer                                      :: DimPrb                ! problem size
@@ -346,6 +347,12 @@ module FASMultigridClass
          case('IRK')
             Smoother = IRK_SMOOTHER
             MatrixType = JACOBIAN_MATRIX_CSR
+         case('SGS')
+            Smoother = SGS_SMOOTHER
+            MatrixType = JACOBIAN_MATRIX_CSR
+         case('ILU')
+            Smoother = ILU_SMOOTHER
+            MatrixType = JACOBIAN_MATRIX_CSR
          case('BIRK5')
             Smoother = BIRK5_SMOOTHER
             MatrixType = JACOBIAN_MATRIX_DENSE
@@ -541,6 +548,11 @@ module FASMultigridClass
       if (Smoother .ge. IMPLICIT_SMOOTHER_IDX) then
          if (.not. (allocated(Solver % dQ)) ) allocate( Solver % dQ(Solver % DimPrb) )
          Solver % dQ = 0._RP
+
+         if ( (Smoother .eq. SGS_SMOOTHER) .or. (Smoother .eq. ILU_SMOOTHER)) then
+            if (.not. (allocated(Solver % dQ0)) ) allocate( Solver % dQ0(Solver % DimPrb) )
+            Solver % dQ0 = 0._RP
+         end if
       end if
 
       ! allocate array for LTS
@@ -942,9 +954,12 @@ module FASMultigridClass
          select type (Amat => this % A)
          type is (csrMat_t)
             call this % Jacobian % Compute (this % p_sem, NCONS, t, this % A, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-            ! call Amat % Visualize('Jac.txt') ! FINDME1
-            ! error stop "Save Jac"
+            ! call Amat % Visualize('A.txt')
+            
             call Amat % shift(invdt)
+            call Amat % Visualize('A.dat')
+            ! error stop "Save Jac"
+
          type is (DenseBlockDiagMatrix_t)
             call this % Jacobian % Compute (sem=this % p_sem, nEqn=NCONS, time=t, matrix=this % A, TimeDerivative=ComputeTimeDerivative, & 
             TimeDerivativeIsolated=ComputeTimeDerivativeIsolated, BlockDiagonalized=.true.)
@@ -953,7 +968,8 @@ module FASMultigridClass
          
          select type (Amat => this % A)
          type is (csrMat_t)
-            error stop "Full implicit not ready."
+            ! error stop "Full implicit not ready."
+            call FAS_ILUfactorization(this)
          type is (DenseBlockDiagMatrix_t)
 !$omp parallel do schedule(runtime)
             do k=1, nelem
@@ -1412,6 +1428,26 @@ module FASMultigridClass
 !           ------------------
             case (IRK_SMOOTHER)
                error STOP "FASMultigrid :: IRK Smoother not ready."
+            case (SGS_SMOOTHER)
+
+               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
+
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeSGSStep ( this=this, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
+               end do
+
+            case (ILU_SMOOTHER)
+
+               call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
+
+               do sweep = 1, SmoothSweeps
+                  if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  call TakeILUStep ( this=this, t=t, deltaT=smoother_dt, &
+                     ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
+               end do
+
             case (BIRK5_SMOOTHER)
 
                call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
@@ -1456,6 +1492,7 @@ module FASMultigridClass
       real(kind=rp), dimension(5) :: a = (/0.2_RP, 0.25_RP, 0.333333_RP, 0.5_RP, 1.0_RP/)
       integer :: k, id, i
       real(kind=RP), allocatable :: x_loc(:) ! Local x
+!-------------------------------------------------------------
 
       this % dQ = 0._RP
       do k = 1,5
@@ -1503,6 +1540,210 @@ module FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine TakeSGSStep( this, t, deltaT, ComputeTimeDerivative, dts, global_dt )
+!
+!     ----------------------------------
+!     5th order diagonally implicit Runge-Kutta scheme from Bassi 2009
+!     ----------------------------------
+!
+      implicit none
+!
+!     -----------------
+!     Input parameters:
+!     -----------------
+!
+      class(FASMultigrid_t)  ,intent(inout), target :: this
+      real(KIND=RP)   :: t, deltaT, tk
+      procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+      logical, intent(in), optional :: dts 
+      real(kind=RP), intent(in), optional :: global_dt 
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer :: k, id, i
+!-------------------------------------------------------------
+
+      this % dQ  = 0._RP
+      this % dQ0 = 0._RP
+      
+      tk = t + deltaT
+
+      call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+      if ( present(dts) ) then
+         if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+      end if
+      call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
+
+      print *, "----- Q"
+      write(STD_OUT,'(ES10.3)') this % p_sem % mesh % storage % Q
+      print *, "----- Qdot"
+      write(STD_OUT,'(ES10.3)') this % p_sem % mesh % storage % Qdot
+      
+      select type (Acsr => this % A)
+         type is (csrMat_t)
+
+         print *, "Forward sub..."
+         call Acsr % ForwSub(this % p_sem % mesh % storage % Qdot, this % dQ0, this % DimPrb)
+         print *, "     ...done!"
+         print *, "Backward sub..."
+         call Acsr % BackSub(this % dQ0                          , this % dQ , this % DimPrb)
+         print *, "     ...done!"
+      end select
+
+      print *, "----- dQ"
+      write(STD_OUT,'(ES10.3)') this % dQ
+      print *, "-----"
+
+      this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ    
+      call this % p_sem % mesh % storage % global2localq  
+      
+      error stop "essa"
+
+!$omp parallel do schedule(runtime)
+      do k=1, this % p_sem % mesh % no_of_elements
+         if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+            print*, "Numerical divergence obtained in solver."
+            call exit(99)
+         endif
+      end do
+!$omp end parallel do
+            
+   end subroutine TakeSGSStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine TakeILUStep( this, t, deltaT, ComputeTimeDerivative, dts, global_dt )
+#ifdef HAS_MKL
+      use mkl_spblas
+#endif
+      !
+      !     ----------------------------------
+      !     5th order diagonally implicit Runge-Kutta scheme from Bassi 2009
+      !     ----------------------------------
+      !
+            implicit none
+      !
+      !     -----------------
+      !     Input parameters:
+      !     -----------------
+      !
+            class(FASMultigrid_t)  ,intent(inout), target :: this
+            real(KIND=RP)   :: t, deltaT, tk
+            procedure(ComputeTimeDerivative_f)    :: ComputeTimeDerivative
+            logical, intent(in), optional :: dts 
+            real(kind=RP), intent(in), optional :: global_dt 
+      !
+      !     ---------------
+      !     Local variables
+      !     ---------------
+      !
+            integer :: k, id, i
+#ifdef HAS_MKL
+            type(MATRIX_DESCR) :: descrA
+            type(SPARSE_MATRIX_T) :: csrA
+            integer :: info, stat
+
+            integer, allocatable  :: p_E(:)
+            integer, allocatable  :: p_B(:)
+#endif
+      !-------------------------------------------------------------
+      
+            this % dQ  = 0._RP
+            this % dQ0 = 0._RP
+            
+            tk = t + deltaT
+      
+            call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(this % p_sem % mesh, t, global_dt)
+            end if
+            call this % p_sem % mesh % storage % local2globalqdot (this % p_sem % mesh % storage % NDOF)
+      
+            ! print *, "----- Q"
+            ! write(STD_OUT,'(ES10.3)') this % p_sem % mesh % storage % Q
+            ! print *, "----- Qdot"
+            ! write(STD_OUT,'(ES10.3)') this % p_sem % mesh % storage % Qdot
+            
+            select type (Acsr => this % A)
+               type is (csrMat_t)
+
+#ifdef HAS_MKL
+
+               ! allocate (p_E(Acsr % num_of_Rows))
+               ! allocate (p_B(Acsr % num_of_Rows))
+
+               ! p_B = Acsr % Rows(1:Acsr % num_of_Rows)
+               ! p_E = Acsr % Rows(2:Acsr % num_of_Rows+1)
+
+               ! stat = mkl_sparse_d_create_csr ( csrA, SPARSE_INDEX_BASE_ONE, Acsr % num_of_Rows, &
+               !    Acsr % num_of_Rows, Acsr % Rows, Acsr % Rows, Acsr % Cols, Acsr % Values)
+               ! stat = mkl_sparse_d_create_csr ( csrA, SPARSE_INDEX_BASE_ONE, Acsr % num_of_Rows, &
+               !    Acsr % num_of_Rows, p_B, p_E, Acsr % Cols, Acsr % Values)
+               stat = mkl_sparse_d_create_csr ( csrA, SPARSE_INDEX_BASE_ONE, Acsr % num_of_Rows, &
+               Acsr % num_of_Rows, Acsr % Rows(1:Acsr % num_of_Rows), Acsr % Rows(2:Acsr % num_of_Rows+1), Acsr % Cols, Acsr % Values)
+               if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "CSR construction failed."
+
+               descrA % type = SPARSE_MATRIX_TYPE_TRIANGULAR
+               descrA % mode = SPARSE_FILL_MODE_LOWER
+               descrA % diag = SPARSE_DIAG_UNIT
+               stat = mkl_sparse_d_trsv (SPARSE_OPERATION_NON_TRANSPOSE, 1.0_RP, csrA, descrA, this % p_sem % mesh % storage % Qdot, this % dQ0)
+               if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "Lower solve failed."
+
+               ! print *, "----- dQ0"
+               ! write(STD_OUT,'(ES10.3)') this % dQ0
+
+               descrA % mode = SPARSE_FILL_MODE_UPPER
+               descrA % diag = SPARSE_DIAG_NON_UNIT
+               stat = mkl_sparse_d_trsv (SPARSE_OPERATION_NON_TRANSPOSE, 1.0_RP, csrA, descrA, this % dQ0, this % dQ)
+               if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "Upper solve failed."
+
+               ! deallocate (p_E)
+               ! deallocate (p_B)
+#else
+               ! print *, "Forward sub..."
+               ! call Acsr % ForwSub(this % p_sem % mesh % storage % Qdot, this % dQ0, this % DimPrb)
+               ! print *, "     ...done!"
+               ! print *, "Backward sub..."
+               ! call Acsr % BackSub(this % dQ0                          , this % dQ , this % DimPrb)
+               ! print *, "     ...done!"
+               error stop "ILU smoother needs MKL."
+#endif
+
+            end select
+
+            ! do i=1,size(this % dQ,1)
+            !    if ( abs(this % dQ(i)) < 1.e-14_RP ) then
+            !       this % dQ(i) = 0._RP
+            !    end if
+            ! end do
+      
+            ! print *, "----- dQ"
+            ! write(STD_OUT,'(ES10.3)') this % dQ
+            ! print *, "-----"
+      
+            this % p_sem % mesh % storage % Q = this % p_sem % mesh % storage % Q - this % dQ    
+            call this % p_sem % mesh % storage % global2localq  
+
+            ! print *, "----- Q"
+            ! write(STD_OUT,'(ES10.3)') this % p_sem % mesh % storage % Q
+            
+            ! error stop "essa"
+      
+      !$omp parallel do schedule(runtime)
+            do k=1, this % p_sem % mesh % no_of_elements
+               if ( any(isnan(this % p_sem % mesh % elements(k) % storage % Q))) then
+                  print*, "Numerical divergence obtained in solver."
+                  call exit(99)
+               endif
+            end do
+      !$omp end parallel do
+                  
+         end subroutine TakeILUStep
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    recursive subroutine FAS_SetPreviousSolution(this,lvl)
       implicit none
       !-------------------------------------------------------------
@@ -1541,5 +1782,53 @@ module FASMultigridClass
          call FAS_SetPreviousSolution(this % Child,lvl-1)
       end if
    end subroutine FAS_SetPreviousSolution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   recursive subroutine FAS_ILUfactorization(this)
+!-----------------------------------------------------------------
+   implicit none
+!-----Arguments---------------------------------------------------
+      class(FASMultigrid_t), target, intent(inout) :: this
+!-----Local-Variables---------------------------------------------
+      real(kind=rp), allocatable  :: bilu0(:) ! tmp array containing values of factorised matrix
+      real(kind=rp)               :: dpar(128)
+      integer                     :: ipar(128) 
+      integer                     :: ierr 
+      !--------------------------------------------
+      integer, dimension(:), allocatable  :: rows,cols
+      real(kind=RP), dimension(:), allocatable  :: vals,bilu_test
+
+      type(csrMat_t) :: Atmp
+!  -----------------------------------------------------------------------
+
+      select type (Amat => this % A)
+      type is (csrMat_t)
+
+#ifdef HAS_MKL
+      ! initialisation
+      ipar(2)  = 6
+      ipar(6)  = 1
+      ipar(31) = 0
+
+      dpar(31) = 1.e-16
+      dpar(32) = 1.e-10
+
+      allocate(bilu0(size(Amat % Values,1)))
+      call dcsrilu0  ( Amat % num_of_Rows, Amat % Values, Amat % Rows, Amat % Cols, bilu0 , ipar , dpar , ierr )
+      if (ierr .ne. 0) then
+         print *, "Error in dscrilu0, ierr: ", ierr
+      endif
+
+      Amat % Values = bilu0
+      deallocate(bilu0)
+
+      call Amat % Visualize('iluA.dat')
+#else
+      error stop "ILU smoother needs MKL."
+#endif
+
+      end select
+   end subroutine FAS_ILUfactorization
 
 end module FASMultigridClass

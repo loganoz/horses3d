@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Sep 16 13:19:24 2021
+!   @Last revision date: Wed Nov 24 17:19:23 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 0064b558b62ea50906ba2b95d635e6be5a1c38e0
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -3557,7 +3557,8 @@ slavecoord:             DO l = 1, 4
         if ( controlVariables % containsKey("mg smoother")) then
           mg_smoother = controlVariables % stringValueForKey("mg smoother",LINE_LENGTH)
           call toLower (mg_smoother)
-          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") ) then
+          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") &
+            .or. (trim(mg_smoother) .eq. "ilu") .or. (trim(mg_smoother) .eq. "sgs") ) then
             bdf_order = 1
             RKSteps_num = 0
           end if
