@@ -2,11 +2,11 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    mkl_spblas.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Author:  Intel Corporation
 !   @Created: Wed Nov 24 17:19:26 2021
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
+!   @Last revision date: Thu Nov 25 17:47:59 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: fbeae1d65fd76b31b595bc87af77d516ae428311
 !
 !//////////////////////////////////////////////////////
 !

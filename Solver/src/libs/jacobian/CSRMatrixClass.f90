@@ -4,7 +4,7 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Wed Nov 24 17:19:22 2021
+!   @Last revision date: Thu Nov 25 17:47:57 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
@@ -14,6 +14,8 @@ MODULE CSRMatrixClass
    use GenericMatrixClass   , only: Matrix_t, DenseBlock_t
    use LinkedListMatrixClass, only: LinkedListMatrix_t
    use JacobianDefinitions  , only: JACEPS
+   use PartitionedMeshClass, only: mpi_partition ! for MPI
+   use MPI_Process_Info    , only: MPI_Process
 #include "Includes.h"
    IMPLICIT NONE
    
@@ -956,6 +958,7 @@ MODULE CSRMatrixClass
 !  Subroutine to add a value to the entries of a block with relative index
 !  -----------------------------------------------------------------------
    subroutine CSR_AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      ! use mpi
       implicit none
       !-arguments-----------------------------------
       class(csrMat_t), intent(inout) :: this
@@ -964,6 +967,7 @@ MODULE CSRMatrixClass
       real(kind=RP)  , intent(in)    :: value
       !-local-variables-----------------------------
       integer :: row, col
+      ! integer                         :: process_Rank, ierr
       !---------------------------------------------
       
       if (.not. allocated(this % BlockIdx)) then
@@ -972,8 +976,14 @@ MODULE CSRMatrixClass
          stop 99
       end if
       
-      row = this % BlockIdx(iBlock) + i - 1
-      col = this % BlockIdx(jBlock) + j - 1
+      ! row = this % BlockIdx(iBlock) + i - 1
+      ! col = this % BlockIdx(jBlock) + j - 1
+      row = this % BlockIdx(mpi_partition % global2localeID(iBlock)) + i - 1
+      col = this % BlockIdx(mpi_partition % global2localeID(jBlock)) + j - 1
+
+      ! call MPI_COMM_RANK(MPI_COMM_WORLD, process_Rank, ierr)
+      ! print *, process_Rank, "row = ", row, "/" ,this % num_of_Rows
+      ! print *, process_Rank, "col = ", col, "/" ,this % num_of_Cols
       
       call this % AddToEntry(row, col, value)
       
