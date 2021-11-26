@@ -234,7 +234,7 @@ install-ns: lib$(LIB)_ns.a
 	@echo
 	@echo
 
-install-ns: lib$(LIB)_nssa.a
+install-nssa: lib$(LIB)_nssa.a
 	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
 	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	@echo

@@ -2,7 +2,7 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    mkl_spblas.f90
-!   @Author:  Intel Corporation
+!   @Author:  Intel Corporation / Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Wed Nov 24 17:19:26 2021
 !   @Last revision date: Thu Nov 25 17:47:59 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
@@ -10,9 +10,8 @@
 !
 !//////////////////////////////////////////////////////
 !
-!
-!//////////////////////////////////////////////////////
-!
+! Useful Fortran interfaces for SparseBLAS routines. Most of the them are copied
+! from Intel OneAPI v. 2021.3.0. 
 !
 !//////////////////////////////////////////////////////
 !
@@ -41,7 +40,7 @@
 !*******************************************************************************
 
 MODULE MKL_SPBLAS
-
+    use SMConstants
     USE, INTRINSIC :: ISO_C_BINDING , ONLY : C_INTPTR_T, C_INT
 
 !   status of the routines
@@ -138,6 +137,14 @@ MODULE MKL_SPBLAS
         INTEGER(C_INT) :: MODE
         INTEGER(C_INT) :: DIAG
     END TYPE MATRIX_DESCR
+
+!   struct to store MKL parameters for HORSES3D 
+    TYPE MKL_Global
+        type(SPARSE_MATRIX_T)   :: csrA
+        type(MATRIX_DESCR)      :: descrA
+        INTEGER(C_INT)          :: index_base
+        INTEGER(C_INT)          :: trans
+    END TYPE
 
 !*****************************************************************************************
 !*************************************** Creation routines *******************************
