@@ -4,7 +4,7 @@
 !   @File:    CSRMatrixClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: 
-!   @Last revision date: Fri Nov 26 20:08:53 2021
+!   @Last revision date: Sat Nov 27 12:23:21 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !
 !//////////////////////////////////////////////////////
@@ -1213,48 +1213,31 @@ MODULE CSRMatrixClass
 !  Matrix vector product (v = Au) being A a CSR matrix
 !  -> v needs to be allocated beforehand
 !  ----------------------------------------------------
-   function CSR_LowerTriangularMatVecMul( A,u, trans) result(v)
+   function CSR_LowerTriangularMatVecMul( A,u, trans, tri_shift) result(v)
       implicit none
       !-arguments--------------------------------------------------------------------
       class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
       real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
       logical, optional, intent(in)    :: trans   !< A matrix is transposed?
       real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
+      integer          , intent(in)    :: tri_shift
       !------------------------------------------------------------------------------
       integer           :: i,j
       REAL(KIND=RP)     :: rsum
-      character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
     
-      IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
-         STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
-      END IF
+      if (trans) ERROR stop "CSR_LowerTriangularMatVecMul :: A^T x not implemented."
       
-      if ( present(trans) ) then
-         if (trans) then
-            transInfo = 't'
-         else
-            transInfo = 'n'
-         end if
-      else
-         transInfo = 'n'
-      end if
-    
-#ifdef HAS_MKL
-      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
-#else
-      if (transInfo == 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0
          DO j=A % Rows(i),A % Rows(i+1)-1
-            rsum = rsum + u(A % Cols(j)) * A % Values(j)
+            if ( A % Cols(j) .le. (i - tri_shift )) rsum = rsum + u(A % Cols(j)) * A % Values(j)
          END DO
          v(i) = rsum
       END DO
 !$omp end parallel do
-#endif
-   !------------------------------------------------------------------------------
+
    end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1264,48 +1247,32 @@ MODULE CSRMatrixClass
 !  Matrix vector product (v = Au) being A a CSR matrix
 !  -> v needs to be allocated beforehand
 !  ----------------------------------------------------
-   function CSR_UpperTriangularMatVecMul( A,u, trans) result(v)
+   function CSR_UpperTriangularMatVecMul( A,u, trans, tri_shift) result(v)
       implicit none
       !-arguments--------------------------------------------------------------------
       class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
       real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
       logical, optional, intent(in)    :: trans   !< A matrix is transposed?
       real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
+      integer          , intent(in)    :: tri_shift
       !------------------------------------------------------------------------------
       integer           :: i,j
       REAL(KIND=RP)     :: rsum
       character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
     
-      IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
-         STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
-      END IF
+      if (trans) ERROR stop "CSR_UpperTriangularMatVecMul :: A^T x not implemented."
       
-      if ( present(trans) ) then
-         if (trans) then
-            transInfo = 't'
-         else
-            transInfo = 'n'
-         end if
-      else
-         transInfo = 'n'
-      end if
-    
-#ifdef HAS_MKL
-      CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
-#else
-      if (transInfo == 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0
          DO j=A % Rows(i),A % Rows(i+1)-1
-            rsum = rsum + u(A % Cols(j)) * A % Values(j)
+            if ( A % Cols(j) .ge. (i + tri_shift )) rsum = rsum + u(A % Cols(j)) * A % Values(j)
          END DO
          v(i) = rsum
       END DO
 !$omp end parallel do
-#endif
-   !------------------------------------------------------------------------------
+
    end function
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
