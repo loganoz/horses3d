@@ -13,6 +13,7 @@ MOD_FLAG?=-J
 
 LIBOBJS_NS = ./build_ns/JacobianDefinitions.o \
 	        ./build_ns/ColorsClass.o \
+			    ./build_ns/mkl_spblas.o \
 					./build_ns/GenericMatrixClass.o \
 			    ./build_ns/LinkedListMatrixClass.o \
 			    ./build_ns/CSRMatrixClass.o \
@@ -27,6 +28,7 @@ LIBOBJS_NS = ./build_ns/JacobianDefinitions.o \
 
 LIBOBJS_NSSA = ./build_nssa/JacobianDefinitions.o \
 	            ./build_nssa/ColorsClass.o \
+			    ./build_nssa/mkl_spblas.o \
 			    ./build_nssa/GenericMatrixClass.o \
 			    ./build_nssa/LinkedListMatrixClass.o \
 			    ./build_nssa/CSRMatrixClass.o \
@@ -41,6 +43,7 @@ LIBOBJS_NSSA = ./build_nssa/JacobianDefinitions.o \
 
 LIBOBJS_iNS = ./build_ins/JacobianDefinitions.o \
          	./build_ins/ColorsClass.o \
+			    ./build_ins/mkl_spblas.o \
 					./build_ins/GenericMatrixClass.o \
 			    ./build_ins/LinkedListMatrixClass.o \
 			    ./build_ins/CSRMatrixClass.o \
@@ -57,6 +60,7 @@ LIBOBJS_iNS = ./build_ins/JacobianDefinitions.o \
 
 LIBOBJS_CH = ./build_ch/JacobianDefinitions.o \
         	./build_ch/ColorsClass.o \
+			    ./build_ch/mkl_spblas.o \
 				  ./build_ch/GenericMatrixClass.o \
 			    ./build_ch/LinkedListMatrixClass.o \
 			    ./build_ch/CSRMatrixClass.o \
@@ -71,6 +75,7 @@ LIBOBJS_CH = ./build_ch/JacobianDefinitions.o \
 
 LIBOBJS_MU = ./build_mu/JacobianDefinitions.o \
         	./build_mu/ColorsClass.o \
+			    ./build_mu/mkl_spblas.o \
 					./build_mu/GenericMatrixClass.o \
 			    ./build_mu/LinkedListMatrixClass.o \
 			    ./build_mu/CSRMatrixClass.o \
