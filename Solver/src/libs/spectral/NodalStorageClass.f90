@@ -52,7 +52,7 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: Fwd                       ! Projection matrix from Lagrange to Legendre
       real(kind=RP), dimension(:,:), allocatable :: Bwd                       ! Projection matrix from Legendre to Lagrange
-      real(kind=RP), dimension(:),   allocatable :: xCGL, wbCGL
+      real(kind=RP), dimension(:)  , allocatable :: xCGL, wbCGL
       real(kind=RP), dimension(:,:), allocatable :: DCGL, TCheb2Gauss
       contains
          procedure :: construct => ConstructNodalStorage

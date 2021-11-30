@@ -28,6 +28,14 @@ module SCsensorClass
    public :: Set_SCsensor
    public :: Destruct_SCsensor
 
+   type :: TruncationError_t
+      integer                  :: Nmin       !< Min order N
+      integer                  :: deltaN     !< N' of coarser mesh is max(Nmin, N-deltaN)
+      integer                  :: derivType  !< Whether the time derivative isolated or not
+      type(DGSem), allocatable :: coarseSem  !< DGSEM for the coarser mesh
+      procedure(ComputeTimeDerivative_f), nopass, pointer :: TimeDerivative => null()
+   end type TruncationError_t
+
    type :: SCsensor_t
 
          integer  :: sens_type  ! ID of the sensor type
@@ -50,14 +58,6 @@ module SCsensorClass
          final     :: Destruct_SCsensor
 
    end type SCsensor_t
-
-   type :: TruncationError_t
-      integer                  :: Nmin       !< Min order N
-      integer                  :: deltaN     !< N' of coarser mesh is max(Nmin, N-deltaN)
-      integer                  :: derivType  !< Whether the time derivative isolated or not
-      type(DGSem), allocatable :: coarseSem  !< DGSEM for the coarser mesh
-      procedure(ComputeTimeDerivative_f), nopass, pointer :: TimeDerivative => null()
-   end type TruncationError_t
 !
 !  Interfaces
 !  ----------
@@ -149,6 +149,10 @@ module SCsensorClass
          call Construct_TEsensor(sensor, controlVariables, sem, complementaryGeometry, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
+      case (SC_ALIAS_VAL)
+         sensor % sens_type = SC_ALIAS_ID
+         sensor % Compute  => Sensor_aliasing
+
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
@@ -156,6 +160,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_GRADRHO_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
+         write(STD_OUT,*) '   * ', SC_ALIAS_VAL
          stop
 
       end select
@@ -395,6 +400,7 @@ module SCsensorClass
          case (SC_GRADRHO_ID); write(STD_OUT,"(A)") SC_GRADRHO_VAL
          case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
          case (SC_TE_ID);      write(STD_OUT,"(A)") SC_TE_VAL
+         case (SC_ALIAS_ID);   write(STD_OUT,"(A)") SC_ALIAS_VAL
       end select
 
       if (sensor % sens_type == SC_TE_ID) then
@@ -468,7 +474,7 @@ module SCsensorClass
       integer :: eID
 
 
-!$omp parallel do schedule(runtime)
+!$omp parallel do
       do eID = 1, sem % mesh % no_of_elements
          sem % mesh % elements(eID) % storage % sensor = 0.0_RP
       end do
@@ -494,7 +500,7 @@ module SCsensorClass
       integer :: eID
 
 
-!$omp parallel do schedule(runtime)
+!$omp parallel do
       do eID = 1, sem % mesh % no_of_elements
          sem % mesh % elements(eID) % storage % sensor = 1.0_RP
       end do
@@ -754,6 +760,86 @@ module SCsensorClass
       if (associated(ce)) nullify(ce)
 
    end subroutine Sensor_truncation
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_aliasing(sensor, sem, t)
+!
+!     -------
+!     Modules
+!     -------
+      use HyperbolicDiscretizations, only: HyperbolicDiscretization
+      use Physics,                   only: EulerFlux
+      use Utilities,                 only: AlmostEqual
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer               :: eID
+      integer               :: i, j, k, l
+      real(RP), allocatable :: F(:,:,:,:,:)
+      real(RP), allocatable :: Fs(:,:,:,:,:)
+      real(RP), allocatable :: Gs(:,:,:,:,:)
+      real(RP), allocatable :: Hs(:,:,:,:,:)
+      real(RP), allocatable :: aliasing(:,:,:,:)
+
+
+!$omp parallel do schedule(runtime) private(eID, i, j, k, l, F, Fs, Gs, Hs, aliasing)
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID))
+
+         allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
+         allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         allocate(Gs(NCONS, 0:e % Nxyz(2), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         allocate(Hs(NCONS, 0:e % Nxyz(3), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+
+         call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
+         call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
+
+         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+                   spAeta  => NodalStorage(e % Nxyz(2)), &
+                   spAzeta => NodalStorage(e % Nxyz(3)))
+
+            allocate(aliasing(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)), source=0.0_RP)
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAxi % D(i,l) * (2.0_RP*Fs(:,i,l,j,k) - Fs(:,l,l,j,k))
+            end do                ; end do                ; end do                ; end do
+            do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAeta % D(j,l) * (2.0_RP*Gs(:,j,i,l,k) - Gs(:,l,i,l,k))
+            end do                ; end do                ; end do                ; end do
+            do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAzeta % D(k,l) * (2.0_RP*Hs(:,k,i,j,l) - Hs(:,l,i,j,l))
+            end do                ; end do                ; end do                ; end do
+
+         end associate
+
+         aliasing = abs(aliasing)
+         e % storage % sensor = maxval(aliasing)
+         if (AlmostEqual(e % storage % sensor, 0.0_RP)) then
+            e % storage % sensor = -999.0_RP
+         else
+            e % storage % sensor = log10(e % storage % sensor)
+         end if
+
+         deallocate(F)
+         deallocate(Fs)
+         deallocate(Gs)
+         deallocate(Hs)
+         deallocate(aliasing)
+
+      end associate
+      end do
+!$omp end parallel do
+
+   end subroutine Sensor_aliasing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

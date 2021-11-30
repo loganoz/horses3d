@@ -31,15 +31,26 @@ module ShockCapturing
    public :: Initialize_ShockCapturing
    public :: ShockCapturingDriver
 
+   type SC_generalMethod_t
+
+         integer, private :: region  !< Sensor region where it acts (1 or 2)
+
+      contains
+
+         procedure :: Initialize => Method_initialize
+         procedure :: Viscosity  => Method_viscosity
+         procedure :: Advection  => Method_advection
+         procedure :: Describe   => Method_describe
+
+   end type SC_generalMethod_t
+
    type SCdriver_t
 
-         logical :: isActive = .false.  !< On/Off flag
-         logical :: hasEllipticTerm     !< .true. if the elliptic term is computed
-         logical :: hasHyperbolicTerm   !< .true. if the inviscid term is computed
+      logical  :: isActive = .false.  !< On/Off flag
 
-         type(SCsensor_t),             private              :: sensor     !< Sensor to find discontinuities
-         class(ArtificialViscosity_t), private, allocatable :: viscosity  !< Artificial viscosity
-         class(ArtificialAdvection_t), private, allocatable :: advection  !< Hyperbolic term
+      type(SCsensor_t),          private              :: sensor   !< Sensor to find discontinuities
+      class(SC_generalMethod_t), private, allocatable :: method1  !< First SC method
+      class(SC_generalMethod_t), private, allocatable :: method2  !< Second SC method
 
       contains
 
@@ -52,49 +63,39 @@ module ShockCapturing
 
    end type SCdriver_t
 
-   type ArtificialViscosity_t
+   type, extends(SC_generalMethod_t) :: ArtificialViscosity_t
 
-         integer,  private :: updateMethod     !< Method to compute the viscosity
-         integer,  private :: flux_type        !< Art. visc. formulation
-         real(RP), private :: mu1              !< First viscosity parameter (low)
-         real(RP), private :: alpha1           !< Second viscosity parameter (low)
-         real(RP), private :: mu2              !< First viscosity parameter (high)
-         real(RP), private :: alpha2           !< Second viscosity parameter (high)
-         real(RP), private :: mu2alpha         !< Ratio alpha/mu
-         logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
+      integer,  private :: updateMethod     !< Method to compute the viscosity coefficient
+      real(RP), private :: mu1              !< First viscosity parameter (low)
+      real(RP), private :: alpha1           !< Second viscosity parameter (low)
+      real(RP), private :: mu2              !< First viscosity parameter (high)
+      real(RP), private :: alpha2           !< Second viscosity parameter (high)
+      real(RP), private :: mu2alpha         !< Ratio alpha/mu
+      logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
 
-         type(Smagorinsky_t), private :: Smagorinsky  !< For automatic viscosity
+      type(Smagorinsky_t), private :: Smagorinsky  !< For automatic viscosity
 
       contains
 
-         procedure :: Initialize => AV_Initialize
-         procedure :: Compute    => AV_compute
-         procedure :: Describe   => AV_describe
+         procedure :: Initialize => AV_initialize
 
    end type ArtificialViscosity_t
 
-   type ArtificialAdvection_t
-
-      contains
-
-         procedure :: Initialize => AA_Initialize
-         procedure :: Compute    => AA_compute
-         procedure :: Describe   => AA_describe
-
+   type, extends(SC_generalMethod_t) :: ArtificialAdvection_t
    end type ArtificialAdvection_t
 
    type, extends(ArtificialViscosity_t) :: SC_NoSVV_t
 
-      integer                                          :: fluxType
+      integer,                                 private :: fluxType
       procedure(Viscous_Int), nopass, pointer, private :: ViscousFlux => null()
 
-   contains
+      contains
 
-      procedure :: Initialize => NoSVV_initialize
-      procedure :: Compute    => NoSVV_viscosity
-      procedure :: Describe   => NoSVV_describe
+         procedure :: Initialize => NoSVV_initialize
+         procedure :: Viscosity  => NoSVV_viscosity
+         procedure :: Describe   => NoSVV_describe
 
-      final :: NoSVV_destruct
+         final :: NoSVV_destruct
 
    end type SC_NoSVV_t
 
@@ -106,24 +107,24 @@ module ShockCapturing
       real(RP), private :: sqrt_alpha2
       real(RP), private :: sqrt_mu2alpha
 
-   contains
+      contains
 
-      procedure :: Initialize => SVV_initialize
-      procedure :: Compute    => SVV_viscosity
-      procedure :: Describe   => SVV_describe
+         procedure :: Initialize => SVV_initialize
+         procedure :: Viscosity  => SVV_viscosity
+         procedure :: Describe   => SVV_describe
 
    end type SC_SVV_t
 
-   type, extends(ArtificialAdvection_t) :: SC_SSFV_t
+   type, extends(SC_generalMethod_t) :: SC_SSFV_t
 
-      real(RP) :: c1  ! Lower limit of the blending parameter ("More FV")
-      real(RP) :: c2  ! Higher limit of the blending parameter ("More FS")
+      real(RP), private :: c1  ! Lower limit of the blending parameter ("More FV")
+      real(RP), private :: c2  ! Higher limit of the blending parameter ("More FS")
 
-   contains
+      contains
 
-      procedure :: Initialize => SSFV_initialize
-      procedure :: Compute    => SSFV_hyperbolic
-      procedure :: Describe   => SSFV_describe
+         procedure :: Initialize => SSFV_initialize
+         procedure :: Advection  => SSFV_hyperbolic
+         procedure :: Describe   => SSFV_describe
 
    end type SC_SSFV_t
 !
@@ -183,67 +184,12 @@ module ShockCapturing
       logical                       :: updateCompGeometry
 
 !
-!     Shock-capturing methods
-!     -----------------------
-      if (controlVariables % containsKey(SC_VISC_METHOD_KEY)) then
-         method = controlVariables % stringValueForKey(SC_VISC_METHOD_KEY, LINE_LENGTH)
-      else
-         method = SC_NO_VAL
-      end if
-      call toLower(method)
-
-      allocate(self)
-
-      select case (trim(method))
-      case (SC_NOSVV_VAL)
-         allocate(SC_NoSVV_t :: self % viscosity)
-         self % hasEllipticTerm = .true.
-
-      case (SC_SVV_VAL)
-         allocate(SC_SVV_t :: self % viscosity)
-         self % hasEllipticTerm = .true.
-
-      case (SC_NO_VAL)
-         self % hasEllipticTerm = .false.
-
-      case default
-         write(STD_OUT,*) 'ERROR. Unavailable shock-capturing viscous method. Options are:'
-         write(STD_OUT,*) '   * ', SC_NO_VAL
-         write(STD_OUT,*) '   * ', SC_NOSVV_VAL
-         write(STD_OUT,*) '   * ', SC_SVV_VAL
-         stop
-
-      end select
-
-      if (controlVariables % containsKey(SC_HYP_METHOD_KEY)) then
-         method = controlVariables % stringValueForKey(SC_HYP_METHOD_KEY, LINE_LENGTH)
-      else
-         method = SC_NO_VAL
-      end if
-      call toLower(method)
-
-      select case (trim(method))
-      case (SC_SSFV_VAL)
-         allocate (SC_SSFV_t :: self % advection)
-         self % hasHyperbolicTerm = .true.
-         updateCompGeometry = .true.
-
-      case (SC_NO_VAL)
-         self % hasHyperbolicTerm = .false.
-         updateCompGeometry = .false.
-
-      case default
-         write(STD_OUT,*) 'ERROR. Unavailable shock-capturing hyperbolic method. Options are:'
-         write(STD_OUT,*) '   * ', SC_NO_VAL
-         write(STD_OUT,*) '   * ', SC_SSFV_VAL
-         stop
-
-      end select
-!
 !     Check if shock-capturing is requested
 !     -------------------------------------
+      allocate(self)
+
       if (controlVariables % containsKey(SC_KEY)) then
-         self % isActive = controlVariables%logicalValueForKey(SC_KEY)
+         self % isActive = controlVariables % logicalValueForKey(SC_KEY)
       else
          self % isActive = .false.
       end if
@@ -253,10 +199,78 @@ module ShockCapturing
          return
       end if
 !
+!     Shock-capturing methods
+!     -----------------------
+      if (controlVariables % containsKey(SC_METHOD1_KEY)) then
+         method = controlVariables % stringValueForKey(SC_METHOD1_KEY, LINE_LENGTH)
+      else
+         method = SC_NO_VAL
+      end if
+      call toLower(method)
+
+      select case (trim(method))
+      case (SC_NOSVV_VAL)
+         allocate(SC_NoSVV_t :: self % method1)
+         updateCompGeometry = .false.
+
+      case (SC_SVV_VAL)
+         allocate(SC_SVV_t :: self % method1)
+         updateCompGeometry = .false.
+
+      case (SC_SSFV_VAL)
+         allocate(SC_SSFV_t :: self % method1)
+         updateCompGeometry = .true.
+
+      case (SC_NO_VAL)
+         updateCompGeometry = .false.
+
+      case default
+         write(STD_OUT,*) 'ERROR. Unavailable first shock-capturing method. Options are:'
+         write(STD_OUT,*) '   * ', SC_NO_VAL
+         write(STD_OUT,*) '   * ', SC_NOSVV_VAL
+         write(STD_OUT,*) '   * ', SC_SVV_VAL
+         write(STD_OUT,*) '   * ', SC_SSFV_VAL
+         stop
+
+      end select
+
+      if (controlVariables % containsKey(SC_METHOD2_KEY)) then
+         method = controlVariables % stringValueForKey(SC_METHOD2_KEY, LINE_LENGTH)
+      else
+         method = SC_NO_VAL
+      end if
+      call toLower(method)
+
+      select case (trim(method))
+      case (SC_NOSVV_VAL)
+         allocate(SC_NoSVV_t :: self % method2)
+         updateCompGeometry = updateCompGeometry .or. .false.
+
+      case (SC_SVV_VAL)
+         allocate(SC_SVV_t :: self % method2)
+         updateCompGeometry = updateCompGeometry .or. .false.
+
+      case (SC_SSFV_VAL)
+         allocate(SC_SSFV_t :: self % method2)
+         updateCompGeometry = .true.
+
+      case (SC_NO_VAL)
+         updateCompGeometry = updateCompGeometry .or. .false.
+
+      case default
+         write(STD_OUT,*) 'ERROR. Unavailable second shock-capturing method. Options are:'
+         write(STD_OUT,*) '   * ', SC_NO_VAL
+         write(STD_OUT,*) '   * ', SC_NOSVV_VAL
+         write(STD_OUT,*) '   * ', SC_SVV_VAL
+         write(STD_OUT,*) '   * ', SC_SSFV_VAL
+         stop
+
+      end select
+!
 !     Initialize viscous and hyperbolic terms
 !     ---------------------------------------
-      if (allocated(self % viscosity)) call self % viscosity % Initialize(controlVariables, sem % mesh)
-      if (allocated(self % advection)) call self % advection % Initialize(controlVariables, sem % mesh)
+      if (allocated(self % method1)) call self % method1 % Initialize(controlVariables, sem % mesh, 1)
+      if (allocated(self % method2)) call self % method2 % Initialize(controlVariables, sem % mesh, 2)
 !
 !     Construct sensor
 !     ----------------
@@ -308,18 +322,23 @@ module ShockCapturing
 !     ---------------
       real(RP) :: switch
 
-!
-!     Scale the sensed value to the range [0,1]
-!     -----------------------------------------
+
       switch = self % sensor % Rescale(e % storage % sensor)
 
-      call self % viscosity % Compute(mesh, e, switch, SCflux)
+      if (allocated(self % method1) .and. switch < 1.0_RP) then
+         call self % method1 % Viscosity(mesh, e, switch, SCflux)
+      else if (allocated(self % method2) .and. switch >= 1.0_RP) then
+         call self % method2 % Viscosity(mesh, e, switch, SCflux)
+      else
+         SCflux = 0.0_RP
+         e % storage % artificialDiss = 0.0_RP
+      end if
 
    end subroutine SC_viscosity
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SC_advection(self, e, Fv, Qdot, isStrong)
+   function SC_advection(self, e, Fv, Qdot, isStrong) result(computed)
 !
 !     ---------
 !     Interface
@@ -337,6 +356,7 @@ module ShockCapturing
                                              0:e % Nxyz(1), &
                                              0:e % Nxyz(2), &
                                              0:e % Nxyz(3)  )
+      logical :: computed
 !
 !     ---------------
 !     Local variables
@@ -344,10 +364,6 @@ module ShockCapturing
       real(RP) :: switch
       logical  :: strongIntegral
 
-!
-!     Scale the sensed value to the range [0,1]
-!     -----------------------------------------
-      switch = self % sensor % Rescale(e % storage % sensor)
 
       if (present(isStrong)) then
          strongIntegral = isStrong
@@ -355,9 +371,17 @@ module ShockCapturing
          strongIntegral = .false.
       end if
 
-      call self % advection % Compute(e, switch, Fv, strongIntegral, Qdot)
+      switch = self % sensor % Rescale(e % storage % sensor)
 
-   end subroutine SC_advection
+      if (allocated(self % method1) .and. switch < 1.0_RP) then
+         computed = self % method1 % Advection(e, switch, Fv, strongIntegral, Qdot)
+      else if (allocated(self % method2) .and. switch >= 1.0_RP) then
+         computed = self % method2 % Advection(e, switch, Fv, strongIntegral, Qdot)
+      else
+         computed = .false.
+      end if
+
+   end function SC_advection
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -382,8 +406,18 @@ module ShockCapturing
       call Subsection_Header("Shock-Capturing")
 
       call self % sensor % Describe()
-      if (allocated(self % viscosity)) call self % viscosity % Describe()
-      if (allocated(self % advection)) call self % advection % Describe()
+
+      if (allocated(self % method1)) then
+         write(STD_OUT,*) ""
+         write(STD_OUT,"(30X,A,A30)") "=>", "First method"
+         call self % method1 % Describe()
+      end if
+
+      if (allocated(self % method2)) then
+         write(STD_OUT,*) ""
+         write(STD_OUT,"(30X,A,A30)") "=>", "Second method"
+         call self % method2 % Describe()
+      end if
 
    end subroutine SC_describe
 !
@@ -402,18 +436,100 @@ module ShockCapturing
 
       call Destruct_SCsensor(self % sensor)
 
-      if (allocated(self % viscosity)) deallocate(self % viscosity)
-      if (allocated(self % advection)) deallocate(self % advection)
+      if (allocated(self % method1)) deallocate(self % method1)
+      if (allocated(self % method2)) deallocate(self % method2)
 
    end subroutine SC_destruct
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-!     Artificial viscosity base class
+!     Shock-capturing methods base class
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AV_initialize(self, controlVariables, mesh)
+   subroutine Method_initialize(self, controlVariables, mesh, region)
+!
+!     -------
+!     Modules
+!     -------
+      use FTValueDictionaryClass
+!
+!     ---------
+!     Interface
+!     ---------
+      class(SC_generalMethod_t), intent(inout) :: self
+      type(FTValueDictionary),   intent(in)    :: controlVariables
+      type(HexMesh),             intent(inout) :: mesh
+      integer,                   intent(in)    :: region
+
+   end subroutine Method_initialize
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Method_viscosity(self, mesh, e, switch, SCflux)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SC_generalMethod_t), intent(in)    :: self
+      type(HexMesh),             intent(inout) :: mesh
+      type(Element),             intent(inout) :: e
+      real(RP),                  intent(in)    :: switch
+      real(RP),                  intent(out)   :: SCflux(1:NCONS,       &
+                                                         0:e % Nxyz(1), &
+                                                         0:e % Nxyz(2), &
+                                                         0:e % Nxyz(3), &
+                                                         1:NDIM)
+
+
+      SCflux = 0.0_RP
+
+   end subroutine Method_viscosity
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   function Method_advection(self, e, switch, Fv, isStrong, div)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SC_generalMethod_t), intent(in)    :: self
+      type(Element),             intent(in)    :: e
+      real(RP),                  intent(in)    :: switch
+      logical,                   intent(in)    :: isStrong
+      real(RP),                  intent(in)    :: Fv(1:NCONS,       &
+                                                     0:e % Nxyz(1), &
+                                                     0:e % Nxyz(2), &
+                                                     0:e % Nxyz(3), &
+                                                     1:NDIM         )
+      real(RP),                  intent(inout) :: div(1:NCONS,       &
+                                                      0:e % Nxyz(1), &
+                                                      0:e % Nxyz(2), &
+                                                      0:e % Nxyz(3)  )
+      logical :: Method_advection
+
+
+      Method_advection = .false.
+
+   end function Method_advection
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Method_describe(self)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SC_generalMethod_t), intent(in) :: self
+
+   end subroutine Method_describe
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine AV_initialize(self, controlVariables, mesh, region)
 !
 !     -------
 !     Modules
@@ -426,7 +542,8 @@ module ShockCapturing
       implicit none
       class(ArtificialViscosity_t), intent(inout) :: self
       type(FTValueDictionary),      intent(in)    :: controlVariables
-      type(HexMesh),                intent(in)    :: mesh
+      type(HexMesh),                intent(inout) :: mesh
+      integer,                      intent(in)    :: region
 !
 !     ---------------
 !     Local variables
@@ -436,17 +553,31 @@ module ShockCapturing
 !
 !     Viscosity values (mu and alpha)
 !     -------------------------------
-      if (controlVariables % containsKey(SC_MU1_KEY)) then
-         self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
-      else
-         write(STD_OUT,*) "ERROR. A value for the artificial 'mu 1' must be given."
-         stop
-      end if
+      if (region == 1) then
 
-      if (controlVariables % containsKey(SC_MU2_KEY)) then
-         self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
+         if (controlVariables % containsKey(SC_MU1_KEY)) then
+            self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
+         else
+            write(STD_OUT,*) "ERROR. A value for the artificial 'mu 1' must be given."
+            stop
+         end if
+
+         if (controlVariables % containsKey(SC_MU2_KEY)) then
+            self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
+         else
+            self % mu2 = self % mu1
+         end if
+
       else
-         self % mu2 = self % mu1
+
+         if (controlVariables % containsKey(SC_MU2_KEY)) then
+            self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
+         else
+            write(STD_OUT,*) "ERROR. A value for the artificial 'mu 2' must be given."
+            stop
+         end if
+         self % mu1 = self % mu2
+
       end if
 
       if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
@@ -460,53 +591,78 @@ module ShockCapturing
 
          self % alphaIsPropToMu = .false.
 
-         if (controlVariables % containsKey(SC_ALPHA1_KEY)) then
-            self % alpha1 = controlVariables % doublePrecisionValueForKey(SC_ALPHA1_KEY)
-         else
-            self % alpha1 = 0.0_RP
-         end if
+         if (region == 1) then
 
-         if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
-            self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
+            if (controlVariables % containsKey(SC_ALPHA1_KEY)) then
+               self % alpha1 = controlVariables % doublePrecisionValueForKey(SC_ALPHA1_KEY)
+            else
+               self % alpha1 = 0.0_RP
+            end if
+
+            if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
+               self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
+            else
+               self % alpha2 = self % alpha1
+            end if
+
          else
-            self % alpha2 = self % alpha1
+
+            if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
+               self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
+            else
+               self % alpha2 = 0.0_RP
+            end if
+            self % alpha1 = self % alpha2
+
          end if
 
       end if
 !
 !     Viscosity update method
 !     -----------------------
-      if (controlVariables % containsKey(SC_VISC_UPDATE_KEY)) then
-         update = controlVariables % StringValueForKey(SC_VISC_UPDATE_KEY, LINE_LENGTH)
-         call toLower(update)
+      if (region == 1) then
 
-         select case (trim(update))
-         case (SC_CONST_VAL)
-            self % updateMethod = SC_CONST_ID
+         if (controlVariables % containsKey(SC_UPDATE_KEY)) then
+            update = controlVariables % StringValueForKey(SC_UPDATE_KEY, LINE_LENGTH)
+            call toLower(update)
 
-         case (SC_SENSOR_VAL)
-            self % updateMethod = SC_SENSOR_ID
+            select case (trim(update))
+            case (SC_CONST_VAL)
+               self % updateMethod = SC_CONST_ID
 
-         case (SC_SMAG_VAL)
+            case (SC_SENSOR_VAL)
+               self % updateMethod = SC_SENSOR_ID
 
-            self % updateMethod = SC_SMAG_ID
-            if (.not. self%alphaIsPropToMu) then
-               write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using SVV-LES.'
+            case (SC_SMAG_VAL)
+
+               self % updateMethod = SC_SMAG_ID
+               if (.not. self%alphaIsPropToMu) then
+                  write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using shock-capturing with LES.'
+                  stop
+               end if
+
+               ! TODO: Use the default constructor
+               self % Smagorinsky % active = .true.
+               self % Smagorinsky % requiresWallDistances = .false.
+               self % Smagorinsky % WallModel = 0  ! No wall model
+               self % Smagorinsky % CS = self % mu1
+
+            case default
+               write(STD_OUT,*) 'ERROR. Unavailable shock-capturing update strategy. Options are:'
+               write(STD_OUT,*) '   * ', SC_CONST_VAL
+               write(STD_OUT,*) '   * ', SC_SENSOR_VAL
+               write(STD_OUT,*) '   * ', SC_SMAG_VAL
                stop
-            end if
 
-            ! TODO: Use the default constructor
-            self % Smagorinsky % active = .true.
-            self % Smagorinsky % requiresWallDistances = .false.
-            self % Smagorinsky % WallModel = 0  ! No wall model
-            self % Smagorinsky % CS = self % mu1
+            end select
 
-         case default
+         else
             self % updateMethod = SC_CONST_ID
 
-         end select
+         end if
 
       else
+
          self % updateMethod = SC_CONST_ID
 
       end if
@@ -515,118 +671,11 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AV_compute(self, mesh, e, switch, SCflux)
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(ArtificialViscosity_t), intent(in)    :: self
-      type(HexMesh),                intent(inout) :: mesh
-      type(Element),                intent(inout) :: e
-      real(RP),                     intent(in)    :: switch
-      real(RP),                     intent(out)   :: SCflux(1:NCONS,       &
-                                                            0:e % Nxyz(1), &
-                                                            0:e % Nxyz(2), &
-                                                            0:e % Nxyz(3), &
-                                                            1:NDIM)
-
-      SCflux = 0.0_RP
-
-   end subroutine AV_compute
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine AV_describe(self)
-!
-!     -------
-!     Modules
-!     -------
-      use MPI_Process_Info, only: MPI_Process
-      use Headers,          only: Subsection_Header!
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(ArtificialViscosity_t), intent(in) :: self
-
-   end subroutine AV_describe
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-!     Hyperbolic discretization base class
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine AA_initialize(self, controlVariables, mesh)
-!
-!     -------
-!     Modules
-!     -------
-      use FTValueDictionaryClass
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(ArtificialAdvection_t), intent(inout) :: self
-      type(FTValueDictionary),      intent(in)    :: controlVariables
-      type(HexMesh),                intent(inout) :: mesh
-
-   end subroutine AA_initialize
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine AA_compute(self, e, switch, Fv, isStrong, div)
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(ArtificialAdvection_t), intent(in) :: self
-      type(Element),                intent(in) :: e
-      real(RP),                     intent(in) :: switch
-      logical,                      intent(in) :: isStrong
-      real(RP),                     intent(in) :: Fv(1:NCONS,       &
-                                                     0:e % Nxyz(1), &
-                                                     0:e % Nxyz(2), &
-                                                     0:e % Nxyz(3), &
-                                                     1:NDIM         )
-      real(RP)                                 :: div(1:NCONS,       &
-                                                      0:e % Nxyz(1), &
-                                                      0:e % Nxyz(2), &
-                                                      0:e % Nxyz(3)  )
-
-      div = 0.0_RP
-
-   end subroutine AA_compute
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine AA_describe(self)
-!
-!     -------
-!     Modules
-!     -------
-      use MPI_Process_Info, only: MPI_Process
-      use Headers,          only: Subsection_Header!
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(ArtificialAdvection_t), intent(in) :: self
-
-   end subroutine AA_describe
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
 !     Simple artificial viscosity
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NoSVV_initialize(self, controlVariables, mesh)
+   subroutine NoSVV_initialize(self, controlVariables, mesh, region)
 !
 !     -------
 !     Modules
@@ -643,7 +692,8 @@ module ShockCapturing
       implicit none
       class(SC_NoSVV_t),       intent(inout) :: self
       type(FTValueDictionary), intent(in)    :: controlVariables
-      type(HexMesh),           intent(in)    :: mesh
+      type(HexMesh),           intent(inout) :: mesh
+      integer,                 intent(in)    :: region
 !
 !     ---------------
 !     Local variables
@@ -653,28 +703,31 @@ module ShockCapturing
 !
 !     Parent initializer
 !     ------------------
-      call self % ArtificialViscosity_t % Initialize(controlVariables, mesh)
+      call self % ArtificialViscosity_t % Initialize(controlVariables, mesh, region)
+      self % region = region
 !
 !     Set the flux type
 !     -----------------
-      if (controlVariables % containsKey(SC_VISC_FLUX_KEY)) then
-         flux = controlVariables%stringValueForKey(SC_VISC_FLUX_KEY, LINE_LENGTH)
-         call toLower(flux)
-
-         select case (trim(flux))
-         case (SC_PHYS_VAL); self % fluxType = SC_PHYS_ID
-         case (SC_GP_VAL);   self % fluxType = SC_GP_ID
-         case default
-            write(STD_OUT,*) 'ERROR. Artificial viscosity type not recognized. Options are:'
-            write(STD_OUT,*) '   * ', SC_PHYS_VAL
-            write(STD_OUT,*) '   * ', SC_GP_VAL
-            stop
-         end select
-
+      if (region == 1 .and. controlVariables % containsKey(SC_VISC_FLUX1_KEY)) then
+         flux = controlVariables % stringValueForKey(SC_VISC_FLUX1_KEY, LINE_LENGTH)
+      else if (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
+         flux = controlVariables % stringValueForKey(SC_VISC_FLUX2_KEY, LINE_LENGTH)
       else
-         self % fluxType = SC_PHYS_ID
-
+         flux = SC_PHYS_VAL
       end if
+
+      call toLower(flux)
+
+      select case (trim(flux))
+      case (SC_PHYS_VAL); self % fluxType = SC_PHYS_ID
+      case (SC_GP_VAL);   self % fluxType = SC_GP_ID
+      case default
+         write(STD_OUT,'(A,I1,A)') 'ERROR. Artificial viscosity ', region, &
+                                   ' not recognized. Options are:'
+         write(STD_OUT,*) '   * ', SC_PHYS_VAL
+         write(STD_OUT,*) '   * ', SC_GP_VAL
+         stop
+      end select
 
       select case (self % fluxType)
       case (SC_PHYS_ID)
@@ -789,6 +842,7 @@ module ShockCapturing
 
       else
 
+         e % storage % artificialDiss = 0.0_RP
          SCflux = 0.0_RP
 
       end if
@@ -873,7 +927,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SVV_initialize(self, controlVariables, mesh)
+   subroutine SVV_initialize(self, controlVariables, mesh, region)
 !
 !     -------
 !     Modules
@@ -886,12 +940,20 @@ module ShockCapturing
       implicit none
       class(SC_SVV_t),         intent(inout) :: self
       type(FTValueDictionary), intent(in)    :: controlVariables
-      type(HexMesh),           intent(in)    :: mesh
+      type(HexMesh),           intent(inout) :: mesh
+      integer,                 intent(in)    :: region
 
+
+      ! TODO: Implement it also for region 2, but SVV does not seem very useful there...
+      if (region == 2) then
+         write(STD_OUT,*) "ERROR. SVV viscosity can be used only in the first region of the sensor."
+         stop
+      end if
 !
 !     Parent initializer
 !     ------------------
-      call self % ArtificialViscosity_t % Initialize(controlVariables, mesh)
+      call self % ArtificialViscosity_t % Initialize(controlVariables, mesh, region)
+      self % region = region
 !
 !     Set the square root of the viscosities
 !     --------------------------------------
@@ -978,7 +1040,7 @@ module ShockCapturing
 !
 !        Compute the viscous flux
 !        ------------------------
-         call SVV % ComputeInnerFluxes(e, sqrt_mu, sqrt_alpha, switch, SCflux)
+         call SVV % ComputeInnerFluxes(e, sqrt_mu, sqrt_alpha, SCflux)
 
       else
 
@@ -1048,14 +1110,15 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SSFV_initialize(self, controlVariables, mesh)
+   subroutine SSFV_initialize(self, controlVariables, mesh, region)
 !
 !     -------
 !     Modules
 !     -------
       use FTValueDictionaryClass
-      use TransfiniteMapClass, only: TransfiniteHexMap
-      use NodalStorageClass,   only: NodalStorage
+      use TransfiniteMapClass,   only: TransfiniteHexMap
+      use NodalStorageClass,     only: NodalStorage
+      use InterpolationMatrices, only: TsetFV
 !
 !     ---------
 !     Interface
@@ -1064,6 +1127,7 @@ module ShockCapturing
       class(SC_SSFV_t),        intent(inout) :: self
       type(FTValueDictionary), intent(in)    :: controlVariables
       type(HexMesh),           intent(inout) :: mesh
+      integer,                 intent(in)    :: region
 !
 !     ---------------
 !     Local variables
@@ -1074,20 +1138,36 @@ module ShockCapturing
       type(TransfiniteHexMap), pointer :: hex8Map   => null()
       type(TransfiniteHexMap), pointer :: genHexMap => null()
 
+
+      self % region = region
 !
 !     Blending parameters
 !     -------------------
-      if (controlVariables % containsKey(SC_BLENDING1_KEY)) then
-         self % c1 = controlVariables % doublePrecisionValueForKey(SC_BLENDING1_KEY)
-      else
-         write(STD_OUT,*) "ERROR. A value for the blending parameter 1 must be given."
-         stop
-      end if
+      if (region == 1) then
 
-      if (controlVariables % containsKey(SC_BLENDING2_KEY)) then
-         self % c2 = controlVariables % doublePrecisionValueForKey(SC_BLENDING2_KEY)
+         if (controlVariables % containsKey(SC_BLENDING1_KEY)) then
+            self % c1 = controlVariables % doublePrecisionValueForKey(SC_BLENDING1_KEY)
+         else
+            write(STD_OUT,*) "ERROR. A value for the blending parameter 1 must be given."
+            stop
+         end if
+
+         if (controlVariables % containsKey(SC_BLENDING2_KEY)) then
+            self % c2 = controlVariables % doublePrecisionValueForKey(SC_BLENDING2_KEY)
+         else
+            self % c2 = self % c1
+         end if
+
       else
-         self % c2 = self % c1
+
+         if (controlVariables % containsKey(SC_BLENDING2_KEY)) then
+            self % c2 = controlVariables % doublePrecisionValueForKey(SC_BLENDING2_KEY)
+         else
+            write(STD_OUT,*) "ERROR. A value for the blending parameter 2 must be given."
+            stop
+         end if
+         self % c1 = self % c2
+
       end if
 !
 !     Compute the geometry for the complementary grid
@@ -1114,6 +1194,10 @@ module ShockCapturing
                                                  NodalStorage(e % Nxyz(IZ)), &
                                                  hexMap)
 
+         call TsetFV(e % Nxyz(1)) % construct(e % Nxyz(1))
+         call TsetFV(e % Nxyz(2)) % construct(e % Nxyz(2))
+         call TsetFV(e % Nxyz(3)) % construct(e % Nxyz(3))
+
          end associate
 
       end do
@@ -1128,45 +1212,53 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SSFV_hyperbolic(self, e, switch, Fv, isStrong, div)
+   function SSFV_hyperbolic(self, e, switch, Fv, isStrong, div) result(computed)
 !
 !     -------
 !     Modules
 !     -------
-      use PhysicsStorage,     only: IRHO
-      use NodalStorageClass,  only: NodalStorage
-      use Physics,            only: EulerFlux
-      use VariableConversion, only: Pressure, getEntropyVariables
+      use PhysicsStorage,            only: IRHO
+      use NodalStorageClass,         only: NodalStorage
+      use HyperbolicDiscretizations, only: HyperbolicDiscretization
+      use Physics,                   only: EulerFlux
+      use VariableConversion,        only: Pressure, getEntropyVariables
+      use InterpolationMatrices,     only: Average3DArrays
 !
 !     ---------
 !     Interface
 !     ---------
       implicit none
-      class(SC_SSFV_t), intent(in) :: self
-      type(Element),    intent(in) :: e
-      real(RP),         intent(in) :: switch
-      logical,          intent(in) :: isStrong
-      real(RP),         intent(in) :: Fv(1:NCONS,       &
-                                         0:e % Nxyz(1), &
-                                         0:e % Nxyz(2), &
-                                         0:e % Nxyz(3), &
-                                         1:NDIM         )
-      real(RP)                     :: div(1:NCONS,       &
-                                          0:e % Nxyz(1), &
-                                          0:e % Nxyz(2), &
-                                          0:e % Nxyz(3)  )
+      class(SC_SSFV_t),    intent(in) :: self
+      type(Element),       intent(in) :: e
+      real(RP),            intent(in) :: switch
+      logical,             intent(in) :: isStrong
+      real(RP),            intent(in) :: Fv(1:NCONS,       &
+                                            0:e % Nxyz(1), &
+                                            0:e % Nxyz(2), &
+                                            0:e % Nxyz(3), &
+                                            1:NDIM         )
+      real(RP),         intent(inout) :: div(1:NCONS,       &
+                                             0:e % Nxyz(1), &
+                                             0:e % Nxyz(2), &
+                                             0:e % Nxyz(3)  )
+      logical :: computed
 !
 !     ---------------
 !     Local variables
 !     ---------------
       integer  :: i, j, k, r, s
-      real(RP) :: FSx(NCONS, 0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
-      real(RP) :: FSy(NCONS, 0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
-      real(RP) :: FSz(NCONS, 0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
-      real(RP) :: FVx(NCONS, 0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
-      real(RP) :: FVy(NCONS, 0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
-      real(RP) :: FVz(NCONS, 0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
-      real(RP) :: F(NCONS, NDIM)
+      real(RP) :: Qavg  (NCONS,    0:e % Nxyz(1),   0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: Fc    (NCONS,    0:e % Nxyz(1),   0:e % Nxyz(2), 0:e % Nxyz(3), NDIM)
+      real(RP) :: Fsharp(NCONS,    0:e % Nxyz(1),   0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: Gsharp(NCONS,    0:e % Nxyz(2),   0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: Hsharp(NCONS,    0:e % Nxyz(3),   0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: FSx   (NCONS,    0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: FSy   (NCONS,    0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
+      real(RP) :: FSz   (NCONS,    0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
+      real(RP) :: FVx   (NCONS,    0:e % Nxyz(1)+1, 0:e % Nxyz(2), 0:e % Nxyz(3))
+      real(RP) :: FVy   (NCONS,    0:e % Nxyz(2)+1, 0:e % Nxyz(1), 0:e % Nxyz(3))
+      real(RP) :: FVz   (NCONS,    0:e % Nxyz(3)+1, 0:e % Nxyz(1), 0:e % Nxyz(2))
+      real(RP) :: Qr    (NCONS, 2, 0:e % Nxyz(1),   0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: w1(NCONS)
       real(RP) :: w2(NCONS)
       real(RP) :: p
@@ -1185,13 +1277,13 @@ module ShockCapturing
 !
 !     Entropy-conservative averaging in complementary points
 !     ------------------------------------------------------
+      call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, Fc)
+      call HyperbolicDiscretization % ComputeSplitFormFluxes(e, Fc, Fsharp, Gsharp, Hsharp)
+
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
          FSx(:,i,j,k) = 0.0_RP
          do s = i, Nx ; do r = 0, i-1
-            FSx(:,i,j,k) = FSx(:,i,j,k) + spAxi % Q(r,s) * TwoPointFlux(e % storage % Q(:,r,j,k),    &
-                                                                        e % storage % Q(:,s,j,k),    &
-                                                                        e % geom % jGradXi(:,r,j,k), &
-                                                                        e % geom % jGradXi(:,s,j,k)  )
+            FSx(:,i,j,k) = FSx(:,i,j,k) + spAxi % Q(r,s) * Fsharp(:,r,s,j,k)
          end do                  ; end do
          FSx(:,i,j,k) = 2.0_RP * FSx(:,i,j,k)
       end do                ; end do                ; end do
@@ -1199,10 +1291,7 @@ module ShockCapturing
       do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
          FSy(:,j,i,k) = 0.0_RP
          do s = j, Ny ; do r = 0, j-1
-            FSy(:,j,i,k) = FSy(:,j,i,k) + spAeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,i,r,k),     &
-                                                                         e % storage % Q(:,i,s,k),     &
-                                                                         e % geom % jGradEta(:,i,r,k), &
-                                                                         e % geom % jGradEta(:,i,s,k)  )
+            FSy(:,j,i,k) = FSy(:,j,i,k) + spAeta % Q(r,s) * Gsharp(:,r,i,s,k)
          end do                  ; end do
          FSy(:,j,i,k) = 2.0_RP * FSy(:,j,i,k)
       end do                ; end do                ; end do
@@ -1210,10 +1299,7 @@ module ShockCapturing
       do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
          FSz(:,k,i,j) = 0.0_RP
          do s = k, Nz ; do r = 0, k-1
-            FSz(:,k,i,j) = FSz(:,k,i,j) + spAzeta % Q(r,s) * TwoPointFlux(e % storage % Q(:,i,j,r),      &
-                                                                          e % storage % Q(:,i,j,s),      &
-                                                                          e % geom % jGradZeta(:,i,j,r), &
-                                                                          e % geom % jGradZeta(:,i,j,s)  )
+            FSz(:,k,i,j) = FSz(:,k,i,j) + spAzeta % Q(r,s) * Hsharp(:,r,i,j,s)
          end do                  ; end do
          FSz(:,k,i,j) = 2.0_RP * FSz(:,k,i,j)
       end do                ; end do                ; end do
@@ -1221,78 +1307,53 @@ module ShockCapturing
 !     Boundaries
 !     ----------
       do k = 0, Nz ; do j = 0, Ny
-
-         call EulerFlux(e % storage % Q(:,0,j,k), F)
-         FSx(:,0,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),   &
-                                      e % geom % jGradXi(:,0,j,k), &
-                                      e % geom % jGradXi(:,0,j,k))
-
-         call EulerFlux(e % storage % Q(:,Nx,j,k), F)
-         FSx(:,Nx+1,j,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),    &
-                                         e % geom % jGradXi(:,Nx,j,k), &
-                                         e % geom % jGradXi(:,Nx,j,k))
-
+         FSx(:,0,j,k) = Fc(:,0,j,k,IX)
+         FSx(:,Nx+1,j,k) = Fc(:,Nx,j,k,IX)
       end do       ; end do
 
       do k = 0, Nz ; do i = 0, Nx
-
-         call EulerFlux(e % storage % Q(:,i,0,k), F)
-         FSy(:,0,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),    &
-                                      e % geom % jGradEta(:,i,0,k), &
-                                      e % geom % jGradEta(:,i,0,k))
-
-         call EulerFlux(e % storage % Q(:,i,Ny,k), F)
-         FSy(:,Ny+1,i,k) = contravariant(F(:,IX), F(:,IY), F(:,IZ),     &
-                                         e % geom % jGradEta(:,i,Ny,k), &
-                                         e % geom % jGradEta(:,i,Ny,k))
-
+         FSy(:,0,i,k) = Fc(:,i,0,k,IY)
+         FSy(:,Ny+1,i,k) = Fc(:,i,Ny,k,IY)
       end do       ; end do
 
       do j = 0, Ny ; do i = 0, Nx
-
-         call EulerFlux(e % storage % Q(:,i,j,0), F)
-         FSz(:,0,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ),     &
-                                      e % geom % jGradZeta(:,i,j,0), &
-                                      e % geom % jGradZeta(:,i,j,0))
-
-         call EulerFlux(e % storage % Q(:,i,j,Nz), F)
-         FSz(:,Nz+1,i,j) = contravariant(F(:,IX), F(:,IY), F(:,IZ),      &
-                                         e % geom % jGradZeta(:,i,j,Nz), &
-                                         e % geom % jGradZeta(:,i,j,Nz))
-
+         FSz(:,0,i,j) = Fc(:,i,j,0,IZ)
+         FSz(:,Nz+1,i,j) = Fc(:,i,j,Nz,IZ)
       end do       ; end do
 !
 !     Add dissipation if required only
 !     --------------------------------
       if (switch > 0.0_RP) then
+
+         call Average3DArrays(NCONS, e % Nxyz, e % storage % Q, Qavg)
 !
 !        Dissipative averaging in complementary points
 !        ---------------------------------------------
          do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
-            FVx(:,i,j,k) = dissipativeFlux(e % storage % Q(:,i-1,j,k), &
-                                          e % storage % Q(:,i,j,k),   &
-                                          e % geom % ncXi(:,i,j,k),   &
-                                          e % geom % t1cXi(:,i,j,k),  &
-                                          e % geom % t2cXi(:,i,j,k),  &
-                                          e % geom % JfcXi(i,j,k))
+            FVx(:,i,j,k) = dissipativeFlux(Qavg(:,i-1,j,k),            &
+                                           Qavg(:,i,j,k),              &
+                                           e % geom % ncXi(:,i,j,k),   &
+                                           e % geom % t1cXi(:,i,j,k),  &
+                                           e % geom % t2cXi(:,i,j,k),  &
+                                           e % geom % JfcXi(i,j,k))
          end do                ; end do                ; end do
 
          do k = 0, Nz ; do i = 0, Nx ; do j = 1, Ny
-            FVy(:,j,i,k) = dissipativeFlux(e % storage % Q(:,i,j-1,k), &
-                                          e % storage % Q(:,i,j,k),   &
-                                          e % geom % ncEta(:,i,j,k),  &
-                                          e % geom % t1cEta(:,i,j,k), &
-                                          e % geom % t2cEta(:,i,j,k), &
-                                          e % geom % JfcEta(i,j,k))
+            FVy(:,j,i,k) = dissipativeFlux(Qavg(:,i,j-1,k),            &
+                                           Qavg(:,i,j,k),              &
+                                           e % geom % ncEta(:,i,j,k),  &
+                                           e % geom % t1cEta(:,i,j,k), &
+                                           e % geom % t2cEta(:,i,j,k), &
+                                           e % geom % JfcEta(i,j,k))
          end do                ; end do                ; end do
 
          do j = 0, Ny ; do i = 0, Nx ; do k = 1, Nz
-            FVz(:,k,i,j) = dissipativeFlux(e % storage % Q(:,i,j,k-1),  &
-                                          e % storage % Q(:,i,j,k),    &
-                                          e % geom % ncZeta(:,i,j,k),  &
-                                          e % geom % t1cZeta(:,i,j,k), &
-                                          e % geom % t2cZeta(:,i,j,k), &
-                                          e % geom % JfcZeta(i,j,k))
+            FVz(:,k,i,j) = dissipativeFlux(Qavg(:,i,j,k-1),             &
+                                           Qavg(:,i,j,k),               &
+                                           e % geom % ncZeta(:,i,j,k),  &
+                                           e % geom % t1cZeta(:,i,j,k), &
+                                           e % geom % t2cZeta(:,i,j,k), &
+                                           e % geom % JfcZeta(i,j,k))
          end do                ; end do                ; end do
 !
 !        Blending
@@ -1366,7 +1427,9 @@ module ShockCapturing
       end associate
       end associate
 
-   end subroutine SSFV_hyperbolic
+      computed = .true.
+
+   end function SSFV_hyperbolic
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1386,66 +1449,10 @@ module ShockCapturing
 
       if (.not. MPI_Process % isRoot) return
 
-      write(STD_OUT,"(30X,A,A30,G10.3,A,G10.3)") "->", "SSFV blending parameter: ", &
-                                                 self % c1, " - ", self % c2
+      write(STD_OUT,"(30X,A,A30,G0.3,A,G0.3)") "->", "SSFV blending parameter: ", &
+                                               self % c1, " - ", self % c2
 
    end subroutine SSFV_describe
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   function TwoPointFlux(Qleft, Qright, JaL, JaR) result(F)
-!
-!     -------
-!     Modules
-!     -------
-      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW
-      use VariableConversion, only: Pressure
-      use RiemannSolvers_NS,  only: AveragedStates
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      real(RP), intent(in) :: Qleft(NCONS)
-      real(RP), intent(in) :: Qright(NCONS)
-      real(RP), intent(in) :: JaL(NDIM)
-      real(RP), intent(in) :: JaR(NDIM)
-      real(RP)             :: F(NCONS)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      real(RP) :: tmp
-      real(RP) :: pl, pr
-      real(RP) :: iRhoL, iRhoR
-      real(RP) :: Ql(NCONS)
-      real(RP) :: Qr(NCONS)
-      real(RP) :: Fx(NCONS)
-      real(RP) :: Fy(NCONS)
-      real(RP) :: Fz(NCONS)
-      real(RP) :: Ja(NDIM)
-
-
-      iRhoL = 1.0_RP / Qleft(IRHO) ; iRhoR = 1.0_RP / Qright(IRHO)
-      pL    = Pressure(Qleft)      ; pR    = Pressure(Qright)
-
-      Ql = Qleft
-      Qr = Qright
-      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fx)
-
-      Ql(IRHOU) = Qleft(IRHOV)  ; Ql(IRHOV) = Qleft(IRHOU)
-      Qr(IRHOU) = Qright(IRHOV) ; Qr(IRHOV) = Qright(IRHOU)
-      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fy)
-      tmp = Fy(IRHOU) ; Fy(IRHOU) = Fy(IRHOV) ; Fy(IRHOV) = tmp
-
-      Ql = Qleft  ; Ql(IRHOU) = Qleft(IRHOW)  ; Ql(IRHOW) = Qleft(IRHOU)
-      Qr = Qright ; Qr(IRHOU) = Qright(IRHOW) ; Qr(IRHOW) = Qright(IRHOU)
-      call AveragedStates(Ql, Qr, pL, pR, iRhoL, iRhoR, Fz)
-      tmp = Fz(IRHOU) ; Fz(IRHOU) = Fz(IRHOW) ; Fz(IRHOW) = tmp
-
-      F = contravariant(Fx, Fy, Fz, JaL, JaR)
-
-   end function TwoPointFlux
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1454,7 +1461,6 @@ module ShockCapturing
 !     -------
 !     Modules
 !     -------
-      use Physics,            only: EulerFlux
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
       use VariableConversion, only: Pressure
       use FluidData,          only: thermodynamics
@@ -1483,6 +1489,7 @@ module ShockCapturing
       real(RP) :: u1, u2
       real(RP) :: a1, a2
       real(RP) :: lambda
+      real(RP) :: F(NCONS, NDIM)
 
 !
 !     Rotate to normal reference frame
@@ -1503,7 +1510,7 @@ module ShockCapturing
 !     ----------------------
       associate(g => thermodynamics % gamma)
       invRho1 = 1.0_RP / Qn1(IRHO)     ; invRho2 = 1.0_RP / Qn2(IRHO)
-      u1      = Qn1(IRHOU) * invRho1   ; u2      = Qn2(iRHOU) * invRho2
+      u1      = Qn1(IRHOU) * invRho1   ; u2      = Qn2(IRHOU) * invRho2
       p1      = Pressure(Qn1)          ; p2      = Pressure(Qn2)
       a1      = sqrt(g * p1 * invRho1) ; a2      = sqrt(g * p2 * invRho2)
       end associate
@@ -1517,8 +1524,8 @@ module ShockCapturing
 !     Dissipation
 !     -----------
       lambda = max(abs(u1)+a1, abs(u2)+a2)
-      FV = FV - lambda/2.0_RP * (Qn2-Qn1)
-!
+      FV = FV - lambda/2.0_RP * (Qn2-Qn1) / 6.0_RP
+
 !     Projection to physical reference frame and contravariant scaling
 !     ----------------------------------------------------------------
       FV(IRHOU:IRHOW) = FV(IRHOU)*n + FV(IRHOV)*t1 + FV(IRHOW)*t2
@@ -1545,7 +1552,6 @@ module ShockCapturing
 !     ---------------
 !     Local variables
 !     ---------------
-!
       real(RP) :: u, v, w
 
       u = Q(IRHOU) / Q(IRHO)
@@ -1559,31 +1565,5 @@ module ShockCapturing
       F(IRHOE) = ( Q(IRHOE) + p ) * u
 
    end function EulerFlux1D
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   pure function contravariant(Fx, Fy, Fz, JaL, JaR) result(Fcont)
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      real(RP), intent(in) :: Fx(NCONS)
-      real(RP), intent(in) :: Fy(NCONS)
-      real(RP), intent(in) :: Fz(NCONS)
-      real(RP), intent(in) :: JaL(NDIM)
-      real(RP), intent(in) :: JaR(NDIM)
-      real(RP)             :: Fcont(NCONS)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      real(RP) :: Ja(NDIM)
-
-
-      Ja = AVERAGE(JaL, JaR)
-      Fcont = Fx*Ja(IX) + Fy*Ja(IY) + Fz*Ja(IZ)
-
-   end function contravariant
 
 end module ShockCapturing

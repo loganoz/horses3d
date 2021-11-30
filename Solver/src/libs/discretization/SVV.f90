@@ -35,7 +35,6 @@ module SpectralVanishingViscosity
 !  Keywords
 !  --------
    character(len=*), parameter  :: SVV_CUTOFF_KEY   =  "svv filter cutoff"
-   character(len=*), parameter  :: SVV_LIMIT_KEY    =  "svv limited"
    character(len=*), parameter  :: FILTER_SHAPE_KEY =  "svv filter shape"
    character(len=*), parameter  :: FILTER_TYPE_KEY  =  "svv filter type"
 !
@@ -69,7 +68,6 @@ module SpectralVanishingViscosity
 
    type  SVV_t
       logical                                     :: enabled
-      logical                                     :: limited
       integer                                     :: filterType
       integer                                     :: filterShape
       integer                                     :: diss_type
@@ -119,7 +117,7 @@ module SpectralVanishingViscosity
          use FTValueDictionaryClass
          use mainKeywordsModule
          use PhysicsStorage
-         use ShockCapturingKeywords, only: SC_VISC_FLUX_KEY, SC_PHYS_VAL, SC_GP_VAL
+         use ShockCapturingKeywords, only: SC_VISC_FLUX1_KEY, SC_PHYS_VAL, SC_GP_VAL
          implicit none
          class(SVV_t)                          :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
@@ -187,15 +185,6 @@ module SpectralVanishingViscosity
             self % Psvv = 4.0_RP
          end if
 !
-!        --------------------------------
-!        Limit the filtering if requested
-!        --------------------------------
-         if ( controlVariables % containsKey(SVV_LIMIT_KEY) ) then
-            self % limited = controlVariables % logicalValueForKey(SVV_LIMIT_KEY)
-         else
-            self % limited = .false.
-         end if
-!
 !        Construct the filters
 !        ---------------------
          call self % UpdateFilters(mesh)
@@ -204,8 +193,8 @@ module SpectralVanishingViscosity
 !        Select the appropriate HFlux functions (keys from SC)
 !        -----------------------------------------------------
 !
-         if ( controlVariables % ContainsKey(SC_VISC_FLUX_KEY) ) then
-            mu = controlVariables % StringValueForKey(SC_VISC_FLUX_KEY, LINE_LENGTH)
+         if ( controlVariables % ContainsKey(SC_VISC_FLUX1_KEY) ) then
+            mu = controlVariables % StringValueForKey(SC_VISC_FLUX1_KEY, LINE_LENGTH)
             call tolower(mu)
 
             select case (trim(mu))
@@ -290,13 +279,7 @@ module SpectralVanishingViscosity
             case (SHARP_FILTER) ; write(STD_OUT,'(A)') 'sharp kernel'
          end select
 
-         write(STD_OUT,'(30X,A,A30,F10.3)',advance="no") "->","SVV filter cutoff: ", &
-                                                         this % Psvv
-         if ( this % limited ) then
-            write(STD_OUT,'(A)') " (Limited by the sensor)"
-         else
-            write(STD_OUT,'(A)') ""
-         end if
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","SVV filter cutoff: ",this % Psvv
 
       end subroutine SVV_Describe
 !
@@ -325,7 +308,7 @@ module SpectralVanishingViscosity
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine SVV_ComputeInnerFluxes(self, e, sqrt_mu, sqrt_alpha, sensor, contravariantFlux)
+      subroutine SVV_ComputeInnerFluxes(self, e, sqrt_mu, sqrt_alpha, contravariantFlux)
          use ElementClass
          use PhysicsStorage
          use Physics
@@ -334,7 +317,6 @@ module SpectralVanishingViscosity
          type(Element)               :: e
          real(kind=RP), intent (in)  :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP), intent (in)  :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP), intent (in)  :: sensor
          real(kind=RP), intent (out) :: contravariantFlux(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3), 1:NDIM)
 !
 !        ---------------
@@ -366,7 +348,6 @@ module SpectralVanishingViscosity
 !        -----------------
 !        Compute the Hflux
 !        -----------------
-!
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
            call self % Compute_Hflux(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), &
                                                    e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k), &
@@ -380,54 +361,43 @@ module SpectralVanishingViscosity
 !        ----------------
 !        Filter the Hflux
 !        ----------------
-         if (self % limited .and. sensor >= 1.0_RP) then
-
-            e % Psvv = 0.0_RP
-            Hxf = Hx
-            Hyf = Hy
-            Hzf = Hz
-
-         else
-
-            e % Psvv = self % Psvv
-            Qx = self % filters(e % Nxyz(1)) % Q
-            Qy = self % filters(e % Nxyz(2)) % Q
-            Qz = self % filters(e % Nxyz(3)) % Q
+         e % Psvv = self % Psvv
+         Qx = self % filters(e % Nxyz(1)) % Q
+         Qy = self % filters(e % Nxyz(2)) % Q
+         Qz = self % filters(e % Nxyz(3)) % Q
 !
-!           Perform filtering in xi Hf_aux -> Hf
-!           -----------------------
-            Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
-            Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
-                  Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
-                  Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
-                  Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
-            end do                ; end do                ; end do                ; end do
+!        Perform filtering in xi Hf_aux -> Hf
+!        -----------------------
+         Hxf_aux = Hx     ; Hyf_aux = Hy     ; Hzf_aux = Hz
+         Hxf     = 0.0_RP ; Hyf     = 0.0_RP ; Hzf     = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+               Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qx(i,l) * Hxf_aux(:,l,j,k)
+               Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qx(i,l) * Hyf_aux(:,l,j,k)
+               Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qx(i,l) * Hzf_aux(:,l,j,k)
+         end do                ; end do                ; end do                ; end do
 !
-!           Perform filtering in eta Hf -> Hf_aux
-!           ------------------------
-            Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
-            do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
-               Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
-               Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
-            end do                ; end do                ; end do                ; end do
+!        Perform filtering in eta Hf -> Hf_aux
+!        ------------------------
+         Hxf_aux = 0.0_RP  ; Hyf_aux = 0.0_RP  ; Hzf_aux = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            Hxf_aux(:,i,j,k) = Hxf_aux(:,i,j,k) + Qy(j,l) * Hxf(:,i,l,k)
+            Hyf_aux(:,i,j,k) = Hyf_aux(:,i,j,k) + Qy(j,l) * Hyf(:,i,l,k)
+            Hzf_aux(:,i,j,k) = Hzf_aux(:,i,j,k) + Qy(j,l) * Hzf(:,i,l,k)
+         end do                ; end do                ; end do                ; end do
 !
-!           Perform filtering in zeta Hf_aux -> Hf
-!           -------------------------
-            Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
-            do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
-               Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
-               Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
-            end do                ; end do                ; end do                ; end do
+!        Perform filtering in zeta Hf_aux -> Hf
+!        -------------------------
+         Hxf = 0.0_RP  ; Hyf = 0.0_RP  ; Hzf = 0.0_RP
+         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            Hxf(:,i,j,k) = Hxf(:,i,j,k) + Qz(k,l) * Hxf_aux(:,i,j,l)
+            Hyf(:,i,j,k) = Hyf(:,i,j,k) + Qz(k,l) * Hyf_aux(:,i,j,l)
+            Hzf(:,i,j,k) = Hzf(:,i,j,k) + Qz(k,l) * Hzf_aux(:,i,j,l)
+         end do                ; end do                ; end do                ; end do
 
-            if (self % filterType == LPASS_FILTER) then
-               Hxf = Hx - Hxf
-               Hyf = Hy - Hyf
-               Hzf = Hz - Hzf
-            end if
-
+         if (self % filterType == LPASS_FILTER) then
+            Hxf = Hx - Hxf
+            Hyf = Hy - Hyf
+            Hzf = Hz - Hzf
          end if
 !
 !        ----------------

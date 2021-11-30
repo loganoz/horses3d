@@ -16,7 +16,7 @@ module HyperbolicSplitForm
    public   SplitDG_t
 
    type, extends(HyperbolicDiscretization_t)  :: SplitDG_t
-      contains 
+      contains
          procedure   :: Initialize             => SplitDG_Initialize
          procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
    end type SplitDG_t
@@ -82,7 +82,7 @@ module HyperbolicSplitForm
             splitType = CHANDRASEKAR_SPLIT
 
          case default
-            if ( MPI_Process % isRoot ) then   
+            if ( MPI_Process % isRoot ) then
             write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
             write(STD_OUT,'(A)') "Implemented split forms are:"
             write(STD_OUT,'(A)') "  * Standard"
@@ -93,7 +93,7 @@ module HyperbolicSplitForm
             write(STD_OUT,'(A)') "  * Entropy conserving"
             write(STD_OUT,'(A)') "  * Chandrasekar"
             errorMessage(STD_OUT)
-            stop 
+            stop
             end if
 #elif defined(INCNS)
          case("standard")
@@ -110,14 +110,14 @@ module HyperbolicSplitForm
             self % ComputeVolumetricSharpFlux => SkewSymmetric2DG_VolumetricSharpFlux
             splitType = SKEWSYMMETRIC2_SPLIT
          case default
-            if ( MPI_Process % isRoot ) then   
+            if ( MPI_Process % isRoot ) then
             write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
             write(STD_OUT,'(A)') "Implemented split forms are:"
             write(STD_OUT,'(A)') "  * Standard"
             write(STD_OUT,'(A)') "  * Skew-symmetric-1split"
             write(STD_OUT,'(A)') "  * Skew-symmetric-2split"
             errorMessage(STD_OUT)
-            stop 
+            stop
             end if
 
 #endif
@@ -166,6 +166,9 @@ module HyperbolicSplitForm
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
+         case (RIEMANN_ESLXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","ES Lax-Friedrichs"
+
          case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 
@@ -177,16 +180,16 @@ module HyperbolicSplitForm
 
          case (RIEMANN_ROEPIKE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
-         
+
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
-         
+
          case (RIEMANN_MATRIXDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
-         
+
          case (RIEMANN_VISCOUSNS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
-         
+
          end select
 #elif defined(INCNS)
          select case ( splitType )
@@ -202,7 +205,7 @@ module HyperbolicSplitForm
 #endif
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
-         
+
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
          else
@@ -242,23 +245,23 @@ module HyperbolicSplitForm
 !        --------------------------------------------
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             do l = i+1, e%Nxyz(1)
-               call self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,l,j,k), e % geom % jGradXi(:,i,j,k), e % geom % jGradXi(:,l,j,k), fSharp(:,l,i,j,k)) 
+               call self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,l,j,k), e % geom % jGradXi(:,i,j,k), e % geom % jGradXi(:,l,j,k), fSharp(:,l,i,j,k))
                fSharp(:,i,l,j,k) = fSharp(:,l,i,j,k)
-            end do            
+            end do
          end do               ; end do             ; end do
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             do l = j+1, e%Nxyz(2)
-               call self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,i,l,k), e % geom % jGradEta(:,i,j,k), e % geom % jGradEta(:,i,l,k), gSharp(:,l,i,j,k)) 
+               call self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,i,l,k), e % geom % jGradEta(:,i,j,k), e % geom % jGradEta(:,i,l,k), gSharp(:,l,i,j,k))
                gSharp(:,j,i,l,k) = gSharp(:,l,i,j,k)
-            end do            
+            end do
          end do               ; end do             ; end do
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             do l = k+1, e%Nxyz(3)
                call self % ComputeVolumetricSharpFlux(Q(:,i,j,k), Q(:,i,j,l), e % geom % jGradZeta(:,i,j,k), e % geom % jGradZeta(:,i,j,l), hSharp(:,l,i,j,k))
                hSharp(:,k,i,j,l) = hSharp(:,l,i,j,k)
-            end do            
+            end do
          end do               ; end do             ; end do
 
          end associate
@@ -272,7 +275,7 @@ module HyperbolicSplitForm
 !///////////////////////////////////////////////////////////////////////
 !
 #if defined(NAVIERSTOKES)
-      subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+      subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -295,7 +298,7 @@ module HyperbolicSplitForm
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
+
          pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                                                       + QL(IRHOV) * vL &
                                                                       + QL(IRHOW) * wL ))
@@ -329,12 +332,12 @@ module HyperbolicSplitForm
          h(IRHOE) = ( wL*(QL(IRHOE) + pL) + wR*(QR(IRHOE) + pR) )
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
-!        ----------------------         
+!        ----------------------
          fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
 
       end subroutine StandardDG_VolumetricSharpFlux
 
-      subroutine Morinishi_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine Morinishi_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -357,9 +360,9 @@ module HyperbolicSplitForm
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
+
          associate(gm1 => thermodynamics % GammaMinus1)
-   
+
          pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
@@ -371,7 +374,7 @@ module HyperbolicSplitForm
 !
 !        Here the enthalpy does not contain the kinetic energy
 !        -----------------------------------------------------
-         hL = dimensionless % cp * pL  ; hR = dimensionless % cp * pR 
+         hL = dimensionless % cp * pL  ; hR = dimensionless % cp * pR
 !
 !        Average metrics
 !        ---------------
@@ -388,7 +391,7 @@ module HyperbolicSplitForm
                                               + 0.25_RP * ( QL(IRHOU)*wL + QR(IRHOU)*wR ) * ( wL + wR ) &
                                               - 0.25_RP * ( QL(IRHOU)*POW2(uL) + QR(IRHOU)*POW2(uR)   ) &
                                               - 0.25_RP * ( QL(IRHOU)*POW2(vL) + QR(IRHOU)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOU)*POW2(wL) + QR(IRHOU)*POW2(wR)   ) 
+                                              - 0.25_RP * ( QL(IRHOU)*POW2(wL) + QR(IRHOU)*POW2(wR)   )
 
          g(IRHO)  = 0.5_RP * ( QL(IRHOV) + QR(IRHOV) )
          g(IRHOU) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( uL + uR )
@@ -399,7 +402,7 @@ module HyperbolicSplitForm
                                               + 0.25_RP * ( QL(IRHOV)*wL + QR(IRHOV)*wR ) * ( wL + wR ) &
                                               - 0.25_RP * ( QL(IRHOV)*POW2(uL) + QR(IRHOV)*POW2(uR)   ) &
                                               - 0.25_RP * ( QL(IRHOV)*POW2(vL) + QR(IRHOV)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOV)*POW2(wL) + QR(IRHOV)*POW2(wR)   ) 
+                                              - 0.25_RP * ( QL(IRHOV)*POW2(wL) + QR(IRHOV)*POW2(wR)   )
 
          h(IRHO)  = 0.5_RP * ( QL(IRHOW) + QR(IRHOW) )
          h(IRHOU) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( uL + uR )
@@ -410,15 +413,15 @@ module HyperbolicSplitForm
                                               + 0.25_RP * ( QL(IRHOW)*wL + QR(IRHOW)*wR ) * ( wL + wR ) &
                                               - 0.25_RP * ( QL(IRHOW)*POW2(uL) + QR(IRHOW)*POW2(uR)   ) &
                                               - 0.25_RP * ( QL(IRHOW)*POW2(vL) + QR(IRHOW)*POW2(vR)   ) &
-                                              - 0.25_RP * ( QL(IRHOW)*POW2(wL) + QR(IRHOW)*POW2(wR)   ) 
+                                              - 0.25_RP * ( QL(IRHOW)*POW2(wL) + QR(IRHOW)*POW2(wR)   )
 !
 !        Compute the sharp flux
-!        ----------------------         
-         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
 
       end subroutine Morinishi_VolumetricSharpFlux
 
-      subroutine Ducros_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine Ducros_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -441,9 +444,9 @@ module HyperbolicSplitForm
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-         
+
          associate(gm1 => thermodynamics % GammaMinus1)
-   
+
          pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
@@ -478,12 +481,12 @@ module HyperbolicSplitForm
          h(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (wL + wR)
 !
 !        Compute the sharp flux
-!        ----------------------         
+!        ----------------------
          fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
 
       end subroutine Ducros_VolumetricSharpFlux
- 
-      subroutine KennedyGruber_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+
+      subroutine KennedyGruber_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -509,7 +512,7 @@ module HyperbolicSplitForm
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
 
          associate(gm1 => thermodynamics % GammaMinus1)
-   
+
          pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                              + QL(IRHOV) * vL &
                                              + QL(IRHOW) * wL ))
@@ -537,7 +540,7 @@ module HyperbolicSplitForm
          f(IRHOV) = rho * u * v
          f(IRHOW) = rho * u * w
          f(IRHOE) = rho * u * e + p * u
-         
+
          g(IRHO)  = rho * v
          g(IRHOU) = rho * v * u
          g(IRHOV) = rho * v * v + p
@@ -551,12 +554,12 @@ module HyperbolicSplitForm
          h(IRHOE) = rho * w * e + p * w
 !
 !        Compute the sharp flux
-!        ----------------------         
+!        ----------------------
          fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
 
       end subroutine KennedyGruber_VolumetricSharpFlux
 
-      subroutine Pirozzoli_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine Pirozzoli_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -580,7 +583,7 @@ module HyperbolicSplitForm
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
+
          pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                                                       + QL(IRHOV) * vL &
                                                                       + QL(IRHOW) * wL ))
@@ -607,7 +610,7 @@ module HyperbolicSplitForm
          ff(IRHOV) = rho * u * v
          ff(IRHOW) = rho * u * w
          ff(IRHOE) = rho * u * h
-         
+
          gg(IRHO)  = rho * v
          gg(IRHOU) = rho * v * u
          gg(IRHOV) = rho * v * v + p
@@ -618,18 +621,18 @@ module HyperbolicSplitForm
          hh(IRHOU) = rho * w * u
          hh(IRHOV) = rho * w * v
          hh(IRHOW) = rho * w * w + p
-         hh(IRHOE) = rho * w * h 
+         hh(IRHOE) = rho * w * h
 !
 !        Compute the sharp flux
-!        ----------------------         
+!        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
 
       end subroutine Pirozzoli_VolumetricSharpFlux
 
-      subroutine EntropyConserving_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine EntropyConserving_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
 !
 !        *******************************************************************
-!           Entropy conserving split form by Ismail and Roe. 
+!           Entropy conserving split form by Ismail and Roe.
 !           Parameter vector definition:
 !
 !           z1 = sqrt(rho / p)
@@ -639,7 +642,7 @@ module HyperbolicSplitForm
 !           z5 = sqrt(p rho)
 !
 !           Averaged states:
-!           
+!
 !           rho = {{z1}} {{z5:ln}}
 !           u   = {{z2}} / {{z1}}
 !           v   = {{z3}} / {{z1}}
@@ -649,9 +652,9 @@ module HyperbolicSplitForm
 !
 !           where
 !           p2   = (g+1)/(2g) {{z5:ln}}/{{z1:ln}} + (g-1)/(2g){{z5}}/{{z1}}
-!           
+!
 !        *******************************************************************
-!               
+!
          use SMConstants
          use PhysicsStorage
          use Utilities, only: logarithmicMean
@@ -677,14 +680,14 @@ module HyperbolicSplitForm
          associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
                      gammaMinus1Div2     => thermodynamics % gammaMinus1Div2, &
                      gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1, &
-                     invGamma            => thermodynamics % invGamma ) 
+                     invGamma            => thermodynamics % invGamma )
 
          invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
          rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
+
          pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                                                       + QL(IRHOV) * vL &
                                                                       + QL(IRHOW) * wL ))
@@ -727,7 +730,7 @@ module HyperbolicSplitForm
          ff(IRHOV) = rho * u * v
          ff(IRHOW) = rho * u * w
          ff(IRHOE) = rho * u * h
-         
+
          gg(IRHO)  = rho * v
          gg(IRHOU) = rho * v * u
          gg(IRHOV) = rho * v * v + p
@@ -738,17 +741,17 @@ module HyperbolicSplitForm
          hh(IRHOU) = rho * w * u
          hh(IRHOV) = rho * w * v
          hh(IRHOW) = rho * w * w + p
-         hh(IRHOE) = rho * w * h 
+         hh(IRHOE) = rho * w * h
 !
 !        Compute the sharp flux
-!        ----------------------         
+!        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
 
          end associate
 
       end subroutine EntropyConserving_VolumetricSharpFlux
 
-      subroutine Chandrasekar_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp) 
+      subroutine Chandrasekar_VolumetricSharpFlux(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          use Utilities, only: logarithmicMean
@@ -769,14 +772,14 @@ module HyperbolicSplitForm
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
 
-         associate ( gammaMinus1 => thermodynamics % gammaMinus1 ) 
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 )
 
          invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
          rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
          uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
          vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
          wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
-   
+
          pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
                                                                       + QL(IRHOV) * vL &
                                                                       + QL(IRHOW) * wL ))
@@ -811,7 +814,7 @@ module HyperbolicSplitForm
          ff(IRHOV) = rho * u * v
          ff(IRHOW) = rho * u * w
          ff(IRHOE) = rho * u * h
-         
+
          gg(IRHO)  = rho * v
          gg(IRHOU) = rho * v * u
          gg(IRHOV) = rho * v * v + p
@@ -822,17 +825,17 @@ module HyperbolicSplitForm
          hh(IRHOU) = rho * w * u
          hh(IRHOV) = rho * w * v
          hh(IRHOW) = rho * w * w + p
-         hh(IRHOE) = rho * w * h 
+         hh(IRHOE) = rho * w * h
 !
 !        Compute the sharp flux
-!        ----------------------         
+!        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
 
          end associate
 
       end subroutine Chandrasekar_VolumetricSharpFlux
 #elif defined(INCNS)
-      subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+      subroutine StandardDG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -858,7 +861,7 @@ module HyperbolicSplitForm
          vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
          wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
          pL      = QL(INSP)              ; pR      = QR(INSP)
-   
+
 !
 !        Average metrics: (Note: Here all average (1/2)s are accounted later)
 !        ---------------
@@ -885,12 +888,12 @@ module HyperbolicSplitForm
          h(INSP)    = thermodynamics % rho0c02 * (wL + wR)
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
-!        ----------------------         
+!        ----------------------
          fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
 
       end subroutine StandardDG_VolumetricSharpFlux
 
-      subroutine SkewSymmetric1DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+      subroutine SkewSymmetric1DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -953,13 +956,13 @@ module HyperbolicSplitForm
          h(INSP)    = thermodynamics % rho0c02 * w
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
-!        ----------------------         
-         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
 
       end subroutine SkewSymmetric1DG_VolumetricSharpFlux
 
 
-      subroutine SkewSymmetric2DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp) 
+      subroutine SkewSymmetric2DG_VolumetricSharpFlux(QL,QR,JaL,JaR, fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -979,7 +982,7 @@ module HyperbolicSplitForm
          real(kind=RP) :: Ja(1:NDIM)
          real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
 
-         rhoL    = QL(INSRHO)       
+         rhoL    = QL(INSRHO)
          rhoR    = QR(INSRHO)
 
          invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
@@ -1019,8 +1022,8 @@ module HyperbolicSplitForm
          h(INSP)    = thermodynamics % rho0c02 * w
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
-!        ----------------------         
-         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) 
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
 
       end subroutine SkewSymmetric2DG_VolumetricSharpFlux
 #endif

@@ -8,7 +8,7 @@
                       Solution file name = RESULTS/FFS.hsol
               Save gradients to solution = .false.
                 2D mesh offset direction = z
-                                 Restart = .true.
+                                 Restart = .false.
                        Restart file name = ../FFS.rst
 
 !-------------------- Physical parameters:-
@@ -24,7 +24,9 @@
 !------------------------- Discretization:-
                         Polynomial order = 7
                     Discretization nodes = Gauss-Lobatto
-                          Riemann solver = Matrix dissipation
+!                         Riemann solver = Matrix dissipation
+                          Riemann solver = ES Lax-Friedrichs
+                    Lambda stabilization = 1e-5
                  Inviscid discretization = Split-form
                               Split form = Chandrasekar
                       Gradient variables = Entropy
@@ -33,10 +35,11 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = truncation error
-                Shock hyperbolic method = SSFV
+                     Shock first method = SSFV
+                    Shock second method = SSFV
                         SSFV blending 1 = 1d-1
-                        SSFV blending 2 = 5d+0
-                     Sensor lower limit = -8.0
+                        SSFV blending 2 = 1d-1
+                     Sensor lower limit = -10000.0
                     Sensor higher limit = -2.0
                    Sensor TE derivative = isolated
                       Sensor TE delta N = 6
@@ -44,9 +47,10 @@
 !----------------------- Time integration:-
                         Time integration = Explicit
                                       dt = 0.00002
-                    Number of time steps = 50
-                         Output interval = 10
+                    Number of time steps = 50000 ! 50
+                         Output interval = 100 ! 10
                    Convergence tolerance = 1.0e-10
+      Compute derivative after time step = .true.
 
 !-------------------- Boundary conditions:-
 #define boundary inlet
@@ -75,7 +79,7 @@
    type = FreeSlipWall
 #end
 
-#define volume monitor 1
-   name = sensor
-   variable = sensor range
-#end
+!#define volume monitor 1
+!   name = sensor
+!   variable = sensor range
+!#end

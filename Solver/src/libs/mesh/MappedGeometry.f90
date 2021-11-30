@@ -161,12 +161,6 @@ Module MappedGeometryClass
 !////////////////////////////////////////////////////////////////////////
 !
    subroutine UpdateComplementaryGridMappedGeometry(self, spAxi, spAeta, spAzeta, mapper)
-!
-!     -------
-!     Modules
-!     -------
-!
-      use PolynomialInterpAndDerivsModule, only: InterpolatingPolynomialVector
       implicit none
 !
 !      ---------
@@ -183,10 +177,8 @@ Module MappedGeometryClass
 !     Local Variables
 !     ---------------
 !
-      integer                    :: i, j, k, r
-      real(kind=RP)              :: x(3)
-      real(kind=RP)              :: grad(3,3)
-      real(kind=RP), allocatable :: l(:)
+      integer :: i, j, k
+      integer :: r, s
 !
 !     -----------
 !     Allocations
@@ -194,93 +186,101 @@ Module MappedGeometryClass
 !
       associate(Nx => self % Nx, Ny => self % Ny, Nz => self % Nz)
 
-      if (.not. allocated(self % ncXi   )) allocate( self % ncXi   (3,0:Nx+1,0:Ny,0:Nz) )
-      if (.not. allocated(self % ncEta  )) allocate( self % ncEta  (3,0:Nx,0:Ny+1,0:Nz) )
-      if (.not. allocated(self % ncZeta )) allocate( self % ncZeta (3,0:Nx,0:Ny,0:Nz+1) )
-      if (.not. allocated(self % t1cXi  )) allocate( self % t1cXi  (3,0:Nx+1,0:Ny,0:Nz) )
-      if (.not. allocated(self % t1cEta )) allocate( self % t1cEta (3,0:Nx,0:Ny+1,0:Nz) )
-      if (.not. allocated(self % t1cZeta)) allocate( self % t1cZeta(3,0:Nx,0:Ny,0:Nz+1) )
-      if (.not. allocated(self % t2cXi  )) allocate( self % t2cXi  (3,0:Nx+1,0:Ny,0:Nz) )
-      if (.not. allocated(self % t2cEta )) allocate( self % t2cEta (3,0:Nx,0:Ny+1,0:Nz) )
-      if (.not. allocated(self % t2cZeta)) allocate( self % t2cZeta(3,0:Nx,0:Ny,0:Nz+1) )
-      if (.not. allocated(self % JfcXi  )) allocate( self % JfcXi  (0:Nx+1,0:Ny,0:Nz)   )
-      if (.not. allocated(self % JfcEta )) allocate( self % JfcEta (0:Nx,0:Ny+1,0:Nz)   )
-      if (.not. allocated(self % JfcZeta)) allocate( self % JfcZeta(0:Nx,0:Ny,0:Nz+1)   )
+      safedeallocate(self % ncXi   ) ;  allocate( self % ncXi   (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % ncEta  ) ;  allocate( self % ncEta  (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % ncZeta ) ;  allocate( self % ncZeta (3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % t1cXi  ) ;  allocate( self % t1cXi  (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % t1cEta ) ;  allocate( self % t1cEta (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % t1cZeta) ;  allocate( self % t1cZeta(3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % t2cXi  ) ;  allocate( self % t2cXi  (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % t2cEta ) ;  allocate( self % t2cEta (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % t2cZeta) ;  allocate( self % t2cZeta(3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % JfcXi  ) ;  allocate( self % JfcXi  (0:Nx+1,0:Ny,0:Nz)   )
+      safedeallocate(self % JfcEta ) ;  allocate( self % JfcEta (0:Nx,0:Ny+1,0:Nz)   )
+      safedeallocate(self % JfcZeta) ;  allocate( self % JfcZeta(0:Nx,0:Ny,0:Nz+1)   )
 !
-!     --------------------------------------------
-!     Tangent vectors from the derivatives mapping
-!     --------------------------------------------
+!     ----------------------------------
+!     Complementary grid in xi direction
+!     ----------------------------------
 !
       do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx+1
-         x(IX) = sum(spAxi % w(:i-1)) - 1.0_RP
-         x(IY) = spAeta % x(j)
-         x(IZ) = spAzeta % x(k)
-         grad = mapper % metricDerivativesAt(x)
-         self % t1cXi(:,i,j,k) = grad(:,IY) / norm2(grad(:,IY))
-         self % t2cXi(:,i,j,k) = grad(:,IZ) / norm2(grad(:,IZ))
+      associate(n  => self % ncXi(:,i,j,k),  &
+                t1 => self % t1cXi(:,i,j,k), &
+                t2 => self % t2cXi(:,i,j,k), &
+                Jf => self % JfcXi(i,j,k))
+
+         n  = self % jGradXi(:,0,j,k)
+         t1 = self % jGradEta(:,0,j,k)
+
+         do s = 0, Nx ; do r = 0, i-1
+            n  = n  + spAxi % Q(r,s) * self % jGradXi(:,s,j,k)
+            t1 = t1 + spAxi % Q(r,s) * self % jGradEta(:,s,j,k)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
       end do       ; end do       ; end do
-
-      do k = 0, Nz ; do j = 0, Ny+1 ; do i = 0, Nx
-         x(IX) = spAxi % x(i)
-         x(IY) = sum(spAeta % w(:j-1)) - 1.0_RP
-         x(IZ) = spAzeta % x(k)
-         grad = mapper % metricDerivativesAt(x)
-         self % t1cEta(:,i,j,k) = grad(:,IZ) / norm2(grad(:,IZ))
-         self % t2cEta(:,i,j,k) = grad(:,IX) / norm2(grad(:,IX))
-      end do       ; end do         ; end do
-
-      do k = 0, Nz+1 ; do j = 0, Ny ; do i = 0, Nx
-         x(IX) = spAxi % x(i)
-         x(IY) = spAeta % x(j)
-         x(IZ) = sum(spAzeta % w(:k-1)) - 1.0_RP
-         grad = mapper % metricDerivativesAt(x)
-         self % t1cZeta(:,i,j,k) = grad(:,IX) / norm2(grad(:,IX))
-         self % t2cZeta(:,i,j,k) = grad(:,IY) / norm2(grad(:,IY))
-      end do         ; end do       ; end do
 !
-!     -------------------------------------------------
-!     Interpolate normal vectors from the existing ones
-!     -------------------------------------------------
+!     -----------------------------------
+!     Complementary grid in eta direction
+!     -----------------------------------
 !
-      allocate(l(0:Nx))
-      do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx+1
-         x(IX) = sum(spAxi % w(:i-1)) - 1.0_RP
-         call InterpolatingPolynomialVector(x(IX), Nx, spAxi % x, spAxi % wb, l)
-         self % ncXi(:,i,j,k) = 0.0_RP
-         do r = 0, Nx
-            self % ncXi(:,i,j,k) = self % ncXi(:,i,j,k) + l(r) * self % jGradXi(:,r,j,k)
-         end do
-         self % JfcXi(i,j,k) = norm2(self % ncXi(:,i,j,k))
-         self % ncXi(:,i,j,k) = self % ncXi(:,i,j,k) / self % JfcXi(i,j,k)
-      end do       ; end do       ; end do
-
-      deallocate(l)
-      allocate(l(0:Ny))
       do k = 0, Nz ; do j = 0, Ny+1 ; do i = 0, Nx
-         x(IY) = sum(spAeta % w(:j-1)) - 1.0_RP
-         call InterpolatingPolynomialVector(x(IY), Ny, spAeta % x, spAeta % wb, l)
-         self % ncEta(:,i,j,k) = 0.0_RP
-         do r = 0, Ny
-            self % ncEta(:,i,j,k) = self % ncEta(:,i,j,k) + l(r) * self % jGradEta(:,i,r,k)
-         end do
-         self % JfcEta(i,j,k) = norm2(self % ncEta(:,i,j,k))
-         self % ncEta(:,i,j,k) = self % ncEta(:,i,j,k) / self % JfcEta(i,j,k)
+      associate(n  => self % ncEta(:,i,j,k),  &
+                t1 => self % t1cEta(:,i,j,k), &
+                t2 => self % t2cEta(:,i,j,k), &
+                Jf => self % JfcEta(i,j,k))
+
+         n  = self % jGradEta(:,i,0,k)
+         t1 = self % jGradZeta(:,i,0,k)
+
+         do s = 0, Ny ; do r = 0, j-1
+            n  = n  + spAeta % Q(r,s) * self % jGradEta(:,i,s,k)
+            t1 = t1 + spAeta % Q(r,s) * self % jGradZeta(:,i,s,k)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
+      end do       ; end do       ; end do
+!
+!     ------------------------------------
+!     Complementary grid in zeta direction
+!     ------------------------------------
+!
+      do k = 0, Nz+1 ; do j = 0, Ny ; do i = 0, Nx
+      associate(n  => self % ncZeta(:,i,j,k),  &
+                t1 => self % t1cZeta(:,i,j,k), &
+                t2 => self % t2cZeta(:,i,j,k), &
+                Jf => self % JfcZeta(i,j,k))
+
+         n  = self % jGradZeta(:,i,j,0)
+         t1 = self % jGradXi(:,i,j,0)
+
+         do s = 0, Nz ; do r = 0, k-1
+            n  = n  + spAzeta % Q(r,s) * self % jGradZeta(:,i,j,s)
+            t1 = t1 + spAzeta % Q(r,s) * self % jGradXi(:,i,j,s)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
       end do       ; end do       ; end do
 
-      deallocate(l)
-      allocate(l(0:Nz))
-      do k = 0, Nz+1 ; do j = 0, Ny ; do i = 0, Nx
-         x(IZ) = sum(spAzeta % w(:k-1)) - 1.0_RP
-         call InterpolatingPolynomialVector(x(IZ), Nz, spAzeta % x, spAzeta % wb, l)
-         self % ncZeta(:,i,j,k) = 0.0_RP
-         do r = 0, Nz
-            self % ncZeta(:,i,j,k) = self % ncZeta(:,i,j,k) + l(r) * self % jGradZeta(:,i,j,r)
-         end do
-         self % JfcZeta(i,j,k) = norm2(self % ncZeta(:,i,j,k))
-         self % ncZeta(:,i,j,k) = self % ncZeta(:,i,j,k) / self % JfcZeta(i,j,k)
-      end do         ; end do       ; end do
-
-   end associate
+      end associate
 
    end subroutine UpdateComplementaryGridMappedGeometry
 !
