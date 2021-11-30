@@ -41,7 +41,7 @@ module SolutionFile
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN, POS_INIT_DATA
-   public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF
+   public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF, RE_REF
 
    public      :: CreateNewSolutionFile, writeArray, SealSolutionFile, getSolutionFileType
    public      :: getSolutionFileNoOfElements, getSolutionFileName
@@ -60,8 +60,8 @@ module SolutionFile
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
    integer, parameter      :: BEGINNING_DATA = 88
-
    integer, parameter      :: NO_OF_SAVED_REFS = 6
+
    integer, parameter      :: GAMMA_REF = 1
    integer, parameter      :: RGAS_REF  = 2
    integer, parameter      :: V_REF     = 3

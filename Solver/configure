@@ -58,16 +58,18 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
-	        ./NavierStokes/FlatPlate \
-	        ./NavierStokes/TaylorGreen \
-	        ./NavierStokes/TaylorGreenKEPEC_IP \
-	        ./NavierStokes/TaylorGreenKEP_BR2 \
-	        ./NavierStokes/ManufacturedSolutions \
-	        ./NavierStokes/NACA0012 \
-			./NavierStokes/ForwardFacingStep/NonFiltered \
-			./NavierStokes/ForwardFacingStep/SVV \
-            ./NavierStokes/ForwardFacingStep/SSFV
-			./NavierStokes/TaylorGreenSVVLES \
+            ./NavierStokes/FlatPlate \
+            ./NavierStokes/TaylorGreen \
+            ./NavierStokes/TaylorGreenKEPEC_IP \
+            ./NavierStokes/TaylorGreenKEP_BR2 \
+            ./NavierStokes/ManufacturedSolutions \
+            ./NavierStokes/NACA0012 \
+            ./NavierStokes/ForwardFacingStep/NonFiltered \
+            ./NavierStokes/ForwardFacingStep/SVV \
+            ./NavierStokes/ForwardFacingStep/SSFV \
+            ./NavierStokes/TaylorGreenSVVLES \
+            ./NavierStokes/ManufacturedSolutionsSA \
+            ./NavierStokes/FlatPlateSA \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
@@ -111,6 +113,7 @@ for subdir in $TEST_CASES; do
 	mkdir -p ./test/$subdir/RESULTS
 	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
 	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
 	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir

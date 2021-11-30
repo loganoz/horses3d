@@ -25,7 +25,7 @@
       use SpatialDiscretization
       use pAdaptationClass          , only: GetMeshPolynomialOrders
       use NodalStorageClass
-      use ManufacturedSolutions
+      use ManufacturedSolutionsNS
       use FluidData
       use FileReaders               , only: ReadControlFile
       use FileReadingUtilities      , only: getFileName

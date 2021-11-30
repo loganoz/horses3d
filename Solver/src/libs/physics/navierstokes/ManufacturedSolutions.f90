@@ -21,7 +21,7 @@
 !
 !
 !////////////////////////////////////////////////////////////////////////////////////////
-MODULE ManufacturedSolutions
+MODULE ManufacturedSolutionsNS
    USE SMConstants
    USE PhysicsStorage_NS
    USE Physics_NS
@@ -3263,4 +3263,4 @@ MODULE ManufacturedSolutions
    
    END SUBROUTINE ManufacturedSolutionSourceEuler
 
-END MODULE ManufacturedSolutions
+END MODULE ManufacturedSolutionsNS

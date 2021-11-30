@@ -4,9 +4,9 @@
 !   @File: ColorsClass.f90
 !   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
 !   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Sun Aug 22 00:47:35 2021
+!   @Last revision date: Mon Sep  6 22:44:56 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 8be648172a39f0abeee144315c932f91491796d5
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !//////////////////////////////////////////////////////
 !

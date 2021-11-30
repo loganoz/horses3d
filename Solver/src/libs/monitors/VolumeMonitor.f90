@@ -104,7 +104,7 @@ module VolumeMonitorClass
          self % num_of_vars = 1
          call toLower(self % variable)
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          select case ( trim ( self % variable ) )
          case ("kinetic energy")
          case ("kinetic energy rate")
@@ -122,6 +122,10 @@ module VolumeMonitorClass
          case ("source")            ; self % num_of_vars = NCONS
          case ("particles source")  ; self % num_of_vars = NCONS
          case ("sensor range")      ; self % num_of_vars = 2
+         case ("l2rho")
+         case ("l2rhou")
+         case ("l2rhoe")
+
          case default
 
             if ( len_trim (self % variable) .eq. 0 ) then
@@ -149,7 +153,6 @@ module VolumeMonitorClass
 
             end if
          end select
-
 #elif defined(INCNS)
          select case ( trim ( self % variable ) )
          case ("mass")
@@ -271,7 +274,7 @@ module VolumeMonitorClass
 !        Compute the volume integral
 !        ---------------------------
          select case ( trim(self % variable) )
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case ("kinetic energy")
             self % values(1,bufferPosition) = ScalarVolumeIntegral(mesh, KINETIC_ENERGY) / ScalarVolumeIntegral(mesh, VOLUME)
 

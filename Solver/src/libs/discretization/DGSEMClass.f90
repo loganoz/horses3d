@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f95
 !   @Author:  David Kopriva
 !   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Wed May 5 16:30:01 2021
+!   @Last revision date: Mon Sep  6 22:44:53 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
+!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -23,14 +23,17 @@ Module DGSEMClass
    use ElementClass
    USE HexMeshClass
    USE PhysicsStorage
-   use FluidData
    use FileReadingUtilities      , only: getFileName
-#if defined(NAVIERSTOKES)
-   USE ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
+#elif defined(SPALARTALMARAS)
+   use ManufacturedSolutionsNSSA
+   use SpallartAlmarasTurbulence
 #endif
    use MonitorsClass
    use ParticlesClass
    use Physics
+   use FluidData
    use ProblemFileFunctions, only: UserDefinedInitialCondition_f
 #ifdef _HAS_MPI_
    use mpi
@@ -122,6 +125,7 @@ Module DGSEMClass
       integer                     :: dir2D
       integer                     :: ierr
       logical                     :: MeshInnerCurves                    ! The inner survaces of the mesh have curves?
+      logical                     :: useRelaxPeriodic                   ! The periodic construction in direction z use a relative tolerance
       character(len=*), parameter :: TWOD_OFFSET_DIR_KEY = "2d mesh offset direction"
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
@@ -225,6 +229,9 @@ Module DGSEMClass
       else
          MeshInnerCurves = .true.
       end if
+
+
+      useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -247,7 +254,7 @@ Module DGSEMClass
 !
 !           Construct the "full" mesh
 !           -------------------------
-            call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
+            call constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
 !
 !           Perform the partitioning
 !           ------------------------
@@ -269,8 +276,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
-      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, success )
-
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
 !     Compute wall distances
@@ -313,7 +319,7 @@ Module DGSEMClass
 !     Get manufactured solution source term (if requested)
 !     ----------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements)
             DO k=0, Nz(el)
@@ -328,6 +334,20 @@ Module DGSEMClass
                                                              0._RP, &
                                                              self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                      END IF
+                  END DO
+               END DO
+            END DO
+         END DO
+      END IF
+#elif defined(SPALARTALMARAS)
+      IF (self % ManufacturedSol) THEN
+         DO el = 1, SIZE(self % mesh % elements)
+           DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)
+                        CALL ManufacturedSolutionSourceNSSA(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                            self % mesh % elements(el) % geom % dwall(i,j,k), 0._RP, &
+                                                            self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                   END DO
                END DO
             END DO
@@ -471,7 +491,7 @@ Module DGSEMClass
       use MPI_Process_Info
       IMPLICIT NONE
       CLASS(HexMesh), intent(in)  :: mesh
-      REAL(KIND=RP) :: maxResidual(NCONS)
+      REAL(KIND=RP), dimension(NCONS) :: maxResidual
 !
 !     ---------------
 !     Local variables
@@ -479,8 +499,8 @@ Module DGSEMClass
 !
       INTEGER       :: id , eq, ierr
       REAL(KIND=RP) :: localMaxResidual(NCONS)
-      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localc
-      real(kind=RP) :: R1, R2, R3, R4, R5, c
+      real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
+      real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
 
       maxResidual = 0.0_RP
       R1 = 0.0_RP
@@ -488,29 +508,46 @@ Module DGSEMClass
       R3 = 0.0_RP
       R4 = 0.0_RP
       R5 = 0.0_RP
+      R6 = 0.0_RP
       c    = 0.0_RP
 
-!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, c, mesh) default(private)
-!$omp do reduction(max:R1,R2,R3,R4,R5,c) schedule(runtime)
+!$omp parallel shared(maxResidual, R1, R2, R3, R4, R5, R6, c, mesh) default(private)
+!$omp do reduction(max:R1,R2,R3,R4,R5, R6, c) schedule(runtime)
       DO id = 1, SIZE( mesh % elements )
-#ifdef FLOW
+#if defined FLOW && !(SPALARTALMARAS)
          localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
          localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
          localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
          localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
          localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
+#else
+         localR1 = maxval(abs(mesh % elements(id) % storage % QDot(1,:,:,:)))
+         localR2 = maxval(abs(mesh % elements(id) % storage % QDot(2,:,:,:)))
+         localR3 = maxval(abs(mesh % elements(id) % storage % QDot(3,:,:,:)))
+         localR4 = maxval(abs(mesh % elements(id) % storage % QDot(4,:,:,:)))
+         localR5 = maxval(abs(mesh % elements(id) % storage % QDot(5,:,:,:)))
+         localR6 = maxval(abs(mesh % elements(id) % storage % QDot(6,:,:,:)))
 #endif
+
 #ifdef CAHNHILLIARD
          localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
 #endif
 
-#ifdef FLOW
+#if defined FLOW && !(SPALARTALMARAS)
          R1 = max(R1,localR1)
          R2 = max(R2,localR2)
          R3 = max(R3,localR3)
          R4 = max(R4,localR4)
          R5 = max(R5,localR5)
+#elif defined(SPALARTALMARAS)
+         R1 = max(R1,localR1)
+         R2 = max(R2,localR2)
+         R3 = max(R3,localR3)
+         R4 = max(R4,localR4)
+         R5 = max(R5,localR5)
+         R6 = max(R6,localR6)
 #endif
+
 #ifdef CAHNHILLIARD
          c    = max(c, localc)
 #endif
@@ -518,8 +555,10 @@ Module DGSEMClass
 !$omp end do
 !$omp end parallel
 
-#ifdef FLOW
+#if defined FLOW && (!(SPALARTALMARAS))
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5]
+#elif defined(SPALARTALMARAS)
+      maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
 #endif
 
 #if  defined(CAHNHILLIARD) && (!defined(FLOW))
@@ -569,6 +608,7 @@ Module DGSEMClass
       real(kind=RP)                 :: lamcsi_a, lamzet_a, lameta_a     ! Advective eigenvalues in the three reference directions
       real(kind=RP)                 :: lamcsi_v, lamzet_v, lameta_v     ! Diffusive eigenvalues in the three reference directions
       real(kind=RP)                 :: jac, mu, T                       ! Mapping Jacobian, viscosity and temperature
+      real(kind=RP)                 :: kinematicviscocity, musa, etasa
       real(kind=RP)                 :: Q(NCONS)                           ! The solution in a node
       real(kind=RP)                 :: TimeStep_Conv, TimeStep_Visc     ! Time-step for convective and diffusive terms
       real(kind=RP)                 :: localMax_dt_v, localMax_dt_a     ! Time step to perform MPI reduction
@@ -576,6 +616,9 @@ Module DGSEMClass
       external                      :: ComputeEigenvaluesForState       ! Advective eigenvalues
 #if defined(INCNS) || defined(MULTIPHASE)
       logical :: flowIsNavierStokes = .true.
+#endif
+#if defined(SPALARTALMARAS)
+      type(Spalart_Almaras_t)       :: SAModel
 #endif
       !--------------------------------------------------------
 !     Initializations
@@ -657,6 +700,15 @@ Module DGSEMClass
             if (flowIsNavierStokes) then
                T        = Temperature(Q)
                mu       = SutherlandsLaw(T)
+
+#if defined(SPALARTALMARAS)
+
+              call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
+              call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
+                                               self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
+              mu = mu + musa
+
+#endif
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
                lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
@@ -694,7 +746,5 @@ Module DGSEMClass
       end if
 #endif
    end subroutine MaxTimeStep
-!
-!////////////////////////////////////////////////////////////////////////
 !
 end module DGSEMClass

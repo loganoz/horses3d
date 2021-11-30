@@ -43,7 +43,7 @@ MODULE Read_SpecMesh
 !        * If not, it constructs the simplest mesh only with the information needed for partitioning
 !     -> If the simulation is sequential, it constructs the full sequential mesh
 !     ----------------------------------------------------------------------------------------------
-      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      SUBROUTINE ConstructMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -58,6 +58,7 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=*)                 :: fileName
          integer                          :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          integer                          :: dir2D
+         logical                          :: periodRelative
          LOGICAL           , intent(out)  :: success
 !
 !        ---------------
@@ -100,9 +101,9 @@ MODULE Read_SpecMesh
 !
          if ( MPI_Process % doMPIAction ) then
             if ( mpi_partition % Constructed ) then
-               call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+               call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
             else
-               call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+               call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
             end if
             return
          end if
@@ -281,7 +282,7 @@ MODULE Read_SpecMesh
 !        Construct periodic faces
 !        ---------------------------
 !
-         CALL ConstructPeriodicFaces( self )
+         CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !        ---------------------------
 !        Delete periodic- faces
@@ -356,7 +357,7 @@ MODULE Read_SpecMesh
 !     Constructs the simplest mesh with only the information
 !     that is needed to create the MPI partitions
 !     ------------------------------------------------------
-      SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -367,6 +368,7 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=*)                 :: fileName
          integer                          :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          integer                          :: dir2D
+         logical                          :: periodRelative
          LOGICAL           , intent(out)  :: success
          !-local-variables------------------------------------------------------------------------
          integer                         :: numberOfElements
@@ -522,7 +524,7 @@ MODULE Read_SpecMesh
 !        Construct periodic faces
 !        ---------------------------
 !
-         CALL ConstructPeriodicFaces( self )
+         CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !        ---------------------------
 !        Delete periodic- faces
@@ -559,7 +561,7 @@ MODULE Read_SpecMesh
 !     ------------------------------
 !     Constructor of mesh partitions
 !     ------------------------------
-      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, success )
+      SUBROUTINE ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
          USE Physics
          use PartitionedMeshClass
          use MPI_Process_Info
@@ -575,6 +577,7 @@ MODULE Read_SpecMesh
          CHARACTER(LEN=*)    :: fileName
          integer             :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
          integer, intent(in) :: dir2D
+         logical             :: periodRelative
          LOGICAL             :: success
 !
 !        ---------------
@@ -897,7 +900,7 @@ MODULE Read_SpecMesh
 !        Construct periodic faces
 !        ---------------------------
 !
-         CALL ConstructPeriodicFaces( self )
+         CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !        ---------------------------
 !        Delete periodic- faces

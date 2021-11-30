@@ -4,15 +4,15 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Sep 16 13:19:24 2021
+!   @Last revision date: Wed Nov 24 17:19:23 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 0064b558b62ea50906ba2b95d635e6be5a1c38e0
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
 MODULE HexMeshClass
-      use Utilities                       , only: toLower, almostEqual
+      use Utilities                       , only: toLower, almostEqual, AlmostEqualRelax
       use SMConstants
       USE MeshTypes
       USE NodeClass
@@ -426,9 +426,7 @@ MODULE HexMeshClass
 
       END FUNCTION faceRotation
 !
-!////////////////////////////////////////////////////////////////////////
-!
-      SUBROUTINE ConstructPeriodicFaces(self)
+      SUBROUTINE ConstructPeriodicFaces(self, useRelaxTol)
       USE Physics
       IMPLICIT NONE
 !
@@ -444,7 +442,8 @@ MODULE HexMeshClass
 ! External variables
 !--------------------
 !
-      TYPE(HexMesh) :: self
+      TYPE(HexMesh)              :: self
+      LOGICAL, intent(in)        :: useRelaxTol
 
 !
 !--------------------
@@ -452,12 +451,12 @@ MODULE HexMeshClass
 !--------------------
 !
 !
-      REAL(KIND=RP) :: x1(NDIM), x2(NDIM)
-      LOGICAL       :: master_matched(4), slave_matched(4), success, found
-      INTEGER       :: coord, slaveNodeIDs(4), localCoord
+      REAL(KIND=RP)              :: x1(NDIM), x2(NDIM), edge_length(4), min_edge_length
+      LOGICAL                    :: master_matched(4), slave_matched(4), success, found
+      INTEGER                    :: coord, slaveNodeIDs(4), localCoord
 
-      INTEGER       :: i,j,k,l
-      integer       :: zIDplus, zIDMinus, iFace, jFace
+      INTEGER                    :: i,j,k,l
+      integer                    :: zIDplus, zIDMinus, iFace, jFace
       character(len=LINE_LENGTH) :: associatedBname
 !
 !     --------------------------------------------
@@ -535,6 +534,16 @@ mloop:      do jFace = 1, self % zones(zIDMinus) % no_of_faces
                master_matched(:)   = .FALSE.     ! True if the master corner finds a partner
                slave_matched(:)    = .FALSE.     ! True if the slave corner finds a partner
 
+               ! compute minimum edge length to make matching tolerance relative to element size. Assumes that the periodic
+               ! coordinate of all the nodes not vary significativelly compared to the other two coordinates.
+               if (useRelaxTol) then
+                   edge_length(1)=NORM2(self % nodes(self % faces(i) % nodeIDs(1)) % x - self % nodes(self % faces(i) % nodeIDs(2)) % x)
+                   edge_length(2)=NORM2(self % nodes(self % faces(i) % nodeIDs(2)) % x - self % nodes(self % faces(i) % nodeIDs(3)) % x)
+                   edge_length(3)=NORM2(self % nodes(self % faces(i) % nodeIDs(3)) % x - self % nodes(self % faces(i) % nodeIDs(4)) % x)
+                   edge_length(4)=NORM2(self % nodes(self % faces(i) % nodeIDs(4)) % x - self % nodes(self % faces(i) % nodeIDs(1)) % x)
+                   min_edge_length=minval(edge_length)
+               end if
+
                if ( coord .eq. 0 ) then
 !
 !                 Check all coordinates
@@ -547,7 +556,11 @@ mastercoord:         DO k = 1, 4
 slavecoord:             DO l = 1, 4
                            IF (.NOT.slave_matched(l)) THEN
                               x2 = self%nodes(self%faces(j)%nodeIDs(l))%x
-                              CALL CompareTwoNodes(x1, x2, master_matched(k), localCoord)
+                              IF (useRelaxTol) THEN
+                                  CALL CompareTwoNodesRelax(x1, x2, master_matched(k), localCoord, min_edge_length)
+                              ELSE
+                                  CALL CompareTwoNodes(x1, x2, master_matched(k), localCoord)
+                              END IF
                               IF (master_matched(k)) THEN
                                  slave_matched(l) = .TRUE.
                                  EXIT  slavecoord
@@ -569,7 +582,11 @@ slavecoord:             DO l = 1, 4
                      DO l = 1, 4
                         IF (.NOT.slave_matched(l)) THEN
                            x2 = self%nodes(self%faces(j)%nodeIDs(l))%x
-                           CALL CompareTwoNodes(x1, x2, master_matched(k), coord)
+                           IF (useRelaxTol) THEN
+                               CALL CompareTwoNodesRelax(x1, x2, master_matched(k), coord, min_edge_length)
+                           ELSE
+                               CALL CompareTwoNodes(x1, x2, master_matched(k), coord)
+                           END IF
                            IF (master_matched(k)) THEN
                               slave_matched(l) = .TRUE.
                               EXIT
@@ -596,7 +613,11 @@ slavecoord:             DO l = 1, 4
                      x1 = self % nodes ( self % faces(i) % nodeIDs(k)) % x
                      do l = 1, 4
                         x2 = self % nodes ( self % faces(j) % nodeIDs(l) ) % x
-                        call compareTwoNodes(x1, x2, success, coord)
+                        IF (useRelaxTol) THEN
+                            CALL CompareTwoNodesRelax(x1, x2, success, coord, min_edge_length)
+                        ELSE
+                            CALL CompareTwoNodes(x1, x2, success, coord)
+                        END IF
                         if ( success ) then
                            slaveNodeIDs(l) = self % faces(i) % nodeIDs(k)
                         end if
@@ -619,6 +640,8 @@ slavecoord:             DO l = 1, 4
 
             end do   ploop    ! periodic+ faces
          end do               ! periodic+ zones
+
+         if ( MPI_Process % isRoot .and. useRelaxTol) print *, "Success: when matching all periodic boundary conditions with relaxed comparison"
 
       END SUBROUTINE ConstructPeriodicFaces
 !
@@ -689,6 +712,68 @@ slavecoord:             DO l = 1, 4
 
 
       END SUBROUTINE CompareTwoNodes
+!
+      SUBROUTINE CompareTwoNodesRelax(x1, x2, success, coord, min_edge_length)
+      IMPLICIT NONE
+!
+!-------------------------------------------------------------------
+! Similar to CompareTwoNodes, but the comparison of the two nodes
+! is done relaxed by the minimum edge length
+!-------------------------------------------------------------------
+!     --------------------
+!     External variables
+!     --------------------
+!
+      REAL(KIND=RP) :: x1(3)
+      REAL(KIND=RP) :: x2(3)
+      REAL(KIND=RP) :: min_edge_length
+      LOGICAL       :: success
+      INTEGER       :: coord
+!
+!     --------------------
+!     Local variables
+!     --------------------
+!
+      INTEGER :: i
+      INTEGER :: counter
+
+      counter = 0
+
+      IF (coord == 0) THEN
+
+         DO i = 1,3
+            IF ( AlmostEqualRelax( x1(i), x2(i) , min_edge_length ) ) THEN
+               counter = counter + 1
+            ELSE
+               coord = i
+            ENDIF
+         ENDDO
+
+         IF (counter.ge.2) THEN
+            success = .TRUE.
+         ELSE
+            success = .FALSE.
+         ENDIF
+
+      ELSE
+
+         DO i = 1,3
+            IF (i /= coord) THEN
+               IF ( AlmostEqualRelax( x1(i), x2(i) , min_edge_length ) ) THEN
+                  counter = counter + 1
+               ENDIF
+            ENDIF
+         ENDDO
+
+         IF (counter.ge.2) THEN
+            success = .TRUE.
+         ELSE
+            success = .FALSE.
+         ENDIF
+
+      ENDIF
+
+      END SUBROUTINE CompareTwoNodesRelax
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -2607,7 +2692,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2650,6 +2735,11 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
+#if defined(SPALARTALMARAS)
+            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
+                                       self % nodeType, self % no_of_allElements, iter, time, refs)
+            padding = NCONS + 3*NGRAD
+#else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2659,6 +2749,7 @@ slavecoord:             DO l = 1, 4
                                        self % no_of_allElements, iter, time, refs)
             padding = NCONS
          end if
+#endif
 !
 !        Write arrays
 !        ------------
@@ -2711,6 +2802,7 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+
             end associate
          end do
          close(fid)
@@ -2720,6 +2812,7 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
+
 #if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name)
          use SolutionFile
@@ -2744,7 +2837,8 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-!
+         refs(RE_REF)    = dimensionless  % Re
+
 !        Create new file
 !        ---------------
          call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2936,9 +3030,14 @@ slavecoord:             DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
+#ifdef SPALARTALMARAS
+            padding = NCONS + 3 * NGRAD
+            gradients = .TRUE.
+#else
             padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
+#endif
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
@@ -3047,7 +3146,6 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
-
                deallocate(Q)
             end if
 
@@ -3468,7 +3566,8 @@ slavecoord:             DO l = 1, 4
         if ( controlVariables % containsKey("mg smoother")) then
           mg_smoother = controlVariables % stringValueForKey("mg smoother",LINE_LENGTH)
           call toLower (mg_smoother)
-          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") ) then
+          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") &
+            .or. (trim(mg_smoother) .eq. "ilu") .or. (trim(mg_smoother) .eq. "sgs") ) then
             bdf_order = 1
             RKSteps_num = 0
           end if
@@ -3523,10 +3622,10 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu
+      integer  :: off, ns, c, mu, nssa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu)
+      call GetStorageEquations(off, ns, c, mu, nssa)
 
       if ( which .eq. ns ) then
 #ifdef FLOW
@@ -3542,7 +3641,26 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(1) % SetStorageToNS
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
+
+      elseif ( which .eq. nssa ) then
+
+         self % storage % Q => self % storage % QNS
+         self % storage % QDot => self % storage % QDotNS
+         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToNS
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToNS
+            call self % faces(fID) % storage(2) % SetStorageToNS
+         end do
+
+
 #endif
+
+
       elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c

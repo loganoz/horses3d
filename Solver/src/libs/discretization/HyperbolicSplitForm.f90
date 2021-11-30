@@ -3,8 +3,10 @@
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicSplitForm
    use SMConstants
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS
+#elif defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSA
 #elif defined(INCNS)
    use RiemannSolvers_iNS
 #endif

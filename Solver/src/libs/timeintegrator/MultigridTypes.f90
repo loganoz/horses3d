@@ -4,9 +4,9 @@
 !   @File:    MultigridTypes.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Fri Jul 16 20:04:08 2021
+!   @Last revision date: Wed Nov 24 17:19:26 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: cf0ab0a542021595dd7b82fb93f6b32ab49f30ba
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -77,9 +77,9 @@ module MultigridTypes
    integer, parameter :: RKOPT_SMOOTHER   = 3 !
    integer, parameter :: IMPLICIT_SMOOTHER_IDX = 4 ! All smoothers with index >= IMPLICIT_SMOOTHER_IDX are implicit
    integer, parameter :: IRK_SMOOTHER = 4     ! Implicit Euler smoother (full matrix assembly)
-   integer, parameter :: BIRK5_SMOOTHER = 5   ! Semi-implicit RK smoother
-   integer, parameter :: BJ_SMOOTHER      = 6 ! Block Jacobi smoother
-   integer, parameter :: JFGMRES_SMOOTHER = 7 ! Jacobian-Free GMRES
+   integer, parameter :: BIRK5_SMOOTHER = 5   ! Semi-implicit RK smoother (5-stage Block-Jacobi)
+   integer, parameter :: SGS_SMOOTHER = 6     ! symmetric Gauss-Seidel smoother
+   integer, parameter :: ILU_SMOOTHER = 7     ! symmetric Gauss-Seidel smoother
 
    ! Variables for IO
    integer        :: ThisTimeStep   ! Current time step

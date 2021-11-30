@@ -298,7 +298,7 @@ end module UserDefinedDataStorage
             integer     :: eID, i, j, k, fid
             real(kind=RP)  :: x(NDIM)
             real(kind=RP)  :: L2error, L2local
-            real(kind=RP)  :: Qexpected(NCONS)
+            real(kind=RP)  :: Qexpected(5)
 
             L2error = 0.0_RP
 
@@ -313,7 +313,7 @@ end module UserDefinedDataStorage
                   Qexpected(4) = Qexpected(1)
                   Qexpected(5) = POW2(Qexpected(1))
 
-                  L2local = norm2( e % storage % Q(:,i,j,k) - Qexpected )
+                  L2local = norm2( e % storage % Q(1:5,i,j,k) - Qexpected )
                   L2error = max(L2local,L2error)
                end do                  ; end do                   ; end do
                end associate
