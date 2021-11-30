@@ -44,20 +44,14 @@ sudo apt-get install cmake cmake-curses-gui
 
 ### basic dependencies for Horse3D:
 --------
-(don' use this)
-~~sudo apt-get install gfortran gfortran-7 gfortran-7-multilib~~
 
-
-### basic dependencies for HOPR:
-Note that compilation requires python to be python2. Afterwards, switch back
 
 ```
 sudo apt-get install gfortran-9 gfortran-9-multilib
 sudo apt-get install liblapack-dev zlib1g-dev libc6 zlib* zlibc
-sudo apt-get install python-is_python2
 ```
 
-### HDF5 support for HOPR & HORSES3D
+### HDF5 support for HOPR & HORSES3D (synthetic wind field)
 ```
 sudo apt-get install hdf5-tools hdf5-helpers
 sudo apt-get install h5utils
@@ -68,11 +62,11 @@ ubuntu 20.04:
 ```
 sudo apt-get install libhdf5-103 libhdf5-cpp-103 libhdf5-dev
 ```
+
 ubuntu 18.04
 ```
 sudo apt-get install libhdf5-100 libhdf5-cpp-100 libhdf5-dev 
 ```
-
 
 
 ### MKL:
@@ -80,6 +74,8 @@ sudo apt-get install libhdf5-100 libhdf5-cpp-100 libhdf5-dev
 ```
 sudo apt-get install intel-mkl
 ```
+
+Note: A warning will appear asking whether you want to use intel-MKL (propietary) as the default alternative to BLAS/LAPACK (open source). We have decided to say no when using AMD processor.
 
 
 ### MPI:
@@ -90,7 +86,6 @@ sudo apt-get install libhdf5-mpi* libhdf5-openmpi-* libopenmpi-dev
 
 ### Forgot for what exactly
 ```
-sudo apt-get install szip 
 sudo apt-get install netcdf-bin curl zlib*
 ```
 
@@ -109,11 +104,18 @@ sudo apt-get install metis metis-edf libmetis-dev
 
 
 
-
 ## Setup
 
 
-### HOPR (mesher):
+### HOPR (mesher) - NOT NEEDED, we use the alternative gmsh:
+
+https://www.hopr-project.org
+
+note: requires to install
+
+```
+sudo apt-get install python-is_python2
+```
 
 Version 1 and 2 from the official website require some less work
 ```
@@ -134,11 +136,22 @@ Github version:
 
 ### Horse3D compile:
 
+Go to the folder Solver.
+
 ```
 ./configure
 make clean
 make all COMPILER=gfortran WITH_MKL=YES WITH_HDF5=YES COMM=PARALLEL WITH_PETSC=YES
 ```
+
+If this gives an error:
+-bash: ./configure: /bin/bash^M: bad interpreter: No such file or directory
+run:
+```
+dos2unix configure
+```
+and try again. This error can also appear when compiling a makefile.
+
 
 add an alias to .bashrc, yo may be using it quite a few times (even compiling Problemfile.90)
 
