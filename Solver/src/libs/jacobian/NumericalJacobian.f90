@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Nov 23 11:55:51 2021
-!   @Last revision author: Jerryntk (gerasimos.ntoukas@upm.es)
-!   @Last revision commit: 898b65703f0a5fc068dff7098b523cb2be6f7684
+!   @Last revision date: Tue Nov 30 15:11:25 2021
+!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
+!   @Last revision commit: 3fc1ca33811992f087cca161cbb3828df594938d
 
 !
 !//////////////////////////////////////////////////////
@@ -157,15 +157,6 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-         select type(Matrix_p => Matrix)
-         type is(DenseBlockDiagMatrix_t)
-            ! No need for colors for Block Diagonal Matrix
-            do i=1,nelm 
-               nbr(i)%elmnt(1:6) = 0
-            end do
-         class default
-            ! do nothing
-         end select
          call ecolors % construct(nbr, num_of_neighbor_levels)
          
 !
