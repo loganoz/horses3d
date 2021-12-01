@@ -618,6 +618,7 @@ Module DGSEMClass
 #endif
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t)       :: SAModel 
+      external                      ::ComputeEigenvaluesForStateSA
 #endif
       !--------------------------------------------------------
 !     Initializations
@@ -672,8 +673,12 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
+
+#if defined(SPALARTALMARAS)
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )
+#else
             CALL ComputeEigenvaluesForState( Q , eValues )
-            
+#endif            
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 !           ----------------------------
