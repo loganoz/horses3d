@@ -150,7 +150,7 @@
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) & (!defined(SPALARTALMARAS))
             DO eID = 1, SIZE(mesh % elements)
                DO k = 0, mesh % elements(eID) % Nxyz(3)
                   DO j = 0, mesh % elements(eID) % Nxyz(2)
@@ -190,8 +190,9 @@
 !           ---------------
 !
             logical  :: success
-
+#if defined(NAVIERSTOKES) & (!defined(SPALARTALMARAS))
             call pointSourceFlowSolution(x, Q, success, thermodynamics_, dimensionless_, refValues_)
+#endif 
          end subroutine UserDefinedState1
 
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
