@@ -10,15 +10,9 @@
 !
 !//////////////////////////////////////////////////////
 !
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.
 !  Current supported versions: GMSH Mesh Format 4.1 and 2.1
-!  Current supported elements ID: 5,12,92,...,96. Respectively: P1, P2, P3, ... P7 hexahedral. 
+!  Current supported elements ID: 5,12,92, 93, 94. Respectively: P1, P2, P3, P4, P5 hexahedral. 
 !
 !  GMSH original hexahedral ordering:
 !  
@@ -35,7 +29,7 @@
 !     \|      w  \|           \|         \|          \|         \|
 !      4----------5            4----16----5           4----16----5
 !
-! HORSES3D corner ordering: 
+!  HORSES3D corner ordering: 
 !         v
 !  1----------4           
 !  |\     ^   |\
@@ -4305,10 +4299,6 @@ MODULE Read_GMSH
          error stop "Read_GMSH :: GetOrderedFaceNodeTags :: face number not in 1,6 range."
       end select
 
-      ! write(STD_OUT,*) "----------"
-      ! write(STD_OUT,'(I4)') face_nodes
-      ! write(STD_OUT,*) "----------"
-
    end subroutine GetOrderedFaceNodeTags
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -4531,132 +4521,132 @@ MODULE Read_GMSH
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(10 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes(12 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes(13 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(15 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes(16 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,2)
 
          ! 24th entity (Face no 2) 
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,4)
 
          ! 21st entity (Face no 3) 
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,4)
 
          ! 22nd enitty (Face no 4)
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(10 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(11 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(12 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(13 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes(14 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(15 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(16 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,3)
 
          ! 26th enitty (Face no 5)
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(10 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes(12 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes(13 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(15 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes(16 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,2)
 
          ! 25th enitty (Face no 6)
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) : &
                                                 i*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) 
          end do
-         ! elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 2 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 3 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 4 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 5 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 6 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 7 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 8 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes( 9 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(10 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(11 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(12 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(13 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(14 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(15 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
-         ! elnodes(16 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(,)
+         elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,4)
       case default 
          error stop "Read_GMSH :: Curved elements with P>5 not implemented."
       end select
