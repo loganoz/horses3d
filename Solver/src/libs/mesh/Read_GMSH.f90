@@ -486,6 +486,7 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
+      check_eltype = 0
       do i=1, EL_MAX_ORDER
          check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
       end do
@@ -1130,6 +1131,7 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
+      check_eltype = 0
       do i=1, EL_MAX_ORDER
          check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
       end do
@@ -1862,6 +1864,7 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
+      check_eltype = 0
       do i=1, EL_MAX_ORDER
          check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
       end do
@@ -2384,6 +2387,7 @@ MODULE Read_GMSH
       
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
+            check_eltype = 0
             do i=1, EL_MAX_ORDER
                check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
             end do
@@ -2914,6 +2918,7 @@ MODULE Read_GMSH
       
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
+            check_eltype = 0
             do i=1, EL_MAX_ORDER
                check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
             end do
@@ -3529,6 +3534,7 @@ MODULE Read_GMSH
       
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
+            check_eltype = 0
             do i=1, EL_MAX_ORDER
                check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
             end do
