@@ -65,6 +65,7 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.ch
 *.ns
 *.ins
+*.nssa
 bin/
 Makefile*
 utils/modulefile/horses/dev
