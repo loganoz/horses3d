@@ -292,11 +292,14 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(in)    :: nHat(NDIM)
          real(kind=RP),          intent(inout) :: Q(NCONS)
 
+#if defined (SPALARTALMARAS)
+         Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
+         Q(IRHOTHETA) = - Q(IRHOTHETA)
+#else
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
-!
+#endif
 !        This boundary condition should be
 !        ---------------------------------
-!        Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
 
       end subroutine NoSlipWallBC_FlowState
 
@@ -329,6 +332,9 @@ module NoSlipWallBCClass
          Q_aux(IRHO) = Q(IRHO)
          Q_aux(IRHOU:IRHOW) = Q(IRHO)*self % vWall
          Q_aux(IRHOE) = Q(IRHO)*((1.0_RP-self % wallType)*e_int + self % wallType*self % eWall + 0.5_RP*sum(self % vWall*self % vWall))
+#if defined (SPALARTALMARAS)
+         Q_aux(IRHOTHETA) = 0.0_RP
+#endif
 
          U1 = U(IRHO)
 
@@ -380,6 +386,7 @@ module NoSlipWallBCClass
 !        -------------------------------------------------------
 !
 !////////////////////////////////////////////////////////////////////////////
+!
 !
 #if defined(INCNS)
       subroutine NoSlipWallBC_FlowState(self, x, t, nHat, Q)

@@ -12,8 +12,10 @@
 !
 #include "Includes.h"
 module VariableConversion
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use VariableConversion_NS
+#elif defined(SPALARTALMARAS)
+   USE VariableConversion_NSSA
 #elif defined(INCNS)
    use VariableConversion_iNS
 #elif defined(MULTIPHASE)

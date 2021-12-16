@@ -4,9 +4,9 @@
 !   @File:    LinearMultigridSolverClass.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: 2019-11-06 
-!   @Last revision date: Fri Aug 27 15:25:20 2021
+!   @Last revision date: Wed Nov 24 17:19:25 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 887f53c23a642a9979c49ff9c58386051199099b
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -2609,10 +2609,6 @@ contains
       integer                     :: ipar(128) 
       integer                     :: ierr 
       !--------------------------------------------
-      real(kind=RP), dimension(5)   :: b = (/ 1.0 ,3.0, 4.0, -10.0, 21.0 /)
-      real(kind=RP), dimension(5)   :: x = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
-      real(kind=RP), dimension(5)   :: y = (/ 0.0, 0.0, 0.0, 0.0, 0.0 /)
-      real(kind=RP), dimension(5,5) :: A
       integer, dimension(:), allocatable  :: rows,cols
       real(kind=RP), dimension(:), allocatable  :: vals,bilu_test
 

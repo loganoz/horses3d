@@ -487,8 +487,8 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: Nelf(2)  ! Element face pOrder (with rotation)
       integer,                   intent(in)     :: Nel(2)   ! Element face pOrder (without rotation)
       integer,                   intent(in)     :: Nel3D(3) ! Element pOrder
-      type(NodalStorage_t),        intent(in)     :: spAf(2)
-      type(NodalStorage_t),        intent(in)     :: spAe(3)
+      type(NodalStorage_t),      intent(in)     :: spAf(2)
+      type(NodalStorage_t),      intent(in)     :: spAe(3)
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side

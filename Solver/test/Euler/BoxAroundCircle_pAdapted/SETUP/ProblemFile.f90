@@ -377,7 +377,7 @@
 !
 #if defined(NAVIERSTOKES)
             real(kind=RP), parameter :: final_time = 8.9356631108400600E-002_RP
-            real(kind=RP), parameter :: res(NCONS) = [ 7.5562643059618037E-004_RP, &
+            real(kind=RP), parameter :: res(5) = [ 7.5562643059618037E-004_RP, &
                                                        7.0131047667415028E-003_RP, &
                                                        8.2577456104454747E-013_RP, &
                                                        1.0463412436767145E-002_RP, &

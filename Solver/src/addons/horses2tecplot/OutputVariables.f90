@@ -43,8 +43,9 @@ module OutputVariables
 !  ***************************
 !
    enum, bind(C)
-      enumerator :: Q_V = 1, RHO_V, U_V, V_V, W_V
-      enumerator :: P_V, T_V, Mach_V, S_V, Vabs_V
+      enumerator :: Q_V = 1, QDot_V, RHO_V, U_V, V_V, W_V
+      enumerator :: P_V , RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V
+      enumerator :: RHOEDOT_V, CDOT_V, T_V, Mach_V, S_V, Vabs_V
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Nxi_V, Neta_V
       enumerator :: Nzeta_V, Nav_V, N_V
@@ -53,7 +54,7 @@ module OutputVariables
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
       enumerator :: OMEGA_V, OMEGAX_V, OMEGAY_V, OMEGAZ_V
-      enumerator :: OMEGAABS_V, QCRIT_V
+      enumerator :: OMEGAABS_V, QCRIT_V, MU, YPLUS, UPLUS, CF, MUTMINF
       enumerator :: LASTVARIABLE
    end enum
 
@@ -61,11 +62,18 @@ module OutputVariables
    integer, parameter   :: NO_OF_INVISCID_VARIABLES = MPIRANK_V
 
    character(len=STR_VAR_LEN), parameter  :: QKey          = "Q"
+   character(len=STR_VAR_LEN), parameter  :: QDOTKey       = "QDot"
    character(len=STR_VAR_LEN), parameter  :: RHOKey        = "rho"
    character(len=STR_VAR_LEN), parameter  :: UKey          = "u"
    character(len=STR_VAR_LEN), parameter  :: VKey          = "v"
    character(len=STR_VAR_LEN), parameter  :: WKey          = "w"
    character(len=STR_VAR_LEN), parameter  :: PKey          = "p"
+   character(len=STR_VAR_LEN), parameter  :: RHODOTKey     = "rhoDot"
+   character(len=STR_VAR_LEN), parameter  :: RHOUDOTKey    = "rhouDot"
+   character(len=STR_VAR_LEN), parameter  :: RHOVDOTKey    = "rhovDot"
+   character(len=STR_VAR_LEN), parameter  :: RHOWDOTKey    = "rhowDot"
+   character(len=STR_VAR_LEN), parameter  :: RHOEDOTKey    = "rhoeDot"
+   character(len=STR_VAR_LEN), parameter  :: CDOTKey       = "cDot"
    character(len=STR_VAR_LEN), parameter  :: TKey          = "T"
    character(len=STR_VAR_LEN), parameter  :: MachKey       = "Mach"
    character(len=STR_VAR_LEN), parameter  :: SKey          = "s"
@@ -108,9 +116,15 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: omegazKey     = "omega_z"
    character(len=STR_VAR_LEN), parameter  :: omegaAbsKey   = "omega_abs"
    character(len=STR_VAR_LEN), parameter  :: QCriterionKey = "Qcrit"
-   
-   character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey, RHOKey, UKey, VKey, WKey, &
-                                                                            PKey, TKey, MachKey, SKey, VabsKey, &
+   character(len=STR_VAR_LEN), parameter  :: muKey         = "mu_ns"
+   character(len=STR_VAR_LEN), parameter  :: yplusKey      = "yplus_ns"
+   character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus_ns"
+   character(len=STR_VAR_LEN), parameter  :: cfKey         = "cf_ns"
+   character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+
+   character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
+                                                                            PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
+                                                                            CDOTKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, mpiRankKey, &
@@ -118,7 +132,7 @@ module OutputVariables
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
                                                                             omegaKey, omegaxKey, omegayKey, omegazKey, &
-                                                                            omegaAbsKey, QCriterionKey/)
+                                                                            omegaAbsKey, QCriterionKey, muKey, yplusKey, uplusKey, cfKey, mutminfKey/)
                                                                
    integer                :: no_of_outputVariables
    integer, allocatable   :: outputVariableNames(:)
@@ -282,9 +296,11 @@ module OutputVariables
          do var = 1, no_of_outputVariables
             if ( hasGradients .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
                associate ( Q   => e % Qout, &
+                           QDot=> e % QDot_out, &
                            U_x => e % U_xout, & 
                            U_y => e % U_yout, & 
-                           U_z => e % U_zout )
+                           U_z => e % U_zout, &
+                           mu_NS=>e % mu_NSout)
 
                select case (outputVariableNames(var))
    
@@ -319,6 +335,36 @@ module OutputVariables
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
    
+               case(RHODOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(IRHO,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOUDOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(IRHOU,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOVDOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(IRHOV,i,j,k) 
+                  end do         ; end do         ; end do
+
+               case(RHOWDOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(IRHOW,i,j,k)
+                  end do         ; end do         ; end do
+
+               case(RHOEDOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(IRHOE,i,j,k) 
+                  end do         ; end do         ; end do
+
+               case(CDOT_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = QDot(6,i,j,k) 
+                  end do         ; end do         ; end do
+
                case(T_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP) * refs(GAMMA_REF) * POW2(refs(MACH_REF)) / Q(IRHO,i,j,k) * (Q(IRHOE,i,j,k) - 0.5_RP*&
@@ -517,6 +563,44 @@ module OutputVariables
                      output(var,i,j,k) = 0.5_RP*( Asym - Sym )
                   end do            ; end do            ; end do
 
+               case(MU)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = mu_NS(1,i,j,k) !* refs(RE_REF)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
+
+               case(YPLUS)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) =    e % x(3,i,j,k) * sqrt(refs(RE_REF)) * sqrt(mu_NS(1,i,j,k) * refs(RE_REF) * U_y(1,i,j,k) / Q(IRHO,i,j,k)) / (mu_NS(1,i,j,k) * refs(RE_REF) / Q(IRHO,i,j,k))
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
+
+               case(UPLUS)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * sqrt(refs(RE_REF)) / sqrt(mu_NS(1,i,j,k) * refs(RE_REF) * U_z(1,i,j,k) / Q(IRHO,i,j,k))
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
+               
+               case(CF)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) =   mu_NS(1,i,j,k) * U_y(1,i,j,k)/ (0.5_RP * 1.0_RP * POW2(1.0_RP))
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
+
+               case(mutminf)
+                  
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                  if (Q(6,i,j,k) .GE. 0.0_RP ) then
+                        output(var,i,j,k) = Q(6,i,j,k) * ((Q(6,i,j,k)/(refs(RE_REF) *mu_NS(1,i,j,k)))**3.0_RP)/(((Q(6,i,j,k)/ (refs(RE_REF) * mu_NS(1,i,j,k)))**3.0_RP) + (7.1_RP)**3.0_RP) 
+                  else 
+
+                        output(var,i,j,k) = 0.0_RP
+
+                  end if 
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)        
+
+
                case(C_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = Q(size(Q,1),i,j,k)
@@ -581,6 +665,9 @@ module OutputVariables
          case(Q_V)
             outputVariablesForVariable = NVARS
 
+         case(QDot_V)
+            outputVariablesForVariable = NVARS
+
          case(Vvec_V)
             outputVariablesForVariable = 3
 
@@ -619,6 +706,19 @@ module OutputVariables
 
             elseif ( NVARS .eq. 1 ) then
                output = (/C_V/)
+
+            end if
+
+         case(QDot_V)
+            
+            if ( NVARS .eq. 5 ) then
+               output = (/RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V, RHOEDOT_V/)
+      
+            elseif ( NVARS .eq. 6 ) then
+               output = (/RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V, RHOEDOT_V, CDOT_V/)
+
+            elseif ( NVARS .eq. 1 ) then
+               output = (/CDOT_V/)
 
             end if
 

@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Thu Sep 16 13:19:24 2021
+!   @Last revision date: Wed Nov 24 17:19:23 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 0064b558b62ea50906ba2b95d635e6be5a1c38e0
+!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////
 !
@@ -2696,7 +2696,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2739,6 +2739,11 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
+#if defined(SPALARTALMARAS)
+            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
+                                       self % nodeType, self % no_of_allElements, iter, time, refs)
+            padding = NCONS + 3*NGRAD
+#else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2748,6 +2753,7 @@ slavecoord:             DO l = 1, 4
                                        self % no_of_allElements, iter, time, refs)
             padding = NCONS
          end if
+#endif
 !
 !        Write arrays
 !        ------------
@@ -2800,6 +2806,7 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+   
             end associate
          end do
          close(fid)
@@ -2809,6 +2816,7 @@ slavecoord:             DO l = 1, 4
          call SealSolutionFile(trim(name))
 
       end subroutine HexMesh_SaveSolution
+
 #if defined(NAVIERSTOKES)
       subroutine HexMesh_SaveStatistics(self, iter, time, name)
          use SolutionFile
@@ -2833,7 +2841,8 @@ slavecoord:             DO l = 1, 4
          refs(V_REF)     = refValues      % V
          refs(T_REF)     = refValues      % T
          refs(MACH_REF)  = dimensionless  % Mach
-!
+         refs(RE_REF)    = dimensionless  % Re
+
 !        Create new file
 !        ---------------
          call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -3025,9 +3034,14 @@ slavecoord:             DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_GRADIENTS_FILE)
+#ifdef SPALARTALMARAS
+            padding = NCONS + 3 * NGRAD
+            gradients = .TRUE.
+#else
             padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
+#endif
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
@@ -3136,7 +3150,6 @@ slavecoord:             DO l = 1, 4
 #if (defined(CAHNHILLIARD) && (!defined(FLOW)))
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
-
                deallocate(Q)
             end if
             
@@ -3557,7 +3570,8 @@ slavecoord:             DO l = 1, 4
         if ( controlVariables % containsKey("mg smoother")) then
           mg_smoother = controlVariables % stringValueForKey("mg smoother",LINE_LENGTH)
           call toLower (mg_smoother)
-          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") ) then
+          if ( (trim(mg_smoother) .eq. "irk") .or. (trim(mg_smoother) .eq. "birk5") &
+            .or. (trim(mg_smoother) .eq. "ilu") .or. (trim(mg_smoother) .eq. "sgs") ) then
             bdf_order = 1
             RKSteps_num = 0
           end if
@@ -3612,10 +3626,10 @@ slavecoord:             DO l = 1, 4
 !     Local variables
 !     ---------------
 !
-      integer  :: off, ns, c, mu
+      integer  :: off, ns, c, mu, nssa
       integer  :: eID, fID
 
-      call GetStorageEquations(off, ns, c, mu)
+      call GetStorageEquations(off, ns, c, mu, nssa)
 
       if ( which .eq. ns ) then
 #ifdef FLOW
@@ -3631,7 +3645,26 @@ slavecoord:             DO l = 1, 4
             call self % faces(fID) % storage(1) % SetStorageToNS
             call self % faces(fID) % storage(2) % SetStorageToNS
          end do
+
+      elseif ( which .eq. nssa ) then
+
+         self % storage % Q => self % storage % QNS 
+         self % storage % QDot => self % storage % QDotNS 
+         self % storage % PrevQ(1:,1:) => self % storage % PrevQNS(1:,1:)
+
+         do eID = 1, self % no_of_elements
+            call self % elements(eID) % storage % SetStorageToNS
+         end do
+
+         do fID = 1, size(self % faces)
+            call self % faces(fID) % storage(1) % SetStorageToNS
+            call self % faces(fID) % storage(2) % SetStorageToNS
+         end do
+
+
 #endif
+
+
       elseif ( which .eq. c ) then
 #if defined(CAHNHILLIARD)
          self % storage % Q => self % storage % c

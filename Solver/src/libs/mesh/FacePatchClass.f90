@@ -50,6 +50,7 @@
          REAL(kind=RP), dimension(:),     allocatable :: wbu, wbv
          REAL(kind=RP), dimension(:,:),   allocatable :: Du, Dv
          INTEGER      , DIMENSION(2)                  :: noOfKnots
+
 !
 !        ========         
          CONTAINS 
@@ -194,7 +195,7 @@
 !     --------------------------------------------------------------------------
 !
       SUBROUTINE ComputeFacePoint(self, u, p)
-!
+      IMPLICIT NONE
 !     ---------
 !     Arguments
 !     ---------
@@ -693,6 +694,9 @@
 !                                                                       
       END FUNCTION EvaluateLagrangePolyDeriv
 
+!
+!
+! /////////////////////////////////////////////////////////////////////
 !
 !  **********     
    END MODULE FacePatchClass

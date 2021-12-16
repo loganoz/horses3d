@@ -344,7 +344,7 @@ module TruncationErrorClass
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NCONS)      !   Source term
       type(Element), pointer   :: e
-#if defined(NAVIERSTOKES)            
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))         
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 #endif
       !--------------------------------------------------------
@@ -364,7 +364,7 @@ module TruncationErrorClass
          
          ! loop over all the degrees of freedom of the element
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-#if defined(NAVIERSTOKES)            
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))         
             call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
             wx  = NodalStorage(e % Nxyz(1)) % w (i)
@@ -484,7 +484,7 @@ module TruncationErrorClass
                
                if(.NOT. success)   ERROR STOP ":: problem creating sem"
                
-#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
+#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD) && !defined(SPALARTALMARAS)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
 #endif
                
@@ -542,7 +542,7 @@ module TruncationErrorClass
          do eID = 1, nelem
             associate (e => sem % mesh % elements(eID))
             
-#if defined(NAVIERSTOKES)      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             if (UserDefinedSol) then
                do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
                   call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
