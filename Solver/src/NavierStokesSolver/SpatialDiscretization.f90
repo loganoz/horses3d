@@ -55,12 +55,14 @@ module SpatialDiscretization
             TYPE(Face)   , INTENT(inout) :: f   
          end subroutine computeMPIFaceFluxF
 
-         SUBROUTINE computeBoundaryFluxF(f, time)
+         SUBROUTINE computeBoundaryFluxF(f, time, mesh)
             use SMConstants
             use FaceClass,  only: Face
+            use HexMeshClass
             IMPLICIT NONE
             type(Face),    intent(inout) :: f
             REAL(KIND=RP)                :: time
+            type(HexMesh), intent(in)   :: mesh
          end subroutine computeBoundaryFluxF
       end interface
       
@@ -85,6 +87,7 @@ module SpatialDiscretization
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
+         use WallFunctionConnectivity
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(HexMesh)                         :: mesh
@@ -246,6 +249,11 @@ module SpatialDiscretization
                computeBoundaryFlux         => computeBoundaryFlux_NS
             end if
          end if
+
+!
+!        Initialize Wall Function
+!        ------------------------
+         call Initialize_WallConnection(controlVariables, mesh)
          
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -460,7 +468,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
-            call computeBoundaryFlux(mesh % faces(fID), t)
+            call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do 
 !
@@ -1087,10 +1095,12 @@ module SpatialDiscretization
 
       end subroutine ComputeMPIFaceFlux_NS
 
-      SUBROUTINE computeBoundaryFlux_NS(f, time)
+      SUBROUTINE computeBoundaryFlux_NS(f, time, mesh)
       USE ElementClass
       use FaceClass
       USE RiemannSolvers_NS
+      use WallFunctionBC
+      use WallFunctionConnectivity
       IMPLICIT NONE
 !
 !     ---------
@@ -1099,6 +1109,7 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
+      type(HexMesh), intent(in)    :: mesh
 !
 !     ---------------
 !     Local variables
@@ -1111,7 +1122,12 @@ module SpatialDiscretization
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu, kappa, beta, delta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
-      integer       :: Sidearray(2)
+      integer                         :: Sidearray(2)
+      logical                         :: useWallFuncFace
+      real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
 !
 !     -------------------
 !     Get external states
@@ -1127,6 +1143,21 @@ module SpatialDiscretization
       end do               ; end do
 
       if ( flowIsNavierStokes ) then
+
+          useWallFuncFace = .false.
+          if (useWallFunc) then
+              do i = 1, len(wallFunBCs)
+                  if (trim(wallFunBCs(i)) .eq. trim(f % boundaryName)) then
+                      useWallFuncFace = .true.
+                      exit
+                  end if
+              end do
+          end if
+          if (useWallFuncFace) then
+                   ! print *, "f bc: ", f%boundaryName
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY)
+          end if
+
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
                mu    = f % storage(1) % mu_ns(1,i,j)
@@ -1142,6 +1173,12 @@ module SpatialDiscretization
                visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
+            
+               if (useWallFuncFace) then
+                   ! print *, "visc_flux1: ", visc_flux(:,i,j)
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), wallFunRho(i,j), wallFunMu(i,j), visc_flux(:,i,j))
+                   ! print *, "visc_flux2: ", visc_flux(:,i,j)
+               end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
@@ -1350,7 +1387,7 @@ module SpatialDiscretization
 
       end subroutine ComputeMPIFaceFlux_SVV
 
-      SUBROUTINE computeBoundaryFlux_SVV(f, time)
+      SUBROUTINE computeBoundaryFlux_SVV(f, time, mesh)
       USE ElementClass
       use FaceClass
       USE RiemannSolvers_NS
@@ -1362,6 +1399,7 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
+        type(HexMesh), intent(in)  :: mesh
 !
 !     ---------------
 !     Local variables
