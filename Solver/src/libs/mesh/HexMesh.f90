@@ -2577,7 +2577,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer        :: fID, eID, pos
+         integer                       :: fid, eID
+         integer(kind=AddrInt)         :: pos
          character(len=LINE_LENGTH)    :: meshName
          real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
             
@@ -2593,7 +2594,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(meshName))
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 3*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 3_AddrInt*e % offsetIO*SIZEOF_RP
             call writeArray(fID, e % geom % x(:,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))*Lref, position=pos)
             end associate
          end do
@@ -2710,7 +2711,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID, pos, padding
+         integer                          :: fid, eID, padding
+         integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
          real(kind=RP), allocatable       :: Q(:,:,:,:)
 #if (!defined(NAVIERSTOKES))
@@ -2772,7 +2774,7 @@ slavecoord:             DO l = 1, 4
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
             
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
             deallocate(Q)
@@ -2830,7 +2832,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID, pos
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
 !
 !        Gather reference quantities
@@ -2852,7 +2855,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 9*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 9_AddrInt*e % offsetIO*SIZEOF_RP
             call writeArray(fid, e % storage % stats % data, position=pos)
             end associate
          end do

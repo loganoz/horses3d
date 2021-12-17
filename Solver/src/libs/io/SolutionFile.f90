@@ -188,7 +188,8 @@ module SolutionFile
          use MPI_Process_Info
          implicit none
          character(len=*), intent(in)              :: name
-         integer                                   :: pos, fid, ierr
+         integer                                   :: fid, ierr
+         integer(kind=AddrInt)                     :: pos
 !
 !        Add a barrier to make sure that all processes have written their data
 !        ---------------------------------------------------------------------
@@ -200,7 +201,7 @@ module SolutionFile
             open(newunit=fID, file=trim(name), action="write", status="old", &
                  form="unformatted", access = "stream") 
             inquire(unit=fid, size=pos) 
-            write(fID, pos=pos+1) END_OF_FILE
+            write(fID, pos=pos+1_AddrInt) END_OF_FILE
             close(fID)
          end if
 
@@ -456,9 +457,9 @@ module SolutionFile
 !
       subroutine Write0DArray(fID, array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 0
@@ -476,9 +477,9 @@ module SolutionFile
 
       subroutine Write1DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID) 1
@@ -495,9 +496,9 @@ module SolutionFile
 
       subroutine Write2DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 2
@@ -514,9 +515,9 @@ module SolutionFile
 
       subroutine Write3DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 3
@@ -533,9 +534,9 @@ module SolutionFile
 
       subroutine Write4DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 4
@@ -552,9 +553,9 @@ module SolutionFile
 
       subroutine Write5DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 5
