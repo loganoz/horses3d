@@ -1154,7 +1154,6 @@ module SpatialDiscretization
               end do
           end if
           if (useWallFuncFace) then
-                   ! print *, "f bc: ", f%boundaryName
               call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY)
           end if
 
@@ -1175,9 +1174,7 @@ module SpatialDiscretization
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
             
                if (useWallFuncFace) then
-                   ! print *, "visc_flux1: ", visc_flux(:,i,j)
                    call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), wallFunRho(i,j), wallFunMu(i,j), visc_flux(:,i,j))
-                   ! print *, "visc_flux2: ", visc_flux(:,i,j)
                end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
