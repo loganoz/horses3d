@@ -95,11 +95,16 @@ Module FWHPreSurface  !
 
 !       Get the BC info
 !       ----------------
-        boundaryNames = trim(controlVariables % stringValueForKey("boundary names",LINE_LENGTH))
+        if (controlVariables%containsKey("boundary names")) then
+            boundaryNames = trim(controlVariables % stringValueForKey("boundary names",LINE_LENGTH))
+        else
+            boundaryNames = ""
+        end if
         call toLower(boundaryNames)
         call getCharArrayFromString(boundaryNames, LINE_LENGTH, boundaryNamesArr)
         numberOfBCZones = size(boundaryNamesArr)
         allocate(zoneMarkers(numberOfBCZones))
+        zoneMarkers = 0
         bc_loop: do k = 1, numberOfBCZones
             do i = 1, size(mesh % zones)
                 if (trim(mesh % zones(i) % Name) .eq. trim(boundaryNamesArr(k))) then
@@ -172,7 +177,8 @@ Module FWHPreSurface  !
 
 !       get the elements ids
 !       --------------------
-        call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, globaleIDs, useFilter, zoneMarkers)
+        call getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, allNewElemID, allExcludedElemID, eIDs, &
+                         globaleIDs, useFilter)
         numberOfElements = size(eIDs)
 
 !       get the firs faces ids and construct the faces
@@ -451,7 +457,7 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, toInclude, toExclude, eIDArray, geIDArray, useFilter, zoneMarkers)
+    Subroutine getElements(mesh, isInGeometry, radii, ratio, lengthAspect, centerPosition, toInclude, toExclude, eIDArray, geIDArray, useFilter)
 
         use ElementConnectivityDefinitions, only: NODES_PER_ELEMENT, FACES_PER_ELEMENT, normalAxis
         use MeshTypes,                      only: emptyBCName
@@ -461,7 +467,7 @@ Module FWHPreSurface  !
         procedure(elementInGeo)                                 :: isInGeometry
         real(kind=RP)                     , intent(in)          :: radii, ratio, lengthAspect
         real(kind=RP), dimension(2)       , intent(in)          :: centerPosition
-        integer, dimension(:), intent(in)                       :: toInclude, toExclude, zoneMarkers
+        integer, dimension(:), intent(in)                       :: toInclude, toExclude
         integer, dimension(:), allocatable, intent(out)         :: geIDArray,eIDArray
         logical, intent(in)                                     :: useFilter
 
@@ -470,7 +476,6 @@ Module FWHPreSurface  !
         integer, dimension(:,:), allocatable                    :: allElements, elementsTemp
         integer                                                 :: nElements, extrudedDirectionIndex, numberOfNeighbours, totalNeighbours
         integer, dimension(:), allocatable                      :: neighboursIndex
-        character(len=LINE_LENGTH), dimension(:), allocatable   :: BCNames
 
         call getAllInteriorElements(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, useFilter, toExclude, toInclude, allElements, nElements)
 
@@ -480,53 +485,22 @@ Module FWHPreSurface  !
             deallocate(allElements)
             allocate(allElements(nElements,2))
             k = 0
-            ! index of BC direction in normalAxis
-            extrudedDirectionIndex = 0
-            elems_loop:do eID = 1, nElements
-                do j = 1, FACES_PER_ELEMENT
-                    associate ( e => mesh % elements(elementsTemp(eID,1)) )
-                        if ( trim(mesh % zones(zoneMarkers(1)) % Name) .eq. trim(e % boundaryName(j)) ) then
-                            extrudedDirectionIndex = abs(normalAxis(j))
-                            print *, "extrudedDirectionIndex: ", extrudedDirectionIndex
-                            exit elems_loop
-                        end if
-                    end associate
-                end do
-            end do elems_loop
-            ! hardcoded for periodic BC since the faces does not have a zone associated. The direction may change
-            ! todo: generalize this hardcoded direction
-            if (extrudedDirectionIndex .eq. 0) then
-                extrudedDirectionIndex = 2
-                print *, "Warning BC faces not found, use default direction"
-            end if 
-            j = 0
-            allocate(neighboursIndex(FACES_PER_ELEMENT-2))
-            do i = 1, FACES_PER_ELEMENT
-                if (j .gt. FACES_PER_ELEMENT - 2) exit
-                if (abs(normalAxis(i)) .eq. extrudedDirectionIndex) cycle
-                j = j + 1
-                ! neighboursIndex(j) = normalAxis(i)
-                neighboursIndex(j) = i
-            end do
-            allocate(BCNames(size(zoneMarkers) ))
-            do i = 1, size(zoneMarkers)
-                BCNames(i) = trim(mesh % zones(zoneMarkers(i)) % Name)
-            end do
-            BCNames = [BCNames, emptyBCName]
             do eID = 1, nElements
-                totalNeighbours = FACES_PER_ELEMENT - 2
+                ! works if theres is only one element neighbour for each face
+                totalNeighbours = FACES_PER_ELEMENT
                 numberOfNeighbours = 0
                 associate ( e => mesh % elements(elementsTemp(eID,1)) )
-                    do j = 1, FACES_PER_ELEMENT - 2
-                        if ( any(elementsTemp(:,2) .eq. e % Connection(neighboursIndex(j)) % globID) ) then
+                    do j = 1, FACES_PER_ELEMENT
+                        if ( any(elementsTemp(:,2) .eq. e % Connection(j) % globID) ) then
                             numberOfNeighbours = numberOfNeighbours + 1
                         end if 
-                        ! remove elements of other BC
-                        if (.not. any(BCNames .eq. trim(e % boundaryName(neighboursIndex(j))))) then
+                        ! remove one constrain for each boundary of the element
+                        if (trim(e % boundaryName(j)) .ne. emptyBCName) then
                             totalNeighbours = totalNeighbours - 1
                         end if 
                     end do
                 end associate
+                ! is at the surface boundary if there isn't an element inside the surface in the "wall" outgoing surface direction
                 if (numberOfNeighbours .lt. totalNeighbours) then
                     k = k + 1
                     allElements(k,:) = elementsTemp(eID,:)

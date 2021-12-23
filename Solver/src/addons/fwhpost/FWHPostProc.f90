@@ -5,6 +5,7 @@ Module FWHPostProc  !
     use FWHGeneralClass
     use DGSEMClass
     use SolutionFile
+    use FTValueDictionaryClass
     Implicit None
 
     contains
