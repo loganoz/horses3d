@@ -938,7 +938,8 @@ use VariableConversion, only: Pressure, PressureDot
       real(kind=RP), dimension(:,:,:), allocatable         :: Q
       real(kind=RP), dimension(NDIM)                       :: x
       integer                                              :: Nx,Ny
-      integer                                              :: fid, pos, padding
+      integer                                              :: fid, padding
+      integer(kind=AddrInt)                                :: pos
       real(kind=RP)                                        :: refs(NO_OF_SAVED_REFS) 
 
 !
@@ -976,7 +977,7 @@ use VariableConversion, only: Pressure, PressureDot
           Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Q(:,:,:)
 
           ! 4 integers are written: number of dimension, and 3 value of the dimensions
-          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
+          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4_AddrInt*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
           call writeArray(fid, Q, position=pos)
 
           Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(1) % Qdot(:,:,:)
