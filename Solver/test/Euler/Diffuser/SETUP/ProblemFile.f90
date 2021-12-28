@@ -150,7 +150,7 @@
             real(kind=RP)  :: Q(NCONS), phi, theta
 #endif
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) & (!defined(SPALARTALMARAS))
             DO eID = 1, SIZE(mesh % elements)
                DO k = 0, mesh % elements(eID) % Nxyz(3)
                   DO j = 0, mesh % elements(eID) % Nxyz(2)
@@ -190,8 +190,9 @@
 !           ---------------
 !
             logical  :: success
-
+#if defined(NAVIERSTOKES) & (!defined(SPALARTALMARAS))
             call pointSourceFlowSolution(x, Q, success, thermodynamics_, dimensionless_, refValues_)
+#endif 
          end subroutine UserDefinedState1
 
          subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
@@ -343,7 +344,7 @@
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) &(!(SPALARTALMARAS))
             interface
                SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
                                                                  dimensionless_, &
@@ -381,7 +382,7 @@
             REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [9.9114455962827790E-011, 9.9692669580629353E-011, &
                                                                9.8550101132040978E-011, 9.8967441182940477E-011, &
                                                                9.9582661331228551E-011]
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) &(!(SPALARTALMARAS))
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order
             
@@ -446,7 +447,7 @@
 !
          IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) & (!(SPALARTALMARAS))
    SUBROUTINE pointSourceFlowSolution(x, Q, success, thermodynamics_, &
                                                      dimensionless_, &
                                                          refValues_  )

@@ -4,9 +4,10 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Sep 28 11:34:35 2021
+!   @Last revision date: Tue Nov 30 15:11:25 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 0b8b49ef742bce3e02d3138ef5e95597b5d3a726
+!   @Last revision commit: 3fc1ca33811992f087cca161cbb3828df594938d
+
 !
 !//////////////////////////////////////////////////////
 !
@@ -117,7 +118,7 @@ contains
       real(kind=RP), allocatable, save                   :: Q0(:)
       real(kind=RP), allocatable, save                   :: QDot0(:)
       
-      integer :: i, j ! General counters
+      integer :: i, j, ii, jj, kk, eID ! General counters
       integer, dimension(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
       
@@ -125,7 +126,7 @@ contains
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
-      integer :: eid, el_threshold
+      integer :: el_threshold
       integer, allocatable :: ndof_per_elm(:)
       !-------------------------------------------------------------------
       
@@ -156,15 +157,6 @@ contains
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-         select type(Matrix_p => Matrix)
-         type is(DenseBlockDiagMatrix_t)
-            ! No need for colors for Block Diagonal Matrix
-            do i=1,nelm 
-               nbr(i)%elmnt(1:6) = 0
-            end do
-         class default
-            ! do nothing
-         end select
          call ecolors % construct(nbr, num_of_neighbor_levels)
          
 !
@@ -276,6 +268,29 @@ contains
 #else
       CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
+
+#if defined(NAVIERSTOKES)
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#endif
+
 !
 !     Save base state in Q0 and QDot0
 !     -------------------------------
@@ -322,6 +337,29 @@ contains
 #else
             CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
 #endif
+
+#if defined(NAVIERSTOKES)
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!$omp do schedule(runtime) private(ii,jj,kk)
+      do eID = 1, sem % mesh % no_of_elements
+         associate ( e => sem % mesh % elements(eID) )
+         do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+            e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+         end do                  ; end do                ; end do
+         end associate
+      end do
+!$omp end do
+#endif
+
             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             call sem % mesh % storage % global2LocalQdot

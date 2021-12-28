@@ -20,7 +20,21 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/EllipticBR1.o \
 		./build_ns/EllipticBR2.o \
 		./build_ns/EllipticDiscretizations.o \
-		./build_ns/SVV.o 
+	    ./build_ns/SVV.o 
+
+LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
+                ./build_nssa/DGIntegrals.o \
+                ./build_nssa/GradientsStabilization.o \
+                ./build_nssa/HyperbolicDiscretizationClass.o \
+                ./build_nssa/HyperbolicStandard.o \
+                ./build_nssa/HyperbolicSplitForm.o \
+                ./build_nssa/HyperbolicDiscretizations.o \
+                ./build_nssa/EllipticDiscretizationClass.o \
+                ./build_nssa/EllipticIP.o \
+                ./build_nssa/EllipticBR1.o \
+                ./build_nssa/EllipticBR2.o \
+                ./build_nssa/EllipticDiscretizations.o \
+                ./build_nssa/SVV.o 
 
 LIBOBJS_iNS =    ./build_ins/DGSEMClass.o \
 		./build_ins/DGIntegrals.o \
@@ -70,12 +84,17 @@ LIB = discretization
 ############################################
 .DEFAULT_GOAL:=all
 
-all: lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+all: lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 
 ./build_ns/%.o: %.f90
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -DNAVIERSTOKES -I./include_ns $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_ns -c $< -o $@ $(MOD_FLAG) ./include_ns
+
+./build_nssa/%.o: %.f90
+	@echo
+	@echo $<
+	$(FC) $(FFLAGS) -DNAVIERSTOKES -DSPALARTALMARAS -I./include_nssa $(MACROS) $(EXTLIB_INC) $(INCLUDE) $(INCLUDE)_nssa -c $< -o $@ $(MOD_FLAG) ./include_nssa
 
 ./build_ins/%.o: %.f90
 	@echo
@@ -99,6 +118,15 @@ lib$(LIB)_ns.a: header mkdirs $(LIBOBJS_NS)
 	@echo "---------------------------------"
 	@$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NS) 
+	@$(RANLIB) $@
+
+lib$(LIB)_nssa.a: header mkdirs $(LIBOBJS_NSSA) 
+	@echo
+	@echo "---------------------------------"
+	@echo "| Linking library" $@ "|"
+	@echo "---------------------------------"
+	@$(RM) $@
+	$(AR) $(ARFLAGS) $@ $(LIBOBJS_NSSA) 
 	@$(RANLIB) $@
 
 lib$(LIB)_ins.a: header mkdirs $(LIBOBJS_iNS) 
@@ -130,10 +158,12 @@ lib$(LIB)_mu.a: header mkdirs $(LIBOBJS_MU)
 
 install: all
 	cp -p lib$(LIB)_ns.a $(INSTALL_DIR)/lib/
+	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ins.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_ch.a $(INSTALL_DIR)/lib/
 	cp -p lib$(LIB)_mu.a $(INSTALL_DIR)/lib/
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
+	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	cp -p ./include_ins/*.mod $(INSTALL_DIR)/include_ins/
 	cp -p ./include_ch/*.mod $(INSTALL_DIR)/include_ch/
 	cp -p ./include_mu/*.mod $(INSTALL_DIR)/include_mu/
@@ -152,6 +182,11 @@ install-ns: lib$(LIB)_ns.a
 	@echo
 	@echo
 
+install-nssa: lib$(LIB)_nssa.a
+	cp -p lib$(LIB)_nssa.a $(INSTALL_DIR)/lib/
+	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
+	@echo
+	@echo
 
 header: FORCE
 	@echo
@@ -162,12 +197,13 @@ header: FORCE
 	@echo
 
 mkdirs: FORCE
-	@mkdir -p ./include_ns ./include_ins ./include_ch ./include_mu 
-	@mkdir -p ./build_ns ./build_ins ./build_ch ./build_mu 
+	@mkdir -p ./include_ns ./include_nssa ./include_ins ./include_ch ./include_mu 
+	@mkdir -p ./build_ns ./build_nssa ./build_ins ./build_ch ./build_mu 
 
 clean: FORCE
-	$(RM) lib$(LIB)_ns.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
+	$(RM) lib$(LIB)_ns.a lib$(LIB)_nssa.a lib$(LIB)_ins.a lib$(LIB)_ch.a lib$(LIB)_mu.a
 	$(RM) ./build_ns/*.o ./include_ns/*.mod
+	$(RM) ./build_nssa/*.o ./include_nssa/*.mod
 	$(RM) ./build_ins/*.o ./include_ins/*.mod
 	$(RM) ./build_ch/*.o ./include_ch/*.mod
 	$(RM) ./build_mu/*.o ./include_mu/*.mod

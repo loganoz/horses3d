@@ -57,6 +57,7 @@ module InflowBCClass
       real(kind=RP)              :: rho
       real(kind=RP)              :: p
       real(kind=RP)              :: TurbIntensity
+      real(kind=RP)              :: eddy_theta
 #endif
 #if defined(INCNS)
       real(kind=RP)              :: AoAPhi
@@ -201,13 +202,18 @@ module InflowBCClass
          call GetValueWithDefault(bcdict, "aoaphi"  , refValues % AoAPhi                     , ConstructInflowBC % AoAPhi  )
          call GetValueWithDefault(bcdict, "aoatheta", refValues % AoATheta                   , ConstructInflowBC % AoATheta)
          call GetValueWithDefault(bcdict, "TurbIntensity", 0.0_RP                            , ConstructInflowBC % TurbIntensity)
-
+#if defined(SPALARTALMARAS)
+         call GetValueWithDefault(bcdict, "Turbulence parameter theta", refValues % mu    , ConstructInflowBC % eddy_theta)
+#endif
          ConstructInflowBC % p        = ConstructInflowBC % p / refValues % p
          ConstructInflowBC % rho      = ConstructInflowBC % rho / refValues % rho
          ConstructInflowBC % v        = ConstructInflowBC % v * sqrt(thermodynamics % gamma * ConstructInflowBC % p / ConstructInflowBC % rho)
          ConstructInflowBC % AoATheta = ConstructInflowBC % AoATheta * PI / 180.0_RP
          ConstructInflowBC % AoAPhi   = ConstructInflowBC % AoAPhi * PI / 180.0_RP
          ConstructInflowBC % TurbIntensity   = ConstructInflowBC % TurbIntensity / 100.0_RP
+#if defined(SPALARTALMARAS)
+         ConstructInflowBC % eddy_theta = ConstructInflowBC % eddy_theta / refValues % mu
+#endif
 
 #elif defined(INCNS)
          call GetValueWithDefault(bcdict, "velocity", refValues % v, ConstructInflowBC % v)
@@ -296,7 +302,9 @@ module InflowBCClass
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' AoaTheta: ', self % AoATheta * 180.0_RP / PI
 
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Max. Vel. Fluct. in % (from TurbIntensity): ', (self % TurbIntensity)
-         
+#if defined(SPALARTALMARAS)
+         write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Initial Value of Turbulence variable: ', (3.0_RP * self % eddy_theta)
+#endif
 #elif defined(INCNS)
          write(STD_OUT,'(30X,A,A28,F10.2)') "->", ' Velocity: ', self % v * refValues % v
 #if (!defined(CAHNHILLIARD))
@@ -383,7 +391,9 @@ module InflowBCClass
          Q(3) = Q(1)*v
          Q(4) = Q(1)*w
          Q(5) = self % p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
-
+#if defined(SPALARTALMARAS)
+         Q(6) = Q(1) * 3.0_RP*self % eddy_theta
+#endif
          end associate
 
       end subroutine InflowBC_FlowState

@@ -144,6 +144,7 @@
          CALL self % geom % Construct( NodalStorage(Self % Nxyz(1)), NodalStorage(Self % Nxyz(2)), NodalStorage(Self % Nxyz(3)), hexMap )
          
       end subroutine HexElement_ConstructGeometry
+
 !
 !////////////////////////////////////////////////////////////////////////
 !

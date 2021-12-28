@@ -42,7 +42,7 @@ module SolutionFile
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_SOLUTION_FILE
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN, POS_INIT_DATA
-   public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF
+   public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF, RE_REF
 
    public      :: CreateNewSolutionFile, writeArray, SealSolutionFile, getSolutionFileType
    public      :: getSolutionFileNoOfElements, getSolutionFileName
@@ -62,8 +62,8 @@ module SolutionFile
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
    integer, parameter      :: BEGINNING_DATA = 88
-
    integer, parameter      :: NO_OF_SAVED_REFS = 6
+
    integer, parameter      :: GAMMA_REF = 1
    integer, parameter      :: RGAS_REF  = 2
    integer, parameter      :: V_REF     = 3
@@ -191,7 +191,8 @@ module SolutionFile
          use MPI_Process_Info
          implicit none
          character(len=*), intent(in)              :: name
-         integer                                   :: pos, fid, ierr
+         integer                                   :: fid, ierr
+         integer(kind=AddrInt)                     :: pos
 !
 !        Add a barrier to make sure that all processes have written their data
 !        ---------------------------------------------------------------------
@@ -203,7 +204,7 @@ module SolutionFile
             open(newunit=fID, file=trim(name), action="write", status="old", &
                  form="unformatted", access = "stream") 
             inquire(unit=fid, size=pos) 
-            write(fID, pos=pos+1) END_OF_FILE
+            write(fID, pos=pos+1_AddrInt) END_OF_FILE
             close(fID)
          end if
 
@@ -459,9 +460,9 @@ module SolutionFile
 !
       subroutine Write0DArray(fID, array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 0
@@ -479,9 +480,9 @@ module SolutionFile
 
       subroutine Write1DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID) 1
@@ -498,9 +499,9 @@ module SolutionFile
 
       subroutine Write2DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 2
@@ -517,9 +518,9 @@ module SolutionFile
 
       subroutine Write3DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 3
@@ -536,9 +537,9 @@ module SolutionFile
 
       subroutine Write4DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 4
@@ -555,9 +556,9 @@ module SolutionFile
 
       subroutine Write5DArray(fID,array, position)
          implicit none
-         integer, intent(in)           :: fID
-         real(kind=RP), intent(in)     :: array(:,:,:,:,:)
-         integer, intent(in), optional :: position
+         integer, intent(in)                         :: fID
+         real(kind=RP), intent(in)                   :: array(:,:,:,:,:)
+         integer(kind=AddrInt), intent(in), optional :: position
 
          if ( present(position) ) then
             write(fID, pos = position) 5
