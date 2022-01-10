@@ -190,7 +190,7 @@ print*, "Method selected: RK5"
 !
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem  % fwh        % autosaveConfig(controlVariables, initial_time)  ! If not requested, the procedure returns only setting not save values
 #endif
          
@@ -406,7 +406,7 @@ print*, "Method selected: RK5"
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
             end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             call sem % fwh % writeToFile( force = .TRUE. )
 #endif
             return
@@ -415,7 +415,7 @@ print*, "Method selected: RK5"
 !
 !     Save FWH at time 0
 !     --------         
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
       call sem % fwh % writeToFile()
       call sem % fwh % saveSourceSol(sem % mesh, 0, t)
@@ -448,7 +448,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          dt = self % CorrectDt(t,self % dt, sem % fwh)
 #else
          dt = self % CorrectDt(t,self % dt)
@@ -557,7 +557,7 @@ print*, "Method selected: RK5"
 !
 !        Save FWH
 !        --------         
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          if (sem % fwh % autosave % Autosave(k+1)) then
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
@@ -577,7 +577,7 @@ print*, "Method selected: RK5"
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
 #endif
       end if
@@ -684,7 +684,7 @@ print*, "Method selected: RK5"
 !  This routine corrects the time-step size, so that 
 !  time-periodic operations can be performed
 !  -------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    recursive function TimeIntegrator_CorrectDt (self, t, dt_in, fwh) result(dt_out)
       use FWHGeneralClass
 #else
@@ -695,7 +695,7 @@ print*, "Method selected: RK5"
       class(TimeIntegrator_t) , intent(inout)   :: self
       real(kind=RP)           , intent(in)      :: t
       real(kind=RP)           , intent(in)      :: dt_in
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       class(FWHClass)         , intent(inout)   :: fwh   
 #endif
       real(kind=RP)                             :: dt_out
@@ -705,7 +705,7 @@ print*, "Method selected: RK5"
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       integer, parameter :: FWHSAVE     = 3
       integer, parameter :: DONT_KNOW   = 4
 #else
@@ -719,7 +719,7 @@ print*, "Method selected: RK5"
 !     -------------------------------      
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       fwh  % autosave   % performAutosave = .FALSE.
 #endif
       dt_out = dt_in
@@ -752,7 +752,7 @@ print*, "Method selected: RK5"
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                end if
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                if ( AlmostEqual(self % autosave % nextAutosaveTime, fwh % autosave % nextAutosaveTime) ) then
                   fwh % autosave % performAutosave = .TRUE.
                   fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
@@ -760,7 +760,7 @@ print*, "Method selected: RK5"
 #endif
                
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
 #else
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
@@ -778,7 +778,7 @@ print*, "Method selected: RK5"
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                if ( AlmostEqual(self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime) ) then
                   fwh % autosave % performAutosave = .TRUE.
                   fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
@@ -786,14 +786,14 @@ print*, "Method selected: RK5"
 #endif
                
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
 #else
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
 #endif
             end if
             
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case (FWHSAVE)
             
             if ( fwh % autosave % nextAutosaveTime < (t + dt_out) ) then
@@ -818,18 +818,18 @@ print*, "Method selected: RK5"
          case (DONT_KNOW)
             
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                    fwh % autosave % mode       == AUTOSAVE_BY_TIME .or. &
 #endif
                   self % autosave % mode       == AUTOSAVE_BY_TIME) then
                
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
 #else
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
 #endif
                
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
                dt_temp = self % CorrectDt (t, dt_out, fwh)
 #else
                dt_temp = self % CorrectDt (t, dt_out)

@@ -453,8 +453,8 @@ Module SurfaceClass  !
         !local variables
         integer                                         :: k, edgeID
 
-
-         do edgeID = 1, NODES_PER_FACE
+        isCon = .false.
+        do edgeID = 1, NODES_PER_FACE
             do k = 1, NODES_PER_FACE
                 if (self % edges(edgeID) % isEqual(otherFace % edges(k))) then
                     isCon = .true.
@@ -485,6 +485,7 @@ Module SurfaceClass  !
 
         face_loop: do i = 1, N
             if ((self % fID .eq. surfaceFaces(i) % fID) .and. (self % globaleID .eq. surfaceFaces(i) % globaleID)) cycle face_loop
+            if (equalEdges .ge. NODES_PER_FACE) exit face_loop
             this_edge_loop: do edgeID = 1, NODES_PER_FACE
                 ext_edge_loop: do k = 1, NODES_PER_FACE
                     if (self % edges(edgeID) % isEqual(surfaceFaces(i) % edges(k))) then
@@ -497,13 +498,11 @@ Module SurfaceClass  !
         end do face_loop
 
         isTwice = .false.
-        ! print *, "equalEdges: ", equalEdges
-        ! print *, "usedEdges: ", usedEdges
         do i = 1, equalEdges
             do k = i+1, equalEdges
                 if (usedEdges(i) .eq. usedEdges(k)) then
                     isTwice = .true.
-                    return
+                    ! return
                 end if
             end do
         end do
@@ -592,7 +591,7 @@ Module SurfaceClass  !
         !local variables
         integer                                         :: k, edgeID
 
-
+        share = .false.
          do edgeID = 1, NODES_PER_FACE
             do k = 1, NODES_PER_FACE
                 if (self % edges(edgeID) % isConnected(otherFace % edges(k))) then
@@ -601,6 +600,7 @@ Module SurfaceClass  !
                 end if 
             end do
         end do 
+
     End Function FaceShareCorner
 !
 !////////////////////////////////////////////////////////////////////////

@@ -56,7 +56,7 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       type(FWHClass)                                          :: fwh
 #endif
 #ifdef FLOW
@@ -368,7 +368,7 @@ Module DGSEMClass
 !     ------------------
 !     Build the FWH general class
 !     ------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       call self % fwh % construct(self % mesh, controlVariables)
 #endif
 
@@ -405,7 +405,7 @@ Module DGSEMClass
       
       call self % monitors % destruct
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       call self % fwh % destruct
 #endif
       
