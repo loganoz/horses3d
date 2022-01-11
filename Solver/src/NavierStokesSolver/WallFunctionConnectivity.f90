@@ -135,8 +135,8 @@ Module WallFunctionConnectivity  !
                     end do elem_loop
                     oppositeIndex = -1 * normalIndex
                     ! use the maxloc line if the compiler doesn't support findloc
-                    oppositeIndex = findloc(normalAxis,oppositeIndex,dim=1)
-                    ! oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
+                    ! oppositeIndex = findloc(normalAxis,oppositeIndex,dim=1)
+                    oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
                     linkedElementID = e % Connection(oppositeIndex) % globID
                 end associate
                 linkedElementID = getElemntID(mesh, linkedElementID)
@@ -245,8 +245,8 @@ Module WallFunctionConnectivity  !
         integer                                                         :: i, j
 
         ! use the maxloc line if the compiler doesn't support findloc
-        faceIndex = findloc(wallFaceID, f % ID, dim=1)
-        ! faceIndex = maxloc(merge(1.0, 0.0, wallFaceID == f % ID),dim=1)
+        ! faceIndex = findloc(wallFaceID, f % ID, dim=1)
+        faceIndex = maxloc(merge(1.0, 0.0, wallFaceID == f % ID),dim=1)
         eID = wallElemIds(faceIndex)
         solIndex = wallNormalIndex(faceIndex)
 

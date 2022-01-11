@@ -43,7 +43,7 @@ Module FWHPreSurface  !
     Subroutine extractSurface(mesh, controlVariables)
 
         use mainKeywordsModule
-        use FileReadingUtilities, only: getFileName, getRealArrayFromString, RemovePath, getCharArrayFromString
+        use FileReadingUtilities, only: getFileName, getRealArrayFromString, RemovePath, getCharArrayFromString, getIntArrayFromString
         use Utilities,            only: toLower
 
         implicit none
@@ -52,7 +52,7 @@ Module FWHPreSurface  !
         type(FTValueDictionary)                             :: controlVariables
 
         !local variables
-        class(Surface_t), allocatable                       :: surface
+        type(Surface_t), allocatable                       :: surface
         real(kind=RP)                                       :: radii, ratio, lengthAspect
         real(kind=RP), dimension(:), allocatable            :: centerPosition
         integer, dimension(:), allocatable                  :: eIDs, globaleIDs, numberOfFacesperElement, firstFIDs
@@ -61,10 +61,10 @@ Module FWHPreSurface  !
         character(len=LINE_LENGTH), allocatable             :: boundaryNamesArr(:)
         procedure(elementInGeo), pointer                    :: isInGeometry => null()
         procedure(distaceToGeo), pointer                    :: rToGeometry => null()
-        class(SurfaceFace_t), dimension(:), allocatable     :: firstFaces, allCreatedFaces
-        class(SurfaceFace_t), dimension(:), allocatable     :: secondFaces, oldFaces, oldTemp
-        class(SurfaceFace_t), allocatable     :: tempSecFaces
-        class(SurfaceElement_t), dimension(:), allocatable  :: elementsOfFaces
+        type(SurfaceFace_t), dimension(:), allocatable     :: firstFaces, allCreatedFaces
+        type(SurfaceFace_t), dimension(:), allocatable     :: secondFaces, oldFaces, oldTemp
+        type(SurfaceFace_t), allocatable     :: tempSecFaces
+        type(SurfaceElement_t), dimension(:), allocatable  :: elementsOfFaces
         integer                                             :: fID, eID, eIndex
         integer                                             :: i, k, numberOfBCZones, j, numberOfNewFaces
         logical                                             :: connectedAtBoundary, discardElems, includeElems, useFilter
@@ -122,13 +122,13 @@ Module FWHPreSurface  !
         includeElems = controlVariables % containsKey("elements to include")
         newElems = trim(controlVariables % stringValueForKey("elements to include",LINE_LENGTH))
         if (newElems .eq. "") newElems = "[0]"
-        newElemID = getRealArrayFromString(newElems)
+        newElemID = getIntArrayFromString(newElems)
         numberOfBCElemNew = size(newElemID)
 
         discardElems = controlVariables % containsKey("elements to exclude")
         discElems = trim(controlVariables % stringValueForKey("elements to exclude",LINE_LENGTH))
         if (discElems .eq. "") discElems = "[0]"
-        discElemID = getRealArrayFromString(discElems)
+        discElemID = getIntArrayFromString(discElems)
         numberOfBCElemDisc = size(discElemID)
 
 !       get the apropiated functions
@@ -265,7 +265,8 @@ Module FWHPreSurface  !
             k = 0
             do i = 1, numberOfNewFaces
                 if (secIds(i,3) .eq. 0) then
-                    eIndex = findloc(globaleIDs, secIds(i,1), dim=1)
+                    ! eIndex = findloc(globaleIDs, secIds(i,1), dim=1)
+                    eIndex = maxloc(merge(1.0, 0.0, globaleIDs == secIds(i,1)), dim=1)
                     call elementsOfFaces(eIndex) % setNeedNotSecond()
                     if (any(secIdsNot .eq. secIds(i,2))) cycle
                     k = k + 1
@@ -277,10 +278,12 @@ Module FWHPreSurface  !
                 call tempSecFaces % construct(mesh, secIds(i,1), secIds(i,2), secIds(i,3))
                 allCreatedFaces(numberOfVerifiedFaces+1) = tempSecFaces
                 if (tempSecFaces % isTwiceEdConnected(allCreatedFaces, numberOfElements+1)) then
+                ! if (tempSecFaces % fee(allCreatedFaces, numberOfElements+1)) then
                     if (any(secIdsNot .eq. secIds(i,2))) cycle
                     k = k + 1
                     secIdsNot(k) = secIds(i,2)
-                    eIndex = findloc(globaleIDs, secIds(i,1), dim=1)
+                    ! eIndex = findloc(globaleIDs, secIds(i,1), dim=1)
+                    eIndex = maxloc(merge(1.0, 0.0, globaleIDs == secIds(i,1)), dim=1)
                     call elementsOfFaces(eIndex) % setNeedNotSecond()
                 else
                     do eID = 1, numberOfElements
@@ -336,7 +339,8 @@ Module FWHPreSurface  !
         ! if (.not. connectedAtBoundary) then
             do i = 1, numberOfSecondFaces
                 eID = secondFaces(i) % globaleID
-                eIndex = findloc(globaleIDs, eID, dim=1)
+                ! eIndex = findloc(globaleIDs, eID, dim=1)
+                eIndex = maxloc(merge(1.0, 0.0, globaleIDs == eID), dim=1)
                 if (.not. elementsOfFaces(eIndex) % isInBCZone) cycle
                 if (.not. elementsOfFaces(eIndex) % needSecondFace) cycle
                 call secondFaces(i) % setNoConnections(mode=1)
@@ -360,7 +364,8 @@ Module FWHPreSurface  !
                 realSecIds(k,3) = allCreatedFaces(i) % fID
             else
                 eID = allCreatedFaces(i) % globaleID
-                eIndex = findloc(globaleIDs, eID, dim=1)
+                ! eIndex = findloc(globaleIDs, eID, dim=1)
+                eIndex = maxloc(merge(1.0, 0.0, globaleIDs == eID), dim=1)
                 if (.not. elementsOfFaces(eIndex) % needSecondFace) cycle
                 elementsOfFaces(eIndex) % extrafIDs(1) = 0
             end if 
@@ -418,7 +423,8 @@ Module FWHPreSurface  !
 !       -------------------------------------------------------------------
         do i = 1, numberOfVerifiedFaces
             eID = oldFaces(i) % globaleID
-            eIndex = findloc(globaleIDs, eID, dim=1)
+            ! eIndex = findloc(globaleIDs, eID, dim=1)
+            eIndex = maxloc(merge(1.0, 0.0, globaleIDs == eID), dim=1)
             if ( (.not. elementsOfFaces(eIndex) % needSecondFace) .or. (elementsOfFaces(eIndex) % extrafIDs(1) .ne. 0) ) cycle
             if (oldFaces(i) % isFullConnected(oldFaces, numberOfVerifiedFaces)) then
                 call elementsOfFaces(eIndex) % setNeedNotSecond()
@@ -740,7 +746,8 @@ Module FWHPreSurface  !
             nEs(i) = e%eID
             realNumberOfElemts = realNumberOfElemts + 1
             conNormal = normalAxis(fBCindex) * (-1)
-            conIndex = findloc(normalAxis, conNormal, dim=1)
+            ! conIndex = findloc(normalAxis, conNormal, dim=1)
+            conIndex = maxloc(merge(1.0, 0.0, normalAxis == conNormal), dim=1)
             neID = e % Connection(conIndex) % globID
             if (neID .eq. 0) exit
             e => mesh % elements(neID)

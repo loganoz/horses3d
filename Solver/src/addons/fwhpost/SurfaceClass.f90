@@ -108,10 +108,8 @@ Module SurfaceClass  !
         integer, intent(in)                             :: N
 
         ! local variables
-        ! integer, dimension(:), allocatable              :: allfIDs, alleIDs
         integer                                         :: totalN
 
-        ! print *, "surf start"
         totalN = N
 
         self % totalNumberOfFaces = totalN
@@ -121,12 +119,10 @@ Module SurfaceClass  !
 
         allocate(self % surfaceZone)
         call self % surfaceZone % CreateFicticious(-1, self % name, totalN, fIDs)
-        ! print *, "zone constructed"
 
         allocate( self % globaleIDs(totalN), self % fIDs(totalN) )
         self % globaleIDs = gIDs
         self % fIDs = fIDs
-        ! print *, "self%fIDs: ", self%fIDs
 
         print *, "surf constructed"
 
@@ -164,18 +160,10 @@ Module SurfaceClass  !
         logical                                         :: facesHasErrors
         integer                                         :: totalNumberOfPoints, totalNumberOfFaces, skipped
 
-        ! facesHasErrors = any(self % fIDs .eq. 0)
-        ! if (facesHasErrors) then
-        !     skipped = count(self % fIDs .eq. 0)
-        !     totalNumberOfFaces = self % totalNumberOfFaces - skipped
-        !     totalNumberOfPoints = self % totalNumberOfPoints - NODES_PER_FACE * skipped
-        ! else
-            totalNumberOfPoints = self % totalNumberOfPoints
-            totalNumberOfFaces = self % totalNumberOfFaces
-        ! end if 
+        totalNumberOfPoints = self % totalNumberOfPoints
+        totalNumberOfFaces = self % totalNumberOfFaces
         tecplotFileName = trim(getFileName(self % fileName)) // ".tec"
         open ( newunit = fD , file = trim(tecplotFileName) , status = "unknown" , action = "write" ) 
-        ! open( newunit = fd , file = trim (tecplotFileName) , action = "write" , access = "append" , status = "old" )
 
 !       Add the title
 !       -------------
@@ -398,7 +386,6 @@ Module SurfaceClass  !
 
         ! This is change only for faces at boundarys, for non closed surfaces
         self % numberOfConnections = NODES_PER_FACE
-        ! self % numberOfConnections = 2
 
     End Subroutine FaceConstruct
 ! 
@@ -422,13 +409,7 @@ Module SurfaceClass  !
 
         class(SurfaceFace_t)                            :: self
         integer, intent(in)                             :: mode
-        ! integer, intent(in)                             :: BCDimension
-        ! real(kind=RP), dimension(2), intent(in)         :: BCPosition
 
-        ! if ( AlmostEqual(BCPosition(1), self % getBCPostion(BCDimension, 1)) .or. &
-        !      AlmostEqual(BCPosition(2), self % getBCPostion(BCDimension, 2)) ) then
-        !     self % numberOfConnections = self % numberOfConnections - 1
-        ! end if 
         select case (mode)
         case (1)
             self % numberOfConnections = self % numberOfConnections - 1
@@ -472,7 +453,7 @@ Module SurfaceClass  !
         implicit none
 
         class(SurfaceFace_t)                            :: self
-        class(SurfaceFace_t), dimension(N), intent(in)  :: surfaceFaces
+        type(SurfaceFace_t), dimension(N), intent(in)   :: surfaceFaces
         integer, intent(in)                             :: N
         logical                                         :: isTwice
 
@@ -502,7 +483,7 @@ Module SurfaceClass  !
             do k = i+1, equalEdges
                 if (usedEdges(i) .eq. usedEdges(k)) then
                     isTwice = .true.
-                    ! return
+                    return
                 end if
             end do
         end do
@@ -522,10 +503,10 @@ Module SurfaceClass  !
 
         !local variables
         integer                                         :: i, k, equalEdges, edgeID
-        integer, dimension(NODES_PER_FACE)              :: usedEdges
+        ! integer, dimension(NODES_PER_FACE)              :: usedEdges
 
         equalEdges = 0
-        usedEdges = 0
+        ! usedEdges = 0
 
         face_loop: do i = 1, N
             if ((self % fID .eq. surfaceFaces(i) % fID) .and. (self % globaleID .eq. surfaceFaces(i) % globaleID)) cycle face_loop
@@ -540,13 +521,8 @@ Module SurfaceClass  !
                 end do ext_edge_loop 
             end do this_edge_loop 
 
-            ! if (equalEdges .eq. self % numberOfConnections) then
-            !     isCon = .true.
-            !     return
-            ! end if
         end do face_loop
         isCon = .false.
-        ! print *, "equalEdges: ", equalEdges
         if (equalEdges .eq. self % numberOfConnections) isCon = .true.
 
     End Function FaceIsFullConnected
@@ -684,7 +660,6 @@ Module SurfaceClass  !
         self % eID = eID
         self % globaleID = geID
         self % fID = fID
-        ! self % needSecondFace = (N .ge. 2)
 
         allocate(self % faces(NUM_OF_NEIGHBORS))
         do i = 1, NUM_OF_NEIGHBORS
@@ -742,31 +717,11 @@ Module SurfaceClass  !
                     eIDs = mesh % faces(fID) % elementIDs
                     if (any(eIDs .eq. self % eID)) then
                         self % isInBCZone = .true.
-                        ! print *, "is in zone: ", zoneID
                         return
                     end if 
                 end do
             end associate
         end do 
-
-        ! limits = 1.98_RP
-        ! do j = 1, NUM_OF_NEIGHBORS
-        !     do i = 1, NODES_PER_FACE
-        !     ! if (self%eID .eq. 1377) then
-        !     !     print *, "j: ", j
-        !     !     print *, "i: ", i
-        !     !     print *, "self%faces(j)%edges(i)%corners: ", self%faces(j)%edges(i)%corners(:,1)
-        !     !     print *, "self%faces(j)%edges(i)%corners: ", self%faces(j)%edges(i)%corners(:,2)
-        !     ! end if 
-        !         if ( (self % faces(j) % edges(i) % corners(3,2) > limits) ) then
-        !         ! if ( (self % faces(j) % edges(i) % corners(3,2) > limits(2)) .or. &
-        !         !     (self % faces(j) % edges(i) % corners(3,1) < limits(1)) ) then
-        !             self % isInBCZone = .true.
-        !             ! print *, "is gt limit, eID: ", self%eID
-        !             return
-        !         end if 
-        !     end do 
-        ! end do
 
     End Subroutine ElementUpdateIsInZone
 !
@@ -810,7 +765,7 @@ Module SurfaceClass  !
 
         class(SurfaceElement_t), target                 :: self
         type(HexMesh), intent(in)                       :: mesh
-        class(SurfaceElement_t), dimension(N)           :: surfaceElements
+        type(SurfaceElement_t), dimension(N)            :: surfaceElements
         integer, intent(in)                             :: N
         integer, intent(out)                            :: newFaceID
 
@@ -836,10 +791,9 @@ Module SurfaceClass  !
             exit
         end do
         normalFace = normalAxis(thisFaceIndexes(1)) * (-1)
-        thisFaceIndexes(2) = findloc(normalAxis, normalFace, dim=1)
+        ! thisFaceIndexes(2) = findloc(normalAxis, normalFace, dim=1)
+        thisFaceIndexes(2) = maxloc(merge(1.0, 0.0, normalAxis == normalFace), dim=1)
 
-        ! print *, "thisFaceIndexes: ", thisFaceIndexes
-        ! print *, "n: ",mesh % elements(self % eID) % Connection(thisFaceIndexes(2)) % globID
         do eID = 1, N
             if (mesh % elements(self % eID) % Connection(thisFaceIndexes(2)) % globID .eq. surfaceElements(eID) % globaleID) then
                 targetEID = eID
@@ -849,7 +803,6 @@ Module SurfaceClass  !
 
         if (targetEID .ne. 0) then
 
-            ! print *, "targetEID: ", targetEID
             ! get face of self which is connected to the element face and is connected to the old face
             do j = 1, NUM_OF_NEIGHBORS
                 if (surfaceElements(targetEID) % faces(j) % fID .eq. surfaceElements(targetEID) % fID) then
@@ -861,7 +814,6 @@ Module SurfaceClass  !
                 if (self % faces(i) % isConnected(surfaceElements(targetEID) % faces(targertEfID))) then
                     if (.not. surfaceFace % isConnected(self % faces(i))) cycle
                     newFaceID = self % faces(i) % fID
-        ! print *, "newFaceID: ", newFaceID
                     self % extrafIDs(1) = newFaceID
                     exit
                 end if 
@@ -883,13 +835,6 @@ Module SurfaceClass  !
                     if (self % faces(i) % isConnected(surfaceElements(eID) % faces(j))) then
                         numE = numE + 1
                         allElements(numE) = eID
-                        ! if (self%eID .eq. 1377) then
-                        !     print *, "eID: ", eID
-                        !     print *, "i: ", i
-                        !     print *, "j: ", j
-                        !     print *, "surfaceElements(eID)%faces(j)%fID: ", surfaceElements(eID)%faces(j)%fID
-                        !     print *, "self%faces(i)%fID: ", self%faces(i)%fID
-                        ! end if 
                         cycle elems_loop
                     end if 
                 end do ext_elem_loop 
@@ -899,7 +844,6 @@ Module SurfaceClass  !
         allocate(connectedElements(numE))
         connectedElements = allElements(1:numE)
         deallocate(allElements)
-        ! print *, "connectedElements: ", connectedElements
 
         ! get the element that is not connected to the already found surface
         ! first get the elements whith non shared edges
@@ -913,7 +857,6 @@ Module SurfaceClass  !
             end do
             i = i + 1
             allElements(i) = eID
-            ! print *, "eID: ", eID
         end do con_elems_loop 
 
         ! now reduce to non connected by corner if neccesary
@@ -943,8 +886,6 @@ Module SurfaceClass  !
             return
         end if
 
-        ! print *, "targetEID: ", targetEID, surfaceElements(targetEID)%eID
-
         ! get face of self which is connected to the element face and is connected to the old face
         do j = 1, NUM_OF_NEIGHBORS
             if (surfaceElements(targetEID) % faces(j) % fID .eq. surfaceElements(targetEID) % fID) then
@@ -956,7 +897,6 @@ Module SurfaceClass  !
             if (self % faces(i) % isConnected(surfaceElements(targetEID) % faces(targertEfID))) then
                 if (.not. surfaceFace % isConnected(self % faces(i))) cycle
                 newFaceID = self % faces(i) % fID
-                ! print *, "newFaceID: ", newFaceID
                 self % extrafIDs(1) = newFaceID
                 exit
             end if 
@@ -970,14 +910,11 @@ Module SurfaceClass  !
                 if (self % faces(i) % isConnected(surfaceElements(targetEID) % faces(j))) then
                     if (.not. surfaceFace % isConnected(self % faces(i))) cycle this_face_loop
                     newFaceID = self % faces(i) % fID
-        ! print *, "newFaceID: ", newFaceID
                     self % extrafIDs(1) = newFaceID
                     exit this_face_loop
                 end if 
             end do
         end do this_face_loop
-
-        ! print *, "newFaceID: ", newFaceID
 
     End Subroutine ElementGetNotConnectedN
 !
@@ -1009,17 +946,14 @@ Module SurfaceClass  !
             end do
             if (faceConnections .eq. 0) then
                 faceNew => self % faces(i)
-                ! print *, "i new: ", i 
                 cycle faces_loop
             elseif (faceConnections .eq. FACES_PER_ELEMENT-2) then
                 faceOposite => self % faces(i)
-                ! print *, "i op: ", i 
                 cycle faces_loop
             end if 
         end do faces_loop
 
         if (.not. associated(faceNew)) then
-            ! print *, "self%eID: ", self%eID, " not period"
             return
         end if
 
@@ -1031,9 +965,6 @@ Module SurfaceClass  !
         do i = 1, FACES_PER_ELEMENT
             do j = 1, NODES_PER_FACE
                 allCorners(:,(i-1)*NODES_PER_FACE+j) = self % faces(i) % edges(j) % corners(:,1)
-                ! print *, "i: ", i
-                ! print *, "j: ", j
-                ! print *, "old c:", self % faces(i) % edges(j) % corners(:,1)
             end do
         end do 
         ! get new and oposite corners
@@ -1069,19 +1000,10 @@ Module SurfaceClass  !
         do i = 1, FACES_PER_ELEMENT
             if (associated(faceNew, target=self % faces(i))) cycle
             if (associated(faceOposite, target=self % faces(i))) cycle
-            ! print *, "i change: ", i
             call self % faces(i) % reconstructPeriod(oldCorners, newCorners, oldNewCornersMap)
         end do
 
         nullify(faceNew, faceOposite)
-        ! do i = 1, FACES_PER_ELEMENT
-        !     do j = 1, NODES_PER_FACE
-        !         print *, "i: ", i
-        !         print *, "j: ", j
-        !         print *, "new c:", self % faces(i) % edges(j) % corners(:,1)
-        !         print *, "new c:", self % faces(i) % edges(j) % corners(:,2)
-        !     end do
-        ! end do 
 
     End Subroutine ElementReconstructPeriodic
 !
