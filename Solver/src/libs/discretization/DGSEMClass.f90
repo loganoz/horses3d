@@ -26,6 +26,7 @@ Module DGSEMClass
    use FileReadingUtilities      , only: getFileName
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
+   use FWHGeneralClass
 #elif defined(SPALARTALMARAS)
    use ManufacturedSolutionsNSSA
    use SpallartAlmarasTurbulence
@@ -55,6 +56,9 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      type(FWHClass)                                          :: fwh
+#endif
 #ifdef FLOW
       type(Particles_t)                                       :: particles
 #else
@@ -360,6 +364,13 @@ Module DGSEMClass
 !     ------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
+!
+!     ------------------
+!     Build the FWH general class
+!     ------------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      IF (flowIsNavierStokes) call self % fwh % construct(self % mesh, controlVariables)
+#endif
 
 ! #if defined(NAVIERSTOKES)
 ! !
@@ -393,6 +404,10 @@ Module DGSEMClass
       CALL self % mesh % destruct
       
       call self % monitors % destruct
+
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      IF (flowIsNavierStokes) call self % fwh % destruct
+#endif
       
       END SUBROUTINE DestructDGSem
 !
