@@ -555,8 +555,12 @@ use VariableConversion, only: Pressure, PressureDot
         implicit none
         class(ObserverClass), intent(inout)               :: self
 
+       ! local variables
+       integer                                            :: i
         safedeallocate (self % Pac)
-        call self % sourcePair % destruct
+        do i = 1, self % numberOfFaces
+            call self % sourcePair(i) % destruct
+        end do
         safedeallocate (self % sourcePair)
 
    End Subroutine ObserverDestruct

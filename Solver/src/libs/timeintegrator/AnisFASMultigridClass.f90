@@ -54,7 +54,7 @@ module AnisFASMultigridClass
       contains
          procedure                                  :: construct
          procedure                                  :: solve
-         procedure                                  :: destruct      
+         procedure                                  :: destruct
    end type AnisFASMultigrid_t
    
 !

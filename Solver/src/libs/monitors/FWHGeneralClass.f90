@@ -29,7 +29,7 @@ Module FWHGeneralClass  !
     type FWHClass
 
         character(len=LINE_LENGTH)                                        :: solution_file
-        integer                                                           :: numberOfObservers
+        integer                                                           :: numberOfObservers = 0
         integer                                                           :: bufferLine
         real(kind=RP)                                                     :: dt_update
         integer, dimension(:), allocatable                                :: iter
@@ -40,7 +40,7 @@ Module FWHGeneralClass  !
         integer, dimension(:), allocatable                                :: globalFid
         integer, dimension(:), allocatable                                :: faceOffset
         logical                                                           :: isSolid
-        logical                                                           :: isActive
+        logical                                                           :: isActive = .false.
         logical                                                           :: firstWrite
         logical                                                           :: interpolate
         logical                                                           :: saveSourceSolFile
@@ -96,7 +96,7 @@ Module FWHGeneralClass  !
         !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
         if (.not. controlVariables % containsKey("accoustic analogy")) then
             self % isActive = .FALSE.
-            print *, "FWH not activated"
+            ! print *, "FWH not activated"
             return
         end if
 

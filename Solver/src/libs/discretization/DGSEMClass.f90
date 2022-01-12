@@ -369,7 +369,7 @@ Module DGSEMClass
 !     Build the FWH general class
 !     ------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      call self % fwh % construct(self % mesh, controlVariables)
+      IF (flowIsNavierStokes) call self % fwh % construct(self % mesh, controlVariables)
 #endif
 
 ! #if defined(NAVIERSTOKES)
@@ -406,7 +406,7 @@ Module DGSEMClass
       call self % monitors % destruct
 
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      call self % fwh % destruct
+      IF (flowIsNavierStokes) call self % fwh % destruct
 #endif
       
       END SUBROUTINE DestructDGSem
