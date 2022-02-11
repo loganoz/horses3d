@@ -2213,9 +2213,9 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
       
-            character(len=1024) :: msh_entity
-            real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            character(len=1024)              :: msh_entity
+            real(kind=RP), allocatable       :: msh_entity_vec(:)
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -2326,7 +2326,7 @@ MODULE Read_GMSH
       
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
@@ -2748,7 +2748,7 @@ MODULE Read_GMSH
       
             character(len=1024) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -2857,7 +2857,7 @@ MODULE Read_GMSH
       
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
@@ -3371,7 +3371,7 @@ MODULE Read_GMSH
       
             character(len=1024) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -3473,7 +3473,7 @@ MODULE Read_GMSH
       
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
@@ -4017,7 +4017,7 @@ MODULE Read_GMSH
          allocate(this % nodes(no_els,216))
       case default
          ! print *, " READ_GMSH :: Warning! Wrong element type. Allocation for Q3 3D."
-         allocate(this % nodes(no_els,64))
+         allocate(this % nodes(no_els,216))
       end select
 
       ! allocate BCs only if 3D element is detected
