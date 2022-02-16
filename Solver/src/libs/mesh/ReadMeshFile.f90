@@ -4,9 +4,9 @@
 !   @File:    ReadMeshFile.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Sep  6 22:45:01 2021
+!   @Last revision date: Fri Feb 11 11:25:14 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -48,6 +48,7 @@ contains
       
       ext = getFileExtension(trim(filename))
       
+      write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       if (trim(ext)=='h5') then
          call ConstructMesh_FromHDF5File_( self, fileName, nodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, periodRelative, success )
       elseif (trim(ext)=='mesh') then

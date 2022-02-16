@@ -95,10 +95,19 @@ DONT USE TABS!
 \section{Input Files}
 \begin{itemize}
 \item Control file (*.control)
-\item Mesh file (*.mesh / *.h5)
+\item Mesh file (*.mesh / *.h5 / *.msh)
 \item Polynomial order file (*.omesh)
 \item Problem File (ProblemFile.f90)
 \end{itemize}
+
+{ \small
+Notes on the GMSH format (*.msh) and general worflow using GMSH.
+\begin{itemize}
+\item Curved geometry supported up to polynomial order 5.
+\item HORSES3D can read mesh format 4.1 and 2.2 (legacy format).
+\item The solution to most of the problems mesh reading is to load it in GMSH and export to format 2.2 to have a clean ASCII file.
+\end{itemize}
+}
 
 \section{Output Files}
 \begin{itemize}

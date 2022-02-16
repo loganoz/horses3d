@@ -711,16 +711,14 @@ Module SurfaceClass  !
 
         do j = 1, M
             zoneID = zoneMarkers(j)
-            associate( z => mesh % zones(zoneID) )
-                do i = 1, z % no_of_faces
-                    fID = z % faces(i)
+                do i = 1, mesh % zones(zoneID) % no_of_faces
+                    fID = mesh % zones(zoneID) % faces(i)
                     eIDs = mesh % faces(fID) % elementIDs
                     if (any(eIDs .eq. self % eID)) then
                         self % isInBCZone = .true.
                         return
                     end if 
                 end do
-            end associate
         end do 
 
     End Subroutine ElementUpdateIsInZone

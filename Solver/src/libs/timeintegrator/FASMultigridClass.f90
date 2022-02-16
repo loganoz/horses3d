@@ -4,9 +4,9 @@
 !   @File:    FASMultigridClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Sat Nov 27 12:23:22 2021
+!   @Last revision date: Thu Feb  3 11:36:33 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 7467b7aa4bbef46857f4ffc2cbd7210209198906
+!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -277,6 +277,7 @@ module FASMultigridClass
 #endif
          elseif (controlVariables % containsKey("pseudo dt")) then
             p_dt = controlVariables % doublePrecisionValueForKey("pseudo dt")
+            Compute_dt = .false.
          else
             ERROR STOP '"pseudo cfl" or "pseudo dt" keywords must be specified for the time-accurate FAS integrator'
          end if
@@ -441,7 +442,16 @@ module FASMultigridClass
                ini_res = 1.0d0
             end if
 
-            ini_Preconditioner(1) = PRECONDIIONER_LTS ! preconditioner for initialization
+            if (controlVariables % containsKey("initial preconditioner")) then
+               select case (controlVariables % StringValueForKey("initial preconditioner",LINE_LENGTH))
+               case('LTS')
+                  ini_Preconditioner(1) = PRECONDIIONER_LTS
+               case default
+                  ini_Preconditioner(1) = PRECONDIIONER_NONE
+               end select
+            else
+               ini_Preconditioner(1) = PRECONDIIONER_LTS
+            end if
             ini_Preconditioner(2) = Preconditioner ! desired preconditioner
             ini_Smoother(1) = RK5_SMOOTHER ! smoother for initialization
             ini_Smoother(2) = Smoother ! desired smoother
@@ -866,8 +876,6 @@ module FASMultigridClass
       do i = 1, tau_maxit
          
          call this % solve(i, tk, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-         call ComputeTimeDerivative( this % p_sem % mesh, this % p_sem % particles, tk, CTD_IGNORE_MODE)
-         call ComputePseudoTimeDerivative(this % p_sem % mesh, tk, dt)
          dQdtau_norm = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
          if (PseudoConvergenceMonitor) then
             if (MPI_Process % isRoot ) write(STD_OUT,'(30X,A,I4,A,ES10.3)') "Pseudo Iter= ", i, ", Res= ", dQdtau_norm
