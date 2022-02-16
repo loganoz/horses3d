@@ -389,6 +389,7 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -557,6 +558,7 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
                end do                  ; end do                ; end do
                end associate
             end do
@@ -683,6 +685,7 @@ module SpatialDiscretization
 !     and boundaries. Therefore, the external states are not needed.
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
+         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -727,6 +730,7 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
                end do                  ; end do                ; end do
                end associate
             end do
