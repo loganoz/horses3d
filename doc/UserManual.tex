@@ -312,6 +312,10 @@ Prandtl number				& \textit{REAL}:  & 0.72 \\ \hline
 
 Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
 
+    AOA theta             & \textit{REAL}: Angle of attack (degrees), based on the spherical coordinates polar angle ($\theta$) definition  & 0.0 \\ \hline
+
+    AOA phi               & \textit{REAL}: Angle of attack (degrees), based on the spherical coordinates azimuthal angle ($\varphi$) definition  & 0.0 \\ \hline
+
 LES model					& \textit{CHARACTER(*)}: Options are: 
 \begin{itemize}
 \item Smagorinsky
@@ -329,7 +333,9 @@ Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
 
 \section{Cahn-Hilliard}
 
-\section{Wall Function}
+\section{Complementary Modes}
+
+\subsection{Wall Function}
 
 The wall function overwrites the viscous flux on the specified boundaries based on an specific law using a Newman condition. It must be used as a complement of no slip boundary condition. Table~\ref{tab:wallFunckey} shows the parameters that can be set in the control file. The frictional velocity is calculated using the instantaneous values of the first node (either Gauss or Gauss-Lobatto) of the element neighbour of the face element (at the opposite side of the boundary face). Currently is only supported for the compressible Navier-Stokes solver.
 
@@ -363,6 +369,35 @@ Wall Plane Displacement			& \textit{REAL}: Plane displacement due to roughness f
 \end{tabular}
 \label{tab:wallFunckey}
 \end{table}
+
+\subsection{Tripping}
+
+A numerical source term is added to the momentum equations to replicate the effect of a tripping mechanism used commonly in explerimental tests. The forcing is described via the product of two independent functions: one that depends streamwise and vertical directions (space only) and the other one describing the spanwise direction and time (space and time).
+It can be used for the compressible NS, both LES and RANS.
+The keywords for the trip options are listed in table \ref{tab:trip}.
+
+\begin{table}[htbp]
+\caption{Keywords for Tripping model}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+use trip					& \textit{LOGICAL}: This is the main keyword for activating the trip & .FALSE. \\ \hline
+trip time scale                 & \textit{REAL}: Time interval between the change of the time dependent part of the trip. & \textbf{Mandatory} \\ \hline
+trip number of modes            & \textit{INTEGER}: Number of Fourier modes in the spanwise direction of the trip. & \textbf{Mandatory} \\ \hline
+trip z points                   & \textit{INTEGER}: Number of points to create the Fourier Transformation of the spanwise direction, it must be greater than the number of modes and should be ideally equal to the number of discretization points of the mesh in the same direction. & \textbf{Mandatory} \\ \hline
+trip attenuation                & \textit{REAL ARRAY(2)}: Lenght scale of the gaussian attenuation of the trip, the first position is the streamwise direction and the second is the wall-normal direction. & \textbf{Mandatory} \\ \hline
+    trip zone                       & \textit{CHARACTER(*) ARRAY(:)}: Boundary condition name that constains at least one surface where the trip center is located. It can be ither one or two boundary conditions, the latter used to generate a trip in two different positions (i.e. pressure and suction sides of an airfoil).  & \textbf{Mandatory} \\ \hline
+trip center                     & \textit{REAL}: Position of the origin of the trip in the streamwise direction. & \textbf{Mandatory} \\ \hline
+trip center 2                   & \textit{REAL}: Position of the origin of the second trip, if used, in the streamwise direction. & -- \\ \hline
+trip amplitude                  & \textit{REAL}: Maximum time varying amplitude of the trip. & 1.0 \\ \hline
+trip amplitude steady           & \textit{REAL}: Maximum steady amplitude of the trip. & 0.0 \\ \hline
+random seed 1                   & \textit{INTEGER}: Number used to initilialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. & 930187532 \\ \hline
+random seed 2                   & \textit{INTEGER}: Number used to initilialize the random number generator of the trip. It can vary in different simulations but must remain constant for a restart. & 597734650 \\ \hline
+\end{tabular}
+\label{tab:trip}
+\end{table}
+
 
 \chapter{Implicit Solvers with Newton linearisation}
 \section{General Keywords}

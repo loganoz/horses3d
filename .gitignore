@@ -48,6 +48,7 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.mu
 *.ch
 *.ns
+*.nssa
 *.ins
 bin/
 Makefile*

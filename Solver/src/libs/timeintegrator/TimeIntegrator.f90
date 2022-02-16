@@ -315,6 +315,9 @@ print*, "Method selected: RK5"
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
+#if defined(NAVIERSTOKES)
+      use TripForceClass, only: randomTrip
+#endif
       IMPLICIT NONE
 !
 !     ---------
@@ -348,7 +351,7 @@ print*, "Method selected: RK5"
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
       
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients
+      logical                       :: saveGradients, useTrip
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -362,6 +365,7 @@ print*, "Method selected: RK5"
       END IF
       call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
+      useTrip            = controlVariables % logicalValueForKey("use trip")
       
 !
 !     ---------------
@@ -375,6 +379,11 @@ print*, "Method selected: RK5"
       end if
       
       t = self % time
+
+
+#if defined(NAVIERSTOKES)
+      if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+#endif
 !
 !     ------------------
 !     Configure restarts
@@ -457,6 +466,9 @@ print*, "Method selected: RK5"
 !        User defined periodic operation
 !        -------------------------------
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
+#if defined(NAVIERSTOKES)
+         if (useTrip) call randomTrip % gTrip % updateInTime(t)
+#endif
 !
 !        Perform time step
 !        -----------------         
@@ -604,6 +616,10 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % destruct
 
       end select
+
+#if defined(NAVIERSTOKES)
+         if (useTrip) call randomTrip % destruct
+#endif
 
    end subroutine IntegrateInTime
       
