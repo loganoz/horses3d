@@ -1,0 +1,50 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/hopr_mesh/WindTurbineNTNU_mesh.h5"
+Polynomial order      = 2
+Number of time steps  = 10000
+Convergence tolerance = 1.0e-13
+Output Interval       = 100
+cfl                   = 0.2
+dcfl                  = 0.2
+mach number           = 0.2
+Reynolds number       = 55555.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+LES model             = Smagorinsky
+wall model            = linear
+solution file name    = "RESULTS/WindTurbineNTNU.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/WindTurbineNTNU.hsol"
+!riemann solver        = roe
+
+
+#define boundary inlet
+      type = Inflow
+#end
+
+#define boundary sideA__sideB
+      type = NoSlipWall
+#end
+
+#define boundary top__bottom
+      type = NoSlipWall
+#end
+
+#define boundary outlet
+      type = Outflow
+#end
+
+!#define probe 1
+!   Name = wake_u
+!   Position = [0.0,2.0,4.0]
+!   Variable = u
+!#end
+
+!#define statistics
+!   Sampling interval = 10
+!   Starting iteration = 15
+!   Starting time = 0.0
+!   @start*
+!   @stop
+!#end

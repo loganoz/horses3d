@@ -1,0 +1,32 @@
+#!/bin/bash
+#PBS -N Act_Line
+#PBS -l walltime=1000:00:00,nodes=n014:ppn=40
+#PBS -j oe
+#PBS -o log_$PBS_JOBID
+#PBS -d .
+#PBS -m b
+#PBS -m e
+#PBS -m a
+
+## specifies the MPI distribution
+ulimit -s unlimited
+module purge
+module load intel/2016
+module load hdf5/intel2016/1.12.1
+
+export HDF5_ROOT=/apps/hdf5/intel2016/1.12.1
+export HDF5_DIR=$HDF5_ROOT
+
+## number of Openmp threads
+export OMP_NUM_THREADS=40
+
+########
+# Most likely you only have to touch this
+EXEC=./horses3d.ns 
+#
+
+$EXEC ActuatorDiscNTNU.control
+export OMP_NUM_THREADS=1
+
+
+

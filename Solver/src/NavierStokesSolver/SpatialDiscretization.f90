@@ -36,10 +36,59 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
       use mpi
 #endif
+	USE OMP_LIB
 
       private
       public   ComputeTimeDerivative, ComputeTimeDerivativeIsolated, viscousDiscretizationKey
       public   Initialize_SpaceAndTimeMethods, Finalize_SpaceAndTimeMethods
+
+!!!!!!!
+! DEFINE TURBINE, BLADE, AIRFOIL
+!!!!!!!
+
+    type airfoil
+    integer                  :: num_aoa 
+    real(KIND=RP), allocatable      :: aoa(:)  ! in rad
+    real(KIND=RP), allocatable      :: cl(:)  ! in rad
+    real(KIND=RP), allocatable      :: cd(:)  ! in rad
+    end type
+
+    type blade
+    real(KIND=RP), allocatable      :: r_R(:)  ! in mm
+    real(KIND=RP), allocatable      :: chord(:)   ! in mm
+    real(KIND=RP), allocatable      :: twist(:)    ! in rad
+    real(KIND=RP), allocatable      :: azimuth_angle(:)   ! in rad
+    integer, allocatable     :: num_airfoils(:)    ! in rad
+    CHARACTER(LEN=30), allocatable :: airfoil_files(:,:)  ! file names for Cl-Cd
+    type(airfoil), allocatable     :: airfoil(:)  ! airfoil data AoA-Cl-Cd
+    real(KIND=RP), allocatable      :: local_velocity(:)  ! local flow speed at blade section, im m/s
+    real(KIND=RP), allocatable      :: local_angle(:)  ! local flow angle at blade section, in rad
+    real(KIND=RP), allocatable      :: local_lift(:)  ! blade sectional Lift
+    real(KIND=RP), allocatable      :: local_drag(:)  ! blade sectional Lift
+    real(KIND=RP), allocatable      :: point_xyz_loc(:,:) ! x,y location of blade points
+    real(KIND=RP), allocatable      :: local_torque(:)  ! Nm
+    real(KIND=RP), allocatable      :: local_thrust(:)  ! N
+    real(KIND=RP), allocatable      :: local_root_bending(:)  ! Nm
+    end type
+
+    type turbine
+    integer		           :: num_blades=3  ! number of blades -> harcoded 3 blades
+    real(KIND=RP)                  :: radius ! turb radius in mm
+    real(KIND=RP)                  :: blade_pitch ! turb radius in rad
+    real(KIND=RP)                  :: rot_speed ! rad/s
+    real(KIND=RP)                  :: hub_cood_x,hub_cood_y,hub_cood_z ! hub height in mm
+    real(KIND=RP)                  :: normal_x, normal_y, normal_z ! rotor normal pointing backward
+    type(blade)             	   :: blade(3) ! hardcoded 3 blades
+    integer                 	   :: num_blade_sections  ! numer of 2D section for Cl-Cd data
+    real(KIND=RP)                  :: blade_torque(3)
+    real(KIND=RP)                  :: blade_thrust(3)
+    real(KIND=RP)                  :: blade_root_bending(3)
+    end type
+                                   
+    type farm
+    integer :: num_turbines
+    type(turbine), allocatable   :: turbine(:)
+    end type
 
 
       abstract interface
@@ -389,7 +438,6 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
-         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -402,6 +450,15 @@ module SpatialDiscretization
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl
          real(kind=RP)  :: mu_smag, delta
+
+	real(kind=RP) :: density, Cl, Cd, wind_speed, aoa, theta, interp, epsil, Rotor_force, red_factor, &
+			t_init,c1,c2, tip_correct,g1_func 
+
+    	integer    ::  io, ii, jj
+    	CHARACTER(LEN=40) :: arg, char1
+
+   !!!!!!!!
+    type (farm) :: farm1 ! only one farm
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -544,26 +601,362 @@ module SpatialDiscretization
          end if
 #endif
 !
+
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!$omp critical
+    arg='./ActuatorDef/Act_ActuatorDef.dat'
+    fid=10
+    OPEN(fid,file=trim(arg),status="old",action="read", iostat=io)
+
+    READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
+    READ(fid,'(A132)') char1
+    READ(fid,*) farm1%num_turbines
+
+if(t==0.d0 .and. OMP_GET_THREAD_NUM()==0)then
+    print *,'-------------------------'
+    print *,achar(27)//'[34m READING FARM DEFINITION'
+    write(*,*) "Number of turbines in farm:", farm1%num_turbines
+endif
+
+    READ(fid,'(A132)') char1
+
+
+    allocate(farm1%turbine(farm1%num_turbines))
+
+     do i = 1, farm1%num_turbines
+        READ(fid,*) farm1%turbine(i)%hub_cood_x, farm1%turbine(i)%hub_cood_y, farm1%turbine(i)%hub_cood_z
+     ENDDO
+
+     READ(fid,'(A132)') char1
+
+     do i = 1, farm1%num_turbines
+        READ(fid,*) farm1%turbine(i)%radius
+     ENDDO
+
+     READ(fid,'(A132)') char1
+
+     do i = 1, farm1%num_turbines
+        READ(fid,*) farm1%turbine(i)%normal_x, farm1%turbine(i)%normal_y, farm1%turbine(i)%normal_z
+     ENDDO
+    
+    ! write(*,*) normal_x(:), normal_y(:), normal_z(:)
+     READ(fid,'(A132)') char1
+
+     do i = 1, farm1%num_turbines
+        READ(fid,*) farm1%turbine(i)%rot_speed
+     ENDDO
+
+     READ(fid,'(A132)') char1
+
+     do i = 1, farm1%num_turbines
+        READ(fid,*) farm1%turbine(i)%blade_pitch
+     ENDDO
+    
+
+     READ(fid,'(A132)') char1
+     READ(fid,'(A132)') char1
+
+     ! Read blade info, we assume all 3 blades are the same for one turbine
+     READ(fid,*) farm1%turbine(1)%num_blade_sections
+
+if(t==0.d0 .and. OMP_GET_THREAD_NUM()==0)then
+    write(*,*) "Number of blade sections:", farm1%turbine(1)%num_blade_sections
+endif
+     associate (num_blade_sections => farm1%turbine(1)%num_blade_sections)
+
+     READ(fid,'(A132)') char1
+
+     do i=1, farm1%num_turbines
+      do j=1, farm1%turbine(i)%num_blades
+     allocate( farm1%turbine(i)%blade(j)%r_R(num_blade_sections),farm1%turbine(i)%blade(j)%chord(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%twist(num_blade_sections), farm1%turbine(i)%blade(j)%azimuth_angle(3), &
+     farm1%turbine(i)%blade(j)%num_airfoils(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%airfoil_files(num_blade_sections,5),farm1%turbine(i)%blade(j)%airfoil(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%local_velocity(num_blade_sections), farm1%turbine(i)%blade(j)%local_angle(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%local_lift(num_blade_sections), farm1%turbine(i)%blade(j)%local_drag(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%point_xyz_loc(num_blade_sections,3),farm1%turbine(i)%blade(j)%local_torque(num_blade_sections), &
+     farm1%turbine(i)%blade(j)%local_thrust(num_blade_sections),farm1%turbine(i)%blade(j)%local_root_bending(num_blade_sections)) 
+     ! max 5 airfoils file names per section
+
+         do k=1, num_blade_sections
+            farm1%turbine(i)%blade(j)%airfoil_files(k,:)=' '
+         enddo
+      ENDDO
+   enddo
+
+    endassociate
+
+   do i = 1, farm1%turbine(1)%num_blade_sections
+      READ(fid,*) farm1%turbine(1)%blade(1)%r_R(i), farm1%turbine(1)%blade(1)%chord(i), &
+                  farm1%turbine(1)%blade(1)%twist(i), farm1%turbine(1)%blade(1)%num_airfoils(i)
+                    
+      do j = 1, farm1%turbine(1)%blade(1)%num_airfoils(i)   
+            READ(fid,*) farm1%turbine(1)%blade(1)%airfoil_files(i,j)  
+      enddo
+
+      ! azimuthal angle for the 3 blades
+      farm1%turbine(1)%blade(1)%azimuth_angle(1)=0.d0
+      farm1%turbine(1)%blade(1)%azimuth_angle(2)=pi*2.d0/3.
+      farm1%turbine(1)%blade(1)%azimuth_angle(3)=pi*4.d0/3.
+   ENDDO
+     
+     ! all turbines have the same blades
+     !do i=1, farm1%num_turbines
+     !    do j=1, farm1%turbine(i)%num_blades
+     !       farm1%turbine(i)%blade(j)=farm1%turbine(1)%blade(1)
+     !    ENDDO
+     ! enddo
+     ! write(*,*) "All turbines have the same blades"
+   !  write(*,*) farm1%turbine(1)%blade(1)%airfoil_files(2,2)
+
+! read numerical parameters
+     READ(fid,'(A132)') char1
+     READ(fid,'(A132)') char1
+     READ(fid,'(A132)') char1
+     READ(fid,'(A132)') char1
+
+     READ(fid,*) epsil    
+
+     READ(fid,'(A132)') char1
+     READ(fid,*) c1,c2
+
+if(t==0.d0 .and. OMP_GET_THREAD_NUM()==0)then
+	print*,'Gaussian value for actuator line',epsil
+	print*,'Tip correction constants', c1,c2
+endif
+
+    close(fid)
+    !print *,'-------------------------'
+
+    do i = 1, farm1%turbine(1)%num_blade_sections
+
+      arg=trim('./ActuatorDef/'//trim(farm1%turbine(1)%blade(1)%airfoil_files(i,1)))
+      !print*, 'reading: ', trim(arg)
+
+      fid=10
+      OPEN(fid,file=trim(arg),status="old",action="read", iostat=io)
+
+      READ(fid,'(A132)') char1
+
+      READ(fid,*) farm1%turbine(1)%blade(1)%airfoil(i)%num_aoa
+
+if(t==0.d0 .and. OMP_GET_THREAD_NUM()==0)then
+      print *,'-------------------------'
+      print *,achar(27)//'[34m READING FARM AIRFOIL DATA (Cl-Cd)'
+      print*, 'reading: ', trim(arg)
+      write(*,*) 'The number of AoA in the file is: ', farm1%turbine(1)%blade(1)%airfoil(i)%num_aoa,' '//achar(27)//'[0m '	
+endif
+    
+      READ(fid,'(A132)') char1
+
+    associate (num_aoa => farm1%turbine(1)%blade(1)%airfoil(i)%num_aoa)
+
+    do ii=1, farm1%num_turbines
+      do j=1, farm1%turbine(ii)%num_blades
+         !do k=1, farm1%turbine(1)%blade(1)%num_airfoils(j) ! this needs changing if many airfoils per radial section
+            allocate( farm1%turbine(ii)%blade(j)%airfoil(i)%aoa(num_aoa), &
+                  farm1%turbine(ii)%blade(j)%airfoil(i)%cl(num_aoa), &
+                  farm1%turbine(ii)%blade(j)%airfoil(i)%cd(num_aoa))
+         !enddo
+      ENDDO
+   enddo
+
+   endassociate
+
+    do ii = 1,  farm1%turbine(1)%blade(1)%airfoil(i)%num_aoa
+         READ(fid,*) farm1%turbine(1)%blade(1)%airfoil(i)%aoa(ii), farm1%turbine(1)%blade(1)%airfoil(i)%cl(ii), &
+                     farm1%turbine(1)%blade(1)%airfoil(i)%cd(ii)
+    enddo
+
+    !do ii = 1,  farm1%turbine(1)%blade(1)%airfoil(i)%num_aoa
+    !     write(*,fmt='(F6.2,F6.2,F6.2)') farm1%turbine(1)%blade(1)%airfoil(i)%aoa(ii), farm1%turbine(1)%blade(1)%airfoil(i)%cl(ii), &
+    !     farm1%turbine(1)%blade(1)%airfoil(i)%cd(ii)
+    !enddo
+
+
+
+    !all airfoils of all blades of all turbines are the same
+    !do ii=1, farm1%num_turbines
+    !  do j=1, farm1%turbine(i)%num_blades
+    !     do k=1, farm1%turbine(1)%blade(1)%num_airfoils(j) 
+    !     farm1%turbine(ii)%blade(j)%airfoil(k)=farm1%turbine(1)%blade(1)%airfoil(1)
+    !     enddo
+    !  ENDDO
+    !enddo
+      
+    close(fid)
+   enddo ! number of blade sections
+!$omp end critical
+
+        !all airfoils of all blades of all turbines are the same
+   do ii=1, farm1%num_turbines
+      do j=1, farm1%turbine(ii)%num_blades 
+         farm1%turbine(ii)%blade(j)=farm1%turbine(1)%blade(1)
+         enddo
+   enddo
+
+
+   Cl=0.0
+   Cd=0.0 
+   !wind_speed=1.0
+
+   ! initial transcient (avoid sudden start)
+   !t_init = 1. ! el tiempo cuando el funcionamiento es ya normal
+
+   !if (t < t_init) then
+   !    red_factor = 1 !t*t_init 
+   !else
+   !    red_factor = 1                
+   !end if
+
+   theta=farm1%turbine(1)%rot_speed*t
+
+   !x coodrinate of every acutator line point
+   farm1%turbine(1)%blade(3)%point_xyz_loc(:,1)=0.d0
+
+   ! y,z coodrinate of every acutator line point
+
+!$omp do schedule(runtime)private(i)
+   do i = 1, farm1%turbine(1)%num_blade_sections
+
+      farm1%turbine(1)%blade(1)%point_xyz_loc(i,2) =  farm1%turbine(1)%hub_cood_y+farm1%turbine(1)%radius*real(i) *cos(theta) &
+                                                      /farm1%turbine(1)%num_blade_sections
+      farm1%turbine(1)%blade(1)%point_xyz_loc(i,3) =   farm1%turbine(1)%hub_cood_z+farm1%turbine(1)%radius*real(i) *sin(theta) &
+                                                      /farm1%turbine(1)%num_blade_sections
+
+      farm1%turbine(1)%blade(2)%point_xyz_loc(i,2) =   farm1%turbine(1)%hub_cood_y+farm1%turbine(1)%radius*real(i) *cos(theta+2.0*PI/3.0) &
+                                                      /farm1%turbine(1)%num_blade_sections
+      farm1%turbine(1)%blade(2)%point_xyz_loc(i,3) =   farm1%turbine(1)%hub_cood_z+farm1%turbine(1)%radius*real(i) *sin(theta+2.0*PI/3.0) &
+                                                      /farm1%turbine(1)%num_blade_sections
+
+      farm1%turbine(1)%blade(3)%point_xyz_loc(i,2) =   farm1%turbine(1)%hub_cood_y+farm1%turbine(1)%radius*real(i) *cos(theta+4.0*PI/3.0) &
+                                                      /farm1%turbine(1)%num_blade_sections
+      farm1%turbine(1)%blade(3)%point_xyz_loc(i,3) =   farm1%turbine(1)%hub_cood_z+farm1%turbine(1)%radius*real(i) *sin(theta+4.0*PI/3.0) &
+                                                      /farm1%turbine(1)%num_blade_sections
+   enddo
+
+
 !        *****************************************************************************************************************************
 !        Compute contributions to source term
 !        ATTENTION: This is deactivated for child multigrid meshes since they have specially tailored source terms (already computed).
 !                   If you are going to add contributions to the source term, do it adding to e % storage % S_NS inside the condition!
 !        *****************************************************************************************************************************
-         if (.not. mesh % child) then
+!
+        if (.not. mesh % child) then
+!
 !
 !           Add physical source term
 !           ************************
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(eID,i,j,k,ii,jj)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+
+! turbine is pointing backwards as x poistive
+if((e % geom % x(2,i,j,k)-farm1%turbine(1)%hub_cood_y)**2+(e % geom % x(3,i,j,k)-farm1%turbine(1)%hub_cood_z)**2<=farm1%turbine(1)%radius .and. (e % geom % x(1,i,j,k)<0.2*farm1%turbine(1)%radius .and. e %geom % x(1,i,j,k)>-0.2*farm1%turbine(1)%radius)) then
+! 20% of the radius for max of the rotor thikness
+
+farm1%turbine(1)%blade_torque(:)=0.d0
+farm1%turbine(1)%blade_thrust(:)=0.d0
+farm1%turbine(1)%blade_root_bending(:)=0.d0
+
+
+   do jj = 1, farm1%turbine(1)%num_blades
+      
+      do ii = 1, farm1%turbine(1)%num_blade_sections
+
+   	wind_speed=e % storage %Q(2,i,j,k)/e % storage %Q(1,i,j,k) ! wind goes in the x-direction
+	!wind_speed=1.d0
+	
+	density=e % storage %Q(1,i,j,k)
+
+         farm1%turbine(1)%blade(jj)%local_velocity(ii)= &
+               sqrt(farm1%turbine(1)%rot_speed*farm1%turbine(1)%blade(jj)%r_R(ii)**2 &
+               +wind_speed**2)
+
+         farm1%turbine(1)%blade(jj)%local_angle(ii)=atan(wind_speed/farm1%turbine(1)%blade(jj)%local_velocity(ii)) & 
+                                                -farm1%turbine(1)%blade(jj)%twist(ii) &
+                                                -farm1%turbine(1)%blade_pitch
+
+!tip correction
+g1_func=exp(-c1*(farm1%turbine(1)%num_blades*farm1%turbine(1)%blade(jj)%local_velocity(ii)/wind_speed-c2))+0.1
+tip_correct=2.d0/pi*acos(exp(-g1_func*farm1%turbine(1)%num_blades*(farm1%turbine(1)%radius-farm1%turbine(1)%blade(jj)%r_R(ii))/(2d0*farm1%turbine(1)%blade(jj)%r_R(ii)*sin(farm1%turbine(1)%blade(jj)%local_angle(ii)))))
+
+
+         ! ITERPOLATE     
+         call Get_Cl_Cl_from_airfoil_data(farm1%turbine(1)%blade(jj)%airfoil(ii), aoa, Cl, Cd)
+
+         
+         interp = exp(-(norm2([e % geom %x(1,i,j,k),e % geom %x(2,i,j,k),e % geom %x(3,i,j,k)]-farm1%turbine(1)%blade(jj)%point_xyz_loc(ii,:))**2) & 
+                  /epsil/epsil)/sqrt((2.*pi)**3)/epsil**3
+
+         farm1%turbine(1)%blade(jj)%local_lift(ii)=-farm1%turbine(1)%blade(jj)%local_velocity(ii)**2 &
+                                                         *0.5*density*Cl*interp
+
+         farm1%turbine(1)%blade(jj)%local_drag(ii)=-farm1%turbine(1)%blade(jj)%local_velocity(ii)**2 &
+                                                         *0.5*density*Cd*interp
+
+         Rotor_force = + farm1%turbine(1)%blade(jj)%local_lift(ii)*sin(farm1%turbine(1)%blade(jj)%local_angle(ii)) &
+                        - farm1%turbine(1)%blade(jj)%local_drag(ii)*cos(farm1%turbine(1)%blade(jj)%local_angle(ii))
+
+                                    
+! the rotor normal is poitning in the x direction
+              
+         e % storage % S_NS(2,i,j,k)= tip_correct*farm1%turbine(1)%blade(jj)%local_lift(ii)*cos(farm1%turbine(1)%blade(jj)%local_angle(ii)) + farm1%turbine(1)%blade(jj)%local_drag(ii)*sin(farm1%turbine(1)%blade(jj)%local_angle(ii))
+
+	e % storage % S_NS(3,i,j,k)=- tip_correct*Rotor_force*cos(farm1%turbine(1)%rot_speed*t+farm1%turbine(1)%blade(jj)%azimuth_angle(jj))
+
+	e % storage % S_NS(4,i,j,k)=- tip_correct*Rotor_force*sin(farm1%turbine(1)%rot_speed*t+farm1%turbine(1)%blade(jj)%azimuth_angle(jj))
+
+
+farm1%turbine(1)%blade(jj)%local_thrust(ii)=e % storage % S_NS(2,i,j,k)
+farm1%turbine(1)%blade(jj)%local_torque(ii)=sqrt(e % storage % S_NS(3,i,j,k)**2+e % storage % S_NS(4,i,j,k)**2)*farm1%turbine(1)%blade(jj)%r_R(ii)
+
+farm1%turbine(1)%blade(jj)%local_root_bending(ii)=farm1%turbine(1)%blade(jj)%local_thrust(ii)*farm1%turbine(1)%blade(jj)%r_R(ii)
+
+!print*, farm1%turbine(1)%blade(jj)%local_thrust(ii)
+       enddo
+
+farm1%turbine(1)%blade_thrust(jj)=sum(farm1%turbine(1)%blade(jj)%local_thrust)
+farm1%turbine(1)%blade_torque(jj)=sum(farm1%turbine(1)%blade(jj)%local_torque)
+farm1%turbine(1)%blade_root_bending(jj)=sum(farm1%turbine(1)%blade(jj)%local_root_bending)
+   enddo
+
+endif  ! coordenates
+
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
-                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+
+
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
-!
+
+!write output tirque thrust to file
+
+if(OMP_GET_THREAD_NUM()==0)then
+      fid=11
+      arg='./RESULTS/Output_Actuator_Forces.dat'
+  if(t==0.d0)then
+      OPEN(fid,file=trim(arg), status="new",iostat=io)
+      write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1,thrust_2, blade_torque_12 blade_root_bending_2,thrust_3, blade_torque_3, blade_root_bending_3'
+      write(fid,"(10(2X,E11.4))") t, farm1%turbine(1)%blade_thrust(1),farm1%turbine(1)%blade_torque(1),farm1%turbine(1)%blade_root_bending(1), &
+	farm1%turbine(1)%blade_thrust(2),farm1%turbine(1)%blade_torque(2),farm1%turbine(1)%blade_root_bending(2),&
+	farm1%turbine(1)%blade_thrust(3),farm1%turbine(1)%blade_torque(3),farm1%turbine(1)%blade_root_bending(3)
+      close(fid)
+  else
+      OPEN(fid,file=trim(arg), status="old",POSITION='APPEND',iostat=io)
+      write(fid,"(10(2X,E11.4))") t, farm1%turbine(1)%blade_thrust(1),farm1%turbine(1)%blade_torque(1),farm1%turbine(1)%blade_root_bending(1), &
+	farm1%turbine(1)%blade_thrust(2),farm1%turbine(1)%blade_torque(2),farm1%turbine(1)%blade_root_bending(2),&
+	farm1%turbine(1)%blade_thrust(3),farm1%turbine(1)%blade_torque(3),farm1%turbine(1)%blade_root_bending(3)
+      close(fid)
+  endif
+endif
+
+
 !           Add Particles source
 !           ********************
             if ( particles % active ) then            
@@ -621,6 +1014,9 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+
+
+deallocate(farm1%turbine)
 
       end subroutine TimeDerivative_ComputeQDot
    
@@ -685,7 +1081,6 @@ module SpatialDiscretization
 !     and boundaries. Therefore, the external states are not needed.
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
-         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -730,7 +1125,6 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
-                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1494,4 +1888,59 @@ module SpatialDiscretization
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
       END SUBROUTINE computeBoundaryFlux_SVV
+
+
+! linear interpolation given two points; returns y for new_x following line coefs (a,b) with y=ax+b
+function InterpolateAirfoilData(x1,x2,y1,y2,new_x)
+   implicit none
+    
+   real(KIND=RP), intent(in)    :: x1, x2, y1, y2, new_x
+   real(KIND=RP)                :: a, b, InterpolateAirfoilData
+
+    if(abs(x1-x2)<1.0e-6) then 
+      a=100.d0
+   else
+      a=(y1- y2)/(x1- x2)
+   endif
+    b= y1-a*x1;
+    InterpolateAirfoilData=a*new_x+b
+end function
+
+subroutine Get_Cl_Cl_from_airfoil_data(airfoil1, aoa, Cl_out, Cd_out)
+         implicit none
+      
+
+!         type airfoil
+!         integer                  :: num_aoa 
+!         real(KIND=RP), allocatable      :: aoa(:)  ! in rad
+!         real(KIND=RP), allocatable      :: cl(:)  ! in rad
+!         real(KIND=RP), allocatable      :: cd(:)  ! in rad
+!         end type
+
+         type (airfoil), intent(in)    :: airfoil1
+         real(KIND=RP), intent(in)            :: aoa
+         real(KIND=RP), intent(inout)         :: Cl_out, Cd_out
+         integer                       :: i
+
+!         INTERFACE 
+!            FUNCTION InterpolateAirfoilData(x1,x2,y1,y2,new_x)
+!               real(KIND=RP)                :: InterpolateAirfoilData
+!               real(KIND=RP), intent(in)    :: x1, x2, y1, y2, new_x
+!            END FUNCTION 
+!         END INTERFACE
+
+               
+  do i=1, airfoil1%num_aoa-1
+      if (airfoil1%aoa(i+1)>=aoa .and. airfoil1%aoa(i)<=aoa ) then
+         Cl_out=InterpolateAirfoilData(airfoil1%aoa(i),airfoil1%aoa(i+1),airfoil1%cl(i),airfoil1%cl(i+1),aoa)
+         Cd_out=InterpolateAirfoilData(airfoil1%aoa(i),airfoil1%aoa(i+1),airfoil1%cd(i),airfoil1%cd(i+1),aoa)
+         exit
+      else
+         Cl_out=0.d0
+         Cd_out=0.d0
+      endif
+  end do
+end subroutine
+
+
 end module SpatialDiscretization
