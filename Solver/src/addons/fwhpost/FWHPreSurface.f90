@@ -67,7 +67,7 @@ Module FWHPreSurface  !
         type(SurfaceElement_t), dimension(:), allocatable  :: elementsOfFaces
         integer                                             :: fID, eID, eIndex
         integer                                             :: i, k, numberOfBCZones, j, numberOfNewFaces
-        logical                                             :: connectedAtBoundary, discardElems, includeElems, useFilter
+        logical                                             :: connectedAtBoundary, discardElems, includeElems, useFilter, saveForMPI
         integer, dimension(:), allocatable                  :: zoneMarkers
 
         integer, dimension(:), allocatable                  :: allE, allgE, allF
@@ -118,6 +118,7 @@ Module FWHPreSurface  !
 !       -----------------
         NelemDir = controlVariables % getValueOrDefault("elements in direction", 0)
         useFilter = controlVariables % getValueOrDefault("use filtering", .false.)
+        saveForMPI = controlVariables % getValueOrDefault("save for mpi", .false.)
 
         includeElems = controlVariables % containsKey("elements to include")
         newElems = trim(controlVariables % stringValueForKey("elements to include",LINE_LENGTH))
@@ -455,7 +456,7 @@ Module FWHPreSurface  !
         allocate(surface)
         call surface % construct(mesh, fileName, oldIds(:,1), oldIds(:,2), oldIds(:,3), numberOfVerifiedFaces)
         call surface % writeToTecplot(mesh, meshName)
-        call surface % saveToFile()
+        call surface % saveToFile(mesh, saveForMPI)
 
         call surface % destruct()
 

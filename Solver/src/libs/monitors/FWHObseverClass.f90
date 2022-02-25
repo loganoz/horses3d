@@ -42,6 +42,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
        real(kind=RP)                                       :: tDelay
        integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
+       integer                                             :: elementSide
        real(kind=RP)                                       :: normalCorrection
        real(kind=RP), dimension(:,:),   allocatable        :: Pacc ! temporal solution of accoustic pressure for each pair
        real(kind=RP), dimension(:),     allocatable        :: tInterp ! time array for interpolation
@@ -96,7 +97,7 @@ Module  FWHObseverClass  !
 !           OBSERVER CLASS PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate, totalNumberOfFaces, eIDs)
+   Subroutine ObserverConstruct(self, sourceZone, mesh, ID, solution_file, FirstCall, interpolate, totalNumberOfFaces, elementSide)
 
 !        *****************************************************************************
 !              This subroutine initializes the observer similar to a monitor. The following
@@ -115,7 +116,7 @@ Module  FWHObseverClass  !
        integer, intent(in)                                  :: ID, totalNumberOfFaces
        character(len=*), intent(in)                         :: solution_file
        logical, intent(in)                                  :: FirstCall, interpolate
-       integer, dimension(:), intent(in)                    :: eIDs
+       integer, dimension(:), intent(in)                    :: elementSide
 
        ! local variables
        character(len=STR_LEN_OBSERVER)  :: in_label
@@ -124,7 +125,7 @@ Module  FWHObseverClass  !
        character(len=STR_LEN_OBSERVER)  :: coordinates
        integer                          :: fID
        integer                          :: MeshFaceID, zoneFaceID
-       integer                          :: elementSide
+       ! integer                          :: elementSide
 !
 !      Get observer ID
 !      --------------
@@ -155,30 +156,29 @@ Module  FWHObseverClass  !
 !     ------------------
       allocate( self % sourcePair(self % numberOfFaces) )
 !     Loop the zone to get faces
-      elementSide = 0
       do zoneFaceID = 1, self % numberOfFaces
 !         Face global ID
           MeshFaceID = sourceZone % faces(zoneFaceID)
           ! boundary case
-          if (all(eIDs .eq. 0)) then
-              elementSide = 1
-          else
-              ! get from side that correspond to the element in file
+          ! if (all(eIDs .eq. 0)) then
+          !     elementSide = 1
+          ! else
+          !     ! get from side that correspond to the element in file
 
-              ! if findloc is suport by the compiler use this line and comment the if
-              ! elementSide = findloc(mesh%faces(MeshFaceID)%elementIDs, eIDs(zoneFaceID), dim=1)
-              if ( mesh%faces(MeshFaceID)%elementIDs(1) .eq. eIDs(zoneFaceID) ) then
-                  elementSide = 1
-              elseif ( mesh%faces(MeshFaceID)%elementIDs(2) .eq. eIDs(zoneFaceID) ) then
-                  elementSide = 2
-              end if 
-              if (elementSide .eq. 0) then
-                  print *, "Error: the element ", eIDs(zoneFaceID), " does not correspond to the face ", mesh % faces(MeshFaceID) % ID, &
-                      ". The elements of the face are: " , mesh%faces(MeshFaceID)%elementIDs, ". The faces of the elemet are: ", mesh%elements(eIDs(zoneFaceID))%faceIDs
-                  call exit(99)
-              end if 
-          end if 
-          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall, elementSide)
+          !     ! if findloc is suport by the compiler use this line and comment the if
+          !     ! elementSide = findloc(mesh%faces(MeshFaceID)%elementIDs, eIDs(zoneFaceID), dim=1)
+          !     if ( mesh%faces(MeshFaceID)%elementIDs(1) .eq. eIDs(zoneFaceID) ) then
+          !         elementSide = 1
+          !     elseif ( mesh%faces(MeshFaceID)%elementIDs(2) .eq. eIDs(zoneFaceID) ) then
+          !         elementSide = 2
+          !     end if 
+          !     if (elementSide .eq. 0) then
+          !         print *, "Error: the element ", eIDs(zoneFaceID), " does not correspond to the face ", mesh % faces(MeshFaceID) % ID, &
+          !             ". The elements of the face are: " , mesh%faces(MeshFaceID)%elementIDs, ". The faces of the elemet are: ", mesh%elements(eIDs(zoneFaceID))%faceIDs
+          !         call exit(99)
+          !     end if 
+          ! end if 
+          call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall, elementSide(zoneFaceID))
       end do  
 
 !     Allocate variables for interpolation
@@ -591,6 +591,8 @@ use VariableConversion, only: Pressure, PressureDot
        Nx = f % Nf(1)
        Ny = f % Nf(2)
 
+       self % elementSide = elementSide
+
    select case (elementSide)
    case (1)
        self % normalCorrection = 1.0_RP
@@ -797,8 +799,8 @@ use VariableConversion, only: Pressure, PressureDot
        spAeta => NodalStorage(f % Nf(2))
 
 
-       associate( Q => f % storage(1) % Q )
-           associate( Qdot => f % storage(1) % Qdot )
+       associate( Q => f % storage(self % elementSide) % Q )
+           associate( Qdot => f % storage(self % elementSide) % Qdot )
 
     !           **********************************
     !           Computes the surface integral
@@ -856,7 +858,7 @@ use VariableConversion, only: Pressure, PressureDot
 !           ZONE PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
-   Subroutine SourceProlongSolution(source_zone, mesh)
+   Subroutine SourceProlongSolution(source_zone, mesh, eSides)
 
 !     *******************************************************************
 !        This subroutine prolong the solution from the mesh storage to the faces (source).
@@ -868,6 +870,7 @@ use VariableConversion, only: Pressure, PressureDot
       implicit none
       class (Zone_t), intent(in)                           :: source_zone
       class (HexMesh), intent(inout), target               :: mesh
+      integer, dimension(:), intent(in)                    :: eSides
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID, eID
@@ -888,7 +891,7 @@ use VariableConversion, only: Pressure, PressureDot
       do zoneFaceID = 1, source_zone % no_of_faces
           meshFaceID = source_zone % faces(zoneFaceID)
 
-         eID = mesh % faces(meshFaceID) % elementIDs(1)
+         eID = mesh % faces(meshFaceID) % elementIDs(eSides(zoneFaceID))
          meshFaceIDs = mesh % elements(eID) % faceIDs
 
 !$omp task depend(inout:elements(eID))
@@ -1214,37 +1217,239 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Function getGlobalFaceIDs
 
-   Subroutine SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces, eIDs)
+   Subroutine SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces, eSides)
 
 !     *******************************************************************
 !        This subroutine reads the faces of the surface from a text file
 !     *******************************************************************
 !
       use MPI_Process_Info
+      use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT, NODES_PER_FACE
       implicit none
 
       class(HexMesh), intent(in)                          :: mesh
       character(len=LINE_LENGTH), intent(in)              :: surface_file
-      integer, dimension(:), allocatable, intent(out)     :: facesIDs, eIDs
+      integer, dimension(:), allocatable, intent(out)     :: facesIDs, eSides
       integer, intent(out)                                :: numberOfFaces
 
       ! local variables
       integer                                             :: fd       ! File unit
-      integer                                             :: i        ! counter
-      integer, dimension(:), allocatable                  :: geIDs
+      integer                                             :: i, j, k
+      integer                                             :: ierr
+      integer                                             :: allNumberOfFaces, eID, sumFaces
+      integer, dimension(:), allocatable                  :: eIDs, allGeIDs, allfIDs
+      integer, dimension(:), allocatable                  :: fIDsTemp, eIDsTemp
+      integer, dimension(:,:), allocatable                :: nodeIDs, allNodeIDs, nodeIDsTemp
+      integer, dimension(NODES_PER_FACE)                  :: faceNodeID
+      logical                                             :: hasMPIExtraInfo
          
-      open(newunit = fd, file = surface_file )   
-      read(fd,*) numberOfFaces
 
-      allocate( facesIDs(numberOfFaces), geIDs(numberOfFaces) )
+!       Only root open and read the file
+!       ------------------
+        if (MPI_Process % isRoot) then
+          open(newunit = fd, file = surface_file )   
+          read(fd,*) allNumberOfFaces
 
-      do i = 1, numberOfFaces
-      read(fd,*) geIDs(i), facesIDs(i)
-      end do
-      close(unit=fd)
-      eIDs = geIDs
+          allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces) )
+
+          read(fd,*) hasMPIExtraInfo
+          print *, "hasMPIExtraInfo: ", hasMPIExtraInfo
+
+          if (hasMPIExtraInfo) then
+            allocate(allNodeIDs(4,allNumberOfFaces))
+            do i = 1, allNumberOfFaces
+              read(fd,*) allGeIDs(i), allfIDs(i), allNodeIDs(:,i)
+            end do
+            print *, "allNodeIDs(:,1): ", allNodeIDs(:,1)
+            print *, "allNodeIDs(:,190): ", allNodeIDs(:,190)
+          else
+            if (MPI_Process % doMPIAction) then
+                print *, "Error, the surface file does not have the information necessary to create it while running with MPI"
+                call exit(99)
+            end if 
+            do i = 1, allNumberOfFaces
+              read(fd,*) allGeIDs(i), allfIDs(i)
+            end do
+          end if
+          close(unit=fd)
+        end if
+
+!       For MPI, check the nodeIDs and compare it to each face of the element to find the right one in the partition
+!       ------------------
+        if ( (MPI_Process % doMPIAction) ) then
+
+!         Broadcast from root, since other process didnt read the file
+!         ------------------
+#ifdef _HAS_MPI_
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+          print *, "start bcast ", "r: ", MPI_Process % rank
+          call mpi_Bcast(allNumberOfFaces, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+          print *, "numf bcast ", "r: ", MPI_Process % rank
+
+          if (.not. MPI_Process % isRoot) allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces), allNodeIDs(4,allNumberOfFaces) )
+          ! call mpi_barrier(MPI_COMM_WORLD, ierr)
+          call mpi_Bcast(allGeIDs, allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+          print *, "eid bcast ", "r: ", MPI_Process % rank
+
+          call mpi_Bcast(allNodeIDs, 4*allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+          print *, "nid bcast ", "r: ", MPI_Process % rank
+#endif
+
+!         First compare the globaleID read from the element in the partition and save the normal (not global) eID, and the
+!         correspondend read nodeIDs
+!         ------------------
+          allocate( nodeIDs(4,allNumberOfFaces), eIDs(allNumberOfFaces) )
+          j = 0
+          do i = 1, allNumberOfFaces
+            elems_loop:do eID = 1, mesh%no_of_elements
+              if (mesh % elements(eID) % globID .eq. allGeIDs(i)) then
+                j = j + 1
+                eIDs(j) = eID
+                nodeIDs(:,j) = allNodeIDs(:,i)
+                exit elems_loop
+              end if
+            end do elems_loop
+          end do
+          numberOfFaces = j
+          allocate( nodeIDsTemp(4,numberOfFaces), eIDsTemp(numberOfFaces), facesIDs(numberOfFaces), eSides(numberOfFaces) )
+          eIDsTemp(:) = eIDs(1:numberOfFaces)
+          nodeIDsTemp(:,:) = nodeIDs(:,1:numberOfFaces)
+          call move_alloc(eIDsTemp, eIDs)
+          call move_alloc(nodeIDsTemp, nodeIDs)
+
+!       Check that all the elements are found in the mesh partitions
+!       ------------------
+#ifdef _HAS_MPI_
+         call mpi_allreduce(numberOfFaces, sumFaces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+         print *, "sumFaces: ", sumFaces, "r: ", MPI_Process % rank
+         print *, "numberOfFaces: ", numberOfFaces, "r: ", MPI_Process % rank
+         ! print *, "eIDs: ", eIDs, "r: ", MPI_Process % rank
+          if (sumFaces .ne. allNumberOfFaces .and. MPI_Process % isRoot) then
+              print *, "Error:, not all the elements of the surface file where found in the mesh. File elements: ", allNumberOfFaces, &
+              "elements found: ", sumFaces
+            call exit(99)
+          end if 
+
+!         Now get the actual facesID of the partition for each element based on the nodeIDs
+!         ------------------
+          element_face_loop:do i = 1, numberOfFaces
+              ! if (eIDs(i) .eq. 3 .and. nodeIDs(1,i) .eq. 3) then
+              ! if (eIDs(i) .eq. 17 .and. nodeIDs(1,i) .eq. 35) then
+              !     print *, "i: ", i, "r: ", MPI_Process % rank
+              !     print *, "nodeIDs(:,i): ", nodeIDs(:,i), "r: ", MPI_Process % rank
+              !     print *, "Eid", mesh%elements(eIDs(i))%eID, "r: ", MPI_Process % rank
+              !     print *, "gEid", mesh%elements(eIDs(i))%globID, "r: ", MPI_Process % rank
+              ! end if 
+            associate( e => mesh % elements(eIDs(i)) )
+              ! if (eIDs(i) .eq. 3 .and. nodeIDs(1,i) .eq. 3) then
+              do j = 1, FACES_PER_ELEMENT
+                do k = 1, NODES_PER_FACE
+                  faceNodeID(k) = mesh % nodes(mesh % faces(e % faceIDs(j)) % nodeIDs(k)) % globID
+                end do
+              ! if (eIDs(i) .eq. 17 .and. nodeIDs(1,i) .eq. 35) then
+              !     ! print *,  "j: ", j, "f nodes: ", mesh%faces(e%faceIDs(j))%nodeIDs, "r: ", MPI_Process % rank
+              !     ! print *,  "j: ", j, "x: ", mesh%nodes(mesh%faces(e%faceIDs(j))%nodeIDs(1))%x , "r: ", MPI_Process % rank
+              !     ! print *,  "j: ", j, "ngid: ", mesh%nodes(mesh%faces(e%faceIDs(j))%nodeIDs(1))%globID , "r: ", MPI_Process % rank
+              !     print *,  "j: ", j, "nodes f: ", faceNodeID , "r: ", MPI_Process % rank
+              !     print *,  "j: ", j, "nodes T: ", all( nodeIDs(:,i) .eq. faceNodeID) , "r: ", MPI_Process % rank
+              ! end if 
+                ! if (all( nodeIDs(:,i) .eq. mesh % faces(e % faceIDs(j)) % nodeIDs(:) )) then
+                if (all( nodeIDs(:,i) .eq. faceNodeID)) then
+                  facesIDs(i) = e % faceIDs(j)
+                  eSides(i) = e % faceSide(j)
+                  cycle element_face_loop
+                end if
+              end do
+                ! if code arrives here, the face was not found
+              print *, "Error:, for surface file the face was not found for node ids: ", nodeIDs(:,i), &
+                    "and element ID: ", eIDs(i)
+              call exit(99)
+            end associate
+          end do element_face_loop
+          print *, "finish loop", "r: ", MPI_Process % rank
+
+!       For non MPI, just pass to normal arrays and check if the faces correspond to the element, and get side of face
+!       ------------------
+        else
+          numberOfFaces = allNumberOfFaces
+          allocate( facesIDs(numberOfFaces), eIDs(numberOfFaces), eSides(numberOfFaces) )
+          facesIDs = allfIDs
+          eIDs = allGeIDs
+          deallocate(allGeIDs, allfIDs)
+          eSides = 0
+          do i = 1, numberOfFaces
+              ! if findloc is suport by the compiler use this line and comment the if
+              eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
+              ! if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
+              !   eSides(i) = 1
+              ! elseif ( mesh%faces(facesIDs(i))%elementIDs(2) .eq. eIDs(i) ) then
+              !   eSides(i) = 2
+              ! end if
+              if (eSides(i) .eq. 0) then
+                print *, "Error: the element ", eIDs(i), " does not correspond to the face ", mesh % faces(facesIDs(i)) % ID, &
+                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the elemet are: ", mesh % elements(eIDs(i)) % faceIDs
+                call exit(99)
+              end if 
+          end do
+        end if
 
    End Subroutine SourceLoadSurfaceFromFile
+
+   Subroutine SourceSaveMesh( source_zone, mesh, fileName, no_of_faces, fGlobID, faceOffset )
+!
+!     *******************************************************************
+!        This subroutine saves the mesh from the face geometry to a binary file
+!     *******************************************************************
+!
+      use SolutionFile
+      use PhysicsStorage, only: Lref
+      use FileReadingUtilities, only: removePath, getFileName
+      implicit none
+      class (Zone_t), intent(in)                           :: source_zone
+      class (HexMesh), intent(in)                          :: mesh
+      character(len=*), intent(in)                         :: fileName
+      integer,intent(in)                                   :: no_of_faces
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID
+      integer                                              :: fid
+      integer(kind=AddrInt)                                :: pos
+      character(len=LINE_LENGTH)                           :: meshName
+      real(kind=RP), parameter                             :: refs(NO_OF_SAVED_REFS) = 0.0_RP
+
+!
+!     Create file: it will be contained in ./MESH
+!     -------------------------------------------
+      meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".surf.hmesh"
+      call CreateNewSolutionFile(trim(meshName), ZONE_MESH_FILE, mesh % nodeType, &
+                                    no_of_faces, 0, 0.0_RP, refs)
+!
+!     Write arrays
+!     ------------
+      fID = putSolutionFileInWriteDataMode(trim(meshName))
+
+!     Loop the zone to get faces
+!     ---------------------------------------
+      do zoneFaceID = 1, source_zone % no_of_faces
+          meshFaceID = source_zone % faces(zoneFaceID)
+          associate( f => mesh % faces(meshFaceID) )
+              ! 4 integers are written: number of dimension, and 3 value of the dimensions
+              pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4_AddrInt*SIZEOF_INT + 3_AddrInt * faceOffset(zoneFaceID) * SIZEOF_RP
+              call writeArray(fid, f % geom % x(:,0:f%Nf(1),0:f%Nf(2))*Lref, position=pos)
+          end associate
+
+      end do
+
+     close(fid)
+!
+!
+!    Close the file
+!    --------------
+     call SealSolutionFile(trim(meshName))
+
+   End Subroutine SourceSaveMesh
 
 !/////////////////////////////////////////////////////////////////////////
 !           AUXILIAR PROCEDURES --------------------------
