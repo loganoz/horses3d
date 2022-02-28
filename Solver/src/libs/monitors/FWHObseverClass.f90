@@ -1253,15 +1253,12 @@ use VariableConversion, only: Pressure, PressureDot
           allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces) )
 
           read(fd,*) hasMPIExtraInfo
-          print *, "hasMPIExtraInfo: ", hasMPIExtraInfo
 
           if (hasMPIExtraInfo) then
             allocate(allNodeIDs(4,allNumberOfFaces))
             do i = 1, allNumberOfFaces
               read(fd,*) allGeIDs(i), allfIDs(i), allNodeIDs(:,i)
             end do
-            print *, "allNodeIDs(:,1): ", allNodeIDs(:,1)
-            print *, "allNodeIDs(:,190): ", allNodeIDs(:,190)
           else
             if (MPI_Process % doMPIAction) then
                 print *, "Error, the surface file does not have the information necessary to create it while running with MPI"
@@ -1282,17 +1279,13 @@ use VariableConversion, only: Pressure, PressureDot
 !         ------------------
 #ifdef _HAS_MPI_
           call mpi_barrier(MPI_COMM_WORLD, ierr)
-          print *, "start bcast ", "r: ", MPI_Process % rank
           call mpi_Bcast(allNumberOfFaces, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-          print *, "numf bcast ", "r: ", MPI_Process % rank
 
           if (.not. MPI_Process % isRoot) allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces), allNodeIDs(4,allNumberOfFaces) )
           ! call mpi_barrier(MPI_COMM_WORLD, ierr)
           call mpi_Bcast(allGeIDs, allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-          print *, "eid bcast ", "r: ", MPI_Process % rank
 
           call mpi_Bcast(allNodeIDs, 4*allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
-          print *, "nid bcast ", "r: ", MPI_Process % rank
 #endif
 
 !         First compare the globaleID read from the element in the partition and save the normal (not global) eID, and the
@@ -1322,9 +1315,6 @@ use VariableConversion, only: Pressure, PressureDot
 #ifdef _HAS_MPI_
          call mpi_allreduce(numberOfFaces, sumFaces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
-         print *, "sumFaces: ", sumFaces, "r: ", MPI_Process % rank
-         print *, "numberOfFaces: ", numberOfFaces, "r: ", MPI_Process % rank
-         ! print *, "eIDs: ", eIDs, "r: ", MPI_Process % rank
           if (sumFaces .ne. allNumberOfFaces .and. MPI_Process % isRoot) then
               print *, "Error:, not all the elements of the surface file where found in the mesh. File elements: ", allNumberOfFaces, &
               "elements found: ", sumFaces
@@ -1334,27 +1324,12 @@ use VariableConversion, only: Pressure, PressureDot
 !         Now get the actual facesID of the partition for each element based on the nodeIDs
 !         ------------------
           element_face_loop:do i = 1, numberOfFaces
-              ! if (eIDs(i) .eq. 3 .and. nodeIDs(1,i) .eq. 3) then
-              ! if (eIDs(i) .eq. 17 .and. nodeIDs(1,i) .eq. 35) then
-              !     print *, "i: ", i, "r: ", MPI_Process % rank
-              !     print *, "nodeIDs(:,i): ", nodeIDs(:,i), "r: ", MPI_Process % rank
-              !     print *, "Eid", mesh%elements(eIDs(i))%eID, "r: ", MPI_Process % rank
-              !     print *, "gEid", mesh%elements(eIDs(i))%globID, "r: ", MPI_Process % rank
-              ! end if 
             associate( e => mesh % elements(eIDs(i)) )
               ! if (eIDs(i) .eq. 3 .and. nodeIDs(1,i) .eq. 3) then
               do j = 1, FACES_PER_ELEMENT
                 do k = 1, NODES_PER_FACE
                   faceNodeID(k) = mesh % nodes(mesh % faces(e % faceIDs(j)) % nodeIDs(k)) % globID
                 end do
-              ! if (eIDs(i) .eq. 17 .and. nodeIDs(1,i) .eq. 35) then
-              !     ! print *,  "j: ", j, "f nodes: ", mesh%faces(e%faceIDs(j))%nodeIDs, "r: ", MPI_Process % rank
-              !     ! print *,  "j: ", j, "x: ", mesh%nodes(mesh%faces(e%faceIDs(j))%nodeIDs(1))%x , "r: ", MPI_Process % rank
-              !     ! print *,  "j: ", j, "ngid: ", mesh%nodes(mesh%faces(e%faceIDs(j))%nodeIDs(1))%globID , "r: ", MPI_Process % rank
-              !     print *,  "j: ", j, "nodes f: ", faceNodeID , "r: ", MPI_Process % rank
-              !     print *,  "j: ", j, "nodes T: ", all( nodeIDs(:,i) .eq. faceNodeID) , "r: ", MPI_Process % rank
-              ! end if 
-                ! if (all( nodeIDs(:,i) .eq. mesh % faces(e % faceIDs(j)) % nodeIDs(:) )) then
                 if (all( nodeIDs(:,i) .eq. faceNodeID)) then
                   facesIDs(i) = e % faceIDs(j)
                   eSides(i) = e % faceSide(j)
@@ -1367,7 +1342,6 @@ use VariableConversion, only: Pressure, PressureDot
               call exit(99)
             end associate
           end do element_face_loop
-          print *, "finish loop", "r: ", MPI_Process % rank
 
 !       For non MPI, just pass to normal arrays and check if the faces correspond to the element, and get side of face
 !       ------------------

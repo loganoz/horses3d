@@ -92,16 +92,18 @@ module Storage
 !        Local variables
 !        ---------------
 !
-         integer                          :: arrayDimensions(4)
-         integer                          :: fid, eID, i, pos
-         character(len=1024)              :: msg
-         character(len=LINE_LENGTH)       :: flag
+         integer, dimension(:), allocatable     :: arrayDimensions
+         integer                                :: fileType, dimensionsSize
+         integer                                :: fid, eID, i, pos
+         character(len=1024)                    :: msg
+         character(len=LINE_LENGTH)             :: flag
 
          self % meshName = trim(meshName)
 !
-!        Get mesh node type
-!        ------------------
+!        Get mesh node type and type of file
+!        -----------------------------------
          self % nodeType = getSolutionFileNodeType(meshName)
+         fileType = getSolutionFileType(meshName)
 !
 !        Get number of elements
 !        ----------------------
@@ -110,6 +112,17 @@ module Storage
 !        Allocate elements
 !        -----------------
          allocate(self % elements(self % no_of_elements))
+!
+!        Allocate dimension based on type of file
+!        ----------------------------------------
+         select case (fileType)
+         case (ZONE_MESH_FILE)
+             dimensionsSize = 3
+         case default
+             dimensionsSize = 4
+         end select
+
+         allocate(arrayDimensions(dimensionsSize))
 !
 !        Read coordinates
 !        ----------------
@@ -123,7 +136,10 @@ module Storage
 !
 !           Allocate memory for the coordinates
 !           -----------------------------------            
-            e % Nmesh(1:3) = arrayDimensions(2:4) - 1 
+            ! e % Nmesh(1:3) = arrayDimensions(2:4) - 1 
+            e % Nmesh(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1 
+!           Use a 0 index for the case of a surface mesh
+            if (dimensionsSize .eq. 3) e % Nmesh(3) = 0
             allocate( e % x(NDIM,0:e % Nmesh(1),0:e % Nmesh(2),0:e % Nmesh(3)) )
 !
 !           Read data
