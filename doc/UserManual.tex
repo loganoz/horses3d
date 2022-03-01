@@ -49,7 +49,7 @@
 
 \tableofcontents
 
-\chapter{Compiling the code}
+\chapter{Compiling the code} \label{sect:compiling}
 
 \begin{itemize}
 \item Clone the git repository or copy the source code into a desired folder.
@@ -72,6 +72,7 @@ with the desired options (bold are default):
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item PLATFORM=MACOSX/\textbf{LINUX}
 \item ENABLE\_THREADS=NO/\textbf{YES}
+\item WITH\_MKL=y/\textbf{n}
 \end{itemize}
 
 For example:
@@ -79,14 +80,23 @@ For example:
 	$ make all COMPILER=ifort COMM=PARALLEL
 \end{lstlisting}
 
+\item The ENABLE\_THREADS=YES flag enables shared memory simulations using OpenMP.
+
+\item The COM=PARALLEL flag enables distributed memory simulations using MPI.
+
+\item To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_HOME is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D).
+
+\item To compile the code linking it with HDF5 (neccesary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_ROOT is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+
 \item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
 \begin{lstlisting}[language=bash]
 	$ export MODULEPATH=$HORSES_DIR/utils/modulefile:$MODULEPATH
 \end{lstlisting}
 where \$HORSES\_DIR is the installation directory.
+
+\item It is advised to run the \emph{make clean} or \emph{make allclean} command if some options of the compilation rutine needs to be changed and it has been compiled before.
+
 \end{itemize}
-
-
 
 \chapter{Input and Output Files}
 
@@ -170,6 +180,8 @@ number of time steps & \textit{INTEGER}: \textit{Maximum} number of time steps t
 output interval   & \textit{INTEGER}: In steady-state, this keyword indicates the interval of time steps to display the residuals on screen. In time-accurate simulations, this keyword indicates how often a 3D output file must be stored.  & \textbf{Mandatory\ keyword} \\ \hline
 
 convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady-state cases & \textbf{Mandatory\ keyword} \\ \hline
+
+partitioning  & \textit{CHARACTER}: Specifies the method for partitioning the mesh in MPI simulations. Options are: 'metis' (the code must have been linked to METIS at compilation time, see Chapter~\ref{sect:compiling}), or 'SFC' (to use a space-filling curve method, no special compilation is needed for this option). & 'metis' \\ \hline
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
 
