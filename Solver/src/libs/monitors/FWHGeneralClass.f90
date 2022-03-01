@@ -180,9 +180,6 @@ Module FWHGeneralClass  !
         call self % sourceZone % CreateFicticious(-1, "FW_Surface", SUM(faces_per_zone), facesIDs)
         deallocate(facesIDs, faces_per_zone)
 
-        ! allocate( self % elementSide(size(eSides)) )
-        ! self % elementSide = eSides
-
 !       Gather the total number of faces
 !       ------------------
         if ( (MPI_Process % doMPIAction) ) then
@@ -467,7 +464,7 @@ Module FWHGeneralClass  !
 !       ------------------------
         if (.not. self % isActive) return
 
-        call SourceLoadSolution(self % sourceZone, mesh, fileName, self % globalFid, self % faceOffset)
+        call SourceLoadSolution(self % sourceZone, mesh, fileName, self % globalFid, self % faceOffset, self % elementSide)
 
      End Subroutine FWHLoadSourceSolution
 

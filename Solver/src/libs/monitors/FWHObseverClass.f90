@@ -148,8 +148,8 @@ Module  FWHObseverClass  !
       self % active = .true.
       allocate ( self % Pac(OB_BUFFER_SIZE,3) )
 
-      !     ------------------
 !     Get source information
+!     ------------------
       self % numberOfFaces = sourceZone % no_of_faces
 
 !     Construct each pair observer-source
@@ -159,25 +159,6 @@ Module  FWHObseverClass  !
       do zoneFaceID = 1, self % numberOfFaces
 !         Face global ID
           MeshFaceID = sourceZone % faces(zoneFaceID)
-          ! boundary case
-          ! if (all(eIDs .eq. 0)) then
-          !     elementSide = 1
-          ! else
-          !     ! get from side that correspond to the element in file
-
-          !     ! if findloc is suport by the compiler use this line and comment the if
-          !     ! elementSide = findloc(mesh%faces(MeshFaceID)%elementIDs, eIDs(zoneFaceID), dim=1)
-          !     if ( mesh%faces(MeshFaceID)%elementIDs(1) .eq. eIDs(zoneFaceID) ) then
-          !         elementSide = 1
-          !     elseif ( mesh%faces(MeshFaceID)%elementIDs(2) .eq. eIDs(zoneFaceID) ) then
-          !         elementSide = 2
-          !     end if 
-          !     if (elementSide .eq. 0) then
-          !         print *, "Error: the element ", eIDs(zoneFaceID), " does not correspond to the face ", mesh % faces(MeshFaceID) % ID, &
-          !             ". The elements of the face are: " , mesh%faces(MeshFaceID)%elementIDs, ". The faces of the elemet are: ", mesh%elements(eIDs(zoneFaceID))%faceIDs
-          !         call exit(99)
-          !     end if 
-          ! end if 
           call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall, elementSide(zoneFaceID))
       end do  
 
@@ -1001,7 +982,7 @@ use VariableConversion, only: Pressure, PressureDot
 
    End Subroutine SourceSaveSolution
 
-   Subroutine SourceLoadSolution(source_zone, mesh, fileName, fGlobID, faceOffset)
+   Subroutine SourceLoadSolution(source_zone, mesh, fileName, fGlobID, faceOffset, eSides)
 
       use SolutionFile
       implicit none
@@ -1009,6 +990,7 @@ use VariableConversion, only: Pressure, PressureDot
       class (HexMesh), intent(inout)                       :: mesh
       character(len=*), intent(in)                         :: fileName
       integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
+      integer, dimension(:), intent(in)                    :: eSides
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID
@@ -1052,9 +1034,9 @@ use VariableConversion, only: Pressure, PressureDot
 
               allocate(QF(1:NCONS,0:Nx,0:Ny))
               read(fID) QF
-              f % storage(1) % Q = QF
+              f % storage(eSides(zoneFaceID)) % Q = QF
               read(fID) QF
-              f % storage(1) % Qdot = QF
+              f % storage(eSides(zoneFaceID)) % Qdot = QF
               safedeallocate(QF)
           end associate
       end do
@@ -1325,7 +1307,6 @@ use VariableConversion, only: Pressure, PressureDot
 !         ------------------
           element_face_loop:do i = 1, numberOfFaces
             associate( e => mesh % elements(eIDs(i)) )
-              ! if (eIDs(i) .eq. 3 .and. nodeIDs(1,i) .eq. 3) then
               do j = 1, FACES_PER_ELEMENT
                 do k = 1, NODES_PER_FACE
                   faceNodeID(k) = mesh % nodes(mesh % faces(e % faceIDs(j)) % nodeIDs(k)) % globID
@@ -1354,12 +1335,12 @@ use VariableConversion, only: Pressure, PressureDot
           eSides = 0
           do i = 1, numberOfFaces
               ! if findloc is suport by the compiler use this line and comment the if
-              eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
-              ! if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
-              !   eSides(i) = 1
-              ! elseif ( mesh%faces(facesIDs(i))%elementIDs(2) .eq. eIDs(i) ) then
-              !   eSides(i) = 2
-              ! end if
+              ! eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
+              if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
+                eSides(i) = 1
+              elseif ( mesh%faces(facesIDs(i))%elementIDs(2) .eq. eIDs(i) ) then
+                eSides(i) = 2
+              end if
               if (eSides(i) .eq. 0) then
                 print *, "Error: the element ", eIDs(i), " does not correspond to the face ", mesh % faces(facesIDs(i)) % ID, &
                     ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the elemet are: ", mesh % elements(eIDs(i)) % faceIDs
