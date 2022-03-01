@@ -2,7 +2,7 @@
 %\usepackage[spanish]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
-\usepackage{float} 
+\usepackage{float}
 \usepackage{multirow}
 \usepackage{vmargin}
 \usepackage{longtable}
@@ -172,7 +172,7 @@ output interval   & \textit{INTEGER}: In steady-state, this keyword indicates th
 convergence tolerance & \textit{REAL}: Residual convergence tolerance for steady-state cases & \textbf{Mandatory\ keyword} \\ \hline
 
 manufactured solution & \textit{CHARACTER}: Must have the value '2D' or '3D'. When this keyword is used, the program will add source terms for the conservative variables taken into account an exact analytic solution for each primitive variable j ($\rho$, $u$, $v$, $w$, $p$) of the form:\
- 
+
 $j = j_C(1) + j_C(2) \sin(\pi j_C(5) x) + j_C(3) \sin(\pi j_C(6) y) + j_C(4) \sin(\pi j_C(7) z) $\
 
 Where $j_C(i)$ are constants defined in the file \textit{ManufacturedSolutions.f90}. Proper initial and boundary conditions must be imposed (see the test case). The mesh must be a unit cube.
@@ -202,14 +202,14 @@ The block in general can be seen below. Table~\ref{tab:BC} show the values for t
 
 
 \begin{table}[h]
-\caption{Keywords for Boundary Conditions.}\label{tab:BC} 
+\caption{Keywords for Boundary Conditions.}\label{tab:BC}
 
 \begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 
-type 	& 
-		\textit{CHARACTER}: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. & 
+type 	&
+		\textit{CHARACTER}: Type of boundary condition to be applied. Options are: Inflow, Outflow, NoSlipWall, FreeSlipWall, Periodic, User-defined. &
 							N/A \\ \hline
 
 \end{tabular}
@@ -282,7 +282,7 @@ restart file name   & \textit{CHARACTER}: Name of the restart file to be written
 
 restart polorder & \textit{INTEGER}: Uniform polynomial order of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case. & same as case's \\ \hline
 
-restart polorder file & 
+restart polorder file &
 			\textit{CHARACTER}: File containing the polynomial orders of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.  &  same as case's\\ \hline
 
 get discretization error of & \textit{CHARACTER}: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution. & -- \\ \hline
@@ -316,7 +316,7 @@ Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
 
     AOA phi               & \textit{REAL}: Angle of attack (degrees), based on the spherical coordinates azimuthal angle ($\varphi$) definition  & 0.0 \\ \hline
 
-LES model					& \textit{CHARACTER(*)}: Options are: 
+LES model					& \textit{CHARACTER(*)}: Options are:
 \begin{itemize}
 \item Smagorinsky
 \item None
@@ -327,6 +327,76 @@ Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
 
 \end{tabular}
 \label{tab:compressibleFlowkey}
+\end{table}
+
+\subsection{Spectral Vanishing Viscosity}
+
+\textit{WARNING: The functionality explained in this section is still experimental and may change in future iterations.}
+\textit{WARNING: This method does not support MPI parallelisation yet.}\newline
+
+The introduction of an SVV-filtered artificial flux helps dissipate high-frequency oscillations. The baseline viscous flux can be chosen as the Navier-Stokes viscous flux or the flux developed by Guermond and Popov. In any case, this flux is expresed in a modal base where it is filtered by any of the following three filter kernels:
+%
+\begin{itemize}
+    \item power:~$\hat{F}^{\text{1D}}_i = (i/N)^P$,
+    \item sharp:~$\hat{F}^{\text{1D}}_i = 0$ if~$i<P$,~$\hat{F}^{\text{1D}}_i = 1$ elsewhere,
+    \item exponential:~$\hat{F}^{\text{1D}}_i = 0$ if~$i \leq P$, ~$\hat{F}^{\text{1D}}_i=\exp\left(-\frac{(i-N)^2}{(i-P)^2}\right)$ elsewhere.
+\end{itemize}
+%
+The extension to three dimensions allows the introduction of two types of kernels based on the one-dimensional ones:
+%
+\begin{itemize}
+    \item high-pass:~$\hat{F}^{\text{H}}_{ijk} = \hat{F}^{\text{1D}}_i \hat{F}^{\text{1D}}_j \hat{F}^{\text{1D}}_k$,
+    \item low-pass:~$\hat{F}^{\text{L}}_{ijk} = 1 - \left(1-\hat{F}^{\text{1D}}_i\right)\left(1-\hat{F}^{\text{1D}}_j\right)\left(1-\hat{F}^{\text{1D}}_k\right)$,
+\end{itemize}
+%
+being the low-pass one more dissipative and, thus, more suited to supersonic cases. The high-pass filter, on the other hand, works better as part of the SVV-LES framework for turbulent cases.
+
+The cutoff parameter~$P$ can be set as "automatic", which uses a sensor to differentiate troubled elements from smooth regions. The stabilisation strategy then depends on the region:
+%
+\begin{itemize}
+    \item smooth regions:~$P=4$,~$\mu=\mu_2$,~$\alpha=\alpha_2$,
+    \item shocks:~$P=4$,~$\mu=\mu_1$,~$\alpha=\alpha_1$.
+\end{itemize}
+
+In addition to this, the viscosity~$\mu_1$ can be set to "Smagorinsky" to use the implemented SVV-LES approach. In this case, the~$\mu=\mu_{\text{LES}}$ viscosity is computed following a Smagorinsky formulation with~$C_s=\mu_2$ and the viscosity parameters do not depend on the region anymore,
+%
+\begin{equation*}
+    \mu = C_s^2 \Delta^2|S|^2, \quad \alpha = \alpha_1.
+\end{equation*}
+
+\begin{table}[htbp]
+    \caption{Keywords for SVV stabilisation (Navier-Stokes solver only).}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+    Enable SVV            & \textit{LOGICAL}: & .FALSE. \\ \hline
+    SVV viscosity 1       & \textit{REAL/CHARACTER(*)}: Viscosity parameter~$\mu_1$ or "Smagorinsky" for the SVV-LES approach & 0.0 \\ \hline
+    SVV alpha viscosity 1 & \textit{REAL}: Viscosity parameter~$\alpha_1$ & 0.0 \\ \hline
+    SVV viscosity 2       & \textit{REAL}: Viscosity parameter~$\mu_2$, or~$C_s$ in the case of SVV-LES & $\mu_2=0.0$ \newline $C_s=0.2$ \\ \hline
+    SVV alpha viscosity 2 & \textit{REAL}: Viscosity parameter~$\alpha_2$ & 0.0 \\ \hline
+    SVV filter cutoff     & \textit{REAL/CHARACTER(*)}: Cutoff of the filter kernel,~$P$. If "automatic", its value is adjusted automatically & "automatic" \\ \hline
+    SVV filter shape      & \textit{CHARACTER(*)}: Options are:
+        \begin{itemize}
+            \item Power
+            \item Sharp
+            \item Exponential
+        \end{itemize}
+    & \textbf{Mandatory keyword} \\ \hline
+    SVV filter type       & \textit{CHARACTER(*)}: Options are:
+        \begin{itemize}
+            \item Low-pass
+            \item High-pass
+        \end{itemize}
+    & \textbf{Mandatory keyword} \\ \hline
+    SVV dissipation type  & \textit{CHARACTER(*)}: Options are:
+        \begin{itemize}
+            \item Physical
+            \item Guermond
+        \end{itemize}
+	& Physical \\ \hline
+    \end{tabular}
+    \label{tab:SVV}
 \end{table}
 
 \section{Incompressible Navier-Stokes}
@@ -347,7 +417,7 @@ The standard wall function uses the Reichardt law, solving the algebraic non-lin
 \hline
 \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
 
-Wall Function					& \textit{CHARACTER(*)}: This is the main keyword for activating the wall function. Identifies the wall law to be used. Options are: 
+Wall Function					& \textit{CHARACTER(*)}: This is the main keyword for activating the wall function. Identifies the wall law to be used. Options are:
     \begin{itemize}
     \item Standard: uses the Reichardt law.
     \item ABL: uses the atmospheric boundary layer law.
@@ -422,7 +492,7 @@ The keywords for the implicit solvers are listed in table \ref{tab:implicitkey}
 
 \textbf{time integration} & \textit{CHARACTER}: This is the main keyword for activating the implicit solvers. The value of it should be set to 'implicit' for the BDF solvers and to 'rosenbrock' for Rosenbrock schemes. & 'explicit' \\ \hline
 
-linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\ 
+linear solver           & \textit{CHARACTER}: Specifies the linear solver that has to be used. Options are:\
 				\begin{itemize}
 					\item 'petsc': PETSc library Krylov-Subspace methods. Available in serial, but use with care (PETSc is not thread-safe, so OpenMP is not recommended). Only available in parallel (MPI) for preallocated Jacobians (see next section).
 					\item 'pardiso': Intel MKL PARDISO. Only available in serial or with OpenMP.
@@ -474,9 +544,9 @@ newton factor 	& \textit{REAL}: In simulations that are not time-accurate, the t
 
 linsolver tol factor 	& \textit{REAL}: The linear solver tolerance is a function of the absolute error of the Newton's method: $tol=\norm{e}_{\infty}*a^i$, where $e$ is the absolute error of the Newton's method, $i$ is the Newton iteration number, and $a$ is the specified value.	& $0.5$	\\ \hline
 
-newton first norm  & \textit{REAL}: Specifies an assumed infinity norm of the absolute error of the Newton's method at the iteration $0$ of the time step $1$. 
+newton first norm  & \textit{REAL}: Specifies an assumed infinity norm of the absolute error of the Newton's method at the iteration $0$ of the time step $1$.
 This can change the behavior of the first Newton iterative method because of the dependency of the linear system tolerance on the absolute error of the Newton's method (see keyword \textit{linsolver tol factor}).
-				   & $0.2$ \\ \hline 
+				   & $0.2$ \\ \hline
 
 
 
@@ -528,7 +598,7 @@ The Jacobian must be defined using a block of the form:
 type             & \textit{INTEGER}: Specifies the type of Jacobian matrix to be computed. Options are:\
 				\begin{enumerate}
 					\item Numerical Jacobian: Uses a coloring algorithm and a finite difference method to compute the DG Jacobian matrix (only available with shared memory parallelization).
-					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws, \textbf{BUT} only for the standard DGSEM (no split-form). 
+					\item Analytical Jacobian: Available with shared (OpenMP) or distributed (MPI) memory parallelization for advective and/or diffusive nonlinear conservation laws, \textbf{BUT} only for the standard DGSEM (no split-form).
 					\end{enumerate}
 										& \textbf{Mandatory Keyword} \\ \hline
 
@@ -593,12 +663,12 @@ multigrid levels & \textit{INTEGER}: Number of multigrid levels for the computat
 delta n          & \textit{INTEGER}: Interval of reduction of polynomial order for creating coarser multigrid levels.& 1 \\ \hline
 
 multigrid output & \textit{LOGICAL}: If .TRUE., the residuals at the different multigrid levels will be displayed. & .FALSE. \\ \hline
-   
+
 mg sweeps    & \textit{INTEGER}: Number of smoothing sweeps to be taken. & 1* \\ \hline
-    
+
 mg sweeps pre    & \textit{INTEGER}: Number of pre-smoothing sweeps to be taken. & 1* \\ \hline
-    
-mg sweeps post    & \textit{INTEGER}: Number of post-smoothing sweeps to be taken. & 1* \\ \hline    
+
+mg sweeps post    & \textit{INTEGER}: Number of post-smoothing sweeps to be taken. & 1* \\ \hline
 
 mg sweeps coarsest   & \textit{INTEGER}: Number of pre- and post-smoothing sweeps to be taken on the coarsest multigrid level. & Average between pre-sweeps and post-sweeps \\ \hline
 
@@ -612,10 +682,10 @@ mg smoother     & \textit{CHARACTER}: The smoothing technique to be used. The ke
 
 %% FMG keywords
 
-fasfmg residual & \textit{REAL}: When this keyword is used, the code uses a full multigrid (FMG) method to obtain an initial condition for the simulation. 
+fasfmg residual & \textit{REAL}: When this keyword is used, the code uses a full multigrid (FMG) method to obtain an initial condition for the simulation.
 The initial condition has the specified residual.	& --	\\ \hline
 
-fasfmg save solutions & \textit{LOGICAL}: Save the solutions that are obtained at the different FMG levels. 
+fasfmg save solutions & \textit{LOGICAL}: Save the solutions that are obtained at the different FMG levels.
 Only usable when \textit{fasfmg residual} is used. 	& .FALSE.	\\ \hline
 
 %% Smoothing tuning keywords
@@ -652,12 +722,12 @@ The p-adaptation methods are used when the p-adaptation region is specified in t
    Nmax                  = [10,10,10]
    Nmin                  = [2 ,2 ,2 ]
    Conforming boundaries = [InnerCylinder,sphere]
-   order across faces    = N*2/3   
+   order across faces    = N*2/3
    increasing            = .FALSE.
    write error files     = .FALSE.
    adjust nz             = .FALSE.
    mode                  = time
-   interval              = 1.d0   
+   interval              = 1.d0
    restart files         = .TRUE.
    max N decrease        = 1
    padapted mg sweeps pre      = 10
@@ -683,59 +753,59 @@ truncation error & \textit{REAL}: Target truncation error for the p-adaptation a
 
 coarse truncation error & \textit{REAL}: Truncation error used for coarsening. & same as truncation error \\ \hline
 
-Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. & 
+Nmax          & \textit{INTEGER}(3): Maximum polynomial order in each direction for the p-adaptation algorithm. &
 					\textbf{Mandatory keyword} \\ \hline
 
-Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. & 
+Nmin          & \textit{INTEGER}(3): Minimum polynomial order in each direction for the p-adaptation algorithm. &
 					[1,1,1] \\ \hline
 
-conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  & 
+conforming boundaries & \textit{CHARACTER}(*): Specifies the boundaries of the geometry that must be forced to be conforming after the p-adaptation process.  	  &
 					-- \\ \hline
 
 order across faces &
 			\textit{CHARACTER}: Mathematical expression to specify the maximum polynomial order jump across faces. Currently, only $N*2/3$ and $N-1$ are supported. &
-					$N-1$ \\ \hline 
+					$N-1$ \\ \hline
 
-increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. & 
+increasing & \textit{LOGICAL}: If .TRUE. the multi-stage FMG adaptation algorithm is used. &
 					.FALSE. \\ \hline
 
 write error files &
-			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. & 
+			\textit{LOGICAL}: If .TRUE., the program writes a file per element containing the directional tau-estimations. The files are stored in the folder \textit{./TauEstimation/}. When the simulation has several adaptation stages, the new information is just appended. &
 			 		.FALSE. \\ \hline
 
-adjust nz & 
-			\textit{LOGICAL}: If .TRUE., the order accross faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. & 
+adjust nz &
+			\textit{LOGICAL}: If .TRUE., the order accross faces is adjusted i    n the directions xi, eta, and zeta of the face (being zeta the normal direction). If .FALSE., the     order is only adjusted in the xi and eta directions. The adjustment currently consists (hard-cod    ed) in allowing jumps in the polynomial order of at most 1. &
 					.FALSE. \\ \hline
 
-mode & 
+mode &
 			\textit{CHARACTER}: p-Adaptation mode. Can be \textit{static}, \textit{time} or \textit{iteration}. Static p-adaptation is performed once at the beginning of a simulation for steady or unsteady simulations. Unsteady adaptation can be by \textit{time} or by \textit{iteration}. &
 					\textit{static} \\ \hline
 
-interval & 
+interval &
 			\textit{INTEGER/REAL}: In dynamic p-adaptation cases, this keyword specifies the iteration (integer) or time (real) interval for p-adaptation. &
 					\textit{huge number} \\ \hline
 
-restart files & 
+restart files &
 			\textit{LOGICAL}: If .TRUE., the program writes restart files before and after the p-adaptation. &
 					.FALSE. \\ \hline
-					
-max N decrease & 
+
+max N decrease &
 			\textit{INTEGER}: Maximum decrease in the polynomial order in every p-adaptation procedure. &
 					$N-N_{\textit{min}}$ \\ \hline
 
-post smoothing residual & 
+post smoothing residual &
 			\textit{REAL}: Specifies the maximum allowable deviation of $\partial_t q$ after the p-adaptation procedure. &
 					-- \\ \hline
-					
-post smoothing method & 
+
+post smoothing method &
 			\textit{CHARACTER}: Either RK3 or FAS. &
 					RK3, if the last keyword is activated \\ \hline
 
-estimation files & 
+estimation files &
 			\textit{CHARACTER}: Name of the folder that contains the error estimations obtained with the multi tau-estimation (section \ref{sec:MultiTau}). &
 					-- \\ \hline
-					
-estimation files number & 
+
+estimation files number &
 			\textit{INTEGER(2)}: First and last estimation stages to be used for p-adaptation. &
 					Mandatory if last keyword is used. \\ \hline
 
@@ -768,14 +838,14 @@ The only general keyword that can be specified is explained in Table \ref{tab:mo
 
 
 \begin{table}[h]
-\caption{Keywords for monitors.} \label{tab:monitorsKey} 
+\caption{Keywords for monitors.} \label{tab:monitorsKey}
 
 \begin{tabular}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \hline
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 
-monitors flush interval 	& 
-			\textit{INTEGER}: Iteration interval to flush the monitor information to the monitor files. & 
+monitors flush interval 	&
+			\textit{INTEGER}: Iteration interval to flush the monitor information to the monitor files. &
 							100 \\ \hline
 
 \end{tabular}
@@ -801,12 +871,12 @@ By default, the statistic monitor will average following variables:
 \item u
 \item v
 \item w
-\item uu 
-\item vv 
-\item ww 
-\item uv 
-\item uw 
-\item vw 
+\item uu
+\item vv
+\item ww
+\item uv
+\item uw
+\item vw
 \end{itemize}
 \end{multicols}
 
@@ -849,11 +919,11 @@ After reading the keyword, the solver performs the desired action and marks it w
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
-name 	& 
-			\textit{CHARACTER}: Name of the monitor. & 
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
 							\textbf{Mandatory Keyword} \\ \hline
 
-variable 	& 
+variable 	&
 			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
 \begin{multicols}{3}
 \begin{itemize}
@@ -864,13 +934,13 @@ variable 	&
 \item w
 \item mach
 \item k
-\end{itemize}			
-\end{multicols}	
-			 & 
+\end{itemize}
+\end{multicols}
+			 &
 							\textbf{Mandatory Keyword} \\ \hline
 
-position 	& 
-			\textit{REAL(3)}: Coordinates of the point to be monitored. & 
+position 	&
+			\textit{REAL(3)}: Coordinates of the point to be monitored. &
 							\textbf{Mandatory Keyword} \\ \hline
 \end{longtable}
 
@@ -900,15 +970,15 @@ position 	&
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
-name 	& 
-			\textit{CHARACTER}: Name of the monitor. & 
-							\textbf{Mandatory Keyword} \\ \hline
-							
-marker & 
-			\textit{CHARACTER}: Name of the boundary where a variable will be monitored. & 
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
 							\textbf{Mandatory Keyword} \\ \hline
 
-variable 	& 
+marker &
+			\textit{CHARACTER}: Name of the boundary where a variable will be monitored. &
+							\textbf{Mandatory Keyword} \\ \hline
+
+variable 	&
 			\textit{CHARACTER}: Variable to be monitored. Implemented options are:\
 \begin{multicols}{2}
 \begin{itemize}
@@ -920,23 +990,23 @@ variable 	&
 \item lift
 \item drag
 \item pressure-average
-\end{itemize}			
-\end{multicols}	
-			 & 
+\end{itemize}
+\end{multicols}
+			 &
 							\textbf{Mandatory Keyword} \\ \hline
 
-reference surface 	& 
-			\textit{REAL}: Reference surface [area] for the monitor. Needed for "lift" and "drag" computations. & 
+reference surface 	&
+			\textit{REAL}: Reference surface [area] for the monitor. Needed for "lift" and "drag" computations. &
 							-- \\ \hline
 
-direction 	& 
-			\textit{REAL(3)}: Direction in which the force is going to be measured. Needed for "pressure-force", "viscous-force" and "force". Can be specified for "lift" (default [0.d0,1.d0,0.d0]) and "drag" (default [1.d0,0.d0,0.d0])   & 
+direction 	&
+			\textit{REAL(3)}: Direction in which the force is going to be measured. Needed for "pressure-force", "viscous-force" and "force". Can be specified for "lift" (default [0.d0,1.d0,0.d0]) and "drag" (default [1.d0,0.d0,0.d0])   &
 							-- \\ \hline
 \end{longtable}
 
 
 \section{Volume Monitors}
-Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v). 
+Volume monitors compute the average of a quantity in the whole domain. They can be scalars(s) or vectors(v).
 
 \begin{lstlisting}
 #define volume monitor 1
@@ -956,11 +1026,11 @@ Volume monitors compute the average of a quantity in the whole domain. They can 
 \multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
-name 	& 
-			\textit{CHARACTER}: Name of the monitor. & 
+name 	&
+			\textit{CHARACTER}: Name of the monitor. &
 							\textbf{Mandatory Keyword} \\ \hline
 
-variable 	& 
+variable 	&
 			\textit{CHARACTER}: Variable to be monitored. The variable can be scalar (s) or vectorial (v). Implemented options are:\
 \begin{multicols}{2}
 \begin{itemize}
@@ -973,10 +1043,10 @@ variable 	&
 \item[\textbf{(v)}] velocity
 \item[\textbf{(v)}] momentum
 \item[\textbf{(v)}] source
-\end{itemize}		
-\end{multicols}	
-			
-			 & 
+\end{itemize}
+\end{multicols}
+
+			 &
 							\textbf{Mandatory Keyword} \\ \hline
 
 
@@ -1058,33 +1128,33 @@ The options comprise following flags:
 \multicolumn{1}{|c|}{\textbf{Flag}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
 \endhead
 
--{}-output-order= 	& 
-			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. & 
+-{}-output-order= 	&
+			\textit{INTEGER}: Output order nodes. The solution is interpolated into the desired number of points. &
 							Not Present \\ \hline
-							
--{}-output-basis= 	& 
-			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  & 
+
+-{}-output-basis= 	&
+			\textit{CHARACTER}: Either \textit{Homogeneous} (for equispaced nodes, or \textit{Gauss}.  &
 							\textit{Gauss}* \\ \hline
-							
--{}-output-mode= 	& 
+
+-{}-output-mode= 	&
 			\textit{CHARACTER}: Either \textit{multizone} or \textit{FE}. The option \textit{multizone} generates a Tecplot zone for each element. The option \textit{FE} generates only one Tecplot zone for the fluid and one for each boundary (if \textit{-{}-boundary-file} is defined).
-			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  & 
+			Each subcell is mapped as a linear finite element. This format is faster to read by Paraview and Tecplot.  &
 							\textit{multizone} \\ \hline
-							
--{}-output-variables= 	& 
-			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. & 
+
+-{}-output-variables= 	&
+			\textit{CHARACTER}: Output variables separated by commas.A complete description can be found in Section \ref{PostProc:hsol}. &
 							Q \\ \hline
 
--{}-dimensionless 	& 
-			Specifies that the output quantities must be dimensionless & 
+-{}-dimensionless 	&
+			Specifies that the output quantities must be dimensionless &
 							Not Present  \\ \hline
-							
--{}-partition-file= 	& 
-			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. & 
+
+-{}-partition-file= 	&
+			\textit{CHARACTER}: Specifies the path to the partition file (*.pmesh) to export the MPI ranks of the simulation. &
 							Not Present  \\ \hline
-							
--{}-boundary-file= 	& 
-			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. & 
+
+-{}-boundary-file= 	&
+			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. &
 							Not Present  \\ \hline
 \multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
 
@@ -1094,7 +1164,7 @@ Additionally, depending on the type of solution file, the user can specify addit
 
 \subsection{Solution Files (*.hsol)} \label{PostProc:hsol}
 
-For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}. 
+For standard solution files, the user can specify which variables they want to be exported to the Tecplot file with the flag \textit{-{}-output-variables=}.
 The options are:
 
 \begin{multicols}{5}
@@ -1180,7 +1250,7 @@ Tool to merge several statistics files. The usage is the following:
 
 Some remarks:
 \begin{itemize}
-\item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations. 
+\item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations.
 \item Only constant time-stepping is supported.
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
