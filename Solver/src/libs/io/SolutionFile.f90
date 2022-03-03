@@ -39,7 +39,7 @@ module SolutionFile
 #endif
    
    private
-   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_SOLUTION_FILE
+   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_SOLUTION_FILE, ZONE_MESH_FILE
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN, POS_INIT_DATA
    public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF, RE_REF
@@ -58,6 +58,7 @@ module SolutionFile
    integer, parameter      :: SOLUTION_AND_GRADIENTS_FILE = 3
    integer, parameter      :: STATS_FILE                  = 4
    integer, parameter      :: ZONE_SOLUTION_FILE          = 5
+   integer, parameter      :: ZONE_MESH_FILE              = 6
 
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
@@ -126,6 +127,7 @@ module SolutionFile
             case(SOLUTION_AND_GRADIENTS_FILE)
             case(STATS_FILE)
             case(ZONE_SOLUTION_FILE)
+            case(ZONE_MESH_FILE)
             case default
                print*, "Incorrect solution file type", type_
                errorMessage(STD_OUT)

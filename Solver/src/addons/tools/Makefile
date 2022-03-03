@@ -22,12 +22,17 @@ COMM?=PARALLEL
 MAKE=make
 AR=ar
 RANLIB=ranlib
-PROG=./bin/horses.postfwh
+PROG=./bin/horses.tools
 
 OBJS=	\
 	FWHPostProc \
 	SurfaceClass \
 	FWHPreSurface \
+	FWHTools \
+	LocalRefinementClass \
+	readSpecM \
+	readHDF5 \
+	LocalRefinementTool \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
@@ -81,7 +86,7 @@ mkdirs: FORCE
 header: FORCE
 	@echo
 	@echo "========================================"
-	@echo ">>   Building horses.postfwh Solver  "
+	@echo ">>   Building horses.tools Solver  "
 	@echo "========================================"
 	@echo
 	@echo

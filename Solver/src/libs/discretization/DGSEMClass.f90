@@ -466,6 +466,10 @@ Module DGSEMClass
          
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
          call self % mesh % Export( trim(solutionName) )
+
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+         IF (flowIsNavierStokes) call self % fwh % saveSourceMesh(self % mesh, initial_iteration)
+#endif
    
       end subroutine DGSEM_SetInitialCondition
 !

@@ -27,6 +27,7 @@ module Mesh2PltModule
 !        Create the tecplot mesh file name
 !        ---------------------------------
          meshPltName = trim(getFileName(meshFile)) // ".tec"
+         print *, "meshPltName: ", meshPltName
 !
 !        Open the file
 !        -------------

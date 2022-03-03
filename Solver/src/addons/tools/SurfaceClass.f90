@@ -149,7 +149,7 @@ Module SurfaceClass  !
         implicit none
 
         class(Surface_t)                                :: self
-        type(HexMesh)                                   :: mesh
+        type(HexMesh), intent(in)                       :: mesh
         character(len=LINE_LENGTH), intent(in)          :: meshName
 
         ! local variables
@@ -213,11 +213,13 @@ Module SurfaceClass  !
 ! 
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine SurfaceSaveToFile(self)
+    Subroutine SurfaceSaveToFile(self, mesh, saveNodes)
 
         implicit none
 
         class(Surface_t)                                :: self
+        type(HexMesh), intent(in)                       :: mesh
+        logical, intent(in)                             :: saveNodes
 
         ! local variables
         integer                                         :: fd, fID
@@ -227,12 +229,20 @@ Module SurfaceClass  !
 !       Add total numberOfFaces
 !       -------------
         write(fd,*) self % totalNumberOfFaces
+
+        write(fd,*) saveNodes
                       
 !       Write the points
 !       ----------------
-        do fID = 1 , self % totalNumberOfFaces
-            write(fd,*) self % globaleIDs(fID), self % fIDs(fID)
-        end do
+        if (saveNodes) then
+            do fID = 1 , self % totalNumberOfFaces
+                write(fd,*) self % globaleIDs(fID), self % fIDs(fID), mesh % faces(self % fIDs(fID)) % nodeIDs
+            end do
+        else
+            do fID = 1 , self % totalNumberOfFaces
+                write(fd,*) self % globaleIDs(fID), self % fIDs(fID)
+            end do
+        end if 
 
         close(fd)
 
