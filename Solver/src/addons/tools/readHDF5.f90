@@ -1,14 +1,12 @@
 Module  readHDF5  !
 #ifdef HAS_HDF5
    use HDF5
-   ! use simpleMeshClass
+#endif
    use HexMeshClass
-   ! use simpleElementClass
    use ElementClass
    use SMConstants
    use ElementConnectivityDefinitions
    use LocalRefinement
-#endif
 Implicit None
 
 !   
@@ -233,6 +231,7 @@ contains
    ! HOPR is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
    ! as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 !  -----------------------------------------------------------------------------------------------------------------------
+#ifdef HAS_HDF5
    SUBROUTINE GetHDF5Attribute(Loc_ID_in,AttribName,nVal,DatasetName,RealScalar,IntegerScalar,StrScalar,LogicalScalar,&
                                                                   RealArray,IntegerArray)
    !===================================================================================================================================
@@ -454,6 +453,7 @@ contains
       
    end function HOPR2HORSESCornerMap
 !
+#endif
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+!
 End Module  readHDF5 

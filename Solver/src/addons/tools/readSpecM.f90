@@ -5,7 +5,6 @@ Module readSpecM  !
     use ElementConnectivityDefinitions
     use LocalRefinement
     use Utilities, only: UnusedUnit
-    ! use Physics
     use PhysicsStorage
     use NodeClass
     Implicit None
