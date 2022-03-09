@@ -249,7 +249,7 @@ MODULE Read_GMSH
 
       character(len=1024) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(7)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
@@ -898,7 +898,7 @@ MODULE Read_GMSH
 
       character(len=1024) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfAllElements
       integer                         :: numberOfAllNodes
@@ -1635,7 +1635,7 @@ MODULE Read_GMSH
 
       character(len=1024) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
