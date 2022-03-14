@@ -4,16 +4,15 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Nov 30 15:11:25 2021
+!   @Last revision date: Mon Mar 14 22:31:25 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3fc1ca33811992f087cca161cbb3828df594938d
+!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
 
 !
 !//////////////////////////////////////////////////////
 !
 !      Routines for computing the Jacobian matrix numerically using the colorings technique
 !  ! TODO1: Implement as a class with a destructor to prevent memory leaking
-!  ! TODO2: Add MPI communication
 !////////////////////////////////////////////////////////////////////////
 module NumericalJacobian
    use SMConstants
@@ -31,6 +30,7 @@ module NumericalJacobian
    use StopwatchClass         , only: StopWatch
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
    use FTValueDictionaryClass
+   use PartitionedMeshClass   , only: mpi_partition
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -56,12 +56,14 @@ module NumericalJacobian
 !  -> TODO: They will have to be moved to the class definition or to other types in the future
 !  *******************
    type(Neighbor_t), allocatable :: nbr(:)  ! Neighbors information
+   type(Neighbor_t), allocatable :: nbr_g(:)  ! Global neighbors array
    type(Colors_t)               :: ecolors
+   type(Colors_t)               :: ecolors_g
    integer        , allocatable :: used(:)                  ! array containing index of elements whose contributions to Jacobian has already been considered (TODO: replace with integer linked list)
    integer                      :: usedctr                  ! counter to fill positions of used
    integer                      :: num_of_neighbor_levels   ! Number of neighboring levels that affect one element's column of the Jacobian
    integer                      :: max_num_of_neighbors     ! Maximum number of neighboring elements that affect one element's column of the Jacobian
-   
+   logical                      :: withMPI
 contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,8 +128,11 @@ contains
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
 #endif
-      integer :: el_threshold
-      integer, allocatable :: ndof_per_elm(:)
+      integer                         :: rank, ierror, mpisize
+      integer, parameter :: faces_and_one = 7 ! hard coded number of faces for HEXA + 1
+      integer :: Gloabl_nelm, thiselm_g
+      real(kind=RP), pointer :: pbuffer(:)
+      integer, allocatable, dimension(:) :: counts_recv, displacements
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -139,6 +144,12 @@ contains
       
       call Stopwatch % Start("Numerical Jacobian construction")
 
+#ifdef _HAS_MPI_
+      withMPI = .true.
+#else
+      withMPI = .false.
+#endif
+
       if (.NOT. isfirst) then 
          deallocate(nbr)
          deallocate(Nx)
@@ -148,17 +159,44 @@ contains
          deallocate(ndofcol)
          deallocate(QDot0)
          deallocate(Q0)
+         deallocate(nbr_g)
       end if
 
          nelm = size(sem % mesh % elements)
+         Gloabl_nelm = sem % mesh % no_of_allElements
 
 !
 !        Initialize the colorings structure
 !        ----------------------------------
          allocate(nbr(nelm))
          CALL Look_for_neighbour(nbr, sem % mesh)
-         call ecolors % construct(nbr, num_of_neighbor_levels)
-         
+         allocate(nbr_g(Gloabl_nelm))
+
+         if (withMPI) then
+            call mpi_comm_rank(MPI_COMM_WORLD, rank, ierror)
+            call mpi_comm_size(MPI_COMM_WORLD, mpisize, ierror)
+            allocate(counts_recv(mpisize))
+            allocate(displacements(mpisize))
+
+            call mpi_allgather(nelm, 1, MPI_INT, counts_recv, 1, MPI_INT, MPI_COMM_WORLD, ierror)
+
+            counts_recv = counts_recv * faces_and_one
+            displacements(1) = 0
+            if (mpisize .ge. 2) then
+               do i = 2, mpisize
+                  displacements(i) = displacements(i-1) + counts_recv(i-1)
+               end do
+            end if
+
+            call mpi_allgatherv(nbr, nelm*faces_and_one, MPI_INT, nbr_g, counts_recv, displacements, MPI_INT, MPI_COMM_WORLD, ierror)
+
+            deallocate(counts_recv)
+            deallocate(displacements)
+         else
+            nbr_g = nbr
+         end if
+
+         call ecolors % construct(nbr_g, num_of_neighbor_levels)       
 !
 !        Allocate storage
 !        ----------------
@@ -178,9 +216,11 @@ contains
 !        ---------------------------------------------------------------------------------
 !
          max_num_of_neighbors = 0 ! Initialize to minimum possible value
-         do i=1, nelm
-            max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
-         end do
+         if (.not. withMPI) then
+            do i=1, nelm
+               max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
+            end do
+         end if
          
 !
 !        ---------------------------------------------------------------
@@ -213,8 +253,9 @@ contains
             ielm = ecolors%bounds(thiscolor)             
             felm = ecolors%bounds(thiscolor+1)
             DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
-               thiselm = ecolors%elmnts(thiselmidx)
-               ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
+               thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+               thiselm = thiselm_g
+               if (thiselm .gt. 0) ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
             END DO
          END DO
          
@@ -307,9 +348,120 @@ contains
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
+      if (this % verbose) print*, "Constructing numerical Jacobian..."
+      if (withMPI) then
+
+         select type(Matrix_p => Matrix)
+            type is(DenseBlockDiagMatrix_t)
+               ! all good
+            type is(CSRMat_t)
+               error stop "NumericalJacobian :: Full CSR Jacobian computation not compatible with MPI."
+            class default
+               error stop "NumericalJacobian :: Unknown matrix type."
+         end select
+
+!        Go through every color to obtain its elements' contribution to the Jacobian
+!        ***************************************************************************
+         do thiscolor = 1 , ecolors % num_of_colors
+
+            if (this % verbose) write(STD_OUT,'(1I,A,1I,A)') thiscolor, "out of ", ecolors % num_of_colors, "colors."
+            ! if (this % verbose) write(STD_OUT,'(1I,A,1I,A)',advance='no') thiscolor, "out of ", ecolors % num_of_colors, "colors."
+            ! flush(STD_OUT)
+
+            ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
+            felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
+
+!           Iterate through the DOFs in thiscolor
+!              ( Computes one column for each dof within an elment )
+!           ********************************************************
+            do thisdof = 1, ndofcol(thiscolor)
+
+!              Perturb the current degree of freedom in all elements within current color
+!              --------------------------------------------------------------------------
+               do thiselmidx = ielm, felm-1              
+                  thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+                  thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
+
+                  if (thiselm .gt. 0) then
+                  if (this % ndofelm(thiselm)<thisdof) cycle    ! Do nothing if the DOF exceeds the NDOF of thiselm
+
+                     ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
+                     sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
+                                                         sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+
+                  end if
+               end do ! thiselmidx = ielm, felm-1 
+!  
+!              Compute the time derivative
+!              ---------------------------
+#if defined(CAHNHILLIARD)
+               CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
+#else
+               CALL TimeDerivative( sem % mesh, sem % particles, time, CTD_IGNORE_MODE )
+#endif
+
+#if defined(NAVIERSTOKES)
+!$omp do schedule(runtime) private(ii,jj,kk)
+         do eID = 1, sem % mesh % no_of_elements
+            associate ( e => sem % mesh % elements(eID) )
+            do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+               e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do
+#elif defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+!$omp do schedule(runtime) private(ii,jj,kk)
+         do eID = 1, sem % mesh % no_of_elements
+            associate ( e => sem % mesh % elements(eID) )
+            do kk = 0, e % Nxyz(3)   ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
+               e % storage % QDot(:,ii,jj,kk) = e % storage % QDot(:,ii,jj,kk) - e % storage % S_NS(:,ii,jj,kk)
+            end do                  ; end do                ; end do
+            end associate
+         end do
+!$omp end do
+#endif
+
+               call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
+               sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
+               call sem % mesh % storage % global2LocalQdot
+               
+   !
+   !           Add the contributions to the Jacobian
+   !           -------------------------------------
+               do thiselmidx = ielm, felm-1
+                  thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+                  thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
+
+                  if (thiselm .gt. 0) then
+
+                     IF (this % ndofelm(thiselm)<thisdof) CYCLE
+
+                     pbuffer(1:this % ndofelm(thiselm)) => sem % mesh % storage % elements(thiselm) % QDot 
+
+                     do j=1, this % ndofelm(thiselm)
+                        call Matrix % AddToBlockEntry (sem % mesh % elements(thiselm) % GlobID, sem % mesh % elements(thiselm) % GlobID, &
+                           j, thisdof, pbuffer(j) )
+                     end do
+                     
+                  end if
+
+               end do ! thiselmidx = ielm, felm-1      
+   !
+   !           Restore original values for Q (TODO: this can be improved)
+   !           ----------------------------------------------------------
+               sem % mesh % storage % Q = Q0
+               call sem % mesh % storage % global2LocalQ
+
+            ENDDO ! thisdof = 1, ndofcol(thiscolor)
+         ENDDO ! thiscolor = 1 , ecolors % num_of_colors
+
+      else ! NOMPI
+
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
+         if (this % verbose) write(STD_OUT,'(1I,A,1I,A)') thiscolor, "out of ", ecolors % num_of_colors, "colors."
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
@@ -385,6 +537,8 @@ contains
          ENDDO
       ENDDO
 
+      end if ! MPI
+
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
       
       call Stopwatch % Pause("Numerical Jacobian construction")
@@ -425,14 +579,24 @@ contains
       integer :: i,j                       ! Counter
       integer :: ndof                      ! Number of degrees of freedom of element
       real(kind=RP), pointer :: pbuffer(:) ! Buffer to point to an element's Qdot
+      integer                         :: rank, ierror
       !-------------------------------------------------
       
       if ( (eID  == 0) .or. (eIDn == 0) ) return
+
+      call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierror)
 !
 !     Go through all the neighbors
 !     ----------------------------
+      ! print *, rank, eIDn, size(nbr(eIDn) % elmnt)
+      ! call mpi_barrier(MPI_COMM_WORLD, ierror)
+      ! error stop "AssignCol"
       do i = 1, size(nbr(eIDn) % elmnt)
          elmnbr = nbr(eIDn) % elmnt(i) 
+
+         print *, rank, i, elmnbr
+         call mpi_barrier(MPI_COMM_WORLD, ierror)
+         ! error stop "AssignCol"
       
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)

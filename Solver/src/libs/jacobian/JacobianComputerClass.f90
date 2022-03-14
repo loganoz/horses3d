@@ -4,9 +4,9 @@
 !   @File:    JacobianComputerClass.f90
 !   @Author:  Andrés Rueda (am.rueda@upm.es)
 !   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Mon Sep  6 22:44:58 2021
+!   @Last revision date: Mon Mar 14 22:31:23 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
 
 !
 !//////////////////////////////////////////////////////
@@ -543,18 +543,18 @@ module JacobianComputerClass
 !     ---------------
 !
       INTEGER                         :: i,j,iEl
-      
-      DO iEl = 1, SIZE(mesh%elements)
-         this(iEl)%elmnt(7) = iEl  ! The last one is itself
-         DO j = 1, 6
-            IF (mesh % elements(iEl) % NumberOfConnections(j) == 0) THEN
-               this(iEl)%elmnt(j) = 0
-            ELSE
-               this(iEl)%elmnt(j) = mesh % elements(iEl) % Connection(j) % globID ! TODO: Careful with this if NumJac is ever needed to work with MPI...
-            ENDIF
+
+         DO iEl = 1, SIZE(mesh%elements)
+            this(iEl)%elmnt(7) = mesh % elements(iEl) % globID  ! The last one is itself
+            DO j = 1, 6
+               IF (mesh % elements(iEl) % NumberOfConnections(j) == 0) THEN
+                  this(iEl)%elmnt(j) = 0
+               ELSE
+                  this(iEl)%elmnt(j) = mesh % elements(iEl) % Connection(j) % globID 
+               ENDIF
+            ENDDO
          ENDDO
-      ENDDO
-   
+
    END SUBROUTINE 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
