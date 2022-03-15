@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Mar 15 09:52:05 2022
+!   @Last revision date: Tue Mar 15 12:36:24 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: d535f9bbf5ad75f24938ae604a914f9ef952b44d
+!   @Last revision commit: 49700d5cecdf342e88d3e7b829cdaa7261040590
 
 !
 !//////////////////////////////////////////////////////
@@ -31,6 +31,7 @@ module NumericalJacobian
    use BoundaryConditions     , only: NS_BC, C_BC, MU_BC
    use FTValueDictionaryClass
    use PartitionedMeshClass   , only: mpi_partition
+   use ProgressBarsModule
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -133,6 +134,7 @@ contains
       integer :: Gloabl_nelm, thiselm_g
       real(kind=RP), pointer :: pbuffer(:)
       integer, allocatable, dimension(:) :: counts_recv, displacements
+      type(TProgressBar) :: progress_bar
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -348,7 +350,7 @@ contains
 !     Compute numerical Jacobian using colorings
 !     ------------------------------------------
 !
-      if (this % verbose) print*, "Constructing numerical Jacobian..."
+      call progress_bar % initialize(" Constructing numerical Jacobian...")
       if (withMPI) then
 
          select type(Matrix_p => Matrix)
@@ -363,10 +365,7 @@ contains
 !        Go through every color to obtain its elements' contribution to the Jacobian
 !        ***************************************************************************
          do thiscolor = 1 , ecolors % num_of_colors
-
-            if (this % verbose) write(STD_OUT,'(1I5,A,1I5,A)') thiscolor, " out of ", ecolors % num_of_colors, " colors."
-            ! if (this % verbose) write(STD_OUT,'(1I,A,1I,A)',advance='no') thiscolor, "out of ", ecolors % num_of_colors, "colors."
-            ! flush(STD_OUT)
+            if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
 
             ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
@@ -461,7 +460,7 @@ contains
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
-         if (this % verbose) write(STD_OUT,'(1I5,A,1I5,A)') thiscolor, " out of ", ecolors % num_of_colors, " colors."
+         if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
