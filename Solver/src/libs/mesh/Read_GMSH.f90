@@ -1496,9 +1496,9 @@ MODULE Read_GMSH
       self % numberOfFaces = numberOfFaces
       allocate( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-!        --------------------------------
-!        Get actual mesh element face IDs
-!        --------------------------------
+!     --------------------------------
+!     Get actual mesh element face IDs
+!     --------------------------------
 !
       CALL getElementsFaceIDs(self)
 !

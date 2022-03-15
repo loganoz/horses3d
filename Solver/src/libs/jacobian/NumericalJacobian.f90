@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Mar 14 22:31:25 2022
+!   @Last revision date: Tue Mar 15 09:52:05 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
+!   @Last revision commit: d535f9bbf5ad75f24938ae604a914f9ef952b44d
 
 !
 !//////////////////////////////////////////////////////
@@ -162,108 +162,108 @@ contains
          deallocate(nbr_g)
       end if
 
-         nelm = size(sem % mesh % elements)
-         Gloabl_nelm = sem % mesh % no_of_allElements
+      nelm = size(sem % mesh % elements)
+      Gloabl_nelm = sem % mesh % no_of_allElements
 
 !
-!        Initialize the colorings structure
-!        ----------------------------------
-         allocate(nbr(nelm))
-         CALL Look_for_neighbour(nbr, sem % mesh)
-         allocate(nbr_g(Gloabl_nelm))
+!     Initialize the colorings structure
+!     ----------------------------------
+      allocate(nbr(nelm))
+      CALL Look_for_neighbour(nbr, sem % mesh)
+      allocate(nbr_g(Gloabl_nelm))
 
-         if (withMPI) then
-            call mpi_comm_rank(MPI_COMM_WORLD, rank, ierror)
-            call mpi_comm_size(MPI_COMM_WORLD, mpisize, ierror)
-            allocate(counts_recv(mpisize))
-            allocate(displacements(mpisize))
+#ifdef _HAS_MPI_
+      call mpi_comm_rank(MPI_COMM_WORLD, rank, ierror)
+      call mpi_comm_size(MPI_COMM_WORLD, mpisize, ierror)
+      allocate(counts_recv(mpisize))
+      allocate(displacements(mpisize))
 
-            call mpi_allgather(nelm, 1, MPI_INT, counts_recv, 1, MPI_INT, MPI_COMM_WORLD, ierror)
+      call mpi_allgather(nelm, 1, MPI_INT, counts_recv, 1, MPI_INT, MPI_COMM_WORLD, ierror)
 
-            counts_recv = counts_recv * faces_and_one
-            displacements(1) = 0
-            if (mpisize .ge. 2) then
-               do i = 2, mpisize
-                  displacements(i) = displacements(i-1) + counts_recv(i-1)
-               end do
-            end if
+      counts_recv = counts_recv * faces_and_one
+      displacements(1) = 0
+      if (mpisize .ge. 2) then
+         do i = 2, mpisize
+            displacements(i) = displacements(i-1) + counts_recv(i-1)
+         end do
+      end if
 
-            call mpi_allgatherv(nbr, nelm*faces_and_one, MPI_INT, nbr_g, counts_recv, displacements, MPI_INT, MPI_COMM_WORLD, ierror)
+      call mpi_allgatherv(nbr, nelm*faces_and_one, MPI_INT, nbr_g, counts_recv, displacements, MPI_INT, MPI_COMM_WORLD, ierror)
 
-            deallocate(counts_recv)
-            deallocate(displacements)
-         else
-            nbr_g = nbr
-         end if
+      deallocate(counts_recv)
+      deallocate(displacements)
+#else
+      nbr_g = nbr
+#endif
 
-         call ecolors % construct(nbr_g, num_of_neighbor_levels)       
+      call ecolors % construct(nbr_g, num_of_neighbor_levels)       
 !
-!        Allocate storage
-!        ----------------
-         allocate(Nx(nelm), Ny(nelm), Nz(nelm))
-         
-         do i = 1, nelm
-            Nx(i) = sem % mesh % elements(i) % Nxyz(1)
-            Ny(i) = sem % mesh % elements(i) % Nxyz(2)
-            Nz(i) = sem % mesh % elements(i) % Nxyz(3)
-         end do         
+!     Allocate storage
+!     ----------------
+      allocate(Nx(nelm), Ny(nelm), Nz(nelm))
+      
+      do i = 1, nelm
+         Nx(i) = sem % mesh % elements(i) % Nxyz(1)
+         Ny(i) = sem % mesh % elements(i) % Nxyz(2)
+         Nz(i) = sem % mesh % elements(i) % Nxyz(3)
+      end do         
 
-         maxndofel = MAXVAL(this % ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed         
+      maxndofel = MAXVAL(this % ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed         
 !
-!        ---------------------------------------------------------------------------------
-!        Get the maximum number of neighbors ["of neighbors" * (num_of_neighbor_levels-1)] 
-!        that are needed for the Jacobian computation (mesh dependent)
-!        ---------------------------------------------------------------------------------
+!     ---------------------------------------------------------------------------------
+!     Get the maximum number of neighbors ["of neighbors" * (num_of_neighbor_levels-1)] 
+!     that are needed for the Jacobian computation (mesh dependent)
+!     ---------------------------------------------------------------------------------
 !
-         max_num_of_neighbors = 0 ! Initialize to minimum possible value
-         if (.not. withMPI) then
-            do i=1, nelm
-               max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
-            end do
-         end if
-         
+      max_num_of_neighbors = 0 ! Initialize to minimum possible value
+      if (.not. withMPI) then
+         do i=1, nelm
+            max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
+         end do
+      end if
+      
 !
-!        ---------------------------------------------------------------
-!        Allocate the used array that will contain the information about
-!        which neighbor elements were already used in the numerical
-!        computation of the Jacobian matrix entries
-!        -> The neighbors (including itself) and a last entry that will be 0 always (boundary index)
-!        ---------------------------------------------------------------
+!     ---------------------------------------------------------------
+!     Allocate the used array that will contain the information about
+!     which neighbor elements were already used in the numerical
+!     computation of the Jacobian matrix entries
+!     -> The neighbors (including itself) and a last entry that will be 0 always (boundary index)
+!     ---------------------------------------------------------------
 !
-         allocate ( used(max_num_of_neighbors+1) )
+      allocate ( used(max_num_of_neighbors+1) )
 !
-!        -------------------------------------------------------------------------
-!        Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
-!              Assumes Legendre-Gauss quadrature and neglects zero values in each 
-!                 block (taken into account later when assembling)
-!              For Legendre-Gauss-Lobatto much less entries are expected (a node on the
-!                 interface has more cols than an interior node)
-!              IMPORTANT: These numbers assume conforming meshes!
-!        -------------------------------------------------------------------------
+!     -------------------------------------------------------------------------
+!     Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
+!           Assumes Legendre-Gauss quadrature and neglects zero values in each 
+!              block (taken into account later when assembling)
+!           For Legendre-Gauss-Lobatto much less entries are expected (a node on the
+!              interface has more cols than an interior node)
+!           IMPORTANT: These numbers assume conforming meshes!
+!     -------------------------------------------------------------------------
 !
-         nnz = maxndofel * max_num_of_neighbors
+      nnz = maxndofel * max_num_of_neighbors
 !
-!        --------------------------------------------------------------
-!        Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
-!        --------------------------------------------------------------
-!
-         allocate(ndofcol(ecolors % num_of_colors))
-         ndofcol = 0
-         DO thiscolor = 1 , ecolors % num_of_colors
-            ielm = ecolors%bounds(thiscolor)             
-            felm = ecolors%bounds(thiscolor+1)
-            DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
-               thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
-               thiselm = thiselm_g
-               if (thiselm .gt. 0) ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
-            END DO
+!     --------------------------------------------------------------
+!     Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
+!     --------------------------------------------------------------
+!    
+      allocate(ndofcol(ecolors % num_of_colors))
+      ndofcol = 0
+      DO thiscolor = 1 , ecolors % num_of_colors
+         ielm = ecolors%bounds(thiscolor)             
+         felm = ecolors%bounds(thiscolor+1)
+         DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
+            thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
+            thiselm = thiselm_g
+            if (thiselm .gt. 0) ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
          END DO
-         
-         allocate(QDot0(size(sem % mesh % storage % QDot)))
-         allocate(Q0   (size(sem % mesh % storage % QDot)))
-         
-         ! All initializations done!
-         isfirst = .FALSE.
+      END DO
+      
+      allocate(QDot0(size(sem % mesh % storage % QDot)))
+      allocate(Q0   (size(sem % mesh % storage % QDot)))
+      
+      ! All initializations done!
+      isfirst = .FALSE.
 !
 !     ---------------------------------------------
 !     Set value of eps (currently using Mettot et al. approach with L2 norm because it seems to work)
@@ -364,7 +364,7 @@ contains
 !        ***************************************************************************
          do thiscolor = 1 , ecolors % num_of_colors
 
-            if (this % verbose) write(STD_OUT,'(1I,A,1I,A)') thiscolor, "out of ", ecolors % num_of_colors, "colors."
+            if (this % verbose) write(STD_OUT,'(1I5,A,1I5,A)') thiscolor, " out of ", ecolors % num_of_colors, " colors."
             ! if (this % verbose) write(STD_OUT,'(1I,A,1I,A)',advance='no') thiscolor, "out of ", ecolors % num_of_colors, "colors."
             ! flush(STD_OUT)
 
@@ -461,7 +461,7 @@ contains
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
-         if (this % verbose) write(STD_OUT,'(1I,A,1I,A)') thiscolor, "out of ", ecolors % num_of_colors, "colors."
+         if (this % verbose) write(STD_OUT,'(1I5,A,1I5,A)') thiscolor, " out of ", ecolors % num_of_colors, " colors."
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
@@ -579,24 +579,15 @@ contains
       integer :: i,j                       ! Counter
       integer :: ndof                      ! Number of degrees of freedom of element
       real(kind=RP), pointer :: pbuffer(:) ! Buffer to point to an element's Qdot
-      integer                         :: rank, ierror
       !-------------------------------------------------
       
       if ( (eID  == 0) .or. (eIDn == 0) ) return
 
-      call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierror)
 !
 !     Go through all the neighbors
 !     ----------------------------
-      ! print *, rank, eIDn, size(nbr(eIDn) % elmnt)
-      ! call mpi_barrier(MPI_COMM_WORLD, ierror)
-      ! error stop "AssignCol"
       do i = 1, size(nbr(eIDn) % elmnt)
          elmnbr = nbr(eIDn) % elmnt(i) 
-
-         print *, rank, i, elmnbr
-         call mpi_barrier(MPI_COMM_WORLD, ierror)
-         ! error stop "AssignCol"
       
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)
