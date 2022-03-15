@@ -850,9 +850,9 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ------------------------------
-!     Constructor of mesh partitions
-!     ------------------------------
+!  ------------------------------
+!  Constructor of mesh partitions
+!  ------------------------------
    SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
@@ -1496,9 +1496,9 @@ MODULE Read_GMSH
       self % numberOfFaces = numberOfFaces
       allocate( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-!        --------------------------------
-!        Get actual mesh element face IDs
-!        --------------------------------
+!     --------------------------------
+!     Get actual mesh element face IDs
+!     --------------------------------
 !
       CALL getElementsFaceIDs(self)
 !

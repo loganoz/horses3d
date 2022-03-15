@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f95
 !   @Author:  David Kopriva
 !   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Mon Sep  6 22:44:53 2021
+!   @Last revision date: Mon Mar 14 22:31:22 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -24,6 +24,7 @@ Module DGSEMClass
    USE HexMeshClass
    USE PhysicsStorage
    use FileReadingUtilities      , only: getFileName
+   use MPI_Process_Info          , only: MPI_Process
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
    use FWHGeneralClass
@@ -280,6 +281,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
+      if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success ) 
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
