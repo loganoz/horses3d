@@ -552,13 +552,13 @@ end module ProblemFileFunctions
             CHARACTER(LEN=29)                  :: testName = "Taylor-Green vortex (SVV-LES)"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             real(kind=RP), parameter           :: kinEn = 0.12499999508762369_RP
-            real(kind=RP), parameter           :: kinEnRate = -9.7626065727320022e-8_RP
-            real(kind=RP), parameter           :: SVVdiss = 2.9193283736054271e-7_RP
-            real(kind=RP), parameter           :: res(5) = [ 7.2561273876922303e-4_RP, &
-                                                             0.13238938278543014_RP,   &
-                                                             0.13238879529241185_RP,   &
-                                                             0.25001464684437030_RP,   &
-                                                             0.41098681755861155_RP    ]
+            real(kind=RP), parameter           :: kinEnRate = -9.7615679648892703e-8_RP
+            real(kind=RP), parameter           :: SVVdiss = 2.9193283712943459e-7_RP
+            real(kind=RP), parameter           :: res(5) = [ 7.240344314514e-4_RP,   &
+                                                             0.13238931128897835_RP, &
+                                                             0.13238553672311779_RP, &
+                                                             0.25001464684437030_RP, &
+                                                             0.41100715382479036_RP  ]
 
 
             call initializeSharedAssertionsManager
