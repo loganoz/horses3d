@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Mar 15 12:36:24 2022
+!   @Last revision date: Mon Mar 21 14:49:25 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 49700d5cecdf342e88d3e7b829cdaa7261040590
+!   @Last revision commit: 7bce1e48d7541fc3de06c4142e325c9521267846
 
 !
 !//////////////////////////////////////////////////////
@@ -135,6 +135,7 @@ contains
       real(kind=RP), pointer :: pbuffer(:)
       integer, allocatable, dimension(:) :: counts_recv, displacements
       type(TProgressBar) :: progress_bar
+      integer, allocatable, dimension(:) :: el_reordering, el_reordering_idx
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -197,6 +198,29 @@ contains
 #else
       nbr_g = nbr
 #endif
+
+!
+!     Re-order neighbours
+!     -------------------
+      allocate(el_reordering(Gloabl_nelm))
+      allocate(el_reordering_idx(Gloabl_nelm))
+
+      do i = 1, Gloabl_nelm
+         el_reordering(i) = nbr_g(i) % elmnt(7)
+      end do
+
+      do i = 1, Gloabl_nelm
+         el_reordering_idx(i) = findloc(el_reordering, i, 1)
+      end do
+
+      nbr_g = nbr_g(el_reordering_idx)
+
+      deallocate(el_reordering)
+      deallocate(el_reordering_idx)
+
+!
+!     Assemble colors
+!     ---------------
 
       call ecolors % construct(nbr_g, num_of_neighbor_levels)       
 !
