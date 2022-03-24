@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Thu Mar 24 14:46:00 2022
+!   @Last revision date: Thu Mar 24 17:00:46 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: c4549abb9c0f1a7f0d18a5e679b0e7820da9405c
+!   @Last revision commit: 083a15731d760f8d57a800a12d04211fb5fb6396
 
 !
 !//////////////////////////////////////////////////////
@@ -389,7 +389,7 @@ contains
 !        Go through every color to obtain its elements' contribution to the Jacobian
 !        ***************************************************************************
          do thiscolor = 1 , ecolors % num_of_colors
-            if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+            if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
 
             ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
@@ -484,7 +484,8 @@ contains
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
-         if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+         ! if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+         if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
