@@ -1,0 +1,69 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/cylinder.msh"
+Polynomial order    = 1 ! T
+Number of time steps  = 10
+Output Interval       = 1 ! for explicit
+autosave mode         = "iteration"
+autosave interval     = 100
+
+Convergence tolerance = 1.d-10
+cfl                   = 1000.00d0
+dcfl                  = 1000.00d0
+mach number           = 0.1d0
+Reynolds number       = 100.0d0
+
+discretization nodes  = Gauss-Lobatto
+
+solution file name    = "RESULTS/cylinder.hsol"
+save gradients with solution = .true.
+restart               = .false.
+restart file name     = "RESULTS/restart.hsol"
+riemann solver         = "roe"
+viscous discretization = "BR1"
+
+simulation type       = steady-state
+time integration      = fas
+multigrid levels = 1
+delta n = 1
+
+mg smoother = BIRK5
+mg sweeps exact = [1]
+
+jacobian by convergence = .false.
+print newton info       = .TRUE.
+newton tolerance        = 1.d-5
+
+compute jacobian every = 10
+#define jacobian
+   type = 1 
+   print info = .TRUE.
+   preallocate = .false.
+#end
+!-------------------------------------------------------------
+! Inflow
+!-------------------------------------------------------------
+#define boundary Back
+  type = FreeSlipWall
+#end
+
+#define boundary Front
+  type = FreeSlipWall
+#end
+
+#define boundary Wall
+  type = NoSlipWall
+#end
+
+#define boundary External
+  type = Outflow
+#end
+
+#define boundary Inlet
+  type = Inflow
+#end
+
+#define boundary Outlet
+  type = Outflow
+#end
+!-------------------------------------------------------------

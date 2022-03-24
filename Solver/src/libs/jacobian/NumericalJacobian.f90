@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Mon Mar 21 14:49:25 2022
+!   @Last revision date: Thu Mar 24 14:46:00 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 7bce1e48d7541fc3de06c4142e325c9521267846
+!   @Last revision commit: c4549abb9c0f1a7f0d18a5e679b0e7820da9405c
 
 !
 !//////////////////////////////////////////////////////
@@ -24,7 +24,7 @@ module NumericalJacobian
    use JacobianDefinitions    , only: JACEPS
    use JacobianComputerClass  , only: local2ijk, Look_for_neighbour, JacobianComputer_t
    use PhysicsStorage
-   use Utilities              , only: Qsort
+   use Utilities              , only: Qsort, my_findloc
    use StorageClass           , only: SolutionStorage_t
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
@@ -210,7 +210,7 @@ contains
       end do
 
       do i = 1, Gloabl_nelm
-         el_reordering_idx(i) = findloc(el_reordering, i, 1)
+         el_reordering_idx(i) = my_findloc(el_reordering, i, 1)
       end do
 
       nbr_g = nbr_g(el_reordering_idx)
