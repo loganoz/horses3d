@@ -336,6 +336,9 @@ module Storage
                   end if
                   
                end if
+               ! provisional fix
+               allocate( e % mu_NS(1:arrayDimensions(1),0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+               e % mu_NS = 0.0_RP
                end associate
             end do
 

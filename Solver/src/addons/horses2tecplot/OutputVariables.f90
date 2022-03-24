@@ -54,7 +54,7 @@ module OutputVariables
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
       enumerator :: OMEGA_V, OMEGAX_V, OMEGAY_V, OMEGAZ_V
-      enumerator :: OMEGAABS_V, QCRIT_V, MU, YPLUS, UPLUS, CF, MUTMINF
+      enumerator :: OMEGAABS_V, QCRIT_V, MU, YPLUS, UPLUS, CF, MUTMINF, NABLAV_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -121,6 +121,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus_ns"
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "cf_ns"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+   character(len=STR_VAR_LEN), parameter  :: nablaVKey     = "nablaV"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
@@ -132,7 +133,8 @@ module OutputVariables
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
                                                                             omegaKey, omegaxKey, omegayKey, omegazKey, &
-                                                                            omegaAbsKey, QCriterionKey, muKey, yplusKey, uplusKey, cfKey, mutminfKey/)
+                                                                            omegaAbsKey, QCriterionKey, muKey, yplusKey, &
+                                                                            uplusKey, cfKey, mutminfKey, nablaVKey/)
                                                                
    integer                :: no_of_outputVariables
    integer, allocatable   :: outputVariableNames(:)
@@ -542,10 +544,17 @@ module OutputVariables
                   if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(OMEGAABS_V)
+
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = sqrt(  POW2( U_y(3,i,j,k) - U_z(2,i,j,k) ) &
                                               + POW2( U_z(1,i,j,k) - U_x(3,i,j,k) ) &
                                               + POW2( U_x(2,i,j,k) - U_y(1,i,j,k) ) )
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
+
+               case(NABLAV_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = U_x(1,i,j,k) + U_y(2,i,j,k) + U_z(3,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
