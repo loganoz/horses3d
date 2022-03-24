@@ -546,27 +546,27 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(1)+0.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+0.0_RP, &
-                               tol           = 1.d-2, &
+                               tol           = 1.d+0, &
                                msg           = "Continuity residual")
 
             CALL FTAssertEqual(expectedValue = residuals(2)+0.0_RP, &
                                actualValue   = monitors % residuals % values(2,1)+0.0_RP, &
-                               tol           = 1.d-2, &
+                               tol           = 1.d+0, &
                                msg           = "X-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(3)+0.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+0.0_RP, &
-                               tol           = 1.d-2, &
+                               tol           = 1.d+0, &
                                msg           = "Y-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(4)+0.0_RP, &
                                actualValue   = monitors % residuals % values(4,1)+0.0_RP, &
-                               tol           = 1.d-2, &
+                               tol           = 1.d+0, &
                                msg           = "Z-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(5)+0.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+0.0_RP, &
-                               tol           = 1.d-2, &
+                               tol           = 5.d+0, &
                                msg           = "Energy residual")
 
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
