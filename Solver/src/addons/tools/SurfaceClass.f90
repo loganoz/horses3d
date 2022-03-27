@@ -149,7 +149,7 @@ Module SurfaceClass  !
         implicit none
 
         class(Surface_t)                                :: self
-        type(HexMesh)                                   :: mesh
+        type(HexMesh), intent(in)                       :: mesh
         character(len=LINE_LENGTH), intent(in)          :: meshName
 
         ! local variables
@@ -213,11 +213,13 @@ Module SurfaceClass  !
 ! 
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine SurfaceSaveToFile(self)
+    Subroutine SurfaceSaveToFile(self, mesh, saveNodes)
 
         implicit none
 
         class(Surface_t)                                :: self
+        type(HexMesh), intent(in)                       :: mesh
+        logical, intent(in)                             :: saveNodes
 
         ! local variables
         integer                                         :: fd, fID
@@ -227,12 +229,20 @@ Module SurfaceClass  !
 !       Add total numberOfFaces
 !       -------------
         write(fd,*) self % totalNumberOfFaces
+
+        write(fd,*) saveNodes
                       
 !       Write the points
 !       ----------------
-        do fID = 1 , self % totalNumberOfFaces
-            write(fd,*) self % globaleIDs(fID), self % fIDs(fID)
-        end do
+        if (saveNodes) then
+            do fID = 1 , self % totalNumberOfFaces
+                write(fd,*) self % globaleIDs(fID), self % fIDs(fID), mesh % faces(self % fIDs(fID)) % nodeIDs
+            end do
+        else
+            do fID = 1 , self % totalNumberOfFaces
+                write(fd,*) self % globaleIDs(fID), self % fIDs(fID)
+            end do
+        end if 
 
         close(fd)
 
@@ -711,16 +721,14 @@ Module SurfaceClass  !
 
         do j = 1, M
             zoneID = zoneMarkers(j)
-            associate( z => mesh % zones(zoneID) )
-                do i = 1, z % no_of_faces
-                    fID = z % faces(i)
+                do i = 1, mesh % zones(zoneID) % no_of_faces
+                    fID = mesh % zones(zoneID) % faces(i)
                     eIDs = mesh % faces(fID) % elementIDs
                     if (any(eIDs .eq. self % eID)) then
                         self % isInBCZone = .true.
                         return
                     end if 
                 end do
-            end associate
         end do 
 
     End Subroutine ElementUpdateIsInZone

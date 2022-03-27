@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Nov 24 17:19:23 2021
+!   @Last revision date: Fri Feb 11 11:25:13 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
+!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -1321,7 +1321,7 @@ slavecoord:             DO l = 1, 4
       if ( .not. MPI_Process % isRoot ) return
       
       write(STD_OUT,'(/)')
-      call Section_Header("Reading mesh")
+      call Section_Header("Mesh information")
       write(STD_OUT,'(/)')
       
       call SubSection_Header('Mesh file "' // trim(fileName) // '".')

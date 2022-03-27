@@ -5,9 +5,9 @@
 !   @File:    FileReading.f90
 !   @Author:  David Kopriva
 !   @Created: 2010-08-27 12:14:31 -0400 
-!   @Last revision date: Thu Mar 18 11:58:58 2021
+!   @Last revision date: Thu Mar 24 14:45:59 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 966274b24d0fb3507260ee580cfd52143429c8ae
+!   @Last revision commit: c4549abb9c0f1a7f0d18a5e679b0e7820da9405c
 !
 !//////////////////////////////////////////////////////
 !
@@ -521,7 +521,7 @@ contains
 !     ---------------------------------------------------------
          implicit none
 !-----Arguments-----------------------------------------------------------
-         character(len=1024),    intent(in)  :: line
+         character(len=4096),    intent(in)  :: line
          real(kind=RP), allocatable :: array(:)
 !-----Local-Variables-----------------------------------------------------
          character(len=:), allocatable :: auxline
@@ -568,5 +568,51 @@ contains
          deallocate(auxline)
          
       end subroutine getRealArrayFromStringNoCommas
+
+      subroutine getRealArrayFromStringNoCommasMulitpleSpaces( line, array )
+         !     ---------------------------------------------------------
+         !           Gets an array from a string of the form: 
+         !              line = "a   b  c ..."
+         !     ---------------------------------------------------------
+                  implicit none
+         !-----Arguments-----------------------------------------------------------
+                  character(len=1024),    intent(in)  :: line
+                  real(kind=RP), allocatable :: array(:)
+         !-----Local-Variables-----------------------------------------------------
+                  character(len=:), allocatable :: auxline
+                  integer     :: pos1 , pos2 , pos
+                  real(kind=RP) :: val
+                  integer  :: io,i,j
+         !-------------------------------------------------------------------------
+         
+                  allocate(character(len=len(trim(line))) :: auxline)
+                  auxline=trim(line)
+         
+                  array = 0.0_RP
+                  j = 0
+                  do i=1,len(auxline)         
+                     pos = index(auxline , " " ) 
+                     if ( pos .gt. 0 ) then
+                        read(auxline(1:pos-1),*,iostat=io) val 
+         
+                        if ( io .ge. 0 ) then
+                           j = j + 1
+                           array(j) = val
+                        end if
+                        auxline = auxline(pos+1:)
+                     else
+         
+                        read(auxline ,*,iostat=io) val 
+                        if ( io .ge. 0 ) then
+                           j = j + 1
+                           array(j) = val
+                        end if
+                        auxline = ''
+                     end if
+         
+                  end do
+         
+                  deallocate(auxline)
+               end subroutine getRealArrayFromStringNoCommasMulitpleSpaces
 
 end module FileReadingUtilities

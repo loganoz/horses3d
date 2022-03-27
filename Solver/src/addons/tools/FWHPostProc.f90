@@ -12,6 +12,8 @@ Module FWHPostProc  !
 
     Subroutine LoadAllFiles(controlVariables, sem)
 
+        use FWHDefinitions, only: OBS_LENGTH
+
         implicit none
         TYPE(DGSem)                                             :: sem
         TYPE( FTValueDictionary), intent(in)                    :: controlVariables
@@ -21,6 +23,7 @@ Module FWHPostProc  !
         character(len=LINE_LENGTH), dimension(:), allocatable   :: fileNames
         character(LEN=LINE_LENGTH)                              :: pattern, fullExpression
         real(kind=RP)                                           :: r
+        character(len=OBS_LENGTH), parameter                    :: dashes = "----------"
 
         call sem % fwh % autosaveConfig(controlVariables, 0.0_RP)
 
@@ -46,6 +49,18 @@ Module FWHPostProc  !
             read(fID, '(A)') fileNames(i)
         end do 
         close(fID)
+!
+!       Display Headers of table
+!       ------------------------
+        write(STD_OUT ,'(//)')
+        write(STD_OUT , '(A10)'    , advance = "no" ) "Iteration"
+        write(STD_OUT , '(3X,A15)' , advance = "no") "Time"
+        write(STD_OUT , '(3X,A10)' , advance = "no") "File Name"
+        write(STD_OUT , *) 
+        write(STD_OUT , '( A10)'   , advance = "no" ) trim ( dashes ) 
+        write(STD_OUT , '(3X,A15)' , advance = "no" ) trim ( dashes ) 
+        write(STD_OUT , '(3X,A10)' , advance = "no" ) trim ( dashes ) 
+        write(STD_OUT , *) 
 
         do i = 1, numberOfFiles
             call LoadSingleFile(fileNames(i), sem % mesh, sem % fwh, i)
@@ -149,8 +164,11 @@ Module FWHPostProc  !
 !
 !       Display
 !       -----------------------------
-        print *, "iter: ", actualIter, "file used: ", trim(fileName), "with time: ", time
-
+        write(STD_OUT, '(I10)'            , advance = "no" ) actualIter
+        write(STD_OUT, '(1X,A,1X,ES15.8)' , advance = "no" ) "|" , time
+        write(STD_OUT, '(1X,A,1X,A)'      , advance = "no") "|" , trim(fileName)
+        write(STD_OUT, *) 
+!
     End Subroutine LoadSingleFile
 
 End Module FWHPostProc

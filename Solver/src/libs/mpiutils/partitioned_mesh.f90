@@ -32,6 +32,7 @@ module PartitionedMeshClass
       integer              :: no_of_allElements
       integer              :: no_of_mpifaces
       integer, allocatable :: global2localeID(:)         ! if 0, that element does not belong to the current partition
+      integer, allocatable :: global2localeIDwith0(:)        
       integer, allocatable :: nodeIDs(:)
       integer, allocatable :: HOPRnodeIDs(:)
       integer, allocatable :: elementIDs(:)
@@ -355,6 +356,10 @@ module PartitionedMeshClass
          else
             this % global2localeID = [(eID, eID=1, no_of_allElements)]
          end if
+
+         allocate ( this % global2localeIDwith0(0:no_of_allElements) )
+         this % global2localeIDwith0(0) = 0
+         this % global2localeIDwith0(1:no_of_allElements) = this % global2localeID
       end subroutine PartitionedMesh_ConstructGeneralInfo
       
       subroutine PartitionedMesh_Destruct(self)
@@ -377,6 +382,7 @@ module PartitionedMeshClass
          safedeallocate(self % mpiface_elementSide       )
          safedeallocate(self % mpiface_sharedDomain      )
          safedeallocate(self % global2localeID           )
+         safedeallocate(self % global2localeIDwith0      )
 
       end subroutine PartitionedMesh_Destruct
    

@@ -163,8 +163,8 @@ module LinearMultigridSolverClass
       integer                                       :: Nx                    ! Polynomial in X
       integer                                       :: Ny                    ! Polynomial in Y
       integer                                       :: Nz                    ! Polynomial in Z
-      type(LinearMultigridSolver_t), pointer              :: Child                 ! Coarser level: MGlevel-1
-      type(LinearMultigridSolver_t), pointer              :: Parent                ! Finer level: MGlevel+1
+      type(LinearMultigridSolver_t), pointer        :: Child                 ! Coarser level: MGlevel-1
+      type(LinearMultigridSolver_t), pointer        :: Parent                ! Finer level: MGlevel+1
       type(TemporaryElementStorage_t) , allocatable :: LocalStorage(:)       ! Storage
       real(kind=RP)                                 :: timesolve             ! Time at the solution
       real(kind=RP)                                 :: dt                    ! dt for the solution
@@ -568,12 +568,12 @@ contains
       deallocate(pos_smooths)
 
    end subroutine MG_Destruct
-   !
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    recursive subroutine MG_Levels_Destruct(Me, lvl)
       !  ---------------------------------------------------------
-      !  Constructor. 
+      !  Destructor. 
       !  ---------------------------------------------------------
       implicit none
       !-----Arguments-----------------------------------------------------------
