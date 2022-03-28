@@ -17,9 +17,8 @@ Module FWHGeneralClass  !
     use FWHDefinitions, only: OB_BUFFER_SIZE_DEFAULT, OB_BUFFER_SIZE_DEFAULT, STR_LEN_OBSERVER
     use FWHObseverClass
     use HexMeshClass
-    use ZoneClass
-    use FileReadingUtilities      , only: getFileName
-    use AutosaveClass
+    use FileReadingUtilities, only: getFileName
+    use SurfaceMesh, only: surfacesMesh, FWH_POSITION, SURFACE_TYPE_FWH
     Implicit None
 
 !
@@ -31,33 +30,21 @@ Module FWHGeneralClass  !
         character(len=LINE_LENGTH)                                        :: solution_file
         integer                                                           :: numberOfObservers = 0
         integer                                                           :: bufferLine
-        real(kind=RP)                                                     :: dt_update
         integer, dimension(:), allocatable                                :: iter
         real(kind=RP), dimension(:), allocatable                          :: t
         class(ObserverClass), dimension(:), allocatable                   :: observers
-        class(Zone_t), allocatable                                        :: sourceZone
         integer                                                           :: totalNumberOfFaces
-        integer, dimension(:), allocatable                                :: globalFid
-        integer, dimension(:), allocatable                                :: faceOffset
-        integer, dimension(:), allocatable                                :: elementSide
         logical                                                           :: isSolid
         logical                                                           :: isActive = .false.
         logical                                                           :: firstWrite
         logical                                                           :: interpolate
-        logical                                                           :: saveSourceSolFile
-        logical                                                           :: saveSourceMeshFile
-        type(Autosave_t)                                                  :: autosave
 
         contains
 
             procedure :: construct      => FWHConstruct
             procedure :: destruct       => FWHDestruct
-            procedure :: autosaveConfig => FWHSaveSolutionConfiguration
             procedure :: updateValues   => FWHUpate
             procedure :: writeToFile    => FWHWriteToFile
-            procedure :: saveSourceSol  => FWHSaveSourceSolution
-            procedure :: loadSourceSol  => FWHLoadSourceSolution
-            procedure :: saveSourceMesh => FWHSaveSourceMesh
 
     end type FWHClass
 
@@ -89,11 +76,7 @@ Module FWHGeneralClass  !
         character(len=STR_LEN_OBSERVER)                     :: line
         character(len=STR_LEN_OBSERVER)                     :: solution_file
         integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
-        ! integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs, eSides
-        integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         logical, save                                       :: FirstCall = .TRUE.
-        character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file
-        character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
 
 !        look if the accoustic analogy calculations are set to be computed
 !        --------------------------------
@@ -104,11 +87,19 @@ Module FWHGeneralClass  !
             return
         end if
 
-!        Setup the buffer
-!        ----------------
-         if (controlVariables % containsKey("observers flush interval") ) then
-            OB_BUFFER_SIZE = controlVariables % integerValueForKey("observers flush interval")
-         end if
+!       check the that sourceZone is FWH
+!       ----------------------------------
+        if (surfacesMesh % surfaceTypes(FWH_POSITION) .ne. SURFACE_TYPE_FWH) then
+            self % isActive = .FALSE.
+            print *, "FWH surface not found, the FWH routines will not deactivated"
+            return
+        end if 
+
+!       Setup the buffer
+!       ----------------
+        if (controlVariables % containsKey("observers flush interval") ) then
+           OB_BUFFER_SIZE = controlVariables % integerValueForKey("observers flush interval")
+        end if
 
         self % isActive = .TRUE.
         allocate( self % t(OB_BUFFER_SIZE), self % iter(OB_BUFFER_SIZE) )
@@ -117,85 +108,6 @@ Module FWHGeneralClass  !
 !       First get the surface as a zone
 !       -------------------------------
         self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
-        if (controlVariables % containsKey("accoustic solid surface")) then
-            zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
-            zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
-            call toLower(zones_str)
-            call toLower(zones_str2)
-            call getCharArrayFromString(zones_str, LINE_LENGTH, zones_temp)
-            if (zones_str2 .ne. "") then
-                no_of_zones = size(zones_temp)
-                call getCharArrayFromString(zones_str2, LINE_LENGTH, zones_temp2)
-                no_of_zones = no_of_zones + size(zones_temp2)
-                allocate(zones_names(no_of_zones))
-                zones_names(1:size(zones_temp)) = zones_temp
-                zones_names(size(zones_temp)+1:no_of_zones) = zones_temp2
-                safedeallocate(zones_temp)
-                safedeallocate(zones_temp2)
-            else
-                no_of_zones = size(zones_temp)
-                allocate(zones_names(no_of_zones))
-                zones_names = zones_temp
-                safedeallocate(zones_temp)
-            end if 
-
-    !       Get the zones ids from the mesh and for each, the number of faces
-    !       --------------------------
-            allocate( faces_per_zone(no_of_zones), zonesIDs(no_of_zones) )
-            do i = 1, no_of_zones
-                zonesIDs(i) = getZoneID(zones_names(i), mesh)
-                if (zonesIDs(i) .eq. -1) then
-                    write(*,'(A,A,A)') "Warning: Accoustic surface ", trim(zones_names(i)), " not found in the mesh, will be ignored"
-                    faces_per_zone(i) = 0
-                else
-                    faces_per_zone(i) = size(mesh % zones(zonesIDs(i)) % faces)
-                end if
-            end do 
-
-    !       Get the faces Ids of all zones as a single array
-    !       --------------------------
-            allocate( facesIDs(SUM(faces_per_zone)) , self % elementSide(SUM(faces_per_zone)))
-            no_of_face_i = 1
-            do i = 1, no_of_zones
-                if (zonesIDs(i) .eq. -1) cycle
-                facesIDs(no_of_face_i:no_of_face_i+faces_per_zone(i)-1) = mesh % zones(zonesIDs(i)) % faces
-                no_of_face_i = no_of_face_i + faces_per_zone(i) 
-            end do 
-            ! the side is always 1 since is at a face of a boundary
-            ! eSides = 1
-            self % elementSide = 1
-
-            deallocate(zonesIDs, zones_names) 
-        elseif (controlVariables % containsKey("accoustic surface file")) then
-            allocate( faces_per_zone(1) )
-            surface_file = controlVariables % stringValueForKey("accoustic surface file", LINE_LENGTH)
-            call SourceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), self % elementSide)
-        else
-            stop "Accoustic surface for integration is not defined"
-        end if
-
-        ! create self sourceZone using facesIDs
-!       --------------------------
-        allocate( self % sourceZone )
-        call self % sourceZone % CreateFicticious(-1, "FW_Surface", SUM(faces_per_zone), facesIDs)
-        deallocate(facesIDs, faces_per_zone)
-
-!       Gather the total number of faces
-!       ------------------
-        if ( (MPI_Process % doMPIAction) ) then
-#ifdef _HAS_MPI_
-            call mpi_allreduce(self % sourceZone % no_of_faces, no_of_faces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
-#endif
-        else
-            no_of_faces = self % sourceZone % no_of_faces
-        end if
-        self % totalNumberOfFaces = no_of_faces
-
-!       Get arrays for I/O of surface solution file
-!       --------------------------
-        allocate(self % globalFid(self % sourceZone % no_of_faces))
-        allocate(self % faceOffset(self % sourceZone % no_of_faces))
-        call SourcePrepareForIO(self % sourceZone, mesh, no_of_faces, self % globalFid, self % faceOffset)
 
 !       Get the solution file name
 !       --------------------------
@@ -219,18 +131,14 @@ Module FWHGeneralClass  !
         self % interpolate = .TRUE.
         ! self % interpolate = .FALSE.
 
-!       Get whether the source surface solution and the mesh is saved in files
-!       -----------------------------------------------------------------------
-        self % saveSourceSolFile = controlVariables % logicalValueForKey("accoustic solution save")
-        self % saveSourceMeshFile = controlVariables % logicalValueForKey("accoustic surface mesh save")
-
 !       Initialize observers
 !       --------------------
         call getMeanStreamValues()
+        no_of_faces = surfacesMesh % totalFaces(SURFACE_TYPE_FWH)
         allocate( self % observers(self % numberOfObservers) )
         do i = 1, self % numberOfObservers
-            call self % observers(i) % construct(self % sourceZone, mesh, i, self % solution_file, FirstCall, &
-                                                 self % interpolate, no_of_faces, self % elementSide)
+            call self % observers(i) % construct(surfacesMesh % zones(SURFACE_TYPE_FWH) , mesh, i, self % solution_file, FirstCall, &
+                                                 self % interpolate, no_of_faces, surfacesMesh % elementSide(:,1))
         end do 
 
         self % bufferLine = 0
@@ -245,42 +153,9 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces
-         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", self % saveSourceSolFile
+         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", controlVariables % containsKey("accoustic save timestep")
 
     End Subroutine FWHConstruct
-
-    Subroutine FWHSaveSolutionConfiguration(self, controlVariables, t0)
-
-        use FTValueDictionaryClass
-        implicit none
-
-        class(FWHClass)                                     :: self
-        class(FTValueDictionary), intent(in)                :: controlVariables
-        real(kind=RP), intent(in)                           :: t0
-
-!       ---------------
-!       Local variables
-!       ---------------
-        real(kind=RP)                                       :: dtSave
-
-!       Check if is activated
-!       ------------------------
-        if (.not. self % isActive) then
-            self % autosave = Autosave_t(.FALSE.,.FALSE.,huge(1),huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_UNDEFINED)
-            return
-        end if
-
-!       configure save type, used for update, write and save file
-!       --------------------------
-        if (controlVariables % containsKey("accoustic save timestep")) then
-            dtSave = controlVariables % doublePrecisionValueForKey("accoustic save timestep")
-            self % autosave = Autosave_t(.FALSE.,.TRUE.,huge(1),dtSave,nextAutosaveTime=dtSave+t0,mode=AUTOSAVE_BY_TIME)
-        else
-            !Save each time step
-            self % autosave = Autosave_t(.FALSE.,.TRUE.,1,huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_BY_ITERATION)
-        end if
-
-    End Subroutine FWHSaveSolutionConfiguration
 
     Subroutine FWHUpate(self, mesh, t, iter, isFromFile)
 
@@ -322,7 +197,7 @@ Module FWHGeneralClass  !
 !
 !       Save Solution to elements faces of fwh surface
 !       -----------------------
-        if (prolong) call SourceProlongSolution(self % sourceZone, mesh, self % elementSide)
+        if (prolong) call SourceProlongSolution(surfacesMesh % zones(SURFACE_TYPE_FWH), mesh, surfacesMesh % elementSide(:,1))
 
 !       see if its regular or interpolated
 !       -----------------------
@@ -421,75 +296,13 @@ Module FWHGeneralClass  !
 
         safedeallocate(self % iter)
         safedeallocate(self % t)
-        safedeallocate(self % sourceZone)
+        ! safedeallocate(self % sourceZone)
         do i = 1, self % numberOfObservers
             call self % observers(i) % destruct
         end do
         safedeallocate(self % observers)
 
     End Subroutine FWHDestruct
-
-     SUBROUTINE FWHSaveSourceSolution(self, mesh, iter, time)
-        IMPLICIT NONE
-!
-!       ------------------------------------
-!       Save the results to the surface solution file
-!       ------------------------------------
-!
-!       ----------------------------------------------
-        class(FWHClass)                                     :: self
-        class(HexMesh), intent(in)                          :: mesh
-        integer, intent(in)                                 :: iter              !< Time step
-        real(kind=RP), intent(in)                           :: time              !< Simu time
-
-        !local variables
-        character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
-!       ----------------------------------------------
-        
-        if(.not. self % saveSourceSolFile .or. .not. self % isActive) return
-
-        WRITE(FinalName,'(2A,I10.10,A)')  TRIM(self % solution_file),'_',iter,'.fwhs.hsol'
-        call SourceSaveSolution(self % sourceZone, mesh, time, iter, FinalName, self % totalNumberOfFaces, self % globalFid, self % faceOffset)
-     
-     END SUBROUTINE FWHSaveSourceSolution
-
-     Subroutine FWHLoadSourceSolution(self, fileName, mesh)
-
-        implicit none
-        class(FWHClass)                                      :: self
-        character(len=*), intent(in)                         :: fileName
-        class (HexMesh), intent(inout)                       :: mesh
-
-!       Check if is activated
-!       ------------------------
-        if (.not. self % isActive) return
-
-        call SourceLoadSolution(self % sourceZone, mesh, fileName, self % globalFid, self % faceOffset, self % elementSide)
-
-     End Subroutine FWHLoadSourceSolution
-
-     Subroutine FWHSaveSourceMesh(self, mesh, initial_iteration)
-        IMPLICIT NONE
-!
-!       ------------------------------------
-!       Save the mesh to the surface mesh file
-!       ------------------------------------
-!
-!       ----------------------------------------------
-        class(FWHClass)                                     :: self
-        class(HexMesh), intent(in)                          :: mesh
-        integer, intent(in)                                 :: initial_iteration
-
-        !local variables
-        character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
-!       ----------------------------------------------
-        
-        if(.not. self % saveSourceMeshFile .or. .not. self % isActive) return
-
-        WRITE(FinalName,'(2A,I10.10)')  TRIM(self % solution_file),'_',initial_iteration
-        call SourceSaveMesh(self % sourceZone, mesh, FinalName, self % totalNumberOfFaces, self % globalFid, self % faceOffset)
-
-     End Subroutine FWHSaveSourceMesh
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
@@ -563,23 +376,5 @@ readloop:do
       close(fID)                             
 
     End Function getNoOfObservers
-
-    integer Function getZoneID(zone_name, mesh) result(n)
-
-        character(len=*), intent(in)                        :: zone_name
-        class(HexMesh), intent(in)                          :: mesh
-
-        !local variables
-        integer                                             :: zoneID
-
-         n = -1
-         do zoneID = 1, size(mesh % zones)
-            if ( trim(mesh % zones(zoneID) % name) .eq. trim(zone_name) ) then
-               n = zoneID
-               exit
-            end if
-         end do
-
-    End Function getZoneID
 
 End Module FWHGeneralClass

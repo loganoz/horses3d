@@ -1,0 +1,981 @@
+!
+!   @File:    SurfaceMesh.f90
+!   @Author:  Oscar Marino (oscar.marino@upm.es)
+!   @Created: Mar 21 2022
+!   @Last revision date: 
+!   @Last revision author: 
+!   @Last revision commit: 
+!
+!//////////////////////////////////////////////////////
+!
+!This module handle the ficticious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy
+! The solution is saved before the first time step and at a fixed dt
+
+#include "Includes.h"
+Module SurfaceMesh
+    use SMConstants
+    use HexMeshClass
+    use ZoneClass
+    use AutosaveClass
+    use FTValueDictionaryClass
+    use MPI_Process_Info
+    Implicit None
+!   
+    private
+!
+    public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION
+    public surfacesMesh
+!
+    integer, parameter          :: SURFACE_TYPE_FWH   = 1
+    integer, parameter          :: SURFACE_TYPE_SLICE = 2
+    integer, parameter          :: SURFACE_TYPE_BC    = 3
+    integer, parameter          :: FWH_POSITION = 1 ! the fwh surface will be always the first position if exists
+!
+    ! main class of surfaces mesh
+    type SurfaceMesh_t 
+        integer                                                 :: numberOfSurfaces
+        integer, dimension(:), allocatable                      :: totalFaces       ! number of faces in all partitions for each surface
+        integer, dimension(:), allocatable                      :: surfaceTypes     ! type of each surface
+        type(Zone_t), dimension(:), allocatable                 :: zones            ! ficticious zones that contains the faces of each surface
+        logical, dimension(:), allocatable                      :: surfaceActive    ! flag for each surface
+        character(len=LINE_LENGTH), dimension(:), allocatable   :: file_names
+        integer, dimension(:,:), allocatable                    :: globalFid        ! for I/O with mpi
+        integer, dimension(:,:), allocatable                    :: faceOffset       ! for I/O with mpi
+        integer, dimension(:,:), allocatable                    :: elementSide      ! for reading surface from file
+        type(Autosave_t)                                        :: autosave         ! save solution parameters
+        ! real(kind=RP)                                           :: dt_update
+        logical                                                 :: active           ! flag use for save at least one file
+
+        contains
+
+            procedure :: construct        => SurfConstruct
+            procedure :: destruct         => SurfDestruct
+            procedure :: autosaveConfig   => SurfSaveSolutionConfiguration
+            procedure :: saveAllMesh      => SurfSaveAllMesh
+            procedure :: saveAllSolution  => SurfSaveAllSolution
+            procedure :: loadSolution     => SurfLoadSolution
+    end type SurfaceMesh_t 
+
+    type(SurfaceMesh_t)                         :: surfacesMesh
+!
+   contains 
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!           CLASS PROCEDURES --------------------------
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!         
+    Subroutine SurfConstruct(self, controlVariables, mesh)
+!     ************************************************************************
+!        The surface is construct as an structure of arrays, all the positions 
+!        correspond to the info for a single surface.
+!        If there is a FWH surface, it will always be the first one (only one
+!        is allowed). Then it will be the BC, then each direction the slices.
+!     ************************************************************************
+!
+        use FileReadingUtilities, only: getFileName, getCharArrayFromString
+        use mainKeywordsModule
+        use Utilities,            only: toLower
+#ifdef _HAS_MPI_
+        use mpi
+#endif
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+        type (HexMesh), intent(in)                          :: mesh
+
+        !local variables
+        integer                                                 :: numberOfSurfaces, numberOfFaces, numberOfSurfacesBC, surfaceCont
+        integer                                                 :: maxNumberFaces, nf
+        integer, dimension(NDIM)                                :: numberOfSurfacesSlices
+        integer                                                 :: i, ierr
+        integer                                                 :: idSliceX, idSliceY, idSliceZ, idBC
+        logical                                                 :: hasFWH, hasSliceX, hasSliceY, hasSliceZ, hasBC
+        character(len=LINE_LENGTH)                              :: solution_file, read_str, fileName, zoneName
+        character(len=LINE_LENGTH), dimension(:), allocatable   :: bsc_names
+        integer, dimension(:), allocatable                      :: FWHelementSide, facesIDs
+
+        numberOfSurfaces = 0
+        self % active = .false.
+!
+!       Get the possible surfaces to save
+!       ---------------------------------
+        hasFWH    = controlVariables % containsKey("accoustic analogy")
+        hasSliceX = controlVariables % containsKey("slice x coordinates")
+        hasSliceY = controlVariables % containsKey("slice y coordinates")
+        hasSliceZ = controlVariables % containsKey("slice z coordinates")
+        hasBC     = controlVariables % containsKey("boundaries to save")
+        idSliceX  = 0
+        idSliceY  = 0
+        idSliceZ  = 0
+        idBC      = 0
+!
+!       Get the solution file name
+!       --------------------------
+        solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = LINE_LENGTH )
+        solution_file = trim(getFileName(solution_file))
+!
+!       get number of surfaces
+!       ----------------------
+        if (hasFWH) numberOfSurfaces = numberOfSurfaces + 1
+        if (hasBC) then
+            read_str = controlVariables % stringValueForKey("boundaries to save", LINE_LENGTH)
+            call toLower(read_str)
+            call getCharArrayFromString(read_str, LINE_LENGTH, bsc_names)
+            numberOfSurfacesBC =  size(bsc_names)
+            numberOfSurfaces = numberOfSurfaces + numberOfSurfacesBC
+        end if 
+!
+!       return if there are no surfaces, the flag active will be false and 
+!       all of the arrays wont be allocated the class procedures will look for the flag before doing anything
+        if (numberOfSurfaces .eq. 0) return
+!
+        self % numberOfSurfaces = numberOfSurfaces
+        allocate( self % totalFaces(numberOfSurfaces), self % surfaceTypes(numberOfSurfaces), self % zones(numberOfSurfaces), self % surfaceActive(numberOfSurfaces), self % file_names(numberOfSurfaces) )
+        self % totalFaces = 0
+        self % surfaceActive = .false.
+!
+!       now construct all the surfaces
+!       ------------------------------
+        surfaceCont = 0
+        if (hasFWH) then
+            surfaceCont = surfaceCont + 1
+            call createFWHSurface(self, controlVariables, mesh, solution_file, FWHelementSide)
+            ! for now only fwh is loaded from file, if this changes in future, some changes must be done, allocating the side of all
+            ! faces of all the file surfaces
+            allocate ( self % elementSide(size(FWHelementSide),1) )
+            self % elementSide(:,1) = FWHelementSide
+        end if 
+        if (hasBC) then
+            do i = 1, numberOfSurfacesBC
+                surfaceCont = surfaceCont + 1
+                safedeallocate(facesIDs)
+                ! if (xx) cycle
+                facesIDs = 0
+                idBC = idBC + 1
+                write(fileName,'(A,A,I3.3)')  trim(solution_file), '_bc', idBC
+                zoneName = "BC_Surface"
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs)
+            end do
+        end if 
+!
+!       Gather the total number of faces and
+!       Get the max no of faces between all surfaces en each partition
+!       ---------------------------------------------------------------
+        maxNumberFaces = 0
+        do i = 1, self % numberOfSurfaces
+            if (.not. self % surfaceActive(i)) cycle
+            if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+                call mpi_allreduce(self % zones(i) % no_of_faces, numberOfFaces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+            else
+                numberOfFaces = self % zones(i) % no_of_faces
+            end if
+!         
+            self % totalFaces(i) = numberOfFaces
+!         
+            if (maxNumberFaces .lt. self % zones(i) % no_of_faces) maxNumberFaces = self % zones(i) % no_of_faces
+        end do
+!         
+!       Prepare each surface for IO
+!       ---------------------------
+        allocate( self % globalFid(maxNumberFaces,self % numberOfSurfaces), self % faceOffset(maxNumberFaces,self % numberOfSurfaces) )
+        self % globalFid = 0
+        self % faceOffset = 0
+        do i = 1, self % numberOfSurfaces
+            if (.not. self % surfaceActive(i)) cycle
+            ! only save for the actual faces of the surface in the partition, the extra positions have a value of 0, by default
+            nf = self % zones(i) % no_of_faces
+            call SurfacePrepareForIO(self % zones(i), mesh, self % totalFaces(i), self % globalFid(1:nf,i), self % faceOffset(1:nf,i))
+        end do
+!
+        ! change to look if there is at least one true in the array of flags
+        self % active = .true.
+!
+    End Subroutine SurfConstruct
+!
+    Subroutine SurfDestruct(self)
+!
+        implicit none
+        class(SurfaceMesh_t), intent(inout)              :: self
+!
+!       Check if is activated
+!       ------------------------
+        if (.not. self % active) return
+        safedeallocate(self % totalFaces)
+        safedeallocate(self % surfaceTypes)
+        safedeallocate(self % zones)
+        safedeallocate(self % surfaceActive)
+        safedeallocate(self % file_names)
+        safedeallocate(self % globalFid)
+        safedeallocate(self % faceOffset)
+        safedeallocate(self % elementSide)
+!
+    End Subroutine SurfDestruct
+!
+    Subroutine SurfSaveSolutionConfiguration(self, controlVariables, t0)
+
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+        real(kind=RP), intent(in)                           :: t0
+
+!       ---------------
+!       Local variables
+!       ---------------
+        real(kind=RP)                                       :: dtSave, dtFW, dtSf
+        logical                                             :: saveFWH, saveSurf
+
+!       Check if is activated
+!       ------------------------
+        if (.not. self % active) then
+            self % autosave = Autosave_t(.FALSE.,.FALSE.,huge(1),huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_UNDEFINED)
+            return
+        end if
+!
+        saveFWH = controlVariables % containsKey("accoustic save timestep")
+        saveSurf = controlVariables % containsKey("surfaces save timestep")
+!
+        if (saveSurf .and. saveSurf) then
+            print *, "Warning: both accoustic and surfaces save timestep have been specified, the minimum value will be set"
+        endif
+!
+!       configure save type, used for update, write and save file
+!       --------------------------
+        if (saveSurf .or. saveFWH) then
+            dtSf = controlVariables % getValueOrDefault("accoustic save timestep", huge(1.0_RP))
+            dtFW = controlVariables % getValueOrDefault("surfaces save timestep", huge(1.0_RP))
+            dtSave = min(dtSf, dtFW)
+            self % autosave = Autosave_t(.FALSE.,.TRUE.,huge(1),dtSave,nextAutosaveTime=dtSave+t0,mode=AUTOSAVE_BY_TIME)
+        else
+            !Save each time step
+            print *, "Warning: neither accoustic nor surfaces save timestep have been specified, it will be saved each timestep"
+            self % autosave = Autosave_t(.FALSE.,.TRUE.,1,huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_BY_ITERATION)
+        end if
+    End Subroutine SurfSaveSolutionConfiguration
+!
+    Subroutine SurfSaveAllMesh(self, mesh, initial_iteration, controlVariables)
+        implicit none
+!
+        class(SurfaceMesh_t)                                :: self
+        type(HexMesh), intent(in)                           :: mesh
+        integer, intent(in)                                 :: initial_iteration
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+
+        !local variables
+        integer                                             :: i, nf
+        character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
+        logical                                             :: saveFWH
+
+        if (.not. self % active) return
+        saveFWH = controlVariables % logicalValueForKey("accoustic surface mesh save")
+        do i = 1, self % numberOfSurfaces
+            if (.not. self % surfaceActive(i)) cycle
+            !skip fwh if not requested
+            if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
+            write(FinalName,'(2A,I10.10)') trim(self % file_names(i)),'_',initial_iteration
+            nf = self % zones(i) % no_of_faces
+            call SurfaceSaveMesh(self % zones(i), mesh, FinalName, self % totalFaces(i), self % globalFid(1:nf,i), self % faceOffset(1:nf,i))
+        end do
+!
+    End Subroutine SurfSaveAllMesh
+!
+    Subroutine SurfSaveAllSolution(self, mesh, iter, time, controlVariables)
+        implicit none
+!
+        class(SurfaceMesh_t)                                :: self
+        type(HexMesh), intent(in)                           :: mesh
+        integer, intent(in)                                 :: iter
+        real(kind=RP), intent(in)                           :: time              !< Simu time
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+
+        !local variables
+        integer                                             :: i, nf
+        character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
+        logical                                             :: saveFWH
+
+        if (.not. self % active) return
+        saveFWH = controlVariables % logicalValueForKey("accoustic solution save")
+        do i = 1, self % numberOfSurfaces
+            if (.not. self % surfaceActive(i)) cycle
+            !skip fwh if not requested
+            if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
+            write(FinalName,'(2A,I10.10,A)') trim(self % file_names(i)),'_',iter,'.surf.hsol'
+            nf = self % zones(i) % no_of_faces
+            call SurfaceSaveSolution(self % zones(i), mesh, time, iter, FinalName, self % totalFaces(i), &
+                                     self % globalFid(1:nf,i), self % faceOffset(1:nf,i), self%elementSide(:,1))
+        end do
+!
+    End Subroutine SurfSaveAllSolution
+!
+    Subroutine SurfLoadSolution(self, fileName, mesh)
+!     *******************************************************************
+!        Only the FWH surface is loaded, for postprocess calculations
+!     *******************************************************************
+!
+        implicit none
+        class(SurfaceMesh_t)                                 :: self
+        character(len=*), intent(in)                         :: fileName
+        class (HexMesh), intent(inout)                       :: mesh
+
+        !local variables
+        integer                                             :: nf
+!
+!       Check if is activated
+!       ------------------------
+        if (.not. self % active) return
+!
+        if (self % surfaceTypes(FWH_POSITION) .ne. SURFACE_TYPE_FWH) then
+            stop "only fwh surface can load a solution into the solver"
+        end if
+!
+        nf = self % zones(FWH_POSITION) % no_of_faces
+        call SurfaceLoadSolution(self % zones(FWH_POSITION), mesh, fileName, self % globalFid(1:nf,FWH_POSITION), self % faceOffset(1:nf,FWH_POSITION), self % elementSide(:,1))
+!
+    End Subroutine SurfLoadSolution
+!
+    Subroutine createFWHSurface(self, controlVariables, mesh, solution_file, elementSide)
+        use FileReadingUtilities, only: getCharArrayFromString
+        use Utilities,            only: toLower
+#ifdef _HAS_MPI_
+        use mpi
+#endif
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        type(FTValueDictionary), intent(in)                 :: controlVariables
+        type (HexMesh), intent(in)                          :: mesh
+        character(len=LINE_LENGTH), intent(in)              :: solution_file
+        integer, dimension(:), allocatable, intent(out)     :: elementSide
+
+        !local variables
+        integer                                             :: i
+        integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
+        integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
+        character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file, fileName, zoneName
+        character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
+
+        if (controlVariables % containsKey("accoustic solid surface")) then
+            zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
+            zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
+            call toLower(zones_str)
+            call toLower(zones_str2)
+            call getCharArrayFromString(zones_str, LINE_LENGTH, zones_temp)
+            if (zones_str2 .ne. "") then
+                no_of_zones = size(zones_temp)
+                call getCharArrayFromString(zones_str2, LINE_LENGTH, zones_temp2)
+                no_of_zones = no_of_zones + size(zones_temp2)
+                allocate(zones_names(no_of_zones))
+                zones_names(1:size(zones_temp)) = zones_temp
+                zones_names(size(zones_temp)+1:no_of_zones) = zones_temp2
+                safedeallocate(zones_temp)
+                safedeallocate(zones_temp2)
+            else
+                no_of_zones = size(zones_temp)
+                allocate(zones_names(no_of_zones))
+                zones_names = zones_temp
+                safedeallocate(zones_temp)
+            end if 
+
+    !       Get the zones ids from the mesh and for each, the number of faces
+    !       --------------------------
+            allocate( faces_per_zone(no_of_zones), zonesIDs(no_of_zones) )
+            do i = 1, no_of_zones
+                zonesIDs(i) = getZoneID(zones_names(i), mesh)
+                if (zonesIDs(i) .eq. -1) then
+                    write(*,'(A,A,A)') "Warning: Accoustic surface ", trim(zones_names(i)), " not found in the mesh, will be ignored"
+                    faces_per_zone(i) = 0
+                else
+                    faces_per_zone(i) = size(mesh % zones(zonesIDs(i)) % faces)
+                end if
+            end do 
+
+    !       Get the faces Ids of all zones as a single array
+    !       --------------------------
+            allocate( facesIDs(SUM(faces_per_zone)) , elementSide(SUM(faces_per_zone)))
+            no_of_face_i = 1
+            do i = 1, no_of_zones
+                if (zonesIDs(i) .eq. -1) cycle
+                facesIDs(no_of_face_i:no_of_face_i+faces_per_zone(i)-1) = mesh % zones(zonesIDs(i)) % faces
+                no_of_face_i = no_of_face_i + faces_per_zone(i) 
+            end do 
+            ! the side is always 1 since is at a face of a boundary
+            ! eSides = 1
+            elementSide = 1
+
+            deallocate(zonesIDs, zones_names) 
+        elseif (controlVariables % containsKey("accoustic surface file")) then
+            allocate( faces_per_zone(1) )
+            surface_file = controlVariables % stringValueForKey("accoustic surface file", LINE_LENGTH)
+            call SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), elementSide)
+        else
+            stop "Accoustic surface for integration is not defined"
+        end if
+!
+!       now create the zone and set type, name and flag
+!       --------------------------------------------------
+        write(fileName,'(A,A)') trim(solution_file),'_fwh'
+        zoneName = "FWH_Surface"
+        call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, sum(faces_per_zone), facesIDs)
+!         
+    End Subroutine createFWHSurface
+!         
+    Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs)
+        implicit none
+
+        class(SurfaceMesh_t)                                :: self
+        integer, intent(in)                                 :: surface_index, surface_type, no_of_faces
+        character(len=LINE_LENGTH), intent(in)              :: file_name, zone_name
+        integer, dimension(:), intent(in)                   :: facesIDs
+
+        call self % zones(surface_index) % CreateFicticious(-1, trim(zone_name), no_of_faces, facesIDs)
+        self % surfaceTypes(surface_index) = surface_type
+        self % file_names(surface_index) = trim(file_name)
+        self % surfaceActive(surface_index) = .true.
+
+    End Subroutine createSingleSurface
+!         
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!           SINGLE SURFACE (ZONE) PROCEDURES --------------------------
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!         
+   Subroutine SurfaceSaveSolution(surface_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset, eSides)
+
+!     *******************************************************************
+!        This subroutine saves the solution from the face storage to a binary file
+!     *******************************************************************
+!
+      use FaceClass
+      use SolutionFile
+      use fluiddata
+      use PhysicsStorage
+
+      implicit none
+
+      class (Zone_t), intent(in)                           :: surface_zone
+      class (HexMesh), intent(in), target                  :: mesh
+      real(kind=RP), intent(in)                            :: time
+      integer,intent(in)                                   :: iter, no_of_faces
+      character(len=*), intent(in)                         :: name
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
+      integer, dimension(:), intent(in)                    :: eSides
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID, eID
+      integer                                              :: ierr
+      integer, dimension(6)                                :: meshFaceIDs
+      class(Face), pointer                                 :: faces(:)
+      real(kind=RP), dimension(:,:,:), allocatable         :: Q
+      real(kind=RP), dimension(NDIM)                       :: x
+      integer                                              :: Nx,Ny
+      integer                                              :: fid, padding
+      integer(kind=AddrInt)                                :: pos
+      real(kind=RP)                                        :: refs(NO_OF_SAVED_REFS) 
+
+!
+!     Gather reference quantities
+!     ---------------------------
+      refs(GAMMA_REF) = thermodynamics % gamma
+      refs(RGAS_REF)  = thermodynamics % R
+      refs(RHO_REF)   = refValues      % rho
+      refs(V_REF)     = refValues      % V
+      refs(T_REF)     = refValues      % T
+      refs(MACH_REF)  = dimensionless  % Mach
+
+!
+!     Create new file
+!     ---------------
+      call CreateNewSolutionFile(trim(name), ZONE_SOLUTION_FILE, mesh % nodeType, &
+                                    no_of_faces, iter, time, refs)
+
+      padding = NCONS*2
+!
+!     Write arrays
+!     ------------
+      fID = putSolutionFileInWriteDataMode(trim(name))
+      faces => mesh % faces
+!     Loop the zone to get faces
+!     ---------------------------------------
+      do zoneFaceID = 1, surface_zone % no_of_faces
+          meshFaceID = surface_zone % faces(zoneFaceID)
+
+          Nx = faces(meshFaceID) % Nf(1)
+          Ny = faces(meshFaceID) % Nf(2)
+
+          allocate (Q(1:NCONS,0:Nx,0:Ny))
+          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(eSides(zoneFaceID)) % Q(:,:,:)
+
+          ! 4 integers are written: number of dimension, and 3 value of the dimensions
+          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4_AddrInt*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
+          call writeArray(fid, Q, position=pos)
+
+          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(eSides(zoneFaceID)) % Qdot(:,:,:)
+          write(fid) Q
+
+          safedeallocate(Q)
+      end do
+
+     close(fid)
+!
+!    Close the file
+!    --------------
+     call SealSolutionFile(trim(name))
+!
+   End Subroutine SurfaceSaveSolution
+!         
+   Subroutine SurfaceLoadSolution(surface_zone, mesh, fileName, fGlobID, faceOffset, eSides)
+
+      use SolutionFile
+      use PhysicsStorage
+
+      implicit none
+
+      class (Zone_t), intent(in)                           :: surface_zone
+      class (HexMesh), intent(inout)                       :: mesh
+      character(len=*), intent(in)                         :: fileName
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
+      integer, dimension(:), intent(in)                    :: eSides
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID
+      real(kind=RP), dimension(:,:,:), allocatable         :: QF
+      integer                                              :: Nx,Ny
+      integer                                              :: fID, pos, padding
+      integer                                              :: arrayRank, Neq, Npx, Npy
+
+!     Read elements data
+!     ------------------
+      fID = putSolutionFileInReadDataMode(trim(fileName))
+
+      padding = NCONS*2
+!
+!     Loop the zone to get faces and elements
+!     ---------------------------------------
+      do zoneFaceID = 1, surface_zone % no_of_faces
+          meshFaceID = surface_zone % faces(zoneFaceID)
+          ! 4 integers were written: number of dimension, and 3 value of the dimensions
+          pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
+          associate(f => mesh % faces(meshFaceID))
+              Nx = f % Nf(1)
+              Ny = f % Nf(2)
+!             verify dimensions of each row
+              read(fID, pos=pos) arrayRank
+              read(fID) Neq, Npx, Npy
+              if (     ((Npx-1) .ne. Nx) &
+                  .or. ((Npy-1) .ne. Ny) &
+                  .or. (Neq     .ne. NCONS ) ) then
+                  write(STD_OUT,'(A,I0,A)') "Error reading fwh file: wrong dimension for face "&
+                      ,meshFaceID,"."
+
+                  write(STD_OUT,'(A,I0,A,I0,A)') "Face dimensions: ", Nx, &
+                      " ,", Ny, "."
+
+                  write(STD_OUT,'(A,I0,A,I0,A)') "File dimensions: ", Npx -1, &
+                      " ,", Npy-1, "."
+                  errorMessage(STD_OUT)
+                  stop
+              end if
+
+              allocate(QF(1:NCONS,0:Nx,0:Ny))
+              read(fID) QF
+              f % storage(eSides(zoneFaceID)) % Q = QF
+              read(fID) QF
+              f % storage(eSides(zoneFaceID)) % Qdot = QF
+              safedeallocate(QF)
+          end associate
+      end do
+
+!     Close the file
+!     --------------
+      close(fID)
+!
+   End Subroutine SurfaceLoadSolution
+!
+   Subroutine SurfacePrepareForIO(surface_zone, mesh, totalNumberOfFaces, globalFaceID, faceOffset)
+
+!     *******************************************************************
+!        This subroutine creates the arrays necessary for the face binary file
+!     *******************************************************************
+!
+      use FaceClass
+#ifdef _HAS_MPI_
+        use mpi
+#endif
+      implicit none
+      class (Zone_t), intent(in)                           :: surface_zone
+      class (HexMesh), intent(in), target                  :: mesh
+      integer,intent(in)                                   :: totalNumberOfFaces
+      integer, dimension(surface_zone % no_of_faces), intent(out)          :: globalFaceID, faceOffset
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID, eID, i
+      integer, dimension(:), allocatable                   :: gFid, facesSizes, allfacesSizes, allFacesOffset
+      integer, dimension(:,:), allocatable                 :: zoneInfoArray
+      ! integer, dimension(:), allocatable                 :: zoneInfoArray
+      integer                                              :: ierr, fID
+      class(Face), pointer                                 :: faces(:)
+      integer, dimension(MPI_Process % nProcs)             :: no_of_faces_p, displs
+      integer, dimension(1)                                :: idInGlobal
+
+      faces => mesh % faces
+
+!     *******************************************************************
+!     Get the globalFaceID
+!     *******************************************************************
+
+      allocate(gFid(totalNumberOfFaces))
+      allocate(zoneInfoArray(totalNumberOfFaces,2))
+
+      if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+          call mpi_gather(surface_zone % no_of_faces,1,MPI_INT,no_of_faces_p,1,MPI_INT,0,MPI_COMM_WORLD,ierr)
+
+      if (MPI_Process % isRoot) then
+          displs=0
+          do i = 2, MPI_Process % nProcs 
+              displs(i) = displs(i-1) + no_of_faces_p(i-1)
+          end do
+      end if
+
+      ! get the global element ID and the face ID as a single 2D array for the root process, will be used to sort
+      call mpi_gatherv(mesh % elements(faces(surface_zone % faces) % elementIDs(1)) % globID, surface_zone % no_of_faces,MPI_INT, &
+                                     zoneInfoArray(:,1), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+      call mpi_gatherv(surface_zone % faces, surface_zone % no_of_faces,MPI_INT, &
+                                     zoneInfoArray(:,2), no_of_faces_p, displs, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+      ! get the sorted array
+      if (MPI_Process % isRoot) then
+          gFid = getGlobalFaceIDs(zoneInfoArray, totalNumberOfFaces)
+      end if
+
+      ! distribute to all partitions
+      call mpi_scatterv(gFid, no_of_faces_p, displs, MPI_INT, globalFaceID, surface_zone % no_of_faces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+#endif
+      else
+          zoneInfoArray(:,1) = mesh % elements(faces(surface_zone % faces) % elementIDs(1)) % globID
+          zoneInfoArray(:,2) = surface_zone % faces
+          ! get the sorted array
+          globalFaceID = getGlobalFaceIDs(zoneInfoArray, totalNumberOfFaces)
+      end if
+
+!     Free memory
+!     -----------
+      deallocate(gFid, zoneInfoArray)
+
+!     *******************************************************************
+!     Get the faceOffset, similar to HexMesh_PrepareForIO, but for faces
+!     *******************************************************************
+
+!     Get each face storage size
+!     ---------------------
+      allocate(facesSizes(totalNumberOfFaces), allfacesSizes(totalNumberOfFaces))
+
+      facesSizes = 0 ! default to use allreduce
+      do zoneFaceID = 1, surface_zone % no_of_faces
+          ! globalFaceID index
+          fID = globalFaceID(zoneFaceID)
+          meshFaceID = surface_zone % faces(zoneFaceID)
+          facesSizes(fID) = ( faces(meshFaceID) % Nf(1) +1 ) * ( faces(meshFaceID) % Nf(2) +1 )
+      end do
+
+      allfacesSizes = 0
+      if ( (MPI_Process % doMPIAction) ) then
+#ifdef _HAS_MPI_
+          call mpi_allreduce(facesSizes, allfacesSizes, totalNumberOfFaces, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+      else
+          allfacesSizes = facesSizes
+      end if
+    
+!     Get all faces offset: the accumulation of allfacesSizes
+!     -----------------------
+      allocate(allFacesOffset(totalNumberOfFaces))
+
+      allFacesOffset(1) = 0
+      do fID = 2, totalNumberOfFaces
+          allFacesOffset(fID) = allFacesOffset(fID-1) + allfacesSizes(fID-1)
+      end do
+
+!     Assign the results to partitions' array
+!     ----------------------------------
+      do zoneFaceID = 1, surface_zone % no_of_faces
+          fID = globalFaceID(zoneFaceID)
+          faceOffset(zoneFaceID) = allFacesOffset(fID)
+      end do
+
+!     Free memory
+!     -----------
+      deallocate(facesSizes, allfacesSizes, allFacesOffset)
+!
+   End Subroutine SurfacePrepareForIO
+!
+   Function getGlobalFaceIDs(zoneInfoArray, N) result(gID)
+!     *******************************************************************
+!        This function gets a unique identifier of each face of the surface_zone,
+!        in a unique order needed for I/O
+!     *******************************************************************
+
+      use Utilities, only: QsortWithFriend
+      implicit none
+
+      integer,dimension(N,2),intent(in)                    :: zoneInfoArray
+      integer,intent(in)                                   :: N
+      integer,dimension(N)                                 :: giD
+
+      ! local variables
+      integer,dimension(N)                                 :: originalIndex, orderedIndex, toOrderArray
+      integer                                              :: bigInt, i, maxF, nDigits
+
+      maxF = maxval(zoneInfoArray(:,2))
+      nDigits = 0
+      ! get number of digits of maxF
+      do while (maxF .ne. 0)
+          maxF = maxF / 10
+          nDigits = nDigits + 1
+      end do
+      ! convert the two arrays as a one of integers that can be sort, first by the globID of the element and the by the faceID
+      bigInt = 10 ** nDigits
+      toOrderArray = bigInt * zoneInfoArray(:,1) + zoneInfoArray(:,2)
+      ! create simple arrays of indexes
+      originalIndex = [(i, i=1,N)]
+      orderedIndex = [(i, i=1,N)]
+      call QsortWithFriend(toOrderArray,originalIndex)
+      ! get the indexes of orders`
+      call QsortWithFriend(originalIndex, orderedIndex)
+      gID = orderedIndex
+!
+   End Function getGlobalFaceIDs
+!
+   Subroutine SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, numberOfFaces, eSides)
+
+!     *******************************************************************
+!        This subroutine reads the faces of the surface from a text file
+!     *******************************************************************
+!
+      use ElementConnectivityDefinitions, only: FACES_PER_ELEMENT, NODES_PER_FACE
+#ifdef _HAS_MPI_
+        use mpi
+#endif
+      implicit none
+
+      class(HexMesh), intent(in)                          :: mesh
+      character(len=LINE_LENGTH), intent(in)              :: surface_file
+      integer, dimension(:), allocatable, intent(out)     :: facesIDs, eSides
+      integer, intent(out)                                :: numberOfFaces
+
+      ! local variables
+      integer                                             :: fd       ! File unit
+      integer                                             :: i, j, k
+      integer                                             :: ierr
+      integer                                             :: allNumberOfFaces, eID, sumFaces
+      integer, dimension(:), allocatable                  :: eIDs, allGeIDs, allfIDs
+      integer, dimension(:), allocatable                  :: fIDsTemp, eIDsTemp
+      integer, dimension(:,:), allocatable                :: nodeIDs, allNodeIDs, nodeIDsTemp
+      integer, dimension(NODES_PER_FACE)                  :: faceNodeID
+      logical                                             :: hasMPIExtraInfo
+         
+
+!       Only root open and read the file
+!       ------------------
+        if (MPI_Process % isRoot) then
+          open(newunit = fd, file = surface_file )   
+          read(fd,*) allNumberOfFaces
+
+          allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces) )
+
+          read(fd,*) hasMPIExtraInfo
+
+          if (hasMPIExtraInfo) then
+            allocate(allNodeIDs(4,allNumberOfFaces))
+            do i = 1, allNumberOfFaces
+              read(fd,*) allGeIDs(i), allfIDs(i), allNodeIDs(:,i)
+            end do
+          else
+            if (MPI_Process % doMPIAction) then
+                print *, "Error, the surface file does not have the information necessary to create it while running with MPI"
+                call exit(99)
+            end if 
+            do i = 1, allNumberOfFaces
+              read(fd,*) allGeIDs(i), allfIDs(i)
+            end do
+          end if
+          close(unit=fd)
+        end if
+
+!       For MPI, check the nodeIDs and compare it to each face of the element to find the right one in the partition
+!       ------------------
+        if ( (MPI_Process % doMPIAction) ) then
+
+!         Broadcast from root, since other process didnt read the file
+!         ------------------
+#ifdef _HAS_MPI_
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+          call mpi_Bcast(allNumberOfFaces, 1, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+
+          if (.not. MPI_Process % isRoot) allocate( allfIDs(allNumberOfFaces), allGeIDs(allNumberOfFaces), allNodeIDs(4,allNumberOfFaces) )
+          ! call mpi_barrier(MPI_COMM_WORLD, ierr)
+          call mpi_Bcast(allGeIDs, allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+
+          call mpi_Bcast(allNodeIDs, 4*allNumberOfFaces, MPI_INT, 0, MPI_COMM_WORLD, ierr)
+#endif
+
+!         First compare the globaleID read from the element in the partition and save the normal (not global) eID, and the
+!         correspondend read nodeIDs
+!         ------------------
+          allocate( nodeIDs(4,allNumberOfFaces), eIDs(allNumberOfFaces) )
+          j = 0
+          do i = 1, allNumberOfFaces
+            elems_loop:do eID = 1, mesh%no_of_elements
+              if (mesh % elements(eID) % globID .eq. allGeIDs(i)) then
+                j = j + 1
+                eIDs(j) = eID
+                nodeIDs(:,j) = allNodeIDs(:,i)
+                exit elems_loop
+              end if
+            end do elems_loop
+          end do
+          numberOfFaces = j
+          allocate( nodeIDsTemp(4,numberOfFaces), eIDsTemp(numberOfFaces), facesIDs(numberOfFaces), eSides(numberOfFaces) )
+          eIDsTemp(:) = eIDs(1:numberOfFaces)
+          nodeIDsTemp(:,:) = nodeIDs(:,1:numberOfFaces)
+          call move_alloc(eIDsTemp, eIDs)
+          call move_alloc(nodeIDsTemp, nodeIDs)
+
+!       Check that all the elements are found in the mesh partitions
+!       ------------------
+#ifdef _HAS_MPI_
+         call mpi_allreduce(numberOfFaces, sumFaces, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
+#endif
+          if (sumFaces .ne. allNumberOfFaces .and. MPI_Process % isRoot) then
+              print *, "Error:, not all the elements of the surface file where found in the mesh. File elements: ", allNumberOfFaces, &
+              "elements found: ", sumFaces
+            call exit(99)
+          end if 
+
+!         Now get the actual facesID of the partition for each element based on the nodeIDs
+!         ------------------
+          element_face_loop:do i = 1, numberOfFaces
+            associate( e => mesh % elements(eIDs(i)) )
+              do j = 1, FACES_PER_ELEMENT
+                do k = 1, NODES_PER_FACE
+                  faceNodeID(k) = mesh % nodes(mesh % faces(e % faceIDs(j)) % nodeIDs(k)) % globID
+                end do
+                if (all( nodeIDs(:,i) .eq. faceNodeID)) then
+                  facesIDs(i) = e % faceIDs(j)
+                  eSides(i) = e % faceSide(j)
+                  cycle element_face_loop
+                end if
+              end do
+                ! if code arrives here, the face was not found
+              print *, "Error:, for surface file the face was not found for node ids: ", nodeIDs(:,i), &
+                    "and element ID: ", eIDs(i)
+              call exit(99)
+            end associate
+          end do element_face_loop
+
+!       For non MPI, just pass to normal arrays and check if the faces correspond to the element, and get side of face
+!       ------------------
+        else
+          numberOfFaces = allNumberOfFaces
+          allocate( facesIDs(numberOfFaces), eIDs(numberOfFaces), eSides(numberOfFaces) )
+          facesIDs = allfIDs
+          eIDs = allGeIDs
+          deallocate(allGeIDs, allfIDs)
+          eSides = 0
+          do i = 1, numberOfFaces
+              ! if findloc is suport by the compiler use this line and comment the if
+              ! eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
+              if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
+                eSides(i) = 1
+              elseif ( mesh%faces(facesIDs(i))%elementIDs(2) .eq. eIDs(i) ) then
+                eSides(i) = 2
+              end if
+              if (eSides(i) .eq. 0) then
+                print *, "Error: the element ", eIDs(i), " does not correspond to the face ", mesh % faces(facesIDs(i)) % ID, &
+                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the elemet are: ", mesh % elements(eIDs(i)) % faceIDs
+                call exit(99)
+              end if 
+          end do
+        end if
+!
+   End Subroutine SurfaceLoadSurfaceFromFile
+!
+   Subroutine SurfaceSaveMesh( surface_zone, mesh, fileName, no_of_faces, fGlobID, faceOffset )
+!
+!     *******************************************************************
+!        This subroutine saves the mesh from the face geometry to a binary file
+!     *******************************************************************
+!
+      use SolutionFile
+      use PhysicsStorage, only: Lref
+      use FileReadingUtilities, only: removePath, getFileName
+      implicit none
+      class (Zone_t), intent(in)                           :: surface_zone
+      class (HexMesh), intent(in)                          :: mesh
+      character(len=*), intent(in)                         :: fileName
+      integer,intent(in)                                   :: no_of_faces
+      integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
+
+      ! local variables
+      integer                                              :: zoneFaceID, meshFaceID
+      integer                                              :: fid
+      integer(kind=AddrInt)                                :: pos
+      character(len=LINE_LENGTH)                           :: meshName
+      real(kind=RP), parameter                             :: refs(NO_OF_SAVED_REFS) = 0.0_RP
+
+!
+!     Create file: it will be contained in ./MESH
+!     -------------------------------------------
+      meshName = "./MESH/" // trim(removePath(getFileName(fileName))) // ".surf.hmesh"
+      call CreateNewSolutionFile(trim(meshName), ZONE_MESH_FILE, mesh % nodeType, &
+                                    no_of_faces, 0, 0.0_RP, refs)
+!
+!     Write arrays
+!     ------------
+       fID = putSolutionFileInWriteDataMode(trim(meshName))
+
+!     Loop the zone to get faces
+!     ---------------------------------------
+      do zoneFaceID = 1, surface_zone % no_of_faces
+          meshFaceID = surface_zone % faces(zoneFaceID)
+          associate( f => mesh % faces(meshFaceID) )
+              ! 4 integers are written: number of dimension, and 3 value of the dimensions
+              pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4_AddrInt*SIZEOF_INT + 3_AddrInt * faceOffset(zoneFaceID) * SIZEOF_RP
+              call writeArray(fid, f % geom % x(:,0:f%Nf(1),0:f%Nf(2))*Lref, position=pos)
+          end associate
+
+      end do
+
+     close(fid)
+!
+!
+!    Close the file
+!    --------------
+      call SealSolutionFile(trim(meshName))
+
+   End Subroutine SurfaceSaveMesh
+!         
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!           HELPER PROCEDURES --------------------------
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!         
+    integer Function getZoneID(zone_name, mesh) result(n)
+
+        character(len=*), intent(in)                        :: zone_name
+        class(HexMesh), intent(in)                          :: mesh
+
+        !local variables
+        integer                                             :: zoneID
+
+         n = -1
+         do zoneID = 1, size(mesh % zones)
+            if ( trim(mesh % zones(zoneID) % name) .eq. trim(zone_name) ) then
+               n = zoneID
+               exit
+            end if
+         end do
+
+    End Function getZoneID
+!
+End Module SurfaceMesh

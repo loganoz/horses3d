@@ -238,7 +238,7 @@ module ZoneClass
          to % faces = from % faces
       end subroutine Zone_Assign
 
-      ! create a ficticious zone, useful to represent ficticious surfaces such as for FWH analogy
+      ! create a ficticious zone, useful to represent ficticious surfaces such as slices or FWH analogy
       Subroutine Zone_CreateFicticious(self, marker, zoneName, no_of_faces, facesID)
 
          implicit none
