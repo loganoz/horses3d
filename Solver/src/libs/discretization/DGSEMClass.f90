@@ -104,6 +104,7 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
+      use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE
 !
 !     --------------------------
@@ -292,6 +293,10 @@ Module DGSEMClass
 #endif
       IF(.NOT. success) RETURN
 !
+!     construct surfaces mesh
+!     -----------------------
+      call surfacesMesh % construct(controlVariables, self % mesh)
+!
 !     ----------------------------
 !     Get the final number of DOFS
 !     ----------------------------
@@ -399,6 +404,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
+      use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
@@ -410,6 +416,8 @@ Module DGSEMClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % destruct
 #endif
+    
+      call surfacesMesh % destruct
       
       END SUBROUTINE DestructDGSem
 !
@@ -430,6 +438,7 @@ Module DGSEMClass
       subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time ) 
          use FTValueDictionaryClass
          USE mainKeywordsModule
+         use SurfaceMesh, only: surfacesMesh
          implicit none
          class(DGSEM)   :: self
          class(FTValueDictionary), intent(in)   :: controlVariables
@@ -469,9 +478,7 @@ Module DGSEMClass
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
          call self % mesh % Export( trim(solutionName) )
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         IF (flowIsNavierStokes) call self % fwh % saveSourceMesh(self % mesh, initial_iteration)
-#endif
+         call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
    
       end subroutine DGSEM_SetInitialCondition
 !

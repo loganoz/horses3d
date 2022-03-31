@@ -136,7 +136,7 @@ module getTask
                close(fid)
                if ( io .ne. 0 ) cycle
 
-               if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE ) then   
+               if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE .and. getSolutionFileType(auxiliarName) .ne. ZONE_MESH_FILE ) then
                   sol = sol + 1 
                   solutionNames(sol) = trim(auxiliarName)
                   solutionTypes(sol) = getSolutionFileType(auxiliarName)

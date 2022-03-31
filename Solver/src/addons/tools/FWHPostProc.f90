@@ -6,6 +6,7 @@ Module FWHPostProc  !
     use DGSEMClass
     use SolutionFile
     use FTValueDictionaryClass
+    use SurfaceMesh, only: surfacesMesh, FWH_POSITION
     Implicit None
 
     contains
@@ -24,8 +25,6 @@ Module FWHPostProc  !
         character(LEN=LINE_LENGTH)                              :: pattern, fullExpression
         real(kind=RP)                                           :: r
         character(len=OBS_LENGTH), parameter                    :: dashes = "----------"
-
-        call sem % fwh % autosaveConfig(controlVariables, 0.0_RP)
 
         ! get files in temporal txt
         pattern = controlVariables % stringValueForKey("accoustic files pattern", LINE_LENGTH)
@@ -110,7 +109,14 @@ Module FWHPostProc  !
                errorMessage(STD_OUT)
                stop
 
-            case(ZONE_SOLUTION_FILE)
+            case(ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_GRAD_FILE)
+               print*, "The selected file is a zone file without time derivative"
+               errorMessage(STD_OUT)
+               stop
+
+            case(ZONE_SOLUTION_AND_DOT_FILE)
+
+            case(ZONE_SOLUTION_AND_GRAD_D_FILE)
 
             case default
                print*, "Unknown restart file format"
@@ -131,7 +137,7 @@ Module FWHPostProc  !
 !       ---------------------------
         no_of_elements = getSolutionFileNoOfElements(trim(fileName))
 
-        if ( no_of_elements .ne. fwh % sourceZone % no_of_faces ) then
+        if ( no_of_elements .ne. surfacesMesh % zones(FWH_POSITION) % no_of_faces ) then
            write(STD_OUT,'(A,A)') "The number of faces stored in the file ", &
                                   "do not match that of the surface defined"
            errorMessage(STD_OUT)
@@ -155,7 +161,7 @@ Module FWHPostProc  !
 !
 !       Load Solution to FWH Surface
 !       -----------------------------
-        call fwh % loadSourceSol(trim(fileName), mesh)
+        call surfacesMesh % loadSolution(trim(fileName), mesh)
 !
 !       Update and Write if necessary
 !       -----------------------------
