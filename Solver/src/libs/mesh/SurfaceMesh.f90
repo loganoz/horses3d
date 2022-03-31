@@ -17,7 +17,7 @@ Module SurfaceMesh
     use HexMeshClass
     use ZoneClass
     use AutosaveClass
-    use FTValueDictionaryClass
+    use FTValueDictionaryClass, only: FTValueDictionary
     use MPI_Process_Info
     Implicit None
 !   
@@ -43,7 +43,8 @@ Module SurfaceMesh
         integer, dimension(:,:), allocatable                    :: faceOffset       ! for I/O with mpi
         integer, dimension(:,:), allocatable                    :: elementSide      ! for reading surface from file
         type(Autosave_t)                                        :: autosave         ! save solution parameters
-        ! real(kind=RP)                                           :: dt_update
+        logical                                                 :: saveGradients    ! flag use for save gradients in bcs and slices
+        logical                                                 :: mergeFWHandBC    ! flag to merge 2 surfaces if they have the same BCs
         logical                                                 :: active           ! flag use for save at least one file
 
         contains
@@ -57,6 +58,7 @@ Module SurfaceMesh
     end type SurfaceMesh_t 
 
     type(SurfaceMesh_t)                         :: surfacesMesh
+    real(kind=RP)                               :: sliceTolerance
 !
    contains 
 !
@@ -72,9 +74,10 @@ Module SurfaceMesh
 !        is allowed). Then it will be the BC, then each direction the slices.
 !     ************************************************************************
 !
-        use FileReadingUtilities, only: getFileName, getCharArrayFromString
+        use FileReadingUtilities, only: getFileName, getCharArrayFromString, getRealArrayFromString
         use mainKeywordsModule
         use Utilities,            only: toLower
+        use Headers
 #ifdef _HAS_MPI_
         use mpi
 #endif
@@ -88,12 +91,15 @@ Module SurfaceMesh
         integer                                                 :: numberOfSurfaces, numberOfFaces, numberOfSurfacesBC, surfaceCont
         integer                                                 :: maxNumberFaces, nf
         integer, dimension(NDIM)                                :: numberOfSurfacesSlices
-        integer                                                 :: i, ierr
+        integer                                                 :: i, j, ierr
         integer                                                 :: idSliceX, idSliceY, idSliceZ, idBC
         logical                                                 :: hasFWH, hasSliceX, hasSliceY, hasSliceZ, hasBC
         character(len=LINE_LENGTH)                              :: solution_file, read_str, fileName, zoneName
-        character(len=LINE_LENGTH), dimension(:), allocatable   :: bsc_names
+        character(len=LINE_LENGTH), dimension(:), allocatable   :: bcs_names, bcs_namesFWH
         integer, dimension(:), allocatable                      :: FWHelementSide, facesIDs
+        real(kind=RP), dimension(:), allocatable                :: posSliceX, posSliceY, posSliceZ
+        real(kind=RP), dimension(:), allocatable                :: limSliceX, limSliceY, limSliceZ
+        logical, dimension(:), allocatable                      :: surfaceActive
 
         numberOfSurfaces = 0
         self % active = .false.
@@ -109,31 +115,81 @@ Module SurfaceMesh
         idSliceY  = 0
         idSliceZ  = 0
         idBC      = 0
+        numberOfSurfacesBC     = 0
+        numberOfSurfacesSlices = 0
 !
 !       Get the solution file name
 !       --------------------------
         solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = LINE_LENGTH )
         solution_file = trim(getFileName(solution_file))
 !
+        sliceTolerance = controlVariables % getValueOrDefault("slice tolerance", 1.0e-4_RP)
+        self % saveGradients = controlVariables % logicalValueForKey("surface save gradients") .or. controlVariables % logicalValueForKey("save gradients")
+!
 !       get number of surfaces
 !       ----------------------
         if (hasFWH) numberOfSurfaces = numberOfSurfaces + 1
+!
+        if (hasSliceX) then
+            read_str = controlVariables % stringValueForKey("slice x coordinates", LINE_LENGTH)
+            call toLower(read_str)
+            posSliceX = getRealArrayFromString(read_str)
+            numberOfSurfacesSlices(1) =  size(posSliceX)
+            read_str = controlVariables % stringValueForKey("slice x limits", LINE_LENGTH)
+            call toLower(read_str)
+            if (trim(read_str) .ne. "") limSliceX = getRealArrayFromString(read_str)
+        end if
+!
+        if (hasSliceY) then
+            read_str = controlVariables % stringValueForKey("slice y coordinates", LINE_LENGTH)
+            call toLower(read_str)
+            posSliceY = getRealArrayFromString(read_str)
+            numberOfSurfacesSlices(2) =  size(posSliceY)
+            read_str = controlVariables % stringValueForKey("slice y limits", LINE_LENGTH)
+            call toLower(read_str)
+            if (trim(read_str) .ne. "") limSliceY = getRealArrayFromString(read_str)
+        end if
+!
+        if (hasSliceZ) then
+            read_str = controlVariables % stringValueForKey("slice z coordinates", LINE_LENGTH)
+            call toLower(read_str)
+            posSliceZ = getRealArrayFromString(read_str)
+            numberOfSurfacesSlices(3) =  size(posSliceZ)
+            read_str = controlVariables % stringValueForKey("slice z limits", LINE_LENGTH)
+            call toLower(read_str)
+            if (trim(read_str) .ne. "") limSliceZ = getRealArrayFromString(read_str)
+        end if 
+!
         if (hasBC) then
             read_str = controlVariables % stringValueForKey("boundaries to save", LINE_LENGTH)
             call toLower(read_str)
-            call getCharArrayFromString(read_str, LINE_LENGTH, bsc_names)
-            numberOfSurfacesBC =  size(bsc_names)
-            numberOfSurfaces = numberOfSurfaces + numberOfSurfacesBC
+            call getCharArrayFromString(read_str, LINE_LENGTH, bcs_names)
+            numberOfSurfacesBC =  size(bcs_names)
         end if 
+        self % mergeFWHandBC = .false.
+        if (hasFWH .and. hasBC) then
+            if (controlVariables % containsKey("accoustic solid surface")) then
+                read_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
+                call toLower(read_str)
+                call getCharArrayFromString(read_str, LINE_LENGTH, bcs_namesFWH)
+                if (all( bcs_names .eq. bcs_namesFWH )) then
+                    self % mergeFWHandBC = .true.
+                    numberOfSurfacesBC = 0
+                    hasBC = .false.
+                end if
+            end if
+        end if
+        numberOfSurfaces = numberOfSurfaces + sum(numberOfSurfacesSlices) + numberOfSurfacesBC
 !
 !       return if there are no surfaces, the flag active will be false and 
-!       all of the arrays wont be allocated the class procedures will look for the flag before doing anything
+!       all of the arrays wont be allocated. The class procedures will look for the flag before doing anything
         if (numberOfSurfaces .eq. 0) return
 !
         self % numberOfSurfaces = numberOfSurfaces
         allocate( self % totalFaces(numberOfSurfaces), self % surfaceTypes(numberOfSurfaces), self % zones(numberOfSurfaces), self % surfaceActive(numberOfSurfaces), self % file_names(numberOfSurfaces) )
         self % totalFaces = 0
         self % surfaceActive = .false.
+        self % surfaceTypes = 0
 !
 !       now construct all the surfaces
 !       ------------------------------
@@ -146,18 +202,69 @@ Module SurfaceMesh
             allocate ( self % elementSide(size(FWHelementSide),1) )
             self % elementSide(:,1) = FWHelementSide
         end if 
-        if (hasBC) then
-            do i = 1, numberOfSurfacesBC
+!
+        if (hasSliceX) then
+            slicex_loop: do i = 1, numberOfSurfacesSlices(1)
                 surfaceCont = surfaceCont + 1
+                idSliceX = idSliceX + 1
                 safedeallocate(facesIDs)
-                ! if (xx) cycle
-                facesIDs = 0
+                call getSliceFaces(1, posSliceX(i), mesh, numberOfFaces, facesIDs, limSliceX)
+                write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sx', idSliceX
+                zoneName = "sliceSurface"
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+            end do slicex_loop
+        end if 
+!
+        if (hasSliceY) then
+            slicey_loop: do i = 1, numberOfSurfacesSlices(2)
+                surfaceCont = surfaceCont + 1
+                idSliceY = idSliceY + 1
+                safedeallocate(facesIDs)
+                call getSliceFaces(2, posSliceY(i), mesh, numberOfFaces, facesIDs, limSliceY)
+                write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sy', idSliceY
+                zoneName = "sliceSurface"
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+            end do slicey_loop
+        end if 
+!
+        if (hasSliceZ) then
+            slicez_loop: do i = 1, numberOfSurfacesSlices(3)
+                surfaceCont = surfaceCont + 1
+                idSliceZ = idSliceZ + 1
+                safedeallocate(facesIDs)
+                call getSliceFaces(3, posSliceZ(i), mesh, numberOfFaces, facesIDs,limSliceZ)
+                write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sz', idSliceZ
+                zoneName = "sliceSurface"
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+            end do slicez_loop
+        end if 
+!
+        if (hasBC .and. .not. self % mergeFWHandBC) then
+            bcs_loop: do i = 1, numberOfSurfacesBC
+                surfaceCont = surfaceCont + 1
                 idBC = idBC + 1
+                safedeallocate(facesIDs)
+                do j = 1, size(mesh % zones)
+                    if (trim(bcs_names(i)) .eq. trim(mesh % zones(j) % Name)) exit
+                end do
+                if (j .gt. size(mesh % zones)) cycle bcs_loop
+                numberOfFaces = mesh % zones(j) % no_of_faces
+                allocate( facesIDs(numberOfFaces) )
+                facesIDs = mesh % zones(j) % faces
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_bc', idBC
                 zoneName = "BC_Surface"
                 call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs)
-            end do
+            end do bcs_loop
         end if 
+        ! get whether at least one partition has faces of the surface
+        if ( (MPI_Process % doMPIAction) ) then
+                allocate(surfaceActive(numberOfSurfaces))
+#ifdef _HAS_MPI_
+            call mpi_allreduce(self % surfaceActive, surfaceActive, numberOfSurfaces, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, ierr)
+#endif
+            self % surfaceActive = surfaceActive
+            deallocate(surfaceActive)
+        end if
 !
 !       Gather the total number of faces and
 !       Get the max no of faces between all surfaces en each partition
@@ -192,6 +299,20 @@ Module SurfaceMesh
 !
         ! change to look if there is at least one true in the array of flags
         self % active = .true.
+!
+!       Describe the zones
+!       ------------------
+        if ( .not. MPI_Process % isRoot ) return
+        if (hasFWH .and. .not. (hasBC .or. hasSliceX .or. hasSliceY .or. hasSliceZ)) return
+        call Subsection_Header("Ficticious surfaces zone")
+        write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of surfaces: ", self % numberOfSurfaces
+        if (.not. all(self % surfaceActive)) write(STD_OUT,'(30X,A,A28,I0)') "->", "Inactive surfaces: ", count(.not. self % surfaceActive, dim=1)
+        write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of slices: ", idSliceX + idSliceY + idSliceZ
+        if (hasBC) write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of boundaries: ", numberOfSurfacesBC
+        if (hasFWH) then 
+            write(STD_OUT,'(30X,A,A28,L1)') "->", "Save FWH and BC together: ", self % mergeFWHandBC
+            write(STD_OUT ,'(/)')
+        end if
 !
     End Subroutine SurfConstruct
 !
@@ -236,22 +357,22 @@ Module SurfaceMesh
         end if
 !
         saveFWH = controlVariables % containsKey("accoustic save timestep")
-        saveSurf = controlVariables % containsKey("surfaces save timestep")
+        saveSurf = controlVariables % containsKey("surface save timestep")
 !
-        if (saveSurf .and. saveSurf) then
-            print *, "Warning: both accoustic and surfaces save timestep have been specified, the minimum value will be set"
+        if (saveSurf .and. saveFWH) then
+            write(STD_OUT,'(A)') "Warning: both accoustic and surface save timestep have been specified, the minimum value will be set"
         endif
 !
 !       configure save type, used for update, write and save file
 !       --------------------------
         if (saveSurf .or. saveFWH) then
             dtSf = controlVariables % getValueOrDefault("accoustic save timestep", huge(1.0_RP))
-            dtFW = controlVariables % getValueOrDefault("surfaces save timestep", huge(1.0_RP))
+            dtFW = controlVariables % getValueOrDefault("surface save timestep", huge(1.0_RP))
             dtSave = min(dtSf, dtFW)
             self % autosave = Autosave_t(.FALSE.,.TRUE.,huge(1),dtSave,nextAutosaveTime=dtSave+t0,mode=AUTOSAVE_BY_TIME)
         else
             !Save each time step
-            print *, "Warning: neither accoustic nor surfaces save timestep have been specified, it will be saved each timestep"
+            write(STD_OUT,'(A)') "Warning: neither accoustic nor surface save timestep have been specified, it will be saved each timestep"
             self % autosave = Autosave_t(.FALSE.,.TRUE.,1,huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_BY_ITERATION)
         end if
     End Subroutine SurfSaveSolutionConfiguration
@@ -270,7 +391,7 @@ Module SurfaceMesh
         logical                                             :: saveFWH
 
         if (.not. self % active) return
-        saveFWH = controlVariables % logicalValueForKey("accoustic surface mesh save")
+        saveFWH = controlVariables % logicalValueForKey("accoustic surface mesh save") .or. self % mergeFWHandBC
         do i = 1, self % numberOfSurfaces
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
@@ -295,17 +416,27 @@ Module SurfaceMesh
         integer                                             :: i, nf
         character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
         logical                                             :: saveFWH
+        integer, dimension(:), allocatable                  :: elemSide
 
         if (.not. self % active) return
-        saveFWH = controlVariables % logicalValueForKey("accoustic solution save")
+        saveFWH = controlVariables % logicalValueForKey("accoustic solution save") .or. self % mergeFWHandBC
         do i = 1, self % numberOfSurfaces
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
             if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
             write(FinalName,'(2A,I10.10,A)') trim(self % file_names(i)),'_',iter,'.surf.hsol'
             nf = self % zones(i) % no_of_faces
+            safedeallocate(elemSide)
+            allocate(elemSide(nf))
+            if (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) then
+                elemSide = self % elementSide(:,1)
+            else
+                ! for slices and BC use always the first element of the face, this can be changed if needed
+                elemSide = 1
+            end if
             call SurfaceSaveSolution(self % zones(i), mesh, time, iter, FinalName, self % totalFaces(i), &
-                                     self % globalFid(1:nf,i), self % faceOffset(1:nf,i), self%elementSide(:,1))
+                                 self % globalFid(1:nf,i), self % faceOffset(1:nf,i), elemSide, &
+                                 self % surfaceTypes(i),self % saveGradients, self % mergeFWHandBC)
         end do
 !
     End Subroutine SurfSaveAllSolution
@@ -430,9 +561,11 @@ Module SurfaceMesh
         character(len=LINE_LENGTH), intent(in)              :: file_name, zone_name
         integer, dimension(:), intent(in)                   :: facesIDs
 
-        call self % zones(surface_index) % CreateFicticious(-1, trim(zone_name), no_of_faces, facesIDs)
         self % surfaceTypes(surface_index) = surface_type
         self % file_names(surface_index) = trim(file_name)
+        ! not set active nor create zone if there are no faces
+        if (no_of_faces .le. 0) return
+        call self % zones(surface_index) % CreateFicticious(-1, trim(zone_name), no_of_faces, facesIDs)
         self % surfaceActive(surface_index) = .true.
 
     End Subroutine createSingleSurface
@@ -441,7 +574,7 @@ Module SurfaceMesh
 !           SINGLE SURFACE (ZONE) PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !         
-   Subroutine SurfaceSaveSolution(surface_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset, eSides)
+   Subroutine SurfaceSaveSolution(surface_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset, eSides, surface_type, saveGradients, saveBCandFWH)
 
 !     *******************************************************************
 !        This subroutine saves the solution from the face storage to a binary file
@@ -457,63 +590,141 @@ Module SurfaceMesh
       class (Zone_t), intent(in)                           :: surface_zone
       class (HexMesh), intent(in), target                  :: mesh
       real(kind=RP), intent(in)                            :: time
-      integer,intent(in)                                   :: iter, no_of_faces
+      integer,intent(in)                                   :: iter, no_of_faces, surface_type
       character(len=*), intent(in)                         :: name
       integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
       integer, dimension(:), intent(in)                    :: eSides
+      logical                                              :: saveGradients, saveBCandFWH
 
       ! local variables
-      integer                                              :: zoneFaceID, meshFaceID, eID
+      integer                                              :: zoneFaceID, meshFaceID, solution_type
       integer                                              :: ierr
       integer, dimension(6)                                :: meshFaceIDs
-      class(Face), pointer                                 :: faces(:)
+      class(Face), pointer                                 :: f
       real(kind=RP), dimension(:,:,:), allocatable         :: Q
       real(kind=RP), dimension(NDIM)                       :: x
       integer                                              :: Nx,Ny
       integer                                              :: fid, padding
       integer(kind=AddrInt)                                :: pos
       real(kind=RP)                                        :: refs(NO_OF_SAVED_REFS) 
+      logical                                              :: saveQdot
+#if (defined(CAHNHILLIARD)) && (!defined(MULTIPHASE))
+      logical                                              :: computeGradients = .true.
+#endif
 
 !
 !     Gather reference quantities
 !     ---------------------------
+#if defined(NAVIERSTOKES)
       refs(GAMMA_REF) = thermodynamics % gamma
       refs(RGAS_REF)  = thermodynamics % R
       refs(RHO_REF)   = refValues      % rho
       refs(V_REF)     = refValues      % V
       refs(T_REF)     = refValues      % T
       refs(MACH_REF)  = dimensionless  % Mach
+#elif defined(INCNS)
+         refs(GAMMA_REF) = 0.0_RP
+         refs(RGAS_REF)  = 0.0_RP
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = 0.0_RP
+         refs(MACH_REF)  = 0.0_RP
+#else
+         refs = 0.0_RP
+#endif
 
+      saveQdot = .false.
+      select case (surface_type)
+      case (SURFACE_TYPE_FWH)
+          saveQdot = .true.
+          if (saveGradients .and. saveBCandFWH) then
+              solution_type = ZONE_SOLUTION_AND_GRAD_D_FILE
+              padding = NCONS*2 + NGRAD*3
+          else
+              solution_type = ZONE_SOLUTION_AND_DOT_FILE
+              padding = NCONS*2
+          end if 
+      case (SURFACE_TYPE_BC)
+          ! more variables such as friction velocity, mu, and hight of first node will be saved in the future
+          if (saveGradients)  then
+              solution_type = ZONE_SOLUTION_AND_GRAD_FILE
+              padding = NCONS + NGRAD*3
+          else
+              solution_type = ZONE_SOLUTION_FILE
+              padding = NCONS
+          end if
+      case (SURFACE_TYPE_SLICE)
+          ! only solution and gradients will be saved for slices
+          if (saveGradients)  then
+              solution_type = ZONE_SOLUTION_AND_GRAD_FILE
+              padding = NCONS + NGRAD*3
+          else
+              solution_type = ZONE_SOLUTION_FILE
+              padding = NCONS
+          end if
+      end select
 !
 !     Create new file
 !     ---------------
-      call CreateNewSolutionFile(trim(name), ZONE_SOLUTION_FILE, mesh % nodeType, &
+      call CreateNewSolutionFile(trim(name), solution_type, mesh % nodeType, &
                                     no_of_faces, iter, time, refs)
-
-      padding = NCONS*2
 !
 !     Write arrays
 !     ------------
       fID = putSolutionFileInWriteDataMode(trim(name))
-      faces => mesh % faces
 !     Loop the zone to get faces
 !     ---------------------------------------
       do zoneFaceID = 1, surface_zone % no_of_faces
           meshFaceID = surface_zone % faces(zoneFaceID)
+          f => mesh % faces(meshFaceID)
 
-          Nx = faces(meshFaceID) % Nf(1)
-          Ny = faces(meshFaceID) % Nf(2)
+          Nx = f % Nf(1)
+          Ny = f % Nf(2)
 
           allocate (Q(1:NCONS,0:Nx,0:Ny))
-          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(eSides(zoneFaceID)) % Q(:,:,:)
+          Q(1:NCONS,:,:)  = f % storage(eSides(zoneFaceID)) % Q(:,:,:)
 
           ! 4 integers are written: number of dimension, and 3 value of the dimensions
           pos = POS_INIT_DATA + (fGlobID(zoneFaceID)-1)*4_AddrInt*SIZEOF_INT + padding * faceOffset(zoneFaceID) * SIZEOF_RP
           call writeArray(fid, Q, position=pos)
 
-          Q(1:NCONS,:,:)  = faces(meshFaceID) % storage(eSides(zoneFaceID)) % Qdot(:,:,:)
-          write(fid) Q
+          if (saveQdot) then
+              Q(1:NCONS,:,:)  = f % storage(eSides(zoneFaceID)) % Qdot(:,:,:)
+              write(fid) Q
+          end if
 
+          ! taken and adapted from saveSolution of HexMesh
+            if ( saveGradients .and. computeGradients ) then
+
+               deallocate(Q)
+               allocate(Q(1:NGRAD,0:Nx,0:Ny))
+
+#ifdef FLOW
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % U_x
+#endif
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % c_x
+#endif
+               write(fid) Q
+
+#ifdef FLOW
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % U_y
+#endif
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % c_y
+#endif
+               write(fid) Q
+
+#ifdef FLOW
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % U_z
+#endif
+#if (defined(CAHNHILLIARD) && (!defined(FLOW)))
+               Q(1:NGRAD,:,:) = f % storage(eSides(zoneFaceID)) % c_z
+#endif
+               write(fid) Q
+
+               deallocate(Q)
+            end if
           safedeallocate(Q)
       end do
 
@@ -539,17 +750,28 @@ Module SurfaceMesh
       integer, dimension(:), intent(in)                    :: eSides
 
       ! local variables
-      integer                                              :: zoneFaceID, meshFaceID
+      integer                                              :: zoneFaceID, meshFaceID, fileType
       real(kind=RP), dimension(:,:,:), allocatable         :: QF
       integer                                              :: Nx,Ny
       integer                                              :: fID, pos, padding
       integer                                              :: arrayRank, Neq, Npx, Npy
 
+!     get type and num of vars
+!     ------------------------
+      fileType = getSolutionFileType(trim(fileName))
+      select case (fileType)
+      case (ZONE_SOLUTION_AND_GRAD_D_FILE)
+              padding = NCONS*2 + NGRAD*3
+      case (ZONE_SOLUTION_AND_DOT_FILE)
+              padding = NCONS*2
+      case default
+              padding = NCONS*2
+      end select
+!
 !     Read elements data
 !     ------------------
       fID = putSolutionFileInReadDataMode(trim(fileName))
 
-      padding = NCONS*2
 !
 !     Loop the zone to get faces and elements
 !     ---------------------------------------
@@ -793,7 +1015,7 @@ Module SurfaceMesh
             end do
           else
             if (MPI_Process % doMPIAction) then
-                print *, "Error, the surface file does not have the information necessary to create it while running with MPI"
+                write(STD_OUT,'(A)') "Error, the surface file does not have the information necessary to create it while running with MPI"
                 call exit(99)
             end if 
             do i = 1, allNumberOfFaces
@@ -963,7 +1185,7 @@ Module SurfaceMesh
     integer Function getZoneID(zone_name, mesh) result(n)
 
         character(len=*), intent(in)                        :: zone_name
-        class(HexMesh), intent(in)                          :: mesh
+        type(HexMesh), intent(in)                           :: mesh
 
         !local variables
         integer                                             :: zoneID
@@ -977,5 +1199,53 @@ Module SurfaceMesh
          end do
 
     End Function getZoneID
+!
+    Subroutine getSliceFaces(direction, coordinate, mesh, numberOfFaces, facesIDs, limitsSlice)
+
+        implicit none
+        integer, intent(in)                                 :: direction
+        real(kind=RP), intent(in)                           :: coordinate
+        type(HexMesh), intent(in)                           :: mesh
+        integer, intent(out)                                :: numberOfFaces
+        integer, dimension(:), allocatable, intent(out)     :: facesIDs
+        real(kind=RP), dimension(:), intent(in)             :: limitsSlice
+
+        ! local variables
+        integer                                             :: i, j
+        integer, dimension(2)                               :: dirLims
+        integer, dimension(:), allocatable                  :: facesIDsTemp
+        logical                                             :: useLimits
+
+
+        useLimits = size(limitsSlice) .eq. 4
+        allocate(facesIDsTemp(mesh % no_of_faces))
+        j = 0
+        do i = 1, mesh % no_of_faces
+            associate( x => mesh % faces(i) % geom % x(:,:,:) )
+                if ( all(abs(x(direction,:,:)-coordinate) .le. sliceTolerance) ) then
+                    ! not use the face if there is no element in mesh associated wiht it.
+                    ! wierd check, but necessary for strange bug when the coordinate is 0
+                    if (mesh % faces(i) % elementIDs(1) .eq. 0) cycle
+                    if (useLimits) then
+                        dirLims(1) = direction + 1
+                        dirLims(2) = direction + 2
+                        if (dirLims(1) .gt. NDIM) dirLims(1) = dirLims(1) - NDIM
+                        if (dirLims(2) .gt. NDIM) dirLims(2) = dirLims(2) - NDIM
+                        if ( all(x(dirLims(1),:,:) .lt. limitsSlice(1)) ) cycle
+                        if ( all(x(dirLims(1),:,:) .gt. limitsSlice(2)) ) cycle
+                        if ( all(x(dirLims(2),:,:) .lt. limitsSlice(3)) ) cycle
+                        if ( all(x(dirLims(2),:,:) .gt. limitsSlice(4)) ) cycle
+                    end if 
+                    j = j + 1
+                    facesIDsTemp(j) = i
+                end if 
+            end associate
+        end do
+
+        numberOfFaces = j
+        allocate(facesIDs(numberOfFaces))
+        facesIDs = facesIDsTemp(1:numberOfFaces)
+!
+    End Subroutine getSliceFaces
 !
 End Module SurfaceMesh

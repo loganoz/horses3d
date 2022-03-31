@@ -109,7 +109,14 @@ Module FWHPostProc  !
                errorMessage(STD_OUT)
                stop
 
-            case(ZONE_SOLUTION_FILE)
+            case(ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_GRAD_FILE)
+               print*, "The selected file is a zone file without time derivative"
+               errorMessage(STD_OUT)
+               stop
+
+            case(ZONE_SOLUTION_AND_DOT_FILE)
+
+            case(ZONE_SOLUTION_AND_GRAD_D_FILE)
 
             case default
                print*, "Unknown restart file format"

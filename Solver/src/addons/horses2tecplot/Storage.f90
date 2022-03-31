@@ -75,6 +75,7 @@ module Storage
       character(len=LINE_LENGTH) :: solutionName
       real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
       logical                    :: hasGradients
+      logical                    :: hasTimeDeriv
       logical                    :: isStatistics
       contains
          procedure   :: ReadMesh     => Mesh_ReadMesh
@@ -96,7 +97,7 @@ module Storage
          integer                                :: fileType, dimensionsSize
          integer                                :: fid, eID, i, pos
          character(len=1024)                    :: msg
-         character(len=LINE_LENGTH)             :: flag
+         character(len=LINE_LENGTH)             :: flag, boundaryFileName
 
          self % meshName = trim(meshName)
 !
@@ -162,7 +163,7 @@ module Storage
             if ( pos .ne. 0 ) then
                hasBoundaries = .TRUE.
                
-               call readBoundaryFile(self % boundaries, flag)
+               call readBoundaryFile(self % boundaries, flag, boundaryFileName)
                
             end if
          end do
@@ -186,9 +187,7 @@ module Storage
 !        Describe the boundaries
 !        -----------------
          if (hasBoundaries) then
-             pos = index(trim(flag),"=")
-             flag = flag(pos+1:len_trim(flag))
-             write(msg,'(A,A,A)') 'Boundary file "',trim(flag),'":'
+             write(msg,'(A,A,A)') 'Boundary file "',trim(boundaryFileName),'":'
              write(STD_OUT,'(/)')
              call SubSection_Header(trim(msg))
              write(STD_OUT,'(30X,A,A30,I0)') "->","Number of Boundaries: ", size(self % boundaries)
@@ -207,12 +206,14 @@ module Storage
 !        Local variables
 !        ---------------
 !
-         integer       :: no_of_elements
-         integer       :: arrayDimensions(4)
-         integer       :: fid, eID, pos
-         integer       :: i,j,k
-         integer       :: iter
-         real(kind=RP) :: time
+         integer                        :: no_of_elements
+         integer, allocatable           :: arrayDimensions(:)
+         integer                        :: fileType, dimensionsSize
+         integer                        :: fid, eID, pos
+         integer                        :: i,j,k
+         integer                        :: iter
+         real(kind=RP)                  :: time
+         real(kind=RP), allocatable     :: Qdot(:,:,:,:)
          character(len=1024)  :: msg
          character(len=LINE_LENGTH)    :: flag
 
@@ -220,19 +221,40 @@ module Storage
 !
 !        Get the solution file type
 !        --------------------------
+         self % hasTimeDeriv = .false.
+         self % isStatistics = .false.
          select case ( getSolutionFileType(trim(solutionName)) )
 
          case (SOLUTION_FILE)
+            dimensionsSize = 4
             self % hasGradients = .false.
-            self % isStatistics = .false.
 
          case (SOLUTION_AND_GRADIENTS_FILE)
+            dimensionsSize = 4
             self % hasGradients = .true.
-            self % isStatistics = .false.
 
          case (STATS_FILE)
+            dimensionsSize = 4
             self % hasGradients = .false.
             self % isStatistics = .true.
+
+         case (ZONE_SOLUTION_FILE)
+            dimensionsSize = 3
+            self % hasGradients = .false.
+
+         case (ZONE_SOLUTION_AND_GRAD_FILE)
+            dimensionsSize = 3
+            self % hasGradients = .true.
+
+         case (ZONE_SOLUTION_AND_DOT_FILE)
+            dimensionsSize = 3
+            self % hasGradients = .false.
+            self % hasTimeDeriv = .true.
+
+         case (ZONE_SOLUTION_AND_GRAD_D_FILE)
+            dimensionsSize = 3
+            self % hasGradients = .true.
+            self % hasTimeDeriv = .true.
 
          case default
             print*, "File expected to be a solution file"
@@ -257,6 +279,7 @@ module Storage
             errorMessage(STD_OUT)
             stop 
          end if
+         allocate(arrayDimensions(dimensionsSize))
 !
 !        Get time and iteration
 !        ----------------------
@@ -288,12 +311,22 @@ module Storage
 !   
 !              Allocate memory for the coordinates
 !              -----------------------------------            
-               e % Nsol(1:3) = arrayDimensions(2:4) - 1
-               allocate( e % Q(1:arrayDimensions(1),0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+               ! e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               e % Nsol(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1 
+               if (dimensionsSize .eq. 3) e % Nsol(3) = 0
+               allocate( e % Q(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !              Read data
 !              ---------
                read(fid) e % Q
+
+              ! Qdot goes before gradients when present
+              ! for now is not saved anywhere, just to be able to read gradients
+               if (self % hasTimeDeriv) then
+                   allocate( Qdot(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) Qdot
+                   deallocate(Qdot)
+               end if
    
                if ( self % hasGradients ) then
 !   
@@ -436,14 +469,14 @@ module Storage
          close(fID)
       end subroutine readPartitionFile
       
-      subroutine readBoundaryFile(boundaries, flag)
+      subroutine readBoundaryFile(boundaries, flag, boundaryFileName)
          implicit none
          !-arguments-----------------------------------------------
          type(Boundary_t), allocatable, intent(inout)  :: boundaries(:)
          character(len=*)             , intent(in)     :: flag
+         character(len=LINE_LENGTH)   , intent(out)    :: boundaryFileName
          !-local-variables-----------------------------------------
          integer                    :: pos, fd, no_of_boundaries,bID
-         character(len=LINE_LENGTH) :: boundaryFileName
          !---------------------------------------------------------
          
          pos = index(trim(flag),"=")
