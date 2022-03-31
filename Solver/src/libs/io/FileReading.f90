@@ -5,9 +5,9 @@
 !   @File:    FileReading.f90
 !   @Author:  David Kopriva
 !   @Created: 2010-08-27 12:14:31 -0400 
-!   @Last revision date: Fri Feb 11 11:25:11 2022
+!   @Last revision date: Thu Mar 24 14:45:59 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
+!   @Last revision commit: c4549abb9c0f1a7f0d18a5e679b0e7820da9405c
 !
 !//////////////////////////////////////////////////////
 !
@@ -521,7 +521,7 @@ contains
 !     ---------------------------------------------------------
          implicit none
 !-----Arguments-----------------------------------------------------------
-         character(len=1024),    intent(in)  :: line
+         character(len=4096),    intent(in)  :: line
          real(kind=RP), allocatable :: array(:)
 !-----Local-Variables-----------------------------------------------------
          character(len=:), allocatable :: auxline

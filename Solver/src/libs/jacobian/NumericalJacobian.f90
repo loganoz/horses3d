@@ -4,9 +4,9 @@
 !   @File: NumericalJacobian.f90
 !   @Author: Andrés Rueda (am.rueda@upm.es) 
 !   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Tue Mar 15 12:36:24 2022
+!   @Last revision date: Thu Mar 24 17:00:46 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 49700d5cecdf342e88d3e7b829cdaa7261040590
+!   @Last revision commit: 083a15731d760f8d57a800a12d04211fb5fb6396
 
 !
 !//////////////////////////////////////////////////////
@@ -24,7 +24,7 @@ module NumericalJacobian
    use JacobianDefinitions    , only: JACEPS
    use JacobianComputerClass  , only: local2ijk, Look_for_neighbour, JacobianComputer_t
    use PhysicsStorage
-   use Utilities              , only: Qsort
+   use Utilities              , only: Qsort, my_findloc
    use StorageClass           , only: SolutionStorage_t
    use IntegerDataLinkedList  , only: IntegerDataLinkedList_t
    use StopwatchClass         , only: StopWatch
@@ -135,6 +135,7 @@ contains
       real(kind=RP), pointer :: pbuffer(:)
       integer, allocatable, dimension(:) :: counts_recv, displacements
       type(TProgressBar) :: progress_bar
+      integer, allocatable, dimension(:) :: el_reordering, el_reordering_idx
       !-------------------------------------------------------------------
       
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
@@ -197,6 +198,29 @@ contains
 #else
       nbr_g = nbr
 #endif
+
+!
+!     Re-order neighbours
+!     -------------------
+      allocate(el_reordering(Gloabl_nelm))
+      allocate(el_reordering_idx(Gloabl_nelm))
+
+      do i = 1, Gloabl_nelm
+         el_reordering(i) = nbr_g(i) % elmnt(7)
+      end do
+
+      do i = 1, Gloabl_nelm
+         el_reordering_idx(i) = my_findloc(el_reordering, i, 1)
+      end do
+
+      nbr_g = nbr_g(el_reordering_idx)
+
+      deallocate(el_reordering)
+      deallocate(el_reordering_idx)
+
+!
+!     Assemble colors
+!     ---------------
 
       call ecolors % construct(nbr_g, num_of_neighbor_levels)       
 !
@@ -365,7 +389,7 @@ contains
 !        Go through every color to obtain its elements' contribution to the Jacobian
 !        ***************************************************************************
          do thiscolor = 1 , ecolors % num_of_colors
-            if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+            if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
 
             ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
@@ -460,7 +484,8 @@ contains
 !     Go through every color to obtain its elements' contribution to the Jacobian
 !     ***************************************************************************
       do thiscolor = 1 , ecolors % num_of_colors
-         if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+         ! if (this % verbose) call progress_bar % run(real(100 * thiscolor / ecolors % num_of_colors),5," Constructing numerical Jacobian...")
+         if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
