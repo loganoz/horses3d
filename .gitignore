@@ -48,10 +48,10 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.mu
 *.ch
 *.ns
+*.nssa
 *.ins
 bin/
-Makefile*
-utils/modulefile/horses/dev
+Makefile
 Solver/include/
 .local.vimrc
 .vscode/
