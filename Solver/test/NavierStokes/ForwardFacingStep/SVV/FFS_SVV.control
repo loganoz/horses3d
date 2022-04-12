@@ -33,9 +33,10 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = grad rho
-                   Shock viscous method = SVV
-                Shock hyperbolic method = none
-                     Shock viscous flux = Guermond-Popov
+                     Shock first method = SVV
+                    Shock second method = non-filtered
+                   Shock viscous flux 1 = Guermond-Popov
+                   Shock viscous flux 2 = Guermond-Popov
                  Shock update viscosity = constant
                              Shock mu 1 = 0.5e-3
                           Shock alpha 1 = 0.0
@@ -45,7 +46,6 @@
                      Sensor lower limit = -1.0
                     Sensor higher limit = 1.0
                       SVV filter cutoff = 4.0
-                            SVV limited = .true.
                        SVV filter shape = power
                         SVV filter type = low-pass
 

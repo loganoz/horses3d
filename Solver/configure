@@ -70,6 +70,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/TaylorGreenSVVLES \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
+            ./NavierStokes/DoubleMachReflectionSSFV \
+            ./NavierStokes/BackwardFacingStepSSFV \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

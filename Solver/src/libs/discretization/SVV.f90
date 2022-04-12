@@ -34,9 +34,9 @@ module SpectralVanishingViscosity
 !
 !  Keywords
 !  --------
-   character(len=*), parameter  :: SVV_CUTOFF_KEY   =  "svv filter cutoff"
-   character(len=*), parameter  :: FILTER_SHAPE_KEY =  "svv filter shape"
-   character(len=*), parameter  :: FILTER_TYPE_KEY  =  "svv filter type"
+   character(len=*), parameter  :: SVV_CUTOFF_KEY   = "svv filter cutoff"
+   character(len=*), parameter  :: FILTER_SHAPE_KEY = "svv filter shape"
+   character(len=*), parameter  :: FILTER_TYPE_KEY  = "svv filter type"
 !
 !  Filter types
 !  ------------

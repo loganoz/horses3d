@@ -16,10 +16,9 @@ module InterpolationMatrices
    implicit none
 
    private
-   public InterpolationMatrix_t, InterpolationMatrixFV_t
-   public Tset, TsetFV
+   public InterpolationMatrix_t
+   public Tset
    public Interp3DArrays, Interp3DArraysOneDir
-   public Average3DArrays
    public Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
 !
 !  ---------------------------------
@@ -34,14 +33,6 @@ module InterpolationMatrices
          procedure :: destruct  => InterpolationMatrix_Destruct
    end type InterpolationMatrix_t
 
-   type InterpolationMatrixFV_t
-      logical                    :: Constructed = .false.
-      real(kind=RP), allocatable :: T(:,:)
-      contains
-         procedure :: construct => InterpolationMatrixFV_Construct
-         procedure :: destruct  => InterpolationMatrixFV_Destruct
-   end type InterpolationMatrixFV_t
-!
 !  **************************************************
 !  The set of interpolation matrices is stored here.
 !  >> The following criteria is adopted:
@@ -50,8 +41,6 @@ module InterpolationMatrices
 !        * Tset(N,M) with N>M is a backwards matrix.
 !  **************************************************
    type(InterpolationMatrix_t),   allocatable, target :: Tset(:,:)
-   type(InterpolationMatrixFV_t), allocatable, target :: TsetFV(:)
-
 
    interface Interp3DArrays
       module procedure Interp3DArrays_Tset, Interp3DArrays_interp
@@ -130,66 +119,6 @@ module InterpolationMatrices
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine InterpolationMatrixFV_Construct(this, N)
-!
-!     ****************************************************************
-!        This subroutine computes the interpolation matrix
-!        from DG to equispaced nodes that preserves the sub-cell
-!        average values
-!     ****************************************************************
-!
-      implicit none
-      class(InterpolationMatrixFV_t), intent(inout) :: this
-      integer                       , intent(in)    :: N    !<  Polynomial order
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      integer                       :: i, j
-      real(kind=RP)                 :: dx
-      real(kind=RP)                 :: xi(0:N)
-      real(kind=RP)                 :: Ttemp(0:N, 0:N)
-      type(NodalStorage_t), pointer :: spA
-
-!
-!     Do not construct the same thing twice
-!     *************************************
-
-      if ( this % Constructed ) return
-
-!
-!     Matrix construction
-!     *******************
-
-      spA => NodalStorage(N)
-!
-!     Allocate memory
-!     ---------------
-      allocate( this % T(0:N, 0:N) )
-!
-!     Construct the interpolation matrix (https://elib.uni-stuttgart.de/bitstream/11682/9359/3/Sonntag_Matthias_Dissertation.pdf)
-!     ----------------------------------
-      dx = 2.0_RP / (N+1)
-      do i = 0, N
-         xi = -1.0_RP + (1.0_RP + spA % x) * dx * 0.5_RP + dx * i
-         call PolynomialInterpolationMatrix(N, N, spA % x, spA % wb, xi, Ttemp)
-         this % T(i,:) = 0.0_RP
-         do j = 0, N
-            this % T(i,:) = this % T(i,:) + spA % w(j) * Ttemp(j,:)
-         end do
-      end do
-!
-!     Set constructed flag
-!     ********************
-      this % Constructed = .TRUE.
-
-      nullify (spA)
-
-   end subroutine InterpolationMatrixFV_Construct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
 !  ----------------
 !  Class destructor
 !  ----------------
@@ -201,16 +130,6 @@ module InterpolationMatrices
       safedeallocate (this % T)
       this % Constructed = .FALSE.
    end subroutine InterpolationMatrix_Destruct
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   elemental subroutine InterpolationMatrixFV_Destruct(this)
-      implicit none
-      class(InterpolationMatrixFV_t), intent(inout) :: this
-
-      safedeallocate (this % T)
-      this % Constructed = .FALSE.
-   end subroutine InterpolationMatrixFV_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -336,40 +255,11 @@ module InterpolationMatrices
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Average3DArrays(Nvars, Nin, inArray, outArray)
-      implicit none
-      !-------------------------------------------------------
-      integer                                                      , intent(in)  :: Nvars
-      integer      , dimension(3)                                  , intent(in)  :: Nin
-      real(kind=RP), dimension(Nvars, 0:Nin(1), 0:Nin(2), 0:Nin(3)), intent(in)  :: inArray
-      real(kind=RP), dimension(Nvars, 0:Nin(1), 0:Nin(2), 0:Nin(3)), intent(out) :: outArray
-      !-------------------------------------------------------
-      integer :: i,j,k,l,m,n
-      !-------------------------------------------------------
-
-      outArray = 0.0_RP
-
-      do n = 0, Nin(3)  ; do k = 0, Nin(3)
-         do m = 0, Nin(2)  ; do j = 0, Nin(2)
-            do l = 0, Nin(1)  ; do i = 0, Nin(1)
-               outArray(:,i,j,k) = outArray(:,i,j,k) +   TsetFV(Nin(1)) % T(i,l) &
-                                                       * TsetFV(Nin(2)) % T(j,m) &
-                                                       * TsetFV(Nin(3)) % T(k,n) &
-                                                       * inArray(:,l,m,n)
-            end do             ; end do
-         end do             ; end do
-      end do             ; end do
-
-   end subroutine Average3DArrays
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
    subroutine Initialize_InterpolationMatrices(Nmax)
       implicit none
       integer, intent(in) :: Nmax
 
       allocate ( Tset(0:Nmax,0:Nmax) )
-      allocate ( TsetFV(0:Nmax) )
 
    end subroutine Initialize_InterpolationMatrices
 !
@@ -380,9 +270,6 @@ module InterpolationMatrices
 
       call Tset % destruct
       deallocate ( Tset )
-
-      call TsetFV % destruct
-      deallocate ( TsetFV )
 
    end subroutine Finalize_InterpolationMatrices
 end module InterpolationMatrices

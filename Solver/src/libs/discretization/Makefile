@@ -37,7 +37,10 @@ LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
                 ./build_nssa/EllipticBR1.o \
                 ./build_nssa/EllipticBR2.o \
                 ./build_nssa/EllipticDiscretizations.o \
-                ./build_nssa/SVV.o
+                ./build_nssa/ShockCapturingKeywords.o \
+                ./build_nssa/SVV.o \
+                ./build_nssa/SCsensorClass.o \
+                ./build_nssa/ShockCapturing.o
 
 LIBOBJS_iNS =   ./build_ins/DGSEMClass.o \
 		./build_ins/DGIntegrals.o \

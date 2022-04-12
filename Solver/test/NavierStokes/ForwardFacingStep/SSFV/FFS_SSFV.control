@@ -9,7 +9,8 @@
               Save gradients to solution = .false.
                 2D mesh offset direction = z
                                  Restart = .false.
-                       Restart file name = ../FFS.rst
+!                      Restart file name = ../FFS.rst
+                       Restart file name = RESULTS/FFS.hsol
 
 !-------------------- Physical parameters:-
 !                        ** Navier-Stokes
@@ -25,8 +26,8 @@
                         Polynomial order = 7
                     Discretization nodes = Gauss-Lobatto
 !                         Riemann solver = Matrix dissipation
-                          Riemann solver = ES Lax-Friedrichs
-                    Lambda stabilization = 1e-5
+                          Riemann solver = Lax-Friedrichs
+                    Lambda stabilization = 0.01
                  Inviscid discretization = Split-form
                               Split form = Chandrasekar
                       Gradient variables = Entropy
@@ -34,23 +35,28 @@
 
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
-                           Shock sensor = truncation error
-                     Shock first method = SSFV
+                           Shock sensor = grad rho
+                     Shock first method = SVV
                     Shock second method = SSFV
-                        SSFV blending 1 = 1d-1
-                        SSFV blending 2 = 1d-1
-                     Sensor lower limit = -10000.0
-                    Sensor higher limit = -2.0
+                        SSFV blending 1 = 1d-2
+                        SSFV blending 2 = 1d-2
+                             Shock mu 1 = 0.005
+                          Shock alpha 1 = 0.005
+                     Sensor lower limit = 0.5
+                    Sensor higher limit = 1.5
+                      SVV filter cutoff = 2.0
                    Sensor TE derivative = isolated
                       Sensor TE delta N = 6
 
 !----------------------- Time integration:-
                         Time integration = Explicit
                                       dt = 0.00002
-                    Number of time steps = 50000 ! 50
+                    Number of time steps = 500000 !25000 ! 50
                          Output interval = 100 ! 10
                    Convergence tolerance = 1.0e-10
       Compute derivative after time step = .true.
+                           Autosave mode = Iteration
+                       Autosave interval = 2500
 
 !-------------------- Boundary conditions:-
 #define boundary inlet

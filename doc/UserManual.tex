@@ -296,25 +296,95 @@ get discretization error of & \textit{CHARACTER}: Path to solution file. This ca
 
 Mach number					& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
 
-Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword}
- \\ \hline
+Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
 
 Prandtl number				& \textit{REAL}:  & 0.72 \\ \hline
 
 Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
 
-LES model					& \textit{CHARACTER(*)}: Options are: 
-\begin{itemize}
-\item Smagorinsky
-\item None
-\end{itemize}
- & None \\ \hline
+LES model					& \textit{CHARACTER}: Options are:
+    \begin{itemize}
+        \item Smagorinsky
+        \item None
+    \end{itemize} & None \\ \hline
 
-Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
+Wall model					& \textit{CHARACTER}:  & linear \\ \hline
 
 \end{tabular}
 \label{tab:compressibleFlowkey}
 \end{table}
+
+\subsection{Shock-capturing}
+
+\begin{longtable}{|l|p{10cm}|p{2.2cm}|}
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations.} \label{tab:shockcapturingkey} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endfirsthead
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations -- continuation.} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endhead
+
+Enable shock-capturing &  \textit{LOGICAL}: Switch on/off the shock-capturing stabilization. & .FALSE. \\ \hline
+Shock sensor & \textit{CHARACTER}: Type of sensor to be used to detect discontinuous regions. Options are:
+    \begin{itemize}
+        \item Zeros: always return 0,
+        \item Ones: always return 1,
+        \item Grad rho: based on the norm of the density gradient,
+        \item Modal: based on the relative weight of the higher order modes (not working yet),
+        \item Truncation error: estimate the truncation error of the aproximation,
+        \item Aliasing error: estimate the aliasing error of the aproximation.
+    \end{itemize} & Grad rho \\ \hline
+Shock first method & \textit{CHARACTER}: Method to be used in the middle region of the sensor ($a\in[0,1]$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing,
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering,
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux,
+        \item SSFV: Apply a more dissipative version of the divergence operator.
+    \end{itemize} & None \\ \hline
+Shock second method &\textit{CHARACTER}: Method to be used in the top-most region of the sensor ($a=1$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing,
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering,
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux,
+        \item SSFV: Apply a more dissipative version of the divergence operator.
+    \end{itemize} & None \\ \hline
+Shock viscous flux 1 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a\in[0,1]$. Options are:
+    \begin{itemize}
+        \item Physical,
+        \item Guermond-Popov (only with entropy variables gradients).
+    \end{itemize} & -- \\ \hline
+Shock viscous flux 2 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a=1$. Options are:
+    \begin{itemize}
+        \item Physical,
+        \item Guermond-Popov (only with entropy variables gradients).
+    \end{itemize} & -- \\ \hline
+Shock update strategy & \textit{CHARACTER}: Method to compute the variable parameter of the specified shock-captruing approach in the middle region of the sensor. Options are:
+    \begin{itemize}
+        \item Constant,
+        \item Sensor,
+        \item Smagorinsky: only for \textit{non-filtered} and \textit{SVV}.
+    \end{itemize} & Constant \\ \hline
+Shock mu 1 & & \\ \hline
+Shock alpha 1 & & \\ \hline
+Shock mu 2 & & \\ \hline
+Shock alpha 2 & & \\ \hline
+Shock alpha/mu & & \\ \hline
+SSFV blending 1 & & \\ \hline
+SSFV blending 2 & & \\ \hline
+SVV filter cutoff & & \\ \hline
+SVV filter shape & & \\ \hline
+SVV filter type & & \\ \hline
+Sensor variable & & \\ \hline
+Sensor lower limit & & \\ \hline
+Sensor higher limit & & \\ \hline
+Sensor TE min N & & \\ \hline
+Sensor TE delta N & & \\ \hline
+Sensor TE derivative && \\ \hline
+\end{longtable}
 
 \section{Incompressible Navier-Stokes}
 
