@@ -91,7 +91,7 @@ module getTask
             close(fid)
             if ( io .ne. 0 ) cycle
 
-            if ( getSolutionFileType(meshName) .eq. MESH_FILE ) then
+            if ( getSolutionFileType(meshName) .eq. MESH_FILE .or. getSolutionFileType(meshName) .eq. ZONE_MESH_FILE ) then
                meshFilePresent = .true.
                exit
             end if 
@@ -118,7 +118,7 @@ module getTask
             close(fid)
             if ( io .ne. 0 ) cycle
 
-            if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE ) then
+            if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE .and. getSolutionFileType(auxiliarName) .ne. ZONE_MESH_FILE ) then
                no_of_solutions = no_of_solutions + 1 
             end if
          end do
@@ -136,7 +136,7 @@ module getTask
                close(fid)
                if ( io .ne. 0 ) cycle
 
-               if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE ) then   
+               if ( getSolutionFileType(auxiliarName) .ne. MESH_FILE .and. getSolutionFileType(auxiliarName) .ne. ZONE_MESH_FILE ) then
                   sol = sol + 1 
                   solutionNames(sol) = trim(auxiliarName)
                   solutionTypes(sol) = getSolutionFileType(auxiliarName)

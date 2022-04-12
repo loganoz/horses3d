@@ -279,14 +279,16 @@
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side)
+   subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
       use MappedGeometryClass
       implicit none
-      class(Face),   intent(inout)  :: self
-      integer,       intent(in)     :: nEqn
-      integer,       intent(in)     :: Nelx, Nely
-      real(kind=RP), intent(in)     :: Qe(1:nEqn, 0:Nelx, 0:Nely)
-      integer,       intent(in)     :: side
+      class(Face),   intent(inout)              :: self
+      integer,       intent(in)                 :: nEqn
+      integer,       intent(in)                 :: Nelx, Nely
+      real(kind=RP), intent(in)                 :: Qe(1:nEqn, 0:Nelx, 0:Nely)
+      integer,       intent(in)                 :: side
+      real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
+      logical,       intent(in), optional       :: computeQdot
 !
 !     ---------------
 !     Local variables
@@ -294,6 +296,22 @@
 !
       integer       :: i, j, k, l, m, ii, jj
       real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      ! real(kind=RP) :: QdotE_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+      logical :: prolongQdot
+
+      ! prolongQdot = present(QdotE)
+      if (present(computeQdot)) then
+          prolongQdot = computeQdot
+      else
+          prolongQdot = .FALSE.
+      end if
+
+      ! if (prolongQdot) then
+      !     print *, "side: ", side
+      !     ! print *, "projectionType 1: ",  self % projectionType(1)
+      !     ! print *, "projectionType 2: ",  self % projectionType(2)
+      !     print *, "projectionType side: ",  self % projectionType(side)
+      ! end if
 
       select case (side)
       case(1)
@@ -301,6 +319,8 @@
          select case ( self % projectionType(1) )
          case (0)
             Qf = Qe
+            if (prolongQdot) self % storage(1) % Qdot = QdotE
+
          case (1)
             Qf = 0.0_RP
             do j = 0, self % Nf(2)  ; do l = 0, self % NfLeft(1)   ; do i = 0, self % Nf(1)

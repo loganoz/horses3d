@@ -33,7 +33,7 @@ module Utilities
 
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
-   public   toLower, Qsort, QsortWithFriend
+   public   toLower, Qsort, QsortWithFriend, my_findloc
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
    
@@ -466,5 +466,34 @@ SUBROUTINE PartitionWithFriend(A, B, marker)
   END DO
 
 END SUBROUTINE PartitionWithFriend
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+integer function my_findloc(arr, val, dim)
+!  ---------------------------------------------------------
+!  Vanilla routine to find an index of matching value in the array.
+!  For INTEL or GNU v>9.0 just switch to 'findloc'.
+!  ---------------------------------------------------------
+      implicit none
+      !-----Arguments---------------------------------------------------
+      integer,dimension(:),intent(in) :: arr
+      integer,             intent(in) :: val, dim
+      !-----Local-Variables---------------------------------------------
+      integer :: i
+      !  -----------------------------------------------------------------------
+
+      ! my_findloc = findloc(arr,val,dim) ! intrinsic function
+      my_findloc = 0
+      do i = 1, size(arr,1)
+         if (arr(i) .eq. val) then
+         my_findloc = i
+         exit
+         end if
+      end do
+       
+   end function my_findloc
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module Utilities
 

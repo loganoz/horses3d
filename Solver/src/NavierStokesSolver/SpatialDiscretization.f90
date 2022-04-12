@@ -59,6 +59,7 @@ module SpatialDiscretization
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
+         use WallFunctionConnectivity
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(DGSem)                           :: sem
@@ -211,6 +212,11 @@ module SpatialDiscretization
 
          end if
 
+!
+!        Initialize Wall Function
+!        ------------------------
+         call Initialize_WallConnection(controlVariables, mesh)
+
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
@@ -347,6 +353,7 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -425,7 +432,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
-            call computeBoundaryFlux(mesh % faces(fID), t)
+            call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do
 !
@@ -514,6 +521,7 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
                end do                  ; end do                ; end do
                end associate
             end do
@@ -640,6 +648,7 @@ module SpatialDiscretization
 !     and boundaries. Therefore, the external states are not needed.
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
+         use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -684,6 +693,7 @@ module SpatialDiscretization
                associate ( e => mesh % elements(eID) )
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
                end do                  ; end do                ; end do
                end associate
             end do
@@ -1097,34 +1107,42 @@ module SpatialDiscretization
          Sidearray = (/thisSide, HMESH_NONE/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray )
 
-      end subroutine computeMPIFaceFlux
+      end subroutine ComputeMPIFaceFlux
 
-      subroutine computeBoundaryFlux(f, time)
-      use ElementClass
+      SUBROUTINE computeBoundaryFlux(f, time, mesh)
+      USE ElementClass
       use FaceClass
-      use RiemannSolvers_NS
-      implicit none
+      USE RiemannSolvers_NS
+      use WallFunctionBC
+      use WallFunctionConnectivity
+      IMPLICIT NONE
 !
 !     ---------
 !     Arguments
 !     ---------
 !
       type(Face),    intent(inout) :: f
-      real(KIND=RP)                :: time
+      REAL(KIND=RP)                :: time
+      type(HexMesh), intent(in)    :: mesh
 !
 !     ---------------
 !     Local variables
 !     ---------------
 !
-      integer               :: i, j
-      integer, dimension(2) :: N
-      real(KIND=RP)         :: inv_flux(NCONS)
-      real(kind=RP)         :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)         :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)         :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)         :: mu, kappa, beta, delta
-      real(kind=RP)         :: fv_3d(NCONS,NDIM)
-      integer               :: Sidearray(2)
+      INTEGER                         :: i, j
+      INTEGER, DIMENSION(2)           :: N
+      REAL(KIND=RP)                   :: inv_flux(NCONS)
+      real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
+      real(kind=RP)                   :: mu, kappa, beta, delta
+      real(kind=RP)                   :: fv_3d(NCONS,NDIM)
+      integer                         :: Sidearray(2)
+      logical                         :: useWallFuncFace
+      real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
 
       if ( ShockCapturingDriver % isActive ) then
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -1148,6 +1166,20 @@ module SpatialDiscretization
       end do               ; end do
 
       if ( flowIsNavierStokes ) then
+
+          useWallFuncFace = .false.
+          if (useWallFunc) then
+              do i = 1, len(wallFunBCs)
+                  if (trim(wallFunBCs(i)) .eq. trim(f % boundaryName)) then
+                      useWallFuncFace = .true.
+                      exit
+                  end if
+              end do
+          end if
+          if (useWallFuncFace) then
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY)
+          end if
+
          do j = 0, f % Nf(2)
             do i = 0, f % Nf(1)
                mu    = f % storage(1) % mu_ns(1,i,j)
@@ -1166,7 +1198,11 @@ module SpatialDiscretization
 
                visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
 
-               call BCs(f % zone) % bc % FlowNeumann(&
+               if (useWallFuncFace) then
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), wallFunRho(i,j), wallFunMu(i,j), visc_flux(:,i,j))
+               end if
+
+               CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
                                               time, &
                                               f % geom % normal(:,i,j), &

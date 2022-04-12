@@ -24,8 +24,9 @@ AR=ar
 RANLIB=ranlib
 PROG=./bin/horses3d.ns
 
-OBJS_HORSES=	SpatialDiscretization \
-		main  
+OBJS_HORSES=	WallFunctionConnectivity\
+				SpatialDiscretization \
+				main  
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 

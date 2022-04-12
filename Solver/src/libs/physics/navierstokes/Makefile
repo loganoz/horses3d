@@ -9,6 +9,8 @@ RANLIB?=ranlib
 MOD_FLAG?=-J
 
 
+
+
 LIBOBJS = ./build/FluidData_NS.o \
 		  ./build/PhysicsStorage_NS.o \
 		  ./build/VariableConversion_NS.o \
@@ -16,7 +18,9 @@ LIBOBJS = ./build/FluidData_NS.o \
 		  ./build/LESModels.o \
 		  ./build/Physics_NS.o \
 		  ./build/RiemannSolvers_NS.o \
-		  ./build/ManufacturedSolutions.o \
+		  ./build/WallFunctionDefinitions.o \
+		  ./build/WallFunctionBC.o \
+		  ./build/ManufacturedSolutions.o 
 
 LIB = physicsns
 

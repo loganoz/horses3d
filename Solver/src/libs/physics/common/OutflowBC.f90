@@ -282,7 +282,9 @@ module OutflowBCClass
             u     = qTanx + qDotN*nHat(1)
             v     = qTany + qDotN*nHat(2)
             w     = qTanz + qDotN*nHat(3)
+#if defined(SPALARTALMARAS)
             eddy_theta = Q(6)/Q(1)
+#endif
             Q(1) = rho
             Q(2) = rho*u
             Q(3) = rho*v

@@ -4,9 +4,9 @@
 !   @File:
 !   @Author:  David Kopriva
 !   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Wed Nov 24 17:19:23 2021
+!   @Last revision date: Fri Feb 11 11:25:13 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
+!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
 !
@@ -1317,7 +1317,7 @@ slavecoord:             DO l = 1, 4
       if ( .not. MPI_Process % isRoot ) return
 
       write(STD_OUT,'(/)')
-      call Section_Header("Reading mesh")
+      call Section_Header("Mesh information")
       write(STD_OUT,'(/)')
 
       call SubSection_Header('Mesh file "' // trim(fileName) // '".')
@@ -2573,7 +2573,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer        :: fID, eID, pos
+         integer                       :: fid, eID
+         integer(kind=AddrInt)         :: pos
          character(len=LINE_LENGTH)    :: meshName
          real(kind=RP), parameter      :: refs(NO_OF_SAVED_REFS) = 0.0_RP
 
@@ -2589,7 +2590,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(meshName))
          do eID = 1, self % no_of_elements
             associate(e => self % elements(eID))
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 3*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 3_AddrInt*e % offsetIO*SIZEOF_RP
             call writeArray(fID, e % geom % x(:,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))*Lref, position=pos)
             end associate
          end do
@@ -2706,7 +2707,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID, pos, padding
+         integer                          :: fid, eID, padding
+         integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
 #if (!defined(NAVIERSTOKES))
@@ -2768,7 +2770,7 @@ slavecoord:             DO l = 1, 4
             Q(NCONS,:,:,:) = e % storage % c(1,:,:,:)
 #endif
 
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
             deallocate(Q)
@@ -2826,7 +2828,8 @@ slavecoord:             DO l = 1, 4
 !        Local variables
 !        ---------------
 !
-         integer  :: fid, eID, pos
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
 !
 !        Gather reference quantities
@@ -2848,7 +2851,7 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + 9*e % offsetIO*SIZEOF_RP
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 9_AddrInt*e % offsetIO*SIZEOF_RP
             call writeArray(fid, e % storage % stats % data, position=pos)
             end associate
          end do
@@ -3543,7 +3546,7 @@ slavecoord:             DO l = 1, 4
       logical, optional       , intent(in)   :: Face_Storage
       !-----------------------------------------------------------
       integer :: bdf_order, eID, fID, RKSteps_num
-      logical :: Face_St
+      logical :: Face_St, FaceComputeQdot
       character(len=LINE_LENGTH) :: time_int
       character(len=LINE_LENGTH) :: mg_smoother
       !-----------------------------------------------------------
@@ -3553,6 +3556,7 @@ slavecoord:             DO l = 1, 4
       else
          Face_St = .TRUE.
       end if
+      FaceComputeQdot = controlVariables % containsKey("accoustic analogy")
 
       time_int = controlVariables % stringValueForKey("time integration",LINE_LENGTH)
       call toLower (time_int)
@@ -3597,8 +3601,8 @@ slavecoord:             DO l = 1, 4
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE.)
-            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE.)
+            call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot)
+            call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot)
             end associate
          end do
       end if
@@ -3810,7 +3814,7 @@ slavecoord:             DO l = 1, 4
       type(FTValueDictionary) , intent(in)      :: controlVariables
       !-local-variables-----------------------------------
       integer :: eID, fID, zoneID
-      logical :: saveGradients
+      logical :: saveGradients, FaceComputeQdot
       logical :: analyticalJac   ! Do we need analytical Jacobian storage?
       type(IntegerDataLinkedList_t) :: elementList
       type(IntegerDataLinkedList_t) :: facesList
@@ -3840,6 +3844,7 @@ slavecoord:             DO l = 1, 4
 !     Some initializations
 !     ********************
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      FaceComputeQdot = controlVariables % containsKey("accoustic analogy")
 
       facesList      = IntegerDataLinkedList_t(.FALSE.)
       elementList    = IntegerDataLinkedList_t(.FALSE.)
@@ -3897,8 +3902,8 @@ slavecoord:             DO l = 1, 4
 !$omp parallel do private(f) schedule(runtime)
       do fID=1, size(facesArray)
          f => self % faces( facesArray(fID) )  ! associate fails here in intel compilers
-         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac)
-         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac)
+         call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, analyticalJac, FaceComputeQdot)
+         call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, analyticalJac, FaceComputeQdot)
       end do
 !$omp end parallel do
 

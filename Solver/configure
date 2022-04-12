@@ -68,10 +68,11 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/ForwardFacingStep/SVV \
             ./NavierStokes/ForwardFacingStep/SSFV \
             ./NavierStokes/TaylorGreenSVVLES \
-            ./NavierStokes/ManufacturedSolutionsSA \
-            ./NavierStokes/FlatPlateSA \
             ./NavierStokes/DoubleMachReflectionSSFV \
             ./NavierStokes/BackwardFacingStepSSFV \
+            ./NavierStokes/ManufacturedSolutionsSA \
+            ./NavierStokes/FlatPlateSA \
+            ./NavierStokes/BIRK5NumJac \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

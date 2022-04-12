@@ -18,7 +18,10 @@ LIBOBJS_NS = 	./build_ns/MonitorDefinitions.o \
 		./build_ns/ResidualsMonitor.o \
 		./build_ns/SurfaceMonitor.o \
 		./build_ns/VolumeMonitor.o \
-		./build_ns/Monitors.o
+		./build_ns/Monitors.o \
+		./build_ns/FWHDefinitions.o \
+		./build_ns/FWHObseverClass.o \
+		./build_ns/FWHGeneralClass.o
 
 LIBOBJS_NSSA = 	./build_nssa/MonitorDefinitions.o \
 		./build_nssa/Probe.o \

@@ -4,21 +4,15 @@
 !   @File:    Read_GMSH.f90
 !   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Wed Sep 15 12:15:47 2021
+!   @Last revision date: Wed Dec  8 15:01:26 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
-!//////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
+!   @Last revision commit: b5333663c75aa634b30d7da7e488de0f2da06bc3
 !
 !//////////////////////////////////////////////////////
 !
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.
-!  Current supported versions: GMSH Mesh Format 4.1
-!  Current supported elements ID: 5,12,92. Respectively: P1,P2 and P3 hexahedral.
+!  Current supported versions: GMSH Mesh Format 4.1 and 2.1
+!  Current supported elements ID: 5,12,92, 93, 94. Respectively: P1, P2, P3, P4, P5 hexahedral.
 !
 !  GMSH original hexahedral ordering:
 !
@@ -35,7 +29,7 @@
 !     \|      w  \|           \|         \|          \|         \|
 !      4----------5            4----16----5           4----16----5
 !
-! HORSES3D corner ordering:
+!  HORSES3D corner ordering:
 !         v
 !  1----------4
 !  |\     ^   |\
@@ -64,7 +58,7 @@ MODULE Read_GMSH
       use sharedBCModule
       use PhysicsStorage
       use FileReadingUtilities      , only: getFileName, getRealArrayFromStringNoCommas
-      use Utilities, only: UnusedUnit, toLower
+      use Utilities, only: UnusedUnit, toLower, my_findloc
       implicit none
 
       private
@@ -167,7 +161,9 @@ MODULE Read_GMSH
       procedure                                  :: Destruct  => MSH_DestructElementBlock
    end type MSH_element_block_t
 !
-!
+   integer, parameter :: EL_MAX_ORDER = 5
+   integer, parameter :: MSH_LEN = 4096
+   integer, parameter :: SUPPORTED_EL_TYPES(5) = (/5,12,92,93,94/) ! GMSH HEX types, orders from 1 to 5
 !     ========
       CONTAINS
 !     ========
@@ -252,9 +248,9 @@ MODULE Read_GMSH
       type(MSH_node_block_t)  , dimension(:), allocatable  :: msh_node_blocks
       type(MSH_element_block_t)  , dimension(:), allocatable  :: msh_element_blocks
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
@@ -353,7 +349,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -366,7 +362,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -384,7 +380,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -402,7 +398,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -485,15 +481,14 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
-      check_eltype(1) = count(msh_element_blocks(:) % el_type .eq.  5)
-      check_eltype(2) = count(msh_element_blocks(:) % el_type .eq. 12)
-      check_eltype(3) = count(msh_element_blocks(:) % el_type .eq. 92)
-      check_eltype(4) = count(msh_element_blocks(:) % el_type .eq. 93)
+      check_eltype = 0
+      do i=1, EL_MAX_ORDER
+         check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
+      end do
       if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
       if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
       bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-      check_eltype = (/5,12,92,93/)
-      org_element_type = check_eltype(bFaceOrder)
+      org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
       ! find number of elements
       numberOfElements = 0
       do msh_elblock=1, msh_no_elblocks
@@ -856,9 +851,9 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ------------------------------
-!     Constructor of mesh partitions
-!     ------------------------------
+!  ------------------------------
+!  Constructor of mesh partitions
+!  ------------------------------
    SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file.
@@ -902,9 +897,9 @@ MODULE Read_GMSH
 
       type(Node)  , dimension(:), allocatable  :: local_nodes
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfAllElements
       integer                         :: numberOfAllNodes
@@ -998,7 +993,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -1011,7 +1006,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -1029,7 +1024,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -1047,7 +1042,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -1131,15 +1126,14 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
-      check_eltype(1) = count(msh_element_blocks(:) % el_type .eq.  5)
-      check_eltype(2) = count(msh_element_blocks(:) % el_type .eq. 12)
-      check_eltype(3) = count(msh_element_blocks(:) % el_type .eq. 92)
-      check_eltype(4) = count(msh_element_blocks(:) % el_type .eq. 93)
+      check_eltype = 0
+      do i=1, EL_MAX_ORDER
+         check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
+      end do
       if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
       if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
       bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-      check_eltype = (/5,12,92,93/)
-      org_element_type = check_eltype(bFaceOrder)
+      org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
       ! find number of elements
       numberOfElements = 0
       do msh_elblock=1, msh_no_elblocks
@@ -1503,9 +1497,9 @@ MODULE Read_GMSH
       self % numberOfFaces = numberOfFaces
       allocate( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-!        --------------------------------
-!        Get actual mesh element face IDs
-!        --------------------------------
+!     --------------------------------
+!     Get actual mesh element face IDs
+!     --------------------------------
 !
       CALL getElementsFaceIDs(self)
 !
@@ -1640,9 +1634,9 @@ MODULE Read_GMSH
       type(MSH_node_block_t)  , dimension(:), allocatable  :: msh_node_blocks
       type(MSH_element_block_t)  , dimension(:), allocatable  :: msh_element_blocks
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
@@ -1733,7 +1727,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -1746,7 +1740,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -1764,7 +1758,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -1782,7 +1776,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -1865,15 +1859,14 @@ MODULE Read_GMSH
 
 !-----Mesh-info----------------------------------------------------------
       ! find order of elements curvature
-      check_eltype(1) = count(msh_element_blocks(:) % el_type .eq.  5)
-      check_eltype(2) = count(msh_element_blocks(:) % el_type .eq. 12)
-      check_eltype(3) = count(msh_element_blocks(:) % el_type .eq. 92)
-      check_eltype(4) = count(msh_element_blocks(:) % el_type .eq. 93)
+      check_eltype = 0
+      do i=1, EL_MAX_ORDER
+         check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
+      end do
       if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
       if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
       bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-      check_eltype = (/5,12,92,93/)
-      org_element_type = check_eltype(bFaceOrder)
+      org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
       ! find number of elements
       numberOfElements = 0
       do msh_elblock=1, msh_no_elblocks
@@ -2221,9 +2214,9 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
 
-            character(len=1024) :: msh_entity
-            real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            character(len=MSH_LEN) :: msh_entity
+            real(kind=RP), allocatable       :: msh_entity_vec(:)
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -2334,11 +2327,11 @@ MODULE Read_GMSH
 
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
 
@@ -2359,6 +2352,8 @@ MODULE Read_GMSH
                   no_nodes_i = 64
                case (93) ! 3D - 4th order
                   no_nodes_i = 125
+               case (94) ! 3D - 5th order
+                  no_nodes_i = 216
                case (3) ! 2D - 1st order
                   no_nodes_i = 4
                case (10) ! 2D - 2st order
@@ -2367,6 +2362,8 @@ MODULE Read_GMSH
                   no_nodes_i = 16
                case (37) ! 2D - 4th order
                   no_nodes_i = 25
+               case (38) ! 2D - 5th order
+                  no_nodes_i = 36
                case default
                   no_nodes_i = 0
                end select
@@ -2385,15 +2382,14 @@ MODULE Read_GMSH
 
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
-            check_eltype(1) = count(el_types .eq.  5)
-            check_eltype(2) = count(el_types .eq. 12)
-            check_eltype(3) = count(el_types .eq. 92)
-            check_eltype(4) = count(el_types .eq. 93)
+            check_eltype = 0
+            do i=1, EL_MAX_ORDER
+               check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
+            end do
             if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
             if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
             bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-            check_eltype = (/5,12,92,93/)
-            org_element_type = check_eltype(bFaceOrder)
+            org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
             msh_elements % el_type = org_element_type
 
             select case (bFaceOrder)
@@ -2405,6 +2401,8 @@ MODULE Read_GMSH
                org_element_type_2D = 36
             case (4)
                org_element_type_2D = 37
+            case (5)
+               org_element_type_2D = 38
             case default
             end select
 
@@ -2749,9 +2747,9 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
 
-            character(len=1024) :: msh_entity
+            character(len=MSH_LEN) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -2860,11 +2858,11 @@ MODULE Read_GMSH
 
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
 
@@ -2876,26 +2874,30 @@ MODULE Read_GMSH
                if (msh_elements % no_ptags(i) .gt. 0) msh_elements % ptags(i,1:msh_elements % no_ptags(i)) = &
                   int(msh_entity_vec(4:3+msh_elements % no_ptags(i)))
 
-               select case (el_types(i))
-               case (5) ! 3D - 1st order
-                  no_nodes_i = 8
-               case (12) ! 3D - 2st order
-                  no_nodes_i = 27
-               case (92) ! 3D - 3rd order
-                  no_nodes_i = 64
-               case (93) ! 3D - 4th order
-                  no_nodes_i = 125
-               case (3) ! 2D - 1st order
-                  no_nodes_i = 4
-               case (10) ! 2D - 2st order
-                  no_nodes_i = 9
-               case (36) ! 2D - 3rd order
-                  no_nodes_i = 16
-               case (37) ! 2D - 4th order
-                  no_nodes_i = 25
-               case default
-                  no_nodes_i = 0
-               end select
+                  select case (el_types(i))
+                  case (5) ! 3D - 1st order
+                     no_nodes_i = 8
+                  case (12) ! 3D - 2st order
+                     no_nodes_i = 27
+                  case (92) ! 3D - 3rd order
+                     no_nodes_i = 64
+                  case (93) ! 3D - 4th order
+                     no_nodes_i = 125
+                  case (94) ! 3D - 5th order
+                     no_nodes_i = 216
+                  case (3) ! 2D - 1st order
+                     no_nodes_i = 4
+                  case (10) ! 2D - 2st order
+                     no_nodes_i = 9
+                  case (36) ! 2D - 3rd order
+                     no_nodes_i = 16
+                  case (37) ! 2D - 4th order
+                     no_nodes_i = 25
+                  case (38) ! 2D - 5th order
+                     no_nodes_i = 36
+                  case default
+                     no_nodes_i = 0
+                  end select
 
                msh_elements % nodes(i,1:size(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i) )) = &
                 int(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i))
@@ -2911,15 +2913,14 @@ MODULE Read_GMSH
 
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
-            check_eltype(1) = count(el_types .eq.  5)
-            check_eltype(2) = count(el_types .eq. 12)
-            check_eltype(3) = count(el_types .eq. 92)
-            check_eltype(4) = count(el_types .eq. 93)
+            check_eltype = 0
+            do i=1, EL_MAX_ORDER
+               check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
+            end do
             if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
             if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
             bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-            check_eltype = (/5,12,92,93/)
-            org_element_type = check_eltype(bFaceOrder)
+            org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
             msh_elements % el_type = org_element_type
 
             select case (bFaceOrder)
@@ -2931,6 +2932,8 @@ MODULE Read_GMSH
                org_element_type_2D = 36
             case (4)
                org_element_type_2D = 37
+            case (5)
+               org_element_type_2D = 38
             case default
             end select
 
@@ -3367,9 +3370,9 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
 
-            character(len=1024) :: msh_entity
+            character(len=MSH_LEN) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
-            integer, dimension(4)      :: check_eltype
+            integer, dimension(EL_MAX_ORDER) :: check_eltype
 
             type(MSH_node_block_t)     :: msh_nodes
             type(MSH_element_block_t)  :: msh_elements, msh_elements_3D, msh_elements_2D
@@ -3471,11 +3474,11 @@ MODULE Read_GMSH
 
             read(fUnit,*) numberOfElements
             call msh_elements % Construct(element_type,numberOfElements)
-            allocate(msh_entity_vec(125)) ! arbitrary number
+            allocate(msh_entity_vec(255)) ! arbitrary number
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
 
@@ -3487,26 +3490,30 @@ MODULE Read_GMSH
                if (msh_elements % no_ptags(i) .gt. 0) msh_elements % ptags(i,1:msh_elements % no_ptags(i)) = &
                   int(msh_entity_vec(4:3+msh_elements % no_ptags(i)))
 
-               select case (el_types(i))
-               case (5) ! 3D - 1st order
-                  no_nodes_i = 8
-               case (12) ! 3D - 2st order
-                  no_nodes_i = 27
-               case (92) ! 3D - 3rd order
-                  no_nodes_i = 64
-               case (93) ! 3D - 4th order
-                  no_nodes_i = 125
-               case (3) ! 2D - 1st order
-                  no_nodes_i = 4
-               case (10) ! 2D - 2st order
-                  no_nodes_i = 9
-               case (36) ! 2D - 3rd order
-                  no_nodes_i = 16
-               case (37) ! 2D - 4th order
-                  no_nodes_i = 25
-               case default
-                  no_nodes_i = 0
-               end select
+                  select case (el_types(i))
+                  case (5) ! 3D - 1st order
+                     no_nodes_i = 8
+                  case (12) ! 3D - 2st order
+                     no_nodes_i = 27
+                  case (92) ! 3D - 3rd order
+                     no_nodes_i = 64
+                  case (93) ! 3D - 4th order
+                     no_nodes_i = 125
+                  case (94) ! 3D - 5th order
+                     no_nodes_i = 216
+                  case (3) ! 2D - 1st order
+                     no_nodes_i = 4
+                  case (10) ! 2D - 2st order
+                     no_nodes_i = 9
+                  case (36) ! 2D - 3rd order
+                     no_nodes_i = 16
+                  case (37) ! 2D - 4th order
+                     no_nodes_i = 25
+                  case (38) ! 2D - 5th order
+                     no_nodes_i = 36
+                  case default
+                     no_nodes_i = 0
+                  end select
 
                msh_elements % nodes(i,1:size(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i) )) = &
                 int(msh_entity_vec(4+msh_elements % no_ptags(i):3+msh_elements % no_ptags(i)+no_nodes_i))
@@ -3522,15 +3529,14 @@ MODULE Read_GMSH
 
       !-----Mesh-info----------------------------------------------------------
             ! find order of elements curvature
-            check_eltype(1) = count(el_types .eq.  5)
-            check_eltype(2) = count(el_types .eq. 12)
-            check_eltype(3) = count(el_types .eq. 92)
-            check_eltype(4) = count(el_types .eq. 93)
+            check_eltype = 0
+            do i=1, EL_MAX_ORDER
+               check_eltype(i) = count(el_types .eq. SUPPORTED_EL_TYPES(i))
+            end do
             if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
             if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
             bFaceOrder = maxloc(check_eltype,1) ! set order of the mesh
-            check_eltype = (/5,12,92,93/)
-            org_element_type = check_eltype(bFaceOrder)
+            org_element_type = SUPPORTED_EL_TYPES(bFaceOrder)
             msh_elements % el_type = org_element_type
 
             select case (bFaceOrder)
@@ -3542,6 +3548,8 @@ MODULE Read_GMSH
                org_element_type_2D = 36
             case (4)
                org_element_type_2D = 37
+            case (5)
+               org_element_type_2D = 38
             case default
             end select
 
@@ -3826,7 +3834,6 @@ MODULE Read_GMSH
         logical :: success=.false.
         character (len=100) :: cline
         character (len=10)  :: cword
-        integer, dimension(4) :: check_eltype = (/5,12,92,93/)
         !----------------------------------
 
         open(newunit = fUnit, FILE = trim(fileName) )
@@ -3840,7 +3847,7 @@ MODULE Read_GMSH
                read(fUnit,*) nElBlocks, elem_tmp, k, k
                do i=1, nElBlocks
                   read(fUnit,*) k, k, eltype, ElsInBlock
-                  if (my_findloc(check_eltype,eltype,1) .ge. 1) nelem = nelem + ElsInBlock
+                  if (my_findloc(SUPPORTED_EL_TYPES,eltype,1) .ge. 1) nelem = nelem + ElsInBlock
                   do j=1, ElsInBlock
                      read(fUnit,*) k
                   end do
@@ -3875,7 +3882,6 @@ MODULE Read_GMSH
       logical :: success=.false.
       character (len=100) :: cline
       character (len=10)  :: cword
-      integer, dimension(4) :: check_eltype = (/5,12,92,93/)
       !----------------------------------
 
       open(newunit = fUnit, FILE = trim(fileName) )
@@ -3889,7 +3895,7 @@ MODULE Read_GMSH
              read(fUnit,*) nEltotal
              do i=1, nEltotal
                read(fUnit,*) k, eltype
-               if (my_findloc(check_eltype,eltype,1) .ge. 1) nelem = nelem + 1
+               if (my_findloc(SUPPORTED_EL_TYPES,eltype,1) .ge. 1) nelem = nelem + 1
              end do
              read(fUnit,*) cline
              if (trim(cline) .ne. '$EndElements') error stop "NumOfElems_GMSH :: Wrong input file - not all elements read."
@@ -3992,6 +3998,10 @@ MODULE Read_GMSH
          allocate(this % nodes(no_els,9))
       case (36) ! 2D 3rd order quadrangle
          allocate(this % nodes(no_els,16))
+      case (37) ! 2D 4th order quadrangle
+         allocate(this % nodes(no_els,25))
+      case (38) ! 2D 5th order quadrangle
+         allocate(this % nodes(no_els,36))
       case (5)  ! 3D 1st order hexahedron
          allocate(this % nodes(no_els,8))
       case (12) ! 3D 2nd order hexahedron
@@ -4000,13 +4010,15 @@ MODULE Read_GMSH
          allocate(this % nodes(no_els,64))
       case (93) ! 3D 4th order hexahedron
          allocate(this % nodes(no_els,125))
+      case (94) ! 3D 5th order hexahedron
+         allocate(this % nodes(no_els,216))
       case default
          ! print *, " READ_GMSH :: Warning! Wrong element type. Allocation for Q3 3D."
-         allocate(this % nodes(no_els,64))
+         allocate(this % nodes(no_els,216))
       end select
 
       ! allocate BCs only if 3D element is detected
-      if (my_findloc((/5,12,92,93/),el_type,1) .ge. 1) then
+      if (my_findloc(SUPPORTED_EL_TYPES,el_type,1) .ge. 1) then
          allocate(this % BCs(no_els,6))
          this % BCs = 0
       end if
@@ -4074,32 +4086,6 @@ MODULE Read_GMSH
       !call ISORT (vec_unique, [0], size(vec_unique), 1)
 
    end subroutine unique
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   integer function my_findloc(arr, val, dim)
-!  ---------------------------------------------------------
-!  Vanilla routine to find an index of matching value in the array.
-!  For INTEL or GNU v>9.0 just switch to 'findloc'.
-!  ---------------------------------------------------------
-      implicit none
-      !-----Arguments---------------------------------------------------
-      integer,dimension(:),intent(in) :: arr
-      integer,             intent(in) :: val, dim
-      !-----Local-Variables---------------------------------------------
-      integer :: i
-      !  -----------------------------------------------------------------------
-
-      ! my_findloc = findloc(arr,val,dim) ! intrinsic function
-      my_findloc = 0
-      do i = 1, size(arr,1)
-         if (arr(i) .eq. val) then
-         my_findloc = i
-         exit
-         end if
-      end do
-
-   end function my_findloc
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -4331,9 +4317,6 @@ MODULE Read_GMSH
          ! 20th entity (12th edge)
          elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) = buffer( 9+innerEdgePoints*12-1 : 9+innerEdgePoints*11 : -1 )
 
-         ! fix faces
-         ! ************ FIXME: MANUAL FIX FOR NOW, TODO :: EXPAND THIS TO P=4 *********************
-
          ! 23rd entity (Face no 1)
          do i=1, innerEdgePoints
             face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
@@ -4386,9 +4369,257 @@ MODULE Read_GMSH
          elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,2)
          elnodes( innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,1)
       case (4)
-         error stop "Read_GMSH :: Curved elements with P=4 do not have checked ordering!"
+         ! reverse edges (reverse edge no 2,4,6,10,11,12)
+
+         ! 10th entity (2nd edge)
+         elnodes( 9+innerEdgePoints*1 : 9+innerEdgePoints*2-1 )   = buffer( 9+innerEdgePoints*2-1 : 9+innerEdgePoints*1 : -1 )
+         ! 12th entity (4th edge)
+         elnodes( 9+innerEdgePoints*3 : 9+innerEdgePoints*4-1 )   = buffer( 9+innerEdgePoints*4-1 : 9+innerEdgePoints*3 : -1 )
+         ! 14th entity (6th edge)
+         elnodes( 9+innerEdgePoints*5 : 9+innerEdgePoints*6-1 )   = buffer( 9+innerEdgePoints*6-1 : 9+innerEdgePoints*5 : -1 )
+         ! 18th entity (10th edge)
+         elnodes( 9+innerEdgePoints*9 : 9+innerEdgePoints*10-1 )  = buffer( 9+innerEdgePoints*10-1 : 9+innerEdgePoints*9 : -1 )
+         ! 19th entity (11th edge)
+         elnodes( 9+innerEdgePoints*10 : 9+innerEdgePoints*11-1 ) = buffer( 9+innerEdgePoints*11-1 : 9+innerEdgePoints*10 : -1 )
+         ! 20th entity (12th edge)
+         elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) = buffer( 9+innerEdgePoints*12-1 : 9+innerEdgePoints*11 : -1 )
+
+         ! 23rd entity (Face no 1)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 24th entity (Face no 2)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,1)
+
+         ! 21st entity (Face no 3)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,1)
+
+         ! 22nd enitty (Face no 4)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) )
+         end do
+         elnodes( 2 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,3)
+
+         ! 26th enitty (Face no 5)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 25th enitty (Face no 6)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,1)
+      case (5)
+         ! reverse edges (reverse edge no 2,4,6,10,11,12)
+
+         ! 10th entity (2nd edge)
+         elnodes( 9+innerEdgePoints*1 : 9+innerEdgePoints*2-1 )   = buffer( 9+innerEdgePoints*2-1 : 9+innerEdgePoints*1 : -1 )
+         ! 12th entity (4th edge)
+         elnodes( 9+innerEdgePoints*3 : 9+innerEdgePoints*4-1 )   = buffer( 9+innerEdgePoints*4-1 : 9+innerEdgePoints*3 : -1 )
+         ! 14th entity (6th edge)
+         elnodes( 9+innerEdgePoints*5 : 9+innerEdgePoints*6-1 )   = buffer( 9+innerEdgePoints*6-1 : 9+innerEdgePoints*5 : -1 )
+         ! 18th entity (10th edge)
+         elnodes( 9+innerEdgePoints*9 : 9+innerEdgePoints*10-1 )  = buffer( 9+innerEdgePoints*10-1 : 9+innerEdgePoints*9 : -1 )
+         ! 19th entity (11th edge)
+         elnodes( 9+innerEdgePoints*10 : 9+innerEdgePoints*11-1 ) = buffer( 9+innerEdgePoints*11-1 : 9+innerEdgePoints*10 : -1 )
+         ! 20th entity (12th edge)
+         elnodes( 9+innerEdgePoints*11 : 9+innerEdgePoints*12-1 ) = buffer( 9+innerEdgePoints*12-1 : 9+innerEdgePoints*11 : -1 )
+
+         ! 23rd entity (Face no 1)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(10 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes(12 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes(13 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(15 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes(16 + 8 + 12*innerEdgePoints + 2*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 24th entity (Face no 2)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 3*(innerEdgePoints**2) ) = face_buffer(1,4)
+
+         ! 21st entity (Face no 3)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 0*(innerEdgePoints**2) ) = face_buffer(1,4)
+
+         ! 22nd enitty (Face no 4)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(10 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(11 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(12 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(13 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes(14 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(15 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(16 + 8 + 12*innerEdgePoints + 1*(innerEdgePoints**2) ) = face_buffer(1,3)
+
+         ! 26th enitty (Face no 5)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,4)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(10 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes(12 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes(13 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(15 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes(16 + 8 + 12*innerEdgePoints + 5*(innerEdgePoints**2) ) = face_buffer(1,2)
+
+         ! 25th enitty (Face no 6)
+         do i=1, innerEdgePoints
+            face_buffer(i,:) = elnodes( 1 + (i-1)*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) : &
+                                                i*innerEdgePoints + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) )
+         end do
+         elnodes( 1 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,2)
+         elnodes( 2 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,2)
+         elnodes( 3 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,1)
+         elnodes( 4 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,1)
+         elnodes( 5 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,3)
+         elnodes( 6 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,2)
+         elnodes( 7 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,1)
+         elnodes( 8 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,4)
+         elnodes( 9 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(2,4)
+         elnodes(10 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,3)
+         elnodes(11 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(4,4)
+         elnodes(12 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,3)
+         elnodes(13 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,3)
+         elnodes(14 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,1)
+         elnodes(15 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(3,2)
+         elnodes(16 + 8 + 12*innerEdgePoints + 4*(innerEdgePoints**2) ) = face_buffer(1,4)
       case default
-         error stop "Read_GMSH :: Curved elements with P>4 not implemented."
+         error stop "Read_GMSH :: Curved elements with P>5 not implemented."
       end select
    end subroutine ReorderElement
 !

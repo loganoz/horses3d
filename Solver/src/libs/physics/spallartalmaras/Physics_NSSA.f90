@@ -681,7 +681,7 @@
 !! These are to be used to compute the local time step.
 !----------------------------------------------------------------------
 !
-      SUBROUTINE ComputeEigenvaluesForState( Q, eigen )
+      SUBROUTINE ComputeEigenvaluesForStateSA( Q, eigen )
       
       USE SMConstants
       USE PhysicsStorage_NSSA
@@ -717,5 +717,5 @@
 
       end associate
       
-      END SUBROUTINE ComputeEigenvaluesForState
+      END SUBROUTINE ComputeEigenvaluesForStateSA
 ! /////////////////////////////////////////////////////////////////////

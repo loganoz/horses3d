@@ -5,7 +5,7 @@ module AutosaveClass
    use Utilities, only: almostEqual, toLower
 
    private
-   public   Autosave_t, AUTOSAVE_BY_TIME
+   public   Autosave_t, AUTOSAVE_BY_TIME, AUTOSAVE_BY_ITERATION, AUTOSAVE_UNDEFINED
 
    integer, parameter :: AUTOSAVE_UNDEFINED    = 0
    integer, parameter :: AUTOSAVE_BY_TIME      = 1

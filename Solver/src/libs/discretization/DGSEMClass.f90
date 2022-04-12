@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f95
 !   @Author:  David Kopriva
 !   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Mon Sep  6 22:44:53 2021
+!   @Last revision date: Mon Mar 14 22:31:22 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -24,8 +24,10 @@ Module DGSEMClass
    USE HexMeshClass
    USE PhysicsStorage
    use FileReadingUtilities      , only: getFileName
+   use MPI_Process_Info          , only: MPI_Process
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
+   use FWHGeneralClass
 #elif defined(SPALARTALMARAS)
    use ManufacturedSolutionsNSSA
    use SpallartAlmarasTurbulence
@@ -55,6 +57,9 @@ Module DGSEMClass
       TYPE(HexMesh)                                           :: mesh
       LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      type(FWHClass)                                          :: fwh
+#endif
 #ifdef FLOW
       type(Particles_t)                                       :: particles
 #else
@@ -99,6 +104,7 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
+      use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE
 !
 !     --------------------------
@@ -276,6 +282,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
+      if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
@@ -285,6 +292,10 @@ Module DGSEMClass
       call self % mesh % ComputeWallDistances
 #endif
       IF(.NOT. success) RETURN
+!
+!     construct surfaces mesh
+!     -----------------------
+      call surfacesMesh % construct(controlVariables, self % mesh)
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -360,6 +371,13 @@ Module DGSEMClass
 !     ------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
+!
+!     ------------------
+!     Build the FWH general class
+!     ------------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      IF (flowIsNavierStokes) call self % fwh % construct(self % mesh, controlVariables)
+#endif
 
 ! #if defined(NAVIERSTOKES)
 ! !
@@ -386,6 +404,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
+      use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
@@ -393,6 +412,12 @@ Module DGSEMClass
       CALL self % mesh % destruct
 
       call self % monitors % destruct
+
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      IF (flowIsNavierStokes) call self % fwh % destruct
+#endif
+
+      call surfacesMesh % destruct
 
       END SUBROUTINE DestructDGSem
 !
@@ -413,6 +438,7 @@ Module DGSEMClass
       subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time )
          use FTValueDictionaryClass
          USE mainKeywordsModule
+         use SurfaceMesh, only: surfacesMesh
          implicit none
          class(DGSEM)   :: self
          class(FTValueDictionary), intent(in)   :: controlVariables
@@ -451,6 +477,8 @@ Module DGSEMClass
 
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
          call self % mesh % Export( trim(solutionName) )
+
+         call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
 
       end subroutine DGSEM_SetInitialCondition
 !
@@ -619,6 +647,7 @@ Module DGSEMClass
 #endif
 #if defined(SPALARTALMARAS)
       type(Spalart_Almaras_t)       :: SAModel
+      external                      :: ComputeEigenvaluesForStateSA
 #endif
       !--------------------------------------------------------
 !     Initializations
@@ -673,8 +702,12 @@ Module DGSEMClass
 !           ------------------------------------------------------------
 !
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
-            CALL ComputeEigenvaluesForState( Q , eValues )
 
+#if defined(SPALARTALMARAS)
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )
+#else
+            CALL ComputeEigenvaluesForState( Q , eValues )
+#endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 !           ----------------------------

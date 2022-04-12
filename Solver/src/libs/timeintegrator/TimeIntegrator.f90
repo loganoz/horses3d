@@ -37,6 +37,7 @@
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
+      use SurfaceMesh                     , only: surfacesMesh
       IMPLICIT NONE
 
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -190,7 +191,7 @@ print*, "Method selected: RK5"
 !
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
-
+         call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
 
@@ -312,8 +313,9 @@ print*, "Method selected: RK5"
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
-#ifdef NAVIERSTOKES
+#if defined(NAVIERSTOKES)
       use ShockCapturing
+      use TripForceClass, only: randomTrip
 #endif
       IMPLICIT NONE
 !
@@ -349,7 +351,7 @@ print*, "Method selected: RK5"
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients
+      logical                       :: saveGradients, useTrip
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -363,6 +365,7 @@ print*, "Method selected: RK5"
       END IF
       call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
+      useTrip            = controlVariables % logicalValueForKey("use trip")
 
 !
 !     ---------------
@@ -376,6 +379,11 @@ print*, "Method selected: RK5"
       end if
 
       t = self % time
+
+
+#if defined(NAVIERSTOKES)
+      if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+#endif
 !
 !     ------------------
 !     Configure restarts
@@ -407,19 +415,28 @@ print*, "Method selected: RK5"
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
             end if
             call monitors % WriteToFile(sem % mesh, force = .TRUE.)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+            call sem % fwh % writeToFile( force = .TRUE. )
+#endif
             return
          END IF
       end if
 !
-!     -----------------------------
 !     Update shock-capturing sensor
 !     -----------------------------
-!
-#ifdef NAVIERSTOKES
+#if defined(NAVIERSTOKES)
       if (ShockCapturingDriver % isActive) then
          call ShockCapturingDriver % Detect(sem, t)
       end if
 #endif
+!
+!     Save surfaces sol before the first time step
+!     --------------------------------------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
+      call sem % fwh % writeToFile()
+#endif
+      call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
 !
 !     -----------------
 !     Integrate in time
@@ -453,6 +470,9 @@ print*, "Method selected: RK5"
 !        User defined periodic operation
 !        -------------------------------
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
+#if defined(NAVIERSTOKES)
+         if (useTrip) call randomTrip % gTrip % updateInTime(t)
+#endif
 !
 !        Perform time step
 !        -----------------
@@ -558,6 +578,16 @@ print*, "Method selected: RK5"
             end if
 #endif
          end if
+!
+!        Save surfaces solution
+!        ----------------------
+         if (surfacesMesh % autosave % Autosave(k+1)) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+             call sem % fwh % updateValues(sem % mesh, t, k+1)
+             call sem % fwh % writeToFile()
+#endif
+             call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
+         end if
 
 !        Flush monitors
 !        --------------
@@ -571,6 +601,9 @@ print*, "Method selected: RK5"
 !     -----------------------------------------------
       if ( k .ne. 0 ) then
          call Monitors % writeToFile(sem % mesh, force = .true. )
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+         call sem % fwh % writeToFile( force = .TRUE. )
+#endif
       end if
 
       sem % maxResidual       = maxval(maxResidual)
@@ -595,6 +628,10 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % destruct
 
       end select
+
+#if defined(NAVIERSTOKES)
+         if (useTrip) call randomTrip % destruct
+#endif
 
    end subroutine IntegrateInTime
 
@@ -688,7 +725,8 @@ print*, "Method selected: RK5"
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
-      integer, parameter :: DONT_KNOW   = 3
+      integer, parameter :: SURFSAVE     = 3
+      integer, parameter :: DONT_KNOW   = 4
       integer, save :: next_time_will = DONT_KNOW
       !----------------------------------------------------------
 
@@ -697,6 +735,7 @@ print*, "Method selected: RK5"
 !     -------------------------------
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
+      surfacesMesh % autosave % performAutosave = .FALSE.
       dt_out = dt_in
 
 !
@@ -727,8 +766,13 @@ print*, "Method selected: RK5"
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                end if
 
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, surfacesMesh % autosave % nextAutosaveTime) ) then
+                  surfacesMesh % autosave % performAutosave = .TRUE.
+                  surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
+               end if
+
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
 
          case (ADAPT)
@@ -742,17 +786,42 @@ print*, "Method selected: RK5"
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
 
+               if ( AlmostEqual(self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime) ) then
+                  surfacesMesh % autosave % performAutosave = .TRUE.
+                  surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave%time_interval
+               end if
+
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
+            end if
+
+         case (SURFSAVE)
+
+            if ( surfacesMesh % autosave % nextAutosaveTime < (t + dt_out) ) then
+               dt_out = surfacesMesh % autosave % nextAutosaveTime - t
+               surfacesMesh % autosave % performAutosave = .TRUE.
+
+               if ( AlmostEqual(surfacesMesh % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+                  self % pAdaptator % performPAdaptationT = .TRUE.
+                  self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+               end if
+
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, surfacesMesh % autosave % nextAutosaveTime) ) then
+                  self % autosave % performAutosave = .TRUE.
+                  self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
+               end if
+
+               surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
 
          case (DONT_KNOW)
 
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
-                  self % autosave % mode       == AUTOSAVE_BY_TIME) then
+                  surfacesMesh % autosave % mode      == AUTOSAVE_BY_TIME .or. &
+                  self % autosave % mode              == AUTOSAVE_BY_TIME) then
 
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
-
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
                dt_temp = self % CorrectDt (t, dt_out)
                dt_out  = dt_temp
             else
