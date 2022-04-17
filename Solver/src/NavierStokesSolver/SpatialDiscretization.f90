@@ -41,9 +41,8 @@ module SpatialDiscretization
       public   ComputeTimeDerivative, ComputeTimeDerivativeIsolated, viscousDiscretizationKey
       public   Initialize_SpaceAndTimeMethods, Finalize_SpaceAndTimeMethods
 
-
-      procedure(GetGradientValues_f),           pointer :: GetGradients
-      procedure(EllipticFlux_f),                pointer :: ViscousFlux
+      procedure(GetGradientValues_f), pointer :: GetGradients
+      procedure(EllipticFlux_f),      pointer :: ViscousFlux
 
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
@@ -228,6 +227,7 @@ module SpatialDiscretization
          if ( allocated(HyperbolicDiscretization) ) deallocate( HyperbolicDiscretization )
          if ( allocated(LESModel) )                 deallocate( LESModel )
          if ( allocated(ShockCapturingDriver) )     deallocate( ShockCapturingDriver )
+
 
       end subroutine Finalize_SpaceAndTimeMethods
 !
@@ -417,6 +417,14 @@ module SpatialDiscretization
             call TimeDerivative_VolumetricContribution( mesh, mesh % elements(eID) , t)
          end do
 !$omp end do
+
+#if defined(_HAS_MPI_)
+!$omp single
+         if (ShockCapturingDriver % isActive) then
+            call mesh % UpdateMPIFacesAviscflux(NCONS)
+         end if
+!$omp end single
+#endif
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -470,6 +478,15 @@ module SpatialDiscretization
 !           Compute viscosity at MPI faces
 !           ------------------------------
             call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
+
+!$omp single
+            if ( flowIsNavierStokes ) then
+               if ( ShockCapturingDriver % isActive ) then
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mesh % GatherMPIFacesAviscflux(NCONS)
+               end if
+            end if
+!$omp end single
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -941,8 +958,7 @@ module SpatialDiscretization
 !        --------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
-            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + &
-                                   f % storage(2) % AviscFlux)
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
          else
             Avisc_flux = 0.0_RP
          end if
@@ -1024,6 +1040,7 @@ module SpatialDiscretization
          integer       :: thisSide
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
@@ -1033,9 +1050,9 @@ module SpatialDiscretization
 !        ---------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
-            print*, "Shock-capturing not configured with MPI"
-            errorMessage(STD_OUT)
-            stop
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+         else
+            Avisc_flux = 0.0_RP
          end if
 !
 !        --------------
@@ -1074,7 +1091,7 @@ module SpatialDiscretization
                end do
             end do
          else
-            visc_flux = 0._RP
+            visc_flux = 0.0_RP
          end if
 
          do j = 0, f % Nf(2)
@@ -1093,7 +1110,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
 
             end do
          end do

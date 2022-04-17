@@ -113,8 +113,10 @@ MODULE HexMeshClass
             procedure :: UpdateMPIFacesPolynomial      => HexMesh_UpdateMPIFacesPolynomial
             procedure :: UpdateMPIFacesSolution        => HexMesh_UpdateMPIFacesSolution
             procedure :: UpdateMPIFacesGradients       => HexMesh_UpdateMPIFacesGradients
+            procedure :: UpdateMPIFacesAviscflux       => HexMesh_UpdateMPIFacesAviscflux
             procedure :: GatherMPIFacesSolution        => HexMesh_GatherMPIFacesSolution
             procedure :: GatherMPIFacesGradients       => HexMesh_GatherMPIFacesGradients
+            procedure :: GatherMPIFacesAviscFlux       => HexMesh_GatherMPIFacesAviscFlux
             procedure :: FindPointWithCoords           => HexMesh_FindPointWithCoords
             procedure :: FindPointWithCoordsInNeighbors=> HexMesh_FindPointWithCoordsInNeighbors
             procedure :: ComputeWallDistances          => HexMesh_ComputeWallDistances
@@ -426,6 +428,8 @@ MODULE HexMeshClass
 
       END FUNCTION faceRotation
 !
+!////////////////////////////////////////////////////////////////////////
+!
       SUBROUTINE ConstructPeriodicFaces(self, useRelaxTol)
       USE Physics
       IMPLICIT NONE
@@ -712,6 +716,8 @@ slavecoord:             DO l = 1, 4
 
 
       END SUBROUTINE CompareTwoNodes
+!
+!////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE CompareTwoNodesRelax(x1, x2, success, coord, min_edge_length)
       IMPLICIT NONE
@@ -1103,7 +1109,70 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_UpdateMPIFacesGradients
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_UpdateMPIFacesAviscFlux(self, nEqn)
+         use MPI_Face_Class
+         implicit none
+         class(HexMesh)         :: self
+         integer,    intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = (/2,1/)
 
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************************
+!        Perform the receive request
+!        ***************************
+!
+         do domain = 1, MPI_Process % nProcs
+            call self % MPIfaces % faces(domain) % RecvAviscFlux(domain, nEqn)
+         end do
+!
+!        ***********
+!        Send H flux
+!        ***********
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           ---------------
+!           Gather solution
+!           ---------------
+!
+            counter = 1
+            if ( self % MPIfaces % faces(domain) % no_of_faces .eq. 0 ) cycle
+
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  self % MPIfaces % faces(domain) % AviscFluxSend(counter:counter+nEqn-1) = &
+                     f % storage(thisSide) % AviscFlux(:,i,j)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+!
+!           -------------
+!           Send solution
+!           -------------
+!
+            call self % MPIfaces % faces(domain) % SendAviscFlux(domain, nEqn)
+         end do
+#endif
+      end subroutine HexMesh_UpdateMPIFacesAviscFlux
+!
+!////////////////////////////////////////////////////////////////////////
+!
       subroutine HexMesh_GatherMPIFacesSolution(self, nEqn)
          implicit none
          class(HexMesh)    :: self
@@ -1200,7 +1269,52 @@ slavecoord:             DO l = 1, 4
          end do
 #endif
       end subroutine HexMesh_GatherMPIFacesGradients
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexMesh_GatherMPIFacesAviscflux(self, nEqn)
+         implicit none
+         class(HexMesh)      :: self
+         integer, intent(in) :: nEqn
+#ifdef _HAS_MPI_
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer            :: mpifID, fID, thisSide, domain
+         integer            :: i, j, counter
+         integer, parameter :: otherSide(2) = [2, 1]
 
+         if ( .not. MPI_Process % doMPIAction ) return
+!
+!        ***************
+!        Gather solution
+!        ***************
+!
+         do domain = 1, MPI_Process % nProcs
+!
+!           **************************************
+!           Wait until messages have been received
+!           **************************************
+!
+            call self % MPIfaces % faces(domain) % WaitForAviscflux
+
+            counter = 1
+            do mpifID = 1, self % MPIfaces % faces(domain) % no_of_faces
+               fID = self % MPIfaces % faces(domain) % faceIDs(mpifID)
+               thisSide = self % MPIfaces % faces(domain) % elementSide(mpifID)
+               associate(f => self % faces(fID))
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+                  f % storage(otherSide(thisSide)) % Aviscflux(:,i,j) = &
+                     self % MPIfaces % faces(domain) % AviscfluxRecv(counter:counter+nEqn-1)
+                  counter = counter + nEqn
+               end do               ; end do
+               end associate
+            end do
+         end do
+#endif
+      end subroutine HexMesh_GatherMPIFacesAviscflux
 !
 !////////////////////////////////////////////////////////////////////////
 !
