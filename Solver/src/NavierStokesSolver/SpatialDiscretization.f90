@@ -215,7 +215,7 @@ module SpatialDiscretization
 !
 !        Initialize Wall Function
 !        ------------------------
-         call Initialize_WallConnection(controlVariables, mesh)
+         call Initialize_WallConnection(controlVariables, sem % mesh)
 
       end subroutine Initialize_SpaceAndTimeMethods
 !

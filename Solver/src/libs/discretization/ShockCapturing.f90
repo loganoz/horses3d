@@ -19,7 +19,9 @@ module ShockCapturing
    use DGSEMClass,                 only: ComputeTimeDerivative_f, DGSem
    use HexMeshClass,               only: HexMesh
    use ElementClass,               only: Element
+#if !defined(SPALARTALMARAS)
    use LESModels,                  only: Smagorinsky_t
+#endif
    use SpectralVanishingViscosity, only: SVV, InitializeSVV
    use DGIntegrals,                only: ScalarWeakIntegrals, ScalarStrongIntegrals
 
@@ -72,8 +74,9 @@ module ShockCapturing
       real(RP), private :: alpha2           !< Second viscosity parameter (high)
       real(RP), private :: mu2alpha         !< Ratio alpha/mu
       logical,  private :: alphaIsPropToMu  !< .true. if alpha/mu is defined
-
+#if !defined (SPALARTALMARAS)
       type(Smagorinsky_t), private :: Smagorinsky  !< For automatic viscosity
+#endif
 
       contains
 
@@ -195,7 +198,6 @@ module ShockCapturing
       end if
 
       if (.not. self % isActive) then
-         deallocate(self)
          return
       end if
 !
@@ -414,7 +416,7 @@ module ShockCapturing
       class(SCdriver_t), intent(in) :: self
 
 
-      if (.not. MPI_Process % isRoot) return
+      if (.not. MPI_Process % isRoot .or. .not. self % isActive) return
 
       write(STD_OUT, "(/)")
       call Subsection_Header("Shock-Capturing")
@@ -647,6 +649,7 @@ module ShockCapturing
             case (SC_SENSOR_VAL)
                self % updateMethod = SC_SENSOR_ID
 
+#if !defined (SPALARTALMARAS)
             case (SC_SMAG_VAL)
 
                self % updateMethod = SC_SMAG_ID
@@ -660,12 +663,15 @@ module ShockCapturing
                self % Smagorinsky % requiresWallDistances = .false.
                self % Smagorinsky % WallModel = 0  ! No wall model
                self % Smagorinsky % CS = self % mu1
+#endif
 
             case default
                write(STD_OUT,*) 'ERROR. Unavailable shock-capturing update strategy. Options are:'
                write(STD_OUT,*) '   * ', SC_CONST_VAL
                write(STD_OUT,*) '   * ', SC_SENSOR_VAL
+#if !defined (SPALARTALMARAS)
                write(STD_OUT,*) '   * ', SC_SMAG_VAL
+#endif
                stop
 
             end select
@@ -695,10 +701,10 @@ module ShockCapturing
 !     Modules
 !     -------
       use FTValueDictionaryClass
-      use PhysicsStorage_NS, only: grad_vars, GRADVARS_STATE, &
-                                   GRADVARS_ENTROPY, GRADVARS_ENERGY
-      use Physics_NS,        only: ViscousFlux_STATE, ViscousFlux_ENTROPY, &
-                                   ViscousFlux_ENERGY, GuermondPopovFlux_ENTROPY
+      use PhysicsStorage, only: grad_vars, GRADVARS_STATE, &
+                                GRADVARS_ENTROPY, GRADVARS_ENERGY
+      use Physics,        only: ViscousFlux_STATE, ViscousFlux_ENTROPY, &
+                                ViscousFlux_ENERGY, GuermondPopovFlux_ENTROPY
 !
 !     ---------
 !     Interface
@@ -812,6 +818,7 @@ module ShockCapturing
          case (SC_SENSOR_ID)
             mu = self % mu1 * (1.0_RP-switch) + self % mu2 * switch
 
+#if !defined (SPALARTALMARAS)
          case (SC_SMAG_ID)
 
             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
@@ -823,6 +830,7 @@ module ShockCapturing
                                                           e % storage % U_z(:,i,j,k),     &
                                                           mu(i,j,k))
             end do                ; end do                ; end do
+#endif
 
          end select
 !
@@ -899,7 +907,9 @@ module ShockCapturing
       end select
 
       if (self % updateMethod == SC_SMAG_ID) then
+#if !defined (SPALARTALMARAS)
          write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+#endif
       else
          write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
          write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2
@@ -1031,6 +1041,7 @@ module ShockCapturing
             sqrt_mu = self % sqrt_mu1 * (1.0_RP-switch) + self % sqrt_mu2 * switch
             salpha  = self % sqrt_alpha1 * (1.0_RP-switch) + self % sqrt_alpha2 * switch
 
+#if !defined (SPALARTALMARAS)
          case (SC_SMAG_ID)
 
             delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
@@ -1043,6 +1054,7 @@ module ShockCapturing
                                                           sqrt_mu(i,j,k))
                sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
             end do                ; end do                ; end do
+#endif
 
          end select
 
@@ -1101,7 +1113,9 @@ module ShockCapturing
       end select
 
       if (self % updateMethod == SC_SMAG_ID) then
+#if !defined (SPALARTALMARAS)
          write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+#endif
       else
          write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
          write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2

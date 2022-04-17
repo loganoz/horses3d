@@ -891,8 +891,8 @@ module SCsensorClass
 !     -------
 !     Modules
 !     -------
-      use PhysicsStorage_NS,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-      use VariableConversion_NS, only: Pressure
+      use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
+      use VariableConversion, only: Pressure
       implicit none
 !
 !     ---------
