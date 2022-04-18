@@ -751,8 +751,15 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux   ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux        ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         logical       :: SChyperbolic
 
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -779,45 +786,30 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         SChyperbolic = .false.
-         if (ShockCapturingDriver % isActive) then
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+!
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
+!
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
+
+         type is (SplitDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Peform the Weak volume green integral
+!           -------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-            SChyperbolic = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, &
-                                                                   e % storage % QDot, isStrong=.true.)
-         end if
 
-         if (.not. SChyperbolic) then
-!
-!           Compute inviscid contravariant flux
-!           -----------------------------------
-            call HyperbolicDiscretization % ComputeInnerFluxes ( e, EulerFlux, inviscidContravariantFlux )
+            e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
-            select type ( HyperbolicDiscretization )
-            type is (StandardDG_t)
-!
-!              Compute the total Navier-Stokes flux
-!              ------------------------------------
-               contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
-!
-!              Perform the Weak Volume Green integral
-!              --------------------------------------
-               e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
-
-            type is (SplitDG_t)
-!
-!              Compute sharp fluxes for skew-symmetric approximations
-!              ------------------------------------------------------
-               call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
-!
-!              Peform the Weak volume green integral
-!              -------------------------------------
-               viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-
-               e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
-
-            end select
-
-         end if
+         end select
 
       end subroutine TimeDerivative_StrongVolumetricContribution
 !
@@ -843,8 +835,15 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         logical       :: SChyperbolic
 
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -871,46 +870,30 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         if (ShockCapturingDriver % isActive) then
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+!
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
+!
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
+
+         type is (SplitDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Peform the Weak volume green integral
+!           -------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-            SChyperbolic = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, &
-                                                                   e % storage % QDot, isStrong=.false.)
-         end if
-!
-!        Usual hyperbolic term if shock-capturing does not modify the advection
-!        ----------------------------------------------------------------------
-         if (.not. SChyperbolic) then
-!
-!           Compute inviscid contravariant flux
-!           -----------------------------------
-            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 
-            select type ( HyperbolicDiscretization )
-            type is (StandardDG_t)
-!
-!              Compute the total Navier-Stokes flux
-!              ------------------------------------
-               contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
-!
-!              Perform the Weak Volume Green integral
-!              --------------------------------------
-               e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
+            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
-            type is (SplitDG_t)
-!
-!              Compute sharp fluxes for skew-symmetric approximations
-!              ------------------------------------------------------
-               call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
-!
-!              Peform the Weak volume green integral
-!              -------------------------------------
-               viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-
-               e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
-
-            end select
-
-         end if
+         end select
 
       end subroutine TimeDerivative_VolumetricContribution
 !
