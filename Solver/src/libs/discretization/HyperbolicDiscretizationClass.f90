@@ -143,9 +143,6 @@ module HyperbolicDiscretizationClass
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
-         case (RIEMANN_ESLXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","ES Lax-Friedrichs"
-
          case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 

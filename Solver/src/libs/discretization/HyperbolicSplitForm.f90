@@ -168,11 +168,6 @@ module HyperbolicSplitForm
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
-#ifndef SPALARTALMARAS
-         case (RIEMANN_ESLXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","ES Lax-Friedrichs"
-#endif
-
          case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 
