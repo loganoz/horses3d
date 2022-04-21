@@ -554,18 +554,14 @@ module KDClass
       type(KDtree), pointer :: child_L, child_R 
       integer               :: i     
       
-      if( associated(this% child_L) .and. .not. this% isLast ) child_L => this% child_L      
-      if( associated(this% child_R) .and. .not. this% isLast ) child_R => this% child_R      
+      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct      
+      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct      
 
       if( allocated(this% ObjectsList) ) deallocate(this% ObjectsList)      
       if( allocated(this% ObjsIndeces) ) deallocate(this% ObjsIndeces)
       
-      if( associated(this% child_L) ) nullify(this% child_L)
-      if( associated(this% child_R) ) nullify(this% child_R)
-      if( associated(this% parent)  ) nullify(this% parent)
-      
-      if( associated(child_L) .and. .not. this% isLast ) call child_L% destruct()
-      if( associated(child_R) .and. .not. this% isLast ) call child_R% destruct()
+      if( associated(this% child_L) ) deallocate(this% child_L)
+      if( associated(this% child_R) ) deallocate(this% child_R)
 
    end subroutine KD_treeDestruct  
    

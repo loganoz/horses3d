@@ -105,7 +105,6 @@ Module DGSEMClass
       use PartitionedMeshClass
       use MeshPartitioning
       use IBMClass
-      use MPI_IBMUtilities
       use SurfaceMesh, only: surfacesMesh
 
       IMPLICIT NONE

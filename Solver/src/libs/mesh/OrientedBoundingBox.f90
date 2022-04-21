@@ -1147,13 +1147,15 @@ contains
       meanCoords = meanCoords/NumOfPoints; meanCoordsNew = meanCoordsNew/NumOfPoints
       
       shiftVec = meanCoordsNew - meanCoords
-      
-      do j = 1, size(stl% ObjectsList(1)% vertices)
-         stl% ObjectsList(:)% vertices(j)% coords(1) = stl% ObjectsList(:)% vertices(j)% coords(1) - shiftVec(1)
-         stl% ObjectsList(:)% vertices(j)% coords(2) = stl% ObjectsList(:)% vertices(j)% coords(2) - shiftVec(2)
-         stl% ObjectsList(:)% vertices(j)% coords(3) = stl% ObjectsList(:)% vertices(j)% coords(3) - shiftVec(3)
+!$omp parallel shared(i,shiftVec)
+!$omp do schedule(runtime) private(j)
+      do i = 1, stl% NumOfObjs
+         do j = 1, size(stl% ObjectsList(j)% vertices)
+            stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords - shiftVec
+         end do
       end do
-
+!$omp end do
+!$omp end parallel
    end subroutine OBB_STL_rotate
    
    subroutine OBB_STL_translate( this, stl )

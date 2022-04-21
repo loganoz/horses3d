@@ -1203,12 +1203,12 @@ module IBMClass
          this% Wallfunction = .false.
       end if
       
-!~       if( this% Wallfunction ) then
-!~          if (.not. controlVariables % containsKey("wall function")) then
-!~              print *, "IBM_GetInfo:: 'wall function' not specified in the control file"
-!~              error stop
-!~          end if
-!~       end if
+      if( this% Wallfunction ) then
+         if (.not. controlVariables % containsKey("wall function")) then
+             print *, "IBM_GetInfo:: 'wall function' not specified in the control file"
+             error stop
+         end if
+      end if
    
       if( controlVariables% containsKey(trim(NumberOfSTL)) ) then
          tmp = controlVariables% StringValueForKey(trim(NumberOfSTL),LINE_LENGTH) 
@@ -1309,7 +1309,7 @@ module IBMClass
       
       Source = 0.0_RP
       
-#if defined(NAVIERSTOKES) || defined(INCNS)
+#if defined(NAVIERSTOKES)
       if( present(Q_target) ) then
          rho_s = Q_target(IRHO)
          u_s   = Q_target(IRHOU)/rho_s
@@ -2026,10 +2026,6 @@ module IBMClass
       dist = sqrt(sqrDistance)   !Can be done later, it's better.
       
       IntersectionPoint = bb + s*E0 + t*E1    
-      
-      ! normal
-!~       normal = Point - IntersectionPoint
-!~       normal = normal/norm2(normal)
         
    end subroutine MinumumPointTriDistance
 !
@@ -2682,49 +2678,7 @@ module IBMClass
    
       value = num/den
    
-   end subroutine GetIDW_value
-
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!  
-!  -------------------------------------------------
-!  This subroutine computes the interpolated value
-!  of a qunatity
-!  ------------------------------------------------      
-
-   real(kind=RP) function GetMeanValue( Q, mean_variable ) result( value )
-      use PhysicsStorage
-      use VariableConversion
-      implicit none
-      !-arguments------------------------------------------------------
-      real(kind=RP), dimension(:,:), intent(in) :: Q
-      integer,                       intent(in) :: mean_variable
-      !-local-variables------------------------------------------------
-      real(kind=RP) :: var, T
-      integer       :: i
-      
-      value = 0.0_RP
-      
-      do i = 1, size(Q,2)   
-               
-         select case ( mean_variable )
-            case( mean_density )
-               var = Q(IRHO,i)
-            case( mean_mu )
-               T = Temperature(Q(:,i))
-               var = SutherlandsLaw(T)
-            case default
-               print *, "GetIDW_value:: case for the inversed distnce weighted not implemented"
-               error stop 
-         end select  
-         
-         value = value + var
-
-      end do       
-     
-      value = value/size(Q,2)
-     
-   end function GetMeanValue       
+   end subroutine GetIDW_value      
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -2817,7 +2771,7 @@ module IBMClass
             end do
       
             Q = Q/this% KDtree_n_of_interPoints
-      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
             T  = Temperature(Q)
             mu = SutherlandsLaw(T)
       
@@ -2844,9 +2798,9 @@ module IBMClass
             Q_target(IRHOU) = Q_target(IRHO) * uFC(1)
             Q_target(IRHOV) = Q_target(IRHO) * uFC(2)
             Q_target(IRHOW) = Q_target(IRHO) * uFC(3)
-            
-            call this% SourceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_target, Source )
     
+            call this% SourceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_target, Source )
+#endif
             elements(eID)% storage% QDot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = &
             elements(eID)% storage% QDot(:,loc_pos(1),loc_pos(2),loc_pos(3)) + Source
     
@@ -2869,9 +2823,9 @@ module IBMClass
       real(kind=rp), intent(in) :: y_plus
       !-local-varirables-------------------------
       real(kind=RP) :: nu, u_tau
-      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
       nu = refValues% mu / refValues% rho
-
+#endif
       u_tau = Estimate_u_tau( )
    
       y = GetEstimated_y( y_plus, nu, u_tau )
@@ -2881,10 +2835,10 @@ module IBMClass
    real(kind=RP) function Estimate_Cf() result( Cf )
       use FluidData
       implicit none
-      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
      ! Schlichting, Hermann (1979), Boundary Layer Theory... ok if Re < 10^9
       Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
-         
+#endif        
    end function Estimate_Cf
    
    real(kind=RP) function Estimate_u_tau( ) result( u_tau )
@@ -2894,9 +2848,9 @@ module IBMClass
       real(kind=RP) :: Cf
       
       Cf = Estimate_Cf()
-      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
       u_tau = sqrt( 0.5_RP * POW2(refValues% V) * Cf ) !sqrt(tau_w/rho)
-      
+#endif      
    end function Estimate_u_tau
    
    
@@ -2911,50 +2865,6 @@ module IBMClass
       y = y/Lref 
    
    end function GetEstimated_y
-
-
-   logical function inLogRegion( y_plus ) result( inside )
-   
-      implicit none
-      
-      real(kind=RP), intent(in) :: y_plus
-   
-      inside = .false.
-   
-      if( 30._RP .lt. y_plus .and. y_plus .lt. 100._RP ) then 
-         inside = .true.
-      end if
-   
-   end function inLogRegion
-
-   logical function belowLogRegion( y_plus ) result( below )
-   
-      implicit none
-      
-      real(kind=RP), intent(in) :: y_plus
-   
-      below = .false.
-   
-      if( 30._RP .ge. y_plus ) then ! IS IT OK?
-         below = .true.
-      end if
-   
-   end function belowLogRegion
-
-   logical function aboveLogRegion( y_plus ) result( above )
-   
-      implicit none
-      
-      real(kind=RP), intent(in) :: y_plus
-   
-      above = .false.
-   
-      if( y_plus .ge. 100._RP ) then ! IS IT OK?
-         above = .true.
-      end if
-   
-   end function aboveLogRegion
-
 
 end module IBMClass
 
