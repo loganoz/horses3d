@@ -527,7 +527,7 @@ end module ProblemFileFunctions
 !           ---------------
 !
 #if defined(NAVIERSTOKES)
-            CHARACTER(LEN=29)                  :: testName  = "NACA0012"
+            CHARACTER(LEN=29)                  :: testName  = "BIRK5NumJac"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
@@ -535,49 +535,49 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: residuals(5) = [9.23213203402009 , &
-                                                                  38.0549911537637 , &
-                                                                  28.2617384290636 , &
-                                                                  1.94608937110857 , &
-                                                                  218.319419613102]
-
+            real(kind=RP), parameter           :: residuals(5) = [3.8762352378135978E-03, &
+                                                                  2.0357135365803405E-01, &
+                                                                  6.2106502115207317E-02, &
+                                                                  2.1504101079341739E-03, &
+                                                                  3.6892058530566123E+00 ]
 
             CALL initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
 
-            CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(1)+0.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+0.0_RP, &
-                               tol           = 1.d+2, &
+                               tol           = 1.d+0, &
                                msg           = "Continuity residual")
 
-            CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(2)+0.0_RP, &
                                actualValue   = monitors % residuals % values(2,1)+0.0_RP, &
-                               tol           = 1.d+2, &
+                               tol           = 1.d+0, &
                                msg           = "X-Momentum residual")
 
-            CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(3)+0.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+0.0_RP, &
-                               tol           = 1.d+2, &
+                               tol           = 1.d+0, &
                                msg           = "Y-Momentum residual")
 
-            CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(4)+0.0_RP, &
                                actualValue   = monitors % residuals % values(4,1)+0.0_RP, &
-                               tol           = 1.d+2, &
+                               tol           = 1.d+0, &
                                msg           = "Z-Momentum residual")
 
-            CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
+            CALL FTAssertEqual(expectedValue = residuals(5)+0.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+0.0_RP, &
-                               tol           = 1.d+2, &
+                               tol           = 5.d+0, &
                                msg           = "Energy residual")
-
-            CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
 
             IF ( sharedManager % numberOfAssertionFailures() == 0 )     THEN
                WRITE(6,*) testName, " ... Passed"
-               WRITE(6,*) "This test checks if Dual Time Stepping works correctly."
+               WRITE(6,*) "This test checks if: "
+               WRITE(6,*) "                     1. The GMSH mesh 2.2 has been read correctly."
+               WRITE(6,*) "                     2. Numerical Jacobian is correctly computed with BR1."
+               WRITE(6,*) "                     3. BIRK5 works alongside FAS."
             ELSE
                WRITE(6,*) testName, " ... Failed"
-               WRITE(6,*) "NOTE: Dual Time Stepping not working correctly. Check FAS routines."
+               WRITE(6,*) "NOTE: Failure is expected when the GMSH mesh has not been read correctly or the Jacobian computation does not work."
                 STOP 99
             END IF 
             WRITE(6,*)

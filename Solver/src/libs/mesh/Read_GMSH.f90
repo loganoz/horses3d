@@ -58,7 +58,7 @@ MODULE Read_GMSH
       use sharedBCModule
       use PhysicsStorage
       use FileReadingUtilities      , only: getFileName, getRealArrayFromStringNoCommas
-      use Utilities, only: UnusedUnit, toLower
+      use Utilities, only: UnusedUnit, toLower, my_findloc
       implicit none
       
       private
@@ -162,6 +162,7 @@ MODULE Read_GMSH
    end type MSH_element_block_t
 !
    integer, parameter :: EL_MAX_ORDER = 5
+   integer, parameter :: MSH_LEN = 4096
    integer, parameter :: SUPPORTED_EL_TYPES(5) = (/5,12,92,93,94/) ! GMSH HEX types, orders from 1 to 5
 !     ========
       CONTAINS
@@ -247,9 +248,9 @@ MODULE Read_GMSH
       type(MSH_node_block_t)  , dimension(:), allocatable  :: msh_node_blocks
       type(MSH_element_block_t)  , dimension(:), allocatable  :: msh_element_blocks
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(7)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
@@ -348,7 +349,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -361,7 +362,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -379,7 +380,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -397,7 +398,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -850,9 +851,9 @@ MODULE Read_GMSH
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     ------------------------------
-!     Constructor of mesh partitions
-!     ------------------------------
+!  ------------------------------
+!  Constructor of mesh partitions
+!  ------------------------------
    SUBROUTINE ConstructMeshPartition_FromGMSHFile_v4_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
 !  ---------------------------------------------------------
 !  Build mesh from GMSH file. 
@@ -896,9 +897,9 @@ MODULE Read_GMSH
 
       type(Node)  , dimension(:), allocatable  :: local_nodes
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfAllElements
       integer                         :: numberOfAllNodes
@@ -992,7 +993,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -1005,7 +1006,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -1023,7 +1024,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -1041,7 +1042,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -1496,9 +1497,9 @@ MODULE Read_GMSH
       self % numberOfFaces = numberOfFaces
       allocate( self % faces(self % numberOfFaces) )
       CALL ConstructFaces( self, success )
-!        --------------------------------
-!        Get actual mesh element face IDs
-!        --------------------------------
+!     --------------------------------
+!     Get actual mesh element face IDs
+!     --------------------------------
 !
       CALL getElementsFaceIDs(self)
 !
@@ -1633,9 +1634,9 @@ MODULE Read_GMSH
       type(MSH_node_block_t)  , dimension(:), allocatable  :: msh_node_blocks
       type(MSH_element_block_t)  , dimension(:), allocatable  :: msh_element_blocks
 
-      character(len=1024) :: msh_entity
+      character(len=MSH_LEN) :: msh_entity
       real(kind=RP), allocatable :: msh_entity_vec(:)
-      integer, dimension(4)      :: check_eltype
+      integer, dimension(EL_MAX_ORDER)      :: check_eltype
 
       integer                         :: numberOfElements
       integer                         :: numberOfNodes
@@ -1726,7 +1727,7 @@ MODULE Read_GMSH
 !-----Read-points--------------------------------------------------------
       do i=1, msh_no_points
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_points(i)%tag      = int(msh_entity_vec(1))
@@ -1739,7 +1740,7 @@ MODULE Read_GMSH
 !-----Read-curves--------------------------------------------------------
       do i=1, msh_no_curves
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_curves(i)%tag      = int(msh_entity_vec(1))
@@ -1757,7 +1758,7 @@ MODULE Read_GMSH
 !-----Read-surfaces------------------------------------------------------
       do i=1, msh_no_surfaces
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_surfaces(i)%tag      = int(msh_entity_vec(1))
@@ -1775,7 +1776,7 @@ MODULE Read_GMSH
 !-----Read-volumes-------------------------------------------------------
       do i=1, msh_no_volumes
          msh_entity_vec=0.0_RP
-         read(fUnit,'(1024a)') msh_entity 
+         read(fUnit,'(4096a)') msh_entity
          call getRealArrayFromStringNoCommas(msh_entity,msh_entity_vec)
 
          msh_volumes(i)%tag      = int(msh_entity_vec(1))
@@ -2213,7 +2214,7 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
       
-            character(len=1024)              :: msh_entity
+            character(len=MSH_LEN) :: msh_entity
             real(kind=RP), allocatable       :: msh_entity_vec(:)
             integer, dimension(EL_MAX_ORDER) :: check_eltype
 
@@ -2330,7 +2331,7 @@ MODULE Read_GMSH
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
                
@@ -2746,7 +2747,7 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
       
-            character(len=1024) :: msh_entity
+            character(len=MSH_LEN) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
             integer, dimension(EL_MAX_ORDER) :: check_eltype
 
@@ -2861,7 +2862,7 @@ MODULE Read_GMSH
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
                
@@ -3369,7 +3370,7 @@ MODULE Read_GMSH
             integer                         :: msh_no_BCs
             integer                    :: element_type, org_element_type, org_element_type_2D
       
-            character(len=1024) :: msh_entity
+            character(len=MSH_LEN) :: msh_entity
             real(kind=RP), allocatable :: msh_entity_vec(:)
             integer, dimension(EL_MAX_ORDER) :: check_eltype
 
@@ -3477,7 +3478,7 @@ MODULE Read_GMSH
             allocate(el_types(numberOfElements)) ! arbitrary number
             do i=1, numberOfElements
 
-               read(fUnit,'(1024a)') msh_entity ! read row
+               read(fUnit,'(4096a)') msh_entity ! read row
 
                msh_entity_vec=0.0_RP
                
@@ -3998,13 +3999,9 @@ MODULE Read_GMSH
       case (36) ! 2D 3rd order quadrangle
          allocate(this % nodes(no_els,16))
       case (37) ! 2D 4th order quadrangle
-         allocate(this % nodes(no_els,16))
+         allocate(this % nodes(no_els,25))
       case (38) ! 2D 5th order quadrangle
-         allocate(this % nodes(no_els,16))
-      case (47) ! 2D 6th order quadrangle
-         allocate(this % nodes(no_els,16))
-      case (48) ! 2D 7th order quadrangle
-         allocate(this % nodes(no_els,16))
+         allocate(this % nodes(no_els,36))
       case (5)  ! 3D 1st order hexahedron
          allocate(this % nodes(no_els,8))
       case (12) ! 3D 2nd order hexahedron
@@ -4089,32 +4086,6 @@ MODULE Read_GMSH
       !call ISORT (vec_unique, [0], size(vec_unique), 1)
        
    end subroutine unique
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-   integer function my_findloc(arr, val, dim)
-!  ---------------------------------------------------------
-!  Vanilla routine to find an index of matching value in the array.
-!  For INTEL or GNU v>9.0 just switch to 'findloc'.
-!  ---------------------------------------------------------
-      implicit none
-      !-----Arguments---------------------------------------------------
-      integer,dimension(:),intent(in) :: arr
-      integer,             intent(in) :: val, dim
-      !-----Local-Variables---------------------------------------------
-      integer :: i
-      !  -----------------------------------------------------------------------
-
-      ! my_findloc = findloc(arr,val,dim) ! intrinsic function
-      my_findloc = 0
-      do i = 1, size(arr,1)
-         if (arr(i) .eq. val) then
-         my_findloc = i
-         exit
-         end if
-      end do
-       
-   end function my_findloc
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

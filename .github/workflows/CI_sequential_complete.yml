@@ -622,6 +622,21 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa FlatPlate.control
+#
+# 18) Numerical Jacobian for BIRK5 
+# --------------------------------
+
+      - name: Build BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run BIRK5NumJac
+        working-directory: ./Solver/test/NavierStokes/BIRK5NumJac
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns Cylinder.control
 
 ########################################################################
 #######                       PARTICLES                         ########

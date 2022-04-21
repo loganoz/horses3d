@@ -16,7 +16,8 @@ LIBOBJS = 	./build/Headers.o \
 		./build/SolutionFile.o \
 		./build/FileReading.o \
 		./build/ReadInputFile.o \
-		./build/ParamfileRegions.o
+		./build/ParamfileRegions.o \
+		./build/ProgressBar.o
 
 
 LIB = io

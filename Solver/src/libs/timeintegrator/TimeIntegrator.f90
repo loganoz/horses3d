@@ -37,6 +37,7 @@
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
+      use SurfaceMesh                     , only: surfacesMesh
       IMPLICIT NONE 
       
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -190,10 +191,7 @@ print*, "Method selected: RK5"
 !
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         call sem  % fwh        % autosaveConfig(controlVariables, initial_time)  ! If not requested, the procedure returns only setting not save values
-#endif
-         
+         call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
          
          call self % TauEstimator % construct(controlVariables, sem)
          
@@ -400,7 +398,7 @@ print*, "Method selected: RK5"
 !        Correct time step
 !        -----------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         sem % mesh% IBM% eta = self% CorrectDt(t, dt, sem % fwh)
+         sem % mesh% IBM% eta = self% CorrectDt(t, dt)
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
       end if
@@ -443,13 +441,13 @@ print*, "Method selected: RK5"
          END IF
       end if
 !
-!     Save FWH at time 0
-!     --------         
+!     Save surfaces sol before the first time step
+!     --------------------------------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
       call sem % fwh % writeToFile()
-      call sem % fwh % saveSourceSol(sem % mesh, 0, t)
 #endif
+      call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
 !
 !     -----------------
 !     Integrate in time
@@ -484,11 +482,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         dt = self % CorrectDt(t,self % dt, sem % fwh)
-#else
          dt = self % CorrectDt(t,self % dt)
-#endif
 !
 !        Set penalization term for IBM
 !        -----------------------------
@@ -612,15 +606,15 @@ print*, "Method selected: RK5"
 #endif 
          end if
 !
-!        Save FWH
-!        --------         
+!        Save surfaces solution
+!        ----------------------         
+         if (surfacesMesh % autosave % Autosave(k+1)) then
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         if (sem % fwh % autosave % Autosave(k+1)) then
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
-             call sem % fwh % saveSourceSol(sem % mesh, k+1, t)
-         end if 
 #endif
+             call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
+         end if 
 
 !        Flush monitors
 !        --------------
@@ -745,20 +739,12 @@ print*, "Method selected: RK5"
 !  This routine corrects the time-step size, so that 
 !  time-periodic operations can be performed
 !  -------------------------------------------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-   recursive function TimeIntegrator_CorrectDt (self, t, dt_in, fwh) result(dt_out)
-      use FWHGeneralClass
-#else
    recursive function TimeIntegrator_CorrectDt (self, t, dt_in) result(dt_out)
-#endif
       implicit none
       !-arguments------------------------------------------------
       class(TimeIntegrator_t) , intent(inout)   :: self
       real(kind=RP)           , intent(in)      :: t
       real(kind=RP)           , intent(in)      :: dt_in
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      class(FWHClass)         , intent(inout)   :: fwh   
-#endif
       real(kind=RP)                             :: dt_out
       !-local-variables------------------------------------------
       real(kind=RP) :: dt_temp
@@ -766,12 +752,8 @@ print*, "Method selected: RK5"
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      integer, parameter :: FWHSAVE     = 3
+      integer, parameter :: SURFSAVE     = 3
       integer, parameter :: DONT_KNOW   = 4
-#else
-      integer, parameter :: DONT_KNOW   = 3
-#endif
       integer, save :: next_time_will = DONT_KNOW
       !----------------------------------------------------------
 
@@ -780,9 +762,7 @@ print*, "Method selected: RK5"
 !     -------------------------------      
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      fwh  % autosave   % performAutosave = .FALSE.
-#endif
+      surfacesMesh % autosave % performAutosave = .FALSE.
       dt_out = dt_in
       
 !
@@ -813,19 +793,13 @@ print*, "Method selected: RK5"
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                end if
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               if ( AlmostEqual(self % autosave % nextAutosaveTime, fwh % autosave % nextAutosaveTime) ) then
-                  fwh % autosave % performAutosave = .TRUE.
-                  fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, surfacesMesh % autosave % nextAutosaveTime) ) then
+                  surfacesMesh % autosave % performAutosave = .TRUE.
+                  surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
                end if
-#endif
                
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
-#else
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
-#endif
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
             
          case (ADAPT)
@@ -839,62 +813,43 @@ print*, "Method selected: RK5"
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               if ( AlmostEqual(self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime) ) then
-                  fwh % autosave % performAutosave = .TRUE.
-                  fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave%time_interval
+               if ( AlmostEqual(self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime) ) then
+                  surfacesMesh % autosave % performAutosave = .TRUE.
+                  surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave%time_interval
                end if
-#endif
                
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
-#else
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
-#endif
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
             
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         case (FWHSAVE)
+         case (SURFSAVE)
             
-            if ( fwh % autosave % nextAutosaveTime < (t + dt_out) ) then
-               dt_out = fwh % autosave % nextAutosaveTime - t
-               fwh % autosave % performAutosave = .TRUE.
+            if ( surfacesMesh % autosave % nextAutosaveTime < (t + dt_out) ) then
+               dt_out = surfacesMesh % autosave % nextAutosaveTime - t
+               surfacesMesh % autosave % performAutosave = .TRUE.
                
-               if ( AlmostEqual(fwh % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
+               if ( AlmostEqual(surfacesMesh % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
                   self % pAdaptator % performPAdaptationT = .TRUE.
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                end if
 
-               if ( AlmostEqual(self % autosave % nextAutosaveTime, fwh % autosave % nextAutosaveTime) ) then
+               if ( AlmostEqual(self % autosave % nextAutosaveTime, surfacesMesh % autosave % nextAutosaveTime) ) then
                   self % autosave % performAutosave = .TRUE.
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
                
-               fwh % autosave % nextAutosaveTime = fwh % autosave % nextAutosaveTime + fwh % autosave % time_interval
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
+               surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
-#endif
 
          case (DONT_KNOW)
             
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-                   fwh % autosave % mode       == AUTOSAVE_BY_TIME .or. &
-#endif
-                  self % autosave % mode       == AUTOSAVE_BY_TIME) then
+                  surfacesMesh % autosave % mode      == AUTOSAVE_BY_TIME .or. &
+                  self % autosave % mode              == AUTOSAVE_BY_TIME) then
                
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, fwh % autosave % nextAutosaveTime],1)
-#else
-               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime],1)
-#endif
-               
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-               dt_temp = self % CorrectDt (t, dt_out, fwh)
-#else
+               next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
                dt_temp = self % CorrectDt (t, dt_out)
-#endif
                dt_out  = dt_temp
             else
                next_time_will = DO_NOTHING

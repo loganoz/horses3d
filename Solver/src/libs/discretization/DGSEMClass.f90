@@ -4,9 +4,9 @@
 !   @File:    DGSEMClass.f95
 !   @Author:  David Kopriva
 !   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Mon Sep  6 22:44:53 2021
+!   @Last revision date: Mon Mar 14 22:31:22 2022
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
+!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -24,6 +24,7 @@ Module DGSEMClass
    USE HexMeshClass
    USE PhysicsStorage
    use FileReadingUtilities      , only: getFileName
+   use MPI_Process_Info          , only: MPI_Process
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
    use FWHGeneralClass
@@ -105,6 +106,8 @@ Module DGSEMClass
       use MeshPartitioning
       use IBMClass
       use MPI_IBMUtilities
+      use SurfaceMesh, only: surfacesMesh
+
       IMPLICIT NONE
 !
 !     --------------------------
@@ -282,6 +285,7 @@ Module DGSEMClass
 !     *              MESH CONSTRUCTION                         *
 !     **********************************************************
 !
+      if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success ) 
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
@@ -291,6 +295,10 @@ Module DGSEMClass
       call self % mesh % ComputeWallDistances
 #endif
       IF(.NOT. success) RETURN
+!
+!     construct surfaces mesh
+!     -----------------------
+      call surfacesMesh % construct(controlVariables, self % mesh)
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -419,6 +427,7 @@ Module DGSEMClass
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE DestructDGSem( self )
+      use SurfaceMesh, only: surfacesMesh
       IMPLICIT NONE 
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
@@ -430,6 +439,8 @@ Module DGSEMClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % destruct
 #endif
+    
+      call surfacesMesh % destruct
       
       END SUBROUTINE DestructDGSem
 !
@@ -450,6 +461,7 @@ Module DGSEMClass
       subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time ) 
          use FTValueDictionaryClass
          USE mainKeywordsModule
+         use SurfaceMesh, only: surfacesMesh
          implicit none
          class(DGSEM)   :: self
          class(FTValueDictionary), intent(in)   :: controlVariables
@@ -489,9 +501,7 @@ Module DGSEMClass
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
          call self % mesh % Export( trim(solutionName) )
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         IF (flowIsNavierStokes) call self % fwh % saveSourceMesh(self % mesh, initial_iteration)
-#endif
+         call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
    
       end subroutine DGSEM_SetInitialCondition
 !
