@@ -513,7 +513,7 @@ module FASMultigridClass
 !     --------------------------
 !
       call RecursiveConstructor(this, sem % mesh % Nx, sem % mesh % Ny, sem % mesh % Nz, MGlevels, controlVariables)
-      
+
       call Stopwatch % Pause("Preprocessing")
       call Stopwatch % Start("Solver")
       
@@ -693,7 +693,7 @@ module FASMultigridClass
             end select
          Solver % computeA = .TRUE.
       end if
-      
+
       if (lvl > 1) then
          ALLOCATE  (Solver % Child)
          Child_p => Solver % Child
@@ -725,13 +725,18 @@ module FASMultigridClass
          end do
          
          ! setting the IBM level & saving the KDtree
-         Child_p% p_sem% mesh% IBM% lvl = lvl 
-         call Child_p% p_sem% mesh% IBM% copyKDtree( Solver% p_sem% mesh% IBM% root )
+
+         Child_p% p_sem% mesh% IBM% active = Solver% p_sem% mesh% IBM% active
+         if( Child_p% p_sem% mesh% IBM% active ) then
+            Child_p% p_sem% mesh% IBM% lvl = lvl 
+            call Child_p% p_sem% mesh% IBM% copyKDtree( Solver% p_sem% mesh% IBM% root )
+         end if
+         
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
                                            success = success,                                                            &
                                            ChildSem = .TRUE.  )      
-         
+ 
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
 
          if (DualTimeStepping) then
@@ -748,7 +753,7 @@ module FASMultigridClass
 
          call RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
       end if
-      
+
    end subroutine RecursiveConstructor
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -987,8 +992,9 @@ module FASMultigridClass
 !     ---------------------------------------------------
       if( this% p_sem% mesh% IBM% active ) then
          if( lvl .eq. MGlevels ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
-         call this% updateMovingBodyIBM( fasvcycle_dt, lvl )
+!~          if( any(this% p_sem% mesh% IBM% stl(:)% move) ) call this% updateMovingBodyIBM( fasvcycle_dt, lvl )
       end if
+
 !
 !     -------------------------------------------------------
 !     ============ Recursive V-Cycle starts here ============
@@ -1000,9 +1006,9 @@ module FASMultigridClass
       do
          call this % Smooth(MGSweepsPre(lvl),t, ComputeTimeDerivative)
          sweepcount = sweepcount + MGSweepsPre(lvl)
-         
+
          if (MGOutput) call PlotResiduals( lvl , sweepcount,this % p_sem % mesh)
-         
+        
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
             call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
@@ -1016,7 +1022,7 @@ module FASMultigridClass
          
          if (sweepcount .ge. MaxSweeps) exit
       end do
-      
+
       PrevRes = MAXVAL(ComputeMaxResiduals(this % p_sem % mesh))
       
       
@@ -1058,6 +1064,7 @@ module FASMultigridClass
 !$omp end parallel
       
       end if
+
 !
 !     ------------------------
 !     Post-smoothing procedure
@@ -1090,7 +1097,7 @@ module FASMultigridClass
          end if
          
       end DO
-      
+
 !
 !     -------------------------
 !     Compute coarse-grid error
@@ -1265,6 +1272,7 @@ module FASMultigridClass
 !$omp end parallel
 
       if( Child_p% p_sem% mesh% IBM% active ) call Child_p% SetIBM( this% p_sem% mesh% IBM% penalization )
+
 !
 !     -------------------------------------------
 !     If not on finest level, correct source term
@@ -1377,7 +1385,7 @@ module FASMultigridClass
          else
             error stop "FASMultigrid :: LTS needs cfd & dcfl."
          end if
-         
+
          if( this% p_sem% mesh% IBM% active ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
 
          select case (Smoother)
@@ -1884,7 +1892,7 @@ module FASMultigridClass
             this% p_sem% mesh% IBM% penalization = dt
          end if
       end if
-   
+ 
    end subroutine FAS_SetIBM
    
    recursive subroutine recursive_IBM_KDtreedestroy( Solver, lvl )
@@ -1915,12 +1923,9 @@ module FASMultigridClass
       
       if( lvl > 1 ) then
          Child_p => this% Child
-         
-         if( child_p% p_sem% mesh% IBM% active .and. any(child_p% p_sem% mesh% IBM% stl(:)% move) ) then
-            call child_p% p_sem% mesh% IBM% MoveBody( child_p% p_sem% mesh% elements,                             &
-                                                      child_p% p_sem% mesh% no_of_elements,                       &
-                                                      child_p% p_sem% mesh% NDOF, child_p% p_sem% mesh% child, dt ) 
-         end if
+         call child_p% p_sem% mesh% IBM% MoveBody( child_p% p_sem% mesh% elements,                             &
+                                                   child_p% p_sem% mesh% no_of_elements,                       &
+                                                   child_p% p_sem% mesh% NDOF, child_p% p_sem% mesh% child, dt ) 
       end if
    
    end subroutine FAS_updateMovingBodyIBM
