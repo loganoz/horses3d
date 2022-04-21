@@ -483,6 +483,7 @@ print*, "Method selected: RK5"
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
+         
 !
 !        Set penalization term for IBM
 !        -----------------------------
@@ -493,14 +494,16 @@ print*, "Method selected: RK5"
 !
 !        Moving Body IMMERSED BOUNDARY
 !        -----------------------------
-         if( sem% mesh% IBM% active .and. any(sem% mesh% IBM% stl(:)% move) ) then
-            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
-                                           sem% mesh% no_of_elements,             &
-                                           sem% mesh% NDOF, sem% mesh% child, dt, &
-                                           k+1,                                   &
-                                           self % autosave % Autosave(k+1)        )
+         if( sem% mesh% IBM% active ) then
+            if( any(sem% mesh% IBM% stl(:)% move) ) then
+               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
+                                              sem% mesh% no_of_elements,             &
+                                              sem% mesh% NDOF, sem% mesh% child, dt, &
+                                              k+1,                                   &
+                                              self % autosave % Autosave(k+1)        )
+            end if
          end if
-
+         
 !
 !        User defined periodic operation
 !        -------------------------------

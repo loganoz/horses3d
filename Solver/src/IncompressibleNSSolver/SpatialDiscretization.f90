@@ -30,7 +30,6 @@ module SpatialDiscretization
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
-      use IBMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
