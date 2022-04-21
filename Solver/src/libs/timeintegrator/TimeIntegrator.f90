@@ -388,6 +388,8 @@ print*, "Method selected: RK5"
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
+
+
       if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
@@ -469,6 +471,7 @@ print*, "Method selected: RK5"
       end select
           
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
+
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -483,7 +486,7 @@ print*, "Method selected: RK5"
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
-         
+
 !
 !        Set penalization term for IBM
 !        -----------------------------
@@ -503,7 +506,7 @@ print*, "Method selected: RK5"
                                               self % autosave % Autosave(k+1)        )
             end if
          end if
-         
+ 
 !
 !        User defined periodic operation
 !        -------------------------------

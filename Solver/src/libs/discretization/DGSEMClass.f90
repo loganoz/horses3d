@@ -332,7 +332,8 @@ Module DGSEMClass
       if( self% mesh% IBM% active ) then
       
          if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
-!
+
+! 
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------

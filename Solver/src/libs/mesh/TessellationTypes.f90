@@ -250,18 +250,21 @@ module TessellationTypes
       
       class(PointLinkedList), intent(inout) :: this
       
-      class(point_type), pointer :: current, prev 
+      class(point_type), pointer :: current, next 
       integer :: i
       
       if( this% NumOfPoints .eq. 0 ) return
       
       current => this% head
+      next    => current% next
       
       do i = 1, this% NumOfPoints 
-         prev    => current
-         current => current % next
-         deallocate(prev)
+         deallocate(current)
+         current => next
+         next    => current% next
       end do
+      
+      this% NumOfPoints = 0
       
    end subroutine PointLinkedList_Destruct
 !

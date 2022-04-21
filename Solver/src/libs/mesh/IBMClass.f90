@@ -86,7 +86,7 @@ module IBMClass
          procedure :: semiImplicitJacobian      => IBM_semiImplicitJacobian
          procedure :: GetSemiImplicitStep       => IBM_GetSemiImplicitStep
          procedure :: getObjsTangent            => IBM_getObjsTangent
-         procedure :: upDateNormTang            => IBM_upDateNormTang
+         procedure :: upDateNormals             => IBM_upDateNormals
          procedure :: SetIntegration            => IBM_SetIntegration
          procedure :: copyKDtree                => IBM_copyKDtree
          procedure :: MoveBody                  => IBM_MoveBody
@@ -767,7 +767,7 @@ module IBMClass
 !$omp end parallel
    end subroutine IBM_getObjsTangent
    
-   subroutine IBM_upDateNormTang( this, STLNum )
+   subroutine IBM_upDateNormals( this, STLNum )
       use MappedGeometryClass 
       implicit none
       !-argument--------------------------------
@@ -787,15 +787,10 @@ module IBMClass
          call vcross(Vertices(:,2) - Vertices(:,1),Vertices(:,3) - Vertices(:,1),dv)
          dv = dv/norm2(dv)
          this% root(STLNum)% ObjectsList(i)% normal = dv/norm2(dv)      
-         if( this% Wallfunction ) then
-            call vcross(Vertices(:,2) - Vertices(:,1),this% root(STLNum)% ObjectsList(i)% normal,dv)
-            dv = dv/norm2(dv)
-            this% root(STLNum)% ObjectsList(i)% tangent = dv/norm2(dv)
-         end if
       end do
 !$omp end do
 !$omp end parallel   
-   end subroutine IBM_upDateNormTang
+   end subroutine IBM_upDateNormals
    
    
    subroutine IBM_GetImagePointCoords( this, maxDistFP )
@@ -1717,14 +1712,14 @@ module IBMClass
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
             call this% root(STLNum)% Destruct()
             call this% constructSTL_KDtree( STLNum ) 
-            call this% upDateNormTang( STLNum )
+            call this% upDateNormals( STLNum )
             call this% CleanMask( elements, no_of_elements, STLNum )
          elseif( this% stl(STLNum)% move .and. isChild ) then
             call this% CleanMask( elements, no_of_elements, STLNum )
          end if
       end do
 
-      if( .not. isChild .and. .not. this% Wallfunction ) then
+      if( .not. isChild ) then
          call this% rootPoints% destruct()
          call MPI_Pointpartition_destroy()
       end if
