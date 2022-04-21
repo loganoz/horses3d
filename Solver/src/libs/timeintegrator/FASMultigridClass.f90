@@ -42,6 +42,7 @@ module FASMultigridClass
    use DenseMatUtilities
    use MPI_Utilities          , only: infNorm, L2Norm! , MPI_SumAll
    use mkl_spblas
+   use IBMClass
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use ManufacturedSolutionsNS
 #elif defined(SPALARTALMARAS)
@@ -92,6 +93,8 @@ module FASMultigridClass
          procedure :: destruct
          procedure :: SetPreviousSolution => FAS_SetPreviousSolution    ! For implicit smoothing, it's necessary to store the previous solution(s) in all levels
          procedure :: TakePseudoStep ! solve for Dual Time Stepping 
+         procedure :: SetIBM              => FAS_SetIBM
+         procedure :: updateMovingBodyIBM => FAS_updateMovingBodyIBM
 
    end type FASMultigrid_t
 !
@@ -720,10 +723,15 @@ module FASMultigridClass
             N2yAll( Solver % p_sem % mesh % elements(k) % globID ) = N2y(k)
             N2zAll( Solver % p_sem % mesh % elements(k) % globID ) = N2z(k)
          end do
+         
+         ! setting the IBM level & saving the KDtree
+         Child_p% p_sem% mesh% IBM% lvl = lvl 
+         call Child_p% p_sem% mesh% IBM% copyKDtree( Solver% p_sem% mesh% IBM% root )
          call Child_p % p_sem % construct (controlVariables = controlVariables,                                          &
                                            Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
                                            success = success,                                                            &
-                                           ChildSem = .TRUE. )
+                                           ChildSem = .TRUE.  )      
+         
          if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
 
          if (DualTimeStepping) then
@@ -973,6 +981,14 @@ module FASMultigridClass
 !     Taking care of Jacobian (for implicit residual relaxation)
 !     ----------------------------------------------------------
       call FAS_ComputeAndFactorizeJacobian(this, lvl, t, invdt, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+      
+!
+!     Setting up the IBM before the pre-smooth procedure
+!     ---------------------------------------------------
+      if( this% p_sem% mesh% IBM% active ) then
+         if( lvl .eq. MGlevels ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
+         call this% updateMovingBodyIBM( fasvcycle_dt, lvl )
+      end if
 !
 !     -------------------------------------------------------
 !     ============ Recursive V-Cycle starts here ============
@@ -1247,6 +1263,8 @@ module FASMultigridClass
       end DO
 !$omp end do
 !$omp end parallel
+
+      if( Child_p% p_sem% mesh% IBM% active ) call Child_p% SetIBM( this% p_sem% mesh% IBM% penalization )
 !
 !     -------------------------------------------
 !     If not on finest level, correct source term
@@ -1359,6 +1377,8 @@ module FASMultigridClass
          else
             error stop "FASMultigrid :: LTS needs cfd & dcfl."
          end if
+         
+         if( this% p_sem% mesh% IBM% active ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
 
          select case (Smoother)
             ! Euler Smoother
@@ -1842,6 +1862,69 @@ module FASMultigridClass
       end if
 
    end subroutine FAS_ComputeAndFactorizeJacobian
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine FAS_SetIBM( this, dt )   
+      implicit none
+      !-arguments------------------------------------------
+      class(FASMultigrid_t),  intent(inout) :: this 
+      real(kind=rp),          intent(in)    :: dt(:)
+      !-local-variables------------------------------------
+      real(kind=rp) :: MaxDt
+
+      ! Updating the IBM penalization
+      if (DualTimeStepping) then
+         if( this% p_sem% mesh% IBM% TimePenal ) call MaxTimeStep(self=this% p_sem, cfl=p_cfl, dcfl=p_dcfl, MaxDt = MaxDt, MaxDtVec = this% p_sem% mesh% IBM% penalization )
+      else
+         if ( Compute_dt .and. this% p_sem% mesh% IBM% TimePenal ) then
+            call MaxTimeStep(self=this% p_sem, cfl=cfl, dcfl=dcfl, MaxDt=MaxDt )
+            this% p_sem% mesh% IBM% penalization = MaxDt
+         elseif( this% p_sem% mesh% IBM% TimePenal ) then
+            this% p_sem% mesh% IBM% penalization = dt
+         end if
+      end if
+   
+   end subroutine FAS_SetIBM
+   
+   recursive subroutine recursive_IBM_KDtreedestroy( Solver, lvl )
+   
+      implicit none
+      !-arguments----------------------------------------
+      type(FASMultigrid_t), target     :: Solver
+      integer,              intent(in) :: lvl
+      !-local-variables-----------------------------------
+      type(FASMultigrid_t), pointer       :: Child_p
+    
+      if( lvl > 1 ) call recursive_IBM_KDtreedestroy( Solver% Child, lvl-1 )
+    
+      call Solver% p_sem% mesh% IBM% DestroyKDtree()
+   
+   end subroutine recursive_IBM_KDtreedestroy
+   
+   
+   subroutine FAS_updateMovingBodyIBM( this, dt, lvl )
+   
+      implicit none
+      !-arguments------------------------------------------
+      class(FASMultigrid_t), intent(inout) :: this
+      real(kind=RP),         intent(in)    :: dt
+      integer,               intent(in)    :: lvl
+      !-local-variables------------------------------------
+      type(FASMultigrid_t), pointer       :: Child_p
+      
+      if( lvl > 1 ) then
+         Child_p => this% Child
+         
+         if( child_p% p_sem% mesh% IBM% active .and. any(child_p% p_sem% mesh% IBM% stl(:)% move) ) then
+            call child_p% p_sem% mesh% IBM% MoveBody( child_p% p_sem% mesh% elements,                             &
+                                                      child_p% p_sem% mesh% no_of_elements,                       &
+                                                      child_p% p_sem% mesh% NDOF, child_p% p_sem% mesh% child, dt ) 
+         end if
+      end if
+   
+   end subroutine FAS_updateMovingBodyIBM
+   
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

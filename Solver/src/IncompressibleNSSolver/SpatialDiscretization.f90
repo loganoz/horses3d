@@ -30,6 +30,7 @@ module SpatialDiscretization
       use ProblemFileFunctions
       use BoundaryConditions, only: BCs
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
+      use IBMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -485,6 +486,25 @@ module SpatialDiscretization
 !$omp end do
                endif 
             end if
+            
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+         if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  if( e% isInsideBody(i,j,k) ) then
+                     call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                  end if
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do      
+         end if 
 
       end subroutine ComputeNSTimeDerivative
 !

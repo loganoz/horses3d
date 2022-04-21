@@ -32,6 +32,7 @@ module RealDataLinkedList
       contains
          procedure   :: Append   => RealDataLinkedList_Append
          procedure   :: Load     => RealDataLinkedList_Load
+         procedure   :: check    => CheckReal
          procedure   :: Destruct => RealDataLinkedList_Destruct
     end type RealDataLinkedList_t
    
@@ -110,6 +111,40 @@ module RealDataLinkedList
          end do
 
       end subroutine RealDataLinkedList_Load
+      
+      logical function CheckReal( self, value ) result( found ) 
+         use Utilities
+         implicit none
+         !-arguments-------------------------------------------------
+         class(RealDataLinkedList_t), intent(inout) :: self
+         real(kind=RP),               intent(in)    :: value
+         !-local-variables-------------------------------------------
+         type(RealData_t), pointer :: current => null()
+      
+         found = .false.
+      
+         if( .not. associated(self% head) ) return
+      
+         current => self% head
+
+         if( AlmostEqual(current% value, value) ) then
+            found = .true.
+            nullify(current)
+            return
+         end if
+      
+         do while( associated(current% next) )
+            current => current% next
+            if ( AlmostEqual(current% value, value)  ) then
+               found = .true.
+               nullify(current)
+               return
+            end if
+         end do
+      
+         nullify(current)
+      
+      end function CheckReal
       
       elemental subroutine RealDataLinkedList_Destruct( self )
          implicit none

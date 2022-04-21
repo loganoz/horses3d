@@ -39,7 +39,7 @@ module SolutionFile
 #endif
    
    private
-   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_SOLUTION_FILE, ZONE_MESH_FILE
+   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_SOLUTION_FILE, ZONE_MESH_FILE, IBM_MESH
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN, POS_INIT_DATA
    public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF, RE_REF
@@ -50,6 +50,8 @@ module SolutionFile
    public      :: getSolutionFileArrayDimensions, getSolutionFileReferenceValues
    public      :: getSolutionFileNodeType, getSolutionFileTimeAndIteration
    public      :: putSolutionFileInReadDataMode, putSolutionFileInWriteDataMode
+   
+   public      :: POS_FILETYPE
 !
 !  Possible solution file types
 !  ----------------------------
@@ -59,6 +61,7 @@ module SolutionFile
    integer, parameter      :: STATS_FILE                  = 4
    integer, parameter      :: ZONE_SOLUTION_FILE          = 5
    integer, parameter      :: ZONE_MESH_FILE              = 6
+   integer, parameter      :: IBM_MESH                    = 7
 
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99

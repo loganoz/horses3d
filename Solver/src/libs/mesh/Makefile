@@ -20,6 +20,11 @@ LIBOBJS_NS = 	./build_ns/ConnectivityClass.o \
 		./build_ns/FaceClass.o \
 		./build_ns/HexElementClass.o \
 		./build_ns/ZoneClass.o \
+		./build_ns/TessellationTypes.o \
+		./build_ns/OrientedBoundingBox.o \
+		./build_ns/MPI_IBMUtilities.o \
+		./build_ns/KDClass.o \
+		./build_ns/IBMClass.o \
 		./build_ns/HexMesh.o \
 		./build_ns/MeshPartitioning.o \
 		./build_ns/Read_HDF5Mesh_HOPR.o \
@@ -39,6 +44,11 @@ LIBOBJS_NSSA = 	./build_nssa/ConnectivityClass.o \
 		./build_nssa/FaceClass.o \
 		./build_nssa/HexElementClass.o \
 		./build_nssa/ZoneClass.o \
+		./build_nssa/TessellationTypes.o \
+		./build_nssa/OrientedBoundingBox.o \
+		./build_nssa/MPI_IBMUtilities.o \
+		./build_nssa/KDClass.o \
+		./build_nssa/IBMClass.o \
 		./build_nssa/HexMesh.o \
 		./build_nssa/MeshPartitioning.o \
 		./build_nssa/Read_HDF5Mesh_HOPR.o \
@@ -58,6 +68,11 @@ LIBOBJS_iNS = 	./build_ins/ConnectivityClass.o \
 		./build_ins/FaceClass.o \
 		./build_ins/HexElementClass.o \
 		./build_ins/ZoneClass.o \
+		./build_ins/TessellationTypes.o \
+		./build_ins/OrientedBoundingBox.o \
+		./build_ins/MPI_IBMUtilities.o \
+		./build_ins/KDClass.o \
+		./build_ins/IBMClass.o \
 		./build_ins/HexMesh.o \
 		./build_ins/MeshPartitioning.o \
 		./build_ins/Read_HDF5Mesh_HOPR.o \
@@ -78,6 +93,11 @@ LIBOBJS_CH = 	./build_ch/ConnectivityClass.o \
 		./build_ch/FaceClass.o \
 		./build_ch/HexElementClass.o \
 		./build_ch/ZoneClass.o \
+		./build_ch/TessellationTypes.o \
+		./build_ch/OrientedBoundingBox.o \
+		./build_ch/MPI_IBMUtilities.o \
+		./build_ch/KDClass.o \
+		./build_ch/IBMClass.o \
 		./build_ch/HexMesh.o \
 		./build_ch/MeshPartitioning.o \
 		./build_ch/Read_HDF5Mesh_HOPR.o \
@@ -97,6 +117,11 @@ LIBOBJS_MU =  ./build_mu/ConnectivityClass.o \
 		./build_mu/FaceClass.o \
 		./build_mu/HexElementClass.o \
 		./build_mu/ZoneClass.o \
+		./build_mu/TessellationTypes.o \
+		./build_mu/OrientedBoundingBox.o \
+		./build_mu/MPI_IBMUtilities.o \
+		./build_mu/KDClass.o \
+		./build_mu/IBMClass.o \
 		./build_mu/HexMesh.o \
 		./build_mu/MeshPartitioning.o \
 		./build_mu/Read_HDF5Mesh_HOPR.o \
