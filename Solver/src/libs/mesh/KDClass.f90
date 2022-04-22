@@ -81,9 +81,9 @@ module KDClass
 
    type DepthFirst_type
    
-      type(KDtree), pointer :: taskTree
+      type(KDtree), pointer                     :: taskTree
       type(Event),  dimension(:,:), allocatable :: taskEvents
-      logical :: active = .false.
+      logical                                   :: active = .false.
    
    end type 
    
@@ -97,8 +97,8 @@ module KDClass
    type taskSAH_type
     
       real(kind=RP) :: SplitCost, splittingPlane
-      integer :: axis, SIDE
-      logical :: split = .false.
+      integer       :: axis, SIDE
+      logical       :: split = .false.
    
    end type 
    
@@ -559,6 +559,7 @@ module KDClass
 
       if( allocated(this% ObjectsList) ) deallocate(this% ObjectsList)      
       if( allocated(this% ObjsIndeces) ) deallocate(this% ObjsIndeces)
+      if( allocated(this% Events) )      deallocate(this% Events)
       
       if( associated(this% child_L) ) deallocate(this% child_L)
       if( associated(this% child_R) ) deallocate(this% child_R)
@@ -873,12 +874,12 @@ module KDClass
       class(KDtree), intent(inout) :: this
       type(Event),   intent(in)    :: Events(:,:)
       integer,       intent(in)    :: parallelization_type
-
-      integer       :: i, j, k, l, N_L(NDIM), N_R(NDIM), N_P(NDIM), BestSide(1), pminus, pplus, pvert, axis
-      real(kind=rp) :: SplittingCost(2), S_L, S_R, SplittingPlane
-      type(taskPart_type), dimension(:), allocatable :: taskPart
-      integer :: level, taskNum
-      type(KDtree), dimension(:), allocatable :: taskTree
+ 
+      integer                          :: i, j, k, l, N_L(NDIM), N_R(NDIM), N_P(NDIM), BestSide(1), pminus, pplus, pvert, axis
+      real(kind=rp)                    :: SplittingCost(2), S_L, S_R, SplittingPlane
+      type(taskPart_type), allocatable :: taskPart(:)
+      integer                          :: level, taskNum
+      type(KDtree),        allocatable :: taskTree(:)
 
       this% split = .false.
       this% SplitCost = C_INTERSECT * this% NumOfObjs
@@ -1179,10 +1180,9 @@ module KDClass
       type(Event),  dimension(:,:), intent(inout) :: Events_L, Events_R
       integer,                      intent(in)    :: parallelization_type
 
-      type(taskPart_type), dimension(:), allocatable :: taskPart
-      integer :: i, k, B, L, R, j, level, index, taskNum, N_L_start, N_R_start
-      integer :: index_L, index_R, N_Events_L(NDIM), N_Events_R(NDIM)
-      integer, dimension(:,:,:), allocatable :: thisIndeces_L,thisIndeces_R
+      type(taskPart_type), allocatable :: taskPart(:)
+      integer                          :: i, k, B, L, R, j, level, index, taskNum, N_L_start, N_R_start
+      integer                          :: index_L, index_R, N_Events_L(NDIM), N_Events_R(NDIM)
       
       select case( parallelization_type )
     
@@ -1673,8 +1673,8 @@ module KDClass
       implicit none
       
       type(taskPart_type), allocatable, intent(inout) :: taskPart(:)
-      integer,                          intent(in) :: NumOfThreads
-      integer,      dimension(NDIM),      intent(in) :: TotalChunk
+      integer,                          intent(in)    :: NumOfThreads
+      integer,      dimension(NDIM),    intent(in)    :: TotalChunk
       
       integer, dimension(NDIM,NumOfThreads) :: ChunkDim
       integer :: i, k
@@ -1703,9 +1703,9 @@ module KDClass
    
       implicit none
    
-      integer,  intent(in) ::  NumOfThreads
-      integer,  dimension(NDIM), intent(in) :: TotalChunk
-      integer, dimension(NDIM,NumOfThreads) :: ChunkDim
+      integer,                    intent(in) :: NumOfThreads
+      integer,  dimension(NDIM),  intent(in) :: TotalChunk
+      integer,  dimension(NDIM,NumOfThreads) :: ChunkDim
       
       integer :: Part, i, k
    

@@ -48,10 +48,10 @@ module IBMClass
       type(Integral_t),           allocatable :: Integral(:)
       character(len=LINE_LENGTH), allocatable :: STLfilename(:)
       character(len=LINE_LENGTH)              :: filename
-      logical                                 :: plotOBB, plotKDtree, active, TimePenal,         &
-                                                 describeIBM, semiImplicit, active_semiImplicit, &
-                                                 symmetry, plotBandPoints, plotMask,             &
-                                                 ComputeInterpolation = .false.,                 &
+      logical                                 :: plotOBB, plotKDtree, active = .false., TimePenal, &
+                                                 describeIBM, semiImplicit, active_semiImplicit,   &
+                                                 symmetry, plotBandPoints, plotMask,               &
+                                                 ComputeInterpolation = .false.,                   &
                                                  Wallfunction = .false.
       real(kind=rp)                           :: eta, BandRegionCoeff
       real(kind=rp),              allocatable :: symCoords(:), penalization(:)
@@ -297,7 +297,6 @@ module IBMClass
       do i = 1, size(this% root)
          call this% root(i)% destruct()
          if( .not. isChild ) call this% Integral(i)% destruct()
-         if( .not. isChild ) deallocate( OBB(i)% Points )
       end do
       
       deallocate(this% penalization)
@@ -1122,6 +1121,8 @@ module IBMClass
       else
          this% active = .FALSE.
       end if
+      
+      if( .not. this% active) return
       
       this% semiImplicit = .false.
       if( allocated(semiImplicit_in) ) then
