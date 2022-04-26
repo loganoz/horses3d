@@ -83,6 +83,8 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
+         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body  
+         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. 
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -96,6 +98,7 @@
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
             procedure   :: copy                    => HexElement_Assign
+            procedure   :: ConstructIBM            => HexElement_ConstructIBM
             generic     :: assignment(=)           => copy
       END TYPE Element 
             
@@ -844,4 +847,20 @@
 !~            IGNORE to % storage
             
          end subroutine HexElement_Assign
+      !
+!////////////////////////////////////////////////////////////////////////
+!
+      subroutine HexElement_ConstructIBM( self, Nx, Ny, Nz, NumOfSTL )
+         implicit none
+         class(Element), intent(inout) :: self
+         integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files        
+         
+         allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
+         allocate(self% STL(NumOfSTL,0:Nx,0:Ny,0:Nz))
+         
+         self% isInsideBody = .false.
+         self% STL          = 0
+
+      end subroutine HexElement_ConstructIBM
+      
       END Module ElementClass

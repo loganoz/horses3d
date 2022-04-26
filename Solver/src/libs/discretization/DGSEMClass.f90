@@ -104,7 +104,9 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
+      use IBMClass
       use SurfaceMesh, only: surfacesMesh
+
       IMPLICIT NONE
 !
 !     --------------------------
@@ -319,6 +321,27 @@ Module DGSEMClass
       else
          self % totalNDOF = self % NDOF
       end if
+
+!
+!     **********************************************************
+!     *              IMMERSED BOUNDARY CONSTRUCTION            *
+!     **********************************************************
+!       
+      call self% mesh% IBM% read_info( controlVariables )
+
+      if( self% mesh% IBM% active ) then
+      
+         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
+
+! 
+!        ------------------------------------------------
+!        building the IBM mask and the IBM band region
+!        ------------------------------------------------
+!            
+         call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
+   
+      end if
+  
 !
 !     ------------------------
 !     Allocate and zero memory
