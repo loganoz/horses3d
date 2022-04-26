@@ -598,7 +598,7 @@ module KDClass
    
 !$omp parallel shared(tree,Events,k)
 !$omp single
-#if defined(_OPENMP)
+#ifdef _OPENMP
             NumThreads = omp_get_num_threads()
 #else
             NumThreads = 1
@@ -627,7 +627,7 @@ module KDClass
       
 !$omp parallel shared(tree,Events,k,PointList)
 !$omp single
-#if defined(_OPENMP)
+#ifdef _OPENMP
            NumThreads = omp_get_num_threads()
 #else
            NumThreads = 1

@@ -2766,7 +2766,7 @@ module IBMClass
                        loc_pos          => BandPoints_ALL% x(i)% local_Position ) 
                     
             do n = 1, NCONS
-               Q(n) = sum(bpQ(i,IP_NearestPoints))
+               Q(n) = sum(bpQ(n,IP_NearestPoints))
             end do
       
             Q = Q/this% KDtree_n_of_interPoints
@@ -2789,7 +2789,7 @@ module IBMClass
             uFC_t = u_plus_f( y_plus_f( y_IP, u_tau, nu ) ) * u_tau
             uFC_n = uIP_n * y_FC/y_IP
          
-            tangent = VIP_t/(norm2(VIP_t)+EPS)
+            tangent = VIP_t/(uIP_t+EPS)
             
             uFC = uFC_t*tangent  + uFC_n*normal 
             
