@@ -626,8 +626,12 @@ module KDClass
       integer :: k
       
 !$omp parallel shared(tree,Events,k,PointList)
-           NumThreads = omp_get_num_threads()
 !$omp single
+#if defined(_OPENMP)
+           NumThreads = omp_get_num_threads()
+#else
+           NumThreads = 1
+#endif
             do k = 1, NDIM
 !$omp task firstprivate(k)
                call Points_Event_Construct( Events(k,:), tree, k, PointList )
