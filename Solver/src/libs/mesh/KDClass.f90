@@ -551,15 +551,19 @@ module KDClass
       !-arguments----------------------------------
       class(KDtree), intent(inout) :: this
       !-local-variables----------------------------
-      type(KDtree), pointer :: child_L, child_R 
-      integer               :: i     
-      
-      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct      
-      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct      
-
-      if( allocated(this% ObjectsList) ) deallocate(this% ObjectsList)      
+      integer               :: i       
+         
+      if( allocated(this% ObjectsList) ) then
+         do i = 1, this% NumOfObjs
+            deallocate(this% ObjectsList(i)% vertices)
+         end do
+         deallocate(this% ObjectsList)      
+      end if
       if( allocated(this% ObjsIndeces) ) deallocate(this% ObjsIndeces)
       if( allocated(this% Events) )      deallocate(this% Events)
+         
+      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct      
+      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct      
       
       if( associated(this% child_L) ) deallocate(this% child_L)
       if( associated(this% child_R) ) deallocate(this% child_R)
@@ -594,7 +598,11 @@ module KDClass
    
 !$omp parallel shared(tree,Events,k)
 !$omp single
+#if defined(_OPENMP)
             NumThreads = omp_get_num_threads()
+#else
+            NumThreads = 1
+#endif
             do k = 1, NDIM
 !$omp task firstprivate(k)
                call Event_Construct( Events(k,:), tree% ObjectsList, tree, k ) 
@@ -718,7 +726,9 @@ module KDClass
             end if
          end do
       end if
-   
+     
+      if( allocated(events) ) deallocate( events )
+
    end subroutine KDtree_buildSAH_BreadthFirst
    
    
@@ -791,6 +801,8 @@ module KDClass
             deallocate(Events)
          end if
       end if
+            
+      if( allocated(events) ) deallocate(events)
 
    end subroutine KDtree_buildSAH_DepthFirst
    
@@ -875,7 +887,8 @@ module KDClass
       type(Event),   intent(in)    :: Events(:,:)
       integer,       intent(in)    :: parallelization_type
  
-      integer                          :: i, j, k, l, N_L(NDIM), N_R(NDIM), N_P(NDIM), BestSide(1), pminus, pplus, pvert, axis
+      integer                          :: i, j, k, l, N_L(NDIM), N_R(NDIM), N_P(NDIM), &
+                                          BestSide(1), pminus, pplus, pvert, axis
       real(kind=rp)                    :: SplittingCost(2), S_L, S_R, SplittingPlane
       type(taskPart_type), allocatable :: taskPart(:)
       integer                          :: level, taskNum
@@ -910,7 +923,7 @@ module KDClass
                 if( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .lt. 0 ) exit
                                
                 do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                         &
-                          (Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.  &
+                         ( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.  &
                           Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
                           Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                   )
                    pminus = pminus + 1
@@ -1146,8 +1159,8 @@ module KDClass
       class(KDtree), intent(inout) :: this
       type(KDtree),  intent(inout) :: child
       integer,       intent(in)    :: side
-      
-      integer :: i
+
+      integer :: i                                        
    
       child% vertices = this% vertices
       child% isLast = .false.
@@ -1181,7 +1194,7 @@ module KDClass
       integer,                      intent(in)    :: parallelization_type
 
       type(taskPart_type), allocatable :: taskPart(:)
-      integer                          :: i, k, B, L, R, j, level, index, taskNum, N_L_start, N_R_start
+      integer                          :: i, k, B, L, R, j, level, index, taskNum
       integer                          :: index_L, index_R, N_Events_L(NDIM), N_Events_R(NDIM)
       
       select case( parallelization_type )
@@ -1438,8 +1451,9 @@ module KDClass
                exit
             end if
          end do
-
       end if
+      
+      if( allocated( Events ) ) deallocate( Events )
    
    end subroutine KDtree_buildPoints_BreadthFirst
    
@@ -1516,6 +1530,8 @@ module KDClass
             deallocate(Events)
          end if
       end if
+
+      if( allocated( Events ) ) deallocate( Events )
 
    end subroutine KDtree_buildPoints_DepthFirst
    

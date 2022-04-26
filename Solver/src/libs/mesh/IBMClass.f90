@@ -115,6 +115,8 @@ module IBMClass
       integer,           intent(in)    :: Order, NumOfObjs
       logical,           intent(in)    :: Wallfunction
       
+      if( this% constructed ) return
+      
       this% Order = Order
       
       allocate(this% IntegObjs(NumOfObjs))
@@ -279,7 +281,7 @@ module IBMClass
 
       this% root(STLNum)% MaxAxis = MPI_KDtreePartition% axis
 
-      if( .not. this% Integral(STLNum)% constructed ) call this% Integral(STLNum)% construct( this% IntegrationOrder, MPI_KDtreePartition% stl% NumOfObjs, this% Wallfunction )
+      call this% Integral(STLNum)% construct( this% IntegrationOrder, MPI_KDtreePartition% stl% NumOfObjs, this% Wallfunction )
 
       call MPI_KDtree_destroy()
 
@@ -1712,6 +1714,7 @@ module IBMClass
             this% root(STLNum)% STLNum = STLNum
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
             call this% root(STLNum)% Destruct()
+            this% plotKDtree = .false.
             call this% constructSTL_KDtree( STLNum ) 
             call this% upDateNormals( STLNum )
             call this% CleanMask( elements, no_of_elements, STLNum )
