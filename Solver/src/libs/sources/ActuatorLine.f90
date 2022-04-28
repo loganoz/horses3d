@@ -10,7 +10,7 @@
 #include "Includes.h"
 
 module ActuatorLine
-#ifdef FLOW
+#if defined(NAVIERSTOKES)
     use SMConstants
     implicit none
 
@@ -348,7 +348,6 @@ contains
    integer                           :: eID
    real(kind=RP), dimension(NDIM)    :: x, xe
    real(kind=RP), dimension(NCONS)   :: Q
-   ! real(kind=RP), allocatable        :: L(:)
 
     if (.not. self % active) return
 
@@ -357,12 +356,6 @@ contains
    interp = 1.0_RP
    tolerance=0.2_RP*self%turbine_t(1)%radius
    ! print *, "t: ", t
-
-   ! ! for more that 1 turbine that is not equal, this must be reallocated before the turbine cycle
-   ! allocate(L(0:self%turbine_t(1)%num_blade_sections))
-   ! L(0) = 0.0_RP
-   ! ! all blades are the same for one turbine
-   ! L(1:) = self%turbine_t(1)%blade_t(1)%r_R
 
    if (self%calculate_with_proyection) then
 !
@@ -413,17 +406,15 @@ contains
 
 !$omp do schedule(runtime)private(jj)
     do jj = 1, self%turbine_t(1)%num_blades
-      !    -------------------------------------
+!    -------------------------------------
 !    set arrays to 0 as it will accumulate
 !    -------------------------------------
-   self%turbine_t(1)%blade_t(jj)%local_lift(:) = 0.0_RP
-   self%turbine_t(1)%blade_t(jj)%local_drag(:) = 0.0_RP
-   self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
-   self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
-   self%turbine_t(1)%blade_t(jj)%local_torque(:) = 0.0_RP
-   self%turbine_t(1)%blade_t(jj)%local_root_bending(:) = 0.0_RP
-
-
+     self%turbine_t(1)%blade_t(jj)%local_lift(:) = 0.0_RP
+     self%turbine_t(1)%blade_t(jj)%local_drag(:) = 0.0_RP
+     self%turbine_t(1)%blade_t(jj)%local_rotor_force(:) = 0.0_RP
+     self%turbine_t(1)%blade_t(jj)%local_thrust(:) = 0.0_RP
+     self%turbine_t(1)%blade_t(jj)%local_torque(:) = 0.0_RP
+     self%turbine_t(1)%blade_t(jj)%local_root_bending(:) = 0.0_RP
    enddo
 !$omp end do
 
@@ -484,10 +475,6 @@ contains
              self%turbine_t(1)%blade_thrust(jj)=self%turbine_t(1)%blade_thrust(jj)+self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
              self%turbine_t(1)%blade_torque(jj)=self%turbine_t(1)%blade_torque(jj)+self%turbine_t(1)%blade_t(jj)%local_torque(ii)
              self%turbine_t(1)%blade_root_bending(jj)=self%turbine_t(1)%blade_root_bending(jj)+self%turbine_t(1)%blade_t(jj)%local_root_bending(ii)
-             ! print *, "ii: ", ii
-             ! print *, "jj: ", jj
-             ! print *, "y: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
-             ! print *, "z: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
         enddo
     enddo
 
@@ -573,14 +560,6 @@ if( POW2(x(2)-self%turbine_t(1)%hub_cood_y)+POW2(x(3)-self%turbine_t(1)%hub_cood
             self%turbine_t(1)%blade_thrust(jj)=self%turbine_t(1)%blade_thrust(jj)+self%turbine_t(1)%blade_t(jj)%local_thrust(ii) 
             self%turbine_t(1)%blade_torque(jj)=self%turbine_t(1)%blade_torque(jj)+self%turbine_t(1)%blade_t(jj)%local_torque(ii) 
             self%turbine_t(1)%blade_root_bending(jj)=self%turbine_t(1)%blade_root_bending(jj)+self%turbine_t(1)%blade_t(jj)%local_root_bending(ii)
-            ! print *, "ii: ", ii
-            ! print *, "jj: ", jj
-            ! print *, "y: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
-            ! print *, "z: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
-  
-!print*, 'bla', self%turbine_t(1)%blade_t(jj)%local_thrust(ii) 
-
-!print*, self%turbine_t(1)%blade_t(jj)%local_thrust(ii) 
 
         enddo
     enddo
@@ -616,12 +595,8 @@ print*, self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
 
        enddo
 
-
-
        !NS = 0.0_RP
        NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
-
-
 
     endif
     
@@ -726,23 +701,6 @@ end subroutine WriteFarmForces
 
         ! 2 possibility: use the local radius and angle
         tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(1)%num_blades*(self%turbine_t(1)%radius-self%turbine_t(1)%blade_t(jj)%r_R(ii)) / (2.0_RP*self%turbine_t(1)%blade_t(jj)%r_R(ii)*sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)))) ))
-        ! if (jj .eq. 1 .and. (ii .eq. 30 .or. ii .eq. 5))then
-        !     print *, "ii: ", ii
-        !     ! print *, "x: ", x
-        !     print *, "Q: ", Q
-        !     print *, "wind_speed_axial: ", wind_speed_axial
-        !     print *, "wind_speed_rot: ", wind_speed_rot
-        !     print *, "aoa: ", aoa
-        !     print *, "g1_func: ", g1_func
-        !     print *, "tip_correct: ", tip_correct
-        ! end if
-
-        ! if (jj .eq. 1)then
-        !     print *, "ii: ", ii
-        !     print *, "r: ", self%turbine_t(1)%blade_t(jj)%r_R(ii)
-        !     ! print *, "g1_func: ", g1_func
-        !     print *, "tip_correct: ", tip_correct
-        ! end if
 !
 !       --------------------------------
 !       Save forces on the blade segment
@@ -757,17 +715,6 @@ end subroutine WriteFarmForces
         drag_force = 0.5_RP * density * Cd * tip_correct * POW2(self%turbine_t(1)%blade_t(jj)%local_velocity(ii)) &
                       * self%turbine_t(1)%blade_t(jj)%chord(ii) * (self%turbine_t(1)%blade_t(jj)%r_R(ii) - self%turbine_t(1)%blade_t(jj)%r_R(ii-1)) * interp
 
-!        self%turbine_t(1)%blade_t(jj)%local_lift(ii) = self%turbine_t(1)%blade_t(jj)%local_lift(ii) + lift_force
-!        self%turbine_t(1)%blade_t(jj)%local_drag(ii) = self%turbine_t(1)%blade_t(jj)%local_drag(ii) + drag_force
-
-!        self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii) = self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii) + &
-!                                                              lift_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) &
-!                                                              - drag_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
-                                  
-!        self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = self%turbine_t(1)%blade_t(jj)%local_thrust(ii) + &
-!                                                         lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) & 
-!                                                         + drag_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
-
         self%turbine_t(1)%blade_t(jj)%local_lift(ii) =  lift_force
         self%turbine_t(1)%blade_t(jj)%local_drag(ii) =  drag_force
 
@@ -776,21 +723,6 @@ end subroutine WriteFarmForces
                                   
         self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) & 
                                                          + drag_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
-
-         ! if (jj .eq. 1)then
-         !     print *, "ii: ", ii
-             ! print *, "r: ", self%turbine_t(1)%blade_t(jj)%r_R(ii)
-             ! print *, "wind_speed_axial: ", wind_speed_axial
-             ! print *, "wind_speed_rot: ", wind_speed_rot
-             ! print *, "phi: ",self%turbine_t(1)%blade_t(jj)%local_angle(ii) 
-             ! print *, "aoa: ", aoa
-             ! print *, "Cl: ", Cl
-             ! print *, "Cd: ", Cd
-             ! print *, "lift_force: ", lift_force
-             ! print *, "drag_force: ", drag_force
-             ! print *, "thurst: ", self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
-             ! print *, "rotor: ", self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)
-         ! end if
 !
     End Subroutine FarmUpdateLocalForces
 !

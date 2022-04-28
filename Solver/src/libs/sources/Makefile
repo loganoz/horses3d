@@ -8,9 +8,13 @@ ARFLAGS?=cr
 RANLIB?=ranlib
 MOD_FLAG?=-J
 
-LIBOBJS_NS = ./build_ns/ActuatorLine.o 
+LIBOBJS_NS = ./build_ns/ActuatorLine.o \
+			 ./build_ns/mkl_dfti.o \
+			 ./build_ns/TripForceClass.o 
 		
-LIBOBJS_NSSA = ./build_nssa/ActuatorLine.o 
+LIBOBJS_NSSA =  ./build_nssa/ActuatorLine.o \
+				./build_nssa/mkl_dfti.o \
+				./build_nssa/TripForceClass.o 
 		
 LIBOBJS_iNS = ./build_ins/ActuatorLine.o 
 		
