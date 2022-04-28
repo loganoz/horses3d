@@ -407,6 +407,8 @@ module LESModels
          LS = this % Cw * delta
          
          mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
+
+         if (normS<1.0e-8_RP .and. normSd<1.0e-8_RP) mu=0.0_RP
          
       end subroutine WALE_ComputeViscosity
 
