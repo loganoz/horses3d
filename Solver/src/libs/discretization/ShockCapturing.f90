@@ -394,8 +394,7 @@ module ShockCapturing
          if (controlVariables % containsKey(SC_MU1_KEY)) then
             self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
          else
-            write(STD_OUT,*) "ERROR. A value for the artificial 'mu 1' must be given."
-            stop
+            self % mu1 = 0.0_RP
          end if
 
          if (controlVariables % containsKey(SC_MU2_KEY)) then
@@ -409,8 +408,7 @@ module ShockCapturing
          if (controlVariables % containsKey(SC_MU2_KEY)) then
             self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
          else
-            write(STD_OUT,*) "ERROR. A value for the artificial 'mu 2' must be given."
-            stop
+            self % mu2 = 0.0_RP
          end if
          self % mu1 = self % mu2
 
@@ -473,7 +471,7 @@ module ShockCapturing
             case (SC_SMAG_VAL)
 
                self % updateMethod = SC_SMAG_ID
-               if (.not. self%alphaIsPropToMu) then
+               if (.not. self % alphaIsPropToMu) then
                   write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using shock-capturing with LES.'
                   stop
                end if

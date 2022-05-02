@@ -64,12 +64,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/TaylorGreenKEP_BR2 \
             ./NavierStokes/ManufacturedSolutions \
             ./NavierStokes/NACA0012 \
-            ./NavierStokes/ForwardFacingStep/NonFiltered \
-            ./NavierStokes/ForwardFacingStep/SVV \
-            ./NavierStokes/ForwardFacingStep/SSFV \
+            ./NavierStokes/ForwardFacingStepSVV \
             ./NavierStokes/TaylorGreenSVVLES \
-            ./NavierStokes/DoubleMachReflectionSSFV \
-            ./NavierStokes/BackwardFacingStepSSFV \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \
