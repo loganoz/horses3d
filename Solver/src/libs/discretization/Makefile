@@ -27,6 +27,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/mkl_dfti.o \
 		./build_ns/TripForceClass.o
 
+
 LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
                 ./build_nssa/DGIntegrals.o \
                 ./build_nssa/GradientsStabilization.o \
@@ -45,6 +46,7 @@ LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
                 ./build_nssa/ShockCapturing.o \
 				./build_nssa/mkl_dfti.o \
 				./build_nssa/TripForceClass.o
+
 
 LIBOBJS_iNS =   ./build_ins/DGSEMClass.o \
 		./build_ins/DGIntegrals.o \

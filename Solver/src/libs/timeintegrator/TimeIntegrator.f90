@@ -316,6 +316,7 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)
       use ShockCapturing
       use TripForceClass, only: randomTrip
+      use ActuatorLine, only: farm
 #endif
       IMPLICIT NONE
 !
@@ -351,7 +352,7 @@ print*, "Method selected: RK5"
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients, useTrip
+      logical                       :: saveGradients, useTrip, ActuatorLineFlag
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -383,7 +384,34 @@ print*, "Method selected: RK5"
 
 #if defined(NAVIERSTOKES)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+      if(ActuatorLineFlag) then
+          call farm % ConstructFarm(controlVariables)
+          call farm % UpdateFarm(t, sem % mesh)
+      end if
 #endif
+
+!
+!     ----------------------------------
+!     Set up mask's coefficient for IBM
+!     ----------------------------------
+!
+
+
+      if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
+         if ( self % Compute_dt ) then
+            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
+         else
+            dt = self% dt
+         end if
+!
+!        Correct time step
+!        -----------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+         sem % mesh% IBM% eta = self% CorrectDt(t, dt)
+         sem % mesh% IBM% penalization = sem % mesh% IBM% eta
+#endif
+      end if
+
 !
 !     ------------------
 !     Configure restarts
@@ -458,20 +486,49 @@ print*, "Method selected: RK5"
       end select
 
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
+
 !
 !        CFL-bounded time step
-!        ---------------------
-         IF ( self % Compute_dt ) call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
+!        ---------------------      
+         IF ( self % Compute_dt ) then
+            if( sem% mesh% IBM% active ) then
+               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+            else
+              call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
+            end if
+         END IF
 !
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
+
+!
+!        Set penalization term for IBM
+!        -----------------------------
+         if( sem % mesh% IBM% active ) then
+            if( sem% mesh% IBM% TimePenal ) sem % mesh% IBM% penalization = dt
+         end if
+
+!
+!        Moving Body IMMERSED BOUNDARY
+!        -----------------------------
+         if( sem% mesh% IBM% active ) then
+            if( any(sem% mesh% IBM% stl(:)% move) ) then
+               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
+                                              sem% mesh% no_of_elements,             &
+                                              sem% mesh% NDOF, sem% mesh% child, dt, &
+                                              k+1,                                   &
+                                              self % autosave % Autosave(k+1)        )
+            end if
+         end if
+ 
 !
 !        User defined periodic operation
 !        -------------------------------
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
+         if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
 #endif
 !
 !        Perform time step
@@ -497,6 +554,10 @@ print*, "Method selected: RK5"
          case (IMEX_SOLVER)
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
+
+#if defined(NAVIERSTOKES)
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+#endif
 !
 !        Compute the new time
 !        --------------------
@@ -603,6 +664,7 @@ print*, "Method selected: RK5"
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
       end if
 
@@ -631,6 +693,7 @@ print*, "Method selected: RK5"
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
+         if(ActuatorLineFlag) call farm % DestructFarm
 #endif
 
    end subroutine IntegrateInTime

@@ -7,6 +7,7 @@ module SurfaceMonitorClass
    use MPI_Process_Info
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
+   use IBMClass
    implicit none
 
 
@@ -81,7 +82,7 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: directionName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
-         integer                          :: pos
+         integer                          :: pos, i
          integer                          :: fID
          integer                          :: zoneID
          real(kind=RP)                    :: directionValue(NDIM)
@@ -110,17 +111,27 @@ module SurfaceMonitorClass
 !        ----------------------
          self % marker = -1
          do zoneID = 1, size(mesh % zones)
-            if ( trim(mesh % zones(zoneID) % name) .eq. trim(markerName) ) then
+            if ( trim(mesh % zones(zoneID) % name) .eq. trim(markerName) ) then            
                self % marker = zoneID
                exit
             end if
          end do
+
+         if( mesh% IBM% active ) then                 
+            do i = 1, size(mesh% IBM% STLfilename)
+               if( trim(mesh% IBM% STLfilename(i)) .eq. trim(markerName) ) then
+                  self% marker = i 
+                  exit
+               end if
+            end do
+         end if
 
          if ( self % marker .eq. -1 ) then
             self % active = .false.
             write(*,'(A,I0)') "Warning: Marker not specified for surface monitor ", self % ID
             write(*,'(A,I0,A)') "     Surface monitor ", self % ID, " disabled."
          end if
+         
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------

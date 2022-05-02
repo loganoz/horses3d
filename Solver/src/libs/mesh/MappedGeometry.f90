@@ -28,6 +28,7 @@ Module MappedGeometryClass
       private
       public MappedGeometry, MappedGeometryFace
       public SetMappingsToCrossProduct
+      public vDot, vCross
 !
 !     ---------
 !     Constants

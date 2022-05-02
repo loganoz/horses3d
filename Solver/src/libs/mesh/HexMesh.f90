@@ -35,6 +35,7 @@ MODULE HexMeshClass
       use BoundaryConditions,               only: BCs
       use IntegerDataLinkedList           , only: IntegerDataLinkedList_t
       use PartitionedMeshClass            , only: mpi_partition
+      use IBMClass
 #if defined(NAVIERSTOKES)
       use WallDistance
 #endif
@@ -76,6 +77,7 @@ MODULE HexMeshClass
          type(Face)   , dimension(:), allocatable  :: faces
          type(Element), dimension(:), allocatable  :: elements
          type(MPI_FacesSet_t)                      :: MPIfaces
+         type(IBM_type)                            :: IBM
          class(Zone_t), dimension(:), allocatable  :: zones
          logical                                   :: child       = .FALSE.         ! Is this a (multigrid) child mesh? default .FALSE.
          logical                                   :: meshIs2D    = .FALSE.         ! Is this a 2D mesh? default .FALSE.
@@ -193,6 +195,19 @@ MODULE HexMeshClass
          safedeallocate(self % faces_interior)
          safedeallocate(self % faces_mpi)
          safedeallocate(self % faces_boundary)
+
+!
+!        ----------------
+!        IBM storage
+!        ----------------
+!
+         if( self% IBM% active ) then
+            if( self% child ) then
+               call self% IBM% destruct( .true. )
+            else 
+               call self% IBM% destruct( .false. )
+            end if
+         end if
 
       END SUBROUTINE HexMesh_Destruct
 !
