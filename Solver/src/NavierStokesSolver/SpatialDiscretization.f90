@@ -390,7 +390,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
-               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+               delta = ((e % geom % Volume ) ** (1.0_RP / 3.0_RP))/(real(e % Nxyz (1)) -1.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                                                    e % storage % U_x(:,i,j,k), &
@@ -623,8 +623,8 @@ module SpatialDiscretization
                end do                  ; end do                ; end do
                end associate
             end do
-!$omp end do      
-         end if 
+!$omp end do
+         end if
 
       end subroutine TimeDerivative_ComputeQDot
 
