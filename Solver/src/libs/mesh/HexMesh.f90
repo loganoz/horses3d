@@ -2866,11 +2866,6 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-#if defined(SPALARTALMARAS)
-            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
-                                       self % nodeType, self % no_of_allElements, iter, time, refs)
-            padding = NCONS + 3*NGRAD
-#else
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2880,7 +2875,6 @@ slavecoord:             DO l = 1, 4
                                        self % no_of_allElements, iter, time, refs)
             padding = NCONS
          end if
-#endif
 !
 !        Write arrays
 !        ------------
