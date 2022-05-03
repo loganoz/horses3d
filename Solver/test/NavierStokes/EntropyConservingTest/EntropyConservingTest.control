@@ -3,7 +3,6 @@ mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
 Polynomial order      = 5
 Number of time steps  = 100
 Output Interval       = 10
-!2D mesh offset direction = y
 Convergence tolerance = 1.d-10
 cfl                   = 0.3
 dcfl                  = 0.3
@@ -16,34 +15,12 @@ restart               = .false.
 restart file name     = "RESULTS/Cylinder.hsol"
 
 !---------------------:
-Riemann Solver                         = Central ! Matrix dissipation
-Gradient Variables = Entropy
+Riemann Solver                         = Central
+Gradient Variables                     = Entropy
 Inviscid Discretization                = Split-form
 Split form                             = Chandrasekar
 Viscous Discretization                 = BR1
 compute time derivative after timestep = .true.
-
-!---------------------:
-enable shock-capturing = .true.
-shock sensor           = modal
-shock method           = non-filtered
-shock viscous flux     = guermond-popov
-shock update viscosity = constant
-shock mu               = 0.005
-shock alpha            = 0.001
-sensor variable        = rhop
-sensor lower limit     = -10
-sensor higher limit    = -7
-sensor threshold 1     = -9
-sensor threshold 2     = -8
-
-!enable SVV = .true.
-!svv viscosity = 0.005
-!SVV dissipation type = Guermond
-!svv alpha viscosity = 0.005
-!svv filter type = High-pass
-!svv filter shape = Sharp
-!svv filter cutoff = 2.0
 
 #define boundary InnerCylinder
   type = NoSlipWall
@@ -82,7 +59,7 @@ sensor threshold 2     = -8
    Marker = innercylinder
    Variable = drag
    Direction = [0.0,0.0,1.0]
-   Reference surface = 1.0	
+   Reference surface = 1.0
 #end
 
 #define surface monitor 2
@@ -93,24 +70,18 @@ sensor threshold 2     = -8
    Reference surface = 1.0
 #end
 
-#define volume monitor 1 
+#define volume monitor 1
    Name = En-balance
    Variable = Entropy balance
 #end
 
-#define volume monitor 2 
+#define volume monitor 2
    Name = En-rate
    Variable = Entropy rate
 #end
-
-!#define volume monitor 3
-!   Name = SVV
-!   Variable = SVV dissipation
-!#end
 
 #define probe 1
    Name = wake_u
    Position = [0.0,2.0,4.0]
    Variable = u
 #end
-
