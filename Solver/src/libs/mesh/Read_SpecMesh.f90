@@ -2,8 +2,8 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      HexMesh.f95
-!      Created: 2007-03-22 17:05:00 -0400 
-!      By: David Kopriva  
+!      Created: 2007-03-22 17:05:00 -0400
+!      By: David Kopriva
 !
 !
 !////////////////////////////////////////////////////////////////////////
@@ -23,10 +23,10 @@ MODULE Read_SpecMesh
       use FileReadingUtilities      , only: getFileName
       use Utilities, only: UnusedUnit, toLower
       implicit none
-      
+
       private
       public ConstructMesh_FromSpecMeshFile_, NumOfElems_SpecMesh
-      
+
 !
 !     ========
       CONTAINS
@@ -69,7 +69,7 @@ MODULE Read_SpecMesh
          integer                         :: numberOfNodes
          integer                         :: numberOfBoundaryFaces
          integer                         :: numberOfFaces
-         
+
          integer                         :: bFaceOrder, numBFacePoints
          integer                         :: i, j, k, l
          integer                         :: fUnit, fileStat
@@ -101,13 +101,13 @@ MODULE Read_SpecMesh
 !
          if ( MPI_Process % doMPIAction ) then
             if ( mpi_partition % Constructed ) then
-               call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
-            else         
-               call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success ) 
+               call ConstructMeshPartition_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
+            else
+               call ConstructSimplestMesh_FromSpecMeshFile_ ( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
             end if
             return
          end if
-          
+
          numberOfBoundaryFaces = 0
          success               = .TRUE.
 !
@@ -120,9 +120,9 @@ MODULE Read_SpecMesh
          IF ( fileStat /= 0 )     THEN
             PRINT *, "Error opening file: ", fileName
             success = .FALSE.
-            RETURN 
+            RETURN
          END IF
-         
+
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
 
          self % nodeType = nodes
@@ -131,7 +131,7 @@ MODULE Read_SpecMesh
 !
 !        ----------------------------
 !        Set up for face patches
-!        Face patches are defined 
+!        Face patches are defined
 !        at chebyshev- lobatto points
 !        ----------------------------
 !
@@ -139,12 +139,12 @@ MODULE Read_SpecMesh
          allocate(uNodes(numBFacePoints))
          allocate(vNodes(numBFacePoints))
          allocate(values(3,numBFacePoints,numBFacePoints))
-         
+
          DO i = 1, numBFacePoints
-            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP))
+            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP))
          END DO
-         
+
 !
 !        ---------------
 !        Allocate memory
@@ -152,7 +152,7 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(numberOfelements) )
          allocate( self % nodes(numberOfNodes) )
-         
+
          allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
          self % Nx = Nx
          self % Ny = Ny
@@ -164,7 +164,7 @@ MODULE Read_SpecMesh
 !        x y z
 !        ----------------------------------
 !
-         DO j = 1, numberOfNodes 
+         DO j = 1, numberOfNodes
             READ( fUnit, * ) x
             x = x/Lref
             CALL ConstructNode( self % nodes(j), x, j )
@@ -182,7 +182,7 @@ MODULE Read_SpecMesh
 !        bname1 bname2 bname3 bname4 bname5 bname6
 !        -----------------------------------------
 !
-         DO l = 1, numberOfElements 
+         DO l = 1, numberOfElements
             READ( fUnit, * ) nodeIDs
             READ( fUnit, * ) faceFlags
 !
@@ -198,14 +198,14 @@ MODULE Read_SpecMesh
                END DO
                self % elements(l) % SurfInfo % IsHex8 = .TRUE.
                self % elements(l) % SurfInfo % corners = corners
-               
+
             ELSE
 !
 !              --------------------------------------------------------------
-!              Otherwise, we have to look at each of the faces of the element 
+!              Otherwise, we have to look at each of the faces of the element
 !              --------------------------------------------------------------
 !
-               DO k = 1, FACES_PER_ELEMENT 
+               DO k = 1, FACES_PER_ELEMENT
                  IF ( faceFlags(k) == 0 )     THEN
 !
 !                    ----------
@@ -217,39 +217,39 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,1) = self % nodes(nodeIDs(nodeMap(2))) % x
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
-                     
+
                      call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                     
+
                   ELSE
 !
 !                    -------------
-!                    Curved faces 
+!                    Curved faces
 !                    -------------
 !
                      DO j = 1, numBFacePoints
                         DO i = 1, numBFacePoints
                            READ( fUnit, * ) values(:,i,j)
-                        END DO  
+                        END DO
                      END DO
-   
+
                      values = values / Lref
-                     
+
                      call self % elements(l) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
-                     
+
                   END IF
                END DO
-               
-            END IF 
+
+            END IF
 !
 !           -------------------------
 !           Now construct the element
 !           -------------------------
 !
             call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
-            
+
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
-            
+
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
                   numberOfBoundaryFaces = numberOfBoundaryFaces + 1
@@ -259,9 +259,9 @@ MODULE Read_SpecMesh
                   end if
                   deallocate (zoneNames)
                end if
-            END DO  
+            END DO
          END DO      ! l = 1, numberOfElements
-        
+
 !
 !        ---------------------------
 !        Construct the element faces
@@ -315,7 +315,7 @@ MODULE Read_SpecMesh
          self % dir2D_ctrl = dir2D
          if ( dir2D .ne. 0 ) then
             call SetMappingsToCrossProduct
-            call self % CorrectOrderFor2DMesh(dir2D,1)
+            call self % CorrectOrderFor2DMesh(dir2D,0)
          end if
 !
 !        ------------------------------
@@ -346,15 +346,15 @@ MODULE Read_SpecMesh
 !
          if (.not. self % child) CALL self % Describe( trim(fileName), bFaceOrder )
          call self % PrepareForIO
-         
+
          call self % ExportBoundaryMesh (trim(fileName))
-         
+
       END SUBROUTINE ConstructMesh_FromSpecMeshFile_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !     ------------------------------------------------------
-!     Constructs the simplest mesh with only the information 
+!     Constructs the simplest mesh with only the information
 !     that is needed to create the MPI partitions
 !     ------------------------------------------------------
       SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_( self, fileName, nodes, Nx, Ny, Nz, dir2D, periodRelative, success )
@@ -375,7 +375,7 @@ MODULE Read_SpecMesh
          integer                         :: numberOfNodes
          integer                         :: numberOfBoundaryFaces
          integer                         :: numberOfFaces
-         
+
          integer                         :: bFaceOrder, numBFacePoints
          integer                         :: i, j, k, l
          integer                         :: fUnit, fileStat
@@ -403,23 +403,23 @@ MODULE Read_SpecMesh
          IF ( fileStat /= 0 )     THEN
             PRINT *, "Error opening file: ", fileName
             success = .FALSE.
-            RETURN 
+            RETURN
          END IF
-         
+
          READ(fUnit,*) numberOfNodes, numberOfElements, bFaceOrder
 
          self % nodeType = nodes
          self % no_of_elements = numberOfElements
-         
+
 !
 !        ----------------------------
 !        Set up for face patches
-!        Face patches are defined 
+!        Face patches are defined
 !        at chebyshev- lobatto points
 !        ----------------------------
 !
          numBFacePoints = bFaceOrder + 1
-         
+
 !
 !        ---------------
 !        Allocate memory
@@ -427,7 +427,7 @@ MODULE Read_SpecMesh
 !
          allocate( self % elements(numberOfelements) )
          allocate( self % nodes   (numberOfNodes) )
-         
+
          allocate ( self % Nx(numberOfelements) , self % Ny(numberOfelements) , self % Nz(numberOfelements) )
          self % Nx = Nx
          self % Ny = Ny
@@ -439,7 +439,7 @@ MODULE Read_SpecMesh
 !        x y z
 !        ----------------------------------
 !
-         DO j = 1, numberOfNodes 
+         DO j = 1, numberOfNodes
             READ( fUnit, * ) x
             x = x / Lref
             CALL ConstructNode( self % nodes(j), x, j )
@@ -457,7 +457,7 @@ MODULE Read_SpecMesh
 !        bname1 bname2 bname3 bname4 bname5 bname6
 !        -----------------------------------------
 !
-         DO l = 1, numberOfElements 
+         DO l = 1, numberOfElements
             READ( fUnit, * ) nodeIDs
             READ( fUnit, * ) faceFlags
 !
@@ -467,31 +467,31 @@ MODULE Read_SpecMesh
 !           the element geometry.
 !           -----------------------------------------------------------------------------
 !
-            
-            do k = 1, FACES_PER_ELEMENT 
+
+            do k = 1, FACES_PER_ELEMENT
                if ( faceFlags(k) /= 0 ) then
-                  
-!                 Skip points of curved faces 
+
+!                 Skip points of curved faces
 !                 ---------------------------
 !
                   do j = 1, numBFacePoints
                      do i = 1, numBFacePoints
-                        read( fUnit, * ) 
-                     end do  
+                        read( fUnit, * )
+                     end do
                   end do
-                     
+
                end if
-            end do   
+            end do
 !
 !           -------------------------
 !           Now construct the element
 !           -------------------------
 !
             call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l)
-            
+
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(l), names )
-            
+
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
                   numberOfBoundaryFaces = numberOfBoundaryFaces + 1
@@ -501,9 +501,9 @@ MODULE Read_SpecMesh
                   end if
                   deallocate (zoneNames)
                end if
-            END DO  
+            END DO
          END DO      ! l = 1, numberOfElements
-        
+
 !
 !        ---------------------------
 !        Construct the element faces
@@ -551,9 +551,9 @@ MODULE Read_SpecMesh
          call self % SetConnectivitiesAndLinkFaces(nodes)
 
          CLOSE( fUnit )
-         
+
          call self % ExportBoundaryMesh (trim(fileName))
-         
+
       END SUBROUTINE ConstructSimplestMesh_FromSpecMeshFile_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -589,7 +589,7 @@ MODULE Read_SpecMesh
          integer                         :: numberOfFaces
          integer, allocatable            :: globalToLocalNodeID(:)
          integer, allocatable            :: globalToLocalElementID(:)
-         
+
          integer                         :: bFaceOrder, numBFacePoints
          integer                         :: i, j, k, l, pNode, pElement
          integer                         :: fUnit, fileStat
@@ -627,9 +627,9 @@ MODULE Read_SpecMesh
          IF ( fileStat /= 0 )     THEN
             PRINT *, "Error opening file: ", fileName
             success = .FALSE.
-            RETURN 
+            RETURN
          END IF
-         
+
          READ(fUnit,*) numberOfAllNodes, numberOfAllElements, bFaceOrder
 
          self % nodeType = nodes
@@ -637,7 +637,7 @@ MODULE Read_SpecMesh
 !
 !        ----------------------------
 !        Set up for face patches
-!        Face patches are defined 
+!        Face patches are defined
 !        at chebyshev- lobatto points
 !        ----------------------------
 !
@@ -645,10 +645,10 @@ MODULE Read_SpecMesh
          allocate(uNodes(numBFacePoints))
          allocate(vNodes(numBFacePoints))
          allocate(values(3,numBFacePoints,numBFacePoints))
-         
+
          DO i = 1, numBFacePoints
-            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
-            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP)) 
+            uNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP))
+            vNodes(i) = -COS((i-1.0_RP)*PI/(numBFacePoints-1.0_RP))
          END DO
 !
 !        ---------------
@@ -661,12 +661,12 @@ MODULE Read_SpecMesh
          allocate( globalToLocalElementID(numberOfAllElements) )
          self % no_of_elements = mpi_partition % no_of_elements
          self % no_of_allElements = numberOfAllElements
-         
+
          globalToLocalNodeID = -1
          globalToLocalElementID = -1
-         
+
          allocate ( self % Nx(self % no_of_elements) , self % Ny(self % no_of_elements) , self % Nz(self % no_of_elements) )
-         
+
 !
 !        ----------------------------------
 !        Read nodes: Nodes have the format:
@@ -674,7 +674,7 @@ MODULE Read_SpecMesh
 !        ----------------------------------
 !
          pNode = 1
-         DO j = 1, numberOfAllNodes 
+         DO j = 1, numberOfAllNodes
             READ( fUnit, * ) x
             x = x / Lref
             if ( pNode .gt. mpi_partition % no_of_nodes ) cycle
@@ -684,7 +684,7 @@ MODULE Read_SpecMesh
             if ( j .eq. mpi_partition % nodeIDs(pNode) ) then
                CALL ConstructNode( self % nodes(pNode), x, j )
                globalToLocalNodeID(j) = pNode
-               pNode = pNode + 1 
+               pNode = pNode + 1
             end if
          END DO
 !
@@ -701,7 +701,7 @@ MODULE Read_SpecMesh
 !        -----------------------------------------
 !
          pElement = 1
-         DO l = 1, numberOfAllElements 
+         DO l = 1, numberOfAllElements
 
             if ( pElement .gt. mpi_partition % no_of_elements ) then
 !
@@ -715,9 +715,9 @@ MODULE Read_SpecMesh
                      DO j = 1, numBFacePoints
                         DO i = 1, numBFacePoints
                            READ( fUnit, * )
-                        END DO  
+                        END DO
                      END DO
-                  end if 
+                  end if
                end do
 !
 !              Get the boundary names to build zones (even they could be empty)
@@ -732,9 +732,9 @@ MODULE Read_SpecMesh
                      end if
                      deallocate (zoneNames)
                   end if
-               END DO  
+               END DO
 
-               cycle 
+               cycle
 
             else if ( l .ne. mpi_partition % elementIDs(pElement) ) then
 !
@@ -748,9 +748,9 @@ MODULE Read_SpecMesh
                      DO j = 1, numBFacePoints
                         DO i = 1, numBFacePoints
                            READ( fUnit, * )
-                        END DO  
+                        END DO
                      END DO
-                  end if 
+                  end if
                end do
 !
 !              Get the boundary names to build zones (even they could be empty)
@@ -765,9 +765,9 @@ MODULE Read_SpecMesh
                      end if
                      deallocate (zoneNames)
                   end if
-               END DO  
+               END DO
 
-               cycle 
+               cycle
             end if
 !
 !           Otherwise, read the element
@@ -791,14 +791,14 @@ MODULE Read_SpecMesh
                END DO
                self % elements(pElement) % SurfInfo % IsHex8 = .TRUE.
                self % elements(pElement) % SurfInfo % corners = corners
-               
+
             ELSE
 !
 !              --------------------------------------------------------------
-!              Otherwise, we have to look at each of the faces of the element 
+!              Otherwise, we have to look at each of the faces of the element
 !              --------------------------------------------------------------
 !
-               DO k = 1, FACES_PER_ELEMENT 
+               DO k = 1, FACES_PER_ELEMENT
                  IF ( faceFlags(k) == 0 )     THEN
 !
 !                    ----------
@@ -810,45 +810,45 @@ MODULE Read_SpecMesh
                      valuesFlat(:,2,1) = self % nodes(nodeIDs(nodeMap(2))) % x
                      valuesFlat(:,2,2) = self % nodes(nodeIDs(nodeMap(3))) % x
                      valuesFlat(:,1,2) = self % nodes(nodeIDs(nodeMap(4))) % x
-                     
+
                      call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodesFlat, vNodesFlat, valuesFlat)
-                     
+
                   ELSE
 !
 !                    -------------
-!                    Curved faces 
+!                    Curved faces
 !                    -------------
 !
                      DO j = 1, numBFacePoints
                         DO i = 1, numBFacePoints
                            READ( fUnit, * ) values(:,i,j)
-                        END DO  
+                        END DO
                      END DO
 
                      values = values / Lref
-                     
+
                      call self % elements(pElement) % SurfInfo % facePatches(k) % construct(uNodes, vNodes, values)
-                     
+
                   END IF
                END DO
-               
-            END IF 
+
+            END IF
 !
 !           -------------------------
 !           Now construct the element
 !           -------------------------
 !
             call self % elements(pElement) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , pElement, l)
-            
+
             self % Nx(pElement) = Nx(l)
             self % Ny(pElement) = Ny(l)
             self % Nz(pElement) = Nz(l)
-            
+
             READ( fUnit, * ) names
             CALL SetElementBoundaryNames( self % elements(pElement), names )
 !
 !           Add the boundary face to the zone Name dictionary
-!           -------------------------------------------------            
+!           -------------------------------------------------
             DO k = 1, 6
                IF(TRIM(names(k)) /= emptyBCName) then
                   zoneNames => zoneNameDictionary % allKeys()
@@ -857,13 +857,13 @@ MODULE Read_SpecMesh
                   end if
                   deallocate (zoneNames)
                end if
-            END DO  
+            END DO
 !
 !           Count the partition element
-!           ---------------------------            
+!           ---------------------------
             globalToLocalElementID(l) = pElement
             pElement = pElement + 1
-            
+
          END DO      ! l = 1, numberOfAllElements
 !
 !        ---------------------------
@@ -985,10 +985,10 @@ MODULE Read_SpecMesh
          !----------------------------------
          integer :: k, fUnit
          !----------------------------------
-         
-         OPEN(newunit = fUnit, FILE = trim(fileName) )  
+
+         OPEN(newunit = fUnit, FILE = trim(fileName) )
             READ(fUnit,*) k, nelem, k                    ! Here k is used as default reader since this variables are not important now
          CLOSE(fUnit)
-      
+
       end function NumOfElems_SpecMesh
 end module Read_SpecMesh

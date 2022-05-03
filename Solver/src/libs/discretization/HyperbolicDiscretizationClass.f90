@@ -78,7 +78,7 @@ module HyperbolicDiscretizationClass
          real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
       end subroutine HyperbolicFlux3D_f
 
-      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp) 
+      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp)
          use SMConstants
          use PhysicsStorage
          implicit none
@@ -154,17 +154,17 @@ module HyperbolicDiscretizationClass
 
          case (RIEMANN_ROEPIKE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
-         
+
          case (RIEMANN_MATRIXDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
-         
+
          case (RIEMANN_LOWDISSROE)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
 
          case (RIEMANN_UDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
 #elif defined(SPALARTALMARAS)
-         
+
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
@@ -185,13 +185,13 @@ module HyperbolicDiscretizationClass
          case (RIEMANN_EXACT)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
 
-#endif         
+#endif
          end select
 
 #if defined(NAVIERSTOKES) || defined(INCNS)
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
 #endif
-         
+
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
          else
@@ -220,7 +220,7 @@ module HyperbolicDiscretizationClass
 
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2)    ; do i = 0, e%Nxyz(1)
             call HyperbolicFlux( e % storage % Q(:,i,j,k), cartesianFlux(:,:), e % storage % rho(i,j,k))
-         
+
             contravariantFlux(:,i,j,k,IX) =    cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              + cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
                                              + cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
@@ -237,7 +237,7 @@ module HyperbolicDiscretizationClass
 
          end do               ; end do                ; end do
 
-      end subroutine BaseClass_ComputeInnerFluxes      
+      end subroutine BaseClass_ComputeInnerFluxes
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -245,10 +245,10 @@ module HyperbolicDiscretizationClass
 !     Subroutine to get the Jacobian of the contravariant fluxes
 !     -> dFdQ (:,:,i,j,k,dim)
 !                 |     |
-!              jac|coord|flux in cartesian direction dim 
+!              jac|coord|flux in cartesian direction dim
 !     ----------------------------------------------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ) 
+      subroutine BaseClass_ComputeInnerFluxJacobian( self, e, dFdQ)
          use ElementClass
          use Physics
          use PhysicsStorage
@@ -261,25 +261,25 @@ module HyperbolicDiscretizationClass
          real(kind=RP), DIMENSION(NCONS,NCONS)  :: dfdq_,dgdq_,dhdq_
          integer                                :: i,j,k
          !--------------------------------------------
-         
+
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            
+
             call InviscidJacobian(e % storage % Q(:,i,j,k),dfdq_,dgdq_,dhdq_)
-            
-            
+
+
             dFdQ(:,:,IX,i,j,k) = e % geom % jGradXi  (1,i,j,k) * dfdq_ + &
                                  e % geom % jGradXi  (2,i,j,k) * dgdq_ + &
-                                 e % geom % jGradXi  (3,i,j,k) * dhdq_ 
+                                 e % geom % jGradXi  (3,i,j,k) * dhdq_
 
             dFdQ(:,:,IY,i,j,k) = e % geom % jGradEta (1,i,j,k) * dfdq_ + &
                                  e % geom % jGradEta (2,i,j,k) * dgdq_ + &
-                                 e % geom % jGradEta (3,i,j,k) * dhdq_ 
+                                 e % geom % jGradEta (3,i,j,k) * dhdq_
 
             dFdQ(:,:,IZ,i,j,k) = e % geom % jGradZeta(1,i,j,k) * dfdq_ + &
                                  e % geom % jGradZeta(2,i,j,k) * dgdq_ + &
-                                 e % geom % jGradZeta(3,i,j,k) * dhdq_ 
+                                 e % geom % jGradZeta(3,i,j,k) * dhdq_
          end do                ; end do                ; end do
-         
+
       end subroutine BaseClass_ComputeInnerFluxJacobian
 #endif
 !

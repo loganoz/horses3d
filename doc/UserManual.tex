@@ -318,8 +318,7 @@ get discretization error of & \textit{CHARACTER}: Path to solution file. This ca
 
 Mach number					& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
 
-Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword}
- \\ \hline
+Reynolds number				& \textit{REAL}:  & \textbf{Mandatory keyword} \\ \hline
 
 Prandtl number				& \textit{REAL}:  & 0.72 \\ \hline
 
@@ -336,16 +335,123 @@ LES model					& \textit{CHARACTER(*)}: Options are:
 \end{itemize}
  & None \\ \hline
 
-Wall model					& \textit{CHARACTER(*)}:  & linear \\ \hline
+Wall model					& \textit{CHARACTER}:  & linear \\ \hline
 
 \end{tabular}
 \label{tab:compressibleFlowkey}
 \end{table}
 
-\subsection{Spectral Vanishing Viscosity}
+\subsection{Shock-capturing}
 
-\textit{WARNING: The functionality explained in this section is still experimental and may change in future iterations.}
-\textit{WARNING: This method does not support MPI parallelisation yet.}\newline
+\boxed{\centering \textit{WARNING: The functionality explained in this section is still experimental and may change in future iterations.}}\vspace{1ex}
+
+The shock-capturing module helps stabilize cases with discontinuous solutions, and may also improve the results of under-resolved turbulent cases. It is built on top of a \textit{Sensors} module that detects problematic flow regions, classifying them according to the value of the sensor,~$s$, mapped into the interval $a \in [0,1]$,
+%
+\begin{equation*}
+    a = \left\{\begin{array}{ll}
+        0, & \text{if } s \leq s_0 - \Delta s / 2, \\
+        \frac{1}{2}\left[1+\sin\left(\frac{s-s_0}{\Delta s}\right)\right], & \text{if } s_0 - \Delta s / 2 < s < s_0 + \Delta s / 2,  \\
+        1, & \text{elsewhere}.
+    \end{array}\right.
+\end{equation*}
+%
+The values of $s_0 = (s_1 + s_2)/2$ and~$\Delta s = s_2 - s_1$ depend on the sensor thresholds~$s_1$ and~$s_2$.
+
+At the moment, flow regions where $a \leq 0$ are considered smooth and no stabilization algorithm can be imposed there. In the central region of the sensor, with $0 < a < 1$, the methods shown in the next table can be used and even scaled with the sensor value, so that their intensity increases in elements with more instabilities. Finally, the higher part of the sensor range can implement a different method from the table; however, the intensity is set to the maximum this time.
+
+All the methods implemented introduce artificial dissipation into the equations, which can be filtered with an SVV kernel to reduce the negative impact on the accuracy of the solution. Its intensity is controled with the parameters~$\mu$ (similar to the viscosity of the Navier-Stokes equations) and~$\alpha$ (scaling of the density-regularization term of the Guermond-Popov flux), which can be set as constants or coupled to the value of the sensor or to a Smagorinsky formulation.
+
+\begin{longtable}{|l|p{10cm}|p{2.2cm}|}
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations.} \label{tab:shockcapturingkey} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endfirsthead
+
+\caption{Keywords for shock-capturing algorithms in the Navier-Stokes equations -- continuation.} \\
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+\endhead
+
+Enable shock-capturing &  \textit{LOGICAL}: Switch on/off the shock-capturing stabilization & .FALSE. \\ \hline
+Shock sensor & \textit{CHARACTER}: Type of sensor to be used to detect discontinuous regions Options are:
+    \begin{itemize}
+        \item Zeros: always return 0
+        \item Ones: always return 1
+        \item Grad rho: based on the norm of the density gradient
+        \item Modal: based on the relative weight of the higher order modes
+        \item Truncation error: estimate the truncation error of the aproximation
+        \item Aliasing error: estimate the aliasing error of the aproximation
+    \end{itemize} & Grad rho \\ \hline
+Shock first method & \textit{CHARACTER}: Method to be used in the middle region of the sensor ($a\in[0,1]$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux
+    \end{itemize} & None \\ \hline
+Shock second method &\textit{CHARACTER}: Method to be used in the top-most region of the sensor ($a=1$). Options are:
+    \begin{itemize}
+        \item None: Do not apply any smoothing
+        \item Non-filtered: Apply the selected viscous flux without SVV filtering
+        \item SVV: Apply an entropy-stable, SVV-filtered viscous flux
+    \end{itemize} & None \\ \hline
+Shock viscous flux 1 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a\in[0,1]$. Options are:
+    \begin{itemize}
+        \item Physical
+        \item Guermond-Popov (only with entropy variables gradients)
+    \end{itemize} & -- \\ \hline
+Shock viscous flux 2 & \textit{CHARACTER}: Viscous flux to be applied in the elements where~$a=1$. Options are:
+    \begin{itemize}
+        \item Physical
+        \item Guermond-Popov (only with entropy variables gradients)
+    \end{itemize} & -- \\ \hline
+Shock update strategy & \textit{CHARACTER}: Method to compute the variable parameter of the specified shock-captruing approach in the middle region of the sensor. Options are:
+    \begin{itemize}
+        \item Constant
+        \item Sensor
+        \item Smagorinsky: only for \textit{non-filtered} and \textit{SVV}
+    \end{itemize} & Constant \\ \hline
+Shock mu 1 & \textit{REAL/CHARACTER(*)}: Viscosity parameter~$\mu_1$, or~$C_s$ in the case of LES coupling & 0.0 \\ \hline
+Shock alpha 1 & \textit{REAL}: Viscosity parameter~$\alpha_1$ & 0.0 \\ \hline
+Shock mu 2 & \textit{REAL}: Viscosity parameter~$\mu_2$ & $\mu_1$ \\ \hline
+Shock alpha 2 & \textit{REAL}: Viscosity parameter~$\alpha_2$ & $\alpha_1$ \\ \hline
+Shock alpha/mu & \textit{REAL}: Ratio between~$\alpha$ and~$\mu$. It can be specified instead of~$\alpha$ itself to make it dependent on the corresponding values of~$\mu$, and it is compulsory when using LES coupling & -- \\ \hline
+SVV filter cutoff & \textit{REAL/CHARACTER(*)}: Cutoff of the filter kernel,~$P$. If "automatic", its value is adjusted automatically & "automatic" \\ \hline
+SVV filter shape & \textit{CHARACTER(*)}: Options are:
+    \begin{itemize}
+        \item Power
+        \item Sharp
+        \item Exponential
+    \end{itemize} & Power \\ \hline
+SVV filter type & \textit{CHARACTER(*)}: Options are:
+    \begin{itemize}
+        \item Low-pass
+        \item High-pass
+    \end{itemize} & High-pass \\ \hline
+Sensor variable & \textit{CHARACTER(*)}: Variable used by the sensor to detect shocks. Options are:
+    \begin{itemize}
+        \item rho
+        \item rhou
+        \item rhov
+        \item rhow
+        \item u
+        \item v
+        \item w
+        \item p
+        \item rhop
+    \end{itemize} & rhop \\ \hline
+Sensor lower limit & \textit{REAL}: Lower threshold of the central sensor region,~$s_1$  & \textbf{Mandatory keyword} \\ \hline
+Sensor higher limit & \textit{REAL}: Upper threshold of the central sensor region,~$s_2$ & \textbf{Mandatory keyword} \\ \hline
+Sensor TE min N & \textit{INTEGER}: Minimum polynomial order of the coarse mesh used for the truncation error estimation & 1 \\ \hline
+Sensor TE delta N & Polynomial order difference between the solution mesh and its coarser representation & 1 \\ \hline
+Sensor TE derivative & \textit{CHARACTER*}: Whether the face terms must be considered in the estimation of the truncation error or not. Options are:
+    \begin{itemize}
+        \item Non-isolated
+        \item Isolated
+    \end{itemize} & Isolated \\ \hline
+\end{longtable}
+
+\subsubsection{Spectral Vanishing Viscosity}
 
 The introduction of an SVV-filtered artificial flux helps dissipate high-frequency oscillations. The baseline viscous flux can be chosen as the Navier-Stokes viscous flux or the flux developed by Guermond and Popov. In any case, this flux is expresed in a modal base where it is filtered by any of the following three filter kernels:
 %
@@ -376,41 +482,6 @@ In addition to this, the viscosity~$\mu_1$ can be set to "Smagorinsky" to use th
 \begin{equation*}
     \mu = C_s^2 \Delta^2|S|^2, \quad \alpha = \alpha_1.
 \end{equation*}
-
-\begin{table}[htbp]
-    \caption{Keywords for SVV stabilisation (Navier-Stokes solver only).}
-    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
-    \hline
-    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
-
-    Enable SVV            & \textit{LOGICAL}: & .FALSE. \\ \hline
-    SVV viscosity 1       & \textit{REAL/CHARACTER(*)}: Viscosity parameter~$\mu_1$ or "Smagorinsky" for the SVV-LES approach & 0.0 \\ \hline
-    SVV alpha viscosity 1 & \textit{REAL}: Viscosity parameter~$\alpha_1$ & 0.0 \\ \hline
-    SVV viscosity 2       & \textit{REAL}: Viscosity parameter~$\mu_2$, or~$C_s$ in the case of SVV-LES & $\mu_2=0.0$ \newline $C_s=0.2$ \\ \hline
-    SVV alpha viscosity 2 & \textit{REAL}: Viscosity parameter~$\alpha_2$ & 0.0 \\ \hline
-    SVV filter cutoff     & \textit{REAL/CHARACTER(*)}: Cutoff of the filter kernel,~$P$. If "automatic", its value is adjusted automatically & "automatic" \\ \hline
-    SVV filter shape      & \textit{CHARACTER(*)}: Options are:
-        \begin{itemize}
-            \item Power
-            \item Sharp
-            \item Exponential
-        \end{itemize}
-    & \textbf{Mandatory keyword} \\ \hline
-    SVV filter type       & \textit{CHARACTER(*)}: Options are:
-        \begin{itemize}
-            \item Low-pass
-            \item High-pass
-        \end{itemize}
-    & \textbf{Mandatory keyword} \\ \hline
-    SVV dissipation type  & \textit{CHARACTER(*)}: Options are:
-        \begin{itemize}
-            \item Physical
-            \item Guermond
-        \end{itemize}
-	& Physical \\ \hline
-    \end{tabular}
-    \label{tab:SVV}
-\end{table}
 
 \section{Incompressible Navier-Stokes}
 

@@ -94,7 +94,7 @@
             procedure   :: EvaluateSolutionAtPoint => HexElement_EvaluateSolutionAtPoint
             procedure   :: ProlongSolutionToFaces  => HexElement_ProlongSolutionToFaces
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
-            procedure   :: ProlongHfluxToFaces     => HexElement_ProlongHfluxToFaces
+            procedure   :: ProlongAviscFluxToFaces => HexElement_ProlongAviscFluxToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
             procedure   :: copy                    => HexElement_Assign
@@ -363,12 +363,12 @@
 
       end subroutine HexElement_ProlongGradientsToFaces
 
-      subroutine HexElement_ProlongHFluxToFaces(self, nEqn, Hflux, fFR, fBK, fBOT, fR, fT, fL)
+      subroutine HexElement_ProlongAviscFluxToFaces(self, nEqn, AVflux, fFR, fBK, fBOT, fR, fT, fL)
          use FaceClass
          implicit none
          class(Element),   intent(in)    :: self
          integer,          intent(in)    :: nEqn
-         real(kind=RP) ,   intent(in)    :: Hflux(1:NCONS, 0:self%Nxyz(1), 0:self%Nxyz(2), 0:self%Nxyz(3), 1:NDIM)
+         real(kind=RP) ,   intent(in)    :: AVflux(1:NCONS, 0:self%Nxyz(1), 0:self%Nxyz(2), 0:self%Nxyz(3), 1:NDIM)
          class(Face),      intent(inout) :: fFR, fBK, fBOT, fR, fT, fL
 !
 !        ---------------
@@ -376,9 +376,9 @@
 !        ---------------
 !
          integer                                                              :: i, j, k, l, N(3)
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: HFR, HBK
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: HBOT, HT
-         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: HL, HR
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(3)) :: VFR, VBK
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: VBOT, VT
+         real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: VL, VR
          type(NodalStorage_t), pointer                                        :: spAxi, spAeta, spAzeta
          
          N = self % Nxyz
@@ -390,28 +390,28 @@
 !        Prolong solution to faces
 !        *************************
 !
-         HL   = 0.0_RP     ; HR   = 0.0_RP
-         HFR  = 0.0_RP     ; HBK  = 0.0_RP
-         HBOT = 0.0_RP     ; HT   = 0.0_RP
+         VL   = 0.0_RP     ; VR   = 0.0_RP
+         VFR  = 0.0_RP     ; VBK  = 0.0_RP
+         VBOT = 0.0_RP     ; VT   = 0.0_RP
          
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-            HL  (:,j,k) = HL  (:,j,k) - Hflux(:,i,j,k,IX) * spAxi   % v(i,LEFT  )
-            HR  (:,j,k) = HR  (:,j,k) + Hflux(:,i,j,k,IX) * spAxi   % v(i,RIGHT )
-            HFR (:,i,k) = HFR (:,i,k) - Hflux(:,i,j,k,IY) * spAeta  % v(j,FRONT )
-            HBK (:,i,k) = HBK (:,i,k) + Hflux(:,i,j,k,IY) * spAeta  % v(j,BACK  )
-            HBOT(:,i,j) = HBOT(:,i,j) - Hflux(:,i,j,k,IZ) * spAzeta % v(k,BOTTOM)
-            HT  (:,i,j) = HT  (:,i,j) + Hflux(:,i,j,k,IZ) * spAzeta % v(k,TOP   )
+            VL  (:,j,k) = VL  (:,j,k) - AVflux(:,i,j,k,IX) * spAxi   % v(i,LEFT  )
+            VR  (:,j,k) = VR  (:,j,k) + AVflux(:,i,j,k,IX) * spAxi   % v(i,RIGHT )
+            VFR (:,i,k) = VFR (:,i,k) - AVflux(:,i,j,k,IY) * spAeta  % v(j,FRONT )
+            VBK (:,i,k) = VBK (:,i,k) + AVflux(:,i,j,k,IY) * spAeta  % v(j,BACK  )
+            VBOT(:,i,j) = VBOT(:,i,j) - AVflux(:,i,j,k,IZ) * spAzeta % v(k,BOTTOM)
+            VT  (:,i,j) = VT  (:,i,j) + AVflux(:,i,j,k,IZ) * spAzeta % v(k,TOP   )
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
          
-         call fL   % AdaptHfluxToFace(nEqn, N(2), N(3), HL   , self % faceSide(ELEFT  ))
-         call fR   % AdaptHfluxToFace(nEqn, N(2), N(3), HR   , self % faceSide(ERIGHT ))
-         call fFR  % AdaptHfluxToFace(nEqn, N(1), N(3), HFR  , self % faceSide(EFRONT ))
-         call fBK  % AdaptHfluxToFace(nEqn, N(1), N(3), HBK  , self % faceSide(EBACK  ))
-         call fBOT % AdaptHfluxToFace(nEqn, N(1), N(2), HBOT , self % faceSide(EBOTTOM))
-         call fT   % AdaptHfluxToFace(nEqn, N(1), N(2), HT   , self % faceSide(ETOP   ))
+         call fL   % AdaptAviscFluxToFace(nEqn, N(2), N(3), VL   , self % faceSide(ELEFT  ))
+         call fR   % AdaptAviscFluxToFace(nEqn, N(2), N(3), VR   , self % faceSide(ERIGHT ))
+         call fFR  % AdaptAviscFluxToFace(nEqn, N(1), N(3), VFR  , self % faceSide(EFRONT ))
+         call fBK  % AdaptAviscFluxToFace(nEqn, N(1), N(3), VBK  , self % faceSide(EBACK  ))
+         call fBOT % AdaptAviscFluxToFace(nEqn, N(1), N(2), VBOT , self % faceSide(EBOTTOM))
+         call fT   % AdaptAviscFluxToFace(nEqn, N(1), N(2), VT   , self % faceSide(ETOP   ))
 
-      end subroutine HexElement_ProlongHFluxToFaces
+      end subroutine HexElement_ProlongAviscFluxToFaces
 
 !
 !////////////////////////////////////////////////////////////////////////
