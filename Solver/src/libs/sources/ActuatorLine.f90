@@ -564,7 +564,7 @@ else ! no projection
    use fluiddata
    implicit none
 
-   class(Farm_t), intent(in)     :: self
+   class(Farm_t), intent(inout)     :: self
    real(kind=RP),intent(in)      ::  time
    integer                       ::   fid, io
    ! CHARACTER(LEN=40)             :: arg
