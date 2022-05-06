@@ -44,6 +44,7 @@ public farm
     real(KIND=RP), allocatable      :: point_xyz_loc(:,:) ! x,y location of blade points
     real(KIND=RP), allocatable      :: local_torque(:)  ! N.m
     real(KIND=RP), allocatable      :: local_thrust(:)  ! N
+    real(KIND=RP), allocatable      :: local_thrust_temp(:)  ! N
     real(KIND=RP), allocatable      :: local_rotor_force(:)  ! N
     real(KIND=RP), allocatable      :: local_root_bending(:)  ! N.m
     real(KIND=RP)                   :: gauss_epsil  ! force Gaussian shape
