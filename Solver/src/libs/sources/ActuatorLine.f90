@@ -571,6 +571,7 @@ else ! no projection
    ! CHARACTER(LEN=40)             :: arg
    CHARACTER(LEN=LINE_LENGTH)    :: arg
    real(kind=RP)                 ::  t
+   integer                       :: ii, jj
 
     if (.not. self % active) return
 
