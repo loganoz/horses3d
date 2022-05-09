@@ -3088,7 +3088,9 @@ slavecoord:             DO l = 1, 4
 !           ----------------------------------------------------------------------
 
             call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients)
-            call auxMesh % storage % elements % InterpolateSolution (self % storage % elements,auxMesh % nodeType , with_gradients)
+            do eID=1, self % no_of_elements
+               call auxMesh % storage % elements (eID) % InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
+            end do
 
 !           Clean up
 !           --------
