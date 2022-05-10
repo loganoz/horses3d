@@ -555,6 +555,7 @@ module SCsensorClass
       integer               :: Nx, Ny, Nz
       real(RP), allocatable :: sVar(:,:,:)
       real(RP), allocatable :: sVarMod(:,:,:)
+      real(RP)              :: num, den
 
 
       ! Only allocate once
@@ -605,11 +606,19 @@ module SCsensorClass
 !
 !        Ratio of higher modes vs all the modes
 !        --------------------------------------
-         if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
-            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
-         else
-            e % storage % sensor = log10( sVarMod(Nx,Ny,Nz)**2 / sum(sVarMod**2) )
-         end if
+!        Explanation: The higher modes are contained in the subspace V(Nx,Ny,Nz) - V(Nx-1,Ny-1,Nz-1)
+!                     Representing them as cubes, this subspace corresponds to the outer shell of
+!                     V(Nx,Ny,Nz), thus the terms "faces", "edges" and "corner"
+!        --------------------------------------------------------------------------------------------
+         num = sum(sVarMod(Nx,0:Ny-1,0:Nz-1)**2) &  ! +X face
+             + sum(sVarMod(0:Nx-1,Ny,0:Nz-1)**2) &  ! +Y face
+             + sum(sVarMod(0:Nx-1,0:Ny-1,Nz)**2) &  ! +Z face
+             + sum(sVarMod(0:Nx-1,Ny,Nz))        &  ! +X edge
+             + sum(sVarMod(Nx,0:Ny-1,Nz))        &  ! +Y edge
+             + sum(sVarMod(Nx,Ny,0:Nz-1))        &  ! +Z edge
+             + sVarMod(Nx,Ny,Nz)**2                 ! XYZ corner
+         den = sum(sVarMod**2)
+         e % storage % sensor = log10( num / den )
 
          end associate
 
