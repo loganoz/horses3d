@@ -884,7 +884,7 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
-         self % sensor = -999.9_RP  ! Make sure there is a low value when the integration starts
+         self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
 
       end subroutine ElementStorage_Construct
 !
