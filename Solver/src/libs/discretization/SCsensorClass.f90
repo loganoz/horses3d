@@ -50,7 +50,7 @@ module SCsensorClass
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
          procedure(Compute_Int), pointer :: Compute => null()
-         procedure(Rescale_Int), pointer :: Rescale => SinRamp
+         procedure(Rescale_Int), pointer :: Rescale => null()
 
       contains
 
@@ -223,6 +223,7 @@ module SCsensorClass
       sensor % s0   = (sensor % high + sensor % low) / 2.0_RP
       sensor % ds   = (sensor % high - sensor % low)
       sensor % ds2  = sensor % ds / 2.0_RP
+      sensor % Rescale => SinRamp
 
    end subroutine Set_SCsensor
 !
