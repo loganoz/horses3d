@@ -22,10 +22,18 @@ module Storage
    
    private
    public Mesh_t, Element_t, Boundary_t
-   public NVARS, NGRADVARS, hasMPIranks, hasBoundaries
+   public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
+   public partitionFileName, boundaryFileName, flowEq
+   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT
 
-   integer     :: NVARS, NGRADVARS
-   logical     :: hasMPIranks, hasBoundaries
+   integer                          :: NVARS, NGRADVARS
+   logical                          :: hasMPIranks, hasBoundaries, isOldStats
+   logical                          :: hasExtraGradients = .false.
+   logical                          :: hasUt_NS = .false.
+   logical                          :: hasMu_NS = .false.
+   logical                          :: hasWallY     = .false.
+   character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
+   integer, parameter               :: NSTAT = 9
 
    type Element_t
 !                                /* Mesh quantities */
@@ -44,6 +52,8 @@ module Storage
       real(kind=RP), pointer     :: Q_y(:,:,:,:)
       real(kind=RP), pointer     :: Q_z(:,:,:,:)
       real(kind=RP), pointer     :: mu_NS(:,:,:,:)
+      real(kind=RP), pointer     :: ut_NS(:,:,:,:)
+      real(kind=RP), pointer     :: wallY(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
@@ -54,6 +64,8 @@ module Storage
       real(kind=RP), pointer     :: U_yout(:,:,:,:)
       real(kind=RP), pointer     :: U_zout(:,:,:,:)
       real(kind=RP), pointer     :: mu_NSout(:,:,:,:)
+      real(kind=RP), pointer     :: ut_NSout(:,:,:,:)
+      real(kind=RP), pointer     :: wallYout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
       
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -75,6 +87,7 @@ module Storage
       character(len=LINE_LENGTH) :: solutionName
       real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
       logical                    :: hasGradients
+      logical                    :: isSurface
       logical                    :: hasTimeDeriv
       logical                    :: isStatistics
       contains
@@ -156,18 +169,9 @@ module Storage
          
 !        Read boundary file (if present)
 !        -------------------------------
-         do i = 1, command_argument_count()
-            call get_command_argument(i, flag)
-            
-            pos = index(trim(flag),"--boundary-file")
-            if ( pos .ne. 0 ) then
-               hasBoundaries = .TRUE.
-               
-               call readBoundaryFile(self % boundaries, flag, boundaryFileName)
-               
-            end if
-         end do
-         
+         if (hasBoundaries) then
+               call readBoundaryFile(self % boundaries)
+         end if
 !
 !        Describe the mesh
 !        -----------------
@@ -242,18 +246,9 @@ module Storage
             dimensionsSize = 3
             self % hasGradients = .false.
 
-         case (ZONE_SOLUTION_AND_GRAD_FILE)
-            dimensionsSize = 3
-            self % hasGradients = .true.
-
          case (ZONE_SOLUTION_AND_DOT_FILE)
             dimensionsSize = 3
             self % hasGradients = .false.
-            self % hasTimeDeriv = .true.
-
-         case (ZONE_SOLUTION_AND_GRAD_D_FILE)
-            dimensionsSize = 3
-            self % hasGradients = .true.
             self % hasTimeDeriv = .true.
 
          case default
@@ -261,6 +256,10 @@ module Storage
             errorMessage(STD_OUT)
             stop
          end select
+
+         self % isSurface = (dimensionsSize .eq. 3)
+
+         self % hasGradients = self % hasGradients .or. hasExtraGradients
 !
 !        Get node type
 !        -------------
@@ -296,24 +295,29 @@ module Storage
          ! call set_getVelocityGradients(GRADVARS_STATE) ! FIXME: MIGHT BE NEEDED FOR HORSES2PLT
          ! write(STD_OUT,'(15X,A)') " WARNING horses2tecplot.90 :: Velocity Gradients set to default (GRADVARS_STATE)"
       
-         if ( .not. self % isStatistics ) then
+         if ( .not. isOldStats ) then
+         ! if ( .not. self % isStatistics ) then
             do eID = 1, self % no_of_elements
                associate ( e => self % elements(eID) ) 
                call getSolutionFileArrayDimensions(fid,arrayDimensions)
 
-               NVARS = arrayDimensions(1)
-               NGRADVARS = NVARS     ! TODO: Read NCONS and NGRAD from physics!
-               select case(NVARS)
-               case(1)      ; NGRADVARS = 1
-               case(6)      ; NGRADVARS = 3
-               case default ; NGRADVARS = 3
-               end select
+               call getNVARS(arrayDimensions(1), self % isStatistics)
 !   
-!              Allocate memory for the coordinates
-!              -----------------------------------            
                ! e % Nsol(1:3) = arrayDimensions(2:4) - 1
                e % Nsol(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1 
                if (dimensionsSize .eq. 3) e % Nsol(3) = 0
+!   
+!
+!              Allocate memory for the statistics
+!              ----------------------------------
+               if (self % isStatistics) then
+                   allocate( e % stats(1:NSTAT,0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3)) )
+                   read(fid) e % stats
+!
+               end if
+!
+!              Allocate memory for the coordinates
+!              -----------------------------------            
                allocate( e % Q(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 !   
 !              Read data
@@ -369,9 +373,21 @@ module Storage
                   end if
                   
                end if
-               ! provisional fix
-               allocate( e % mu_NS(1:arrayDimensions(1),0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
-               e % mu_NS = 0.0_RP
+               if (hasUt_NS) then
+                   allocate( e % ut_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % ut_NS
+               end if 
+
+               if (hasUt_NS) then
+                   allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_NS
+               end if 
+
+               if (hasWallY) then
+                   allocate( e % wallY(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % wallY
+               end if 
+
                end associate
             end do
 
@@ -384,7 +400,7 @@ module Storage
 !              Allocate memory for the statistics
 !              ----------------------------------
                e % Nsol(1:3) = arrayDimensions(2:4) - 1
-               allocate( e % stats(1:9,0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3)) )
+               allocate( e % stats(1:NSTAT,0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3)) )
 !
 !              Read data
 !              ---------
@@ -399,17 +415,9 @@ module Storage
          
 !        Read mpi ranks (if present)
 !        ---------------------------
-         do i = 1, command_argument_count()
-            call get_command_argument(i, flag)
-            
-            pos = index(trim(flag),"--partition-file")
-            if ( pos .ne. 0 ) then
-               hasMPIranks = .TRUE.
-               
-               call readPartitionFile(self,flag)
-               
-            end if
-         end do
+         if (hasMPIranks) then
+               call readPartitionFile(self)
+         end if
          
 !
 !        Describe the solution
@@ -438,25 +446,25 @@ module Storage
       end subroutine Mesh_ReadSolution
       
       
-      subroutine readPartitionFile(self,flag)
+      subroutine readPartitionFile(self)
          implicit none
          !-arguments-----------------------------------------------
          class(Mesh_t)   , intent(inout)  :: self
-         character(len=*), intent(in)     :: flag
+         ! character(len=*), intent(in)     :: flag
          !-local-variables-----------------------------------------
          integer                    :: pos, nelem, eID, fID
-         character(len=LINE_LENGTH) :: partitionFileName
+         ! character(len=LINE_LENGTH) :: partitionFileName
          !---------------------------------------------------------
          
-         pos = index(trim(flag),"=")
+         ! pos = index(trim(flag),"=")
                
-         if ( pos .eq. 0 ) then
-            print*, 'Missing "=" operator in --partition-file flag'
-            errorMessage(STD_OUT)
-            stop
-         end if
+         ! if ( pos .eq. 0 ) then
+         !    print*, 'Missing "=" operator in --partition-file flag'
+         !    errorMessage(STD_OUT)
+         !    stop
+         ! end if
          
-         partitionFileName = flag(pos+1:len_trim(flag))
+         ! partitionFileName = flag(pos+1:len_trim(flag))
          
          open(newunit = fID, file=trim(partitionFileName),action='read')
          
@@ -469,25 +477,25 @@ module Storage
          close(fID)
       end subroutine readPartitionFile
       
-      subroutine readBoundaryFile(boundaries, flag, boundaryFileName)
+      subroutine readBoundaryFile(boundaries)
          implicit none
          !-arguments-----------------------------------------------
          type(Boundary_t), allocatable, intent(inout)  :: boundaries(:)
-         character(len=*)             , intent(in)     :: flag
-         character(len=LINE_LENGTH)   , intent(out)    :: boundaryFileName
+         ! character(len=*)             , intent(in)     :: flag
+         ! character(len=LINE_LENGTH)   , intent(out)    :: boundaryFileName
          !-local-variables-----------------------------------------
          integer                    :: pos, fd, no_of_boundaries,bID
          !---------------------------------------------------------
          
-         pos = index(trim(flag),"=")
+         ! pos = index(trim(flag),"=")
                
-         if ( pos .eq. 0 ) then
-            print*, 'Missing "=" operator in --boundary-file flag'
-            errorMessage(STD_OUT)
-            stop
-         end if
+         ! if ( pos .eq. 0 ) then
+         !    print*, 'Missing "=" operator in --boundary-file flag'
+         !    errorMessage(STD_OUT)
+         !    stop
+         ! end if
          
-         boundaryFileName = flag(pos+1:len_trim(flag))
+         ! boundaryFileName = flag(pos+1:len_trim(flag))
          
          open(newunit = fd, file=trim(boundaryFileName),action='read')
          
@@ -509,4 +517,44 @@ module Storage
          close(fd)
          
       end subroutine readBoundaryFile
+
+      Subroutine getNVARS(originalDim, useFlowEq)
+!     *****************************************************
+!     get NVARS from the hsol array size
+!     in case that the array size is not NCONS in horses3d
+!     such as the stats, use the definitions from physics.
+!     *****************************************************
+          implicit none
+          integer, intent(in)           :: originalDim
+          logical, intent(in)           :: useFlowEq
+
+      NVARS = originalDim
+
+      ! use simple hardcoded values taken from physics.
+      ! todo: link from horses3d code
+      if (useFlowEq) then
+          select case (trim(flowEq))
+              case ("ns")
+                  NVARS = 5
+              case ("nssa")
+                  NVARS = 6
+              case ("ins")
+                  NVARS = 5
+              case ("ch")
+                  NVARS = 1
+              case ("mu")
+                  NVARS = 5
+              case default
+                  NVARS = 5
+          end select
+      end if
+
+      NGRADVARS = NVARS
+      select case(NVARS)
+      case(1)      ; NGRADVARS = 1
+      case(6)      ; NGRADVARS = 3
+      case default ; NGRADVARS = 3
+      end select
+          
+      End Subroutine getNVARS
 end module Storage

@@ -186,6 +186,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
+      real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -1302,6 +1303,7 @@ module StorageClass
          
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
+         allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1351,6 +1353,7 @@ module StorageClass
 
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
+         self % u_tau_NS = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES

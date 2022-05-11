@@ -11,7 +11,7 @@ module StatisticsMonitor
 
    private
    public     StatisticsMonitor_t, U, V, W, UU, VV, WW, UV, UW, VW
-   public     NO_OF_VARIABLES
+   public     NO_OF_VARIABLES_Sij, NO_OF_VARIABLES
 !
 !  Commands for the parameter file
 !  -------------------------------
@@ -30,7 +30,8 @@ module StatisticsMonitor
 !
 !  Statistics monitor content
 !  --------------------------
-   integer, parameter :: NO_OF_VARIABLES = 9
+   integer            :: NO_OF_VARIABLES
+   integer, parameter :: NO_OF_VARIABLES_Sij = 9
    integer, parameter ::  U  = 1
    integer, parameter ::  V  = 2
    integer, parameter ::  W  = 3
@@ -40,7 +41,7 @@ module StatisticsMonitor
    integer, parameter ::  UV = 7
    integer, parameter ::  UW = 8
    integer, parameter ::  VW = 9
-    
+
    type StatisticsMonitor_t
       integer        :: state
       integer        :: sampling_interval
@@ -49,6 +50,7 @@ module StatisticsMonitor
       integer        :: starting_iteration
       real(kind=RP)  :: starting_time
       integer        :: no_of_samples
+      logical        :: saveGradients
       contains
          procedure   :: Construct    => StatisticsMonitor_Construct
          procedure   :: Update       => StatisticsMonitor_Update
@@ -65,15 +67,23 @@ module StatisticsMonitor
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StatisticsMonitor_Construct(self, mesh)
+      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients)
          use ParamfileRegions
+         use PhysicsStorage, only: NCONS, NGRAD
+         use HexMeshClass,   only: no_of_stats_variables
          implicit none
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
+         logical, intent(in)           :: saveGradients
          integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
          character(len=LINE_LENGTH)    :: paramFile
+
+         NO_OF_VARIABLES = NO_OF_VARIABLES_Sij + NCONS
+         self % saveGradients = saveGradients
+         if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
+         no_of_stats_variables = NO_OF_VARIABLES
 !
 !        Search for the parameters in the case file
 !        ------------------------------------------
@@ -145,6 +155,7 @@ module StatisticsMonitor
             call e % storage % stats % Construct(NO_OF_VARIABLES, e % Nxyz)
             end associate
          end do
+         print *, "self%saveGradients: ", self%saveGradients
 
       end subroutine StatisticsMonitor_Construct
 
@@ -158,7 +169,7 @@ module StatisticsMonitor
          character(len=LINE_LENGTH)    :: fileName
 
          write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
-         if ( self % state .ne. OFF) call mesh % SaveStatistics(iter, t, trim(fileName))
+         if ( self % state .ne. OFF) call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
 
       end subroutine StatisticsMonitor_WriteFile
 
@@ -188,7 +199,7 @@ module StatisticsMonitor
 !        ------------------------------
          if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration) ) ) then
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
-            call mesh % SaveStatistics(iter, t, trim(fileName))
+            call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
          end if
 !
@@ -225,6 +236,14 @@ module StatisticsMonitor
 !
          integer  :: eID
          integer  :: i, j, k
+         integer, dimension(5) :: limits
+
+!        if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
+         limits(1) = NO_OF_VARIABLES_Sij + IRHO
+         limits(2) = NO_OF_VARIABLES_Sij + NCONS
+         limits(3) = NO_OF_VARIABLES_Sij + NCONS + NGRAD
+         limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
+         limits(5) = NO_OF_VARIABLES
 
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
@@ -242,10 +261,15 @@ module StatisticsMonitor
                data(UV,i,j,k) = data(UV,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOV,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
                data(UW,i,j,k) = data(UW,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
                data(VW,i,j,k) = data(VW,i,j,k) + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
+               data(limits(1):limits(2),i,j,k)  = data(limits(1):limits(2),i,j,k)  + e % storage % Q(:,i,j,k)
+               if (self % saveGradients) then
+                   data(limits(2):limits(3),i,j,k)  = data(limits(2):limits(3),i,j,k)  + e % storage % U_x(:,i,j,k)
+                   data(limits(3):limits(4),i,j,k)  = data(limits(3):limits(4),i,j,k)  + e % storage % U_y(:,i,j,k)
+                   data(limits(4):limits(5),i,j,k)  = data(limits(4):limits(5),i,j,k)  + e % storage % U_z(:,i,j,k)
+               end if 
             end do                  ; end do                   ; end do
 
             data = data / (self % no_of_samples + 1)
-
             end associate
          end do
 

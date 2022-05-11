@@ -46,6 +46,8 @@ Module SurfaceMesh
         logical                                                 :: saveGradients    ! flag use for save gradients in bcs and slices
         logical                                                 :: mergeFWHandBC    ! flag to merge 2 surfaces if they have the same BCs
         logical                                                 :: active           ! flag use for save at least one file
+        logical                                                 :: saveUt           ! flag use for save friction velocity in bcs
+        logical                                                 :: saveTurb         ! flag use for save wall normal distance, and viscosity
 
         contains
 
@@ -125,6 +127,8 @@ Module SurfaceMesh
 !
         sliceTolerance = controlVariables % getValueOrDefault("slice tolerance", 1.0e-4_RP)
         self % saveGradients = controlVariables % logicalValueForKey("surface save gradients") .or. controlVariables % logicalValueForKey("save gradients")
+        self % saveUt = controlVariables % logicalValueForKey("surface save utau")
+        self % saveTurb = controlVariables % logicalValueForKey("surface save turbulent")
 !
 !       get number of surfaces
 !       ----------------------
@@ -417,10 +421,13 @@ Module SurfaceMesh
         character(len=LINE_LENGTH)                          :: FinalName      !  Final name for particular file
         logical                                             :: saveFWH
         integer, dimension(:), allocatable                  :: elemSide
+        logical                                             :: saveUt, saveTurb
 
         if (.not. self % active) return
         saveFWH = controlVariables % logicalValueForKey("accoustic solution save") .or. self % mergeFWHandBC
         do i = 1, self % numberOfSurfaces
+            saveUt = .false.
+            saveTurb = .false.
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
             if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH) .and. (.not. saveFWH) ) cycle
@@ -434,14 +441,21 @@ Module SurfaceMesh
                 ! for slices and BC use always the first element of the face, this can be changed if needed
                 elemSide = 1
             end if
+            ! save ut or turb if requested only for BC or FWH meged with BC
+            if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_BC) .or. &
+                 (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH .and. self % mergeFWHandBC) ) then
+                saveUt = self % saveUt
+                saveTurb = self % saveTurb
+            end if
             call SurfaceSaveSolution(self % zones(i), mesh, time, iter, FinalName, self % totalFaces(i), &
                                  self % globalFid(1:nf,i), self % faceOffset(1:nf,i), elemSide, &
-                                 self % surfaceTypes(i),self % saveGradients, self % mergeFWHandBC)
+                                 self % surfaceTypes(i),self % saveGradients, &
+                                 self % mergeFWHandBC, saveUt, saveTurb)
         end do
 !
     End Subroutine SurfSaveAllSolution
 !
-    Subroutine SurfLoadSolution(self, fileName, mesh)
+    Subroutine SurfLoadSolution(self, fileName, mesh, hasGradients)
 !     *******************************************************************
 !        Only the FWH surface is loaded, for postprocess calculations
 !     *******************************************************************
@@ -450,6 +464,7 @@ Module SurfaceMesh
         class(SurfaceMesh_t)                                 :: self
         character(len=*), intent(in)                         :: fileName
         class (HexMesh), intent(inout)                       :: mesh
+        logical, intent(in)                                  :: hasGradients
 
         !local variables
         integer                                             :: nf
@@ -463,7 +478,8 @@ Module SurfaceMesh
         end if
 !
         nf = self % zones(FWH_POSITION) % no_of_faces
-        call SurfaceLoadSolution(self % zones(FWH_POSITION), mesh, fileName, self % globalFid(1:nf,FWH_POSITION), self % faceOffset(1:nf,FWH_POSITION), self % elementSide(:,1))
+        call SurfaceLoadSolution(self % zones(FWH_POSITION), mesh, fileName, self % globalFid(1:nf,FWH_POSITION), self % faceOffset(1:nf,FWH_POSITION), &
+                                 self % elementSide(:,1), hasGradients)
 !
     End Subroutine SurfLoadSolution
 !
@@ -574,7 +590,8 @@ Module SurfaceMesh
 !           SINGLE SURFACE (ZONE) PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !         
-   Subroutine SurfaceSaveSolution(surface_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset, eSides, surface_type, saveGradients, saveBCandFWH)
+   Subroutine SurfaceSaveSolution(surface_zone, mesh, time, iter, name, no_of_faces, fGlobID, faceOffset, eSides, surface_type, &
+                                  saveGradients, saveBCandFWH, saveUt, saveTurb)
 
 !     *******************************************************************
 !        This subroutine saves the solution from the face storage to a binary file
@@ -594,7 +611,7 @@ Module SurfaceMesh
       character(len=*), intent(in)                         :: name
       integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
       integer, dimension(:), intent(in)                    :: eSides
-      logical                                              :: saveGradients, saveBCandFWH
+      logical                                              :: saveGradients, saveBCandFWH, saveUt, saveTurb
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID, solution_type
@@ -637,32 +654,33 @@ Module SurfaceMesh
       select case (surface_type)
       case (SURFACE_TYPE_FWH)
           saveQdot = .true.
+          solution_type = ZONE_SOLUTION_AND_DOT_FILE
           if (saveGradients .and. saveBCandFWH) then
-              solution_type = ZONE_SOLUTION_AND_GRAD_D_FILE
               padding = NCONS*2 + NGRAD*3
           else
-              solution_type = ZONE_SOLUTION_AND_DOT_FILE
               padding = NCONS*2
           end if 
       case (SURFACE_TYPE_BC)
           ! more variables such as friction velocity, mu, and hight of first node will be saved in the future
+          solution_type = ZONE_SOLUTION_FILE
           if (saveGradients)  then
-              solution_type = ZONE_SOLUTION_AND_GRAD_FILE
               padding = NCONS + NGRAD*3
           else
-              solution_type = ZONE_SOLUTION_FILE
               padding = NCONS
           end if
       case (SURFACE_TYPE_SLICE)
           ! only solution and gradients will be saved for slices
+          solution_type = ZONE_SOLUTION_FILE
           if (saveGradients)  then
-              solution_type = ZONE_SOLUTION_AND_GRAD_FILE
               padding = NCONS + NGRAD*3
           else
-              solution_type = ZONE_SOLUTION_FILE
               padding = NCONS
           end if
       end select
+
+      if (saveUt) padding = padding + 1
+      ! save mu_NS and y, for y+ value calc
+      if (saveTurb) padding = padding + 2
 !
 !     Create new file
 !     ---------------
@@ -692,11 +710,11 @@ Module SurfaceMesh
               Q(1:NCONS,:,:)  = f % storage(eSides(zoneFaceID)) % Qdot(:,:,:)
               write(fid) Q
           end if
+          deallocate(Q)
 
           ! taken and adapted from saveSolution of HexMesh
-            if ( saveGradients .and. computeGradients ) then
+          if ( saveGradients .and. computeGradients ) then
 
-               deallocate(Q)
                allocate(Q(1:NGRAD,0:Nx,0:Ny))
 
 #ifdef FLOW
@@ -724,7 +742,23 @@ Module SurfaceMesh
                write(fid) Q
 
                deallocate(Q)
-            end if
+          end if
+          if (saveUt) then
+#if defined(NAVIERSTOKES)
+               allocate(Q(1,0:Nx,0:Ny))
+               Q(1,:,:)= f % storage(eSides(zoneFaceID)) % u_tau_NS(:,:)
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
+          if (saveTurb) then
+#if defined(NAVIERSTOKES)
+               ! allocate(Q(1,0:Nx,0:Ny))
+               ! Q(1,:,:)= f % storage % u_tau_NS(:,:)
+               ! write(fid) Q
+               ! deallocate(Q)
+#endif
+          end if 
           safedeallocate(Q)
       end do
 
@@ -736,7 +770,7 @@ Module SurfaceMesh
 !
    End Subroutine SurfaceSaveSolution
 !         
-   Subroutine SurfaceLoadSolution(surface_zone, mesh, fileName, fGlobID, faceOffset, eSides)
+   Subroutine SurfaceLoadSolution(surface_zone, mesh, fileName, fGlobID, faceOffset, eSides, hasGradients)
 
       use SolutionFile
       use PhysicsStorage
@@ -748,6 +782,7 @@ Module SurfaceMesh
       character(len=*), intent(in)                         :: fileName
       integer, dimension(:), intent(in)                    :: fGlobID, faceOffset
       integer, dimension(:), intent(in)                    :: eSides
+      logical, intent(in)                                  :: hasGradients
 
       ! local variables
       integer                                              :: zoneFaceID, meshFaceID, fileType
@@ -760,13 +795,15 @@ Module SurfaceMesh
 !     ------------------------
       fileType = getSolutionFileType(trim(fileName))
       select case (fileType)
-      case (ZONE_SOLUTION_AND_GRAD_D_FILE)
-              padding = NCONS*2 + NGRAD*3
       case (ZONE_SOLUTION_AND_DOT_FILE)
-              padding = NCONS*2
+
       case default
-              padding = NCONS*2
+          write(STD_OUT,'(A,I0,A,I0)') "Erro, hsol file expected is ", ZONE_SOLUTION_AND_DOT_FILE, ", got: ", fileType
+          errorMessage(STD_OUT)
       end select
+
+      padding = NCONS*2
+      if (hasGradients) padding = padding + NGRAD*3
 !
 !     Read elements data
 !     ------------------
