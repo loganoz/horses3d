@@ -250,11 +250,6 @@ module SpatialDiscretization
             end if
          end if
 
-!
-!        Initialize Wall Function
-!        ------------------------
-         call Initialize_WallConnection(controlVariables, mesh)
-         
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
@@ -389,6 +384,7 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+      use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
          implicit none
          type(HexMesh)              :: mesh
@@ -621,6 +617,9 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+        ! print *, "utau surfa: ", mesh%faces
+        ! print *, "utau surfa: ", wallUtau(1:10)
+        ! print *, "utau avg surfa: ", sum(wallUtau)/size(wallUtau)
 
       end subroutine TimeDerivative_ComputeQDot
    
@@ -1129,6 +1128,7 @@ module SpatialDiscretization
       integer                         :: Sidearray(2)
       logical                         :: useWallFuncFace
       real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunVavg(NDIM, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
@@ -1158,7 +1158,7 @@ module SpatialDiscretization
               end do
           end if
           if (useWallFuncFace) then
-              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY)
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY, wallFunVavg)
           end if
 
          DO j = 0, f % Nf(2)
@@ -1178,7 +1178,9 @@ module SpatialDiscretization
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
             
                if (useWallFuncFace) then
-                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), wallFunRho(i,j), wallFunMu(i,j), visc_flux(:,i,j))
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                        wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                        visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
                end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
