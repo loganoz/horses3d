@@ -3,7 +3,7 @@
 !
 !   @File:    TimeIntegrator.f90
 !   @Author:  David kopriva
-!   @Created: 2007-10-23 09:25:32 -0400 
+!   @Created: 2007-10-23 09:25:32 -0400
 !   @Last revision date: Wed Sep 15 12:15:51 2021
 !   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
@@ -14,7 +14,7 @@
 !
 #include "Includes.h"
       MODULE TimeIntegratorClass
-      
+
       USE SMConstants
       use FTValueDictionaryClass
       USE PolynomialInterpAndDerivsModule
@@ -23,7 +23,7 @@
       use PhysicsStorage
       USE Physics
       USE ExplicitMethods
-      USE IMEXMethods    
+      USE IMEXMethods
       use AutosaveClass                   , only: Autosave_t, AUTOSAVE_BY_TIME
       use StopwatchClass
       use MPI_Process_Info
@@ -38,8 +38,8 @@
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
       use SurfaceMesh                     , only: surfacesMesh
-      IMPLICIT NONE 
-      
+      IMPLICIT NONE
+
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
 
       TYPE TimeIntegrator_t
@@ -53,9 +53,9 @@
          type(MultiTauEstim_t)                  :: TauEstimator
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
-!        ========         
+!        ========
          CONTAINS
-!        ========         
+!        ========
 !
          PROCEDURE :: construct  => constructTimeIntegrator
          PROCEDURE :: destruct   => destructTimeIntegrator
@@ -82,14 +82,14 @@
       character(len=*), parameter   :: ANISFAS_SOLVER    = 'anisfas'
       character(len=*), parameter   :: ROSENBROCK_SOLVER = 'rosenbrock'
 !
-!     ========      
-      CONTAINS 
-!     ========      
+!     ========
+      CONTAINS
+!     ========
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE constructTimeIntegrator(self,controlVariables, sem, initial_iter, initial_time)
-      
+
          IMPLICIT NONE
          CLASS(TimeIntegrator_t)     :: self
          TYPE(FTValueDictionary)     :: controlVariables
@@ -132,7 +132,7 @@
 !        Common initializations
 !        ----------------------
 !
-         self % time           =  initial_time 
+         self % time           =  initial_time
          self % initial_time   =  initial_time
          self % initial_iter   =  initial_iter
          self % numTimeSteps   =  controlVariables % integerValueForKey ("number of time steps")
@@ -165,7 +165,7 @@ print*, "Method selected: RK5"
                call Enable_CTD_AFTER_STEPS
                call Enable_CTD_AFTER_STEPS_IMEX
             end if
-         end if 
+         end if
 
 !
 !        ------------------------------------
@@ -192,21 +192,21 @@ print*, "Method selected: RK5"
          call self % autosave   % Configure (controlVariables, initial_time)
          call self % pAdaptator % construct (controlVariables, initial_time)      ! If not requested, the constructor returns doing nothing
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
-         
+
          call self % TauEstimator % construct(controlVariables, sem)
-         
+
       END SUBROUTINE constructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE destructTimeIntegrator( self ) 
+      SUBROUTINE destructTimeIntegrator( self )
          CLASS(TimeIntegrator_t) :: self
          self % tFinal       = 0.0_RP
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
-         
+
          if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
-         
+
          call self % TauEstimator % destruct
       END SUBROUTINE destructTimeIntegrator
 !
@@ -235,86 +235,88 @@ print*, "Method selected: RK5"
       real(kind=RP)        :: FMGres    ! Target residual for FMG solver
       REAL(KIND=RP)        :: maxResidual(NCONS)
       type(FASMultigrid_t) :: FMGSolver ! FAS multigrid solver for Full-Multigrid (FMG) initialization
-      
+
 !     Initializations
 !     ---------------
 
       sem  % numberOfTimeSteps = self % initial_iter
       if (.not. self % Compute_dt) monitors % dt_restriction = DT_FIXED
-      
+
 !     Measure solver time
 !     -------------------
-      
+
       call Stopwatch % CreateNewEvent("Solver")
       call Stopwatch % Start("Solver")
-      
+
 !     Estimate Tau initially, if requested
 !     ------------------------------------
       if ( controlVariables % logicalValueForKey("plot truncation error") ) then
          call EstimateAndPlotTruncationError(sem,0._RP,controlVariables,ComputeTimeDerivative,ComputeTimeDerivativeIsolated)
       end if
-      
+
 !     Perform FMG cycle if requested
 !        (only for steady simulations)
 !     ------------------------------
-      
+
       if (controlVariables % containsKey("fasfmg residual")) then
-          
+
          FMGres = controlVariables % doubleprecisionValueForKey("fasfmg residual")
          write(STD_OUT,*) 'Using FMG solver to get initial condition. Res =', FMGres
-         
+
          call FMGSolver % construct(controlVariables,sem)
-         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, .TRUE.,FMGres) 
-         
+         call FMGSolver % solve(0,0._RP, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, .TRUE.,FMGres)
+
          call FMGSolver % destruct
       end if
-      
+
 !     Perform static p-adaptation stage(s) if requested
 !     -------------------------------------------------
       if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
-         
+
          do while (self % pAdaptator % Adapt)
-            
+
             if (self % integratorType == STEADY_STATE) then
 !
-!              Lower the residual to 0.1 * truncation error threshold 
+!              Lower the residual to 0.1 * truncation error threshold
 !              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
 !              ------------------------------------------------------
                call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
             end if
-            
+
             call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
             sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
-            
+
          end do
       end if
-      
+
 !     Finish time integration
 !     -----------------------
       call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated )
-      
+
 !     Measure solver time
 !     -------------------
       call Stopwatch % Pause("Solver")
 
-      END SUBROUTINE Integrate    
+      END SUBROUTINE Integrate
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------------------------------------
 !  Perform the standard time marching integration
-!  -> If "tolerance" is provided, the value in controlVariables is ignored. 
+!  -> If "tolerance" is provided, the value in controlVariables is ignored.
 !     This is only relevant for STEADY_STATE computations.
 !  ------------------------------------------------------------------------
    subroutine IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, tolerance, CTD_linear, CTD_nonlinear)
-   
-      USE BDFTimeIntegrator
+
+      use BDFTimeIntegrator
       use FASMultigridClass
       use AnisFASMultigridClass
       use RosenbrockTimeIntegrator
       use StopwatchClass
 #if defined(NAVIERSTOKES)
+      use ShockCapturing
       use TripForceClass, only: randomTrip
+      use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV
 #endif
@@ -343,15 +345,16 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                 :: maxResidual(NCONS)
       REAL(KIND=RP)                 :: dt
       integer                       :: k
+      integer                       :: eID
       CHARACTER(len=LINE_LENGTH)    :: SolutionFileName
       ! Time-step solvers:
       type(FASMultigrid_t)          :: FASSolver
       type(AnisFASMultigrid_t)      :: AnisFASSolver
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
-      
+
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients, useTrip
+      logical                       :: saveGradients, useTrip, ActuatorLineFlag
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -366,7 +369,8 @@ print*, "Method selected: RK5"
       call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
-      
+      ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
+
 !
 !     ---------------
 !     Initializations
@@ -377,14 +381,41 @@ print*, "Method selected: RK5"
       else
          Tol = self % tolerance
       end if
-      
+
       t = self % time
 
 
 #if defined(NAVIERSTOKES)
-         call Initialize_WallConnection(controlVariables, sem % mesh)
-         if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+      call Initialize_WallConnection(controlVariables, sem % mesh)
+      if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
+      if(ActuatorLineFlag) then
+          call farm % ConstructFarm(controlVariables)
+          call farm % UpdateFarm(t, sem % mesh)
+      end if
 #endif
+
+!
+!     ----------------------------------
+!     Set up mask's coefficient for IBM
+!     ----------------------------------
+!
+
+
+      if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
+         if ( self % Compute_dt ) then
+            call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
+         else
+            dt = self% dt
+         end if
+!
+!        Correct time step
+!        -----------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+         sem % mesh% IBM% eta = self% CorrectDt(t, dt)
+         sem % mesh% IBM% penalization = sem % mesh% IBM% eta
+#endif
+      end if
+
 !
 !     ------------------
 !     Configure restarts
@@ -401,13 +432,13 @@ print*, "Method selected: RK5"
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
-      
+
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
          call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-      end if 
-      
+      end if
+
       call monitors % WriteToFile(sem % mesh)
 
       IF (self % integratorType == STEADY_STATE) THEN
@@ -422,6 +453,14 @@ print*, "Method selected: RK5"
             return
          END IF
       end if
+!
+!     Update shock-capturing sensor
+!     -----------------------------
+#if defined(NAVIERSTOKES)
+      if (ShockCapturingDriver % isActive) then
+         call ShockCapturingDriver % Detect(sem, t)
+      end if
+#endif
 !
 !     Save surfaces sol before the first time step
 !     --------------------------------------------
@@ -449,26 +488,55 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % construct(controlVariables,sem)
 
       end select
-          
+
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
+
 !
 !        CFL-bounded time step
 !        ---------------------      
-         IF ( self % Compute_dt ) call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
+         IF ( self % Compute_dt ) then
+            if( sem% mesh% IBM% active ) then
+               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+            else
+              call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
+            end if
+         END IF
 !
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
+
+!
+!        Set penalization term for IBM
+!        -----------------------------
+         if( sem % mesh% IBM% active ) then
+            if( sem% mesh% IBM% TimePenal ) sem % mesh% IBM% penalization = dt
+         end if
+
+!
+!        Moving Body IMMERSED BOUNDARY
+!        -----------------------------
+         if( sem% mesh% IBM% active ) then
+            if( any(sem% mesh% IBM% stl(:)% move) ) then
+               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
+                                              sem% mesh% no_of_elements,             &
+                                              sem% mesh% NDOF, sem% mesh% child, dt, &
+                                              k+1,                                   &
+                                              self % autosave % Autosave(k+1)        )
+            end if
+         end if
+ 
 !
 !        User defined periodic operation
 !        -------------------------------
          CALL UserDefinedPeriodicOperation(sem % mesh, t, dt, monitors)
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % gTrip % updateInTime(t)
+         if(ActuatorLineFlag) call farm % UpdateFarm(t, sem % mesh)
 #endif
 !
 !        Perform time step
-!        -----------------         
+!        -----------------
          SELECT CASE (TimeIntegration)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
@@ -490,9 +558,13 @@ print*, "Method selected: RK5"
          case (IMEX_SOLVER)
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT
+
+#if defined(NAVIERSTOKES)
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
+#endif
 !
 !        Compute the new time
-!        --------------------         
+!        --------------------
          t = t + dt
          self % time = t
 !
@@ -500,6 +572,14 @@ print*, "Method selected: RK5"
 !        ---------------------
          maxResidual       = ComputeMaxResiduals(sem % mesh)
          sem % maxResidual = maxval(maxResidual)
+!
+!        Update sensor
+!        -------------
+#ifdef NAVIERSTOKES
+         if (ShockCapturingDriver % isActive) then
+            call ShockCapturingDriver % Detect(sem, t)
+         end if
+#endif
 !
 !        Update monitors
 !        ---------------
@@ -531,17 +611,17 @@ print*, "Method selected: RK5"
 !
 !        Integration of particles
 !        ------------------------
-         if ( sem % particles % active ) then 
+         if ( sem % particles % active ) then
 
             call sem % particles % Integrate(sem % mesh, dt)
 
-            if ( sem % particles % injection % active ) then 
-               if ( (MOD(k+1, sem % particles % injection % period) == 0 ) .or. (k .eq. self % initial_iter) ) then 
+            if ( sem % particles % injection % active ) then
+               if ( (MOD(k+1, sem % particles % injection % period) == 0 ) .or. (k .eq. self % initial_iter) ) then
                   call sem % particles % inject( sem % mesh )
-               endif 
-            endif 
+               endif
+            endif
 
-         endif 
+         endif
 
 
 #endif
@@ -558,30 +638,30 @@ print*, "Method selected: RK5"
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !        Autosave
-!        --------         
+!        --------
          if ( self % autosave % Autosave(k+1) ) then
             call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
-#if defined(NAVIERSTOKES)            
-            if ( sem % particles % active ) then 
+#if defined(NAVIERSTOKES)
+            if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
-            end if 
-#endif 
+            end if
+#endif
          end if
 !
 !        Save surfaces solution
-!        ----------------------         
+!        ----------------------
          if (surfacesMesh % autosave % Autosave(k+1)) then
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
 #endif
              call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
-         end if 
+         end if
 
 !        Flush monitors
 !        --------------
          call monitors % WriteToFile(sem % mesh)
-         
+
          sem % numberOfTimeSteps = k + 1
       END DO
 
@@ -592,12 +672,13 @@ print*, "Method selected: RK5"
          call Monitors % writeToFile(sem % mesh, force = .true. )
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call sem % fwh % writeToFile( force = .TRUE. )
+         if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
       end if
-      
+
       sem % maxResidual       = maxval(maxResidual)
       self % time             = t
-      
+
 !
 !     ---------
 !     Finish up
@@ -606,10 +687,10 @@ print*, "Method selected: RK5"
       select case(TimeIntegration)
       case(FAS_SOLVER)
          CALL FASSolver % destruct
-      
+
       case(ANISFAS_SOLVER)
          CALL AnisFASSolver % destruct
-      
+
       case(IMPLICIT_SOLVER)
          call BDFSolver % destruct
 
@@ -620,10 +701,11 @@ print*, "Method selected: RK5"
 
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
+         if(ActuatorLineFlag) call farm % DestructFarm
 #endif
 
    end subroutine IntegrateInTime
-      
+
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -638,17 +720,17 @@ print*, "Method selected: RK5"
       integer                  , intent(in)     :: iter
 !
 !     ---------------
-!     Local variables      
+!     Local variables
 !     ---------------
 !
       real(kind=RP)           :: ETA, tEl
       integer, parameter      :: showLabels = 50
       integer, save           :: shown = 0
 
-      if ( .not. MPI_Process % isRoot ) return 
+      if ( .not. MPI_Process % isRoot ) return
 
       if ( mod(shown, showLabels) .eq. 0 ) then
-         if ( (self % integratorType .eq. TIME_ACCURATE) .and. (iter .gt. self % initial_iter+1) ) then 
+         if ( (self % integratorType .eq. TIME_ACCURATE) .and. (iter .gt. self % initial_iter+1) ) then
 !
 !           Compute ETA
 !           -----------
@@ -658,12 +740,12 @@ print*, "Method selected: RK5"
          end if
          write(STD_OUT,'(/)')
          write(STD_OUT,'(/)')
-         
+
          call monitors % WriteLabel
          call monitors % WriteUnderlines
 
       end if
-      shown = shown + 1 
+      shown = shown + 1
 
       call monitors % WriteValues
 
@@ -688,17 +770,17 @@ print*, "Method selected: RK5"
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
 !     ----------------------------------------------
-      
+
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
       call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
-   
+
    END SUBROUTINE SaveRestart
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
-!  
+!
 !  -------------------------------------------------
-!  This routine corrects the time-step size, so that 
+!  This routine corrects the time-step size, so that
 !  time-periodic operations can be performed
 !  -------------------------------------------------
    recursive function TimeIntegrator_CorrectDt (self, t, dt_in) result(dt_out)
@@ -710,7 +792,7 @@ print*, "Method selected: RK5"
       real(kind=RP)                             :: dt_out
       !-local-variables------------------------------------------
       real(kind=RP) :: dt_temp
-      
+
       integer, parameter :: DO_NOTHING  = 0
       integer, parameter :: AUTOSAVE    = 1
       integer, parameter :: ADAPT       = 2
@@ -721,12 +803,12 @@ print*, "Method selected: RK5"
 
 !
 !     Initializations
-!     -------------------------------      
+!     -------------------------------
       self % pAdaptator % performPAdaptationT = .FALSE.
       self % autosave   % performAutosave = .FALSE.
       surfacesMesh % autosave % performAutosave = .FALSE.
       dt_out = dt_in
-      
+
 !
 !     time-step bounded by final time
 !     -------------------------------
@@ -735,21 +817,21 @@ print*, "Method selected: RK5"
             dt_out = self % tFinal - t
          end if
       end if
-      
+
 !
 !     time-step bounded by periodic operations
 !     ----------------------------------------
-      
+
       select case (next_time_will)
          case (DO_NOTHING)
             return
-            
+
          case (AUTOSAVE)
-            
+
             if ( self % autosave % nextAutosaveTime < (t + dt_out) ) then
                dt_out = self % autosave % nextAutosaveTime - t
                self % autosave % performAutosave = .TRUE.
-               
+
                if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
                   self % pAdaptator % performPAdaptationT = .TRUE.
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
@@ -759,17 +841,17 @@ print*, "Method selected: RK5"
                   surfacesMesh % autosave % performAutosave = .TRUE.
                   surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
                end if
-               
+
                self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
-            
+
          case (ADAPT)
-            
+
             if ( self % pAdaptator % nextAdaptationTime < (t + dt_out) ) then
                dt_out = self % pAdaptator % nextAdaptationTime - t
                self % pAdaptator % performPAdaptationT = .TRUE.
-               
+
                if ( AlmostEqual(self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
                   self % autosave % performAutosave = .TRUE.
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
@@ -779,17 +861,17 @@ print*, "Method selected: RK5"
                   surfacesMesh % autosave % performAutosave = .TRUE.
                   surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave%time_interval
                end if
-               
+
                self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
-            
+
          case (SURFSAVE)
-            
+
             if ( surfacesMesh % autosave % nextAutosaveTime < (t + dt_out) ) then
                dt_out = surfacesMesh % autosave % nextAutosaveTime - t
                surfacesMesh % autosave % performAutosave = .TRUE.
-               
+
                if ( AlmostEqual(surfacesMesh % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime) ) then
                   self % pAdaptator % performPAdaptationT = .TRUE.
                   self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
@@ -799,28 +881,28 @@ print*, "Method selected: RK5"
                   self % autosave % performAutosave = .TRUE.
                   self % autosave % nextAutosaveTime = self % autosave % nextAutosaveTime + self % autosave % time_interval
                end if
-               
+
                surfacesMesh % autosave % nextAutosaveTime = surfacesMesh % autosave % nextAutosaveTime + surfacesMesh % autosave % time_interval
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
             end if
 
          case (DONT_KNOW)
-            
+
             if (  self % pAdaptator % adaptation_mode == ADAPT_DYNAMIC_TIME .or. &
                   surfacesMesh % autosave % mode      == AUTOSAVE_BY_TIME .or. &
                   self % autosave % mode              == AUTOSAVE_BY_TIME) then
-               
+
                next_time_will = minloc([self % autosave % nextAutosaveTime, self % pAdaptator % nextAdaptationTime, surfacesMesh % autosave % nextAutosaveTime],1)
                dt_temp = self % CorrectDt (t, dt_out)
                dt_out  = dt_temp
             else
                next_time_will = DO_NOTHING
             end if
-            
+
       end select
-      
+
    end function TimeIntegrator_CorrectDt
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
-!         
+!
 END MODULE TimeIntegratorClass

@@ -40,7 +40,7 @@ Module DGSEMClass
 #ifdef _HAS_MPI_
    use mpi
 #endif
-   
+
    IMPLICIT NONE
 
    private
@@ -79,7 +79,7 @@ Module DGSEMClass
          use SMConstants
          use HexMeshClass
          use ParticlesClass
-         IMPLICIT NONE 
+         IMPLICIT NONE
          type(HexMesh), target           :: mesh
 #ifdef FLOW
          type(Particles_t)               :: particles
@@ -91,7 +91,7 @@ Module DGSEMClass
       end subroutine ComputeTimeDerivative_f
    END INTERFACE
 
-   CONTAINS 
+   CONTAINS
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -104,7 +104,9 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
+      use IBMClass
       use SurfaceMesh, only: surfacesMesh
+
       IMPLICIT NONE
 !
 !     --------------------------
@@ -136,19 +138,19 @@ Module DGSEMClass
 #if (!defined(NAVIERSTOKES))
       logical, parameter          :: computeGradients = .true.
 #endif
-      
-      if (present(ChildSem)) then
-         if (ChildSem) self % mesh % child = .true.
+
+      if ( present(ChildSem) ) then
+         if ( ChildSem ) self % mesh % child = .TRUE.
       end if
-      
+
 !
 !     Measure preprocessing time
-!     --------------------------      
+!     --------------------------
       if (.not. self % mesh % child) then
          call Stopwatch % CreateNewEvent("Preprocessing")
          call Stopwatch % Start("Preprocessing")
       end if
-      
+
       if ( present( meshFileName_ ) ) then
 !
 !        Mesh file set up by input argument
@@ -159,7 +161,7 @@ Module DGSEMClass
 !
 !        Mesh file set up by controlVariables
 !        ------------------------------------
-         self % mesh % meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH) 
+         self % mesh % meshFileName = controlVariables % stringValueForKey(meshFileNameKey, requestedLength = LINE_LENGTH)
 
       end if
 !
@@ -180,7 +182,7 @@ Module DGSEMClass
          nTotalElem = SIZE(Nx)
       ELSEIF (PRESENT(polynomialOrder)) THEN
          nTotalElem = NumOfElemsFromMeshFile( self % mesh % meshfileName )
-         
+
          ALLOCATE (Nx(nTotalElem),Ny(nTotalElem),Nz(nTotalElem))
          Nx = polynomialOrder(1)
          Ny = polynomialOrder(2)
@@ -188,15 +190,15 @@ Module DGSEMClass
       ELSE
          ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
       END IF
-      
+
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
-      
+
 !
 !     -------------------------------------------------------------
 !     Construct the polynomial storage for the elements in the mesh
 !     -------------------------------------------------------------
 !
-      call NodalStorage(0) % Construct(CurrentNodes, 0)   ! Always construct orders 0 
+      call NodalStorage(0) % Construct(CurrentNodes, 0)   ! Always construct orders 0
       call NodalStorage(1) % Construct(CurrentNodes, 1)   ! and 1
 
       DO k=1, nTotalElem
@@ -229,7 +231,7 @@ Module DGSEMClass
          dir2D = 0
 
       end if
-      
+
       if (controlVariables % containsKey("mesh inner curves")) then
          MeshInnerCurves = controlVariables % logicalValueForKey("mesh inner curves")
       else
@@ -275,7 +277,7 @@ Module DGSEMClass
             call self % mesh % Destruct()
 
          end if
-      
+
       end if
 !
 !     **********************************************************
@@ -283,7 +285,7 @@ Module DGSEMClass
 !     **********************************************************
 !
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
-      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success ) 
+      CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
 !
 !     Compute wall distances
@@ -319,6 +321,27 @@ Module DGSEMClass
       else
          self % totalNDOF = self % NDOF
       end if
+
+!
+!     **********************************************************
+!     *              IMMERSED BOUNDARY CONSTRUCTION            *
+!     **********************************************************
+!       
+      call self% mesh% IBM% read_info( controlVariables )
+
+      if( self% mesh% IBM% active ) then
+      
+         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
+
+! 
+!        ------------------------------------------------
+!        building the IBM mask and the IBM band region
+!        ------------------------------------------------
+!            
+         call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
+   
+      end if
+  
 !
 !     ------------------------
 !     Allocate and zero memory
@@ -332,7 +355,7 @@ Module DGSEMClass
 !
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (self % ManufacturedSol) THEN
-         DO el = 1, SIZE(self % mesh % elements) 
+         DO el = 1, SIZE(self % mesh % elements)
             DO k=0, Nz(el)
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
@@ -352,7 +375,7 @@ Module DGSEMClass
       END IF
 #elif defined(SPALARTALMARAS)
       IF (self % ManufacturedSol) THEN
-         DO el = 1, SIZE(self % mesh % elements) 
+         DO el = 1, SIZE(self % mesh % elements)
            DO k=0, Nz(el)
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
@@ -387,11 +410,11 @@ Module DGSEMClass
 ! !
 
 !       self % particles % active = controlVariables % logicalValueForKey("lagrangian particles")
-!       if ( self % particles % active ) then 
+!       if ( self % particles % active ) then
 !             call self % particles % construct(self % mesh, controlVariables)
-!       endif 
+!       endif
 ! #endif
-      
+
       NULLIFY(Nx,Ny,Nz)
 !
 !     Stop measuring preprocessing time
@@ -405,37 +428,37 @@ Module DGSEMClass
 !
       SUBROUTINE DestructDGSem( self )
       use SurfaceMesh, only: surfacesMesh
-      IMPLICIT NONE 
+      IMPLICIT NONE
       CLASS(DGSem) :: self
       INTEGER      :: k      !Counter
-      
+
       CALL self % mesh % destruct
-      
+
       call self % monitors % destruct
 
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (flowIsNavierStokes) call self % fwh % destruct
 #endif
-    
+
       call surfacesMesh % destruct
-      
+
       END SUBROUTINE DestructDGSem
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SaveSolutionForRestart( self, fUnit ) 
+      SUBROUTINE SaveSolutionForRestart( self, fUnit )
          IMPLICIT NONE
          CLASS(DGSem)     :: self
          INTEGER          :: fUnit
          INTEGER          :: k
 
-         DO k = 1, SIZE(self % mesh % elements) 
+         DO k = 1, SIZE(self % mesh % elements)
             WRITE(fUnit) self % mesh % elements(k) % storage % Q
          END DO
 
       END SUBROUTINE SaveSolutionForRestart
 
-      subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time ) 
+      subroutine DGSEM_SetInitialCondition( self, controlVariables, initial_iteration, initial_time )
          use FTValueDictionaryClass
          USE mainKeywordsModule
          use SurfaceMesh, only: surfacesMesh
@@ -444,7 +467,7 @@ Module DGSEMClass
          class(FTValueDictionary), intent(in)   :: controlVariables
          integer                                :: restartUnit
          integer,       intent(out)             :: initial_iteration
-         real(kind=RP), intent(out)             :: initial_time 
+         real(kind=RP), intent(out)             :: initial_time
 !
 !        ---------------
 !        Local variables
@@ -453,15 +476,15 @@ Module DGSEMClass
          character(len=LINE_LENGTH)             :: solutionName
          logical                                :: saveGradients, loadFromNSSA
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
-         
+
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
-         
+
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             loadFromNSSA = controlVariables % logicalValueForKey("NS load from NSSA")
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
          ELSE
-   
+
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
 
             initial_time = 0.0_RP
@@ -475,12 +498,12 @@ Module DGSEMClass
             !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF
-         
+
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
          call self % mesh % Export( trim(solutionName) )
 
          call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
-   
+
       end subroutine DGSEM_SetInitialCondition
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -495,18 +518,19 @@ Module DGSEMClass
          implicit none
          class(DGSem), intent(inout) :: to
          type (DGSem), intent(in)    :: from
-         
+
          to % maxResidual        = from % maxResidual
          to % nodes              = from % nodes
          to % numberOfTimeSteps  = from % numberOfTimeSteps
          to % NDOF               = from % NDOF
-         
+         to % totalNDOF          = from % totalNDOF
+
          to % mesh               = from % mesh
          to % ManufacturedSol    = from % ManufacturedSol
-         
+
          to % monitors  = from % monitors
          to % particles = from % particles
-         
+
       end subroutine DGSEM_Assign
 !
 !////////////////////////////////////////////////////////////////////////
@@ -529,7 +553,7 @@ Module DGSEMClass
       REAL(KIND=RP) :: localMaxResidual(NCONS)
       real(kind=RP) :: localR1, localR2, localR3, localR4, localR5, localR6, localc
       real(kind=RP) :: R1, R2, R3, R4, R5, R6, c
-      
+
       maxResidual = 0.0_RP
       R1 = 0.0_RP
       R2 = 0.0_RP
@@ -560,7 +584,7 @@ Module DGSEMClass
 #ifdef CAHNHILLIARD
          localc    = maxval(abs(mesh % elements(id) % storage % cDot(:,:,:,:)))
 #endif
-      
+
 #if defined FLOW && !(SPALARTALMARAS)
          R1 = max(R1,localR1)
          R2 = max(R2,localR2)
@@ -588,7 +612,7 @@ Module DGSEMClass
 #elif defined(SPALARTALMARAS)
       maxResidual(1:NCONS) = [R1, R2, R3, R4, R5, R6]
 #endif
-      
+
 #if  defined(CAHNHILLIARD) && (!defined(FLOW))
       maxResidual(NCONS) = c
 #endif
@@ -603,7 +627,7 @@ Module DGSEMClass
 
    END FUNCTION ComputeMaxResiduals
 !
-!//////////////////////////////////////////////////////////////////////// 
+!////////////////////////////////////////////////////////////////////////
 !
 !  -------------------------------------------------------------------
 !  Estimate the maximum time-step of the system. This
@@ -623,7 +647,7 @@ Module DGSEMClass
       type(DGSem)                :: self
       real(kind=RP), intent(in)  :: cfl      !<  Advective cfl number
       real(kind=RP), optional, intent(in)  :: dcfl     !<  Diffusive cfl number
-      real(kind=RP), intent(inout)  :: MaxDt 
+      real(kind=RP), intent(inout)  :: MaxDt
       real(kind=RP), allocatable, dimension(:), intent(inout), optional :: MaxDtVec
 #ifdef FLOW
       !------------------------------------------------
@@ -646,26 +670,26 @@ Module DGSEMClass
       logical :: flowIsNavierStokes = .true.
 #endif
 #if defined(SPALARTALMARAS)
-      type(Spalart_Almaras_t)       :: SAModel 
-      external                      ::ComputeEigenvaluesForStateSA
+      type(Spalart_Almaras_t)       :: SAModel
+      external                      :: ComputeEigenvaluesForStateSA
 #endif
       !--------------------------------------------------------
 !     Initializations
 !     ---------------
-      
+
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
-!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private) 
+!$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
-      do eID = 1, SIZE(self % mesh % elements) 
+      do eID = 1, SIZE(self % mesh % elements)
          N = self % mesh % elements(eID) % Nxyz
          spAxi_p => NodalStorage(N(1))
          spAeta_p => NodalStorage(N(2))
          spAzeta_p => NodalStorage(N(3))
-         
+
          if ( N(1) .ne. 0 ) then
-            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )   
+            dcsi = 1.0_RP / abs( spAxi_p   % x(1) - spAxi_p   % x (0) )
 
          else
             dcsi = 0.0_RP
@@ -674,7 +698,7 @@ Module DGSEMClass
 
          if ( N(2) .ne. 0 ) then
             deta = 1.0_RP / abs( spAeta_p  % x(1) - spAeta_p  % x (0) )
-         
+
          else
             deta = 0.0_RP
 
@@ -687,13 +711,13 @@ Module DGSEMClass
             dzet = 0.0_RP
 
          end if
-         
+
          if (flowIsNavierStokes) then
             dcsi2 = dcsi*dcsi
             deta2 = deta*deta
             dzet2 = dzet*dzet
          end if
-         
+
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
 !
 !           ------------------------------------------------------------
@@ -707,29 +731,29 @@ Module DGSEMClass
             CALL ComputeEigenvaluesForStateSA( Q , eValues )
 #else
             CALL ComputeEigenvaluesForState( Q , eValues )
-#endif            
+#endif
             jac      = self % mesh % elements(eID) % geom % jacobian(i,j,k)
 !
 !           ----------------------------
 !           Compute contravariant values
 !           ----------------------------
-!              
+!
             lamcsi_a =abs( self % mesh % elements(eID) % geom % jGradXi(IX,i,j,k)   * eValues(IX) + &
                            self % mesh % elements(eID) % geom % jGradXi(IY,i,j,k)   * eValues(IY) + &
                            self % mesh % elements(eID) % geom % jGradXi(IZ,i,j,k)   * eValues(IZ) ) * dcsi
-  
+
             lameta_a =abs( self % mesh % elements(eID) % geom % jGradEta(IX,i,j,k)  * eValues(IX) + &
                            self % mesh % elements(eID) % geom % jGradEta(IY,i,j,k)  * eValues(IY) + &
                            self % mesh % elements(eID) % geom % jGradEta(IZ,i,j,k)  * eValues(IZ) ) * deta
-  
+
             lamzet_a =abs( self % mesh % elements(eID) % geom % jGradZeta(IX,i,j,k) * eValues(IX) + &
                            self % mesh % elements(eID) % geom % jGradZeta(IY,i,j,k) * eValues(IY) + &
                            self % mesh % elements(eID) % geom % jGradZeta(IZ,i,j,k) * eValues(IZ) ) * dzet
-            
+
             TimeStep_Conv = min( TimeStep_Conv, cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
             if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), cfl*abs(jac)/(lamcsi_a+lameta_a+lamzet_a) )
 
-#if defined(NAVIERSTOKES)            
+#if defined(NAVIERSTOKES)
             if (flowIsNavierStokes) then
                T        = Temperature(Q)
                mu       = SutherlandsLaw(T)
@@ -745,7 +769,7 @@ Module DGSEMClass
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
                lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
-               
+
                TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
                if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), &
                                                       dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v)  )
@@ -753,12 +777,12 @@ Module DGSEMClass
 #else
             TimeStep_Visc = huge(1.0_RP)
 #endif
-                  
+
          end do ; end do ; end do
-      end do 
+      end do
 !$omp end do
 !$omp end parallel
-         
+
 #ifdef _HAS_MPI_
       if ( MPI_Process % doMPIAction ) then
          localMax_dt_v = TimeStep_Visc
@@ -769,7 +793,7 @@ Module DGSEMClass
                             MPI_COMM_WORLD, ierr)
       end if
 #endif
-      
+
       if (TimeStep_Conv  < TimeStep_Visc) then
          self % mesh % dt_restriction = DT_CONV
          MaxDt  = TimeStep_Conv
@@ -777,7 +801,7 @@ Module DGSEMClass
          self % mesh % dt_restriction = DT_DIFF
          MaxDt  = TimeStep_Visc
       end if
-#endif            
+#endif
    end subroutine MaxTimeStep
 !
 end module DGSEMClass

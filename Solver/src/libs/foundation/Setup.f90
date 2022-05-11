@@ -14,6 +14,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: inviscidDiscretizationKey  = "inviscid discretization"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: splitFormKey               = "split form"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: meshFileNameKey            = "mesh file name"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: stlFileNameKey             = "stl file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartKey                 = "restart"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: restartFileNameKey         = "restart file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey        = "solution file name"
