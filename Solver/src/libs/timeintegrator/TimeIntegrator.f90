@@ -367,6 +367,7 @@ print*, "Method selected: RK5"
       call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
+      ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
 
 !
 !     ---------------
