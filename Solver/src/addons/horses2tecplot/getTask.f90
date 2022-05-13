@@ -116,12 +116,14 @@ module getTask
 !        ---------------
 !
          type( FTValueDictionary)                               :: controlVariables
-         logical                                                :: meshFilePresent, basisPresent, modePresent, solutionPresent
+         logical                                                :: meshFilePresent, basisPresent, modePresent, solutionPresent, patternPresent
          character(len=LINE_LENGTH)                             :: basisName, modeName, auxiliarName
+         character(len=LINE_LENGTH)                             :: solutionsPattern, fullExpression
+         real(kind=RP)                                           :: r
          integer                                                :: pos, pos2
          character(len=LINE_LENGTH)                             :: additionalVariablesStr, addVar
          character(len=LINE_LENGTH), dimension(:), allocatable  :: additionalVariablesArr
-         integer                                                :: i
+         integer                                                :: i, fID, reason
 !
          call controlVariables % initWithSize(16)
          call ReadControlFile( controlVariables )
@@ -141,13 +143,35 @@ module getTask
          meshName = controlVariables % stringValueForKey("hmesh file", LINE_LENGTH)
 
          solutionPresent = controlVariables % containsKey("hsol file")
+         patternPresent = controlVariables % containsKey("hsol files pattern")
          if (solutionPresent) then
              no_of_solutions = 1
              allocate(solutionNames(no_of_solutions), solutionTypes(no_of_solutions))
              solutionNames(1) = controlVariables % stringValueForKey("hsol file", LINE_LENGTH)
              solutionTypes(1) = getSolutionFileType(solutionNames(1))
-         ! TODO: use pattern match to get an array of soultions (similar to postFW)
-         ! else
+
+         ! use pattern match to get an array of soultions
+         elseif (patternPresent) then
+            solutionsPattern = controlVariables % stringValueForKey("hsol files pattern", LINE_LENGTH)
+            ! get files in temporal txt
+            write(fullExpression,'(A,A,A)') "ls ", trim(solutionsPattern), " > horses_temporal_file.txt"
+            call system(trim(fullExpression))
+
+            open ( newunit = fID , file = "horses_temporal_file.txt", status = "old" , action = "read" ) 
+            i = 0
+            do
+                read(fID,fmt='(a)',iostat=reason) r
+                if (reason/=0) exit
+                i = i+1
+            end do
+            no_of_solutions = i
+
+            allocate(solutionNames(no_of_solutions), solutionTypes(no_of_solutions))
+            rewind(fID)
+            do i = 1, no_of_solutions
+                read(fID, '(A)') solutionNames(i)
+                solutionTypes(i) = getSolutionFileType(solutionNames(i))
+            end do 
          end if
 !
 !        Select the job type: Mesh if no solutions files are present, solution otherwise.
@@ -221,22 +245,24 @@ module getTask
              flowEq = "ns"
          end if
 
-         additionalVariablesStr = controlVariables % stringValueForKey("additional variables", LINE_LENGTH)
-         call getCharArrayFromString(trim(additionalVariablesStr), LINE_LENGTH, additionalVariablesArr)
+         if (controlVariables % containsKey("additional variables")) then
+             additionalVariablesStr = controlVariables % stringValueForKey("additional variables", LINE_LENGTH)
+             call getCharArrayFromString(trim(additionalVariablesStr), LINE_LENGTH, additionalVariablesArr)
 
-         do i = 1, size(additionalVariablesArr)
-            addVar = additionalVariablesArr(i)
-            call toLower(addVar)
-            select case (trim(addVar))
-                case ("u_tau")
-                    hasUt_NS = .true.
-                case ("turb")
-                    hasMu_NS = .true.
-                    hasWallY     = .true.
-                case default
-                    write(STD_OUT,'(A,A,A)') "The variable asked, ", trim(addVar), " is not implemented"
-            end select
-         end do
+             do i = 1, size(additionalVariablesArr)
+                addVar = additionalVariablesArr(i)
+                call toLower(addVar)
+                select case (trim(addVar))
+                    case ("u_tau")
+                        hasUt_NS = .true.
+                    case ("turb")
+                        hasMu_NS = .true.
+                        hasWallY     = .true.
+                    case default
+                        write(STD_OUT,'(A,A,A)') "The variable asked, ", trim(addVar), " is not implemented"
+                end select
+             end do
+         end if
 
       End Subroutine getTaskTypeControl
 

@@ -1,3 +1,4 @@
+#if defined(NAVIERSTOKES)
 MODULE WallFunctionBC
 
    USE SMConstants
@@ -21,7 +22,7 @@ MODULE WallFunctionBC
 !  Public definitions
 !  ******************
 !
-   PUBLIC WallViscousFlux, tau_w_f, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
+   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
 !
 
    CONTAINS 
@@ -270,3 +271,4 @@ MODULE WallFunctionBC
 !
 
 END MODULE 
+#endif

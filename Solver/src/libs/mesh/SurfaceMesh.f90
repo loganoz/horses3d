@@ -1284,5 +1284,25 @@ Module SurfaceMesh
         facesIDs = facesIDsTemp(1:numberOfFaces)
 !
     End Subroutine getSliceFaces
+!         
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!           ADDITIONAL VARIABLES PROCEDURES --------------------------
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!         
+    !Subroutine getU_tauInSurfaces(surfaces)
+    !    implicit none
+    !    class(SurfaceMesh_t)                                    :: surfaces
+    !    !local variables
+    !    integer                                                 :: surfID, faceID
+
+    !    if (.not. surfaces % saveUt) return
+    !    do surfID = 1, surfaces%numberOfSurfaces
+    !        if (.not. surfaces(surfID) % active) cycle
+    !        if ( (surfaces % surfaceTypes(surfID) .ne. SURFACE_TYPE_BC) .or. &
+    !             (surfaces % surfaceTypes(surfID) .eq. SURFACE_TYPE_FWH .and. .not. self % mergeFWHandBC) ) cycle
+    !         !check that surface is BC no slip
+    !    end do
+
+    !End Subroutine getU_tauInSurfaces
 !
 End Module SurfaceMesh

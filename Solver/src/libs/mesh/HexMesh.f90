@@ -2990,13 +2990,13 @@ slavecoord:             DO l = 1, 4
             if ( saveGradients .and. computeGradients ) then
                allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                ! UX
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS:no_stat_s+NCONS+NGRAD,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
                write(fid) Q
                ! UY
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
                write(fid) Q
                ! UZ
-               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+2*NGRAD:,:,:,:)
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
                write(fid) Q
                deallocate(Q)
             end if

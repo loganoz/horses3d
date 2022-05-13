@@ -11,6 +11,7 @@
 !This module stores the definitions of the wall fuction and update the default values based on the controlVariables
 
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 Module WallFunctionDefinitions  !
 
     use SMConstants
@@ -128,3 +129,4 @@ Module WallFunctionDefinitions  !
 !------------------------------------------------------------------------------------------------------------------------
 !
 End Module WallFunctionDefinitions
+#endif

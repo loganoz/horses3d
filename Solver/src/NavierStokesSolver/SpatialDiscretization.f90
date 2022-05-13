@@ -621,7 +621,6 @@ module SpatialDiscretization
             end do
 !$omp end do
          end if
->>>>>>> master
 
       end subroutine TimeDerivative_ComputeQDot
 

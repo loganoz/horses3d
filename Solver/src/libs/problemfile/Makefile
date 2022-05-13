@@ -134,7 +134,7 @@ install-ns: lib$(LIB)_ns$(LIBSUFFIX)
 	cp -p ./include_ns/*.mod $(INSTALL_DIR)/include_ns/
 	@echo
 
-install-nssa: lib$(LIB)_ns$(LIBSUFFIX)
+install-nssa: lib$(LIB)_nssa$(LIBSUFFIX)
 	cp -p lib$(LIB)_nssa$(LIBSUFFIX) $(INSTALL_DIR)/lib/
 	cp -p ./include_nssa/*.mod $(INSTALL_DIR)/include_nssa/
 	@echo

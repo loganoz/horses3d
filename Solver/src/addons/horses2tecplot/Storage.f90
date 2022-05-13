@@ -110,7 +110,6 @@ module Storage
          integer                                :: fileType, dimensionsSize
          integer                                :: fid, eID, i, pos
          character(len=1024)                    :: msg
-         character(len=LINE_LENGTH)             :: flag, boundaryFileName
 
          self % meshName = trim(meshName)
 !
@@ -219,7 +218,6 @@ module Storage
          real(kind=RP)                  :: time
          real(kind=RP), allocatable     :: Qdot(:,:,:,:)
          character(len=1024)  :: msg
-         character(len=LINE_LENGTH)    :: flag
 
          self % solutionName = trim(solutionName)
 !
@@ -448,12 +446,12 @@ module Storage
       
       subroutine readPartitionFile(self)
          implicit none
+
          !-arguments-----------------------------------------------
          class(Mesh_t)   , intent(inout)  :: self
-         ! character(len=*), intent(in)     :: flag
+
          !-local-variables-----------------------------------------
          integer                    :: pos, nelem, eID, fID
-         ! character(len=LINE_LENGTH) :: partitionFileName
          !---------------------------------------------------------
 
          open(newunit = fID, file=trim(partitionFileName),action='read')
@@ -471,8 +469,7 @@ module Storage
          implicit none
          !-arguments-----------------------------------------------
          type(Boundary_t), allocatable, intent(inout)  :: boundaries(:)
-         ! character(len=*)             , intent(in)     :: flag
-         ! character(len=LINE_LENGTH)   , intent(out)    :: boundaryFileName
+
          !-local-variables-----------------------------------------
          integer                    :: pos, fd, no_of_boundaries,bID
          !---------------------------------------------------------
