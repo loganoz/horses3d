@@ -454,7 +454,6 @@ module AnisFASMultigridClass
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
          
-!~          Child_p % MGStorage(Dir) % p_sem % mesh % IBM % active = .false.
          Child_p% MGStorage(Dir)%  p_sem% mesh% IBM% active = Solver% MGStorage(Dir)% p_sem% mesh% IBM% active
          if( Child_p% MGStorage(Dir)% p_sem% mesh% IBM% active ) then
             Child_p% MGStorage(Dir)% p_sem% mesh% IBM% lvl = lvl 

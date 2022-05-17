@@ -1,0 +1,86 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NSSA"
+mesh file name        = "MESH/FlatPlate.msh"
+
+!--STL
+stl file name         = "flatplate"
+
+Polynomial order      = 3
+Number of time steps  = 10000
+Output Interval       = 10 ! for explicit
+autosave mode         = "iteration"
+autosave interval     = 1000
+
+mach number           = 0.2d0
+Reynolds number       = 5000000.0d0
+reference temperature (k) = 300.0d0
+
+solution file name    = "RESULTS/IBM_FlatPlate.hsol"
+save gradients with soluton = .false.
+restart               = .false.
+restart file name     = "RESULTS/IBM_FlatPlate.hsol"
+riemann solver         = "lax-friedrichs"
+viscous discretization = "BR1"
+
+!----Solver
+!time integration = fas
+convergence tolerance = 10.d-8
+!bdf order = 2
+!--time step/CFL
+cfl                   = 0.25d0
+dcfl                  = 0.25d0
+
+multigrid levels        = 2
+mg smoother             = RK3
+mg sweeps exact         = [1,1,1]
+pseudo cfl              = 0.1d0
+pseudo dcfl             = 0.1d0
+
+wall function = standard
+
+#define IBM
+  name = FlatPlate
+  active = .true.
+  semi implicit = .true.
+  describe = .true.
+  number of objects = 3
+  number of interpolation points = 5
+  integration order = 3
+  band region coefficient = 1.5
+  plot mask = .true.
+  plot kdtree = .true.
+  plot band points = .true.
+  wall function = .true.
+#end
+
+#define boundary INLET
+  type = InFlow
+#end
+
+#define boundary OUTLET
+  type = OutFlow
+#end
+
+#define boundary WALLS
+  type = FreeSlipWall
+#end
+
+#define boundary UP
+  type = FreeSlipWall
+#end
+
+#define boundary DOWN
+  type = FreeSlipWall
+#end
+
+#define boundary BODY
+  type = FreeSlipWall
+#end
+
+!#define surface monitor 1
+!   Name = C_d
+!  Marker = cylinder3
+!  Variable = drag
+!  Direction = [1.d0, 0.d0, 0.d0]
+!  Reference surface =  0.861d0 
+!#end

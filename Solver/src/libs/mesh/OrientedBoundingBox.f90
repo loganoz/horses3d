@@ -33,9 +33,6 @@ module OrientedBoundingBox
     
       type(point_type), dimension(:), allocatable :: Points 
       integer                                     :: NumOfPoints
-      
-      contains
-         procedure :: ComputeExtremePoint => Hull_ComputeExtremePoint
 
    end type
 !
@@ -432,6 +429,7 @@ contains
 
       if( isPlot ) call this% plot()
 
+      if(allocated(this% HullPoints)) deallocate(this% HullPoints)
       allocate( this% HullPoints(Hull% NumOfPoints) )
 
       do i = 1, Hull% NumOfPoints
@@ -488,25 +486,25 @@ contains
       integer,         intent(in)    :: LowestIndex
       !-local-variables--------------------
       real(kind=rp), dimension(NDIM) :: v
-      integer                        :: i
-!
-!      had point is always the first, thus it has the lower possible angle, i.e. theta < 0
-!     ----------------------------------------------------------------------     
+      integer                        :: i    
 
-!$omp parallel shared(this, LowestIndex)
-!$omp do schedule(runtime) private(i,v)
+!$omp parallel shared(this, LowestIndex,i)
+!$omp do schedule(runtime) private(v)
       do i = 1, this% NumOfPoints
          if( i .eq. LowestIndex ) then
             this% Points(i)% theta = -2.0_RP
             cycle
          end if
          v = this% Points(i)% coords-this% Points(LowestIndex)% coords
+         if( almostEqual(norm2(v(1:2)),0.0_RP)  ) then 
+            this% Points(i)% theta = -1.0_RP 
+            cycle
+         end if
          this% Points(i)% theta = acos(v(1)/norm2(v(1:2)))
-         if( almostEqual(norm2(v(1:2)), 0.0_RP) ) this% Points(i)% theta = -1.0_RP 
       end do
 !$omp end do
 !$omp end parallel
-         
+
    end  subroutine OBB_ComputeAngle
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -515,11 +513,10 @@ contains
 ! This function returns the index of the left most point of a cloud. 
 !  ------------------------------------------------------------------
 
-   subroutine Hull_ComputeExtremePoint( this, OBB, LowestIndex ) 
+   subroutine ComputeHullExtremePoint( OBB, LowestIndex ) 
 
       implicit none
       !-arguments------------------------
-      class(Hull_type), intent(inout) :: this
       class(OBB_type),  intent(inout) :: OBB
       integer,          intent(out)   :: LowestIndex
       !-local-variables--------------------
@@ -540,7 +537,7 @@ contains
        
       LowestIndex = LowestPoint% index
       
-   end subroutine Hull_ComputeExtremePoint
+   end subroutine ComputeHullExtremePoint
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -615,18 +612,15 @@ contains
       left_cycle = (i-1)-left
       right_cycle = right-(j+1)
       
-!~       if( left .lt. i-1 )  then
 !$omp task shared(a,b,coordx,coordy,coordz,left,i) if(left_cycle > TASK_THRESHOLD)
          call sort( a, b, coordx, coordy, coordz, left, i-1 )
 !$omp end task
-!~ !$omp taskwait
-!~       end if
-!~       if( j+1 .lt. right ) then
+
 !$omp task shared(a,b,coordx,coordy,coordz,j,right) if(right_cycle > TASK_THRESHOLD)
       call sort( a, b, coordx, coordy, coordz, j+1, right )
 !$omp end task
 !$omp taskwait
-!~       end if
+
    end subroutine sort
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -756,11 +750,10 @@ contains
       type(point_type) ,pointer :: p, p1
       integer                   :: i, LowestIndex, start
       type(PointLinkedList)     :: convPoints
-      
 !     
 !     Compute Left most point & set Hull's head
 !     -----------------------------------------
-      call Hull% ComputeExtremePoint( OBB, LowestIndex )
+      call ComputeHullExtremePoint( OBB, LowestIndex )
 
 !     
 !     Compute the angles
@@ -778,7 +771,7 @@ contains
       !Check duplicate
       if( almostEqual(OBB% Points(1)% coords(1), OBB% Points(2)% coords(1)) .and. &
           almostEqual(OBB% Points(1)% coords(2), OBB% Points(2)% coords(2)) ) OBB% Points(2)% delete = .true.
-          
+
       do i = 2, OBB% NumOfPoints     
          if( .not. OBB% Points(i)% delete ) then
             call convPoints% add( OBB% Points(i) )
@@ -807,14 +800,14 @@ contains
       allocate(Hull% Points(Hull% NumOfPoints))
       
       p => convPoints% head
-      
+
       do i = 1, Hull% NumOfPoints
          Hull% Points(i) = p
          p => p% next
       end do
-            
+         
       call convPoints% destruct()
- 
+
    end subroutine ConvexHull
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -1086,9 +1079,9 @@ contains
       
       isInsideOBB = .false.
       
-      !check x y z
-      if( isInsideBox(Point, Multcoeff*this% LocVertices) ) isInsideOBB = .true.
-      
+      !check x y z     
+       if( isInsideBox(Point, Multcoeff*this% LocVertices) ) isInsideOBB = .true.
+
    end function OBB_isPointInside
    
    
@@ -1150,7 +1143,7 @@ contains
 !$omp parallel shared(i,shiftVec)
 !$omp do schedule(runtime) private(j)
       do i = 1, stl% NumOfObjs
-         do j = 1, size(stl% ObjectsList(j)% vertices)
+         do j = 1, size(stl% ObjectsList(i)% vertices)
             stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords - shiftVec
          end do
       end do
@@ -1206,16 +1199,18 @@ contains
       optional :: equal
 
       isInside = .false.
-     
-      if( present(equal) .and. .not. equal ) then
-         if( (Point(1) > vertices(1,1) .and. Point(1) < vertices(1,7)) .and. &
-             (Point(2) > vertices(2,1) .and. Point(2) < vertices(2,7)) .and. &
-             (Point(3) > vertices(3,1) .and. Point(3) < vertices(3,7)) ) then
-             isInside = .true.
-          end if
-          return
+
+      if( present(equal) ) then
+         if( .not. equal ) then
+            if( (Point(1) > vertices(1,1) .and. Point(1) < vertices(1,7)) .and. &
+                (Point(2) > vertices(2,1) .and. Point(2) < vertices(2,7)) .and. &
+                (Point(3) > vertices(3,1) .and. Point(3) < vertices(3,7)) ) then
+                isInside = .true.
+            end if
+            return
+         end if
       end if
-     
+
       if( (Point(1) >= vertices(1,1) .and. Point(1) <= vertices(1,7)) .and. &
           (Point(2) >= vertices(2,1) .and. Point(2) <= vertices(2,7)) .and. &
           (Point(3) >= vertices(3,1) .and. Point(3) <= vertices(3,7)) ) isInside = .true.
@@ -1224,18 +1219,18 @@ contains
    
    
    
-   logical function OBB_isInsidePolygon( OBB, Point ) result( isInside )
+   logical function OBB_isInsidePolygon( OBB, Point, coeff ) result( isInside )
       use MappedGeometryClass
       implicit none
       
       class(OBB_type),               intent(inout) :: OBB
       real(kind=rp),   dimension(:), intent(in)    :: Point
+      real(kind=rp),                 intent(in)    :: coeff
       !-local-variables------------------------------------------
       real(kind=rp) :: d(NDIM), coords(NDIM), v1(NDIM-1), v2(NDIM-1), &
                        v3(NDIM-1), v4(NDIM-1), length, N_Point
       logical :: Intersection
       integer :: NumOfIntersections, i
-      real(kind=rp), parameter :: coeff = 1.15_RP
       
       d       = Point - OBB% CloudCenter
       N_Point = vdot( d, OBB% MBR% normal ) 

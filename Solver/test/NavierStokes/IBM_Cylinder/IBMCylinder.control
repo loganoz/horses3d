@@ -6,12 +6,11 @@ mesh file name        = "MESH/Cylinder.mesh"
 stl file name         = "cylinder3"
 
 Polynomial order      = 3
-Number of time steps  = 500000
+Number of time steps  = 10000
 Output Interval       = 10 ! for explicit
 autosave mode         = "iteration"
-autosave interval     = 10000
+autosave interval     = 1000
 
-!Convergence tolerance = 1.d-11
 mach number           = 0.2d0
 Reynolds number       = 40.0d0
 
@@ -33,15 +32,11 @@ cfl                   = 0.15d0
 dcfl                  = 0.15d0
 
 multigrid levels        = 3
-mg smoother             = RK3
-!mg preconditioner       = LTS
+mg smoother             = RKOpt
+mg preconditioner       = LTS
 mg sweeps exact         = [1,1,1]
-
-! CFL for pseudo-steps (pseudo dt not supported). Pseudo CFL have to smaller than CFL/dt for physical step, otehrwise stability issues may occur.
 pseudo cfl              = 0.1d0
 pseudo dcfl             = 0.1d0
-
-pseudo convergence monitor = .true.
 
 symmetry planes = [-3,3]
 
@@ -57,6 +52,7 @@ symmetry planes = [-3,3]
   plot mask = .true.
   plot kdtree = .true.
   plot band points = .true.
+  plot OBB =.true.
 #end
 
 #define boundary BACK

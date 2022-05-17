@@ -639,6 +639,7 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do      
+            call mesh% IBM% SourceTermTurbulence( mesh% elements )
          end if 
 
       end subroutine TimeDerivative_ComputeQDot

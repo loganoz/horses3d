@@ -1893,23 +1893,7 @@ module FASMultigridClass
          end if
       end if
  
-   end subroutine FAS_SetIBM
-   
-   recursive subroutine recursive_IBM_KDtreedestroy( Solver, lvl )
-   
-      implicit none
-      !-arguments----------------------------------------
-      type(FASMultigrid_t), target     :: Solver
-      integer,              intent(in) :: lvl
-      !-local-variables-----------------------------------
-      type(FASMultigrid_t), pointer       :: Child_p
-    
-      if( lvl > 1 ) call recursive_IBM_KDtreedestroy( Solver% Child, lvl-1 )
-    
-      call Solver% p_sem% mesh% IBM% DestroyKDtree()
-   
-   end subroutine recursive_IBM_KDtreedestroy
-   
+   end subroutine FAS_SetIBM   
    
    subroutine FAS_updateMovingBodyIBM( this, dt, lvl )
    

@@ -33,14 +33,14 @@ module MPI_IBMUtilities
    private
    public :: MPI_KDtree_type, KDtree_partition_type
    public :: MPI_KDtree_buildPartition, MPI_KDtree_destroy, recvSTLPartition, SendSTLPartitions
-   public :: MPI_M_Points_type, MPI_Pointpartition, MPI_Pointpartition_destroy
+   public :: MPI_M_Points_type, MPI_Pointpartition
    public :: RootSendPointMaskPartition, MaskCandidates, RootRecvrecvPointMaskPartition
    public :: sendPointMaskPartition, RecvPointMaskPartition
    public :: RootRecvPointMask, RootSendPointMask
    public :: recvPointMask, SendPointMask
    public :: RootrecvBandPoint, RootSendBandPoint, MPI_BandPointpartition
    public :: recvBandPointPartition, sendBandPointPartition
-   public :: recvGeom, sendGeom, recvIP_NearestPoints, sendIP_NearestPoints
+   public :: recvGeom, sendGeom, recvIP_NearestPoints, sendIP_NearestPoints, recvIP_Coords, sendIP_Coords
    
    integer, parameter :: ON_PLANE = 0, IN_FRONT_PLANE = 1, BEHIND_PLANE = 2
    
@@ -101,36 +101,37 @@ module MPI_IBMUtilities
    
 contains
 
-   subroutine MPI_BandPointpartition(NumOfObjs, BandPoints)
+   subroutine MPI_BandPointpartition( BandRegion, NumOfObjs, BandPoints)
    
       implicit none
       !-arguments-----------------------------------------
-      integer,               intent(in)    :: NumOfObjs
-      type(PointLinkedList), intent(inout) :: BandPoints
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      integer,                 intent(in)    :: NumOfObjs
+      type(PointLinkedList),   intent(inout) :: BandPoints
       !-local-variables-----------------------------------
       type(point_type), pointer :: p
       integer :: i 
- 
-      allocate(BandPoints_ALL% buffer(MPI_Process% nProcs))
-      allocate(BandPoints_ALL% x(NumOfObjs))
-      
-      BandPoints_ALL% buffer    = 0
-      BandPoints_ALL% NumOfObjs = NumOfObjs
 
-      BandPoints_ALL% buffer(1) = BandPoints% NumOfPoints
+      allocate(BandRegion% buffer(MPI_Process% nProcs))
+      allocate(BandRegion% x(NumOfObjs))
+
+      BandRegion% buffer    = 0
+      BandRegion% NumOfObjs = NumOfObjs
+
+      BandRegion% buffer(1) = BandPoints% NumOfPoints
       
       if( MPI_Process% isRoot ) then
          p => BandPoints% head
          do i = 1, BandPoints% NumOfPoints
-            BandPoints_ALL% x(i)% index     = p% index
-            BandPoints_ALL% x(i)% coords(1) = p% coords(1)
-            BandPoints_ALL% x(i)% coords(2) = p% coords(2)
-            BandPoints_ALL% x(i)% coords(3) = p% coords(3)
-            BandPoints_ALL% x(i)% local_Position(1) = p% local_Position(1)
-            BandPoints_ALL% x(i)% local_Position(2) = p% local_Position(2)
-            BandPoints_ALL% x(i)% local_Position(3) = p% local_Position(3)
-            BandPoints_ALL% x(i)% element_index = p% element_index
-            BandPoints_ALL% x(i)% partition = p% partition
+            BandRegion% x(i)% index     = p% index
+            BandRegion% x(i)% coords(1) = p% coords(1)
+            BandRegion% x(i)% coords(2) = p% coords(2)
+            BandRegion% x(i)% coords(3) = p% coords(3)
+            BandRegion% x(i)% local_Position(1) = p% local_Position(1)
+            BandRegion% x(i)% local_Position(2) = p% local_Position(2)
+            BandRegion% x(i)% local_Position(3) = p% local_Position(3)
+            BandRegion% x(i)% element_index = p% element_index
+            BandRegion% x(i)% partition = p% partition
             p => p% next
          end do
       end if
@@ -159,20 +160,6 @@ contains
       end if
 
    end subroutine MPI_Pointpartition
-
-
-   
-   subroutine MPI_Pointpartition_destroy()
-   
-      implicit none
-   
-      deallocate(BandPoints_ALL% buffer)
-      deallocate(BandPoints_ALL% x)
-   
-   end subroutine MPI_Pointpartition_destroy
-   
-   
-
 
    subroutine MPI_KDtree_buildPartition( stl )
    
@@ -247,9 +234,11 @@ contains
    subroutine MPI_KDtree_destroy()
       use MPI_Process_Info
       implicit none
-      !-local-varaibles-----------------------------
+      !-local-varaibles----------
+#ifdef _HAS_MPI_
       integer :: i
-      
+#endif
+
       if( MPI_Process% doMPIRootAction ) then
 #ifdef _HAS_MPI_
          do i = 1, size(MPI_KDtree_all% partition)
@@ -278,7 +267,7 @@ contains
       !-local-variables----------------------------------- 
       real(kind=RP), dimension(NDIM) :: x_g
       character(len=LINE_LENGTH)     :: filename, myString
-      integer                        :: i, j, funit
+      integer                        :: i, funit
       
       funit = UnusedUnit()
       
@@ -364,7 +353,7 @@ contains
       integer,           dimension(MPI_Process% nProcs) :: index
       integer,           dimension(2)                   :: PARTITION
       real(kind=RP),     dimension(NDIM)                :: plane_normal, plane_point
-      integer                                           :: i, j, k, n, max_index
+      integer                                           :: i, j, k
 
       index = 0
 
@@ -462,9 +451,8 @@ contains
       class(MPI_KDtree_type), intent(inout) :: this
       integer,                intent(in)    :: STLNum
       !-local-variables--------------------------------------------
-      real(kind=RP) :: partition, Locpartition, v_max, v_min
+      real(kind=RP) :: partition, v_max, v_min
       integer       :: i, j
-      real(kind=RP) :: eps = 0.001_RP
     
       do i = 1, MPI_Process% nProcs
          do j = 1, 8
@@ -993,8 +981,11 @@ contains
    
       if( allocated(this% x) )      deallocate(this% x)
       if( allocated(this% buffer) ) deallocate(this% buffer)
-      this% NumOfObjs = 0
-   
+      
+      this% NumOfObjs     = 0
+      this% LocNumOfObjs  = 0
+      this% NumOfF_Points = 0
+      
    end subroutine MPI_M_Points_type_Destroy
 
    subroutine MaskCandidates( elements, no_of_elements, no_of_DoFs, STLNum, NumOfSTL ) 
@@ -1005,7 +996,6 @@ contains
       integer,                      intent(in)    :: no_of_elements, no_of_DoFs, &
                                                      STLNum, NumOfSTL
       !-local-variables-----------------------------------------------------------
-      real(kind=RP) :: Point(NDIM)
       integer       :: n, eID, i, j, k
       
       allocate(MPI_M_PointsPartition% x(no_of_DoFs))
@@ -1023,7 +1013,7 @@ contains
 
             if( elements(eID)% isInsideBody(i,j,k) ) cycle
 
-            elements(eID)% isInsideBody(i,j,k) = OBB(STLNum)% isPointInside(coords = elements(eID)% geom% x(:,i,j,k) )
+            elements(eID)% isInsideBody(i,j,k) = OBB(STLNum)% isPointInside( coords = elements(eID)% geom% x(:,i,j,k) )
 
             if( elements(eID)% isInsideBody(i,j,k) ) then
 !$omp critical
@@ -1401,7 +1391,7 @@ contains
       integer                            :: ObjsSize, ierr, i, &
                                             array_of_statuses(MPI_STATUS_SIZE,1), &
                                             Maskrecv_req(1)
-      integer, dimension(:), allocatable :: isInsideBody
+      logical, dimension(:), allocatable :: isInsideBody !5/2/22
       
       if( MPI_Process% isRoot ) return 
 
@@ -1409,7 +1399,7 @@ contains
 
       allocate( isInsideBody(ObjsSize) )      
 
-      call mpi_irecv( isInsideBody, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(1), ierr ) 
+      call mpi_irecv( isInsideBody, ObjsSize, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(1), ierr )  !5/2/22
 
       call mpi_waitall(1, Maskrecv_req(1), array_of_statuses, ierr)     
 
@@ -1430,7 +1420,7 @@ contains
       !-local-variables-----------------------------------------------------------------------------
       integer                              :: ObjsSize, nProcs, msg, ierr, &
                                               array_of_statuses(MPI_STATUS_SIZE,MPI_Process% nProcs)
-      integer, dimension(:),   allocatable :: isInsideBody
+      logical, dimension(:),   allocatable :: isInsideBody !5/2/22
       integer, dimension(:,:), allocatable :: Masksend_req
    
       ObjsSize = MPI_M_Points_ALL% NumOfObjs
@@ -1441,8 +1431,8 @@ contains
         
       do nProcs = 2, MPI_Process% nProcs          
       
-         call mpi_isend( isInsideBody, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,1), ierr                                          )
+         call mpi_isend( isInsideBody, ObjsSize, MPI_LOGICAL, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
+                         Masksend_req(nProcs-1,1), ierr                                              )
          
       end do
 
@@ -1458,10 +1448,11 @@ contains
    
 ! BAND REGION 
    
-    subroutine RootrecvBandPoint()
+    subroutine RootrecvBandPoint( BandRegion )
    
       implicit none
-   
+      !-arguments-----------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
 #ifdef _HAS_MPI_      
       !-local-variables-----------------------------------------------------------------
       integer                                    :: ObjsSize, nProcs, ierr, i, msg, &
@@ -1479,7 +1470,8 @@ contains
             call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,1), ierr ) 
             call mpi_wait(RootBandrecv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr)
             
-            BandPoints_All% buffer(nProcs) = BandPoints_All% buffer(nProcs-1) + ObjsSize
+!~             BandPoints_All% buffer(nProcs) = BandPoints_All% buffer(nProcs-1) + ObjsSize
+            BandRegion% buffer(nProcs) = BandRegion% buffer(nProcs-1) + ObjsSize
             buffer(nProcs-1) = ObjsSize
             
          end do         
@@ -1521,16 +1513,16 @@ contains
                              
              call mpi_waitall(9, RootBandrecv_req(nProcs-1,:), array_of_statuses, ierr)                                                
              
-             do i = 1, buffer(nProcs-1)             
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% index     = i+BandPoints_All% buffer(nProcs-1)
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% coords(1) = COORD_x(i)
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% coords(2) = COORD_y(i)
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% coords(3) = COORD_z(i)  
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% local_Position(1) = i_v(i)  
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% local_Position(2) = j_v(i)  
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% local_Position(3) = k_v(i)  
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% element_index = eID(i)  
-                BandPoints_All% x(i+BandPoints_All% buffer(nProcs-1))% partition = partition(i)  
+             do i = 1, buffer(nProcs-1)               
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% index     = i+BandPoints_All% buffer(nProcs-1)
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(1) = COORD_x(i)
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(2) = COORD_y(i)
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(3) = COORD_z(i)  
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(1) = i_v(i)  
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(2) = j_v(i)  
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(3) = k_v(i)  
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% element_index = eID(i)  
+                BandRegion% x(i+BandRegion% buffer(nProcs-1))% partition = partition(i)  
              end do
                       
              deallocate( COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
@@ -1618,10 +1610,11 @@ contains
 
    end subroutine RootSendBandPoint 
  
-   subroutine recvBandPointPartition()
+   subroutine recvBandPointPartition( BandRegion )
     
       implicit none
-      
+      !-arguments-------------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
 #ifdef _HAS_MPI_      
       !-local-variables-------------------------------------------------------------------
       integer                                  :: ObjsSize, ierr, i,                    &
@@ -1632,7 +1625,7 @@ contains
       
       if( MPI_Process% isRoot ) return 
 
-      ObjsSize = BandPoints_ALL% NumOfObjs
+      ObjsSize = BandRegion% NumOfObjs
 
       allocate( indeces(ObjsSize),  &
                 COORD_x(ObjsSize),  &
@@ -1664,16 +1657,16 @@ contains
 
       call mpi_waitall(9, Bandrecv_req, array_of_statuses, ierr)     
 
-      do i = 1, ObjsSize
-         BandPoints_All% x(i)% index     = indeces(i)
-         BandPoints_All% x(i)% coords(1) = COORD_x(i)
-         BandPoints_All% x(i)% coords(2) = COORD_y(i)
-         BandPoints_All% x(i)% coords(3) = COORD_z(i)  
-         BandPoints_All% x(i)% local_Position(1) = i_v(i)  
-         BandPoints_All% x(i)% local_Position(2) = j_v(i)  
-         BandPoints_All% x(i)% local_Position(3) = k_v(i)  
-         BandPoints_All% x(i)% element_index = eID(i)  
-         BandPoints_All% x(i)% partition = partition(i)  
+      do i = 1, ObjsSize  
+         BandRegion% x(i)% index     = indeces(i)
+         BandRegion% x(i)% coords(1) = COORD_x(i)
+         BandRegion% x(i)% coords(2) = COORD_y(i)
+         BandRegion% x(i)% coords(3) = COORD_z(i)  
+         BandRegion% x(i)% local_Position(1) = i_v(i)  
+         BandRegion% x(i)% local_Position(2) = j_v(i)  
+         BandRegion% x(i)% local_Position(3) = k_v(i)  
+         BandRegion% x(i)% element_index = eID(i)  
+         BandRegion% x(i)% partition = partition(i)  
       end do 
  
       deallocate( indeces, COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
@@ -1681,10 +1674,11 @@ contains
    
    end subroutine recvBandPointPartition
 
-   subroutine sendBandPointPartition()
+   subroutine sendBandPointPartition( BandRegion )
    
       implicit none
-   
+      !-arguments-------------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
 #ifdef _HAS_MPI_  
       !-local-variables--------------------------------------------------------------------------
       integer                                    :: ObjsSize, nProcs, msg, ierr, &
@@ -1693,8 +1687,8 @@ contains
       integer,       dimension(:),   allocatable :: indeces, i_v, j_v, k_v, eID, partition
       integer,       dimension(:,:), allocatable :: Bandsend_req
       integer                                    :: i
-   
-      ObjsSize = BandPoints_ALL% NumOfObjs
+
+      ObjsSize = BandRegion% NumOfObjs
       
       allocate( indeces(ObjsSize),                    &
                 COORD_x(ObjsSize),                    & 
@@ -1706,16 +1700,16 @@ contains
                 eID(ObjsSize),                        &
                 partition(ObjsSize),                  &
                 Bandsend_req(MPI_Process% nProcs-1,9) )
-      
-      indeces = BandPoints_ALL% x(:)% index
-      COORD_x = BandPoints_ALL% x(:)% coords(1)
-      COORD_y = BandPoints_ALL% x(:)% coords(2)
-      COORD_z = BandPoints_ALL% x(:)% coords(3)
-      i_v = BandPoints_ALL% x(:)% local_Position(1)
-      j_v = BandPoints_ALL% x(:)% local_Position(2)
-      k_v = BandPoints_ALL% x(:)% local_Position(3)
-      eID = BandPoints_ALL% x(:)% element_index
-      partition = BandPoints_ALL% x(:)% partition
+
+      indeces = BandRegion% x(:)% index
+      COORD_x = BandRegion% x(:)% coords(1)
+      COORD_y = BandRegion% x(:)% coords(2)
+      COORD_z = BandRegion% x(:)% coords(3)
+      i_v = BandRegion% x(:)% local_Position(1)
+      j_v = BandRegion% x(:)% local_Position(2)
+      k_v = BandRegion% x(:)% local_Position(3)
+      eID = BandRegion% x(:)% element_index
+      partition = BandRegion% x(:)% partition
    
       do nProcs = 2, MPI_Process% nProcs        
       
@@ -1760,9 +1754,12 @@ contains
    
    
    
-   subroutine recvGeom()
+   subroutine recvGeom( BandRegion )
 
       implicit none
+      !-arguments----------------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      !-local-variables----------------------------------------------------------------------
 #ifdef _HAS_MPI_       
       real(kind=rp), dimension(:), allocatable :: Dist, ranks
       logical,       dimension(:), allocatable :: forcingPoints
@@ -1771,18 +1768,20 @@ contains
                                                     
       if( MPI_Process% isRoot ) return
 
-      allocate( Dist(BandPoints_ALL% NumOfObjs), &
-                ranks(BandPoints_ALL% NumOfObjs) )
-          
-      NumOfObjs  = BandPoints_ALL% NumOfObjs
+      allocate( Dist(BandRegion% NumOfObjs), &
+                ranks(BandRegion% NumOfObjs) )
+
+      NumOfObjs  = BandRegion% NumOfObjs
       
       call mpi_irecv( Dist, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Distrecv_req(1), ierr )  
       call mpi_irecv( ranks, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Distrecv_req(2), ierr )   
       
       call mpi_waitall(2, Distrecv_req, array_of_statuses, ierr )
-      
-      BandPoints_ALL% x(:)% Dist = Dist
-      BandPoints_ALL% x(:)% rank = ranks
+
+      BandRegion% x(:)% Dist = Dist
+      BandRegion% x(:)% rank = ranks
+      BandRegion% x(:)% Dist = Dist
+      BandRegion% x(:)% rank = ranks
       
       deallocate( Dist, ranks )
 #endif    
@@ -1790,9 +1789,12 @@ contains
    end subroutine recvGeom 
    
 
-   subroutine sendGeom()
+   subroutine sendGeom( BandRegion )
 
       implicit none
+      !-arguments-------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      !-local-variables--------------------------------------------------
 #ifdef _HAS_MPI_      
       real(kind=rp), dimension(:),   allocatable :: Dist, ranks
       logical,       dimension(:),   allocatable :: forcingPoints
@@ -1803,12 +1805,12 @@ contains
       if( .not. MPI_Process% isRoot ) return
 
       allocate( ranksend_req(MPI_Process% nProcs-1,2), &
-                Dist(BandPoints_ALL% NumOfObjs),       &
-                ranks(BandPoints_ALL% NumOfObjs)       )
-         
-      Dist       = BandPoints_ALL% x(:)% Dist
-      ranks      = BandPoints_ALL% x(:)% rank
-      NumOfObjs  = BandPoints_ALL% NumOfObjs
+                Dist(BandRegion% NumOfObjs),           &
+                ranks(BandRegion% NumOfObjs)           )
+
+      Dist       = BandRegion% x(:)% Dist
+      ranks      = BandRegion% x(:)% rank
+      NumOfObjs  = BandRegion% NumOfObjs
       
       do nProcs = 2, MPI_Process% nProcs        
          call mpi_isend( Dist, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
@@ -1826,6 +1828,90 @@ contains
    
    end subroutine sendGeom
    
+   
+   
+   subroutine recvIP_Coords( BandRegion )
+   
+      implicit none
+      !-arguments--------------------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      !-local-variables--------------------------------------------------------------------------
+#ifdef _HAS_MPI_       
+      real(kind=RP), dimension(:), allocatable :: COORD_x, COORD_y, COORD_z
+      integer                                  :: IP_recv_req(3), i, NumOfObjs, &
+                                                  ierr, array_of_statuses(MPI_STATUS_SIZE,3)
+                                                    
+      if( MPI_Process% isRoot ) return
+
+      NumOfObjs = BandRegion% NumOfObjs
+
+      allocate( COORD_x(NumOfObjs), &
+                COORD_y(NumOfObjs), &
+                COORD_z(NumOfObjs)  )
+      
+      call mpi_irecv( COORD_x, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, IP_recv_req(1), ierr )  
+      
+      call mpi_irecv( COORD_y, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, IP_recv_req(2), ierr )  
+      
+      call mpi_irecv( COORD_z, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, IP_recv_req(2), ierr )  
+      
+      call mpi_waitall(3, IP_recv_req, array_of_statuses, ierr )
+      
+      do i = 1, BandPoints_ALL% NumOfObjs
+         BandRegion% x(i)% ImagePoint_coords(1) = COORD_x(i)
+         BandRegion% x(i)% ImagePoint_coords(2) = COORD_y(i)
+         BandRegion% x(i)% ImagePoint_coords(3) = COORD_z(i)
+      end do
+      
+      deallocate( COORD_x, COORD_y, COORD_z )
+#endif    
+   
+   end subroutine recvIP_Coords
+   
+   
+   subroutine sendIP_Coords( BandRegion )
+   
+      implicit none
+      !-arguments------------------------------------------------------------------------------
+      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      !-local-variables------------------------------------------------------------------------
+#ifdef _HAS_MPI_      
+      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
+      integer,       dimension(:,:), allocatable :: IP_send_req
+      integer                                    :: NumOfObjs, nProcs, &
+                                                    ierr, array_of_statuses(MPI_STATUS_SIZE,3)
+                                                    
+      if( .not. MPI_Process% isRoot ) return
+
+      NumOfObjs = BandRegion% NumOfObjs
+
+      allocate( IP_send_req(MPI_Process% nProcs-1,1), &
+                COORD_x(NumOfObjs),                   &   
+                COORD_y(NumOfObjs),                   &
+                COORD_z(NumOfObjs)                    )
+
+      COORD_x = BandRegion% x(:)% ImagePoint_coords(1)
+      COORD_y = BandRegion% x(:)% ImagePoint_coords(2)
+      COORD_z = BandRegion% x(:)% ImagePoint_coords(3)
+      
+      do nProcs = 2, MPI_Process% nProcs        
+         call mpi_isend( COORD_x, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
+                         IP_send_req(nProcs-1,1), ierr                                        )
+                         
+         call mpi_isend( COORD_y, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
+                         IP_send_req(nProcs-1,2), ierr                                        )
+                         
+         call mpi_isend( COORD_z, NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
+                         IP_send_req(nProcs-1,3), ierr                                        )
+                         
+         call mpi_waitall(3, IP_send_req(nProcs-1,:), array_of_statuses, ierr )
+         
+      end do
+      
+      deallocate( COORD_x, COORD_y, COORD_z )
+#endif  
+   
+   end subroutine sendIP_Coords
    
    
    subroutine recvIP_NearestPoints( IP_NearestPoints )
@@ -1897,5 +1983,7 @@ contains
    
    end subroutine sendIP_NearestPoints
    
+   
+
    
 end module MPI_IBMUtilities

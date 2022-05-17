@@ -625,6 +625,7 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
+
          if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
@@ -638,6 +639,7 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do      
+            call mesh% IBM% SourceTermTurbulence( mesh% elements ) 
          end if 
 
       end subroutine TimeDerivative_ComputeQDot

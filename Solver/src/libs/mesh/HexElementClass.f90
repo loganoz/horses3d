@@ -175,6 +175,9 @@
          call self % hexMap % destruct
          
          call self % SurfInfo % destruct
+         
+         if( allocated(self% isInsideBody) )   deallocate(self% isInsideBody)
+         if( allocated(self% STL) )            deallocate(self% STL)
 
       END SUBROUTINE HexElement_Destruct
 !

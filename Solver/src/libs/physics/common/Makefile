@@ -19,7 +19,9 @@ LIBOBJS_NS = 	./build_ns/FluidData.o \
 		./build_ns/FreeSlipWallBC.o \
 		./build_ns/PeriodicBC.o \
 		./build_ns/UserDefinedBC.o \
-		./build_ns/BoundaryConditions.o 
+		./build_ns/BoundaryConditions.o  \
+		./build_ns/WallFunctionDefinitions.o \
+		./build_ns/WallFunctionBC.o
 
 LIBOBJS_NSSA = 	./build_nssa/FluidData.o \
 		./build_nssa/PhysicsStorage.o \
@@ -32,7 +34,9 @@ LIBOBJS_NSSA = 	./build_nssa/FluidData.o \
 		./build_nssa/FreeSlipWallBC.o \
 		./build_nssa/PeriodicBC.o \
 		./build_nssa/UserDefinedBC.o \
-		./build_nssa/BoundaryConditions.o 
+		./build_nssa/BoundaryConditions.o \
+		./build_nssa/WallFunctionDefinitions.o \
+		./build_nssa/WallFunctionBC.o 
 		
 LIBOBJS_iNS = 	./build_ins/FluidData.o \
 		./build_ins/PhysicsStorage.o \
@@ -45,7 +49,9 @@ LIBOBJS_iNS = 	./build_ins/FluidData.o \
 		./build_ins/FreeSlipWallBC.o \
 		./build_ins/PeriodicBC.o \
 		./build_ins/UserDefinedBC.o \
-		./build_ins/BoundaryConditions.o 
+		./build_ins/BoundaryConditions.o  \
+		./build_ins/WallFunctionDefinitions.o \
+		./build_ins/WallFunctionBC.o
 
 LIBOBJS_CH = 	./build_ch/FluidData.o \
 		./build_ch/PhysicsStorage.o \
@@ -58,7 +64,9 @@ LIBOBJS_CH = 	./build_ch/FluidData.o \
 		./build_ch/FreeSlipWallBC.o \
 		./build_ch/PeriodicBC.o \
 		./build_ch/UserDefinedBC.o \
-		./build_ch/BoundaryConditions.o 
+		./build_ch/BoundaryConditions.o   \
+		./build_ch/WallFunctionDefinitions.o \
+		./build_ch/WallFunctionBC.o
 
 LIBOBJS_MU = 	./build_mu/FluidData.o \
 		./build_mu/PhysicsStorage.o \
@@ -71,7 +79,9 @@ LIBOBJS_MU = 	./build_mu/FluidData.o \
 		./build_mu/FreeSlipWallBC.o \
 		./build_mu/PeriodicBC.o \
 		./build_mu/UserDefinedBC.o \
-		./build_mu/BoundaryConditions.o 
+		./build_mu/BoundaryConditions.o  \
+		./build_mu/WallFunctionDefinitions.o \
+		./build_mu/WallFunctionBC.o
 
 LIB = physics
 

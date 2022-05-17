@@ -141,8 +141,9 @@ module KDClass
       !-local-variables----------------
       integer,  dimension(1) :: maxvec
       
-      maxvec = maxloc( (/ OBB(this% STLNum)% MBR% Length, OBB(this% STLNum)% MBR% Width, &
-                          abs(OBB(this% STLNum)% nMax) + abs(OBB(this% STLNum)% nMin) /) )
+      maxvec = maxloc( (/ abs(this% vertices(1,7) - this% vertices(1,1)),   &
+                          abs(this% vertices(2,7) - this% vertices(2,1)),   &
+                          abs(this% vertices(3,7) - this% vertices(3,1)) /) )
        
       FirstAxis = maxvec(1)
  
@@ -198,15 +199,18 @@ module KDClass
 !  -------------------------------------------------
 ! This subroutine creates a new file call KDtree in which the leaves will be stored. 
 !  ------------------------------------------------  
-   subroutine KDtree_plot( this )
+   subroutine KDtree_plot( this, lvl )
       use MPI_Process_Info
       implicit none
       !-arguemnts----------------------------------
       class(KDtree), target, intent(inout) :: this
+      integer,               intent(in)    :: lvl
       !-local-variables----------------------------
       real(kind=rp), dimension(NDIM) :: x_g
-      character(len=LINE_LENGTH) :: filename, myString
-      integer :: i, funit
+      character(len=LINE_LENGTH)     :: filename, myString
+      integer                        :: i, funit
+
+      optional :: lvl
 
       select case( this% which_KDtree )
          case( POINTS_KDTREE )
@@ -214,7 +218,18 @@ module KDClass
                ! same kdtree for all the processes
                funit = UnusedUnit()
             
-               open(funit,file='IBM/KDTreeBandPoints.tec', status='unknown')
+               if( present(lvl) ) then
+                  if( lvl .gt. 0 ) then
+                     write(myString,'(i100)') lvl
+                     filename = 'KDtreeBandPoints_lvl'//trim(adjustl(myString))
+                  else 
+                     filename = 'KDTreeBandPoints'
+                  end if
+               else
+                  filename = 'KDTreeBandPoints'
+               end if
+               
+               open(funit,file='IBM/'//trim(filename)//'.tec', status='unknown')
                
                write(funit,"(a28)") 'TITLE = "KD-tree"'
                write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
@@ -350,10 +365,14 @@ module KDClass
       this% NumOfObjs = 0
       
       if( present(PointList) ) then
-         MaxX = maxval(PointList(:)% coords(1)); MinX = minval(PointList(:)% coords(1))
-         MaxY = maxval(PointList(:)% coords(2)); MinY = minval(PointList(:)% coords(2))
-         MaxZ = maxval(PointList(:)% coords(3)); MinZ = minval(PointList(:)% coords(3))
+         MaxX = maxval(PointList(:)% coords(1)) + SAFETY_FACTOR 
+         MaxY = maxval(PointList(:)% coords(2)) + SAFETY_FACTOR
+         MaxZ = maxval(PointList(:)% coords(3)) + SAFETY_FACTOR
         
+         MinX = minval(PointList(:)% coords(1)) - SAFETY_FACTOR
+         MinY = minval(PointList(:)% coords(2)) - SAFETY_FACTOR
+         MinZ = minval(PointList(:)% coords(3)) - SAFETY_FACTOR
+         
          this% NumOfObjs = size(PointList)
 
          this% vertices(:,1) = (/ MinX, MinY, MinZ /)
@@ -374,7 +393,6 @@ module KDClass
             this% vertices(:,i+4) = Vertices(:,i+4)
          end do
                   
-         if( associated(this% parent) ) nullify(this% parent)
          allocate( this% ObjectsList(stl% NumOfObjs) )
          
          associate( Objs => stl% ObjectsList )
@@ -396,7 +414,7 @@ module KDClass
 !  -------------------------------------------------
 ! This subroutine builds the KD tree. 
 !  ------------------------------------------------   
-   subroutine KDtree_construct( this, stl, Vertices, isPlot, Min_n_of_Objs, PointList )
+   subroutine KDtree_construct( this, stl, Vertices, isPlot, Min_n_of_Objs, PointList, lvl )
       use omp_lib
       implicit none
       !-arguments-----------------------------------------------------------------
@@ -404,7 +422,7 @@ module KDClass
       type(STLfile),                       intent(in)    :: stl
       real(kind=RP),    dimension(NDIM,8), intent(in)    :: Vertices
       logical,                             intent(in)    :: isPlot
-      integer,                             intent(in)    :: Min_n_of_Objs
+      integer,                             intent(in)    :: Min_n_of_Objs, lvl
       type(point_type), dimension(:),      intent(in)    :: PointList
       !-local-varables------------------------------------------------------------
       real(kind=rp)                                      :: NumOfObjs,        &
@@ -416,7 +434,7 @@ module KDClass
                                                             DepthFirstLevel,  &
                                                             NumDepthFirst
 
-      optional :: PointList 
+      optional :: PointList, lvl
       
       if( present( PointList ) ) then
          this% which_KDtree = POINTS_KDTREE
@@ -436,9 +454,9 @@ module KDClass
       
       select case( this% which_KDtree )
          case( POINTS_KDTREE )
-         
+
             this% axis = FindAxis( this )
-         
+     
             allocate(Events(NDIM,this% NumOfObjs))
 
             call GetPointsEvents( this, Events, PointList, NumThreads )
@@ -472,7 +490,7 @@ module KDClass
          case( TRIANGLES_KDTREE )
 
             allocate(Events(NDIM,2*this% NumOfObjs))      
-      
+
             call GetEvents( this, Events, NumThreads )
 
             this% NumThreads  = NumThreads
@@ -498,6 +516,7 @@ module KDClass
             end do
 !$omp end single
 !$omp end parallel
+
             deallocate(Depth_First)
 
          case default
@@ -505,8 +524,12 @@ module KDClass
             error stop
       end select  
 
-      if( isPlot ) call this% plot()
-
+      if( present(lvl) ) then
+         if( isPlot ) call this% plot(lvl)
+      else
+         if( isPlot ) call this% plot()
+      end if
+      
    end subroutine KDtree_construct
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -525,11 +548,6 @@ module KDClass
       real(kind=rp), dimension(NDIM) :: vertices
       integer                        :: level
    
-      if( associated(this% parent) ) then
-         print *, "The starting point of the KDtree is not the root" 
-         error stop 
-      end if
-   
       tree => this
       
       level = 0
@@ -545,11 +563,12 @@ module KDClass
       
    end subroutine KDtree_FindLeaf
 
-   recursive subroutine KD_treeDestruct( this ) 
+   recursive subroutine KD_treeDestruct( this, isChild ) 
    
       implicit none
       !-arguments----------------------------------
       class(KDtree), intent(inout) :: this
+      logical,       intent(in)    :: isChild
       !-local-variables----------------------------
       integer               :: i       
          
@@ -559,15 +578,19 @@ module KDClass
          end do
          deallocate(this% ObjectsList)      
       end if
+      
       if( allocated(this% ObjsIndeces) ) deallocate(this% ObjsIndeces)
       if( allocated(this% Events) )      deallocate(this% Events)
          
-      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct      
-      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct      
+      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct( isChild )     
+      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct( isChild )      
       
-      if( associated(this% child_L) ) deallocate(this% child_L)
-      if( associated(this% child_R) ) deallocate(this% child_R)
-
+      if( .not. isChild ) then
+         if( associated(this% child_L) ) deallocate(this% child_L)
+         if( associated(this% child_R) ) deallocate(this% child_R)
+         if( associated(this% parent) )  nullify(this% parent)
+      end if
+      
    end subroutine KD_treeDestruct  
    
    subroutine KD_treeGetArea( tree )
@@ -656,7 +679,7 @@ module KDClass
       type(KDtree),   pointer :: child_L, child_R 
       type(Event), dimension(:,:), allocatable :: Events_L, Events_R
       integer :: j
-   
+
       call this% GetArea()
 
       BoxIndex = BoxIndex + 1
@@ -670,12 +693,12 @@ module KDClass
          if( this% split  ) then 
 
             allocate(this% child_L,this% child_R)
-            allocate(this% child_L% parent, this% child_R% parent)
-         
-            this% child_L% parent => this; this% child_R% parent => this
-        
+                    
             child_L => this% child_L
             child_R => this% child_R
+            
+            child_L% parent => this
+            child_R% parent => this
            
             child_L% level = this% level + 1
             child_R% level = this% level + 1
@@ -708,7 +731,7 @@ module KDClass
             do j = 1, size(Depth_First)
                if( .not. Depth_First(j)% active ) then 
                   Depth_First(j)% taskTree => this
-                  allocate(Depth_First(j)% taskEvents(NDIM,2*this% NumOfObjs))
+                  allocate(Depth_First(j)% taskEvents(NDIM,2*this% NumOfObjs+1))
                   Depth_First(j)% taskEvents = Events
                   Depth_First(j)% active = .true.
                   deallocate(Events)
@@ -731,7 +754,7 @@ module KDClass
          end do
       end if
      
-      if( allocated(events) ) deallocate( events )
+      if( allocated(Events) ) deallocate( Events )
 
    end subroutine KDtree_buildSAH_BreadthFirst
    
@@ -762,11 +785,12 @@ module KDClass
          if( this% split ) then 
 
             allocate(this% child_L,this% child_R)
-            allocate(this% child_L% parent, this% child_R% parent)
-            this% child_L% parent => this; this% child_R% parent => this
         
             child_L => this% child_L
             child_R => this% child_R
+            
+            child_L% parent => this
+            child_R% parent => this
            
             child_L% level = this% level + 1
             child_R% level = this% level + 1
@@ -789,7 +813,7 @@ module KDClass
             call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R, DEPTHFIRST )
 
             deallocate(Events)
-
+  
             call KDtree_buildSAH_DepthFirst( child_L, Events_L, ObjsIndx )
             call KDtree_buildSAH_DepthFirst( child_R, Events_R, ObjsIndx )
  
@@ -804,9 +828,10 @@ module KDClass
             call this% SaveObjsIndeces( Events )     
             deallocate(Events)
          end if
+
       end if
-            
-      if( allocated(events) ) deallocate(events)
+
+      if( allocated(Events) ) deallocate(Events)
 
    end subroutine KDtree_buildSAH_DepthFirst
    
@@ -919,39 +944,47 @@ module KDClass
 !$omp task private(i,k,pplus,pminus,pvert,SplittingPlane) firstprivate(taskNum)
          do k = 1, NDIM
              pplus = 0; pminus = 0; pvert = 0
+
              SplittingPlane = Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index + &
                               taskPart(taskNum)% taskPartDim(k)% ChunkDim)% plane
              i = 1
              do while(i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim)
                                
                 if( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .lt. 0 ) exit
-                               
-                do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                         &
-                         ( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.  &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                   )
-                   pminus = pminus + 1
-                   i = i + 1
-                end do
-          
-                do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                         &
-                         (Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane   .or.  &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_                )
-                   pvert = pvert + 1
-                   if(Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane) &
-                   taskPart(taskNum+1)% taskPartDim(k)% N_P = taskPart(taskNum+1)% taskPartDim(k)% N_P + 1
-                   i = i + 1
-                end do
-              
-                do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                         &
-                          (Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.  &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                          Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_                 )                                    
-                   pplus = pplus + 1
-                   i = i + 1
-                end do   
+                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then              
+                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.   &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                   )
+                      pminus = pminus + 1
+                      i = i + 1
+                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                   end do
+                end if
+                
+                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
+                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane   .or.  &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_                )
+                      pvert = pvert + 1
+                      if(Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane) &
+                      taskPart(taskNum+1)% taskPartDim(k)% N_P = taskPart(taskNum+1)% taskPartDim(k)% N_P + 1
+                      i = i + 1
+                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                   end do
+                end if
+                
+                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
+                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.   &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
+                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_                 )                                    
+                      pplus = pplus + 1
+                      i = i + 1
+                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                   end do     
+                endif
+                
              end do
+             
              taskPart(taskNum+1)% taskPartDim(k)% N_R = taskPart(taskNum+1)% taskPartDim(k)% N_R - pminus - pvert         
              taskPart(taskNum+1)% taskPartDim(k)% N_L = taskPart(taskNum+1)% taskPartDim(k)% N_L + pplus + pvert
              
@@ -984,30 +1017,37 @@ module KDClass
            i = 1
            do while ( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim )
               pplus = 0; pminus = 0; pvert = 0
+              
               SplittingPlane = Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane
 
               if( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .lt. 0 ) exit
-
-              do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                       &
-                        Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                        Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                 )
-                  pminus = pminus + 1
-                  i = i + 1
-               end do
+              
+              if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
+                 do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
+                           Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                 )
+                     pminus = pminus + 1
+                     i = i + 1
+                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                  end do
+               end if
+               
+               if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
+                  do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
+                            Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_              )
+                     pvert = pvert + 1
+                     i = i + 1
+                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                  end do
+               end if
          
-               do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                       &
-                         Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                         Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_              )
-                  pvert = pvert + 1
-                  i = i + 1
-               end do
-         
-               do while( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim .and.                                       &
-                         Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                         Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_               )                                     
-                  pplus = pplus + 1
-                  i = i + 1
-               end do
+               if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
+                  do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
+                            Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_               )                                     
+                      pplus = pplus + 1
+                     i = i + 1
+                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
+                  end do
+              end if
 
                N_R(k) = N_R(k) - pminus - pvert
    
@@ -1066,23 +1106,29 @@ module KDClass
 
             if( Events(k,i)% eType .lt. 0 ) exit
 
-            do while( i .le. this% NumOfEvents(k)  .and. &
-                      Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. END_ )
-               pminus = pminus + 1
-               i = i + 1
-            end do
+            if( i .le. this% NumOfEvents(k) ) then
+               do while( Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. END_ )
+                  pminus = pminus + 1
+                  i = i + 1
+                  if( i .gt. this% NumOfEvents(k) ) exit
+               end do
+            end if
         
-            do while( i .le. this% NumOfEvents(k) .and.  &
-                     Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. PLANAR_ )
-               pvert = pvert + 1
-               i = i + 1
-            end do
-         
-            do while( i .le. this% NumOfEvents(k) .and. &
-                      Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. START_ )                                    
-               pplus = pplus + 1
-               i = i + 1
-            end do
+            if( i .le. this% NumOfEvents(k) ) then
+               do while( Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. PLANAR_ )
+                  pvert = pvert + 1
+                  i = i + 1
+                  if( i .gt. this% NumOfEvents(k) ) exit
+               end do
+            end if
+            
+            if( i .le. this% NumOfEvents(k) ) then
+               do while( Events(k,i)% plane .eq. SplittingPlane .and. Events(k,i)% eType .eq. START_ )                                    
+                  pplus = pplus + 1
+                  i = i + 1
+                  if( i .gt. this% NumOfEvents(k) ) exit
+               end do   
+            end if
 
             N_R(k) = N_R(k) - pminus - pvert
    
@@ -1407,9 +1453,6 @@ module KDClass
          this% SplittingPlane = Events(this% axis,this% HalfEvents)% plane
          
          allocate(this% child_L,this% child_R)
-         allocate(this% child_L% parent, this% child_R% parent)
-         
-         this% child_L% parent => this; this% child_R% parent => this
         
          child_L => this% child_L
          child_R => this% child_R
@@ -1493,8 +1536,6 @@ module KDClass
          this% SplittingPlane = Events(this% axis,this% HalfEvents)% plane
          
          allocate(this% child_L,this% child_R)
-         allocate(this% child_L% parent, this% child_R% parent)
-         this% child_L% parent => this; this% child_R% parent => this
         
          child_L => this% child_L
          child_R => this% child_R
@@ -1698,8 +1739,7 @@ module KDClass
       
       integer, dimension(NDIM,NumOfThreads) :: ChunkDim
       integer :: i, k
-   
-   
+
       ChunkDim = ChunkPartition( TotalChunk, NumOfThreads )
       
       if( allocated(taskPart) ) deallocate(taskPart)
