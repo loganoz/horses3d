@@ -2880,7 +2880,7 @@ module IBMClass
    
    end subroutine IBM_SourceTermTurbulence
    
-! estimate the y_plus for a flat plate 
+! estimate the yplus for a flat plate 
    
    real(kind=RP) function InitializeDistance( y_plus ) result( y )
       use FluidData

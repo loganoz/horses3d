@@ -16,6 +16,7 @@ module SpatialDiscretization
       use HyperbolicDiscretizations
       use EllipticDiscretizations
       use DGIntegrals
+      use ShockCapturing
       use MeshTypes
       use HexMeshClass
       use ElementClass
@@ -80,7 +81,7 @@ module SpatialDiscretization
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
+      subroutine Initialize_SpaceAndTimeMethods(controlVariables, sem)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
@@ -88,7 +89,7 @@ module SpatialDiscretization
          use MPI_Process_Info
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
-         class(HexMesh)                         :: mesh
+         class(DGSem)                           :: sem
 !
 !        ---------------
 !        Local variables
@@ -99,7 +100,7 @@ module SpatialDiscretization
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
          
-         if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
+         if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
          
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
@@ -229,10 +230,15 @@ module SpatialDiscretization
    !        Initialize models
    !        -----------------
             call InitializeTurbulenceModel(SAmodel, controlVariables)
-         
+
+            call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, sem, &
+                                           ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            
+            call ShockCapturingDriver % Describe
+
          end if
 !        --------------         
-         if (.not. mesh % child) then
+         if (.not. sem % mesh % child) then
                computeElementInterfaceFlux => computeElementInterfaceFlux_NSSA
                computeMPIFaceFlux          => computeMPIFaceFlux_NSSA
                computeBoundaryFlux         => computeBoundaryFlux_NSSA
@@ -245,7 +251,8 @@ module SpatialDiscretization
       subroutine Finalize_SpaceAndTimeMethods
          implicit none
          IF ( ALLOCATED(HyperbolicDiscretization) ) DEALLOCATE( HyperbolicDiscretization )
-         
+         if ( allocated(ShockCapturingDriver) )     deallocate( ShockCapturingDriver )
+
       end subroutine Finalize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
@@ -441,6 +448,14 @@ module SpatialDiscretization
          end do
 !$omp end do 
 !
+#if defined(_HAS_MPI_)
+!$omp single
+         if (ShockCapturingDriver % isActive) then
+            call mesh % UpdateMPIFacesAviscflux(NCONS)
+         end if
+!$omp end single
+#endif
+!
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
 !        ******************************************
@@ -493,6 +508,15 @@ module SpatialDiscretization
 !           Compute viscosity at MPI faces
 !           ------------------------------
             call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
+!
+!$omp single
+            if ( flowIsNavierStokes ) then
+               if ( ShockCapturingDriver % isActive ) then
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mesh % GatherMPIFacesAviscflux(NCONS)
+               end if
+            end if
+!$omp end single
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -784,7 +808,8 @@ module SpatialDiscretization
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux   ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
@@ -798,7 +823,24 @@ module SpatialDiscretization
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux) 
+         if (flowIsNavierStokes) then
+
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux)
+!
+!           Compute the artificial dissipation
+!           ----------------------------------
+            if (ShockCapturingDriver % isActive) then
+               call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
+            else
+               AviscContravariantFlux = 0.0_RP
+            end if
+
+         else
+
+            viscousContravariantFlux = 0.0_RP
+            AviscContravariantFlux   = 0.0_RP
+
+         end if
 !
 !        ************************
 !        Perform volume integrals
@@ -809,7 +851,7 @@ module SpatialDiscretization
 !
 !           Compute the total Navier-Stokes flux
 !           ------------------------------------
-            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
@@ -851,7 +893,8 @@ module SpatialDiscretization
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
          integer       :: eID
 !
@@ -867,9 +910,22 @@ module SpatialDiscretization
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
+
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
+!
+!           Compute the artificial dissipation
+!           ----------------------------------
+            if (ShockCapturingDriver % isActive) then
+               call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
+            else
+               AviscContravariantFlux = 0.0_RP
+            end if
+
          else
+
             viscousContravariantFlux = 0.0_RP
+            AviscContravariantFlux   = 0.0_RP
+
          end if
 !
 !        ************************
@@ -881,7 +937,7 @@ module SpatialDiscretization
 !
 !           Compute the total Navier-Stokes flux
 !           ------------------------------------
-            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux 
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
@@ -895,7 +951,7 @@ module SpatialDiscretization
 !
 !           Peform the Weak volume green integral
 !           -------------------------------------
-            viscousContravariantFlux = viscousContravariantFlux
+            viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
@@ -936,9 +992,24 @@ module SpatialDiscretization
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
         integer        :: Sidearray(2)
+!
+!        --------------------------
+!        Artifical viscosity fluxes
+!        --------------------------
+!
+         if ( ShockCapturingDriver % isActive ) then
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+         else
+            Avisc_flux = 0.0_RP
+         end if
+!
+!        --------------
+!        Viscous fluxes
+!        --------------
          
          visc_flux = 0._RP
          
@@ -998,7 +1069,7 @@ module SpatialDiscretization
 !              Multiply by the Jacobian
 !              ------------------------
 
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
                
             END DO   
          END DO  
@@ -1021,10 +1092,25 @@ module SpatialDiscretization
          integer       :: thisSide
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
-         
+!
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
+!
+         if ( ShockCapturingDriver % isActive ) then
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+         else
+            Avisc_flux = 0.0_RP
+         end if
+!
+!        --------------
+!        Viscous fluxes
+!        --------------
+ 
          visc_flux = 0._RP
          if (flowIsNavierStokes) then
             DO j = 0, f % Nf(2)
@@ -1083,7 +1169,7 @@ module SpatialDiscretization
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
                
             END DO   
          END DO  
@@ -1120,10 +1206,20 @@ module SpatialDiscretization
       INTEGER, DIMENSION(2)           :: N
       REAL(KIND=RP)                   :: inv_flux(NCONS)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu, kappa, beta, delta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
-      integer       :: Sidearray(2)
+      integer                         :: Sidearray(2)
+
+
+      if ( ShockCapturingDriver % isActive ) then
+         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+            Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j) / f % geom % jacobian(i,j)
+         end do              ; end do
+      else
+         Avisc_flux = 0.0_RP
+      end if
 !
 !     -------------------
 !     Get external states
@@ -1154,6 +1250,10 @@ module SpatialDiscretization
                visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
                                   + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
+
+               visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
+
+
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
                                               time, &

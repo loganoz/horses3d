@@ -551,14 +551,14 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             CHARACTER(LEN=29)                  :: testName = "Taylor-Green vortex (SVV-LES)"
             TYPE(FTAssertionsManager), POINTER :: sharedManager
-            real(kind=RP), parameter           :: kinEn = 0.12499999508762369_RP
-            real(kind=RP), parameter           :: kinEnRate = -9.7626065727320022e-8_RP
-            real(kind=RP), parameter           :: SVVdiss = 2.9193283736054271e-7_RP
-            real(kind=RP), parameter           :: res(5) = [ 7.2561273876922303e-4_RP, &
-                                                             0.13238938278543014_RP,   &
-                                                             0.13238879529241185_RP,   &
-                                                             0.25001464684437030_RP,   &
-                                                             0.41098681755861155_RP    ]
+            real(kind=RP), parameter           :: kinEn = 0.12499987421644741_RP
+            real(kind=RP), parameter           :: kinEnRate = -7.0094516683165938e-6_RP
+            real(kind=RP), parameter           :: SVVdiss = 6.9890455523791036e-6_RP
+            real(kind=RP), parameter           :: res(5) = [ 1.7422360864029623e-3_RP,   &
+                                                             0.15706617102525505_RP, &
+                                                             0.15805230671482234_RP, &
+                                                             0.25880419553152678_RP, &
+                                                             1.0785803661196396_RP  ]
 
 
             call initializeSharedAssertionsManager
@@ -591,17 +591,17 @@ end module ProblemFileFunctions
 
             call FTAssertEqual(expectedValue = kinEn, &
                                actualValue   = monitors % volumeMonitors(1) % values(1,1), &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "Kinetic energy")
 
             call FTAssertEqual(expectedValue = kinEnRate + 1.0_RP, &
                                actualValue   = monitors % volumeMonitors(2) % values(1,1) + 1.0_RP, &
-                               tol           = 1.0e-11_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "Kinetic energy rate")
 
-            call FTAssertEqual(expectedValue = svvDiss, &
-                               actualValue   = monitors % volumeMonitors(3) % values(1,1), &
-                               tol           = 1.0e-11_RP, &
+            call FTAssertEqual(expectedValue = svvDiss + 1.0_RP, &
+                               actualValue   = monitors % volumeMonitors(3) % values(1,1) + 1.0_RP, &
+                               tol           = 1.0e-7_RP, &
                                msg           = "SVV dissipation")
 
             call sharedManager % summarizeAssertions(title = testName,iUnit = 6)
@@ -610,7 +610,7 @@ end module ProblemFileFunctions
                write(6,*) testName, " ... Passed"
                write(6,*) "This test checks if:"
                write(6,*) "   - The residuals are exact to 1e-7"
-               write(6,*) "   - The kinetic energy and the SVV dissipation are also exact (1e-11)"
+               write(6,*) "   - The kinetic energy and the SVV dissipation are also exact (1e-7)"
             else
                write(6,*) testName, " ... Failed"
                stop 99

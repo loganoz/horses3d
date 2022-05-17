@@ -111,7 +111,7 @@
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,    &
                                  success           = success)
 
-      call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
+      call Initialize_SpaceAndTimeMethods(controlVariables, sem)
                            
       IF(.NOT. success)   ERROR STOP "Mesh reading error"
       IF(.NOT. success)   ERROR STOP "Boundary condition specification error"

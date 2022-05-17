@@ -52,8 +52,9 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.ins
 bin/
 Makefile*
+!./Makefile.in
+!utils/ProblemFile/Makefile
 utils/modulefile/horses/dev
 Solver/include/
 .local.vimrc
-.fortls
 .vscode/
