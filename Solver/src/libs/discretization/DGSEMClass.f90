@@ -104,7 +104,6 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
-      use IBMClass
       use SurfaceMesh, only: surfacesMesh
 
       IMPLICIT NONE
@@ -474,14 +473,15 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients
+         logical                                :: saveGradients, loadFromNSSA
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time)
+            loadFromNSSA = controlVariables % logicalValueForKey("NS load from NSSA")
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)

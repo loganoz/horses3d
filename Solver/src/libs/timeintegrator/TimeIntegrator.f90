@@ -317,6 +317,8 @@ print*, "Method selected: RK5"
       use ShockCapturing
       use TripForceClass, only: randomTrip
       use ActuatorLine, only: farm
+      use WallFunctionDefinitions, only: useAverageV
+      use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV
 #endif
       IMPLICIT NONE
 !
@@ -384,6 +386,7 @@ print*, "Method selected: RK5"
 
 
 #if defined(NAVIERSTOKES)
+      call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
           call farm % ConstructFarm(controlVariables)
@@ -601,6 +604,10 @@ print*, "Method selected: RK5"
             end if
          END IF
 #if defined(NAVIERSTOKES)
+!
+!        Update wall avg
+!        ---------------
+         if (useAverageV) call WallUpdateMeanV(sem % mesh, dt)
 !
 !        Integration of particles
 !        ------------------------

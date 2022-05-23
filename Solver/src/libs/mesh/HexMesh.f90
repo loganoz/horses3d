@@ -51,6 +51,7 @@ MODULE HexMeshClass
       public      GetOriginalNumberOfFaces
       public      ConstructFaces, ConstructPeriodicFaces
       public      DeletePeriodicMinusFaces, GetElementsFaceIDs
+      public      no_of_stats_variables
 !
 !     ---------------
 !     Mesh definition
@@ -133,7 +134,8 @@ MODULE HexMeshClass
       end type HexMesh
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
-
+      integer            :: no_of_stats_variables
+      
       TYPE Neighbor_t         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
          INTEGER :: elmnt(NUM_OF_NEIGHBORS+1) ! "7" hardcoded for 3D hexahedrals in conforming meshes (the last one is itself)... This definition must change if the code is expected to be more general
       END TYPE Neighbor_t
@@ -2939,21 +2941,24 @@ slavecoord:             DO l = 1, 4
       end subroutine HexMesh_SaveSolution
 
 #if defined(NAVIERSTOKES)
-      subroutine HexMesh_SaveStatistics(self, iter, time, name)
+      subroutine HexMesh_SaveStatistics(self, iter, time, name, saveGradients)
          use SolutionFile
          implicit none
          class(HexMesh),      intent(in)        :: self
          integer,             intent(in)        :: iter
          real(kind=RP),       intent(in)        :: time
          character(len=*),    intent(in)        :: name
+         logical,             intent(in)        :: saveGradients
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer                          :: fid, eID
+         integer                          :: no_stat_s
          integer(kind=AddrInt)            :: pos
-         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
 !
 !        Gather reference quantities
 !        ---------------------------
@@ -2974,8 +2979,27 @@ slavecoord:             DO l = 1, 4
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
-            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + 9_AddrInt*e % offsetIO*SIZEOF_RP
-            call writeArray(fid, e % storage % stats % data, position=pos)
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
+            no_stat_s = 9
+            call writeArray(fid, e % storage % stats % data(1:no_stat_s,:,:,:), position=pos)
+            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            ! write(fid) e%storage%stats%data(7:,:,:,:)
+            Q(1:NCONS,:,:,:) = e % storage % stats % data(no_stat_s+1:no_stat_s+NCONS,:,:,:)
+            write(fid) Q
+            deallocate(Q)
+            if ( saveGradients .and. computeGradients ) then
+               allocate(Q(NGRAD,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               ! UX
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1:no_stat_s+NCONS+NGRAD,:,:,:)
+               write(fid) Q
+               ! UY
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+NGRAD:no_stat_s+NCONS+2*NGRAD,:,:,:)
+               write(fid) Q
+               ! UZ
+               Q(1:NGRAD,:,:,:) = e % storage % stats % data(no_stat_s+NCONS+1+2*NGRAD:,:,:,:)
+               write(fid) Q
+               deallocate(Q)
+            end if
             end associate
          end do
          close(fid)
@@ -3008,13 +3032,14 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------------
 !     Subroutine to load a solution for restart using the information in the control file
 !     -----------------------------------------------------------------------------------
-      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time )
+      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA ) 
          use mainKeywordsModule, only: restartFileNameKey
          use FileReaders       , only: ReadOrderFile
          implicit none
          !-arguments-----------------------------------------------
          class(HexMesh)                       :: self
          type(FTValueDictionary), intent(in)  :: controlVariables
+         logical                , intent(in)  :: loadFromNSSA
          integer                , intent(out) :: initial_iteration
          real(kind=RP)          , intent(out) :: initial_time
          !-local-variables-----------------------------------------
@@ -3086,8 +3111,8 @@ slavecoord:             DO l = 1, 4
 
 !           Read the solution in the auxiliar mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
-
-            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients)
+            
+            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA)
             do eID=1, self % no_of_elements
                call auxMesh % storage % elements (eID) % InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
             end do
@@ -3108,7 +3133,7 @@ slavecoord:             DO l = 1, 4
 !        *****************************************************
 !
          else
-            call self % LoadSolution ( fileName, initial_iteration, initial_time )
+            call self % LoadSolution ( fileName, initial_iteration, initial_time, loadFromNSSA=loadFromNSSA )
          end if
 
       end subroutine HexMesh_LoadSolutionForRestart
@@ -3118,14 +3143,15 @@ slavecoord:             DO l = 1, 4
 !     ----------------------------------------------
 !     Subroutine to load a solution (*.hsol) in self
 !     ----------------------------------------------
-      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time , with_gradients)
+      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA)
          IMPLICIT NONE
          CLASS(HexMesh)                  :: self
          character(len=*)                :: fileName
          integer           , intent(out) :: initial_iteration
          real(kind=RP)     , intent(out) :: initial_time
          logical, optional , intent(out) :: with_gradients
-
+         logical, optional , intent(in)  :: loadFromNSSA
+         
 !
 !        ---------------
 !        Local variables
@@ -3137,8 +3163,14 @@ slavecoord:             DO l = 1, 4
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
          logical          :: gradients
-
+         logical                        :: NS_from_NSSA
+         
          gradients = .FALSE.
+         if (present(loadFromNSSA)) then
+             NS_from_NSSA = loadFromNSSA
+         else
+             NS_from_NSSA = .FALSE.
+         end if 
 !
 !        Get the file title
 !        ------------------
@@ -3175,6 +3207,14 @@ slavecoord:             DO l = 1, 4
             errorMessage(STD_OUT)
             stop
          end select
+         if (NS_from_NSSA) then
+             if (gradients) then
+                 ! add 1 as NNSA has one more NCONS, and 3 as has one more NGRAD, the whole will be padding = (NCONS + 1) + 3*(NGRAD+1)
+                 padding = padding + 1 + 3
+             else
+                 padding = padding + 1
+             end if
+         end if
 !
 !        Get the node type
 !        -----------------

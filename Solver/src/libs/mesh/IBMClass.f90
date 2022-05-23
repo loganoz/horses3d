@@ -78,10 +78,12 @@ module IBMClass
          procedure :: BandRegionPoints          => IBM_bandRegionPoints
          procedure :: GetForcingPointsGeom      => IBM_GetForcingPointsGeom
          procedure :: GetImagePointCoords       => IBM_GetImagePointCoords
-         procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
          procedure :: GetInfo                   => IBM_GetInfo 
          procedure :: SourceTerm                => IBM_SourceTerm
+#if defined(NAVIERSTOKES)
+         procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
          procedure :: SourceTermTurbulence      => IBM_SourceTermTurbulence
+#endif
          procedure :: semiImplicitShiftJacobian => IBM_semiImplicitShiftJacobian
          procedure :: semiImplicitJacobian      => IBM_semiImplicitJacobian
          procedure :: GetSemiImplicitStep       => IBM_GetSemiImplicitStep
@@ -372,8 +374,10 @@ module IBMClass
             call this% SetIntegration( STLNum )
          end do 
          if( this% Wallfunction) then
+#if defined(NAVIERSTOKES)
             call this% GetForcingPointsGeom()
             call this% GetImagePoint_nearest()
+#endif
          end if    
          call this% WriteMesh( elements, no_of_elements, 0 )
       end if
@@ -1756,8 +1760,10 @@ module IBMClass
             call this% SetIntegration( STLNum )
          end do
          if( this% Wallfunction ) then
+#if defined(NAVIERSTOKES)
             call this% GetForcingPointsGeom()
             call this% GetImagePoint_nearest()
+#endif
          end if
          if( present(autosave) .and. autosave ) then
             call this% WriteMesh( elements, no_of_elements, k )
@@ -2685,6 +2691,7 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
+#if defined(NAVIERSTOKES)
 !  -------------------------------------------------
 !  This subroutine performes iterations so that the 
 !  forcing point lies inside the log region 
@@ -2784,7 +2791,7 @@ module IBMClass
    
             y_IP = y_FC + norm2(BandPoints_ALL% x(i)% ImagePoint_coords - BandPoints_ALL% x(i)% coords)
    
-            u_tau = u_tau_f(uIP_t,y_IP,nu)
+            u_tau = u_tau_f(uIP_t,y_IP,nu, u_tau0=1.0_RP)
          
             uFC_t = u_plus_f( y_plus_f( y_IP, u_tau, nu ) ) * u_tau
             uFC_n = uIP_n * y_FC/y_IP
@@ -2864,6 +2871,7 @@ module IBMClass
       y = y/Lref 
    
    end function GetEstimated_y
+#endif
 
 end module IBMClass
 

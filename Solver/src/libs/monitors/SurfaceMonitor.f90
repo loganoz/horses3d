@@ -7,7 +7,6 @@ module SurfaceMonitorClass
    use MPI_Process_Info
    use FluidData
    use FileReadingUtilities, only: getRealArrayFromString
-   use IBMClass
    implicit none
 
 
