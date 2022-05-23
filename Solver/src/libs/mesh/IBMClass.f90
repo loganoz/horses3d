@@ -84,7 +84,9 @@ module IBMClass
          procedure :: GetInfo                   => IBM_GetInfo 
          procedure :: SourceTerm                => IBM_SourceTerm
          procedure :: ForceTerm                 => IBM_ForceTerm
+#if defined(NAVIERSTOKES)
          procedure :: SourceTermTurbulence      => IBM_SourceTermTurbulence
+#endif
          procedure :: semiImplicitShiftJacobian => IBM_semiImplicitShiftJacobian
          procedure :: semiImplicitJacobian      => IBM_semiImplicitJacobian
          procedure :: GetSemiImplicitStep       => IBM_GetSemiImplicitStep
@@ -2764,7 +2766,7 @@ module IBMClass
 
    end subroutine IBM_GetImagePoint_nearest
    
-   
+#if defined(NAVIERSTOKES)    
    subroutine IBM_SourceTermTurbulence( this, elements )
       use PhysicsStorage
       use WallFunctionDefinitions
@@ -2812,7 +2814,6 @@ module IBMClass
                                bpQ(:,IP_NearestPoints),                   &
                                IP_NearestPoints, Q_IP                     )
         
-#if defined(NAVIERSTOKES) 
             ! image point
             T_IP  = Temperature(Q_IP)
             mu_IP = dimensionless% mu * SutherlandsLaw(T_IP)
@@ -2868,7 +2869,6 @@ module IBMClass
 #endif            
             call this% ForceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_FP, Force )
             elements(eID)% storage% Qdot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = Force  
-#endif
 
             end associate
     
@@ -2879,7 +2879,7 @@ module IBMClass
       deallocate(bpQ)
    
    end subroutine IBM_SourceTermTurbulence
-   
+#endif 
 ! estimate the yplus for a flat plate 
    
    real(kind=RP) function InitializeDistance( y_plus ) result( y )
@@ -2902,6 +2902,9 @@ module IBMClass
    real(kind=RP) function Estimate_Cf() result( Cf )
       use FluidData
       implicit none
+      
+      Cf = 0.0_RP
+      
 #if defined(NAVIERSTOKES)   
      ! Schlichting, Hermann (1979), Boundary Layer Theory... ok if Re < 10^9
       Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
@@ -2913,6 +2916,8 @@ module IBMClass
       implicit none
       !-local-variables--------------------------------
       real(kind=RP) :: Cf
+      
+      u_tau = 0.0_RP
       
       Cf = Estimate_Cf()
 #if defined(NAVIERSTOKES) 

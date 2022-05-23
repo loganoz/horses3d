@@ -784,7 +784,7 @@ module SurfaceIntegrals
                tangent = U_t/norm2(U_t)
 
                u_II  = dot_product(U,tangent)
-               u_tau = u_tau_f( u_II, y, nu )
+!~                u_tau = u_tau_f( u_II, y, nu )
             
                T_w = T + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
                rho_w = P/(thermodynamics% R * T_w)
@@ -827,7 +827,7 @@ module SurfaceIntegrals
                tangent = U_t/norm2(U_t)
 
                u_II  = dot_product(U,tangent)
-               u_tau = u_tau_f( u_II, y, nu )
+!~                u_tau = u_tau_f( u_II, y, nu )
             
                T_w = T + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
                rho_w = P/(thermodynamics% R * T_w)

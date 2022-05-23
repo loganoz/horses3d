@@ -5,7 +5,7 @@ mesh file name        = "MESH/Cylinder.mesh"
 !--STL
 stl file name         = "cylinder3"
 
-Polynomial order      = 3
+Polynomial order      = 10
 Number of time steps  = 10000
 Output Interval       = 10 ! for explicit
 autosave mode         = "iteration"
