@@ -155,7 +155,6 @@ module StatisticsMonitor
             call e % storage % stats % Construct(NO_OF_VARIABLES, e % Nxyz)
             end associate
          end do
-         print *, "self%saveGradients: ", self%saveGradients
 
       end subroutine StatisticsMonitor_Construct
 

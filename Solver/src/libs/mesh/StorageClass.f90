@@ -1436,6 +1436,7 @@ module StorageClass
              safedeallocate(self % QdotNS)
          end if
          safedeallocate(self % mu_NS)
+         safedeallocate(self % u_tau_NS)
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
@@ -1599,6 +1600,7 @@ module StorageClass
          if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
          to % mu_NS  = from % mu_NS
+         to % u_tau_NS  = from % u_tau_NS
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF
