@@ -187,6 +187,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
+      real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -1305,7 +1306,8 @@ module StorageClass
 
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
-
+         allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
+         
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
 #ifdef CAHNHILLIARD
@@ -1354,6 +1356,7 @@ module StorageClass
 
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
+         self % u_tau_NS = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1433,6 +1436,7 @@ module StorageClass
              safedeallocate(self % QdotNS)
          end if
          safedeallocate(self % mu_NS)
+         safedeallocate(self % u_tau_NS)
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
@@ -1596,6 +1600,7 @@ module StorageClass
          if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
          to % mu_NS  = from % mu_NS
+         to % u_tau_NS  = from % u_tau_NS
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF

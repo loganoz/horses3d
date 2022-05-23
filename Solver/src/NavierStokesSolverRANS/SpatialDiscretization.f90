@@ -57,12 +57,14 @@ module SpatialDiscretization
             TYPE(Face)   , INTENT(inout) :: f   
          end subroutine computeMPIFaceFluxF
 
-         SUBROUTINE computeBoundaryFluxF(f, time)
+         SUBROUTINE computeBoundaryFluxF(f, time, mesh)
             use SMConstants
             use FaceClass,  only: Face
+            use HexMeshClass
             IMPLICIT NONE
             type(Face),    intent(inout) :: f
             REAL(KIND=RP)                :: time
+            type(HexMesh), intent(in)    :: mesh
          end subroutine computeBoundaryFluxF
       end interface
       
@@ -87,6 +89,7 @@ module SpatialDiscretization
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
+         use WallFunctionConnectivity
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
          class(DGSem)                           :: sem
@@ -377,6 +380,7 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+         use WallFunctionConnectivity
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -470,7 +474,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
-            call computeBoundaryFlux(mesh % faces(fID), t)
+            call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
 !$omp end do 
 !
@@ -1185,10 +1189,12 @@ module SpatialDiscretization
 
       end subroutine ComputeMPIFaceFlux_NSSA
 
-      SUBROUTINE computeBoundaryFlux_NSSA(f, time)
+      SUBROUTINE computeBoundaryFlux_NSSA(f, time, mesh)
       USE ElementClass
       use FaceClass
       use RiemannSolvers_NSSA
+      use WallFunctionBC
+      use WallFunctionConnectivity
       IMPLICIT NONE
 !
 !     ---------
@@ -1197,6 +1203,7 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
+      type(HexMesh), intent(in)    :: mesh
 !
 !     ---------------
 !     Local variables
@@ -1211,6 +1218,12 @@ module SpatialDiscretization
       real(kind=RP)                   :: mu, kappa, beta, delta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
       integer                         :: Sidearray(2)
+      logical                         :: useWallFuncFace
+      real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunVavg(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
 
 
       if ( ShockCapturingDriver % isActive ) then
@@ -1234,6 +1247,20 @@ module SpatialDiscretization
       end do               ; end do
 
       if ( flowIsNavierStokes ) then
+
+          useWallFuncFace = .false.
+          if (useWallFunc) then
+              do i = 1, len(wallFunBCs)
+                  if (trim(wallFunBCs(i)) .eq. trim(f % boundaryName)) then
+                      useWallFuncFace = .true.
+                      exit
+                  end if
+              end do
+          end if
+          if (useWallFuncFace) then
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY, wallFunVavg)
+          end if
+
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
           
@@ -1253,6 +1280,11 @@ module SpatialDiscretization
 
                visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
 
+               if (useWallFuncFace) then
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                        wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                        visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
+               end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &

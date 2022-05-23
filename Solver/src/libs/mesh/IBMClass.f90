@@ -80,10 +80,10 @@ module IBMClass
          procedure :: BandRegionPoints          => IBM_bandRegionPoints
          procedure :: GetForcingPointsGeom      => IBM_GetForcingPointsGeom
          procedure :: GetImagePointCoords       => IBM_GetImagePointCoords
-         procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
          procedure :: GetInfo                   => IBM_GetInfo 
          procedure :: SourceTerm                => IBM_SourceTerm
          procedure :: ForceTerm                 => IBM_ForceTerm
+         procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
 #if defined(NAVIERSTOKES)
          procedure :: SourceTermTurbulence      => IBM_SourceTermTurbulence
 #endif
@@ -371,6 +371,20 @@ module IBMClass
          print *, "The mask is made of 0 points."
          print *, "Try to increase the polynomial order or to refine the mesh."
          error stop         
+      end if
+   
+      if( .not. isChild  ) then
+         call this% constructBandRegion( elements, no_of_elements ) 
+         do STLNum = 1, this% NumOfSTL
+            call this% SetIntegration( STLNum )
+         end do 
+         if( this% Wallfunction) then
+            call this% GetForcingPointsGeom()
+#if defined(NAVIERSTOKES)
+            call this% GetImagePoint_nearest()
+#endif
+         end if    
+         call this% WriteMesh( elements, no_of_elements, 0 )
       end if
       
       allocate( this% penalization(no_of_elements) )
@@ -1779,8 +1793,10 @@ module IBMClass
             call this% SetIntegration( STLNum )
          end do
          if( this% Wallfunction ) then
+#if defined(NAVIERSTOKES)
             call this% GetForcingPointsGeom()
             call this% GetImagePoint_nearest()
+#endif
          end if
       end if
 
@@ -2722,6 +2738,7 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
+#if defined(NAVIERSTOKES)
 !  -------------------------------------------------
 !  This subroutine performes iterations so that the 
 !  forcing point lies inside the log region 
@@ -2830,20 +2847,11 @@ module IBMClass
             if( almostEqual(u_IPt,0.0_RP) ) cycle
 
             y_IP = this% IP_Distance
-   
-            u_tau = u_tau_f(u_IPt, y_IP, nu_IP)
-            
-            ! forcing point
-            Q_FP = elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)) 
-            
-            T_FP  = Temperature(Q_FP)
-            mu_FP = dimensionless% mu * SutherlandsLaw(T_FP)
-            nu_FP = mu_FP/Q_FP(IRHO)
 
-            yplus_FP = y_plus_f(y_FP, u_tau, nu_FP) 
-
-            u_FPt = u_plus_f( yplus_FP ) * u_tau
-            u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
+            u_tau = u_tau_f(uIP_t, y_IP, nu_IP, u_tau0=1.0_RP)
+         
+            uFC_t = u_plus_f( y_plus_f( y_IP, u_tau, nu ) ) * u_tau
+            uFC_n = dot_product(u_IP,normal) * y_FC/y_IP
          
             u_FP = u_FPt*tangent  + u_FPn*normal 
 
@@ -2889,6 +2897,9 @@ module IBMClass
       real(kind=rp), intent(in) :: y_plus
       !-local-varirables-------------------------
       real(kind=RP) :: nu, u_tau
+      
+      y_plus = 0.0_RP
+      
 #if defined(NAVIERSTOKES)     
       nu = refValues% mu / refValues% rho
 #endif
@@ -2937,6 +2948,7 @@ module IBMClass
       y = y/Lref 
    
    end function GetEstimated_y
+#endif
 
 
    real(kind=RP) function QuarticRealPositiveRoot(a0, b0, c0, d0, e0) result( value )

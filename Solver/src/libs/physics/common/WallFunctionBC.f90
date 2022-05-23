@@ -1,8 +1,9 @@
+#if defined(NAVIERSTOKES)
 MODULE WallFunctionBC
 
    USE SMConstants
-   use PhysicsStorage
-!~    USE PhysicsStorage_NS
+   !use PhysicsStorage
+   USE PhysicsStorage_NS
    IMPLICIT NONE
 
 !   
@@ -21,7 +22,8 @@ MODULE WallFunctionBC
 !  Public definitions
 !  ******************
 !
-   PUBLIC WallViscousFlux, tau_w_f, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
+
+   PUBLIC WallViscousFlux, wall_shear, u_tau_f, u_tau_f_ABL, y_plus_f, u_plus_f 
 !
 
    CONTAINS 
@@ -34,57 +36,84 @@ MODULE WallFunctionBC
       ! The viscous flux is set in the same direction as the parallel velocity. 
       ! If the reference velocity parallel to the wall is less than a 
       ! minimun value, flux is set to zero to avoid numerical issues. 
+   SUBROUTINE WallViscousFlux (U_inst, dWall, nHat, rho, mu, U_avg, visc_flux, u_tau)
 
-   SUBROUTINE WallViscousFlux (U_ref, dWall, nHat, rho, mu, visc_flux)
+      use WallFunctionDefinitions, only: useAverageV
 
       IMPLICIT NONE
 
-      REAL(kind=RP) , INTENT(IN)     :: U_ref(NDIM)        ! Mean streamwise velocity from LES solver
+      REAL(kind=RP) , INTENT(IN)     :: U_inst(NDIM)       ! Instantaneus velocity from LES solver
       REAL(kind=RP) , INTENT(IN)     :: dWall              ! Normal wall distance
       REAL(kind=RP),  INTENT(IN)     :: nHat(NDIM)         ! Unitary vector normal to wall
       REAL(kind=RP) , INTENT(IN)     :: rho                ! Density
       REAL(kind=RP) , INTENT(IN)     :: mu                 ! Dynamic viscosity
+      REAL(kind=RP) , INTENT(IN)     :: U_avg(NDIM)        ! Mean (in time) velocity from LES solver
       REAL(kind=RP) , INTENT(INOUT)  :: visc_flux(NCONS)   ! Viscous Flux
+      REAL(kind=RP) , INTENT(INOUT)  :: u_tau              ! friction velocity
 
       !local variables
       REAL(kind=RP), DIMENSION(NDIM) :: x_II               ! Unitary vector parallel to wall
+      REAL(kind=RP), DIMENSION(NDIM) :: U_ref              ! Reference Velocity
       REAL(kind=RP), DIMENSION(NDIM) :: u_parallel         ! Velocity parallel to wall
+      REAL(kind=RP), DIMENSION(NDIM) :: u_parallel_aux     ! Velocity parallel to wall auxiliar, is the instantaneus when the average is used
       REAL(kind=RP)                  :: u_II               ! Velocity magnitude parallel to wall, used in Wall Function
-#if defined(NAVIERSTOKES)
+      REAL(kind=RP)                  :: tau_w              ! Wall shear stress
+      REAL(kind=RP)                  :: beta               ! damping factor from Thomas et. al
+
+      if (useAverageV) then
+          U_ref = U_avg
+      else
+          U_ref = U_inst
+      end if 
+
       u_parallel = U_ref - (dot_product(U_ref, nHat) * nHat)
       x_II = u_parallel / norm2(u_parallel)
       u_II = dot_product(U_ref, x_II)
 
       ! Wall model only modifies momentum viscous fluxes. 
-      visc_flux(IRHOU:IRHOW) = - tau_w_f (u_II,dWall,rho,mu) * x_II 
+      call wall_shear(u_II, dWall, rho, mu, tau_w, u_tau)
+      ! visc_flux(IRHOU:IRHOW) = - tau_w_f (u_II,dWall,rho,mu) * x_II 
+      if (useAverageV) then
+          u_parallel_aux = U_inst - (dot_product(U_inst, nHat) * nHat)
+          x_II = u_parallel_aux / u_II !schuman, the direction scales with the instantaneus values
+          ! beta = 0.3_RP ! thomas arbitrary value. If set to 0.0_RP, the schuman eq is recovered
+          ! x_II = (beta * u_parallel_aux + (1-beta) * u_parallel) / u_II ! thomas, the direction scales with both the instantaneus and the mean
+      end if 
+      visc_flux(IRHOU:IRHOW) = - tau_w * x_II 
       ! print *, "visc_flux: ", visc_flux
-#endif
+
    END SUBROUTINE 
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
-   FUNCTION tau_w_f (u_II, y, rho, mu)
+   ! FUNCTION tau_w_f (u_II, y, rho, mu)
+   SUBROUTINE wall_shear(u_II, y, rho, mu, tau_w, u_tau)
+
       
       USE WallFunctionDefinitions, ONLY: wallFuncIndex, STD_WALL, ABL_WALL
       IMPLICIT NONE
 
-      REAL(kind=RP), INTENT(IN)  :: u_II    ! Mean streamwise velocity parallel to the wall
-      REAL(kind=RP), INTENT(IN)  :: y       ! Normal wall distance
-      REAL(kind=RP), INTENT(IN)  :: rho     ! Density
-      REAL(kind=RP), INTENT(IN)  :: mu      ! Dynamic viscosity
+      REAL(kind=RP), INTENT(IN)     :: u_II    ! Mean streamwise velocity parallel to the wall
+      REAL(kind=RP), INTENT(IN)     :: y       ! Normal wall distance
+      REAL(kind=RP), INTENT(IN)     :: rho     ! Density
+      REAL(kind=RP), INTENT(IN)     :: mu      ! Dynamic viscosity
 
-      REAL(kind=RP)              :: tau_w_f ! (OUT) Wall shear stress
+      REAL(kind=RP), INTENT(OUT)    :: tau_w   ! (OUT) Wall shear stress
+      REAL(kind=RP), INTENT(INOUT)  :: u_tau   ! Friction velocity
+      ! REAL(kind=RP)              :: tau_w_f ! (OUT) Wall shear stress
 
-      REAL(kind=RP)              :: u_tau   ! Friction velocity
-      REAL(kind=RP)              :: nu      ! Kinematic viscosity
+      ! REAL(kind=RP)              :: u_tau   ! Friction velocity
+      REAL(kind=RP)                 :: nu      ! Kinematic viscosity
+      
 
       nu = mu / rho 
+
 
       select case (wallFuncIndex)
           case (STD_WALL)
               ! u_tau is computed by solving Eq. (3) in Frere et al 2017
               ! along with the definitions of u+ and y+.
-              u_tau = u_tau_f( u_II, y, nu )
+              u_tau = u_tau_f( u_II, y, nu, u_tau )
           case (ABL_WALL)
               u_tau = u_tau_f_ABL( u_II, y, nu )
       end select
@@ -92,21 +121,23 @@ MODULE WallFunctionBC
       ! then the definition of the wall shear stress is used
       tau_w_f = rho * u_tau * u_tau
 
-   END FUNCTION  
+   END SUBROUTINE  
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
-   FUNCTION u_tau_f (u_II,y,nu)
+   FUNCTION u_tau_f (u_II,y,nu, u_tau0)
 
-      USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter, u_tau0
+      USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter
+      ! USE WallFunctionDefinitions, ONLY: newtonTol, newtonAlpha, newtonMaxIter, u_tau0
       IMPLICIT NONE
 
       REAL(kind=RP), INTENT(IN)        :: u_II         ! Mean streamwise velocity parallel to the wall
       REAL(kind=RP), INTENT(IN)        :: y            ! Normal wall distance
       REAL(kind=RP), INTENT(IN)        :: nu           ! Kinematic viscosity   
-      REAL(kind=RP)                    :: u_tau_f      ! (OUT) Friction velocity
-      
+      REAL(kind=RP), INTENT(IN)        :: u_tau0       ! 
 
+      REAL(kind=RP)                    :: u_tau_f      ! Friction velocity
+      
       REAL(kind=RP)                    :: u_tau            ! Previous value for Newton method
       REAL(kind=RP)                    :: u_tau_next       ! Next value for Newton method
       INTEGER                          :: i                ! Counter
@@ -238,3 +269,5 @@ MODULE WallFunctionBC
 !
 
 END MODULE 
+#endif
+

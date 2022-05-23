@@ -11,6 +11,7 @@
 !This module stores the definitions of the wall fuction and update the default values based on the controlVariables
 
 #include "Includes.h"
+#if defined(NAVIERSTOKES)
 Module WallFunctionDefinitions  !
 
     use SMConstants
@@ -31,6 +32,7 @@ Module WallFunctionDefinitions  !
     public kappa, WallC
     public y0, d
     public u_tau0, newtonAlpha, newtonTol, newtonMaxIter
+    public useAverageV
 !
 !  ******************
 !  Public definitions
@@ -52,6 +54,10 @@ Module WallFunctionDefinitions  !
     real(kind=RP)                                             :: u_tau0, newtonAlpha, newtonTol   ! for standrd wall func
     integer                                                   :: newtonMaxIter                    ! for standrd wall func
     real(kind=RP)                                             :: kappa, WallC                     ! for either
+
+
+    logical                                                   :: useAverageV = .false.
+
 
     contains 
 !   
@@ -110,6 +116,12 @@ Module WallFunctionDefinitions  !
         kappa           = controlVariables % getValueOrDefault("wall function kappa", DEFAULT_VON_KARMAN)
         WallC           = controlVariables % getValueOrDefault("wall function c", DEFAULT_WALL_C)
 
+
+        d = d / Lref
+
+
+        useAverageV = controlVariables%logicalValueForKey("wall function use average")
+
         !todo: see if there are negative values and return if thats the case
             ! write(STD_OUT,'(A)') "Wall function will not be activated"
 
@@ -121,3 +133,5 @@ Module WallFunctionDefinitions  !
 !------------------------------------------------------------------------------------------------------------------------
 !
 End Module WallFunctionDefinitions
+#endif
+
