@@ -1,13 +1,13 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NS"
-mesh file name        = "MESH/Cylinder.mesh"
+mesh file name        = "MESH/cylinder.mesh"
 
 !--STL
-stl file name         = "cylinder3"
+stl file name         = "cylinder"
 
-Polynomial order      = 10
-Number of time steps  = 10000
-Output Interval       = 10 ! for explicit
+Polynomial order      = 3
+Number of time steps  = 100
+Output Interval       = 10 
 autosave mode         = "iteration"
 autosave interval     = 1000
 
@@ -18,25 +18,22 @@ discretization nodes  = Gauss
 
 solution file name    = "RESULTS/IBMCylinder.hsol"
 save gradients with soluton = .false.
-restart               = .false.
-restart file name     = "RESULTS/IBMCylinder_0000100000.hsol"
+restart               = .true.
+restart file name     = "RESULTS/IBMCylinder_0000003000.hsol"
 riemann solver         = "lax-friedrichs"
 viscous discretization = "IP"
 
 !----Solver
 time integration = fas
-convergence tolerance = 8.d-4
-!bdf order = 2
+convergence tolerance = 8.d-8
 !--time step/CFL
-cfl                   = 0.15d0
-dcfl                  = 0.15d0
+cfl                   = 0.25d0
+dcfl                  = 0.25d0
 
 multigrid levels        = 3
 mg smoother             = RKOpt
 mg preconditioner       = LTS
 mg sweeps exact         = [1,1,1]
-pseudo cfl              = 0.1d0
-pseudo dcfl             = 0.1d0
 
 symmetry planes = [-3,3]
 
@@ -50,9 +47,6 @@ symmetry planes = [-3,3]
   integration order = 3
   band region coefficient = 3.5
   plot mask = .true.
-  plot kdtree = .true.
-  plot band points = .true.
-  plot OBB =.true.
 #end
 
 #define boundary BACK
@@ -81,8 +75,8 @@ symmetry planes = [-3,3]
 
 
 #define surface monitor 1
-   Name = C_d
-  Marker = cylinder3
+  Name = C_d
+  Marker = cylinder
   Variable = drag
   Direction = [1.d0, 0.d0, 0.d0]
   Reference surface =  0.861d0 

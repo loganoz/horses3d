@@ -372,20 +372,6 @@ module IBMClass
          print *, "Try to increase the polynomial order or to refine the mesh."
          error stop         
       end if
-   
-      if( .not. isChild  ) then
-         call this% constructBandRegion( elements, no_of_elements ) 
-         do STLNum = 1, this% NumOfSTL
-            call this% SetIntegration( STLNum )
-         end do 
-         if( this% Wallfunction) then
-            call this% GetForcingPointsGeom()
-#if defined(NAVIERSTOKES)
-            call this% GetImagePoint_nearest()
-#endif
-         end if    
-         call this% WriteMesh( elements, no_of_elements, 0 )
-      end if
       
       allocate( this% penalization(no_of_elements) )
       
@@ -396,10 +382,12 @@ module IBMClass
       if( isChild .and. .not. this% Wallfunction ) return
       
       call this% constructBandRegion( elements, no_of_elements ) 
- 
+
       if( this% Wallfunction ) then
          call this% GetForcingPointsGeom()
+#if defined(NAVIERSTOKES)
          call this% GetImagePoint_nearest()
+#endif
       end if    
 
       if( .not. isChild ) then
@@ -849,7 +837,7 @@ module IBMClass
       !-arguments---------------------------------------------
       class(IBM_type),               intent(inout) :: this
       !-local-variables--------------------------------------
-      real(kind=RP) :: Dist, Point(NDIM), normal(NDIM)
+      real(kind=RP) :: Dist, Point(NDIM), IntersectionPoint(NDIM)
       integer       :: i, STLNum
 #ifdef _HAS_MPI_
       real(kind=RP) :: MPI_in(2,1), MPI_out(2,1)
@@ -862,7 +850,7 @@ module IBMClass
       this% BandRegion% NumOfF_Points = 0
 
 !$omp parallel shared(i)
-!$omp do schedule(runtime) private(STLNum,Dist,normal,Point)
+!$omp do schedule(runtime) private(STLNum,Dist,IntersectionPoint,Point)
       do i = 1, this% BandRegion% NumOfObjs
          this% BandRegion% x(i)% Dist = huge(1.0_RP)
          do STLNum = 1, this% NumOfSTL
@@ -871,14 +859,18 @@ module IBMClass
             if( this% BandRegion% x(i)% coords(1) .lt. 0.0_RP ) cycle 
 
             this% BandRegion% x(i)% forcingPoint = .true.
+            
 !$omp critical
             this% BandRegion% NumOfF_Points = this% BandRegion% NumOfF_Points + 1
 !$omp end critical
             call OBB(STLNum)% ChangeRefFrame( this% BandRegion% x(i)% coords, 'local', Point )
-            call MinimumDistance( Point, this% root(STLNum), Dist, normal )
+            
+            call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
+            
             if( Dist .lt. this% BandRegion% x(i)% Dist ) then
                this% BandRegion% x(i)% Dist    = Dist
-               this% BandRegion% x(i)% normal  = normal
+               this% BandRegion% x(i)% normal  = (this% BandRegion% x(i)% coords-IntersectionPoint)/ &
+                                                  norm2(this% BandRegion% x(i)% coords-IntersectionPoint)      
                this% BandRegion% x(i)% rank    = MPI_Process% rank
             end if
          end do
@@ -936,30 +928,6 @@ module IBMClass
       end if
 
       call this% GetImagePointCoords( this% IP_Distance )  
-
-
-      write(myString,'(i100)') this% lvl
-
-      call TecFileHeader( 'IBM/BandPoints'//trim(adjustl(myString)), 'Points', this% BandRegion% NumOfObjs/2+mod(this% BandRegion% NumOfObjs,2), 2, 1, funit, 'POINT') 
-      do i = 1, this% BandRegion% NumOfObjs
-         write(funit,'(3E13.5)')  this% BandRegion% x(i)% coords(1), this% BandRegion% x(i)% coords(2), this% BandRegion% x(i)% coords(3)
-      end do     
-      close( funit )
-       
-      call TecFileHeader( 'IBM/ForcingPoints'//trim(adjustl(myString)), 'Points', this% BandRegion% NumOfF_Points/2+mod(this% BandRegion% NumOfF_Points,2), 2, 1, funit, 'POINT') 
-      do i = 1, this% BandRegion% NumOfObjs
-         if( .not. this% BandRegion% x(i)% forcingPoint ) cycle
-         write(funit,'(3E13.5)')  this% BandRegion% x(i)% coords(1), this% BandRegion% x(i)% coords(2), this% BandRegion% x(i)% coords(3)
-      end do     
-      close( funit )
-      
-      call TecFileHeader( 'IBM/ImagePoints'//trim(adjustl(myString)), 'Points', this% BandRegion% NumOfF_Points/2+mod(this% BandRegion% NumOfF_Points,2), 2, 1, funit, 'POINT') 
-      do i = 1, this% BandRegion% NumOfObjs
-         if( .not. this% BandRegion% x(i)% forcingPoint ) cycle
-         write(funit,'(3E13.5)')  this% BandRegion% x(i)% ImagePoint_coords(1), this% BandRegion% x(i)% ImagePoint_coords(2), this% BandRegion% x(i)% ImagePoint_coords(3)
-      end do     
-      close( funit )
-         
 
    end subroutine IBM_GetForcingPointsGeom
    
@@ -1097,9 +1065,9 @@ module IBMClass
 !  -----------------------------------------------   
    subroutine IBM_GetInfo( this, controlVariables )
       use FileReadingUtilities
-      
-      use WallFunctionDefinitions                 !DELETE
-      
+#if defined(NAVIERSTOKES)
+      use WallFunctionDefinitions
+#endif    
       implicit none
       !-arguments----------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
@@ -1217,12 +1185,11 @@ module IBMClass
       else
          this% BandRegionCoeff = 1.5_RP
       end if
-      
+
+#if defined(NAVIERSTOKES)
      if( controlVariables% containsKey("wall function") ) then
         this% Wallfunction = .true.
-        
         call Initialize_Wall_Fuction(controlVariables, correct)   !TO BE REMOVED
-        
         if( allocated(y_plus_target_in) ) then
            this% y_plus_target = y_plus_target_in
         else
@@ -1231,6 +1198,7 @@ module IBMClass
      else
         this% Wallfunction = .false.
      end if
+#endif
    
       if( controlVariables% containsKey(trim(NumberOfSTL)) ) then
          tmp = controlVariables% StringValueForKey(trim(NumberOfSTL),LINE_LENGTH) 
@@ -2292,17 +2260,17 @@ module IBMClass
 ! the initial one, getting new_minDist. If a lower distance is found, minDist is updated.
 !  ------------------------------------------------
    
-   subroutine MinimumDistance( Point, root, minDist, normal )
+   subroutine MinimumDistance( Point, root, minDist, IntersectionPoint )
    
       implicit none
       !-arguments---------------------------------------------
       real(kind=rp), dimension(:), intent(in)    :: Point
       type(KDtree),                intent(inout) :: root
       real(kind=rp),               intent(inout) :: minDist
-      real(kind=rp), dimension(:), intent(inout) :: normal 
+      real(kind=rp), dimension(:), intent(inout) :: IntersectionPoint 
       !-local-variables---------------------------------------
       real(kind=rp), dimension(NDIM) :: IntersPoint, new_IntersPoint, &
-                                        dsvec, IntersectionPoint, x
+                                        dsvec, x
       logical                        :: Inside
       type(KDtree), pointer          :: tree, tmpTree
       real(kind=rp)                  :: Dist, New_minDist, Radius, ds
@@ -2351,12 +2319,8 @@ module IBMClass
          end if
       end if      
       
-      call OBB(root% STLNum)% ChangeRefFrame( Point, 'global', x )
       call OBB(root% STLNum)% ChangeRefFrame( IntersectionPoint, 'global', IntersectionPoint )
-      
-      normal = x - IntersectionPoint
-      normal = normal/norm2(normal)
-      
+   
    end subroutine MinimumDistance
    
 !
@@ -2683,14 +2647,6 @@ module IBMClass
       end if
           
    end subroutine MinimumDistOtherBoxesPoints
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  ---------------------
-!  TURBULENCE
-!  ---------------------
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
 
    subroutine GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, value )
       use PhysicsStorage
@@ -2738,7 +2694,6 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
-#if defined(NAVIERSTOKES)
 !  -------------------------------------------------
 !  This subroutine performes iterations so that the 
 !  forcing point lies inside the log region 
@@ -2840,7 +2795,7 @@ module IBMClass
             u_IP   = Q_IP(IRHOU:IRHOW)
             u_IP_t = u_IP - ( dot_product(u_IP,normal) * normal )
    
-            tangent = u_IP_t/norm2(u_IP_t)
+            tangent = u_IP_t/norm2(u_IP_t)   
    
             u_IPt = dot_product(u_IP,tangent)
             
@@ -2848,24 +2803,32 @@ module IBMClass
 
             y_IP = this% IP_Distance
 
-            u_tau = u_tau_f(uIP_t, y_IP, nu_IP, u_tau0=1.0_RP)
+            u_tau = u_tau_f(u_IPt, y_IP, nu_IP, u_tau0=1.0_RP)
+ 
+            Q_FP = elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3))
+  
+            T_FP  = Temperature(Q_FP)
+            mu_FP = dimensionless% mu * SutherlandsLaw(T_FP)
+            nu_FP = mu_FP/Q_FP(IRHO)         
          
-            uFC_t = u_plus_f( y_plus_f( y_IP, u_tau, nu ) ) * u_tau
-            uFC_n = dot_product(u_IP,normal) * y_FC/y_IP
+         
+            u_FPt = u_plus_f( y_plus_f( y_FP, u_tau, nu_FP) ) * u_tau
+            u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
          
             u_FP = u_FPt*tangent  + u_FPn*normal 
 
             T_FP = T_IP + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * (POW2(u_IPt) - POW2(u_FPt))
             
 #if defined(SPALARTALMARAS)               
-            Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)
+!~             Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)
             
-            chi      = QuarticRealPositiveRoot( 1.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP, 0.0_RP, 0.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP*POW3(SAmodel% cv1) )
-            nu_tilde = nu_FP * chi
+!~             chi      = QuarticRealPositiveRoot( 1.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP, 0.0_RP, 0.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP*POW3(SAmodel% cv1) )
+!~             nu_tilde = nu_FP * chi
 
-            call SAmodel% Compute_fv1(chi,fv1)
+!~             call SAmodel% Compute_fv1(chi,fv1)
             
-            nu_t = nu_tilde * fv1
+            nu_t = kappa * u_tau * y_FP
+!~             nu_t = nu_tilde * fv1
 #endif
 
             Q_FP(IRHO)  = P_IP/(thermodynamics% R * T_FP)
@@ -2876,7 +2839,7 @@ module IBMClass
             Q_FP(IRHOTHETA) = Q_FP(IRHO) * nu_t
 #endif            
             call this% ForceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_FP, Force )
-            elements(eID)% storage% Qdot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = Force  
+            elements(eID)% storage% Qdot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = Force   
 
             end associate
     
@@ -2897,8 +2860,6 @@ module IBMClass
       real(kind=rp), intent(in) :: y_plus
       !-local-varirables-------------------------
       real(kind=RP) :: nu, u_tau
-      
-      y_plus = 0.0_RP
       
 #if defined(NAVIERSTOKES)     
       nu = refValues% mu / refValues% rho
@@ -2948,7 +2909,6 @@ module IBMClass
       y = y/Lref 
    
    end function GetEstimated_y
-#endif
 
 
    real(kind=RP) function QuarticRealPositiveRoot(a0, b0, c0, d0, e0) result( value )

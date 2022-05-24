@@ -83,7 +83,7 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body  
+         logical, dimension(:,:,:),   allocatable :: isInsideBody ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body  
          integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. 
          contains
             procedure   :: Construct               => HexElement_Construct

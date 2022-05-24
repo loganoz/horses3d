@@ -119,7 +119,7 @@ MODULE WallFunctionBC
       end select
 
       ! then the definition of the wall shear stress is used
-      tau_w_f = rho * u_tau * u_tau
+      tau_w = rho * u_tau * u_tau
 
    END SUBROUTINE  
 !   
