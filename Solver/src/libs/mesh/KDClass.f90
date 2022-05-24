@@ -958,7 +958,7 @@ module KDClass
                       pminus = pminus + 1
                       i = i + 1
                       if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                   end do
+                   end do 
                 end if
                 
                 if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
