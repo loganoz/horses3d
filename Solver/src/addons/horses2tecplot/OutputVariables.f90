@@ -386,7 +386,7 @@ module OutputVariables
 
                case(MACH_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
+                     output(var,i,j,k) = (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
                      output(var,i,j,k) = sqrt( output(var,i,j,k) / ( refs(GAMMA_REF)*(refs(GAMMA_REF)-1.0_RP)*(Q(IRHOE,i,j,k)/Q(IRHO,i,j,k)-0.5_RP * output(var,i,j,k)) ) )
                   end do         ; end do         ; end do
 
