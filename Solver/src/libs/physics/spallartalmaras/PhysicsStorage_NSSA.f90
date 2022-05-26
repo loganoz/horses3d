@@ -34,16 +34,15 @@
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSSAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME      ="rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME="lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME        ="u-diss"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME        ="central"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME            ="roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME        ="rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME  ="lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ESLAXFRIEDRICHS_SOLVER_NAME="es lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME         ="standard roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME        ="roe-pike"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME     ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME     ="matrix dissipation"
 
          !PARTICLES 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
@@ -86,7 +85,7 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS, RIEMANN_UDISS
+     public    RIEMANN_MATRIXDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    CHANDRASEKAR_SPLIT
@@ -141,8 +140,7 @@
      enum, bind(C)
         enumerator :: RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV
         enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
-        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
-        enumerator :: RIEMANN_UDISS
+        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_MATRIXDISS
      end enum
      integer, protected :: whichRiemannSolver = -1
 !
@@ -460,11 +458,6 @@
          case(MATRIXDISS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_MATRIXDISS
 
-         case(VISCOUSNS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_VISCOUSNS
-
-         case(UDISS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_UDISS
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -477,8 +470,6 @@
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
             print*, "   * Matrix dissipation"
-            print*, "   * Viscous NS"
-            print*, "   * u-diss"
             errorMessage(STD_OUT)
             stop
          end select 

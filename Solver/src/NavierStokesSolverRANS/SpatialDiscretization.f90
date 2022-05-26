@@ -649,6 +649,7 @@ module SpatialDiscretization
          end do
 !$omp end do
 
+
 !
 !        *********************
 !        Add IBM source term
@@ -934,6 +935,7 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
+
          select type ( HyperbolicDiscretization )
          type is (StandardDG_t)
 !
