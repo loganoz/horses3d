@@ -43,8 +43,8 @@
                         Time integration = Explicit
                                      CFL = 0.4
                                     dCFL = 0.4
-                    Number of time steps = 40
-                         Output interval = 10
+                    Number of time steps = 10
+                         Output interval = 1
                    Convergence tolerance = 1.0e-10
   Compute time derivative after timestep = .true.
 
