@@ -818,7 +818,7 @@ Module DGSEMClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: eID
+      integer  :: eID, ierr
       real(RP) :: hn
       real(RP) :: l_hnmin, l_hnmax
 
