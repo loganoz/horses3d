@@ -67,6 +67,7 @@ type Particles_t
     type(Particle_t),       allocatable :: particle(:)
     type(dimensionlessParticles_t)      :: dimensionless
     logical                             :: active 
+    logical                             :: highordersource
     type(pMesh_t)                       :: pMesh
     type(injection_t)                   :: injection 
     contains
@@ -119,6 +120,12 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     self % no_of_particles = controlVariables % integerValueForKey(numberOfParticlesKey)
     
     self % part_per_parcel = controlVariables % integerValueForKey(particlesPerParcelKey)
+
+    if ( controlVariables % ContainsKey(sourceTermKey) ) then
+        self % highordersource = controlVariables % logicalValueForKey(sourceTermKey)
+    else
+        self % highordersource = .false.
+    end if
 
     if (self % no_of_particles == huge(1)) then 
         self % no_of_particles = 0
@@ -250,6 +257,7 @@ subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     !--------------------------------------------------------
 
     write(STD_OUT,'(30X,A,A28,L)')   "->" , "Injection active: " , self % injection % active
+    write(STD_OUT,'(30X,A,A28,L)')   "->" , "High order source: " , self % highordersource
     write(STD_OUT,'(30X,A,A28,A132)')   "->" , "Initialization file: " , partFile
     write(STD_OUT,'(30X,A,A30,E10.3)') "->", "Stokes number: ", self % dimensionless % St
     write(STD_OUT,'(30X,A,A30,E10.3)') "->", "phim: ", self % dimensionless % phim
@@ -416,7 +424,7 @@ subroutine ComputeSourceTermParticles(self, e, iP, Source)
 #if defined(NAVIERSTOKES)
 
     Source = 0.0_RP
-    call self % particle(iP) % Source( e, Source )
+    call self % particle(iP) % Source( e, Source, self % highordersource )
 
 #endif
 end subroutine 
