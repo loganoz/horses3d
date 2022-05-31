@@ -45,8 +45,8 @@ Module DGSEMClass
 
    private
    public   ComputeTimeDerivative_f, DGSem, ConstructDGSem
-
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
+   public   hnRange
 
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
@@ -325,22 +325,22 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-!       
+!
       call self% mesh% IBM% read_info( controlVariables )
 
       if( self% mesh% IBM% active ) then
-      
+
          if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
 
-! 
+!
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
-!            
+!
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-   
+
       end if
-  
+
 !
 !     ------------------------
 !     Allocate and zero memory
@@ -802,5 +802,48 @@ Module DGSEMClass
       end if
 #endif
    end subroutine MaxTimeStep
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   subroutine hnRange(mesh, hnmin, hnmax)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      type(HexMesh), intent(in)  :: mesh
+      real(RP),      intent(out) :: hnmin
+      real(RP),      intent(out) :: hnmax
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: eID, ierr
+      real(RP) :: hn
+      real(RP) :: l_hnmin, l_hnmax
+
+
+      if (MPI_Process % doMPIAction) then
+#ifdef _HAS_MPI_
+         l_hnmin = huge(1.0_RP)
+         l_hnmax = -huge(1.0_RP)
+         do eID = 1, mesh % no_of_elements
+            hn = mesh % elements(eID) % hn
+            l_hnmin = min(hn, l_hnmin)
+            l_hnmax = max(hn, l_hnmax)
+         end do
+         call mpi_reduce(l_hnmin, hnmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
+         call mpi_reduce(l_hnmax, hnmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
+#endif
+      else
+         hnmin = huge(1.0_RP)
+         hnmax = -huge(1.0_RP)
+         do eID = 1, mesh % no_of_elements
+            hn = mesh % elements(eID) % hn
+            hnmin = min(hn, hnmin)
+            hnmax = max(hn, hnmax)
+         end do
+      end if
+   end subroutine hnRange
 !
 end module DGSEMClass

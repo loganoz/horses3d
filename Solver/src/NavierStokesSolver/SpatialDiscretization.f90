@@ -72,6 +72,7 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
+         real(RP)                         :: hnmin, hnmax
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
@@ -80,6 +81,11 @@ module SpatialDiscretization
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
             end if
+
+            call hnRange(sem % mesh, hnmin, hnmax)
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+            write(STD_OUT,'(/)')
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
