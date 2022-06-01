@@ -570,11 +570,12 @@ function particle_updateTempRK3 (self, dt, I0, Nu, gammaDiv3cvpdivcvStPr ) resul
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-subroutine particle_source ( self, e, source )
+subroutine particle_source ( self, e, source, highordersource )
     implicit none
     class(Particle_t)       , intent(in)    :: self    
     class(element)          , intent(in)    :: e    
     real(kind=RP)           , intent(inout) :: source(:,0:,0:,0:)    
+    logical                                 :: highordersource
 #if defined(NAVIERSTOKES)
 !
 !        ---------------
@@ -583,6 +584,10 @@ subroutine particle_source ( self, e, source )
 !
     integer         :: i ,j, k                     
     real(kind=RP)   :: vol  
+
+    associate(spAxi   => NodalStorage(e % Nxyz(1)), &
+      spAeta  => NodalStorage(e % Nxyz(2)), &
+      spAzeta => NodalStorage(e % Nxyz(3)) )
 
     if ( .not. self % active ) return 
 
@@ -602,13 +607,31 @@ subroutine particle_source ( self, e, source )
     !*****************************
     ! COMPUTATION OF SOURCE TERM 
     !*****************************
-    do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)              
-      source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * 1.0_RP / vol 
-      source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * 1.0_RP / vol 
-      source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * 1.0_RP / vol 
-      source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * 1.0_RP / vol 
-    enddo ; enddo ; enddo    
-    
+    if (highordersource) then 
+      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)  
+         ! New implementation - Kopriva's idea of dealing with dirac function in weak form 
+         ! This can be optimized by precomputing:
+         ! self % lxi(i) * self % leta(j) * self % lzeta(k) / ( e % geom % jacobian(i,j,k) * spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) )          
+         source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * self % lxi(i) * self % leta(j) * self % lzeta(k) &
+         / ( e % geom % jacobian(i,j,k) * spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) )
+         source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * self % lxi(i) * self % leta(j) * self % lzeta(k) &
+         / ( e % geom % jacobian(i,j,k) * spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) ) 
+         source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * self % lxi(i) * self % leta(j) * self % lzeta(k) &
+         / ( e % geom % jacobian(i,j,k) * spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) ) 
+         source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * self % lxi(i) * self % leta(j) * self % lzeta(k) &
+         / ( e % geom % jacobian(i,j,k) * spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) ) 
+      enddo ; enddo ; enddo     
+    else
+      do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)  
+         ! Old implementation - Low order approximation of the source term inside the element (constant)
+         source(2,i,j,k) = source(2,i,j,k) - ( self % fluidVel(1) - self % Vel(1) ) * 1.0_RP / vol 
+         source(3,i,j,k) = source(3,i,j,k) - ( self % fluidVel(2) - self % Vel(2) ) * 1.0_RP / vol 
+         source(4,i,j,k) = source(4,i,j,k) - ( self % fluidVel(3) - self % Vel(3) ) * 1.0_RP / vol 
+         source(5,i,j,k) = source(5,i,j,k) - ( self % fluidTemp   - self % temp   ) * 1.0_RP / vol 
+      enddo ; enddo ; enddo        
+    endif 
+      
+    end associate
 #endif     
 end subroutine 
 !

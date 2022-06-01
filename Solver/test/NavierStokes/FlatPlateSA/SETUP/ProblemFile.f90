@@ -293,7 +293,7 @@ end module ProblemFileFunctions
 !
             integer        :: eid, i, j, k
             real(kind=RP)  :: qq, u, v, w, p, rho 
-#if defined(SPALARTALMARAS)
+#if defined(NAVIERSTOKES)
             real(kind=RP)  :: Q(NCONS), phi, thetaeddy 
 !           ---------------------------------------
 !           Navier-Stokes default initial condition
@@ -315,15 +315,17 @@ end module ProblemFileFunctions
                    v = 0.0_RP
                    w = 0.0_RP
                    p    = 1.0_RP/(gammaM2)
+#if defined(SPALARTALMARAS)
                    thetaeddy = 3.0_RP
-
+#endif
                    Q(1) = rho
                    Q(2) = rho * u
                    Q(3) = rho * v
                    Q(4) = rho * w
                    Q(5) = p/(gamma - 1._RP) + 0.5_RP*Q(1)*(u**2 + v**2 + w**2)
+#if defined(SPALARTALMARAS)
                    Q(6) = rho * thetaeddy
-                   
+#endif                   
                    mesh % elements(eID) % storage % q(:,i,j,k) = q 
                    end associate
                 end do;        end do;        end do
@@ -513,13 +515,14 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
   
-            real(kind=RP), parameter :: residuals(6) = [ 9.3703586518390587E+00_RP, &
-                                                         4.9054739120457049E+02_RP, &
-                                                         7.7409837498872885E-06_RP, &
-                                                         1.1075488606020224E+01_RP, &
-                                                         6.3208971129084773E+02_RP, &
-                                                         7.3633055447585866E+02_RP  ]
-!
+            real(kind=RP), parameter :: residuals(6) = [ 6.3984097615369926E+00_RP, &
+                                                         3.9795460697378121E+02_RP, &
+                                                         2.2532918144101032E+01_RP, &
+                                                         5.4322601633301493E-03_RP, &
+                                                         4.4590251601730688E+02_RP, &
+                                                         1.7961950105164788E+03_RP  ]
+
+
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 
             CALL initializeSharedAssertionsManager
@@ -527,7 +530,7 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(1)+1.0_RP, &
                                actualValue   = monitors % residuals % values(1,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "Continuity residual")
 
             CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
@@ -542,7 +545,7 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
                                actualValue   = monitors % residuals % values(4,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "Z-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
