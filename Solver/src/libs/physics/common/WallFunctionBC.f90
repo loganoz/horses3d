@@ -151,10 +151,9 @@ MODULE WallFunctionBC
       ! The damped Newton method is used. 
 
       ! Initial seed for Newton method
-      u_tau = u_tau0
-
-      ! Iterate in Newton's method until convergence criteria is met
-
+      
+      u_tau = u_tau0          
+      
       DO i = 1, newtonMaxIter
 
          ! Evaluate auxiliar function at u_tau
@@ -180,7 +179,8 @@ MODULE WallFunctionBC
               ( ABS ( Aux_x0 )                         < newtonTol ) ) THEN
 
             ! Asign output value to u_tau   
-            u_tau_f = u_tau_next  
+            u_tau_f = u_tau_next 
+            
             RETURN
 
          END IF
@@ -189,7 +189,7 @@ MODULE WallFunctionBC
          u_tau = u_tau_next
 
       END DO
- 
+      
       STOP "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 

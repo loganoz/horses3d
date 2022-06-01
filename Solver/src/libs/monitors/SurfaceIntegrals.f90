@@ -731,9 +731,11 @@ module SurfaceIntegrals
                             Q, U_x, U_y, U_z, y, Wallfunction,      &
                             integralType ) result( outvalue )
       use IBMClass
-      use WallFunctionBC
       use VariableConversion
       use FluidData
+#if defined(NAVIERSTOKES)
+      use WallFunctionBC
+#endif
       implicit none
 !
 !        -----------------------------------------------------------
@@ -764,6 +766,11 @@ module SurfaceIntegrals
       
       outvalue = 0.0_RP
       
+ ! flat plate              
+          if( almostequal(dot_product(normal,(/ 0.0_rp, 1.0_rp, 0.0_rp /)), 0.0_rp ) .or. &
+              dot_product(normal,(/ 0.0_rp, 1.0_rp, 0.0_rp /)) .lt. 0.0_rp )return
+! end flatplate 
+      
       select case( integralType )
       
          case ( TOTAL_FORCE )
@@ -780,16 +787,20 @@ module SurfaceIntegrals
                 
                U   = idwQ(IRHOU:IRHOW)
                U_t = U - ( dot_product(U,normal) * normal )
-               
+ 
                tangent = U_t/norm2(U_t)
 
                u_II  = dot_product(U,tangent)
-!~                u_tau = u_tau_f( u_II, y, nu )
+               
+               u_tau = u_tau_f( u_II, y, nu, u_tau0=1.0_RP )
             
-               T_w = T + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
-               rho_w = P/(thermodynamics% R * T_w)
+               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w = T_w * refvalues% T
+               rho_w = P*refvalues% p/(thermodynamics% R * T_w)
+               rho_w = rho_w/refvalues% rho
 #endif
                tau_w = rho_w*POW2(u_tau)
+!~                tau_w = idwQ(IRHO)*POW2(u_tau)
                
                viscStress = tau_w*tangent
             else
@@ -827,10 +838,12 @@ module SurfaceIntegrals
                tangent = U_t/norm2(U_t)
 
                u_II  = dot_product(U,tangent)
-!~                u_tau = u_tau_f( u_II, y, nu )
+               u_tau = u_tau_f( u_II, y, nu, u_tau0=1.0_RP )
             
-               T_w = T + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
-               rho_w = P/(thermodynamics% R * T_w)
+               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w = T_w * refvalues% T
+               rho_w = pressure(idwQ)*refvalues% p/(thermodynamics% R * T_w)
+               rho_w = rho_w/refvalues% rho
 #endif
                tau_w = rho_w*POW2(u_tau)
                

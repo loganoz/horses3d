@@ -409,7 +409,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) 
          sem % mesh% IBM% eta = self% CorrectDt(t, dt)
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -494,11 +494,11 @@ print*, "Method selected: RK5"
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
-            if( sem% mesh% IBM% active ) then
-               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
-            else
+!~             if( sem% mesh% IBM% active ) then
+!~                call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+!~             else
               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
-            end if
+!~             end if
          END IF
 !
 !        Correct time step
@@ -543,7 +543,12 @@ print*, "Method selected: RK5"
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+            if( sem% mesh% IBM% active ) then
+               call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
+               call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
+            end if
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -562,6 +567,7 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
+
 !
 !        Compute the new time
 !        --------------------

@@ -59,7 +59,7 @@ module IBMClass
       real(kind=rp),              allocatable :: symCoords(:), penalization(:)
       integer                                 :: KDtree_Min_n_of_Objs, KDtree_n_of_interPoints,   &
                                                  IntegrationOrder, n_of_INpoints,                 &
-                                                 rank, lvl = 0, NumOfSTL
+                                                 rank, lvl = 0, NumOfSTL, NumOfForcingPoints
       integer,                    allocatable :: symPlanes(:), ImagePoint_NearestPoints(:,:)
       
       contains  
@@ -79,12 +79,12 @@ module IBMClass
          procedure :: MPI_sendBand2Partitions   => IBM_MPI_sendBand2Partitions
          procedure :: BandRegionPoints          => IBM_bandRegionPoints
          procedure :: GetForcingPointsGeom      => IBM_GetForcingPointsGeom
-         procedure :: GetImagePointCoords       => IBM_GetImagePointCoords
          procedure :: GetInfo                   => IBM_GetInfo 
          procedure :: SourceTerm                => IBM_SourceTerm
-         procedure :: ForceTerm                 => IBM_ForceTerm
+         procedure :: ComputeIBMWallDistance    => IBM_ComputeIBMWallDistance
+         procedure :: SemiImplicitCorrection    => IBM_SemiImplicitCorrection
          procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) 
          procedure :: SourceTermTurbulence      => IBM_SourceTermTurbulence
 #endif
          procedure :: semiImplicitShiftJacobian => IBM_semiImplicitShiftJacobian
@@ -95,7 +95,6 @@ module IBMClass
          procedure :: copyKDtree                => IBM_copyKDtree
          procedure :: MoveBody                  => IBM_MoveBody
          procedure :: CleanMask                 => IBM_CleanMask
-         procedure :: BandPoint_SetGeom         => IBM_BandPoint_SetGeom
          procedure :: BandPoint_state           => IBM_BandPoint_state
          procedure :: Describe                  => IBM_Describe
          procedure :: plot_Mask                 => IBM_plot_Mask
@@ -382,13 +381,6 @@ module IBMClass
       if( isChild .and. .not. this% Wallfunction ) return
       
       call this% constructBandRegion( elements, no_of_elements ) 
-
-      if( this% Wallfunction ) then
-         call this% GetForcingPointsGeom()
-#if defined(NAVIERSTOKES)
-         call this% GetImagePoint_nearest()
-#endif
-      end if    
 
       if( .not. isChild ) then
          do STLNum = 1, this% NumOfSTL
@@ -783,52 +775,9 @@ module IBMClass
       end do
 !$omp end do
 !$omp end parallel   
-   end subroutine IBM_upDateNormals
-   
-   
-   subroutine IBM_GetImagePointCoords( this, maxDistFP )
-      use MPI_Process_Info
-      implicit none
-      !-arguments----------------------------------------------
-      class(IBM_type), intent(inout) :: this
-      real(kind=rp),   intent(in)    :: maxDistFP
-      !-local-variables----------------------------------------
-      real(kind=rp)                        :: DistFP
-      integer                              :: i
-      
-      if( MPI_Process% isRoot ) then
-      
-!$omp parallel shared(i)
-!$omp do schedule(runtime) private(DistFP)
-      do i = 1, this% BandRegion% NumOfObjs
-      
-         if( .not. this% BandRegion% x(i)% forcingPoint ) cycle
-         
-         DistFP = maxDistFP - this% BandRegion% x(i)% Dist
-         
-         this% BandRegion% x(i)% ImagePoint_coords = this% BandRegion% x(i)% coords + DistFP * this% BandRegion% x(i)% normal 
-         
-      end do
-!$omp end do
-!$omp end parallel
-
-     end if
-
-     if ( MPI_Process% doMPIAction ) then   
-        call recvIP_Coords( this% BandRegion )
-     end if
-
-     if( MPI_Process% doMPIRootAction ) then
-        call sendIP_Coords( this% BandRegion )
-     end if      
-
-
-   end subroutine IBM_GetImagePointCoords
-   
-   
-   
-   
-   subroutine IBM_GetForcingPointsGeom( this )
+   end subroutine IBM_upDateNormals  
+    
+   subroutine IBM_GetForcingPointsGeom( this, elements )
       use MPI_Process_Info
       
       use omp_lib
@@ -836,149 +785,55 @@ module IBMClass
       implicit none
       !-arguments---------------------------------------------
       class(IBM_type),               intent(inout) :: this
+      type(element),   dimension(:), intent(inout) :: elements
       !-local-variables--------------------------------------
       real(kind=RP) :: Dist, Point(NDIM), IntersectionPoint(NDIM)
-      integer       :: i, STLNum
-#ifdef _HAS_MPI_
-      real(kind=RP) :: MPI_in(2,1), MPI_out(2,1)
-      integer       :: ierr
-#endif      
+      integer       :: eID, i, j, k  
       
-      character(len=LINE_LENGTH) :: myString
+      character(len=LINE_LENGTH) :: MyString
       integer :: funit
       
-      this% BandRegion% NumOfF_Points = 0
+      this% IP_Distance = InitializeDistance( this% y_plus_target )
 
-!$omp parallel shared(i)
-!$omp do schedule(runtime) private(STLNum,Dist,IntersectionPoint,Point)
-      do i = 1, this% BandRegion% NumOfObjs
-         this% BandRegion% x(i)% Dist = huge(1.0_RP)
-         do STLNum = 1, this% NumOfSTL
-!~             if( .not. OBB(STLNum)% isInsidePolygon( this% BandRegion% x(i)% coords, 1.15_RP ) ) cycle
-            
-            if( this% BandRegion% x(i)% coords(1) .lt. 0.0_RP ) cycle 
-
-            this% BandRegion% x(i)% forcingPoint = .true.
-            
-!$omp critical
-            this% BandRegion% NumOfF_Points = this% BandRegion% NumOfF_Points + 1
-!$omp end critical
-            call OBB(STLNum)% ChangeRefFrame( this% BandRegion% x(i)% coords, 'local', Point )
-            
-            call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
-            
-            if( Dist .lt. this% BandRegion% x(i)% Dist ) then
-               this% BandRegion% x(i)% Dist    = Dist
-               this% BandRegion% x(i)% normal  = (this% BandRegion% x(i)% coords-IntersectionPoint)/ &
-                                                  norm2(this% BandRegion% x(i)% coords-IntersectionPoint)      
-               this% BandRegion% x(i)% rank    = MPI_Process% rank
-            end if
-         end do
-      end do
-!$omp end do 
-!$omp end parallel
-
-      if( this% BandRegion% NumOfF_Points .eq. 0 ) then
-         print*, " Number of forcing points is 0."
-         print*, " Increase 'coeff' in OrientedBoundingBox:: OBB_isInsidePolygon"
-      end if
+      this% NumOfForcingPoints = 0
       
-#ifdef _HAS_MPI_
-      do i = 1, this% BandRegion% NumOfObjs
-         MPI_in(1,1) = this% BandRegion% x(i)% Dist
-         MPI_in(2,1) = MPI_Process% rank
-         call mpi_allreduce( MPI_in, MPI_out, 1, MPI_2DOUBLE_PRECISION, MPI_MINLOC, MPI_COMM_WORLD, ierr )
-         if( MPI_Process% isRoot ) then
-            this% BandRegion% x(i)% Dist = MPI_out(1,1)
-            this% BandRegion% x(i)% rank = MPI_out(2,1)
-         end if
-      end do
-#endif
-
-     if ( MPI_Process% doMPIAction ) then   
-        call recvGeom( this% BandRegion )
-     end if
-
-     if( MPI_Process% doMPIRootAction ) then
-        call sendGeom( this% BandRegion )
-     end if
-
-     call this% BandPoint_SetGeom()
-     
-     this% IP_Distance = InitializeDistance( this% y_plus_target )
-     
-!$omp parallel shared(i)
-!$omp do schedule(runtime)       
-      do i = 1, this% BandRegion% NumOfObjs                  
-         if( this% BandRegion% x(i)% forcingPoint .and. this% BandRegion% x(i)% Dist .gt. this% IP_Distance ) then
-               this% BandRegion% x(i)% forcingPoint = .false.             
+!$omp parallel 
+!$omp do schedule(runtime) private(i,j,k) 
+      do eID = 1, size(elements)
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
+         
+            if( elements(eID)% geom% x(1,i,j,k) .lt. 0.0_RP ) cycle   ! FLAT PLATEEE
+         
+            if( elements(eID)% geom% dWall(i,j,k) .gt. this% IP_Distance .or. elements(eID)% isInsideBody(i,j,k) ) cycle
+            elements(eID)% isForcingPoint(i,j,k) = .true. 
 !$omp critical
-            this% BandRegion% NumOfF_Points = this% BandRegion% NumOfF_Points - 1
+            this% NumOfForcingPoints = this% NumOfForcingPoints + 1 
 !$omp end critical
-         end if 
+         end do                          ; end do                          ; end do
       end do
-!$omp end do 
+!$omp end do
 !$omp end parallel
 
-      if( this% BandRegion% NumOfF_Points .eq. 0 ) then
-         print*, " Number of forcing points is 0."
-         print*, " Increase 'coeff' in OrientedBoundingBox:: OBB_isInsidePolygon"
-         print*, " Distance required = ", this% IP_Distance
-         print*, " Minimum distance  = ",  minval(this% BandRegion% x(:)% Dist)
-      end if
 
-      call this% GetImagePointCoords( this% IP_Distance )  
+
+
+    write(MyString,*) this% lvl
+
+      call TecFileHeader( 'IBM/ForcingPoints'//trim(adjustl(MyString)), 'FP Points', this% NumOfForcingPoints/2+mod(this% NumOfForcingPoints,2),2,1, funit, 'POINT')
+
+         do eID = 1, size(elements)
+            associate ( e => elements(eID) )
+            do k = 0, e% Nxyz(3); do j = 0, e% Nxyz(2) ; do i = 0, e% Nxyz(1)
+               if( e% isForcingPoint(i,j,k) ) then
+                  write(funit,'(3E13.5)')  e% geom% x(1,i,j,k), e% geom% x(2,i,j,k), e% geom% x(3,i,j,k)
+               end if
+            end do; end do; end do
+            end associate
+         end do
+         
+         close(funit)
 
    end subroutine IBM_GetForcingPointsGeom
-   
-   
-   
-   subroutine IBM_BandPoint_SetGeom( this )
-      use MPI_Process_Info
-      implicit none
-      !-arguments-------------------------------------------------
-      class(IBM_type), intent(inout) :: this
-      !-local-variables-------------------------------------------
-      real(kind=rp), dimension(:,:), allocatable :: bpNormals 
-      real(kind=rp), dimension(:),   allocatable :: local_sum 
-      integer                                    :: i, rank
-#ifdef _HAS_MPI_
-      integer                                    :: ierr
-#endif
-
-     allocate( bpNormals(NDIM,this% BandRegion% NumOfObjs),  &
-               local_sum(this% BandRegion% NumOfObjs)        )
-
-     bpNormals = 0.0_RP
-!$omp parallel shared(i,bpNormals)
-!$omp do schedule(runtime) private(rank)
-     do i = 1, this% BandRegion% NumOfObjs
-        rank = this% BandRegion% x(i)% rank
-        if( rank .eq. MPI_Process% rank ) then
-           bpNormals(:,i) = this% BandRegion% x(i)% normal
-        end if
-     end do
-!$omp end do
-!$omp end parallel
-
-#ifdef _HAS_MPI_    
-     do i = 1, NDIM
-        local_sum = bpNormals(i,:)
-        call mpi_allreduce( local_sum, bpNormals(i,:), this% BandRegion% NumOfObjs, MPI_DOUBLE, &
-                            MPI_SUM, MPI_COMM_WORLD, ierr                                       )
-     end do
-#endif   
-   
-!$omp parallel shared(i,bpNormals)
-!$omp do schedule(runtime) 
-     do i = 1, this% BandRegion% NumOfObjs
-        this% BandRegion% x(i)% normal  = bpNormals(:,i)
-     end do
-!$omp end do
-!$omp end parallel
-     deallocate(bpNormals,local_sum)
-    
-   end subroutine IBM_BandPoint_SetGeom
    
    subroutine IBM_BandPoint_state( this, elements, bpQ, bpU_x, bpU_y, bpU_z )
       use PhysicsStorage
@@ -1250,29 +1105,29 @@ module IBMClass
       
       call SubSection_Header('IBM info')
 
-      write(STD_OUT,'(30X,A,A35,L10)') "->" , "Semi implicit treatment: ", this% active_semiImplicit
+      write(STD_OUT,'(30X,A,A25,L10)') "->" , "Semi implicit treatment: ", this% active_semiImplicit
       if( .not. this% TimePenal ) then
-         write(STD_OUT,'(30X,A,A35,1pG10.6)') "->" , "Penalization term: " , this% eta
+         write(STD_OUT,'(30X,A,A25,1pG10.6)') "->" , "Penalization term: " , this% eta
       else
-         write(STD_OUT,'(30X,A,A35,A)') "->" , "Penalization term: ", " proportional to time step"
+         write(STD_OUT,'(30X,A,A25,A)') "->" , "Penalization term: ", " Dt"
       end if
 
-      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
-      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of interpolation points: ", this% KDtree_n_of_interPoints
-      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Surface integration order: ", this% IntegrationOrder
+      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
+      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Number of interpolation points: ", this% KDtree_n_of_interPoints
+      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Surface integration order: ", this% IntegrationOrder
       if( this% Wallfunction ) then
          write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
       end if
       if( this% symmetry ) then
          select case( size(this% symPlanes,1) )
          case( 1 )
-            write(STD_OUT,'(30X,A,A35,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),"]"
+            write(STD_OUT,'(30X,A,A25,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),"]"
          case( 2 )
-            write(STD_OUT,'(30X,A,A36,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),"]"
+            write(STD_OUT,'(30X,A,A26,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),"]"
          case( 3 )
-            write(STD_OUT,'(30X,A,A35,I2,A,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),",",this% symPlanes(3),"]"
+            write(STD_OUT,'(30X,A,A25,I2,A,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),",",this% symPlanes(3),"]"
          case default
-         write(STD_OUT,'(30X,A,A35,I10)') "->" , "Symmetry planes: ", this% symPlanes
+         write(STD_OUT,'(30X,A,A25,I10)') "->" , "Symmetry planes: ", this% symPlanes
          end select
       end if
       end if
@@ -1341,56 +1196,6 @@ module IBMClass
       Source = -1.0_RP/this% penalization(eID) * Source
    
    end subroutine IBM_SourceTerm
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!  
-!  -------------------------------------------------
-! This subroutine computes the IBM forcing term 
-!  ------------------------------------------------   
-
-   subroutine IBM_ForceTerm( this, eID, Q, Q_target, Force )
-      use PhysicsStorage
-      implicit none
-      !-arguments------------------------------------------------
-      class(IBM_type),                 intent(inout) :: this
-      integer,                         intent(in)    :: eID
-      real(kind=rp), dimension(NCONS), intent(in)    :: Q, Q_target
-      real(kind=rp), dimension(NCONS), intent(inout) :: Force
-      !-local-variables-----------------------------------
-      real(kind=rp) :: rho, rho_s, u, u_s, v, v_s, w, w_s
-#if defined(SPALARTALMARAS)
-      real(kind=rp) :: theta, theta_s
-#endif
-      
-      Force = 0.0_RP
-      
-#if defined(NAVIERSTOKES)
-      rho_s = Q_target(IRHO)
-      u_s   = Q_target(IRHOU)/rho_s
-      v_s   = Q_target(IRHOV)/rho_s
-      w_s   = Q_target(IRHOW)/rho_s   
-      
-      rho = Q(IRHO)
-      u   = Q(IRHOU)/rho
-      v   = Q(IRHOV)/rho
-      w   = Q(IRHOW)/rho
-      
-      Force(IRHOU) = rho*u-rho_s*u_s  
-      Force(IRHOV) = rho*v-rho_s*v_s 
-      Force(IRHOW) = rho*w-rho_s*w_s
-      Force(IRHOE) = 0.5_RP * rho*( POW2(u) + POW2(v) + POW2(w) )  & 
-                    -0.5_RP * rho_s*( POW2(u_s) + POW2(v_s) + POW2(w_s) ) 
-#if defined(SPALARTALMARAS)
-      theta_s = Q_target(IRHOTHETA)/rho_s
-      theta   = Q(IRHOTHETA)/rho
-
-      Force(IRHOTHETA) = rho*theta - rho_s*theta_s
-#endif                     
-#endif   
-   
-      Force = -1.0_RP/this% penalization(eID) * Force
-   
-   end subroutine IBM_ForceTerm
    
    subroutine IBM_semiImplicitShiftJacobian( this, eID, Q, dt, invdS_dQ )
       use PhysicsStorage
@@ -1480,11 +1285,52 @@ module IBMClass
        call this% semiImplicitJacobian( eID, Q, dS_dQ )
        call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ )
     
-       call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource)
+       call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource)          
     
        Q = matmul(invdS_dQ, Q + dt*( IBMSource - matmul(dS_dQ,Q) ))
      
     end subroutine IBM_GetSemiImplicitStep   
+    
+    
+    subroutine IBM_SemiImplicitCorrection( this, elements, dt, dt_vec )
+    
+       implicit none
+       !-arguments------------------------------------------------------
+       class(IBM_type),               intent(inout) :: this
+       type(element),   dimension(:), intent(inout) :: elements
+       real(kind=RP),                 intent(in)    :: dt, dt_vec(:)
+       !-local-variables------------------------------------------------
+       real(kind=RP) :: deltaT
+       integer       :: eID, i, j, k
+       
+       optional :: dt_vec
+       
+       if( .not. this% semiImplicit ) return
+       
+!$omp parallel do schedule(runtime) private(i,j,k,deltaT)
+       do eID = 1, SIZE( elements )
+          if( present(dt_vec) ) then 
+             deltaT = dt_vec(eID)
+          else
+             deltaT = dt
+          end if
+          
+          if( this% TimePenal ) this% penalization(eID) = 0.5_RP*deltaT
+          do i = 0, elements(eID)% Nxyz(1); do j = 0, elements(eID)% Nxyz(2); do k = 0, elements(eID)% Nxyz(3)
+             if( elements(eID)% isInsideBody(i,j,k) ) then
+                associate( Q => elements(eID)% storage% Q(:,i,j,k) )
+
+                call this% GetSemiImplicitStep( eID, 0.5_RP*deltaT, Q ) 
+                
+                end associate
+             end if
+          end do; end do; end do
+       end do
+!$omp end parallel do
+    
+    end subroutine IBM_SemiImplicitCorrection
+    
+    
    
    subroutine IBM_SetIntegration( this, STLNum )
       use MPI_Process_Info
@@ -1677,6 +1523,89 @@ module IBMClass
       call integer_List% Destruct()
 
    end subroutine IBM_CheckPoint
+   
+   
+   subroutine IBM_ComputeIBMWallDistance( this, elements, faces, elementsList, facesList)
+
+      implicit none
+      !-arguments---------------------------------------------------------------
+      class(IBM_type),    intent(inout) :: this
+      type(element),      intent(inout) :: elements(:)
+      type(face),         intent(inout) :: faces(:)
+      integer, optional , intent(in)    :: facesList(:)
+      integer, optional , intent(in)    :: elementsList(:)
+      !-local-variables----------------------------------------------------------
+      integer       :: eID, fID, ii, i, j, k, num_of_elems, num_of_faces, STLNum
+      real(kind=RP) :: xP(NDIM), IntersectionPoint(NDIM), Dist, Point(NDIM)
+
+      num_of_elems = size(elements)   
+      num_of_faces = size(faces) 
+
+!$omp parallel
+!$omp do schedule(runtime) private(eID,i,j,k,STLNum,Dist,Point,xP,IntersectionPoint)
+      do ii = 1, num_of_elems
+         if ( present(elementsList) ) then
+            eID = elementsList(ii)
+         else
+            eID = ii
+         end if
+         allocate(elements(eID)% geom% dWall(0:elements(eID)% Nxyz(1), 0:elements(eID)% Nxyz(2), 0:elements(eID)% Nxyz(3)),      &
+                  elements(eID)% geom% normal(NDIM,0:elements(eID)% Nxyz(1), 0:elements(eID)% Nxyz(2), 0:elements(eID)% Nxyz(3)) )
+
+         do k = 0, elements(eID)% Nxyz(3)   ; do j = 0, elements(eID)% Nxyz(2) ; do i = 0, elements(eID)% Nxyz(1)
+            xP = elements(eID)% geom% x(:,i,j,k)
+            elements(eID)% geom% dWall(i,j,k) = huge(1.0_RP)
+            do STLNum = 1, this% NumOfSTL
+               call OBB(STLNum)% ChangeRefFrame( xP, 'local', Point )
+               call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
+               if( Dist .lt. elements(eID)% geom% dWall(i,j,k) ) then
+                  elements(eID)% geom% dWall(i,j,k)    = Dist
+                  elements(eID)% geom% normal(:,i,j,k) = (xP-IntersectionPoint)/norm2(xP-IntersectionPoint) 
+               end if
+            end do
+         end do                  ; end do                ; end do
+      end do
+!$omp end do
+!
+!     Get the minimum distance to each face nodal degree of freedom
+!     -------------------------------------------------------------
+
+!$omp do schedule(runtime) private(eID,i,j,k,STLNum,Dist,Point,xP,IntersectionPoint)
+      do ii = 1, num_of_faces
+         if ( present(facesList) ) then
+            eID = facesList(ii)
+         else
+            eID = ii
+         end if
+
+         allocate(faces(eID)% geom% dWall(0:faces(eID)% Nf(1), 0:faces(eID)% Nf(2)))
+
+         do j = 0, faces(eID)% Nf(2) ; do i = 0, faces(eID)% Nf(1)
+            xP = faces(eID)% geom% x(:,i,j)
+            faces(eID)% geom% dWall(i,j) = huge(1.0_RP)
+            do STLNum = 1, this% NumOfSTL
+               call OBB(STLNum)% ChangeRefFrame( xP, 'local', Point )
+               call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
+               faces(eID)% geom% dWall(i,j) = min(faces(eID)% geom% dWall(i,j),Dist)
+            end do
+         end do                ; end do
+      end do
+!$omp end do
+!$omp end parallel
+
+
+      if( this% Wallfunction ) then
+#if defined(NAVIERSTOKES)
+         call this% GetForcingPointsGeom( elements )
+         call this% GetImagePoint_nearest( elements )
+#endif
+      end if    
+
+
+
+   end subroutine IBM_ComputeIBMWallDistance
+   
+   
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1762,8 +1691,8 @@ module IBMClass
          end do
          if( this% Wallfunction ) then
 #if defined(NAVIERSTOKES)
-            call this% GetForcingPointsGeom()
-            call this% GetImagePoint_nearest()
+            call this% GetForcingPointsGeom( elements )
+            call this% GetImagePoint_nearest( elements )
 #endif
          end if
       end if
@@ -2489,25 +2418,27 @@ module IBMClass
    end function BoxIntersectSphere
    
 
-   subroutine MinimumDistancePoints( Point, root, BandRegion, minDist, LowerBound, actualIndex, PointsIndex, forcingPointsMask )
-   
+   subroutine MinimumDistancePoints( Point, root, BandRegion, minDist, LowerBound, actualIndex, &
+                                     PointsIndex, forcingPointsMask, elements                   )
+      use ElementClass
       implicit none
       !-arguments-------------------------------------------------------
-      real(kind=rp), dimension(:), intent(in)    :: Point
-      type(KDtree),                intent(inout) :: root
-      type(MPI_M_Points_type),     intent(in)    :: BandRegion
-      real(kind=rp),               intent(inout) :: minDist, LowerBound
-      integer,                     intent(in)    :: actualIndex
-      integer,       dimension(:), intent(inout) :: PointsIndex
-      logical,                     intent(in)    :: forcingPointsMask
+      real(kind=rp),  dimension(:), intent(in)    :: Point
+      type(KDtree),                 intent(inout) :: root
+      type(MPI_M_Points_type),      intent(in)    :: BandRegion
+      real(kind=rp),                intent(inout) :: minDist, LowerBound
+      integer,                      intent(in)    :: actualIndex
+      integer,        dimension(:), intent(inout) :: PointsIndex
+      logical,        optional,     intent(in)    :: forcingPointsMask
+      type(element),  optional,     intent(in)    :: elements(:)
       !-local-variables-------------------------------------------------
       real(kind=rp), dimension(NDIM) :: BandPoint, dsvec
       logical                        :: Inside, found, FPmask
       type(KDtree), pointer          :: tree
-      real(kind=rp)                  :: sqrDist, New_minsqrDist, Radius, ds
-      integer                        :: i, LeafIndex, temp_index
-      
-      optional :: forcingPointsMask
+      real(kind=rp)                  :: sqrDist, New_minsqrDist, Radius, &
+                                        ds
+      integer                        :: i, LeafIndex, temp_index, eID,   &  
+                                        loc_pos(NDIM)
       
       ! ref frame = global
       if( present(forcingPointsMask) ) then
@@ -2525,7 +2456,9 @@ module IBMClass
       do i = 1, tree% NumOfObjs
       
          if( FPMask ) then
-            if( BandRegion% x(tree% ObjsIndeces(i))% forcingPoint ) cycle 
+            eID     = BandRegion% x(tree% ObjsIndeces(i))% element_index
+            loc_pos = BandRegion% x(tree% ObjsIndeces(i))% local_Position 
+            if( elements(eID)% isForcingPoint(loc_pos(1),loc_pos(2),loc_pos(3)) ) cycle 
          end if
          
          BandPoint = BandRegion% x(tree% ObjsIndeces(i))% coords
@@ -2567,10 +2500,18 @@ module IBMClass
 
       if( Inside ) then
          New_minsqrDist = huge(1.0_RP)
-         call MinimumDistOtherBoxesPoints( Point, root, BandRegion, Radius, &
-                                           New_minsqrDist, LowerBound,      &
-                                           PointsIndex, LeafIndex,          &
-                                           temp_index, FPmask               )
+         if( present(elements) ) then
+            call MinimumDistOtherBoxesPoints( Point, root, BandRegion, Radius, &
+                                              New_minsqrDist, LowerBound,      &
+                                              PointsIndex, LeafIndex,          &
+                                              temp_index, FPmask, elements     )
+         else
+            call MinimumDistOtherBoxesPoints( Point, root, BandRegion, Radius, &
+                                              New_minsqrDist, LowerBound,      &
+                                              PointsIndex, LeafIndex,          &
+                                              temp_index, FPmask               )         
+         
+         end if
          if( New_minsqrDist .le. minDist ) then
             minDist = New_minsqrDist; PointsIndex(actualIndex) = temp_index  
          end if
@@ -2583,8 +2524,9 @@ module IBMClass
    recursive subroutine MinimumDistOtherBoxesPoints( Point, tree, BandRegion, Radius, &
                                                      New_minsqrDist, LowerBound,      &
                                                      PointsIndex, LeafIndex,          &
-                                                     temp_index, forcingPointsMask    )
-                                                                              
+                                                     temp_index, forcingPointsMask,   &
+                                                     elements                         )
+      use elementClass                                                                 
       implicit none
       !-arguments----------------------------------------------------------
       real(kind=rp), dimension(:),   intent(in)    :: Point
@@ -2596,10 +2538,11 @@ module IBMClass
       integer,         dimension(:), intent(in)    :: PointsIndex
       integer,                       intent(in)    :: LeafIndex
       logical,                       intent(in)    :: forcingPointsMask
+      type(element),   optional,     intent(in)    :: elements(:)
       !-local-variables---------------------------------------------------
       real(kind=rp)                  :: sqrDist, BandPoint(NDIM)
       logical                        :: Intersect, found
-      integer                        :: i
+      integer                        :: i, eID, loc_pos(NDIM)
       
       Intersect = BoxIntersectSphere( Radius, Point, tree% vertices )
       
@@ -2609,7 +2552,9 @@ module IBMClass
                do i = 1, tree% NumOfObjs
                
                   if( forcingPointsMask ) then
-                     if( BandRegion% x(tree% ObjsIndeces(i))% forcingPoint ) cycle
+                     eID     = BandRegion% x(tree% ObjsIndeces(i))% element_index
+                     loc_pos = BandRegion% x(tree% ObjsIndeces(i))% local_Position 
+                     if( elements(eID)% isForcingPoint(loc_pos(1),loc_pos(2),loc_pos(3)) ) cycle
                   end if
                
                   BandPoint = BandRegion% x(tree% ObjsIndeces(i))% coords
@@ -2633,16 +2578,32 @@ module IBMClass
                end do    
             end if
          else
-            call MinimumDistOtherBoxesPoints( Point, tree% child_L, BandRegion, &
-                                              Radius, New_minsqrDist,           &
-                                              LowerBound, PointsIndex,          &
-                                              LeafIndex, temp_index,            &
-                                              forcingPointsMask                 )    
-            call MinimumDistOtherBoxesPoints( Point, tree% child_R, BandRegion, &
-                                              Radius, New_minsqrDist,           &
-                                              LowerBound, PointsIndex,          &
-                                              LeafIndex, temp_index,            &
-                                              forcingPointsMask                 ) 
+            if( present(elements) ) then
+               call MinimumDistOtherBoxesPoints( Point, tree% child_L, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask,                &
+                                                 elements                          )    
+               call MinimumDistOtherBoxesPoints( Point, tree% child_R, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask,                &
+                                                 elements                          )
+            else
+               call MinimumDistOtherBoxesPoints( Point, tree% child_L, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask                 )
+               call MinimumDistOtherBoxesPoints( Point, tree% child_R, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask                 )           
+            
+            end if 
          end if
       end if
           
@@ -2676,8 +2637,9 @@ module IBMClass
             distanceSqr = distanceSqr + POW2(BandRegion% x(PointsIndex(i))% coords(k) - Point(k))
          end do
 
-         sqrd1 = distanceSqr - POW2(d2) 
-         d1 = sqrt(sqrd1) 
+         sqrd1 = distanceSqr - POW2(d2)
+          
+         d1 = sqrt(abs(sqrd1)) 
                
          num = num + Q(:,i)/(d1+eps)
          den = den + 1.0_RP/(d1+eps)
@@ -2699,125 +2661,100 @@ module IBMClass
 !  forcing point lies inside the log region 
 !  ------------------------------------------------
 
-   subroutine IBM_GetImagePoint_nearest( this )
+   subroutine IBM_GetImagePoint_nearest( this, elements )
       use MappedGeometryClass
       use PhysicsStorage
       use MPI_Process_Info
+      use ElementClass
       implicit none
       !-arguments---------------------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
+      type(element),   intent(inout) :: elements(:)
       !-local-variables----------------------------------------------------------------------
-      real(kind=RP) :: Dist, LowerBound
-      integer       :: i, k
+      real(kind=RP) :: Dist, LowerBound, ImagePoint(NDIM)
+      integer       :: eID, i, j, k, m, n
       
       if( allocated(this% ImagePoint_NearestPoints) ) deallocate(this% ImagePoint_NearestPoints)
-      allocate(this% ImagePoint_NearestPoints(this% KDtree_n_of_interPoints,this% BandRegion% NumOfObjs))
+      allocate(this% ImagePoint_NearestPoints(this% KDtree_n_of_interPoints,this% NumOfForcingPoints))
       
-      this% ImagePoint_NearestPoints = 0   
+      this% ImagePoint_NearestPoints = 0
+      m = 0  
 
-      if( MPI_Process% isRoot ) then
-!$omp parallel shared(i)
-!$omp do schedule(runtime) private(k,Dist,LowerBound)
-      do i = 1, this% BandRegion% NumOfObjs
-         if( .not. this% BandRegion% x(i)% forcingPoint ) cycle
-         LowerBound  = -huge(1.0_RP)
-         do k = 1, this% KDtree_n_of_interPoints 
-            call MinimumDistancePoints( this% BandRegion% x(i)% ImagePoint_coords, this% rootPoints, &
-                                        this% BandRegion, &
-                                        Dist, LowerBound, k, this% ImagePoint_NearestPoints(:,i),    &
-                                        .true.                                                       ) 
-            LowerBound = POW2(Dist)
-         end do
+!$omp parallel
+!$omp do schedule(runtime) private(i,j,k,Dist,LowerBound,n,ImagePoint)
+      do eID = 1, size(elements)             
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
+            if( elements(eID)% isForcingPoint(i,j,k) ) then
+!$omp critical
+               m = m + 1
+!$omp end critical
+               elements(eID)% IP_index(i,j,k) = m
+            
+               Dist = this% IP_distance - elements(eID)% geom% dWall(i,j,k)
+            
+               ImagePoint = elements(eID)% geom% x(:,i,j,k) + Dist * elements(eID)% geom% normal(:,i,j,k) 
+              
+               LowerBound  = -huge(1.0_RP)
+               do n = 1, this% KDtree_n_of_interPoints 
+                  call MinimumDistancePoints( ImagePoint, this% rootPoints, this% BandRegion,              &
+                                              Dist, LowerBound, n, this% ImagePoint_NearestPoints(:,m),    &
+                                              .true., elements                                             ) 
+                  LowerBound = POW2(Dist)
+               end do
+            end if
+         end do               ; end do               ; end do                 
       end do
 !$omp end do
 !$omp end parallel
-      end if
-      
-      call recvIP_NearestPoints( this% ImagePoint_NearestPoints )    
-      call sendIP_NearestPoints( this% ImagePoint_NearestPoints )  
-
    end subroutine IBM_GetImagePoint_nearest
    
-#if defined(NAVIERSTOKES)    
-   subroutine IBM_SourceTermTurbulence( this, elements )
+#if defined(NAVIERSTOKES)  
+   subroutine ForcingPointState( Q_IP, y_IP, y_FP, normal, Q_FP )
       use PhysicsStorage
       use WallFunctionDefinitions
       use WallFunctionBC
       use VariableConversion
       use SpallartAlmarasTurbulence
-      use FluidData
+      use FluidData   
       implicit none
-      !-arguments--------------------------------------------------------------
-      class(IBM_type),               intent(inout) :: this
-      type(element),   dimension(:), intent(inout) :: elements
+      
+      real(kind=rp), dimension(:), intent(in)    :: Q_IP, normal
+      real(kind=rp),               intent(in)    :: y_IP, Y_FP
+      real(kind=rp), dimension(:), intent(inout) :: Q_FP
       !-local-variables--------------------------------------------------------
-      real(kind=rp), allocatable :: bpQ(:,:)
-      real(kind=rp)              :: Q_IP(NCONS), Q_FP(NCONS),               &
-                                    nu_IP, nu_FP, mu_IP, mu_FP, T_IP, T_FP, &
-                                    P_IP, u_tau, y_IP, y_FP,                &
-                                    u_IP(NDIM), u_IPt, u_FPt, u_FPn,        &   
-                                    u_FP(NDIM), u_IP_t(NDIM), Force(NCONS), &
-                                    tangent(NDIM), yplus_FP, nu_tilde
+      real(kind=rp)              :: nu_IP, nu_FP, mu_IP, mu_FP, T_IP, T_FP, &
+                                    u_tau, u_IP(NDIM), u_IPt, u_FPt,        &
+                                    u_FPn, u_FP(NDIM), u_IP_t(NDIM),        &
+                                    tangent(NDIM), yplus_FP, nu_tilde,      &
+                                    kappa_IP, kappa_FP
+
 #if defined(SPALARTALMARAS)
       real(kind=rp)              :: Dump, chi, fv1, nu_t
 #endif
-      integer                    :: n, i
-      
-      if( .not. this% Wallfunction ) return
-
-      allocate( bpQ(NCONS,this% BandRegion% NumOfObjs) )
-
-      call this% BandPoint_state( elements, bpQ )
- 
-      do i = 1, this% BandRegion% NumOfObjs 
-
-         if( .not. this% BandRegion% x(i)% forcingPoint ) cycle
-
-         if( this% BandRegion% x(i)% partition .eq. MPI_Process% rank ) then
-    
-            associate( y_FP             => this% BandRegion% x(i)% Dist,          &
-                       IP_NearestPoints => this% ImagePoint_NearestPoints(:,i),   &
-                       normal           => this% BandRegion% x(i)% normal,        & 
-                       eID              => this% BandRegion% x(i)% element_index, &
-                       loc_pos          => this% BandRegion% x(i)% local_Position ) 
-
-            call GetIDW_value( this% BandRegion% x(i)% ImagePoint_coords, &
-                               this% BandRegion, normal,                  &
-                               bpQ(:,IP_NearestPoints),                   &
-                               IP_NearestPoints, Q_IP                     )
-        
-            ! image point
-            T_IP  = Temperature(Q_IP)
-            mu_IP = dimensionless% mu * SutherlandsLaw(T_IP)
-            nu_IP = mu_IP/Q_IP(IRHO) 
-            P_IP  = pressure(Q_IP)
+     
+      call get_laminar_mu_kappa(Q_IP,mu_IP,kappa_IP)
+      nu_IP = mu_IP/Q_IP(IRHO)
             
-            u_IP   = Q_IP(IRHOU:IRHOW)
-            u_IP_t = u_IP - ( dot_product(u_IP,normal) * normal )
+      u_IP   = Q_IP(IRHOU:IRHOW)
+      u_IP_t = u_IP - ( dot_product(u_IP,normal) * normal )
    
-            tangent = u_IP_t/norm2(u_IP_t)   
+      tangent = u_IP_t/norm2(u_IP_t)   
    
-            u_IPt = dot_product(u_IP,tangent)
+      u_IPt = dot_product(u_IP,tangent)
             
-            if( almostEqual(u_IPt,0.0_RP) ) cycle
+      if( almostEqual(u_IPt,0.0_RP) ) return
 
-            y_IP = this% IP_Distance
-
-            u_tau = u_tau_f(u_IPt, y_IP, nu_IP, u_tau0=1.0_RP)
- 
-            Q_FP = elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3))
+      u_tau = u_tau_f(u_IPt, y_IP, nu_IP, u_tau0=1.0_RP)
   
-            T_FP  = Temperature(Q_FP)
-            mu_FP = dimensionless% mu * SutherlandsLaw(T_FP)
-            nu_FP = mu_FP/Q_FP(IRHO)         
+      call get_laminar_mu_kappa(Q_FP,mu_FP,kappa_FP)
+      nu_FP = mu_FP/Q_FP(IRHO)                 
          
+      u_FPt = u_plus_f( y_plus_f( y_FP, u_tau, nu_FP) ) * u_tau
+      u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
          
-            u_FPt = u_plus_f( y_plus_f( y_FP, u_tau, nu_FP) ) * u_tau
-            u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
-         
-            u_FP = u_FPt*tangent  + u_FPn*normal 
-
-            T_FP = T_IP + (dimensionless% Pr)**(1/3)/(2.0_RP*thermodynamics% cp) * (POW2(u_IPt) - POW2(u_FPt))
+      u_FP = u_FPt*tangent + u_FPn*normal 
+            
+      T_FP = Temperature(Q_IP) + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * (POW2(u_IPt) - POW2(u_FPt))
             
 #if defined(SPALARTALMARAS)               
 !~             Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)
@@ -2827,30 +2764,71 @@ module IBMClass
 
 !~             call SAmodel% Compute_fv1(chi,fv1)
             
-            nu_t = kappa * u_tau * y_FP
-!~             nu_t = nu_tilde * fv1
+      nu_t = kappa * u_tau * y_FP
+
 #endif
 
-            Q_FP(IRHO)  = P_IP/(thermodynamics% R * T_FP)
-            Q_FP(IRHOU) = Q_FP(IRHO) * u_FP(1)
-            Q_FP(IRHOV) = Q_FP(IRHO) * u_FP(2)
-            Q_FP(IRHOW) = Q_FP(IRHO) * u_FP(3)
+      T_FP = refValues% T * T_FP
+
+      Q_FP(IRHO) = Pressure(Q_IP)*refvalues% p/(thermodynamics% R * T_FP)
+      Q_FP(IRHO) = Q_FP(IRHO)/refvalues% rho
+            
+      Q_FP(IRHOU) = Q_FP(IRHO) * u_FP(1)
+      Q_FP(IRHOV) = Q_FP(IRHO) * u_FP(2)
+      Q_FP(IRHOW) = Q_FP(IRHO) * u_FP(3)
+      Q_FP(IRHOE) = pressure(Q_IP)/( thermodynamics% gamma - 1._RP) + 0.5_RP*Q_FP(IRHO)*(POW2(u_FP(1)) + POW2(u_FP(2)) + POW2(u_FP(3)))
 #if defined(SPALARTALMARAS)
-            Q_FP(IRHOTHETA) = Q_FP(IRHO) * nu_t
-#endif            
-            call this% ForceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_FP, Force )
-            elements(eID)% storage% Qdot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = Force   
+      Q_FP(IRHOTHETA) = Q_FP(IRHO) * nu_t
+#endif              
+   end subroutine ForcingPointState
+#endif  
+   
+   
+#if defined(NAVIERSTOKES)    
+   subroutine IBM_SourceTermTurbulence( this, elements )
+      use PhysicsStorage
+      implicit none
+      !-arguments--------------------------------------------------------------
+      class(IBM_type),                intent(inout) :: this
+      type(element),   dimension(:),  intent(inout) :: elements
+      !-local-variables--------------------------------------------------------
+      real(kind=rp)              :: Q_IP(NCONS), Dist, ImagePoint(NDIM)
+      real(kind=rp), allocatable :: Qbp(:,:)
+      integer                    :: eID, i, j, k
 
-            end associate
-    
-         end if
-         
-      end do  
 
-      deallocate(bpQ)
+      if( .not. this% Wallfunction ) return
+            
+      allocate( Qbp(NCONS, this% BandRegion% NumOfObjs) )
+
+      call this% BandPoint_state( elements, Qbp )
+
+      do eID = 1, size(elements)
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
+            if( elements(eID)% isForcingPoint(i,j,k) ) then
+            
+              Dist = this% IP_distance - elements(eID)% geom% dWall(i,j,k)
+            
+              ImagePoint = elements(eID)% geom% x(:,i,j,k) + Dist * elements(eID)% geom% normal(:,i,j,k)
+        
+              call GetIDW_value( ImagePoint, this% BandRegion,                                            &
+                                 elements(eID)% geom% normal(:,i,j,k),                                    &
+                                 Qbp(:,this% ImagePoint_NearestPoints(:,elements(eID)% IP_index(i,j,k))), &
+                                 this% ImagePoint_NearestPoints(:,elements(eID)% IP_index(i,j,k)),        &
+                                 Q_IP                                                                     )
+                                 
+              call ForcingPointState( Q_IP, this% IP_Distance, elements(eID)% geom% dWall(i,j,k),             &
+                                     elements(eID)% geom% normal(:,i,j,k), elements(eID)% storage% Q(:,i,j,k) )
+            end if
+         end do; end do; end do
+      end do
+   
+      deallocate(Qbp)
    
    end subroutine IBM_SourceTermTurbulence
 #endif 
+
+
 ! estimate the yplus for a flat plate 
    
    real(kind=RP) function InitializeDistance( y_plus ) result( y )
@@ -2859,15 +2837,15 @@ module IBMClass
       !-arguments
       real(kind=rp), intent(in) :: y_plus
       !-local-varirables-------------------------
-      real(kind=RP) :: nu, u_tau
+      real(kind=RP) :: nu, Cf
       
 #if defined(NAVIERSTOKES)     
       nu = refValues% mu / refValues% rho
 #endif
 
-      u_tau = Estimate_u_tau( )
-   
-      y = GetEstimated_y( y_plus, nu, u_tau )
+      Cf = Estimate_Cf()
+      
+      y = sqrt(2.0_RP) * y_plus * nu /(refValues% V * sqrt(Cf)) 
    
    end function InitializeDistance
    
@@ -2879,7 +2857,8 @@ module IBMClass
       
 #if defined(NAVIERSTOKES)   
      ! Schlichting, Hermann (1979), Boundary Layer Theory... ok if Re < 10^9
-      Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
+!~       Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
+      Cf = 0.058_RP * dimensionless% Re**(-0.2)     
 #endif        
    end function Estimate_Cf
    
