@@ -267,7 +267,7 @@ MODULE ExplicitMethods
       else
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot            
          END DO
 !$omp end parallel do
       end if

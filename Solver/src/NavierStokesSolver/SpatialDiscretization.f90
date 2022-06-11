@@ -363,7 +363,8 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS)
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
+         real(kind=RP), allocatable :: Qbp(:,:)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -607,20 +608,42 @@ module SpatialDiscretization
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  if( e% isInsideBody(i,j,k) ) then
-                     call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
-                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
-                  end if
-               end do                  ; end do                ; end do
-               end associate
-            end do
+
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then
+!$omp do schedule(runtime) private(i,j,k,Source)
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     if( e% isInsideBody(i,j,k) ) then
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                     end if
+                  end do                  ; end do                ; end do
+                  end associate
+               end do
+!$omp end do      
+            end if
+            if( mesh% IBM% Wallfunction ) then
+               allocate( Qbp(NCONS, mesh% IBM% BandRegion% NumOfObjs) )
+               call mesh% IBM% BandPoint_state( mesh% elements, Qbp )
+!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
+               do eID = 1, mesh% no_of_elements
+                  associate( e => mesh% elements(eID) )
+                  do k = 0, e% Nxyz(3); do j = 0, e% Nxyz(2); do i = 0, e% Nxyz(1)
+                     if( e% isForcingPoint(i,j,k) ) then
+                        call mesh % IBM % SourceTermTurbulence( eID, e% storage% Q(:,i,j,k), e% storage% Qdot(:,i,j,k), Qbp,          &
+                                                                e% geom% normal(:,i,j,k), e% geom% x(:,i,j,k), e% geom% dWall(i,j,k), &
+                                                                e% IP_index(i,j,k), TurbulentSource                                   )       
+                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                     end if
+                  end do; end do; end do
+                  end associate
+               end do
 !$omp end do
-         end if
+               deallocate(Qbp)
+            end if
+         end if 
 
       end subroutine TimeDerivative_ComputeQDot
 

@@ -1188,13 +1188,14 @@ contains
 ! This function check if a point is inside a generic box
 !  -------------------------------------------------   
 
-   logical function isInsideBox( Point, vertices, equal ) result( isInside )
+   logical function isInsideBox( Point, vertices, equal, coeff ) result( isInside )
    
       implicit none
 
       real(kind=rp), dimension(:),   intent(in) :: Point
       real(kind=rp), dimension(:,:), intent(in) :: vertices
       logical,                       intent(in) :: equal
+      real(kind=rp), optional,       intent(in) :: coeff
       
       optional :: equal
 

@@ -584,6 +584,10 @@ module SurfaceIntegrals
                                                      ierr
       real(kind=RP), dimension(:,:), allocatable  :: bpQ, bpU_x, bpU_y, bpU_z
 
+
+
+  real(kind=RP)  :: Cf(200)
+
       val = 0.0_RP
       
       allocate( bpQ(NCONS,IBM% BandRegion% NumOfObjs),   &
@@ -592,6 +596,50 @@ module SurfaceIntegrals
                 bpU_z(NCONS,IBM% BandRegion% NumOfObjs)  )
       
       call IBM% BandPoint_state(elements, bpQ, bpU_x, bpU_y, bpU_z)
+ 
+ 
+!~   if( .not. IBM% Integral(STLNum)% ListComputed ) then
+!~   deallocate(IBM% Integral(STLNum)% IntegObjs(1)% x,IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex)
+!~   allocate(IBM% Integral(STLNum)% IntegObjs(1)% x(NDIM,200) ,&
+!~    IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(IBM% kdtree_n_of_interPoints,200) )
+!~   end if
+ 
+!~   do i = 1, 200
+!~     IBM% Integral(STLNum)% IntegObjs(1)% x(:,i) = (/ 2.0_RP/200._RP*i, 0._RP, 0._RP /)
+!~     if( .not. IBM% Integral(STLNum)% ListComputed ) then
+!~     call OBB(STLNum)% ChangeRefFrame(IBM% Integral(STLNum)% IntegObjs(1)% x(:,i), 'global', Point)       
+!~     Point = Point + IBM% IP_Distance*(/ 0.0_rp, 1.0_RP, 0._RP /)              
+!~     LowerBound = -huge(1.0_RP)                               
+!~     IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i) = 0         
+!~     do k = 1, IBM% kdtree_n_of_interPoints               
+!~        call MinimumDistancePoints( Point, IBM% rootPoints, IBM% BandRegion, Dist, LowerBound, &
+!~                                    k, IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i)   )   
+!~        LowerBound = POW2(Dist)
+!~     end do
+!~     end if
+
+!~     IDW_Value  = IDWVectorValue( Point = Point, BandRegion = IBM% BandRegion,                          &
+!~                                  PointsIndex = IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i),  &
+!~                                  normal = (/ 0.0_RP, 1.0_RP, 0._RP /),                   &
+!~                                  Q = bpQ(:,IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i)),     &
+!~                                  U_x = bpU_x(:,IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i)), & 
+!~                                  U_y = bpU_y(:,IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i)), &
+!~                                  U_z = bpU_z(:,IBM% Integral(STLNum)% IntegObjs(1)% PointsIndex(:,i)), &
+!~                                  y   = IBM% IP_Distance,                                               &
+!~                                  Wallfunction = IBM% Wallfunction, integralType = integralType         )
+               
+!~      Cf(i) = norm2(IDW_Value) 
+!~   end do
+  
+!~   open (unit = 1001, file = "Cf.dat")
+!~   do i = 1, 200
+!~      write(1001,*) IBM% Integral(STLNum)% IntegObjs(1)% x(1,i), Cf(i)
+!~   end do
+!~   close(1001)
+  
+!~   IBM% Integral(STLNum)% ListComputed = .true.
+  
+!~   return 
  
 !$omp parallel shared(IBM,val,bpQ,bpU_x,bpU_y,bpU_z,integralType,STLNum,i)
 !$omp do schedule(runtime) private(j,k,Point,IDW_Value,ObjIntegral,LowerBound,Dist)
@@ -605,7 +653,7 @@ module SurfaceIntegrals
 
                if( .not. IBM% Integral(STLNum)% ListComputed ) then
                
-                  call OBB(STLNum)% ChangeRefFrame(IBM% Integral(STLNum)% IntegObjs(i)% x(:,j), 'global', Point)
+                  call OBB(STLNum)% ChangeRefFrame(IBM% Integral(STLNum)% IntegObjs(i)% x(:,j), 'global', Point)    
        
                   if( IBM% Wallfunction ) then
                      Point = Point + IBM% IP_Distance*IBM% root(STLNum)% ObjectsList(i)% normal
@@ -785,7 +833,7 @@ module SurfaceIntegrals
                mu = dimensionless% mu * SutherlandsLaw(T)
                nu = mu/idwQ(IRHO)
                 
-               U   = idwQ(IRHOU:IRHOW)
+               U   = idwQ(IRHOU:IRHOW)/idwQ(IRHO)
                U_t = U - ( dot_product(U,normal) * normal )
  
                tangent = U_t/norm2(U_t)
@@ -824,15 +872,16 @@ module SurfaceIntegrals
             outvalue = -P * normal
             
          case( VISCOUS_FORCE )
-               
+
            if( Wallfunction ) then
+           
 #if defined(NAVIERSTOKES) 
                call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ )  
                T  = Temperature(idwQ)
                mu = dimensionless% mu * SutherlandsLaw(T)
                nu = mu/idwQ(IRHO)
                 
-               U   = idwQ(IRHOU:IRHOW)
+               U   = idwQ(IRHOU:IRHOW)/idwQ(IRHO)
                U_t = U - ( dot_product(U,normal) * normal )
                
                tangent = U_t/norm2(U_t)

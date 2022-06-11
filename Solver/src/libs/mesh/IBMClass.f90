@@ -800,10 +800,7 @@ module IBMClass
 !$omp parallel 
 !$omp do schedule(runtime) private(i,j,k) 
       do eID = 1, size(elements)
-         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
-         
-            if( elements(eID)% geom% x(1,i,j,k) .lt. 0.0_RP ) cycle   ! FLAT PLATEEE
-         
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)        
             if( elements(eID)% geom% dWall(i,j,k) .gt. this% IP_Distance .or. elements(eID)% isInsideBody(i,j,k) ) cycle
             elements(eID)% isForcingPoint(i,j,k) = .true. 
 !$omp critical
@@ -814,7 +811,10 @@ module IBMClass
 !$omp end do
 !$omp end parallel
 
-
+      if( this% NumOfForcingPoints .eq. 0 ) then
+         print *, 'Number of forcing point is zero, try to increase y+'
+         error stop
+      end if
 
 
     write(MyString,*) this% lvl
@@ -1105,29 +1105,29 @@ module IBMClass
       
       call SubSection_Header('IBM info')
 
-      write(STD_OUT,'(30X,A,A25,L10)') "->" , "Semi implicit treatment: ", this% active_semiImplicit
+      write(STD_OUT,'(30X,A,A35,L10)') "->" , "Semi implicit treatment: ", this% active_semiImplicit
       if( .not. this% TimePenal ) then
-         write(STD_OUT,'(30X,A,A25,1pG10.6)') "->" , "Penalization term: " , this% eta
+         write(STD_OUT,'(30X,A,A35,1pG10.6)') "->" , "Penalization term: " , this% eta
       else
-         write(STD_OUT,'(30X,A,A25,A)') "->" , "Penalization term: ", " Dt"
+         write(STD_OUT,'(30X,A,A35,A10)') "->" , "Penalization term: ", " Dt"
       end if
 
-      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
-      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Number of interpolation points: ", this% KDtree_n_of_interPoints
-      write(STD_OUT,'(30X,A,A25,I10)') "->" , "Surface integration order: ", this% IntegrationOrder
+      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
+      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of interpolation points: ", this% KDtree_n_of_interPoints
+      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Surface integration order: ", this% IntegrationOrder
       if( this% Wallfunction ) then
          write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
       end if
       if( this% symmetry ) then
          select case( size(this% symPlanes,1) )
          case( 1 )
-            write(STD_OUT,'(30X,A,A25,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),"]"
+            write(STD_OUT,'(30X,A,A35,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),"]"
          case( 2 )
-            write(STD_OUT,'(30X,A,A26,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),"]"
+            write(STD_OUT,'(30X,A,A36,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),"]"
          case( 3 )
-            write(STD_OUT,'(30X,A,A25,I2,A,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),",",this% symPlanes(3),"]"
+            write(STD_OUT,'(30X,A,A35,I2,A,I2,A,I2,A)') "->" , "Symmetry planes: [", this% symPlanes(1),",",this% symPlanes(2),",",this% symPlanes(3),"]"
          case default
-         write(STD_OUT,'(30X,A,A25,I10)') "->" , "Symmetry planes: ", this% symPlanes
+         write(STD_OUT,'(30X,A,A35,I10)') "->" , "Symmetry planes: ", this% symPlanes
          end select
       end if
       end if
@@ -1556,11 +1556,13 @@ module IBMClass
             xP = elements(eID)% geom% x(:,i,j,k)
             elements(eID)% geom% dWall(i,j,k) = huge(1.0_RP)
             do STLNum = 1, this% NumOfSTL
-               call OBB(STLNum)% ChangeRefFrame( xP, 'local', Point )
-               call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
-               if( Dist .lt. elements(eID)% geom% dWall(i,j,k) ) then
-                  elements(eID)% geom% dWall(i,j,k)    = Dist
-                  elements(eID)% geom% normal(:,i,j,k) = (xP-IntersectionPoint)/norm2(xP-IntersectionPoint) 
+               if( OBB(STLNum)% isPointInside( xP, this% BandRegionCoeff ) ) then
+                  call OBB(STLNum)% ChangeRefFrame(xP,'local',Point)
+                  call MinimumDistance( Point, this% root(STLNum), Dist, IntersectionPoint )
+                  if( Dist .lt. elements(eID)% geom% dWall(i,j,k) ) then
+                     elements(eID)% geom% dWall(i,j,k)    = Dist
+                     elements(eID)% geom% normal(:,i,j,k) = (xP-IntersectionPoint)/norm2(xP-IntersectionPoint) 
+                  end if
                end if
             end do
          end do                  ; end do                ; end do
@@ -1592,7 +1594,6 @@ module IBMClass
       end do
 !$omp end do
 !$omp end parallel
-
 
       if( this% Wallfunction ) then
 #if defined(NAVIERSTOKES)
@@ -2732,10 +2733,10 @@ module IBMClass
       real(kind=rp)              :: Dump, chi, fv1, nu_t
 #endif
      
-      call get_laminar_mu_kappa(Q_IP,mu_IP,kappa_IP)
+      call get_laminar_mu_kappa(Q_IP,mu_IP,kappa_IP)      
       nu_IP = mu_IP/Q_IP(IRHO)
             
-      u_IP   = Q_IP(IRHOU:IRHOW)
+      u_IP   = Q_IP(IRHOU:IRHOW)/Q_IP(IRHO)
       u_IP_t = u_IP - ( dot_product(u_IP,normal) * normal )
    
       tangent = u_IP_t/norm2(u_IP_t)   
@@ -2744,8 +2745,13 @@ module IBMClass
             
       if( almostEqual(u_IPt,0.0_RP) ) return
 
+ if( any(isNan(Q_IP)) )   write(*,*) 'Q_IP =', Q_IP
+ if( isNan(y_IP) )   write(*,*) 'y_IP =', y_IP
+ if( isNan(nu_IP) )   write(*,*) 'nu_IP =', nu_IP
+ if( isNan(mu_IP) )   write(*,*) 'mu_IP =', mu_IP, Temperature(Q_IP), SutherlandsLaw(Temperature(Q_IP))
+
       u_tau = u_tau_f(u_IPt, y_IP, nu_IP, u_tau0=1.0_RP)
-  
+
       call get_laminar_mu_kappa(Q_FP,mu_FP,kappa_FP)
       nu_FP = mu_FP/Q_FP(IRHO)                 
          
@@ -2756,23 +2762,23 @@ module IBMClass
             
       T_FP = Temperature(Q_IP) + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * (POW2(u_IPt) - POW2(u_FPt))
             
-#if defined(SPALARTALMARAS)               
-!~             Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)
-            
-!~             chi      = QuarticRealPositiveRoot( 1.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP, 0.0_RP, 0.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP*POW3(SAmodel% cv1) )
-!~             nu_tilde = nu_FP * chi
-
-!~             call SAmodel% Compute_fv1(chi,fv1)
-            
-      nu_t = kappa * u_tau * y_FP
-
+#if defined(SPALARTALMARAS)      
+!~       yplus_FP = y_plus_f( y_FP, u_tau, nu_FP) 
+         
+!~       Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)      
+      
+!~       chi      = QuarticRealPositiveRoot( 1.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP, 0.0_RP, 0.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP*POW3(SAmodel% cv1) )
+      
+!~       nu_t = nu_FP * chi
+      
+      nu_T = kappa * u_tau * y_FP
+      
 #endif
 
       T_FP = refValues% T * T_FP
 
-      Q_FP(IRHO) = Pressure(Q_IP)*refvalues% p/(thermodynamics% R * T_FP)
-      Q_FP(IRHO) = Q_FP(IRHO)/refvalues% rho
-            
+      Q_FP(IRHO)  = Pressure(Q_IP)*refvalues% p/(thermodynamics% R * T_FP)
+      Q_FP(IRHO)  = Q_FP(IRHO)/refvalues% rho     
       Q_FP(IRHOU) = Q_FP(IRHO) * u_FP(1)
       Q_FP(IRHOV) = Q_FP(IRHO) * u_FP(2)
       Q_FP(IRHOW) = Q_FP(IRHO) * u_FP(3)
@@ -2785,45 +2791,31 @@ module IBMClass
    
    
 #if defined(NAVIERSTOKES)    
-   subroutine IBM_SourceTermTurbulence( this, elements )
+   subroutine IBM_SourceTermTurbulence( this, eID, Q, Qdot, Qbp, normal, x, dWall, IP_index, TurbulenceSource )
       use PhysicsStorage
       implicit none
       !-arguments--------------------------------------------------------------
-      class(IBM_type),                intent(inout) :: this
-      type(element),   dimension(:),  intent(inout) :: elements
+      class(IBM_type), intent(inout) :: this
+      integer,         intent(in)    :: eID, IP_index
+      real(kind=rp),   intent(in)    :: Q(:), Qdot(:), Qbp(:,:), x(:), dWall, normal(:)
+      real(kind=rp),   intent(inout) :: TurbulenceSource(NCONS)
       !-local-variables--------------------------------------------------------
-      real(kind=rp)              :: Q_IP(NCONS), Dist, ImagePoint(NDIM)
-      real(kind=rp), allocatable :: Qbp(:,:)
-      integer                    :: eID, i, j, k
-
-
-      if( .not. this% Wallfunction ) return
+      real(kind=rp)              :: Q_IP(NCONS), Q_FP(NCONS), Dist, ImagePoint(NDIM)
+      
+      Dist = this% IP_distance - dWall
             
-      allocate( Qbp(NCONS, this% BandRegion% NumOfObjs) )
-
-      call this% BandPoint_state( elements, Qbp )
-
-      do eID = 1, size(elements)
-         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
-            if( elements(eID)% isForcingPoint(i,j,k) ) then
-            
-              Dist = this% IP_distance - elements(eID)% geom% dWall(i,j,k)
-            
-              ImagePoint = elements(eID)% geom% x(:,i,j,k) + Dist * elements(eID)% geom% normal(:,i,j,k)
+      ImagePoint = x + Dist * normal
         
-              call GetIDW_value( ImagePoint, this% BandRegion,                                            &
-                                 elements(eID)% geom% normal(:,i,j,k),                                    &
-                                 Qbp(:,this% ImagePoint_NearestPoints(:,elements(eID)% IP_index(i,j,k))), &
-                                 this% ImagePoint_NearestPoints(:,elements(eID)% IP_index(i,j,k)),        &
-                                 Q_IP                                                                     )
+      call GetIDW_value( ImagePoint, this% BandRegion, normal,              &
+                         Qbp(:,this% ImagePoint_NearestPoints(:,IP_index)), &
+                         this% ImagePoint_NearestPoints(:,IP_index),        &
+                         Q_IP                                               )
                                  
-              call ForcingPointState( Q_IP, this% IP_Distance, elements(eID)% geom% dWall(i,j,k),             &
-                                     elements(eID)% geom% normal(:,i,j,k), elements(eID)% storage% Q(:,i,j,k) )
-            end if
-         end do; end do; end do
-      end do
-   
-      deallocate(Qbp)
+       Q_FP = Q
+                                 
+      call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
+
+      TurbulenceSource =  1.0_RP/this% penalization(eID) * (Q_FP - Q)
    
    end subroutine IBM_SourceTermTurbulence
 #endif 
@@ -2844,9 +2836,9 @@ module IBMClass
 #endif
 
       Cf = Estimate_Cf()
-      
+#if defined(NAVIERSTOKES)      
       y = sqrt(2.0_RP) * y_plus * nu /(refValues% V * sqrt(Cf)) 
-   
+#endif  
    end function InitializeDistance
    
    real(kind=RP) function Estimate_Cf() result( Cf )
@@ -2948,7 +2940,7 @@ module IBMClass
       
       a = b0/a0; b = c0/a0; c = d0/a0
            
-      x0 = 0.0_RP
+      x0 = 1.0_RP
       
       do  i = 1, 100
       

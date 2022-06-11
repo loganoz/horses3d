@@ -547,7 +547,7 @@ print*, "Method selected: RK5"
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
             if( sem% mesh% IBM% active ) then
                call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
-               call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
+!~                call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
             end if
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then

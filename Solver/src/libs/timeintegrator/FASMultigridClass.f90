@@ -1400,7 +1400,6 @@ module FASMultigridClass
                      
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             ! RK3 smoother
@@ -1413,7 +1412,6 @@ module FASMultigridClass
                      
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             ! RK5 smoother
@@ -1426,7 +1424,6 @@ module FASMultigridClass
                   
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             ! RK5 smoother opt for Steady State
@@ -1439,7 +1436,6 @@ module FASMultigridClass
                   
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             case default
@@ -1462,7 +1458,6 @@ module FASMultigridClass
                      
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             ! RK3 smoother
@@ -1480,7 +1475,6 @@ module FASMultigridClass
                      
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
             ! RK5 smoother
@@ -1498,7 +1492,6 @@ module FASMultigridClass
                      
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if               
                end do
             ! RK Opt smoother
@@ -1516,7 +1509,6 @@ module FASMultigridClass
 
                   if( this% p_sem% mesh% IBM% active ) then
                      call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
-                     call this% p_sem% mesh% IBM% SourceTermTurbulence( this% p_sem% mesh% elements )
                   end if
                end do
 !
