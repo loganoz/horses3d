@@ -165,7 +165,6 @@ module LESModels
             end select
             
          else
-            !model % WallModel = LINEAR_WALLMODEL
             model % WallModel = NO_WALLMODEL
          end if
          
