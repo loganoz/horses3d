@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GeometryClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Sat Aug  3 23:57:01 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
-!
-!//////////////////////////////////////////////////////
-!
 module GeometryClass
    use SMConstants
    use PhysicsStorage
@@ -269,7 +257,7 @@ module GeometryClass
             neighs(1) = lastelement
             do n = 1, 6
                if ( mesh % elements(lastelement) % NumberOfConnections(n) .ne. 0 ) then
-                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % globID     ! TODO: Careful if you are using MPI
+                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % globID     
                else
                   neighs(n+1) = -1
                end if
