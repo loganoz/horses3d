@@ -296,9 +296,6 @@ module NoSlipWallBCClass
          Q(IRHOTHETA)   = -Q(IRHOTHETA)
 #endif
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
-!        This boundary condition should be
-!        ---------------------------------
-         !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
 
       end subroutine NoSlipWallBC_FlowState
 
