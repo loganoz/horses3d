@@ -1,13 +1,3 @@
-!
-!   @File:    LocalRefinementClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 3 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
-!//////////////////////////////////////////////////////
-!
 !This class represents the local p-refinement of a mesh
 
 Module  LocalRefinement  !
@@ -24,7 +14,7 @@ Module  LocalRefinement  !
 
     type LocalRef_t
 
-        real(kind=RP), dimension(:,:), allocatable          :: xlim         ! limits for refinement in x direction
+        real(kind=RP), dimension(:,:), allocatable          :: xlim   ! limits for refinement in x direction
         real(kind=RP), dimension(:,:), allocatable          :: ylim
         real(kind=RP), dimension(:,:), allocatable          :: zlim
         integer, dimension(:), allocatable         :: Nx           ! polynomial order for each selection whithin the limits in x diredirection

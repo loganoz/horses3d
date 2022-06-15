@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Stats2Plt.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Oct 19 18:27:04 2017
-!   @Last revision date: Wed Nov  7 13:19:10 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module Stats2PltModule
    use SMConstants
@@ -387,15 +375,15 @@ module Stats2PltModule
 !           Construct interpolation matrices for the mesh
 !           ---------------------------------------------
             call addNewInterpolationMatrix(Tset, e % Nmesh(1), spA(e % Nmesh(1)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(2)), e % Nout(2), eta)   ! TODO: check why it was Nmesh(1)
-            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(3)), e % Nout(3), zeta)  ! TODO: check why it was Nmesh(1)
+            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(2)), e % Nout(2), eta)   
+            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(3)), e % Nout(3), zeta)  
 
 !
 !           Construct interpolation matrices for the solution
 !           -------------------------------------------------
             call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), eta)     ! TODO: check why it was Nsol(1)
-            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), zeta)    ! TODO: check why it was Nsol(1)
+            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), eta)     
+            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), zeta)   
 !
 !           Perform interpolation
 !           ---------------------
