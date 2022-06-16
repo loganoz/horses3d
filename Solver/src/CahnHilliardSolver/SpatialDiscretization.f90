@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    SpatialDiscretization.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 17:14:44 2018
-!   @Last revision date: Fri Feb  1 17:24:52 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0bf6bde04abec1f8f9eb04f644c9cac0cc0df9e9
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
@@ -953,7 +941,7 @@ stop
             shown = .true.
          end if
 !
-!        Compute the velocity    TODO: compute it in Chebyshev points first 
+!        Compute the velocity   
 !        --------------------
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
             call PoiseuilleFlow(f % geom % x(:,i,j), f % storage(1) % v(:,i,j))
