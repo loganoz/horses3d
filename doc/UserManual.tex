@@ -483,6 +483,38 @@ In addition to this, the viscosity~$\mu_1$ can be set to "Smagorinsky" to use th
     \mu = C_s^2 \Delta^2|S|^2, \quad \alpha = \alpha_1.
 \end{equation*}
 
+\subsection{Acoustic}
+The Ffowcs Williams and Hawkings (FWH) acoustic analogy is implemented as a complement to the compressible NS solver. It can run both during the execution of the NS (in-time) or as at a post-process step. The version implemented includes both the solid and permeable surface variations, but both of them for a static body subjected to a constant external flow, i.e. a wind tunnel case scenario. The specifications for the FWH are divided in two parts: the general definitions (including the surfaces) and the observers definitions. The former is detailed in Table~\ref{tab:FWHKey}, while the latter are defined in a block section, similar to the monitors (see Chapter~\ref{sect:monitors}):
+
+\begin{lstlisting}
+#define acoustic observer 1
+   name     = SomeName
+   position = [0.d0, 0.d0, 0.d0]
+#end
+\end{lstlisting}
+
+To run the in-time computation, the observers must be defined in the control file. Beware that adding an additional observer will require to run the simulation again. To use the post-process computation, the solution on the surface must be saved at a regular time. Beware that it will need more storage. To run the post-process calculation the horses.tools binary is used, with a control file similar to the one use for the NS simulation (without monitors), and adding the keywords ''tool type'' and ''acoustic files pattern'', as explained in Table~\ref{tab:FWHKey}.
+
+\begin{table}[htbp]
+\caption{Keywords for acoustic analogy}
+\begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+\hline
+\multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+acoustic analogy                & \textit{CHARACTER(*)}: This is the main keyword for activating the acoustic analogy. The only options is: ''FWH''. & -- \\ \hline
+acoustic analogy permable  		& \textit{LOGICAL}: Defines if uses a permable or solid approach.  & .FALSE. \\ \hline
+acoustic solid surface          & \textit{CHARACTER(*)}: Array containing the name of each boundary to be used as a surface for integration. In the form: '[bc1,bc2,bc3]'. Mandatory for using the solid surface variant. & -- \\ \hline
+accoustic surface file          & \textit{CHARACTER(*)}: Path to a fictitious surface that will be used for integration. It must be taylored made for the mesh. Mandatory for using the permable surface variant. & -- \\ \hline
+observers flush interval        & \textit{INTEGER}: Iteration interval to flush the observers information to the files. & 100 \\ \hline
+acoustic solution save  		& \textit{LOGICAL}: Defines wheter it saves the NS solution on the surface. Mandatory for post-process computation. & .FALSE. \\ \hline
+acoustic save timestep 			& \textit{REAL}: Controls the time or iteration at which the FWH will be calculated (and saved if specified). If the key is missing it will be done at each timestep.  & -- \\ \hline
+acoustic files pattern          & \textit{CHARACTER(*)}: Pattern to the path of all the saved solutions on the surface (To be used in horses.tools for the post-process calculation). & -- \\ \hline
+tool type                       & \textit{CHARACTER(*)}: Necesary for post-process calculation. Defines the type of post-process of horses.tools. For the FWH analogy the value must be ''fwh post'' & -- \\ \hline
+\end{tabular}
+\label{tab:FWHKey}
+\end{table}
+
+
 \section{Incompressible Navier-Stokes}
 
 \section{Cahn-Hilliard}
@@ -508,7 +540,7 @@ Wall Function					& \textit{CHARACTER(*)}: This is the main keyword for activati
     \end{itemize}
 & -- \\ \hline
 
-Wall Boundaries 				& \textit{CHARACTER(*)}: Array containing the name of each boundary to be used. In the form: '[bc1,bc2,bc3]'. Mandatory for using the wall function. & -- \\ \hline
+Wall Function Boundaries 	    & \textit{CHARACTER(*)}: Array containing the name of each boundary to be used. In the form: '[bc1,bc2,bc3]'. Mandatory for using the wall function. & -- \\ \hline
 
 Wall Function kappa		    	& \textit{REAL}: von Karman constant  & 0.38 \\ \hline
 Wall Function C     			& \textit{REAL}: Log law 'C' constant  & 4.1 \\ \hline
@@ -914,7 +946,7 @@ A static p-adaptation procedure can be driven by a set of error estimations, whi
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-\chapter{Monitors}
+\chapter{Monitors}~\label{sect:monitors}
 
 The monitors are specified individually as blocks in the control file.
 The only general keyword that can be specified is explained in Table \ref{tab:monitorsKey}.
