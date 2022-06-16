@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ArtificialViscosity.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Aug 21 18:27:46 2018
-!   @Last revision date: Wed Dec 12 23:20:39 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d12e538a7a8a4f27f93d45559b3cfa021c15b1a2
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ArtificialViscosity
    use SMConstants

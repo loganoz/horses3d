@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    LESModels.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Thu May  2 09:41:43 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67c9993eab2425db318bd6a45ef48d4abba673b7
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module LESModels
    use SMConstants

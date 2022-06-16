@@ -69,6 +69,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \
+            ./NavierStokes/FWH_Cylinder \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \

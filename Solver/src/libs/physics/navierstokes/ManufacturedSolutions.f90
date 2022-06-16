@@ -1,26 +1,11 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ManufacturedSolutions.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:11 2018
-!   @Last revision date: Wed Apr 18 20:19:09 2018
-!   @Last revision author: Juan (juan.manzanero@upm.es)
-!   @Last revision commit: 0d746cd20d04ebda97f349d7f3b0b0fe00b5d7ca
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ManufacturedSolutions.f90
-!      Created: 2017-05-18 17:00:00 +0100 
-!      By: Andrés Rueda
-!
 !      Manufactured solutions definitions for 2D and 3D cases (Euler and Navier-Stokes)
 !
-!
 !////////////////////////////////////////////////////////////////////////////////////////
+!
 MODULE ManufacturedSolutionsNS
    USE SMConstants
    USE PhysicsStorage_NS

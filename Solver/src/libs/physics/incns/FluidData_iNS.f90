@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    FluidData_iNS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Jun 19 17:39:25 2018
-!   @Last revision date: Mon Jul  2 14:17:28 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 7af1f42fb2bc9ea3a0103412145f2a925b4fac5e
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module FluidData_iNS
    use SMConstants

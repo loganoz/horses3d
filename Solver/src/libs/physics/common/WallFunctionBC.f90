@@ -1,3 +1,4 @@
+!
 #if defined(NAVIERSTOKES)
 MODULE WallFunctionBC
 

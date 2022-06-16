@@ -29,7 +29,7 @@ Module FWHPostProc  !
 
         hasGradients = controlVariables % logicalValueForKey("has gradients")
         ! get files in temporal txt
-        pattern = controlVariables % stringValueForKey("accoustic files pattern", LINE_LENGTH)
+        pattern = controlVariables % stringValueForKey("acoustic files pattern", LINE_LENGTH)
         write(fullExpression,'(A,A,A)') "ls ", trim(pattern), " > horses_temporal_file.txt"
         call system(trim(fullExpression))
 

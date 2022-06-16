@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    Turbulence.f90
-!   @Author:  Gerasimos Ntoukas (gerasimos.ntoukas@upm.es)
-!   @Created: Fri May 28 11:29:03 2021
-!   @Last revision date:
-!   @Last revision author: Gerasimos Ntoukas
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpallartAlmarasTurbulence
    use SMConstants

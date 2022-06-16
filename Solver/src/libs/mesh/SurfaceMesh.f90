@@ -108,7 +108,7 @@ Module SurfaceMesh
 !
 !       Get the possible surfaces to save
 !       ---------------------------------
-        hasFWH    = controlVariables % containsKey("accoustic analogy")
+        hasFWH    = controlVariables % containsKey("acoustic analogy")
         hasSliceX = controlVariables % containsKey("slice x coordinates")
         hasSliceY = controlVariables % containsKey("slice y coordinates")
         hasSliceZ = controlVariables % containsKey("slice z coordinates")
@@ -172,8 +172,8 @@ Module SurfaceMesh
         end if 
         self % mergeFWHandBC = .false.
         if (hasFWH .and. hasBC) then
-            if (controlVariables % containsKey("accoustic solid surface")) then
-                read_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
+            if (controlVariables % containsKey("acoustic solid surface")) then
+                read_str = controlVariables % stringValueForKey("acoustic solid surface", LINE_LENGTH)
                 call toLower(read_str)
                 call getCharArrayFromString(read_str, LINE_LENGTH, bcs_namesFWH)
                 if (all( bcs_names .eq. bcs_namesFWH )) then
@@ -360,23 +360,23 @@ Module SurfaceMesh
             return
         end if
 !
-        saveFWH = controlVariables % containsKey("accoustic save timestep")
+        saveFWH = controlVariables % containsKey("acoustic save timestep")
         saveSurf = controlVariables % containsKey("surface save timestep")
 !
         if (saveSurf .and. saveFWH) then
-            write(STD_OUT,'(A)') "Warning: both accoustic and surface save timestep have been specified, the minimum value will be set"
+            write(STD_OUT,'(A)') "Warning: both acoustic and surface save timestep have been specified, the minimum value will be set"
         endif
 !
 !       configure save type, used for update, write and save file
 !       --------------------------
         if (saveSurf .or. saveFWH) then
-            dtSf = controlVariables % getValueOrDefault("accoustic save timestep", huge(1.0_RP))
+            dtSf = controlVariables % getValueOrDefault("acoustic save timestep", huge(1.0_RP))
             dtFW = controlVariables % getValueOrDefault("surface save timestep", huge(1.0_RP))
             dtSave = min(dtSf, dtFW)
             self % autosave = Autosave_t(.FALSE.,.TRUE.,huge(1),dtSave,nextAutosaveTime=dtSave+t0,mode=AUTOSAVE_BY_TIME)
         else
             !Save each time step
-            write(STD_OUT,'(A)') "Warning: neither accoustic nor surface save timestep have been specified, it will be saved each timestep"
+            write(STD_OUT,'(A)') "Warning: neither acoustic nor surface save timestep have been specified, it will be saved each timestep"
             self % autosave = Autosave_t(.FALSE.,.TRUE.,1,huge(1.0_RP),nextAutosaveTime=huge(1.0_RP),mode=AUTOSAVE_BY_ITERATION)
         end if
     End Subroutine SurfSaveSolutionConfiguration
@@ -395,7 +395,7 @@ Module SurfaceMesh
         logical                                             :: saveFWH
 
         if (.not. self % active) return
-        saveFWH = controlVariables % logicalValueForKey("accoustic surface mesh save") .or. self % mergeFWHandBC
+        saveFWH = controlVariables % logicalValueForKey("acoustic surface mesh save") .or. self % mergeFWHandBC
         do i = 1, self % numberOfSurfaces
             if (.not. self % surfaceActive(i)) cycle
             !skip fwh if not requested
@@ -424,7 +424,7 @@ Module SurfaceMesh
         logical                                             :: saveUt, saveTurb
 
         if (.not. self % active) return
-        saveFWH = controlVariables % logicalValueForKey("accoustic solution save") .or. self % mergeFWHandBC
+        saveFWH = controlVariables % logicalValueForKey("acoustic solution save") .or. self % mergeFWHandBC
         do i = 1, self % numberOfSurfaces
             saveUt = .false.
             saveTurb = .false.
@@ -504,9 +504,9 @@ Module SurfaceMesh
         character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file, fileName, zoneName
         character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
 
-        if (controlVariables % containsKey("accoustic solid surface")) then
-            zones_str = controlVariables % stringValueForKey("accoustic solid surface", LINE_LENGTH)
-            zones_str2 = controlVariables % stringValueForKey("accoustic solid surface cont", LINE_LENGTH)
+        if (controlVariables % containsKey("acoustic solid surface")) then
+            zones_str = controlVariables % stringValueForKey("acoustic solid surface", LINE_LENGTH)
+            zones_str2 = controlVariables % stringValueForKey("acoustic solid surface cont", LINE_LENGTH)
             call toLower(zones_str)
             call toLower(zones_str2)
             call getCharArrayFromString(zones_str, LINE_LENGTH, zones_temp)
@@ -532,7 +532,7 @@ Module SurfaceMesh
             do i = 1, no_of_zones
                 zonesIDs(i) = getZoneID(zones_names(i), mesh)
                 if (zonesIDs(i) .eq. -1) then
-                    write(*,'(A,A,A)') "Warning: Accoustic surface ", trim(zones_names(i)), " not found in the mesh, will be ignored"
+                    write(*,'(A,A,A)') "Warning: acoustic surface ", trim(zones_names(i)), " not found in the mesh, will be ignored"
                     faces_per_zone(i) = 0
                 else
                     faces_per_zone(i) = size(mesh % zones(zonesIDs(i)) % faces)
@@ -553,12 +553,12 @@ Module SurfaceMesh
             elementSide = 1
 
             deallocate(zonesIDs, zones_names) 
-        elseif (controlVariables % containsKey("accoustic surface file")) then
+        elseif (controlVariables % containsKey("acoustic surface file")) then
             allocate( faces_per_zone(1) )
-            surface_file = controlVariables % stringValueForKey("accoustic surface file", LINE_LENGTH)
+            surface_file = controlVariables % stringValueForKey("acoustic surface file", LINE_LENGTH)
             call SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), elementSide)
         else
-            stop "Accoustic surface for integration is not defined"
+            stop "acoustic surface for integration is not defined"
         end if
 !
 !       now create the zone and set type, name and flag
