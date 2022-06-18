@@ -2,17 +2,10 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    StorageClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Dec  4 11:34:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
 !
 !//////////////////////////////////////////////////////
-!
-!     TODO1: Store FaceStorage in SolutionStorage
-!     TODO2: Remove physics-related pointers... Allocate one storage for each physics (AND REMOVE ALL POINTERS)
-!     TODO3: Allocate implicit methods storage (global arrays) from implicit classes
+
 #include "Includes.h"
 
 module StorageClass
@@ -497,7 +490,6 @@ module StorageClass
 
             self % AdaptedPrevQ = .FALSE.
 
-            ! TODO: Adapt previous solutions...
          end if
 #endif
 #ifdef CAHNHILLIARD
@@ -507,7 +499,6 @@ module StorageClass
 
             self % AdaptedPrevQ = .FALSE.
 
-            ! TODO: Adapt previous solutions...
          end if
 #endif
 
@@ -805,7 +796,7 @@ module StorageClass
 
          allocate( self % mu_NS(1:3,0:Nx,0:Ny,0:Nz) )
 
-         if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
+         if (analyticalJac) call self % constructAnJac     
 
 !
 !        Point to NS by default
@@ -928,7 +919,7 @@ module StorageClass
          call to % construct (from % Nxyz(1), &
                               from % Nxyz(2), &
                               from % Nxyz(3), &
-                              from % computeGradients, & ! TODO: Fix this: it is not being used!!
+                              from % computeGradients, & 
                               from % anJacobian, &
                               from % prevSol_num, &
                               from % RKSteps_num )
@@ -1403,7 +1394,6 @@ module StorageClass
             allocate( self % dFv_dGradQEl(NCONS,NCONS,NDIM,0:self % Nel(1),0:self % Nel(2),2) )
          end if
 
-!        TODO: AMR, if Boundary
          allocate( self % BCJac       (NCONS,NCONS,0:self % Nel(1),0:self % Nel(2)) )
 
 !        Zero memory

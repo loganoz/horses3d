@@ -1,10 +1,5 @@
 !
 !   @File:    SurfaceMesh.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 21 2022
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
 !
 !//////////////////////////////////////////////////////
 !

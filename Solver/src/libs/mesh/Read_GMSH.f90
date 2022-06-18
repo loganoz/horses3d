@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    Read_GMSH.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Wed Dec  8 15:01:26 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: b5333663c75aa634b30d7da7e488de0f2da06bc3
 !
 !//////////////////////////////////////////////////////
@@ -598,7 +594,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -1244,7 +1239,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -1976,7 +1970,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_element_blocks(msh_elblock) % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -2487,7 +2480,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -3019,7 +3011,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -3634,7 +3625,6 @@ MODULE Read_GMSH
                   do l=1,8
                      tmpi = my_findloc(msh_bcs(i) % node_tags,msh_elements_3D % nodes(j,l),1)
                      if(tmpi .gt. 0) tmpi_vec1(l) = 1
-                     ! TODO: Check why this doesn't work with older ifort
                      ! tmpi = any(msh_bcs(i) % node_tags .eq. msh_element_blocks(msh_elblock) % nodes(j,l))
                      ! tmpi_vec1(l)=tmpi
                   end do
@@ -3946,7 +3936,7 @@ MODULE Read_GMSH
       class(MSH_node_block_t)            , intent(inout)   :: this ! element block to be constructed
       integer                , intent(in)      :: edim ! dimension of the entity
       integer                , intent(in)      :: etag ! entity tag
-      logical                , intent(in)      :: par ! parametric or not (TODO: parametric not supported!)
+      logical                , intent(in)      :: par ! parametric or not 
       integer                , intent(in)      :: no_nodes ! number of nodes within the block
 !-----Local-Variables---------------------------------------------
 !  -----------------------------------------------------------------------

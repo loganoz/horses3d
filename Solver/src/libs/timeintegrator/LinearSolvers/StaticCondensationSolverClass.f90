@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    StaticCondensationSolverClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May 19 16:54:16 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
 !
 !//////////////////////////////////////////////////////
@@ -125,8 +121,6 @@ contains
 !
       if (.not. present(controlVariables)) ERROR stop 'StaticCondSolver_t needs controlVariables'
       if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
-      
-      ! TODO: Add conformity check?
 !
 !     Gauss-Lobatto check
 !     -------------------

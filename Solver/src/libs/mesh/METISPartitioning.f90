@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    METISPartitioning.f90
-!   @Author:  Mariola Gomez and Marta Cordero (marta.cordero@upm.es / mariola.gomez@upm.es)
-!   @Created: Wed Dec 20 19:57:13 2017
-!   @Last revision date: Wed Sep  5 13:18:40 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
 !
 !//////////////////////////////////////////////////////

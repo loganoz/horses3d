@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    pAdaptationClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Sep 15 12:15:52 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
@@ -15,7 +11,7 @@
 !           truncation error estimations (TruncationErrorClass.f90), but other
 !           strategies can be added.
 !        -> The current implementation is only valid for shared memory 
-!           parallelization (OpenMP). TODO: Update to MPI.
+!           parallelization (OpenMP).
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1256,7 +1252,7 @@ readloop:do
             end do
          end if
          
-         ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N. TODO: Change? extrapolation can still be done in some directions...
+         ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N.
          if (all(error < 1)) then
 !
 !           2. Generate outer map
@@ -1520,7 +1516,7 @@ readloop:do
 !
 !  -----------------------------------------------------------------------
 !  Subroutine for reorganizing the polynomial orders with neighbor contraints
-!  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
+!  -> So far, this only works with shared memory ...and computes everything in serial!
 !  -----------------------------------------------------------------------
    subroutine ReorganizePolOrders(faces,NNew,last)
       implicit none

@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    MultiTauEstimationClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Mar 12 15:43:41 2019
-!   @Last revision date: Thu Aug  1 18:48:27 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 6a5c8d0cd14b48b0b93496dd37d0190cb9574cc0
 !
 !//////////////////////////////////////////////////////

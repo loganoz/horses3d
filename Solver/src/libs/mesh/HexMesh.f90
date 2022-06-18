@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:
-!   @Author:  David Kopriva
-!   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Feb 11 11:25:13 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
@@ -1587,7 +1583,6 @@ slavecoord:             DO l = 1, 4
 !
 !        ------------------------------------------------------------------------
 !        Determine the number of degrees of freedom
-!           TODO: Move this to another place if needed in other parts of the code
 !        ------------------------------------------------------------------------
 !
          ndof = 0
@@ -2064,7 +2059,6 @@ slavecoord:             DO l = 1, 4
 !
 !        --------------------------
 !        Allocate MPI Faces storage
-!           TODO: This can be optimized when facesList is present
 !        --------------------------
 !
          if ( MPI_Process % doMPIAction ) then
@@ -2190,7 +2184,6 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------
 !     Construct geometry of faces and elements
 !     -> This routine guarantees that the mapping is subparametric or isoparametric
-!     -> TODO: Additional considerations are needed for p-nonconforming representations with inner curved faces
 !     -----------------------------------------------------------------------------
       subroutine HexMesh_ConstructGeometry(self, facesList, elementList)
          implicit none
@@ -2377,7 +2370,7 @@ slavecoord:             DO l = 1, 4
                   end if
                end select
 
-               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
+               if ( any(CLN < NSurfR) ) then      
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
@@ -2422,16 +2415,16 @@ slavecoord:             DO l = 1, 4
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
                if (self % elements(eID) % faceSide(side) == LEFT) then
-                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
-                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+                  CLN(1) = f % NfLeft(1)  
+                  CLN(2) = f % NfLeft(2)  
                else
-                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
-                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
+                  CLN(1) = f % NfRight(1)  
+                  CLN(2) = f % NfRight(2)  
                end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular 
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
@@ -3098,7 +3091,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
-               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)             
                end associate
             end do
 

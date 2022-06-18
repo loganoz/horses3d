@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    AnisFASMultigridClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
 !
 !//////////////////////////////////////////////////////
@@ -71,7 +67,7 @@ module AnisFASMultigridClass
    integer        :: MGlevels(3)    ! Total number of multigrid levels        
    integer        :: MaxN(3)        ! Maximum polynomial order in every direction
    integer        :: NMIN           ! Minimum polynomial order allowed
-   integer        :: deltaN         !                                         ! TODO: deltaN(3)
+   integer        :: deltaN         !                                       
    integer        :: nelem          ! Number of elements (this is a p-multigrid implementation)
    integer        :: num_of_allElems
    integer        :: SweepNumPre    ! Number of sweeps pre-smoothing
@@ -286,7 +282,7 @@ module AnisFASMultigridClass
 !
       meshFileName = controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH)
       do Dir = 1, 3
-         call ConstructFASInOneDirection(this, MGlevels(Dir), controlVariables, Dir)   ! TODO: change argument to meshFileName
+         call ConstructFASInOneDirection(this, MGlevels(Dir), controlVariables, Dir)  
       end do
       
 !~      call Stopwatch % Pause("Preprocessing")
@@ -310,7 +306,7 @@ module AnisFASMultigridClass
 !     -------------------------------------
 !
       if (lvl > 1) then
-         allocate  (Solver % Child)       ! TODO: Remove from here!!!
+         allocate  (Solver % Child)      
          Solver % Child % Parent => Solver
          
          call ConstructLinkedSolvers(Solver % Child, lvl - 1)
