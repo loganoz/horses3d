@@ -1,12 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      FTObjectLibrary.f90
-!      Created: May 8, 2014 at 2:49 PM 
-!      By: David Kopriva  
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !>A module that simply USEs the entire library modules.
 !>
       Module FTObjectLibrary

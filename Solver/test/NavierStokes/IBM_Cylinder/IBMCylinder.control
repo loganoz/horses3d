@@ -19,7 +19,7 @@ discretization nodes  = Gauss
 solution file name    = "RESULTS/IBMCylinder.hsol"
 save gradients with soluton = .false.
 restart               = .true.
-restart file name     = "RESULTS/IBMCylinder_0000003000.hsol"
+restart file name     = "RESULTS/IBMCylinder_0000004000.hsol"
 riemann solver         = "lax-friedrichs"
 viscous discretization = "IP"
 

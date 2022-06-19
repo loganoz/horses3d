@@ -1,10 +1,5 @@
 !
 !////////////////////////////////////////////////////////////////////////
-!
-!      FTValueDictionary.f90
-!      Created: February 6, 2013 8:54 AM 
-!      By: David Kopriva  
-!
 !>
 !> The FTValueDictionary subclass of FTDictionary adds convenient methods
 !> to easily add fundamental (Real, integer,…) values to a dictionary.

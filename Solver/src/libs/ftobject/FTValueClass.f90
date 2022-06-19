@@ -59,12 +59,6 @@
 !>
 !> String values can be converted to numeric types. If the string is
 !> not a numeric, Huge(1) will be returned, for integers and NaN for reals.
-!>      
-!<
-! FTValueClass.f90
-! Created: January 9, 2013 12:20 PM 
-!> @author David Kopriva  
-!<
 !
 !////////////////////////////////////////////////////////////////////////
 !

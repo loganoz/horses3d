@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    EllipticBR2.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sat Aug  3 23:57:14 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module EllipticBR2
    use SMConstants

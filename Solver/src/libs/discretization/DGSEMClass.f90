@@ -1,13 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!   @File:    DGSEMClass.f95
-!   @Author:  David Kopriva
-!   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Mon Mar 14 22:31:22 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      Basic class for the discontinuous Galerkin spectral element
@@ -506,7 +496,6 @@ Module DGSEMClass
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
-            !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF
 

@@ -1,12 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      FTDictionary.f90
-!      Created: January 28, 2013 2:00 PM 
-!      By: David Kopriva 
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !>The FTKeyObjectPairClass is for use by the FTDictionary Class and will
 !>generally not be interacted with by the user.
 !>
