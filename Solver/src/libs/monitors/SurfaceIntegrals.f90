@@ -477,8 +477,8 @@ module SurfaceIntegrals
 
       val = 0.0_RP
 
-      allocate( bpQ(NCONS,BandPoints_ALL% NumOfObjs) )
-
+      allocate( bpQ(NCONS,IBM% BandRegion% NumOfObjs) )
+      
       call IBM% BandPoint_state(elements, bpQ)
 
 !$omp parallel shared(IBM,val,bpQ,integralType,STLNum,i)
@@ -500,14 +500,15 @@ module SurfaceIntegrals
                      LowerBound  = -huge(1.0_RP)
 
                      do k = 1, IBM% kdtree_n_of_interPoints
-                        call MinimumDistancePoints( Point, IBM% rootPoints, Dist, LowerBound, k,          &
-                                                    IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j) )
+                        call MinimumDistancePoints( Point, IBM% rootPoints, IBM% BandRegion, Dist, LowerBound, & 
+                                                    k, IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)   ) 
                         LowerBound = POW2(Dist)
                      end do
 
                   end if
-
-                  IDW_Value = IDWScalarValue( Point, IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j), &
+                                                                                              
+                  IDW_Value = IDWScalarValue( Point, IBM% BandRegion,                                       &
+                                              IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j),        &
                                               IBM% root(STLNum)% ObjectsList(i)% normal,                    &
                                               bpQ(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
                                               integralType                                                  )
@@ -577,28 +578,23 @@ module SurfaceIntegrals
       real(kind=rp), dimension(NDIM)               :: val
       !-local-variables---------------------------------------------------------------------------
       real(kind=rp), dimension(NDIM)              :: IDW_Value, ObjIntegral,  &
-                                                     localVal, Point,         &
-                                                     tau_w
+                                                     localVal, Point
       real(kind=rp)                               :: LowerBound, Dist
       integer                                     :: i, j, k, symPlaneIndex,  &
                                                      ierr
       real(kind=RP), dimension(:,:), allocatable  :: bpQ, bpU_x, bpU_y, bpU_z
 
-
-   real(kind=rp) :: newdist
-   integer :: l
-
       val = 0.0_RP
 
-      allocate( bpQ(NCONS,BandPoints_ALL% NumOfObjs),   &
-                bpU_x(NCONS,BandPoints_ALL% NumOfObjs), &
-                bpU_y(NCONS,BandPoints_ALL% NumOfObjs), &
-                bpU_z(NCONS,BandPoints_ALL% NumOfObjs)  )
-
+      allocate( bpQ(NCONS,IBM% BandRegion% NumOfObjs),   &
+                bpU_x(NCONS,IBM% BandRegion% NumOfObjs), &
+                bpU_y(NCONS,IBM% BandRegion% NumOfObjs), &
+                bpU_z(NCONS,IBM% BandRegion% NumOfObjs)  )
+      
       call IBM% BandPoint_state(elements, bpQ, bpU_x, bpU_y, bpU_z)
 
 !$omp parallel shared(IBM,val,bpQ,bpU_x,bpU_y,bpU_z,integralType,STLNum,i)
-!$omp do schedule(runtime) private(j,k,Point,IDW_Value,ObjIntegral,LowerBound,Dist,tau_w)
+!$omp do schedule(runtime) private(j,k,Point,IDW_Value,ObjIntegral,LowerBound,Dist)
       do i = 1, size(IBM% root(STLNum)% ObjectsList)
 
          if( IBM% root(STLNum)% ObjectsList(i)% ComputeIntegrals ) then
@@ -608,30 +604,35 @@ module SurfaceIntegrals
             do j = 1, IBM% Integral(STLNum)% n_of_Q_points
 
                if( .not. IBM% Integral(STLNum)% ListComputed ) then
-
-                  call OBB(STLNum)% ChangeRefFrame(IBM% Integral(STLNum)% IntegObjs(i)% x(:,j), 'global', Point)
-                  LowerBound    = -huge(1.0_RP)
-
+                
+                  call OBB(STLNum)% ChangeRefFrame(IBM% Integral(STLNum)% IntegObjs(i)% x(:,j), 'global', Point)    
+       
+                  if( IBM% Wallfunction ) then
+                     Point = Point + IBM% IP_Distance*IBM% root(STLNum)% ObjectsList(i)% normal
+                  end if
+                  
+                  LowerBound = -huge(1.0_RP)
+                                  
                   IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j) = 0
-
-                  do k = 1, IBM% kdtree_n_of_interPoints
-                     call MinimumDistancePoints( Point, IBM% rootPoints, Dist, LowerBound, k,          &
-                                                 IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j) )
+             
+                  do k = 1, IBM% kdtree_n_of_interPoints               
+                     call MinimumDistancePoints( Point, IBM% rootPoints, IBM% BandRegion, Dist, LowerBound, &
+                                                 k, IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)   )   
                      LowerBound = POW2(Dist)
                   end do
 
                end if
 
-               tau_w = 0.0_RP
-
-               IDW_Value  = IDWVectorValue( Point, IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j),   &
-                                            IBM% root(STLNum)% ObjectsList(i)% normal,                      &
-                                            bpQ(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)),   &
-                                            bpU_x(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
-                                            bpU_y(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
-                                            bpU_z(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
-                                            tau_w, IBM% Wallfunction, integralType                          )
-
+               IDW_Value  = IDWVectorValue( Point = Point, BandRegion = IBM% BandRegion,                          &
+                                            PointsIndex = IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j),  &
+                                            normal = IBM% root(STLNum)% ObjectsList(i)% normal,                   &
+                                            Q = bpQ(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)),     &
+                                            U_x = bpU_x(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), & 
+                                            U_y = bpU_y(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
+                                            U_z = bpU_z(:,IBM% Integral(STLNum)% IntegObjs(i)% PointsIndex(:,j)), &
+                                            y   = IBM% IP_Distance,                                               &
+                                            Wallfunction = IBM% Wallfunction, integralType = integralType         )
+               
                ObjIntegral = ObjIntegral + IBM% Integral(STLNum)% weights(j) * IDW_Value
 
             end do
@@ -666,12 +667,9 @@ module SurfaceIntegrals
 !
 !                                   SCALAR INTERPOLATION
 !
-!////////////////////////////////////////////////////////////////////////////////////////
-   function IDWScalarValue( Point, PointsIndex, normal, Q, integralType ) result( outvalue )
-      use TessellationTypes
-      use MappedGeometryClass
-      use KDClass
-      use MPI_IBMUtilities
+!//////////////////////////////////////////////////////////////////////////////////////// 
+   function IDWScalarValue( Point, BandRegion, PointsIndex, normal, Q, integralType ) result( outvalue )
+      use IBMClass
       implicit none
 !
 !        -----------------------------------------------------------
@@ -683,91 +681,44 @@ module SurfaceIntegrals
 !           Pressure
 !        -----------------------------------------------------------
       !-arguments--------------------------------------------------------------
-      integer,       dimension(:),    intent(in) :: PointsIndex
-      real(kind=rp), dimension(NDIM), intent(in) :: Point, normal
-      real(kind=rp), dimension(:,:),  intent(in) :: Q
-      integer,                        intent(in) :: integralType
-      real(kind=rp)                              :: outvalue
+      integer,                 dimension(:),    intent(in) :: PointsIndex
+      type(MPI_M_Points_type),                  intent(in) :: BandRegion
+      real(kind=rp),           dimension(NDIM), intent(in) :: Point, normal
+      real(kind=rp),           dimension(:,:),  intent(in) :: Q 
+      integer,                                  intent(in) :: integralType
+      real(kind=rp)                                        :: outvalue
       !-local-variables--------------------------------------------------------
-      real(kind=rp), dimension(NDIM) :: DistanceNormal
-      real(kind=rp)                  :: sqrd1, d1, d2, num, den, P, &
-                                        tau(NDIM,NDIM), distanceSqr
-      integer                        :: i, k
+      real(kind=rp), dimension(NCONS) :: idwQ
+      real(kind=rp)                   :: P
 
-      num = 0.0_RP; den = 0.0_RP
-
+      outvalue = 0.0_RP
+      
       select case( integralType )
 
          case( MASS_FLOW )
-
-            do i = 1, size(PointsIndex)
-
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2 = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               num = num - (1.0_RP / Q(1,i))*(Q(2,i)*normal(1) + Q(3,i)*normal(2) + Q(4,i)*normal(3))/d1
-               den = den + 1.0_RP/d1
-
-            end do
-
+         
+            call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ ) 
+            
+            outvalue = - (1.0_RP / idwQ(IRHO))*(idwQ(IRHOU)*normal(1) + idwQ(IRHOV)*normal(2) + idwQ(IRHOW)*normal(3))       
+            
          case ( FLOW_RATE )
-
-            do i = 1, size(PointsIndex)
-
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2    = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               num = num - (Q(2,i)*normal(1) + Q(3,i)*normal(2) + Q(4,i)*normal(3))/d1
-               den = den + 1.0_RP/d1
-
-            end do
-
+         
+            call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ ) 
+            
+            outvalue = - (idwQ(IRHOU)*normal(1) + idwQ(IRHOV)*normal(2) + idwQ(IRHOW)*normal(3)) 
+         
+                  
          case( PRESSURE_FORCE )
+         
+            call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ ) 
+            
+            P = pressure(idwQ)
+            
+            outvalue = - P
+ 
+         case ( USER_DEFINED )  
 
-            do i = 1, size(PointsIndex)
-
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2 = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               P = pressure( Q(:,i) )
-
-               num = num - P/d1
-               den = den + 1.0_RP/d1
-
-            end do
-
-         case ( USER_DEFINED )
-
-      end select
-
-      outvalue = num/den
+      end select 
 
    end function IDWScalarValue
 !
@@ -775,13 +726,16 @@ module SurfaceIntegrals
 !
 !                          VECTOR INTERPOLATION
 !
-!////////////////////////////////////////////////////////////////////////////////////////
-   function IDWVectorValue( Point, PointsIndex, normal, Q, U_x, U_y, U_z, tau_w, Wallfunction, integralType ) result( outvalue )
-      use TessellationTypes
-      use MappedGeometryClass
-      use KDClass
-      use MPI_IBMUtilities
+!////////////////////////////////////////////////////////////////////////////////////////         
+   function IDWVectorValue( Point, BandRegion, PointsIndex, normal, &
+                            Q, U_x, U_y, U_z, y, Wallfunction,      &
+                            integralType ) result( outvalue )
       use IBMClass
+      use VariableConversion
+      use FluidData
+#if defined(NAVIERSTOKES)
+      use WallFunctionBC
+#endif
       implicit none
 !
 !        -----------------------------------------------------------
@@ -793,116 +747,116 @@ module SurfaceIntegrals
 !           Viscous force
 !        -----------------------------------------------------------
       !-arguments--------------------------------------------------------------
-      integer,       dimension(:),    intent(in) :: PointsIndex
-      real(kind=rp), dimension(NDIM), intent(in) :: Point, normal, tau_w
-      real(kind=rp), dimension(:,:),  intent(in) ::  Q, U_x, U_y, U_z
-      integer,                        intent(in) :: integralType
-      logical,                        intent(in) :: Wallfunction
-      real(kind=rp), dimension(NDIM)             :: outvalue
+      integer,                 dimension(:),    intent(in) :: PointsIndex
+      type(MPI_M_Points_type),                  intent(in) :: BandRegion
+      real(kind=rp),           dimension(NDIM), intent(in) :: Point, normal
+      real(kind=rp),           dimension(:,:),  intent(in) :: Q, U_x, U_y, U_z
+      integer,                                  intent(in) :: integralType
+      logical,                                  intent(in) :: Wallfunction
+      real(kind=rp),                            intent(in) :: y
+      real(kind=rp),           dimension(NDIM)             :: outvalue
       !-local-variables--------------------------------------------------------
-      real(kind=rp), dimension(NDIM) :: DistanceNormal, num
-      real(kind=rp)                  :: sqrd1, d1, d2, den, P, tau(NDIM,NDIM), &
-                                        num1, distanceSqr
-      integer                        :: i, k
-
-      num = 0.0_RP; den = 0.0_RP; outvalue = 0.0_RP
+      real(kind=rp), dimension(NDIM)      :: viscStress, U, U_t, tangent
+      real(kind=rp), dimension(NCONS)     :: idwQ, idwU_x, idwU_y, idwU_z 
+      real(kind=rp), dimension(NDIM,NDIM) :: tau
+      real(kind=rp)                       :: P, T, T_w, rho_w, mu, nu,  &
+                                             u_II, u_tau, tau_w                                        
+    
+      optional :: y
+      
+      outvalue = 0.0_RP
 
       select case( integralType )
 
          case ( TOTAL_FORCE )
-
-            do i = 1, size(PointsIndex)
-
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2 = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               P = pressure( Q(:,i) )
-
-               if( Wallfunction ) then
-                  num = num + (-P * normal)/d1
-               else
-                  call getStressTensor(Q(:,i), U_x(:,i), U_y(:,i), U_z(:,i), tau)
-                  num = num + (-P * normal + matmul(tau,normal))/d1
-               end if
-
-               den = den + 1.0_RP/d1
-
-            end do
-
+         
+            call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ )     
+            
+            P = pressure(idwQ)
+           
             if( Wallfunction ) then
-               outvalue = num/den + tau_w
+#if defined(NAVIERSTOKES) 
+               T  = Temperature(idwQ)
+               mu = dimensionless% mu * SutherlandsLaw(T)
+               nu = mu/idwQ(IRHO)
+                
+               U   = idwQ(IRHOU:IRHOW)/idwQ(IRHO)
+               U_t = U - ( dot_product(U,normal) * normal )
+ 
+               tangent = U_t/norm2(U_t)
+
+               u_II  = dot_product(U,tangent)
+               
+               u_tau = u_tau_f( u_II, y, nu, u_tau0=1.0_RP )
+            
+               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w = T_w * refvalues% T
+               rho_w = P*refvalues% p/(thermodynamics% R * T_w)
+               rho_w = rho_w/refvalues% rho
+#endif
+               tau_w = rho_w*POW2(u_tau)
+!~                tau_w = idwQ(IRHO)*POW2(u_tau)
+               
+               viscStress = tau_w*tangent
             else
-               outvalue = num/den
+               call GetIDW_value( Point, BandRegion, normal, U_x, PointsIndex, idwU_x )   
+               call GetIDW_value( Point, BandRegion, normal, U_y, PointsIndex, idwU_y )   
+               call GetIDW_value( Point, BandRegion, normal, U_z, PointsIndex, idwU_z ) 
+               
+               call getStressTensor(idwQ, idwU_x, idwU_y, idwU_z, tau)
+               
+               viscStress = matmul(tau,normal)
             end if
-
+            
+            outvalue = -P * normal + viscStress   
+                  
          case( PRESSURE_FORCE )
-
-            do i = 1, size(PointsIndex)
-
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2 = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               P = pressure( Q(:,i) )
-
-               num = num - P*normal/d1
-               den = den + 1.0_RP/d1
-
-            end do
-
-            outvalue = num/den
-
+         
+            call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ )
+            
+            P = pressure(idwQ)
+            
+            outvalue = -P * normal
+            
          case( VISCOUS_FORCE )
 
-            if( Wallfunction ) then
-               outvalue = tau_w
-               return
-            end if
+           if( Wallfunction ) then
+           
+#if defined(NAVIERSTOKES) 
+               call GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, idwQ )  
+               T  = Temperature(idwQ)
+               mu = dimensionless% mu * SutherlandsLaw(T)
+               nu = mu/idwQ(IRHO)
+                
+               U   = idwQ(IRHOU:IRHOW)/idwQ(IRHO)
+               U_t = U - ( dot_product(U,normal) * normal )
+               
+               tangent = U_t/norm2(U_t)
 
-            do i = 1, size(PointsIndex)
+               u_II  = dot_product(U,tangent)
+               u_tau = u_tau_f( u_II, y, nu, u_tau0=1.0_RP )
+            
+               T_w = T + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * POW2(u_II)
+               T_w = T_w * refvalues% T
+               rho_w = pressure(idwQ)*refvalues% p/(thermodynamics% R * T_w)
+               rho_w = rho_w/refvalues% rho
+#endif
+               tau_w = rho_w*POW2(u_tau)
+               
+               viscStress = tau_w*tangent
+            else
+               call GetIDW_value( Point, BandRegion, normal, U_x, PointsIndex, idwU_x )   
+               call GetIDW_value( Point, BandRegion, normal, U_y, PointsIndex, idwU_y )   
+               call GetIDW_value( Point, BandRegion, normal, U_z, PointsIndex, idwU_z )
+               call getStressTensor(idwQ, idwU_x, idwU_y, idwU_z, tau)
+               viscStress = matmul(tau,normal)
+            end if  
+            
+            outvalue = viscStress
+            
+         case ( USER_DEFINED )  
 
-               DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-               d2    = vDot(DistanceNormal, normal)
-
-               distanceSqr = 0.0_RP
-               do k = 1, NDIM
-                  distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
-               end do
-
-               sqrd1 = distanceSqr - POW2(d2)
-               if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-               d1 = sqrt(sqrd1)
-
-               call getStressTensor(Q(:,i), U_x(:,i), U_y(:,i), U_z(:,i), tau)
-
-               num = num + matmul(tau,normal)/d1
-               den = den + 1.0_RP/d1
-
-            end do
-
-            outvalue = num/den
-
-         case ( USER_DEFINED )
-
-      end select
+      end select 
 
    end function IDWVectorValue
 

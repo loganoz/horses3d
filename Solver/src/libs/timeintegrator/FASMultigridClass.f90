@@ -990,7 +990,6 @@ module FASMultigridClass
 !     ---------------------------------------------------
       if( this% p_sem% mesh% IBM% active ) then
          if( lvl .eq. MGlevels ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
-!~          if( any(this% p_sem% mesh% IBM% stl(:)% move) ) call this% updateMovingBodyIBM( fasvcycle_dt, lvl )
       end if
 
 !
@@ -1009,7 +1008,7 @@ module FASMultigridClass
 
          if (SmoothFine .AND. lvl > 1) then ! .AND. .not. FMG
             if (FMG .and. MAXVAL(ComputeMaxResiduals(this % p_sem % mesh)) < 0.1_RP) exit
-            call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)
+            call MGRestrictToChild(this,lvl-1,t, ComputeTimeDerivative)            
             call ComputeTimeDerivative(this % Child % p_sem % mesh,this % Child % p_sem % particles, t, CTD_IGNORE_MODE)
             if (DualTimeStepping) call ComputePseudoTimeDerivative(this % Child % p_sem % mesh, t, dt)
 
@@ -1383,33 +1382,57 @@ module FASMultigridClass
          else
             error stop "FASMultigrid :: LTS needs cfd & dcfl."
          end if
-
-         if( this% p_sem% mesh% IBM% active ) call this% SetIBM( this% p_sem% mesh% IBM% penalization )
+ 
+         if( this% p_sem% mesh% IBM% active ) call this% SetIBM( this% p_sem% mesh% IBM% penalization, this% lts_dt )
 
          select case (Smoother)
             ! Euler Smoother
             case (Euler_SMOOTHER)
                do sweep = 1, SmoothSweeps
+                  if( this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+                  
                   call TakeExplicitEulerStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=dt )
+                     
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+                  end if
                end do
             ! RK3 smoother
             case (RK3_SMOOTHER)
                do sweep = 1, SmoothSweeps
+                  if( this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+               
                   call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=dt )
+                     
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+                  end if
                end do
             ! RK5 smoother
             case (RK5_SMOOTHER)
                do sweep = 1, SmoothSweeps
+                  if( this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+               
                   call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+                  end if
                end do
             ! RK5 smoother opt for Steady State
             case (RKOpt_SMOOTHER)
                do sweep = 1, SmoothSweeps
+                  if( this% p_sem% mesh% IBM% active ) call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+
                   call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dt_vec=this % lts_dt, dts=DualTimeStepping, global_dt=dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt, this% lts_dt )
+                  end if
                end do
             case default
                error stop "FASMultigrid :: No smoother defined for the multigrid."
@@ -1420,29 +1443,69 @@ module FASMultigridClass
             case (Euler_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
+                  
                   call TakeExplicitEulerStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
+                     
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
                end do
             ! RK3 smoother
             case (RK3_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
+                  
                   call TakeRK3Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
+                     
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
                end do
             ! RK5 smoother
             case (RK5_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
+                  
                   call TakeRK5Step ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, dts=DualTimeStepping, global_dt=dt )
+                     
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if               
                end do
             ! RK Opt smoother
             case (RKOpt_SMOOTHER)
                do sweep = 1, SmoothSweeps
                   if (Compute_dt) call MaxTimeStep(self=this % p_sem, cfl=smoother_cfl, dcfl=smoother_dcfl, MaxDt=smoother_dt )
+                  
+                  if( this% p_sem% mesh% IBM% active ) then
+                     this% p_sem% mesh% IBM% penalization = smoother_dt
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
+
                   call TakeRKOptStep ( mesh=this % p_sem % mesh, particles=this % p_sem % particles, t=t, deltaT=smoother_dt, &
                      ComputeTimeDerivative=ComputeTimeDerivative, N_STAGES=erk_order, dts=DualTimeStepping, global_dt=dt )
+
+                  if( this% p_sem% mesh% IBM% active ) then
+                     call this% p_sem% mesh% IBM% SemiImplicitCorrection( this% p_sem% mesh% elements, smoother_dt )
+                  end if
                end do
 !
 !           Implicit smoothers
@@ -1871,43 +1934,28 @@ module FASMultigridClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine FAS_SetIBM( this, dt )   
+   subroutine FAS_SetIBM( this, dt, dt_vec )   
       implicit none
       !-arguments------------------------------------------
-      class(FASMultigrid_t),  intent(inout) :: this 
-      real(kind=rp),          intent(in)    :: dt(:)
+      class(FASMultigrid_t),           intent(inout) :: this 
+      real(kind=rp),                   intent(in)    :: dt(:)
+      real(kind=rp),         optional, intent(in)    :: dt_vec(:)
       !-local-variables------------------------------------
       real(kind=rp) :: MaxDt
+      
+      if( present(dt_vec) ) then
+         this% p_sem% mesh% IBM% penalization = dt_vec
+         return
+      end if
 
-      ! Updating the IBM penalization
-      if (DualTimeStepping) then
-         if( this% p_sem% mesh% IBM% TimePenal ) call MaxTimeStep(self=this% p_sem, cfl=p_cfl, dcfl=p_dcfl, MaxDt = MaxDt, MaxDtVec = this% p_sem% mesh% IBM% penalization )
-      else
-         if ( Compute_dt .and. this% p_sem% mesh% IBM% TimePenal ) then
-            call MaxTimeStep(self=this% p_sem, cfl=cfl, dcfl=dcfl, MaxDt=MaxDt )
-            this% p_sem% mesh% IBM% penalization = MaxDt
-         elseif( this% p_sem% mesh% IBM% TimePenal ) then
-            this% p_sem% mesh% IBM% penalization = dt
-         end if
+      if ( Compute_dt .and. this% p_sem% mesh% IBM% TimePenal ) then
+         call MaxTimeStep(self=this% p_sem, cfl=cfl, dcfl=dcfl, MaxDt=MaxDt )
+         this% p_sem% mesh% IBM% penalization = MaxDt
+      elseif( this% p_sem% mesh% IBM% TimePenal ) then
+         this% p_sem% mesh% IBM% penalization = dt
       end if
  
-   end subroutine FAS_SetIBM
-   
-   recursive subroutine recursive_IBM_KDtreedestroy( Solver, lvl )
-   
-      implicit none
-      !-arguments----------------------------------------
-      type(FASMultigrid_t), target     :: Solver
-      integer,              intent(in) :: lvl
-      !-local-variables-----------------------------------
-      type(FASMultigrid_t), pointer       :: Child_p
-    
-      if( lvl > 1 ) call recursive_IBM_KDtreedestroy( Solver% Child, lvl-1 )
-    
-      call Solver% p_sem% mesh% IBM% DestroyKDtree()
-   
-   end subroutine recursive_IBM_KDtreedestroy
-   
+   end subroutine FAS_SetIBM   
    
    subroutine FAS_updateMovingBodyIBM( this, dt, lvl )
    

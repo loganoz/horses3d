@@ -1,13 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!   @File:    DGSEMClass.f95
-!   @Author:  David Kopriva
-!   @Created: 2008-07-12 13:38:26 -0400
-!   @Last revision date: Mon Mar 14 22:31:22 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      Basic class for the discontinuous Galerkin spectral element
@@ -286,17 +276,28 @@ Module DGSEMClass
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
+      
+      
+!     
+!     Immersed boundary method parameter
+!     -----------------------------------
+      call self% mesh% IBM% read_info( controlVariables )
+      
 !
 !     Compute wall distances
 !     ----------------------
 #if defined(NAVIERSTOKES)
-      call self % mesh % ComputeWallDistances
+      if( .not. self% mesh% IBM% active ) then
+         call self % mesh % ComputeWallDistances
+      end if
 #endif
       IF(.NOT. success) RETURN
+      
 !
 !     construct surfaces mesh
 !     -----------------------
       call surfacesMesh % construct(controlVariables, self % mesh)
+      
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -325,8 +326,6 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-!
-      call self% mesh% IBM% read_info( controlVariables )
 
       if( self% mesh% IBM% active ) then
 
@@ -338,7 +337,9 @@ Module DGSEMClass
 !        ------------------------------------------------
 !
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-
+#if defined(NAVIERSTOKES)
+         call self% mesh% IBM% ComputeIBMWallDistance( self% mesh% elements, self% mesh% faces )
+#endif
       end if
 
 !
@@ -494,7 +495,6 @@ Module DGSEMClass
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
-            !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF
 
@@ -674,12 +674,16 @@ Module DGSEMClass
 #endif
       !--------------------------------------------------------
 !     Initializations
-!     ---------------
-
+!     ---------------              
+              
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
+#if defined(SPALARTALMARAS)
+!$omp parallel shared(self,SAModel,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
+#else
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
+#endif
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements)
          N = self % mesh % elements(eID) % Nxyz
@@ -727,7 +731,7 @@ Module DGSEMClass
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
 
 #if defined(SPALARTALMARAS)
-            CALL ComputeEigenvaluesForStateSA( Q , eValues )
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )            
 #else
             CALL ComputeEigenvaluesForState( Q , eValues )
 #endif
@@ -760,8 +764,10 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
+              
               call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
+          
               mu = mu + musa
 
 #endif

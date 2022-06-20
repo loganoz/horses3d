@@ -46,7 +46,9 @@ Module WallFunctionDefinitions  !
     integer                                                   :: newtonMaxIter                    ! for standrd wall func
     real(kind=RP)                                             :: kappa, WallC                     ! for either
 
+
     logical                                                   :: useAverageV = .false.
+
 
     contains 
 !   
@@ -105,7 +107,9 @@ Module WallFunctionDefinitions  !
         kappa           = controlVariables % getValueOrDefault("wall function kappa", DEFAULT_VON_KARMAN)
         WallC           = controlVariables % getValueOrDefault("wall function c", DEFAULT_WALL_C)
 
+
         d = d / Lref
+
 
         useAverageV = controlVariables%logicalValueForKey("wall function use average")
 
@@ -118,3 +122,4 @@ Module WallFunctionDefinitions  !
 !
 End Module WallFunctionDefinitions
 #endif
+

@@ -1,4 +1,9 @@
-
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    TesselationTypes.f90
+!
+!//////////////////////////////////////////////////////
 #include "Includes.h"
 module TessellationTypes
 
@@ -41,7 +46,8 @@ module TessellationTypes
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
                                         forcingPoint = .false.
-    
+!~       real(kind=rp), dimension(NCONS) :: Q_IP
+      
       contains
          procedure :: copy => point_type_copy
    
@@ -108,6 +114,53 @@ module TessellationTypes
 
    end type
    
+   
+   
+   type ObjsDataLinkedList_t
+      type(ObjData_t), pointer     :: head => null()
+      integer                       :: no_of_entries = 0
+      contains
+         procedure   :: Add           => ObjsDataLinkedList_Add
+         procedure   :: check         => CheckObj
+         procedure   :: Destruct      => ObjsDataLinkedList_Destruct
+    end type ObjsDataLinkedList_t
+   
+    type ObjData_t
+      integer                     :: value 
+      type(ObjData_t), pointer    :: next 
+    end type ObjData_t
+
+
+    type ObjsRealDataLinkedList_t
+      class(ObjRealData_t), pointer    :: head => NULL()
+      integer                       :: no_of_entries = 0
+      contains
+         procedure   :: Add      => ObjsRealDataLinkedList_Add
+         procedure   :: check    => CheckReal
+         procedure   :: Destruct => ObjsRealDataLinkedList_Destruct
+    end type ObjsRealDataLinkedList_t
+   
+   type ObjRealData_t
+      real(kind=RP)             :: value
+      class(ObjRealData_t), pointer :: next 
+    end type ObjRealData_t
+
+
+
+    interface ObjsDataLinkedList_t
+      module procedure  ConstructObjsDataLinkedList
+    end interface 
+    
+    interface ObjsRealDataLinkedList_t
+      module procedure  ConstructObjsRealDataLinkedList
+    end interface 
+   
+   
+   
+   
+   
+   
+   
    interface PointLinkedList
       module procedure :: PointLinkedList_Construct
    end interface
@@ -120,6 +173,161 @@ module TessellationTypes
    character(len=6) :: LINEAR = "linear"
 
    contains   
+
+      function ConstructObjsDataLinkedList( )
+         implicit none
+         type(ObjsDataLinkedList_t) :: ConstructObjsDataLinkedList 
+
+         ConstructObjsDataLinkedList% head => null()
+         ConstructObjsDataLinkedList% no_of_entries = 0
+
+      end function ConstructObjsDataLinkedList
+      
+      function ConstructObjsRealDataLinkedList( )
+         implicit none
+         type(ObjsRealDataLinkedList_t) :: ConstructObjsRealDataLinkedList 
+
+         ConstructObjsRealDataLinkedList% head => null()
+         ConstructObjsRealDataLinkedList% no_of_entries = 0
+
+      end function ConstructObjsRealDataLinkedList
+
+      subroutine ObjsDataLinkedList_Add( this, value ) 
+         implicit none
+         class(ObjsDataLinkedList_t), intent(inout) :: this
+         integer,                     intent(in)    :: value
+         type(ObjData_t),                 pointer  :: current
+
+         integer :: i
+
+         if ( this% no_of_entries .eq. 0 ) then
+            allocate( this% head ) 
+            this% head% value = value
+            this% no_of_entries = 1
+         else
+            current => this% head    
+            do i = 1, this% no_of_entries-1
+               current => current% next
+            end do
+            allocate(current% next)
+            current% next% value = value
+            this% no_of_entries = this% no_of_entries + 1 
+         end if
+
+      end subroutine ObjsDataLinkedList_Add
+      
+      subroutine ObjsRealDataLinkedList_Add( this, value ) 
+         implicit none
+         class(ObjsRealDataLinkedList_t), intent(inout) :: this
+         real(kind=RP),                   intent(in)    :: value
+         type(ObjRealData_t),             pointer  :: current
+
+         integer :: i
+
+         if ( this% no_of_entries .eq. 0 ) then
+            allocate( this% head ) 
+            this% head% value = value
+            this% no_of_entries = 1
+         else
+            current => this% head    
+            do i = 1, this% no_of_entries-1
+               current => current% next
+            end do
+            allocate(current% next)
+            current% next% value = value
+            this% no_of_entries = this% no_of_entries + 1 
+         end if
+
+      end subroutine ObjsRealDataLinkedList_Add
+
+     logical function CheckObj( this, value ) result( found )
+     
+        implicit none
+     
+        class(ObjsDataLinkedList_t), intent(inout) :: this
+        integer,                     intent(in)    :: value
+        
+        type(ObjData_t),             pointer       :: current
+        integer :: i
+        
+        found = .false.
+        
+        if( this% no_of_entries .eq.0 ) return
+        
+        current => this% head
+        
+        do i = 1, this% no_of_entries
+           if( current% value .eq. value ) then
+              found = .true.
+              exit
+           end if
+           current => current% next
+        end do
+     
+     end function CheckObj
+
+     logical function CheckReal( this, value ) result( found )
+     
+        implicit none
+     
+        class(ObjsRealDataLinkedList_t), intent(inout) :: this
+        real(kind=RP),                     intent(in)  :: value
+        
+        type(ObjRealData_t),             pointer       :: current
+        integer :: i
+        
+        found = .false.
+        
+        if( this% no_of_entries .eq.0 ) return
+        
+        current => this% head
+        
+        do i = 1, this% no_of_entries
+           if( almostEqual(current% value,value) ) then
+              found = .true.
+              exit
+           end if
+           current => current% next
+        end do
+     
+     end function CheckReal
+
+    elemental subroutine ObjsDataLinkedList_Destruct(this)
+         implicit none
+         class(ObjsDataLinkedList_t), intent(inout)   :: this
+         type(ObjData_t), pointer       :: data, nextdata
+         integer     :: i
+
+         data => this% head
+         do i = 1, this% no_of_entries
+            nextdata => data% next
+
+            deallocate(data)
+            data => nextdata
+         end do
+         
+         this% no_of_entries = 0
+
+      end subroutine ObjsDataLinkedList_Destruct
+      
+    elemental subroutine ObjsRealDataLinkedList_Destruct(this)
+         implicit none
+         class(ObjsRealDataLinkedList_t), intent(inout)   :: this
+         type(ObjRealData_t), pointer       :: data, nextdata
+         integer     :: i
+
+         data => this% head
+         do i = 1, this% no_of_entries
+            nextdata => data% next
+
+            deallocate(data)
+            data => nextdata
+         end do
+         
+         this% no_of_entries = 0
+
+      end subroutine ObjsRealDataLinkedList_Destruct
+
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -632,7 +840,47 @@ module TessellationTypes
       call this% describe( filename )
       
    end subroutine  ReadTesselation
+
+  subroutine STLfile_plot( this, timestep )
+      use MPI_Process_Info
+      use PhysicsStorage
+      implicit none
+      !-arguments----------------------------------------------
+      class(STLfile), intent(inout) :: this
+      integer,        intent(in)    :: timestep
+      !-local-variables----------------------------------------
+      character(len=LINE_LENGTH)     :: filename, myString
+      integer                        :: i, j, funit
+      integer*2                      :: padding = 0
+      real*4, dimension(3)           :: norm, vertex
+      character(len=80)              :: header = repeat(' ',80)
+      
+      if( .not.  MPI_Process% isRoot ) return
+      
+      funit = UnusedUnit()
+      
+      write(myString,'(i100)') timestep
+      
+      filename = trim(this% filename)//'_'//trim(adjustl(myString))
+      
+      open(funit,file='MESH/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
+ 
+      write(funit) header, this% NumOfObjs 
+      
+      do i = 1, this% NumOfObjs
+         norm = this% ObjectsList(i)% normal
+         write(funit) norm(1), norm(2), norm(3)
+         do j = 1, size(this% ObjectsList(i)% vertices)
+            vertex = this% ObjectsList(i)% vertices(j)% coords * Lref
+            write(funit) vertex(1), vertex(2), vertex(3)
+         end do
+         write(funit) padding      
+      end do
+
+      close(funit)
    
+   end subroutine STLfile_plot 
+  
    subroutine STLfile_GetMotionInfo( this, STLfilename, NumOfSTL )
       use FileReadingUtilities
       use FTValueDictionaryClass
@@ -771,54 +1019,16 @@ module TessellationTypes
    
    end subroutine STLfile_destroy
    
-   subroutine STLfile_plot( this, timestep )
-      use MPI_Process_Info
-      implicit none
-      !-arguments----------------------------------------------
-      class(STLfile), intent(inout) :: this
-      integer,        intent(in)    :: timestep
-      !-local-variables----------------------------------------
-      character(len=LINE_LENGTH)     :: filename, myString
-      integer                        :: i, j, funit
-      
-      if( .not.  MPI_Process% isRoot ) return
-      
-      funit = UnusedUnit()
-      
-      write(myString,'(i100)') timestep
-      
-      filename = trim(this% filename)//'_'//trim(adjustl(myString))
-      
-      open(funit,file='IBM/'//trim(filename)//'.tec', status='unknown')
- 
-      write(funit,"(a28)") 'TITLE = "Partition objects"'
-      write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
-      
-      do i = 1, SIZE(this% ObjectsList)
-         write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
-         do j = 1, this% ObjectsList(i)% NumOfVertices
-            write(funit,'(3E13.5)') this% ObjectsList(i)% vertices(j)% coords(1), &
-                                    this% ObjectsList(i)% vertices(j)% coords(2), &
-                                    this% ObjectsList(i)% vertices(j)% coords(3)
-         end do
-         write(funit,'(3i2)') 1, 2, 3 
-      end do
-
-      close(funit)
-   
-   end subroutine STLfile_plot
-   
    
 !//////////////////////////////////////////////
    
-   subroutine TecFileHeader( FileName, Title, I, J, K, funit, DATAPACKING, ZONETYPE, NO )
+   subroutine TecFileHeader( FileName, Title, I, J, K, funit, DATAPACKING, ZONETYPE )
    
       implicit none
       
       character(len=*), intent(in)  :: FileName, Title, DATAPACKING
       integer,          intent(in)  :: I, J, K
       character(len=*), optional    :: ZONETYPE
-      logical,          optional    :: NO
       integer,          intent(out) :: funit
    
       funit = UnusedUnit()

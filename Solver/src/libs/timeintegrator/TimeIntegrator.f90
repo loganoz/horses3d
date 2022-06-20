@@ -396,7 +396,6 @@ print*, "Method selected: RK5"
 !     ----------------------------------
 !
 
-
       if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
@@ -406,7 +405,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) 
          sem % mesh% IBM% eta = self% CorrectDt(t, dt)
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -470,6 +469,7 @@ print*, "Method selected: RK5"
 !     Integrate in time
 !     -----------------
 !
+
       select case (TimeIntegration)
       case(FAS_SOLVER)
          call FASSolver % construct(controlVariables,sem)
@@ -486,16 +486,15 @@ print*, "Method selected: RK5"
       end select
 
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
-
 !
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
-            if( sem% mesh% IBM% active ) then
-               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
-            else
+!~             if( sem% mesh% IBM% active ) then
+!~                call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+!~             else
               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
-            end if
+!~             end if
          END IF
 !
 !        Correct time step
@@ -533,13 +532,19 @@ print*, "Method selected: RK5"
 !
 !        Perform time step
 !        -----------------
+
          SELECT CASE (TimeIntegration)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+            if( sem% mesh% IBM% active ) then
+               call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
+!~                call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
+            end if
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -558,6 +563,7 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
+
 !
 !        Compute the new time
 !        --------------------
@@ -619,8 +625,8 @@ print*, "Method selected: RK5"
 
          endif
 
-
 #endif
+
 !
 !        Print monitors
 !        --------------
@@ -659,6 +665,7 @@ print*, "Method selected: RK5"
          call monitors % WriteToFile(sem % mesh)
 
          sem % numberOfTimeSteps = k + 1
+
       END DO
 
 !
@@ -694,7 +701,6 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % destruct
 
       end select
-
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
          if(ActuatorLineFlag) call farm % DestructFarm

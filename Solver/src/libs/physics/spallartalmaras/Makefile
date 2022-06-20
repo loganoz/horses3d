@@ -15,7 +15,7 @@ LIBOBJS = ./build/FluidData_NSSA.o \
 		  ./build/Turbulence.o  \
 		  ./build/Physics_NSSA.o \
 		  ./build/RiemannSolvers_NSSA.o \
-		  ./build/ManufacturedSolutions.o\
+		  ./build/ManufacturedSolutions.o 
 
           
 LIB = physicsnssa

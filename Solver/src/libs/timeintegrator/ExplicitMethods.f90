@@ -73,22 +73,6 @@ MODULE ExplicitMethods
       INTEGER :: i, j, k, id
 
       if (present(dt_vec)) then   
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-               do id = 1, SIZE( mesh % elements )
-                  if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if 
          
          do k = 1,3
             tk = t + b(k)*deltaT
@@ -113,40 +97,7 @@ MODULE ExplicitMethods
    
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-               do id = 1, SIZE( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if 
-
       else
-
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-               if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
-!$omp parallel do schedule(runtime)
-               do id = 1, SIZE( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if 
 
          do k = 1,3
             tk = t + b(k)*deltaT
@@ -171,21 +122,6 @@ MODULE ExplicitMethods
        
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-               do id = 1, SIZE( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if 
       end if
 !
 !     To obtain the updated residuals
@@ -227,23 +163,6 @@ MODULE ExplicitMethods
 
 
       if (present(dt_vec)) then 
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if 
 
       DO k = 1, N_STAGES
 
@@ -268,41 +187,8 @@ MODULE ExplicitMethods
 !$omp end parallel do
 
       END DO
-      
-      if( mesh% IBM% active ) then 
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if
 
       else
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-            if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if
 
       DO k = 1, N_STAGES
 
@@ -327,22 +213,6 @@ MODULE ExplicitMethods
 !$omp end parallel do
 
       END DO
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                    end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if
 
       end if
 
@@ -393,7 +263,7 @@ MODULE ExplicitMethods
       else
 !$omp parallel do schedule(runtime)
          DO id = 1, SIZE( mesh % elements )
-            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot
+            mesh % elements(id) % storage % Q = mesh % elements(id) % storage % Q + deltaT*mesh % elements(id) % storage % QDot            
          END DO
 !$omp end parallel do
       end if
@@ -604,26 +474,9 @@ MODULE ExplicitMethods
       a = Am(N_STAGES-1,1:N_STAGES)
       b = Bm(N_STAGES-1,1:N_STAGES)
 
-      tk = t + deltaT
-
+      tk = t + deltaT     
+     
       if (present(dt_vec)) then 
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if 
 
       DO k = 1, N_STAGES
 
@@ -647,41 +500,8 @@ MODULE ExplicitMethods
 !$omp end parallel do
 
       END DO
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if 
 
       else
-      
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-            if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q ) 
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if
 
       DO k = 1, N_STAGES
 
@@ -706,22 +526,6 @@ MODULE ExplicitMethods
 
       END DO
       
-      if( mesh% IBM% active ) then
-         if( mesh% IBM% semiImplicit ) then
-!$omp parallel do schedule(runtime)
-            do id = 1, SIZE( mesh % elements )
-               do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                  if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                     associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                     call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                     end associate
-                  end if
-               end do; end do; end do
-            end do
-!$omp end parallel do
-         end if
-      end if
-
       end if
 
       call checkForNan(mesh, t)

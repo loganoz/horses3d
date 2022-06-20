@@ -38,7 +38,8 @@ Module MappedGeometryClass
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
             REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian
             real(kind=RP)                                   :: volume
-            real(kind=RP), dimension(:,:,:),    allocatable :: dWall          ! Minimum distance to the nearest wall
+            real(kind=RP), dimension(:,:,:),    allocatable :: dWall                   ! Minimum distance to the nearest wall
+            real(kind=RP), dimension(:,:,:,:),  allocatable :: normal                  ! Wall normal, needed for IB
             real(kind=RP), dimension(:,:,:,:) , allocatable :: ncXi, ncEta, ncZeta     ! Normals at the complementary grid nodes
             real(kind=RP), dimension(:,:,:,:) , allocatable :: t1cXi, t1cEta, t1cZeta  ! Tangent vector 1 at the complementary grid nodes
             real(kind=RP), dimension(:,:,:,:) , allocatable :: t2cXi, t2cEta, t2cZeta  ! Tangent vector 2 at the complementary grid nodes
@@ -175,6 +176,7 @@ Module MappedGeometryClass
          safedeallocate( self % JfcXi       )
          safedeallocate( self % JfcEta      )
          safedeallocate( self % JfcZeta     )
+         safedeallocate( self % normal      )
 
       END SUBROUTINE DestructMappedGeometry
 !

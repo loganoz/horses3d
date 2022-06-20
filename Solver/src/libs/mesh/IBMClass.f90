@@ -1,4 +1,3 @@
-
 #include "Includes.h"
 module IBMClass
 
@@ -29,7 +28,7 @@ module IBMClass
    
       real(kind=rp),      dimension(:),   allocatable :: xi, eta, weights
       integer                                         :: Order, n_of_Q_points
-      type(Integral_Obj), dimension(:),   allocatable :: IntegObjs, NearestPoints, NearestPointsTurbulence
+      type(Integral_Obj), dimension(:),   allocatable :: IntegObjs
       logical                                         :: ListComputed = .false., constructed = .false.
     
       contains
@@ -45,6 +44,7 @@ module IBMClass
       type(KDtree)                            :: rootPoints
       type(KDtree),               allocatable :: root(:)
       type(PointLinkedList)                   :: BandPoints
+      type(MPI_M_Points_type)                 :: BandRegion
       type(Integral_t),           allocatable :: Integral(:)
       character(len=LINE_LENGTH), allocatable :: STLfilename(:)
       character(len=LINE_LENGTH)              :: filename
@@ -53,11 +53,12 @@ module IBMClass
                                                  symmetry, plotBandPoints, plotMask,               &
                                                  ComputeInterpolation = .false.,                   &
                                                  Wallfunction = .false.
-      real(kind=rp)                           :: eta, BandRegionCoeff
+      real(kind=rp)                           :: eta, BandRegionCoeff, IP_Distance = 0.0_RP,       &
+                                                 y_plus_target
       real(kind=rp),              allocatable :: symCoords(:), penalization(:)
       integer                                 :: KDtree_Min_n_of_Objs, KDtree_n_of_interPoints,   &
                                                  IntegrationOrder, n_of_INpoints,                 &
-                                                 rank, lvl = 0, NumOfSTL
+                                                 rank, lvl = 0, NumOfSTL, NumOfForcingPoints
       integer,                    allocatable :: symPlanes(:), ImagePoint_NearestPoints(:,:)
       
       contains  
@@ -77,27 +78,25 @@ module IBMClass
          procedure :: MPI_sendBand2Partitions   => IBM_MPI_sendBand2Partitions
          procedure :: BandRegionPoints          => IBM_bandRegionPoints
          procedure :: GetForcingPointsGeom      => IBM_GetForcingPointsGeom
-         procedure :: GetImagePointCoords       => IBM_GetImagePointCoords
          procedure :: GetInfo                   => IBM_GetInfo 
          procedure :: SourceTerm                => IBM_SourceTerm
-#if defined(NAVIERSTOKES)
+         procedure :: ComputeIBMWallDistance    => IBM_ComputeIBMWallDistance
+         procedure :: SemiImplicitCorrection    => IBM_SemiImplicitCorrection
          procedure :: GetImagePoint_nearest     => IBM_GetImagePoint_nearest
+#if defined(NAVIERSTOKES) 
          procedure :: SourceTermTurbulence      => IBM_SourceTermTurbulence
 #endif
          procedure :: semiImplicitShiftJacobian => IBM_semiImplicitShiftJacobian
          procedure :: semiImplicitJacobian      => IBM_semiImplicitJacobian
          procedure :: GetSemiImplicitStep       => IBM_GetSemiImplicitStep
-         procedure :: getObjsTangent            => IBM_getObjsTangent
          procedure :: upDateNormals             => IBM_upDateNormals
          procedure :: SetIntegration            => IBM_SetIntegration
          procedure :: copyKDtree                => IBM_copyKDtree
          procedure :: MoveBody                  => IBM_MoveBody
          procedure :: CleanMask                 => IBM_CleanMask
-         procedure :: BandPoint_SetGeom         => IBM_BandPoint_SetGeom
          procedure :: BandPoint_state           => IBM_BandPoint_state
          procedure :: Describe                  => IBM_Describe
          procedure :: plot_Mask                 => IBM_plot_Mask
-         procedure :: WriteMesh                 => IBM_WriteMesh
          procedure :: Destruct                  => IBM_Destruct
          procedure :: DestroyKDtree             => IBM_DestroyKDtree
 
@@ -109,13 +108,12 @@ module IBMClass
 
    contains
    
-   subroutine Integral_construct( this, Order, NumOfObjs, Wallfunction )
+   subroutine Integral_construct( this, Order, NumOfObjs )
    
       implicit none
    
       class(Integral_t), intent(inout) :: this
       integer,           intent(in)    :: Order, NumOfObjs
-      logical,           intent(in)    :: Wallfunction
       
       if( this% constructed ) return
       
@@ -252,11 +250,11 @@ module IBMClass
          this% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(filename), requestedLength = LINE_LENGTH)
          call STLfile_GetMotionInfo( this% stl(STLNum), this% STLfilename(STLNum), this% NumOfSTL )
          this% stl(STLNum)% body = STLNum       
-         call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) )   
+         call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) ) 
          call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB )
          this% root(STLNum)% STLNum = STLNum
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
-         call this% constructSTL_KDtree( STLNum )
+         call this% constructSTL_KDtree( STLNum )    
       end do
 
    end subroutine IBM_Construct
@@ -267,7 +265,7 @@ module IBMClass
       
       class(IBM_type), intent(inout) :: this
       integer,         intent(in)    :: STLNum
-                
+
       call MPI_KDtree_buildPartition( this% stl(STLNum) )
 
       if ( MPI_Process% doMPIAction ) then   
@@ -278,12 +276,14 @@ module IBMClass
          call SendSTLPartitions()
       end if
 
-      call this% root(STLNum)% construct( MPI_KDtreePartition% stl, MPI_KDtreePartition% Vertices, &
-                                          this% plotKDtree, this% KDtree_Min_n_of_Objs             )
+      call this% root(STLNum)% construct( stl           = MPI_KDtreePartition% stl,      &
+                                          Vertices      = MPI_KDtreePartition% Vertices, &
+                                          isPlot        = this% plotKDtree,              & 
+                                          Min_n_of_Objs = this% KDtree_Min_n_of_Objs     )
 
       this% root(STLNum)% MaxAxis = MPI_KDtreePartition% axis
 
-      call this% Integral(STLNum)% construct( this% IntegrationOrder, MPI_KDtreePartition% stl% NumOfObjs, this% Wallfunction )
+      call this% Integral(STLNum)% construct( this% IntegrationOrder, MPI_KDtreePartition% stl% NumOfObjs )
 
       call MPI_KDtree_destroy()
 
@@ -297,33 +297,36 @@ module IBMClass
       logical,         intent(in)    :: isChild
       !----------------------------------------
       integer :: i
-        
+
       do i = 1, size(this% root)
-         call this% root(i)% destruct()
+         call this% root(i)% destruct( isChild )
          if( .not. isChild ) call this% Integral(i)% destruct()
+         call this% BandPoints% destruct()
+         !-band region--
+         call this% BandRegion% destroy()
+         call this% rootPoints% Destruct( .false. )
       end do
-      
+
       deallocate(this% penalization)
-   
+
       if( .not. isChild ) then
-          call this% rootPoints% Destruct()
-          call this% BandPoints% Destruct()
-          deallocate(this% symCoords)
-          deallocate(this% symPlanes)
+          if( allocated(this% symCoords) ) deallocate(this% symCoords)
+          if( allocated(this% symPlanes) ) deallocate(this% symPlanes)
       end if
    
    end subroutine IBM_Destruct   
    
-   subroutine IBM_DestroyKDtree( this )
+   subroutine IBM_DestroyKDtree( this, isChild )
       use MPI_Process_Info
       implicit none
       !-arguments------------------------------
       class(IBM_type), intent(inout) :: this
+      logical,         intent(in)    :: isChild
       !----------------------------------------
       integer :: i
         
       do i = 1, size(this% root)
-         call this% root(i)% destruct()
+         call this% root(i)% destruct( isChild )
       end do
    
    end subroutine IBM_DestroyKDtree   
@@ -367,20 +370,6 @@ module IBMClass
          print *, "Try to increase the polynomial order or to refine the mesh."
          error stop         
       end if
-   
-      if( .not. isChild  ) then
-         call this% constructBandRegion( elements, no_of_elements ) 
-         do STLNum = 1, this% NumOfSTL
-            call this% SetIntegration( STLNum )
-         end do 
-         if( this% Wallfunction) then
-#if defined(NAVIERSTOKES)
-            call this% GetForcingPointsGeom()
-            call this% GetImagePoint_nearest()
-#endif
-         end if    
-         call this% WriteMesh( elements, no_of_elements, 0 )
-      end if
       
       allocate( this% penalization(no_of_elements) )
       
@@ -388,6 +377,16 @@ module IBMClass
       
       if( this% plotMask ) call this% plot_Mask( elements, no_of_elements )
    
+      if( isChild .and. .not. this% Wallfunction ) return
+      
+      call this% constructBandRegion( elements, no_of_elements ) 
+
+      if( .not. isChild ) then
+         do STLNum = 1, this% NumOfSTL
+            call this% SetIntegration( STLNum )
+         end do 
+      end if
+
    end subroutine IBM_build
    
    subroutine IBM_GetMask( this, elements, no_of_elements, no_of_DoFs, STLNum )
@@ -405,8 +404,9 @@ module IBMClass
       call this% constructmask( MPI_M_Points_ALL% x, elements, STLNum )
 
       call MPI_M_PointsPartition% destroy()
+
       call MPI_M_Points_ALL% destroy()
-   
+
    end subroutine IBM_GetMask
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -500,7 +500,7 @@ module IBMClass
       class(IBM_type), intent(inout) :: this
    
       if ( MPI_Process% doMPIAction ) then
-         call RootrecvBandPoint()
+         call RootrecvBandPoint( this% BandRegion )
          call RootSendBandPoint( this% BandPoints )
       end if
       
@@ -514,11 +514,11 @@ module IBMClass
       class(IBM_type), intent(inout) :: this
  
       if ( MPI_Process% doMPIAction ) then
-         call recvBandPointPartition()
+         call recvBandPointPartition( this% BandRegion )
       end if 
 
       if( MPI_Process% doMPIRootAction ) then
-        call sendBandPointPartition()
+        call sendBandPointPartition( this% BandRegion )
       end if
 
    end subroutine IBM_MPI_sendBand2Partitions  
@@ -606,8 +606,8 @@ module IBMClass
       !-local-variables----------------------------------------------
       real(kind=RP) :: Point(NDIM) 
       integer       :: eID, n, i, j, k
-      
-!$omp parallel shared(this,x,STLNum,n) 
+
+!$omp parallel shared(x,STLNum,n) 
 !$omp do schedule(runtime) private(Point)
       do n = 1, size(x)           
          call OBB(STLNum)% ChangeRefFrame( x(n)% coords, 'local', Point )
@@ -620,7 +620,7 @@ module IBMClass
 
        call this% MPI_sendMask2Root()       
        call this% MPI_sendMask2Partitions()
-       
+
 !$omp parallel shared(this,x,elements,STLNum,n)
 !$omp do schedule(runtime) private(eID,i,j,k)
        do n = 1, size(x)
@@ -666,28 +666,32 @@ module IBMClass
       if ( MPI_Process % doMPIAction ) then
 #ifdef _HAS_MPI_
          localVal = this% BandPoints% NumOfPoints
-         call mpi_allreduce(localVal, BandPoints_All% NumOfObjs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localVal, this% BandRegion% NumOfObjs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
       else
-         BandPoints_All% NumOfObjs = this% BandPoints% NumOfPoints
+         this% BandRegion% NumOfObjs = this% BandPoints% NumOfPoints
       end if
 
-      
-      if( BandPoints_All% NumOfObjs .eq. 0 ) then
+      if( this% BandRegion% NumOfObjs .eq. 0 ) then
          print *, "IBM_bandRegionPoints: Number of points in the band region is 0"
          error stop
       end if
 
-      call MPI_BandPointpartition( BandPoints_All% NumOfObjs, this% BandPoints )
+      call MPI_BandPointpartition( this% BandRegion, this% BandRegion% NumOfObjs, this% BandPoints )
 
       call this% MPI_sendBand2Root()      
       call this% MPI_sendBand2Partitions() 
-         
+
       ! STL & OBB not used for rootpoints
-      call this% rootPoints% construct( this% stl(1), OBB(1)% LocVertices, this% plotBandPoints, this% KDtree_n_of_interPoints, BandPoints_All% x )  
-  
+      call this% rootPoints% construct( stl           = this% stl(1),                  &
+                                        Vertices      = OBB(1)% LocVertices,           &
+                                        isPlot        = this% plotBandPoints,          &
+                                        Min_n_of_Objs = this% KDtree_n_of_interPoints, &
+                                        PointList     = this% BandRegion% x,           &
+                                        lvl           = this% lvl                      )  
+ 
       call this% BandPoints% destruct()
-      
+
    end subroutine IBM_constructBandRegion     
    
    subroutine IBM_bandRegionPoints( this, elements, n_of_elements )
@@ -747,31 +751,6 @@ module IBMClass
    
    end subroutine IBM_copyKDtree
    
-   
-   subroutine IBM_getObjsTangent( this, STLNum )
-      use MappedGeometryClass 
-      implicit none
-      !-arguments-------------------------------
-      class(IBM_type), intent(inout) :: this
-      integer,         intent(in)    :: STLNum
-      !-local-variables-------------------------
-      real(kind=rp) :: dv(NDIM),         &
-                       Vertices(NDIM,3)
-      integer       :: i
-      
-!$omp parallel shared(this,STLNum,i)
-!$omp do schedule(runtime) private(Vertices,dv)
-      do i = 1, this% root(STLNum)% NumOfObjs
-         call OBB(STLNum)% ChangeRefFrame( this% root(STLNum)% ObjectsList(i)% vertices(1)% coords ,'global', Vertices(:,1))
-         call OBB(STLNum)% ChangeRefFrame( this% root(STLNum)% ObjectsList(i)% vertices(2)% coords ,'global', Vertices(:,2))
-         call vcross(Vertices(:,2) - Vertices(:,1),this% root(STLNum)% ObjectsList(i)% normal,dv)
-         dv = dv/norm2(dv)
-         this% root(STLNum)% ObjectsList(i)% tangent = dv/norm2(dv)
-      end do
-!$omp end do
-!$omp end parallel
-   end subroutine IBM_getObjsTangent
-   
    subroutine IBM_upDateNormals( this, STLNum )
       use MappedGeometryClass 
       implicit none
@@ -795,215 +774,100 @@ module IBMClass
       end do
 !$omp end do
 !$omp end parallel   
-   end subroutine IBM_upDateNormals
-   
-   
-   subroutine IBM_GetImagePointCoords( this, maxDistFP )
-      use MPI_Process_Info
-      implicit none
-      !-arguments----------------------------------------------
-      class(IBM_type), intent(inout) :: this
-      real(kind=rp),   intent(in)    :: maxDistFP
-      !-local-variables----------------------------------------
-      real(kind=rp)                        :: d, minDist, DistFP
-      real(kind=rp),           parameter   :: factor = 0.01_RP
-      integer                              :: i, j, STLNum
-      logical, dimension(this% NumOfSTL)   :: found 
-      
-      minDist = huge(1.0_RP)
-      
-!$omp parallel shared(i,maxDistFP)
-!$omp do schedule(runtime) private(j,STLNum,found,d,DistFP)
-      do i = 1, BandPoints_ALL% NumOfObjs
-      
-         if( .not. BandPoints_ALL% x(i)% forcingPoint ) cycle
-         
-         d = 0.0_RP
-         
-         DistFP = maxDistFP - BandPoints_ALL% x(i)% Dist
-         
-         BandPoints_ALL% x(i)% ImagePoint_coords = BandPoints_ALL% x(i)% coords + DistFP * BandPoints_ALL% x(i)% normal
-         
-         found = .false.
-         
-         do j = 1, 5001
-            ! first we move the point far away
-            do STLNum = 1, this% NumOfSTL
-               if( .not. OBB(STLNum)% isInsidePolygon( BandPoints_ALL% x(i)% ImagePoint_coords ) ) then
-                  found(STLNum) = .true.
-               end if
-            end do
-            
-            if( all(found) ) exit
-            
-            found = .false.
-            
-            d = d + factor
-            
-            BandPoints_ALL% x(i)% ImagePoint_coords = BandPoints_ALL% x(i)% coords + (d + DistFP)*BandPoints_ALL% x(i)% normal
-         
-         end do
-         
-!$omp critical
-         minDist = min(minDist,d)
-!$omp end critical
-         
-         if( .not. all(found) ) print*, "can't set the Image point for the forcing point ", BandPoints_ALL% x(i)% coords
-         
-      end do
-!$omp end do
-!$omp end parallel
-
-!$omp parallel shared(minDist,maxDistFP,i)
-!$omp do schedule(runtime) private(d)
-      do i = 1, BandPoints_ALL% NumOfObjs
-         if( BandPoints_ALL% x(i)% forcingPoint ) then
-            d = maxDistFP - BandPoints_ALL% x(i)% Dist + minDist
-            BandPoints_ALL% x(i)% ImagePoint_coords = BandPoints_ALL% x(i)% coords + d*BandPoints_ALL% x(i)% normal
-         end if
-      end do
-!$Omp end do
-!$Omp end parallel
-
-
-   end subroutine IBM_GetImagePointCoords
-   
-   
-   
-   
-   subroutine IBM_GetForcingPointsGeom( this )
+   end subroutine IBM_upDateNormals  
+    
+   subroutine IBM_GetForcingPointsGeom( this, elements )
       use MPI_Process_Info
       
       use omp_lib
       
       implicit none
       !-arguments---------------------------------------------
-      class(IBM_type), intent(inout) :: this
+      class(IBM_type),               intent(inout) :: this
+      type(element),   dimension(:), intent(inout) :: elements
       !-local-variables--------------------------------------
-      real(kind=RP) :: Dist, Point(NDIM), normal(NDIM), meanDist
-      integer       :: i, STLNum
-#ifdef _HAS_MPI_
-      real(kind=RP) :: MPI_in(2,1), MPI_out(2,1)
-      integer       :: ierr
-#endif      
+      real(kind=RP) :: Dist, Point(NDIM), IntersectionPoint(NDIM)
+      integer       :: eID, i, j, k  
       
-      BandPoints_ALL% NumOfF_Points = 0
-  
-!$omp parallel shared(i)
-!$omp do schedule(runtime) private(STLNum,Dist,normal,Point)
-      do i = 1, BandPoints_ALL% NumOfObjs
-         BandPoints_ALL% x(i)% Dist = huge(1.0_RP)
-         do STLNum = 1, this% NumOfSTL
-            if( .not. OBB(STLNum)% isInsidePolygon( BandPoints_ALL% x(i)% coords ) ) cycle
-            BandPoints_ALL% x(i)% forcingPoint = .true.
+      character(len=LINE_LENGTH) :: MyString
+      integer :: funit
+      real(kind=rp) :: ImagePoint(NDIM)
+      
+      logical :: isInsideBody
+      
+      this% IP_Distance = InitializeDistance( this% y_plus_target )
+
+      this% NumOfForcingPoints = 0
+      
+!$omp parallel 
+!$omp do schedule(runtime) private(i,j,k) 
+      do eID = 1, size(elements)
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)        
+            if( elements(eID)% geom% dWall(i,j,k) .gt. this% IP_Distance .or. elements(eID)% isInsideBody(i,j,k) ) cycle
+            elements(eID)% isForcingPoint(i,j,k) = .true. 
 !$omp critical
-            BandPoints_ALL% NumOfF_Points = BandPoints_ALL% NumOfF_Points + 1
+            this% NumOfForcingPoints = this% NumOfForcingPoints + 1 
 !$omp end critical
-            call OBB(STLNum)% ChangeRefFrame(BandPoints_ALL% x(i)% coords, 'local', Point)
-            call MinimumDistance( Point, this% root(STLNum), Dist, normal )
-            if( Dist .lt. BandPoints_ALL% x(i)% Dist ) then
-               BandPoints_ALL% x(i)% Dist    = Dist
-               BandPoints_ALL% x(i)% normal  = normal
-               BandPoints_ALL% x(i)% rank    = MPI_Process% rank
-            end if
-         end do
+         end do                          ; end do                          ; end do
       end do
-!$omp end do 
+!$omp end do
 !$omp end parallel
-           
-      if( BandPoints_ALL% NumOfF_Points .eq. 0 ) then
-         print*, " Number of forcing points is 0."
-         print*, " Increase 'coeff' in OrientedBoundingBox:: OBB_isInsidePolygon"
+
+      if( this% NumOfForcingPoints .eq. 0 ) then
+         print *, 'Number of forcing point is zero, try to increase y+'
+         error stop
       end if
-      
-#ifdef _HAS_MPI_
-      do i = 1, BandPoints_ALL% NumOfObjs
-         MPI_in(1,1) = BandPoints_ALL% x(i)% Dist
-         MPI_in(2,1) = MPI_Process% rank
-         call mpi_allreduce( MPI_in, MPI_out, 1, MPI_2DOUBLE_PRECISION, MPI_MINLOC, MPI_COMM_WORLD, ierr )
-         if( MPI_Process% isRoot ) then
-            BandPoints_ALL% x(i)% Dist = MPI_out(1,1)
-            BandPoints_ALL% x(i)% rank = MPI_out(2,1)
-         end if
+
+
+    write(MyString,*) this% lvl
+
+      call TecFileHeader( 'IBM/ForcingPoints'//trim(adjustl(MyString)), 'FP Points', this% NumOfForcingPoints/2+mod(this% NumOfForcingPoints,2),2,1, funit, 'POINT')
+
+         do eID = 1, size(elements)
+            associate ( e => elements(eID) )
+            do k = 0, e% Nxyz(3); do j = 0, e% Nxyz(2) ; do i = 0, e% Nxyz(1)
+               if( e% isForcingPoint(i,j,k) ) then
+                  write(funit,'(3E13.5)')  e% geom% x(1,i,j,k), e% geom% x(2,i,j,k), e% geom% x(3,i,j,k)
+               end if
+            end do; end do; end do
+            end associate
+         end do
+         
+         close(funit)
+         
+         
+    call TecFileHeader( 'IBM/ImagePoints'//trim(adjustl(MyString)), 'Image Points', this% NumOfForcingPoints/2+mod(this% NumOfForcingPoints,2),2,1, funit, 'POINT')
+
+      do eID = 1, size(elements)
+         associate ( e => elements(eID) )
+          do k = 0, e% Nxyz(3); do j = 0, e% Nxyz(2) ; do i = 0, e% Nxyz(1)
+            if( e% isForcingPoint(i,j,k) ) then
+               Dist = this% IP_distance - elements(eID)% geom% dWall(i,j,k)
+               ImagePoint = elements(eID)% geom% x(:,i,j,k) + Dist * elements(eID)% geom% normal(:,i,j,k)
+               
+!~                call this% CheckPoint( ImagePoint, 1, isInsideBody )
+               
+!~                if( isInsideBody ) then
+!~                   write(*,*) 'imagepoint =', ImagePoint
+!~                   write(*,*) 'i,j,k =', i,j,k
+!~                   write(*,*) 'eID =', eID
+!~                end if
+               
+               write(funit,'(3E13.5)')  ImagePoint(1), ImagePoint(2), ImagePoint(3)
+            end if
+         end do; end do; end do
+         end associate
       end do
-#endif
-
-     if ( MPI_Process% doMPIAction ) then   
-        call recvGeom()
-     end if
-
-     if( MPI_Process% doMPIRootAction ) then
-        call sendGeom()
-     end if
-
-     call this% BandPoint_SetGeom()
-     
-     meanDist = sum(BandPoints_ALL% x(:)% Dist,BandPoints_ALL% x(:)% forcingPoint)/BandPoints_ALL% NumOfF_Points
-     
-!$omp parallel shared(i,meanDist)
-!$omp do schedule(runtime) 
-      do i = 1, BandPoints_ALL% NumOfObjs
-         if( BandPoints_ALL% x(i)% forcingPoint .and. BandPoints_ALL% x(i)% Dist .gt. meanDist ) then
-               BandPoints_ALL% x(i)% forcingPoint = .false.
-!$omp critical
-            BandPoints_ALL% NumOfF_Points = BandPoints_ALL% NumOfF_Points - 1
-!$omp end critical
-         end if 
-      end do
-!$omp end do 
-!$omp end parallel
-
-      call this% GetImagePointCoords( meanDist )
+         
+      close(funit)
 
    end subroutine IBM_GetForcingPointsGeom
-   
-   
-   
-   subroutine IBM_BandPoint_SetGeom( this )
-      use MPI_Process_Info
-      implicit none
-      !-arguments-------------------------------------------------
-      class(IBM_type), intent(inout) :: this
-      !-local-variables-------------------------------------------
-      real(kind=rp), dimension(:,:), allocatable :: bpNormals 
-      real(kind=rp), dimension(:),   allocatable :: local_sum 
-      integer                                    :: i, rank
-#ifdef _HAS_MPI_
-      integer                                    :: ierr
-#endif
-
-     allocate( bpNormals(NDIM,BandPoints_ALL% NumOfObjs),  &
-               local_sum(BandPoints_ALL% NumOfObjs)        )
-
-     bpNormals = 0.0_RP
-     do i = 1, BandPoints_ALL% NumOfObjs
-        rank = BandPoints_ALL% x(i)% rank
-        if( rank .eq. MPI_Process% rank ) then
-           bpNormals(:,i) = BandPoints_ALL% x(i)% normal
-        end if
-     end do
-     
-#ifdef _HAS_MPI_    
-     do i = 1, NDIM
-        local_sum = bpNormals(i,:)
-        call mpi_allreduce( local_sum, bpNormals(i,:), BandPoints_ALL% NumOfObjs, MPI_DOUBLE, &
-                            MPI_SUM, MPI_COMM_WORLD, ierr                                     )
-     end do
-#endif      
-
-     do i = 1, BandPoints_ALL% NumOfObjs
-        BandPoints_ALL% x(i)% normal  = bpNormals(:,i)
-     end do
-          
-     deallocate(bpNormals,local_sum)
-    
-   end subroutine IBM_BandPoint_SetGeom
    
    subroutine IBM_BandPoint_state( this, elements, bpQ, bpU_x, bpU_y, bpU_z )
       use PhysicsStorage
       use MPI_Process_Info
       implicit none
-      !-arguments------------------------------------------------------
+      !-arguments-------------------------------------------------------
       class(IBM_type),                 intent(inout) :: this
       type(element),   dimension(:),   intent(in)    :: elements
       real(kind=rp),   dimension(:,:), intent(inout) :: bpQ, bpU_x,  &
@@ -1024,51 +888,51 @@ module IBMClass
       
 !$omp parallel shared(i,bpQ,bpU_x,bpU_y,bpU_z)
 !$omp do schedule(runtime)
-      do i = 1, BandPoints_ALL% NumOfObjs      
-         if( BandPoints_ALL% x(i)% partition .eq. MPI_Process% rank ) then
-            bpQ(:,i) = elements(BandPoints_ALL% x(i)% element_index)% storage%  &
-                                   Q(:,BandPoints_ALL% x(i)% local_Position(1), &
-                                       BandPoints_ALL% x(i)% local_Position(2), &
-                                       BandPoints_ALL% x(i)% local_Position(3)  )
+      do i = 1, this% BandRegion% NumOfObjs      
+         if( this% BandRegion% x(i)% partition .eq. MPI_Process% rank ) then
+            bpQ(:,i) = elements(this% BandRegion% x(i)% element_index)% storage%  &
+                                   Q(:,this% BandRegion% x(i)% local_Position(1), &
+                                       this% BandRegion% x(i)% local_Position(2), &
+                                       this% BandRegion% x(i)% local_Position(3)  )
             if( present(bpU_x) ) then
-               bpU_x(:,i) = elements(BandPoints_ALL% x(i)% element_index)% storage%  &
-                                      U_x(:,BandPoints_ALL% x(i)% local_Position(1), &
-                                            BandPoints_ALL% x(i)% local_Position(2), &
-                                            BandPoints_ALL% x(i)% local_Position(3)  )
+               bpU_x(:,i) = elements(this% BandRegion% x(i)% element_index)% storage%  &
+                                      U_x(:,this% BandRegion% x(i)% local_Position(1), &
+                                            this% BandRegion% x(i)% local_Position(2), &
+                                            this% BandRegion% x(i)% local_Position(3)  )
             end if
             if( present(bpU_y) ) then
-               bpU_y(:,i) = elements(BandPoints_ALL% x(i)% element_index)% storage%  &
-                                      U_y(:,BandPoints_ALL% x(i)% local_Position(1), &
-                                            BandPoints_ALL% x(i)% local_Position(2), &
-                                            BandPoints_ALL% x(i)% local_Position(3)  )
+               bpU_y(:,i) = elements(this% BandRegion% x(i)% element_index)% storage%  &
+                                      U_y(:,this% BandRegion% x(i)% local_Position(1), &
+                                            this% BandRegion% x(i)% local_Position(2), &
+                                            this% BandRegion% x(i)% local_Position(3)  )
             end if
             if( present(bpU_z) ) then
-               bpU_z(:,i) = elements(BandPoints_ALL% x(i)% element_index)% storage%  &
-                                      U_z(:,BandPoints_ALL% x(i)% local_Position(1), &
-                                            BandPoints_ALL% x(i)% local_Position(2), &
-                                            BandPoints_ALL% x(i)% local_Position(3)  )
+               bpU_z(:,i) = elements(this% BandRegion% x(i)% element_index)% storage%  &
+                                      U_z(:,this% BandRegion% x(i)% local_Position(1), &
+                                            this% BandRegion% x(i)% local_Position(2), &
+                                            this% BandRegion% x(i)% local_Position(3)  )
             end if
          end if
       end do
 !$omp end do
 !$omp end parallel
 
-#ifdef _HAS_MPI_
-      allocate(local_sum(BandPoints_ALL% NumOfObjs))
+#ifdef _HAS_MPI_ 
+      allocate(local_sum(this% BandRegion% NumOfObjs))
       do i = 1, NCONS
          local_sum = bpQ(i,:)
-         call mpi_allreduce(local_sum, bpQ(i,:), BandPoints_ALL% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(local_sum, bpQ(i,:), this% BandRegion% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
          if( present(bpU_x) ) then
             local_sum = bpU_x(i,:)
-            call mpi_allreduce(local_sum, bpU_x(i,:), BandPoints_ALL% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(local_sum, bpU_x(i,:), this% BandRegion% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
          end if
          if( present(bpU_y) ) then
             local_sum = bpU_y(i,:)
-            call mpi_allreduce(local_sum, bpU_y(i,:), BandPoints_ALL% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(local_sum, bpU_y(i,:), this% BandRegion% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
          end if
          if( present(bpU_z) ) then
             local_sum = bpU_z(i,:)
-            call mpi_allreduce(local_sum, bpU_z(i,:), BandPoints_ALL% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+            call mpi_allreduce(local_sum, bpU_z(i,:), this% BandRegion% NumOfObjs, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
          end if
       end do 
       deallocate(local_sum)
@@ -1084,6 +948,9 @@ module IBMClass
 !  -----------------------------------------------   
    subroutine IBM_GetInfo( this, controlVariables )
       use FileReadingUtilities
+#if defined(NAVIERSTOKES)
+      use WallFunctionDefinitions
+#endif    
       implicit none
       !-arguments----------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
@@ -1091,15 +958,18 @@ module IBMClass
       !-local-variables----------------------------------------------------------
       logical,       allocatable :: active_in, describe_in, plotOBB_in,     &
                                     plotKDtree_in, semiImplicit_in,         &
-                                    plotBandPoints_in, plotMask_in,         &
-                                    Wallfunction_in
-      real(kind=rp), allocatable :: penalization_in, BandRegionCoeff_in
+                                    plotBandPoints_in, plotMask_in
+      real(kind=rp), allocatable :: penalization_in, BandRegionCoeff_in,    &
+                                    y_plus_target_in
       integer,       allocatable :: n_of_Objs_in, n_of_interpoints_in,      &
                                     IntegrationOrder_in, sym_planes(:)
       character(len=LINE_LENGTH) :: in_label, paramFile, name_in, tmp
       integer                    :: i
       
       character(len=LINE_LENGTH), parameter :: NumberOfSTL = "number of stl" 
+      
+      
+      logical :: correct !DELETE
       
 !     Read block
 !     **********
@@ -1109,7 +979,7 @@ module IBMClass
       call readValueInRegion ( trim ( paramFile ), "active", active_in, in_label, "#end" )
       call readValueInRegion ( trim ( paramFile ), "penalization", penalization_in, in_label, "#end" )   
       call readValueInRegion ( trim ( paramFile ), "semi implicit", semiImplicit_in, in_label, "#end" )
-      call readValueInRegion ( trim ( paramFile ), "wall function", Wallfunction_in, in_label, "#end" )
+      call readValueInRegion ( trim ( paramFile ), "target y plus", y_plus_target_in, in_label, "#end" )
       call readValueInRegion ( trim ( paramFile ), "number of objects", n_of_Objs_in, in_label, "#end" )
       call readValueInRegion ( trim ( paramFile ), "number of interpolation points", n_of_interpoints_in, in_label, "#end" )
       call readValueInRegion ( trim ( paramFile ), "band region coefficient", BandRegionCoeff_in, in_label, "#end" )
@@ -1198,19 +1068,20 @@ module IBMClass
       else
          this% BandRegionCoeff = 1.5_RP
       end if
-      
-      if( allocated(Wallfunction_in) ) then
-         this% Wallfunction = Wallfunction_in
-      else
-         this% Wallfunction = .false.
-      end if
-      
-      if( this% Wallfunction ) then
-         if (.not. controlVariables % containsKey("wall function")) then
-             print *, "IBM_GetInfo:: 'wall function' not specified in the control file"
-             error stop
-         end if
-      end if
+
+#if defined(NAVIERSTOKES)
+     if( controlVariables% containsKey("wall function") ) then
+        this% Wallfunction = .true.
+        call Initialize_Wall_Fuction(controlVariables, correct)   !TO BE REMOVED
+        if( allocated(y_plus_target_in) ) then
+           this% y_plus_target = y_plus_target_in
+        else
+           this% y_plus_target = 100.0_RP
+        end if
+     else
+        this% Wallfunction = .false.
+     end if
+#endif
    
       if( controlVariables% containsKey(trim(NumberOfSTL)) ) then
          tmp = controlVariables% StringValueForKey(trim(NumberOfSTL),LINE_LENGTH) 
@@ -1264,14 +1135,17 @@ module IBMClass
 
       write(STD_OUT,'(30X,A,A35,L10)') "->" , "Semi implicit treatment: ", this% active_semiImplicit
       if( .not. this% TimePenal ) then
-         write(STD_OUT,'(30X,A,A35,1pG10.3)') "->" , "Penalization term: " , this% eta
+         write(STD_OUT,'(30X,A,A35,1pG10.6)') "->" , "Penalization term: " , this% eta
       else
-         write(STD_OUT,'(30X,A,A35,A)') "->" , "Penalization term: ", " proportional to time step"
+         write(STD_OUT,'(30X,A,A35,A10)') "->" , "Penalization term: ", " Dt"
       end if
 
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of interpolation points: ", this% KDtree_n_of_interPoints
-      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Integration order: ", this% IntegrationOrder
+      write(STD_OUT,'(30X,A,A35,I10)') "->" , "Surface integration order: ", this% IntegrationOrder
+      if( this% Wallfunction ) then
+         write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
+      end if
       if( this% symmetry ) then
          select case( size(this% symPlanes,1) )
          case( 1 )
@@ -1318,7 +1192,7 @@ module IBMClass
          v_s   = Q_target(IRHOV)/rho_s
          w_s   = Q_target(IRHOW)/rho_s   
 #if defined(SPALARTALMARAS)
-         theta_s = Q_target(IRHOTHETA)  
+         theta_s = Q_target(IRHOTHETA)/rho_s  
 #endif
       else
          rho_s = Q(IRHO)
@@ -1341,7 +1215,9 @@ module IBMClass
       Source(IRHOE) = 0.5_RP * rho*( POW2(u) + POW2(v) + POW2(w) )  & 
                      -0.5_RP * rho_s*( POW2(u_s) + POW2(v_s) + POW2(w_s) ) 
 #if defined(SPALARTALMARAS)
-      Source(IRHOTHETA) = (theta - theta_s)
+      theta = Q(IRHOTHETA)/rho
+
+      Source(IRHOTHETA) = rho*(theta - theta_s)
 #endif                     
 #endif   
 
@@ -1365,21 +1241,24 @@ module IBMClass
          
          associate( eta => this% penalization(eID) )     
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) 
          rho = Q(IRHO)
          u   = Q(IRHOU)/rho 
          v   = Q(IRHOV)/rho 
          w   = Q(IRHOW)/rho 
          
-         invdS_dQ(IRHO,IRHO)   = 1.0_RP
-         invdS_dQ(IRHOU,IRHOU) = eta/( dt + eta )
-         invdS_dQ(IRHOV,IRHOV) = eta/( dt + eta )
-         invdS_dQ(IRHOW,IRHOW) = eta/( dt + eta )
-         invdS_dQ(IRHOE,:)     = (/ 0.5_RP*dt/eta * (POW2(u) + POW2(v) + POW2(w)), &
-                                                                 -dt*u/(dt + eta), &
-                                                                 -dt*v/(dt + eta), &
-                                                                 -dt*w/(dt + eta), &
-                                                                           1.0_RP /)
+         invdS_dQ(IRHO,IRHO)        = 1.0_RP
+         invdS_dQ(IRHOU,IRHOU)      = eta/( dt + eta )
+         invdS_dQ(IRHOV,IRHOV)      = eta/( dt + eta )
+         invdS_dQ(IRHOW,IRHOW)      = eta/( dt + eta )
+         invdS_dQ(IRHOE,IRHO:IRHOE) = (/ 0.5_RP*dt/eta * (POW2(u) + POW2(v) + POW2(w)), &
+                                                                      -dt*u/(dt + eta), &
+                                                                      -dt*v/(dt + eta), &
+                                                                      -dt*w/(dt + eta), &
+                                                                                1.0_RP /)
+#if defined(SPALARTALMARAS)
+         invdS_dQ(IRHOTHETA,IRHOTHETA) = eta/( dt + eta )
+#endif                                                                           
 #endif
  
        end associate
@@ -1389,29 +1268,32 @@ module IBMClass
    subroutine IBM_semiImplicitJacobian( this, eID, Q, dS_dQ )
       use PhysicsStorage
       implicit none
-         !-arguments----------------------------------------------------
-         class(IBM_type),                       intent(inout) :: this
-         integer,                               intent(in)    :: eID
-         real(kind=rp), dimension(NCONS),       intent(in)    :: Q
-         real(kind=rp), dimension(NCONS,NCONS), intent(inout) :: dS_dQ
-         !-local-variables----------------------------------------------
-         real(kind=rp) :: rho, u, v, w
+      !-arguments----------------------------------------------------
+      class(IBM_type),                       intent(inout) :: this
+      integer,                               intent(in)    :: eID
+      real(kind=rp), dimension(NCONS),       intent(in)    :: Q
+      real(kind=rp), dimension(NCONS,NCONS), intent(inout) :: dS_dQ
+      !-local-variables----------------------------------------------
+      real(kind=rp) :: rho, u, v, w
 
-         dS_dQ = 0.0_RP       
+      dS_dQ = 0.0_RP       
 
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         rho = Q(IRHO)
-         u   = Q(IRHOU)/rho 
-         v   = Q(IRHOV)/rho 
-         w   = Q(IRHOW)/rho 
+#if defined(NAVIERSTOKES) 
+      rho = Q(IRHO)
+      u   = Q(IRHOU)/rho 
+      v   = Q(IRHOV)/rho 
+      w   = Q(IRHOW)/rho 
 
-         dS_dQ(IRHOU,IRHOU) = 1.0_RP
-         dS_dQ(IRHOV,IRHOV) = 1.0_RP
-         dS_dQ(IRHOW,IRHOW) = 1.0_RP
-         dS_dQ(IRHOE,:)     = (/ -0.5_RP*( POW2(u) + POW2(v) + POW2(w) ), &
-                                                         u, v, w, 0.0_RP /)
+      dS_dQ(IRHOU,IRHOU)      = 1.0_RP
+      dS_dQ(IRHOV,IRHOV)      = 1.0_RP
+      dS_dQ(IRHOW,IRHOW)      = 1.0_RP
+      dS_dQ(IRHOE,IRHO:IRHOE) = (/ -0.5_RP*( POW2(u) + POW2(v) + POW2(w) ), &
+                                                           u, v, w, 0.0_RP /)
+#if defined(SPALARTALMARAS)
+       dS_dQ(IRHOTHETA,IRHOTHETA) = 1.0_RP
 #endif
-
+#endif
+       
        dS_dQ = -1.0_RP/this% penalization(eID) * dS_dQ
  
     end subroutine IBM_SemiImplicitJacobian
@@ -1431,11 +1313,52 @@ module IBMClass
        call this% semiImplicitJacobian( eID, Q, dS_dQ )
        call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ )
     
-       call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource)
+       call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource)          
     
        Q = matmul(invdS_dQ, Q + dt*( IBMSource - matmul(dS_dQ,Q) ))
      
     end subroutine IBM_GetSemiImplicitStep   
+    
+    
+    subroutine IBM_SemiImplicitCorrection( this, elements, dt, dt_vec )
+    
+       implicit none
+       !-arguments------------------------------------------------------
+       class(IBM_type),               intent(inout) :: this
+       type(element),   dimension(:), intent(inout) :: elements
+       real(kind=RP),                 intent(in)    :: dt, dt_vec(:)
+       !-local-variables------------------------------------------------
+       real(kind=RP) :: deltaT
+       integer       :: eID, i, j, k
+       
+       optional :: dt_vec
+       
+       if( .not. this% semiImplicit ) return
+       
+!$omp parallel do schedule(runtime) private(i,j,k,deltaT)
+       do eID = 1, SIZE( elements )
+          if( present(dt_vec) ) then 
+             deltaT = dt_vec(eID)
+          else
+             deltaT = dt
+          end if
+          
+          if( this% TimePenal ) this% penalization(eID) = 0.5_RP*deltaT
+          do i = 0, elements(eID)% Nxyz(1); do j = 0, elements(eID)% Nxyz(2); do k = 0, elements(eID)% Nxyz(3)
+             if( elements(eID)% isInsideBody(i,j,k) ) then
+                associate( Q => elements(eID)% storage% Q(:,i,j,k) )
+
+                call this% GetSemiImplicitStep( eID, 0.5_RP*deltaT, Q ) 
+                
+                end associate
+             end if
+          end do; end do; end do
+       end do
+!$omp end parallel do
+    
+    end subroutine IBM_SemiImplicitCorrection
+    
+    
    
    subroutine IBM_SetIntegration( this, STLNum )
       use MPI_Process_Info
@@ -1512,8 +1435,8 @@ module IBMClass
       do i = 1, size(this% root(STLNum)% ObjectsList)
          if( this% root(STLNum)% ObjectsList(i)% ComputeIntegrals ) then  
           !if body is moving, we deallocate and reallocate
-            if( allocated(this% Integral(STLNum)% IntegObjs(i)% PointsIndex) ) deallocate(this% Integral(STLNum)% IntegObjs(i)% PointsIndex)
-            if( allocated(this% Integral(STLNum)% IntegObjs(i)% x          ) ) deallocate(this% Integral(STLNum)% IntegObjs(i)% x)
+            if( allocated(this% Integral(STLNum)% IntegObjs(i)% PointsIndex) )      deallocate(this% Integral(STLNum)% IntegObjs(i)% PointsIndex)
+            if( allocated(this% Integral(STLNum)% IntegObjs(i)% x          ) )      deallocate(this% Integral(STLNum)% IntegObjs(i)% x)
                             
             allocate( this% Integral(STLNum)% IntegObjs(i)% PointsIndex(kdtree_n_of_interPoints,n_of_Q_points), &
                       this% Integral(STLNum)% IntegObjs(i)% x(NDIM,n_of_Q_points)                               )
@@ -1540,58 +1463,6 @@ module IBMClass
 !$omp end parallel
       
    end subroutine IBM_SetIntegration
-   
-   
-   subroutine IBM_WriteMesh( this, elements, no_of_elements, k )
-      use SolutionFile
-      implicit none
-      !-arguments----------------------------------------------------
-      class(IBM_type),             intent(inout) :: this
-      type(element), dimension(:), intent(in)    :: elements
-      integer,                     intent(in)    :: no_of_elements, k
-      !-local-variables----------------------------------------------
-      character(len=LINE_LENGTH) :: FinalNameIBM
-      integer                    :: fID, eID, position
-
-      write(FinalNameIBM,'(2A,I10.10,A)')  trim(this% filename),'_',k,'.hibm'
-
-      call CreateNewIBMmeshFile( this, FinalNameIBM )
-      
-      open(newunit=fid, file='IBM/IBM_'//trim(FinalNameIBM),      &
-           status="old", action="readwrite", form="unformatted" , access="stream" )
-
-      
-      read(fID, pos=POS_FILETYPE) 
-      position = POS_FILETYPE
-      
-      do eID = 1, no_of_elements
-         associate( e => elements(eID) )
-         position = position + (e% Nxyz(1)+1)*(e% Nxyz(2)+1)*(e% Nxyz(3)+1)*SIZEOF_INT
-         write(fID,pos=position) e% isInsideBody(0:e% Nxyz(1),0:e% Nxyz(2),0:e% Nxyz(3))
-         end associate
-      end do
-      
-      close(fID)
-   
-   end subroutine IBM_WriteMesh
-   
-   subroutine CreateNewIBMmeshFile( IBM, FinalNameIBM )
-      use SolutionFile
-      implicit none
-      
-      type(IBM_type),   intent(in) :: IBM
-      character(len=*), intent(in) :: FinalNameIBM
-      
-      integer :: fID 
-      
-      open(newunit=fID, file='IBM/IBM_'//trim(FinalNameIBM),         &
-           action= "write", status="replace", form="unformatted", access = "stream" ) 
-
-      write(fID, POS=POS_FILETYPE) IBM_MESH
-      
-      close(fID)
-   
-   end subroutine CreateNewIBMmeshFile
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1600,6 +1471,9 @@ module IBMClass
 !  -------------------------------------------------------------
    subroutine IBM_CheckPoint( this, x, STLNum, isInsideBody )
       use MPI_Process_Info
+      
+      use omp_lib
+      
       implicit none
       !-arguments------------------------------------------------------------------
       class(IBM_type),             intent(inout) :: this
@@ -1611,7 +1485,7 @@ module IBMClass
       real(kind=rp), dimension(NDIM) :: RayDirection, Point, vecAxis
       integer                        :: Axis, NumOfIntersections, minAxis(1)
       logical                        :: Upward, OnSurface
-      type(IntegerDataLinkedList_t)  :: Integer_List  
+      type(ObjsDataLinkedList_t)     :: Integer_List  
  
       real(kind=RP) :: EPS = 1.0d-8
 
@@ -1644,7 +1518,7 @@ module IBMClass
                        OBB(STLNum)% nMax                                               /)
       end if
 
-      Integer_List = IntegerDataLinkedList_t( .false. )
+      Integer_List = ObjsDataLinkedList_t( )
 
       NumOfIntersections = 0
 
@@ -1673,10 +1547,95 @@ module IBMClass
       end if 
       
       if( OnSurface ) isInsideBody = .true.
-      
+
       call integer_List% Destruct()
 
    end subroutine IBM_CheckPoint
+   
+   
+   subroutine IBM_ComputeIBMWallDistance( this, elements, faces, elementsList, facesList)
+
+      implicit none
+      !-arguments---------------------------------------------------------------
+      class(IBM_type),    intent(inout) :: this
+      type(element),      intent(inout) :: elements(:)
+      type(face),         intent(inout) :: faces(:)
+      integer, optional , intent(in)    :: facesList(:)
+      integer, optional , intent(in)    :: elementsList(:)
+      !-local-variables----------------------------------------------------------
+      integer       :: eID, fID, ii, i, j, k, num_of_elems, num_of_faces, STLNum
+      real(kind=RP) :: xP(NDIM), IntersectionPoint(NDIM), Dist, Point(NDIM), normal(NDIM)
+
+      num_of_elems = size(elements)   
+      num_of_faces = size(faces) 
+
+!$omp parallel
+!$omp do schedule(runtime) private(eID,i,j,k,STLNum,Dist,Point,xP,normal)
+      do ii = 1, num_of_elems
+         if ( present(elementsList) ) then
+            eID = elementsList(ii)
+         else
+            eID = ii
+         end if
+         allocate(elements(eID)% geom% dWall(0:elements(eID)% Nxyz(1), 0:elements(eID)% Nxyz(2), 0:elements(eID)% Nxyz(3)),      &
+                  elements(eID)% geom% normal(NDIM,0:elements(eID)% Nxyz(1), 0:elements(eID)% Nxyz(2), 0:elements(eID)% Nxyz(3)) )
+
+         do k = 0, elements(eID)% Nxyz(3)   ; do j = 0, elements(eID)% Nxyz(2) ; do i = 0, elements(eID)% Nxyz(1)
+            xP = elements(eID)% geom% x(:,i,j,k)
+            elements(eID)% geom% dWall(i,j,k) = huge(1.0_RP)
+            do STLNum = 1, this% NumOfSTL
+               if( OBB(STLNum)% isPointInside( xP, this% BandRegionCoeff ) ) then
+                  call MinimumDistance( xP, this% root(STLNum), Dist, normal )
+                  if( Dist .lt. elements(eID)% geom% dWall(i,j,k) ) then
+                     elements(eID)% geom% dWall(i,j,k)    = Dist
+                     elements(eID)% geom% normal(:,i,j,k) = normal
+                  end if
+               end if
+            end do            
+         end do                  ; end do                ; end do
+      end do
+!$omp end do
+!
+!     Get the minimum distance to each face nodal degree of freedom
+!     -------------------------------------------------------------
+
+!$omp do schedule(runtime) private(eID,i,j,STLNum,Dist,Point,xP,normal)
+      do ii = 1, num_of_faces
+         if ( present(facesList) ) then
+            eID = facesList(ii)
+         else
+            eID = ii
+         end if
+
+         allocate(faces(eID)% geom% dWall(0:faces(eID)% Nf(1), 0:faces(eID)% Nf(2)))
+
+         do j = 0, faces(eID)% Nf(2) ; do i = 0, faces(eID)% Nf(1)
+            xP = faces(eID)% geom% x(:,i,j)
+            faces(eID)% geom% dWall(i,j) = huge(1.0_RP)
+            do STLNum = 1, this% NumOfSTL
+               if( OBB(STLNum)% isPointInside( xP, this% BandRegionCoeff ) ) then
+                  call MinimumDistance( xP, this% root(STLNum), Dist, normal )
+                  if( Dist .lt. faces(eID)% geom% dWall(i,j) ) then
+                     faces(eID)% geom% dWall(i,j)    = Dist
+                     faces(eID)% geom% normal(:,i,j) = normal
+                  end if
+               end if
+            end do
+         end do                ; end do
+      end do
+!$omp end do
+!$omp end parallel
+
+      if( this% Wallfunction ) then
+#if defined(NAVIERSTOKES)
+         call this% GetForcingPointsGeom( elements )
+         call this% GetImagePoint_nearest( elements )
+#endif
+      end if    
+
+   end subroutine IBM_ComputeIBMWallDistance
+   
+   
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1717,7 +1676,7 @@ module IBMClass
             call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB )
             this% root(STLNum)% STLNum = STLNum
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
-            call this% root(STLNum)% Destruct()
+            call this% root(STLNum)% Destruct( isChild )
             this% plotKDtree = .false.
             call this% constructSTL_KDtree( STLNum ) 
             call this% upDateNormals( STLNum )
@@ -1727,9 +1686,10 @@ module IBMClass
          end if
       end do
 
+      call this% BandRegion% destroy()
+
       if( .not. isChild ) then
-         call this% rootPoints% destruct()
-         call MPI_Pointpartition_destroy()
+         call this% rootPoints% destruct( isChild )
       end if
 
       do STLNum = 1, this% NumOfSTL
@@ -1754,19 +1714,16 @@ module IBMClass
          error stop
       end if
 
-      if( .not. isChild .and. .not. this% Wallfunction ) then
+      if( .not. isChild ) then
          call this% constructBandRegion( elements, no_of_elements )
          do STLNum = 1, this% NumOfSTL
             call this% SetIntegration( STLNum )
          end do
          if( this% Wallfunction ) then
 #if defined(NAVIERSTOKES)
-            call this% GetForcingPointsGeom()
-            call this% GetImagePoint_nearest()
+            call this% GetForcingPointsGeom( elements )
+            call this% GetImagePoint_nearest( elements )
 #endif
-         end if
-         if( present(autosave) .and. autosave ) then
-            call this% WriteMesh( elements, no_of_elements, k )
          end if
       end if
 
@@ -1818,14 +1775,14 @@ module IBMClass
       real(kind=rp), dimension(:),     intent(in)    :: Point, RayDirection
       type(object_type), dimension(:), intent(in)    :: ObjectsList
       type(KDtree),                    intent(inout) :: tree
-      type(IntegerDataLinkedList_t),   intent(inout) :: Integer_List
+      type(ObjsDataLinkedList_t),      intent(inout) :: Integer_List
       integer,                         intent(inout) :: NumOfIntersections
       logical,                         intent(inout) :: OnSurface
       !-local-variables--------------------------------------------------------
-      logical                     :: Intersect, OnTriBound, found, foundReal
-      real(kind=rp)               :: t
-      integer                     :: i
-      type(RealDataLinkedList_t)  :: Real_List
+      logical                       :: Intersect, OnTriBound, found, foundReal
+      real(kind=rp)                  :: t
+      integer                        :: i
+      type(ObjsRealDataLinkedList_t) :: Real_List
 
       integer :: index
 
@@ -1833,30 +1790,37 @@ module IBMClass
          return
       end if 
       
+      Real_List = ConstructObjsRealDataLinkedList()
+      
       do i = 1, tree% NumOfObjs
          index = tree% ObjsIndeces(i)
          found = integer_List% Check( index )
          if( .not. found ) then
             call Integer_List% Add( index )
+            
             call PointIntersectTriangle( Point,ObjectsList(index)% vertices(1)% coords, &
-                      ObjectsList(index)% vertices(2)% coords,ObjectsList(index)% vertices(3)% coords, &
-                      RayDirection, Intersect, OnTriBound, t             ) 
+                                               ObjectsList(index)% vertices(2)% coords, &
+                                               ObjectsList(index)% vertices(3)% coords, &
+                                         RayDirection, Intersect, OnTriBound, t         ) 
+            
             foundReal = Real_List% Check( t )
-
+            foundReal = .false.
+            
             if( Intersect .and. .not. foundReal .and. t .ge. 0.0_RP ) then
-               call Real_List% append( t )
+               call Real_List% add( t )
                NumOfIntersections = NumOfIntersections + 1 
-               ! If the point is on the triangle
-               !--------------------------------
+!~                ! If the point is on the triangle
+!~                !--------------------------------
                if( almostEqual(t,0.0_RP) ) OnSurface = .true.
             end if
-
          end if
       end do
 
       call Real_List% destruct()
 
-   end subroutine isPointInside
+   end subroutine isPointInside  
+   
+   
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1885,13 +1849,14 @@ module IBMClass
       
       Intersect  = .false.
       OnTriBound = .false.
+      t          = -1.0_RP
       
       E1vec = TriangleVertex2 - TriangleVertex1 
       E2vec = TriangleVertex3 - TriangleVertex1
       Tvec   = Point - TriangleVertex1
       
       call vcross(RayDirection,E2vec,Pvec)
-      Det   = vdot( E1vec, Pvec )
+      Det   = dot_product( E1vec, Pvec )
 
       If( almostEqual(Det,0.0_RP) ) then
       ! If Pvec .ne. (/0,0,0/), then the vector E1vec must lie on the plane made of the 2 vectors RayDirection and E2vec.
@@ -1905,7 +1870,7 @@ module IBMClass
          t = -1.0_RP
          ! Check if the ray lies in the same plane of the triangle
          !--------------------------------------------------------
-         if( AlmostEqual(vdot( Tvec, N ), 0.0_RP) ) then 
+         if( AlmostEqual(dot_product( Tvec, N ), 0.0_RP) ) then 
             isInside = isPointInsideTri( Point, TriangleVertex1, TriangleVertex2, &
                                          TriangleVertex3                          )
                                          
@@ -1919,16 +1884,16 @@ module IBMClass
       
       invDet = 1.0_RP/Det
       
-      u = vdot( Tvec, Pvec )*invDet
+      u = dot_product( Tvec, Pvec )*invDet
 
       if( u < 0.0_RP .or. u > 1.0_RP ) return
       
-      v = vdot( RayDirection, Qvec )/Det
+      v = dot_product( RayDirection, Qvec )/Det
       
 
       if( v < 0.0_RP .or. u+v > 1.0_RP ) return
 
-      t  = vdot( E2vec, Qvec )*invDet
+      t  = dot_product( E2vec, Qvec )*invDet
    
       ! Check if the point lies on the boundaries of the triangle
       !----------------------------------------------------------
@@ -1964,12 +1929,12 @@ module IBMClass
       E1 = TriangleVertex1 - TriangleVertex3
       dd = bb - Point
    
-      a = vdot(E0,E0)
-      b = vdot(E0,E1)
-      c = vdot(E1,E1)
-      d = vdot(E0,dd)
-      e = vdot(E1,dd)
-      f = vdot(dd,dd)
+      a = dot_product(E0,E0)
+      b = dot_product(E0,E1)
+      c = dot_product(E1,E1)
+      d = dot_product(E0,dd)
+      e = dot_product(E1,dd)
+      f = dot_product(dd,dd)
       
       det = abs( a*c - b*b)
       s    = (b*e - c*d)/det
@@ -1999,7 +1964,7 @@ module IBMClass
       real(kind=rp),                  intent(out) :: dist
       !-local-variables-----------------------------------------------------------------------------------
       real(kind=rp), dimension(NDIM) :: bb, E0, E1, dd 
-      real(kind=rp) :: a, b, c, d, e, f, det, s, t, sqrDistance
+      real(kind=rp) :: a00, a01, a11, b0, b1, f, det, s, t, tmp1, tmp0, numer, denom
       integer :: region
       
       bb = TriangleVertex1
@@ -2007,31 +1972,130 @@ module IBMClass
       E1 = TriangleVertex3 - bb
       dd = bb - Point
    
-      a = vdot(E0,E0)
-      b = vdot(E0,E1)
-      c = vdot(E1,E1)
-      d = vdot(E0,dd)
-      e = vdot(E1,dd)
-      f = vdot(dd,dd)
+      a00 = dot_product(E0,E0) 
+      a01 = dot_product(E0,E1) 
+      a11 = dot_product(E1,E1) 
+      b0  = dot_product(dd,E0) 
+      b1  = dot_product(dd,E1) 
+      f   = dot_product(dd,dd)
       
-      det = a*c - b*b
-      s   = b*e - c*d
-      t   = b*d - a*e
+      det = max(a00*a11 - a01*a01,0.0_RP)  
+      s   = a01*b1 - a11*b0      
+      t   = a01*b0 - a00*b1
       
-      region = FindRegion( det, s, t )
       
-      sqrDistance = regionSqrDistance( a, b, c, d, e, f, det, s, t, region )
-      
-      !Round-off errors
-      !----------------
-      if (sqrDistance .lt. 0.0_RP) then
-         sqrDistance = 0.0_RP
+      if( s + t <= det ) then
+         if( s < 0.0_RP ) then
+            if( t < 0.0_RP ) then !region 4
+               if( b0 < 0.0_RP ) then
+                  t = 0.0_RP
+                  if( -b0 >= a00 ) then
+                     s = 1.0_RP
+                  else
+                     s = -b0/a00
+                  end if
+               else
+                  s = 0.0_RP
+                  if( b1 >= 0.0_RP ) then
+                     t = 0.0_RP
+                  elseif( -b1 >= a11 ) then
+                     t = 1.0_RP
+                  else
+                     t = -b1/a11
+                  end if
+               end if
+            else !region 3
+               s = 0.0_RP
+               if( b1 >= 0.0_RP ) then
+                  t = 0.0_RP
+               elseif( -b1 >= a11 ) then
+                  t = 1.0_RP
+               else
+                  t = -b1/a11
+               end if
+            end if
+         elseif( t < 0.0_RP ) then !region 5
+            t = 0.0_RP
+            if( b0 >= 0.0_RP ) then
+               s = 0.0_RP
+            elseif( -b0 >= a00 ) then
+               s = 1.0_RP
+            else
+               s = -b0/a00
+            end if
+         else !region 0
+            s = s/det
+            t = t/det
+         end if
+      else
+         if( s < 0.0_RP ) then !region 2
+            tmp0 = a01 + b0
+            tmp1 = a11 + b1
+            if (tmp1 > tmp0) then
+               numer = tmp1 - tmp0
+               denom = a00 - 2.0_RP * a01 + a11
+               if (numer >= denom) then
+                  s = 1.0_RP
+                  t = 0.0_RP
+               else
+                  s = numer / denom
+                  t = 1.0_RP - s
+               end if
+            else
+               s = 0.0_RP
+               if ( tmp1 <= 0.0_RP ) then
+                  t = 1.0_RP
+               elseif( b1 >= 0.0_RP ) then
+                  t = 0.0_RP
+               else
+                  t = -b1 / a11
+               end if
+            end if
+         elseif( t < 0.0_RP ) then !region 6
+            tmp0 = a01 + b1
+            tmp1 = a00 + b0
+            if( tmp1 > tmp0 ) then
+               numer = tmp1 - tmp0
+               denom = a00 - 2.0_RP * a01 + a11
+               if (numer >= denom ) then
+                  t = 1.0_RP
+                  s = 0.0_RP
+               else
+                  t = numer / denom;
+                  s = 1.0_RP - t;
+               endif
+            else
+               t = 0.0_RP
+               if( tmp1 <= 0.0_RP ) then
+                  s = 1.0_RP
+               elseif( b0 >= 0.0_RP ) then
+                  s = 0.0_RP                 
+               else
+                  s = -b0 / a00
+               end if
+            end if
+         else  ! region 1
+            numer = a11 + b1 - a01 - b0
+            if( numer <= 0.0_RP ) then
+               s = 0.0_RP
+               t = 1.0_RP
+            else
+               denom = a00 - 2.0_RP * a01 + a11
+               if( numer >= denom ) then
+                  s = 1.0_RP
+                  t = 0.0_RP
+               else
+                  s = numer / denom
+                  t = 1.0_RP - s
+               end if
+            end if
+         end if
       end if
-      
-      dist = sqrt(sqrDistance)   !Can be done later, it's better.
-      
-      IntersectionPoint = bb + s*E0 + t*E1    
+
+      IntersectionPoint = TriangleVertex1 + s*E0 + t*E1    
         
+      dist = norm2(Point - IntersectionPoint)
+
    end subroutine MinumumPointTriDistance
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -2074,22 +2138,22 @@ module IBMClass
       !-arguments-----------------------------------------------------------------------------------------
       real(kind=rp), intent(in) :: det, s, t
       
-      if( (s+t) .le. det ) then
-         if( s .lt. 0 ) then
-            if( t .lt. 0 ) then
+      if( s+t <= det ) then
+         if( s < 0 ) then
+            if( t < 0 ) then
                region = 4
             else
                region = 3
             end if
-         elseif( t .lt. 0 ) then
+         elseif( t < 0 ) then
             region = 5
          else
             region = 0
          end if
       else
-         if( s .lt. 0 ) then
+         if( s < 0 ) then
             region = 2
-         elseif ( t .lt. 0 ) then
+         elseif ( t < 0 ) then
             region = 6
          else
             region = 1
@@ -2097,152 +2161,7 @@ module IBMClass
       end if 
       
    end function FindRegion
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!  
-!  --------------------------------------------------------------------------
-! This function the square of the distance according to the parameter region.
-!  --------------------------------------------------------------------------
-   real(kind=rp) function regionSqrDistance( a, b, c, d, e, f, det, s, t, region ) result( sqrDistance )
    
-      implicit none
-      !-arguments-------------------------------------------
-      real(kind=rp), intent(in)    :: a, b, c, d, e, f, det
-      real(kind=rp), intent(inout) :: s, t
-      integer,       intent(in)    :: region
-      !-local-variables-------------------------------------
-      real(kind=rp) :: invDet, numer, denom, tmp1, tmp0
-   
-      select case( region )
-         case( 0 )
-            invDet = 1.0_RP/det
-            s = s*invDet
-            t = t*invDet
-            sqrDistance = s*(a*s + b*t + 2.0_RP*d) + t*(b*s + c*t + 2.0_RP*e) + f
-        case( 1 )
-            numer = c + e - b - d
-            if( numer .le. 0.0_RP ) then
-               s = 0.0_RP; t = 1.0_RP
-               sqrDistance = c + 2.0_RP*e + f
-            else    
-               denom = a - 2.0_RP*b + c
-               if( numer .ge. denom ) then
-                  s = 1.0_RP; t = 0.0_RP
-                  sqrDistance = a + 2.0_RP*d + f
-               else
-                  s = numer/denom; t = 1.0_RP-s
-                  sqrDistance = s*(a*s + b*t + 2.0_RP*d) + t*(b*s + c*t + 2.0_RP*e) + f
-               end if
-            end if
-         case(2)
-            tmp0 = b + d
-            tmp1 = c + e
-            if( tmp1 .gt. tmp0 ) then
-               numer = tmp1 - tmp0
-               denom = a - 2.0_RP*b + c
-               if( numer .ge. denom ) then
-                  s = 1.0_RP; t = 0.0_RP
-                  sqrDistance = a + 2.0_RP*d + f
-               else
-                  s = numer/denom; t = 1-s
-                  sqrDistance = s*(a*s + b*t + 2*d) + t*(b*s + c*t + 2*e) + f
-               end if
-            else          
-               s = 0.0_RP
-               if( tmp1 .le. 0.0_RP ) then
-                  t = 1.0_RP
-                  sqrDistance = c + 2.0_RP*e + f
-               else
-                  if (e .ge. 0.0_RP ) then
-                     t = 0.0_RP
-                     sqrDistance = f
-                  else
-                     t = -e/c
-                     sqrDistance = e*t + f
-                  end if
-               end if
-            end if
-         case( 3 )
-            s = 0.0_RP
-            if (e .ge. 0.0_RP ) then
-               sqrDistance = f
-            else
-               if (-e .ge. c ) then
-                  sqrDistance = c + 2.0_RP*e +f
-               else
-                  t = -e/c
-                  sqrDistance = e*t + f
-               end if
-            end if 
-         case( 4 )
-            if( d .lt. 0.0_RP ) then
-               t = 0.0_RP
-               if( -d .ge. a ) then
-                  s = 1.0_RP
-                  sqrDistance = a + 2.0_RP*d + f
-               else
-                  s = -d/a
-                  sqrDistance = d*s + f
-               end if
-            else
-               s = 0.0_RP
-               if( e .ge. 0.0_RP ) then
-                  sqrDistance = f
-               else
-                  if( -e .ge. c) then
-                     sqrDistance = c + 2.0_RP*e + f
-                  else
-                     t = -e/c
-                     sqrDistance = e*t + f
-                  end if
-               end if
-            end if  
-         case( 5 )
-            t = 0.0_RP
-            if( d .ge. 0.0_RP ) then
-               s = 0.0_RP
-               sqrDistance = f
-            else
-               if (-d .ge. a) then
-                  s = 1.0_RP
-                  sqrDistance = a + 2.0_RP*d + f
-               else
-                  s = -d/a
-                  sqrDistance = d*s + f
-               end if
-            end if
-         case( 6 )
-            tmp0 = b + e
-            tmp1 = a + d
-            if (tmp1 .gt. tmp0) then
-               numer = tmp1 - tmp0
-               denom = a-2.0_RP*b+c
-               if (numer .ge. denom) then
-                  t = 1.0_RP; s = 0.0_RP
-                  sqrDistance = c + 2.0_RP*e + f
-               else
-                  t = numer/denom; s = 1.0_RP - t
-                  sqrDistance = s*(a*s + b*t + 2.0_RP*d) + t*(b*s + c*t + 2.0_RP*e) + f
-               end if
-            else  
-               t = 0.0_RP
-               if (tmp1 .le. 0.0_RP) then
-                  s = 1.0_RP
-                  sqrDistance = a + 2.0_RP*d + f;
-               else
-                  if (d .ge. 0.0_RP) then
-                     s = 0.0_RP
-                     sqrDistance = f
-                  else
-                     s = -d/a
-                     sqrDistance = d*s + f
-                  end if
-               end if
-            end if
-     end select
-   
-   end function regionSqrDistance 
-
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -2254,25 +2173,30 @@ module IBMClass
 ! the initial one, getting new_minDist. If a lower distance is found, minDist is updated.
 !  ------------------------------------------------
    
-   subroutine MinimumDistance( Point, root, minDist, normal )
+   subroutine MinimumDistance( xP, root, minDist, normal )
    
       implicit none
       !-arguments---------------------------------------------
-      real(kind=rp), dimension(:), intent(in)    :: Point
-      type(KDtree),                intent(inout) :: root
-      real(kind=rp),               intent(inout) :: minDist
-      real(kind=rp), dimension(:), intent(inout) :: normal 
+      real(kind=rp), dimension(:),    intent(in)    :: xP
+      type(KDtree),                   intent(inout) :: root
+      real(kind=rp),                  intent(inout) :: minDist
+      real(kind=rp), dimension(NDIM), intent(out)   :: normal 
       !-local-variables---------------------------------------
       real(kind=rp), dimension(NDIM) :: IntersPoint, new_IntersPoint, &
-                                        dsvec, IntersectionPoint, x
+                                        dsvec, x, Point, P, IP,       &
+                                        IntersectionPoint
       logical                        :: Inside
-      type(KDtree), pointer          :: tree, parent
+      type(KDtree), pointer          :: tree, tmpTree
       real(kind=rp)                  :: Dist, New_minDist, Radius, ds
-      integer                        :: i, index
+      integer                        :: i, index, LeafIndex
       
       minDist = huge(1.0_RP)
 
+      call OBB(root% STLNum)% ChangeRefFrame( xP, 'local', Point ) 
+
       call root% FindLeaf( Point, tree )
+
+      LeafIndex = tree% index
 
       do i = 1, tree% NumOfObjs
          index = tree% ObjsIndeces(i)
@@ -2280,45 +2204,43 @@ module IBMClass
                                        root% ObjectsList(index)% vertices(2)% coords,        &
                                        root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                        IntersPoint                                           )
+          
          if( Dist .lt. minDist ) then
             minDist           = Dist
-            IntersectionPoint = IntersPoint
+            IntersectionPoint = IntersPoint              
          end if
-      end do  
-
+      end do   
+ 
       if( tree% NumOfObjs .gt. 0 ) then
       ! Check the sphere
       !-----------------
          Radius = sqrt(minDist)
          Inside = CheckHypersphere( tree, Point, Radius )
       else
-         parent => tree% parent
-         dsvec(1) = abs(parent% vertices(1,7)-parent% vertices(1,1))
-         dsvec(2) = abs(parent% vertices(2,7)-parent% vertices(2,1))
-         dsvec(3) = abs(parent% vertices(3,7)-parent% vertices(3,1))  
+         dsvec(1) = abs(tree% parent% vertices(1,7)-tree% parent% vertices(1,1))
+         dsvec(2) = abs(tree% parent% vertices(2,7)-tree% parent% vertices(2,1))
+         dsvec(3) = abs(tree% parent% vertices(3,7)-tree% parent% vertices(3,1))  
          ds = maxval(dsvec)
-         Radius = ds
+         Radius = 0.5_RP*ds
          Inside = .true.
-         nullify(parent)
       end if
 
       nullify(tree)
 
       if( Inside ) then
          New_minDist = huge(1.0_RP)
-         call MinimumDistOtherBoxes( Point, root, root, Radius, New_minDist, New_IntersPoint )
+         call MinimumDistOtherBoxes( Point, root, root, Radius, LeafIndex, New_minDist, New_IntersPoint )
          if( New_minDist .lt. minDist ) then 
             minDist           = New_minDist
             IntersectionPoint = New_IntersPoint
          end if
       end if      
       
-      call OBB(root% STLNum)% ChangeRefFrame( Point, 'global', x )
-      call OBB(root% STLNum)% ChangeRefFrame( IntersectionPoint, 'global', IntersectionPoint )
-      
-      normal = x - IntersectionPoint
-      normal = normal/norm2(normal)
-      
+      call OBB(root% STLNum)% ChangeRefFrame( Point, 'global', P )
+      call OBB(root% STLNum)% ChangeRefFrame( IntersectionPoint, 'global', IP )
+
+      normal = (P - IP)/norm2(P - IP)
+   
    end subroutine MinimumDistance
    
 !
@@ -2327,7 +2249,7 @@ module IBMClass
 !  -------------------------------------------------
 ! This subroutine computes New_minDist 
 !  ------------------------------------------------
-   recursive subroutine MinimumDistOtherBoxes( Point, root, tree, Radius, New_minDist, New_IntersPoint )
+   recursive subroutine MinimumDistOtherBoxes( Point, root, tree, Radius, LeafIndex, New_minDist, New_IntersPoint )
                                                                               
       implicit none
       !-arguments----------------------------------------------------------
@@ -2335,6 +2257,7 @@ module IBMClass
       type(KDtree),                  intent(in)    :: root
       type(KDtree),                  intent(inout) :: tree
       real(kind=rp),                 intent(in)    :: Radius
+      integer,                       intent(in)    :: LeafIndex
       real(kind=rp),                 intent(inout) :: New_minDist
       real(kind=rp), dimension(:),   intent(inout) :: New_IntersPoint 
       !-local-variables---------------------------------------------------
@@ -2347,6 +2270,7 @@ module IBMClass
       
       if( Intersect ) then
          if( tree% isLast ) then
+            if( LeafIndex .ne. tree% index ) then 
                do i = 1, tree% NumOfObjs
                   index = tree% ObjsIndeces(i)
                   call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
@@ -2358,12 +2282,13 @@ module IBMClass
                      New_IntersPoint = IntersPoint
                   end if
                end do    
+            end if
          else
             call MinimumDistOtherBoxes( Point, root, tree% child_L,     & 
-                                        Radius, New_minDist,            &
+                                        Radius, LeafIndex, New_minDist, &
                                         New_IntersPoint                 )    
             call MinimumDistOtherBoxes( Point, root, tree% child_R,     &
-                                        Radius, New_minDist,            &
+                                        Radius, LeafIndex, New_minDist, &
                                         New_IntersPoint                 )
          end if
       end if
@@ -2484,26 +2409,34 @@ module IBMClass
    end function BoxIntersectSphere
    
 
-   subroutine MinimumDistancePoints( Point, root, minDist, LowerBound, actualIndex, PointsIndex, forcingPointsMask )
-   
+   subroutine MinimumDistancePoints( Point, root, BandRegion, minDist, LowerBound, actualIndex, &
+                                     PointsIndex, forcingPointsMask, elements                   )
+      use ElementClass
       implicit none
       !-arguments-------------------------------------------------------
-      real(kind=rp), dimension(:), intent(in)    :: Point
-      type(KDtree),                intent(inout) :: root
-      real(kind=rp),               intent(inout) :: minDist, LowerBound
-      integer,                     intent(in)    :: actualIndex
-      integer,       dimension(:), intent(inout) :: PointsIndex
-      logical,                     intent(in)    :: forcingPointsMask
+      real(kind=rp),  dimension(:), intent(in)    :: Point
+      type(KDtree),                 intent(inout) :: root
+      type(MPI_M_Points_type),      intent(in)    :: BandRegion
+      real(kind=rp),                intent(inout) :: minDist, LowerBound
+      integer,                      intent(in)    :: actualIndex
+      integer,        dimension(:), intent(inout) :: PointsIndex
+      logical,        optional,     intent(in)    :: forcingPointsMask
+      type(element),  optional,     intent(in)    :: elements(:)
       !-local-variables-------------------------------------------------
       real(kind=rp), dimension(NDIM) :: BandPoint, dsvec
       logical                        :: Inside, found, FPmask
-      type(KDtree), pointer          :: tree, parent
-      real(kind=rp)                  :: sqrDist, New_minsqrDist, Radius, ds
-      integer                        :: i, LeafIndex, temp_index
-      
-      optional :: forcingPointsMask
+      type(KDtree), pointer          :: tree
+      real(kind=rp)                  :: sqrDist, New_minsqrDist, Radius, &
+                                        ds
+      integer                        :: i, LeafIndex, temp_index, eID,   &  
+                                        loc_pos(NDIM)
       
       ! ref frame = global
+      if( present(forcingPointsMask) ) then
+         FPmask = forcingPointsMask
+      else
+         FPmask = .false.
+      end if
       
       minDist = huge(1.0_RP)
 
@@ -2513,11 +2446,13 @@ module IBMClass
 
       do i = 1, tree% NumOfObjs
       
-         if( present(forcingPointsMask) .and. forcingPointsMask ) then
-            if( BandPoints_ALL% x(tree% ObjsIndeces(i))% forcingPoint ) cycle
+         if( FPMask ) then
+            eID     = BandRegion% x(tree% ObjsIndeces(i))% element_index
+            loc_pos = BandRegion% x(tree% ObjsIndeces(i))% local_Position 
+            if( elements(eID)% isForcingPoint(loc_pos(1),loc_pos(2),loc_pos(3)) ) cycle 
          end if
          
-         BandPoint = BandPoints_ALL% x(tree% ObjsIndeces(i))% coords
+         BandPoint = BandRegion% x(tree% ObjsIndeces(i))% coords
          
          sqrDist = POW2(norm2(Point - BandPoint))
 
@@ -2544,29 +2479,30 @@ module IBMClass
          Radius = sqrt(minDist)
          Inside = CheckHypersphere( tree, Point, Radius )
       else 
-         parent => tree% parent
-         dsvec(1) = abs(parent% vertices(1,7)-parent% vertices(1,1))
-         dsvec(2) = abs(parent% vertices(2,7)-parent% vertices(2,1))
-         dsvec(3) = abs(parent% vertices(3,7)-parent% vertices(3,1))  
+         dsvec(1) = abs(tree% parent% vertices(1,7)-tree% parent% vertices(1,1))
+         dsvec(2) = abs(tree% parent% vertices(2,7)-tree% parent% vertices(2,1))
+         dsvec(3) = abs(tree% parent% vertices(3,7)-tree% parent% vertices(3,1))  
          ds = maxval(dsvec)
-         Radius = ds
+         Radius = 0.5_RP*ds
          Inside = .true.
-         nullify(parent)
       end if
       
       nullify(tree)
 
-      if( present(forcingPointsMask) ) then
-         FPmask = forcingPointsMask
-      else
-         FPmask = .false.
-      end if
-
       if( Inside ) then
          New_minsqrDist = huge(1.0_RP)
-         call MinimumDistOtherBoxesPoints( Point, root, Radius, New_minsqrDist, &
-                                           LowerBound, PointsIndex, LeafIndex,  &
-                                           temp_index, FPmask                   )
+         if( present(elements) ) then
+            call MinimumDistOtherBoxesPoints( Point, root, BandRegion, Radius, &
+                                              New_minsqrDist, LowerBound,      &
+                                              PointsIndex, LeafIndex,          &
+                                              temp_index, FPmask, elements     )
+         else
+            call MinimumDistOtherBoxesPoints( Point, root, BandRegion, Radius, &
+                                              New_minsqrDist, LowerBound,      &
+                                              PointsIndex, LeafIndex,          &
+                                              temp_index, FPmask               )         
+         
+         end if
          if( New_minsqrDist .le. minDist ) then
             minDist = New_minsqrDist; PointsIndex(actualIndex) = temp_index  
          end if
@@ -2576,37 +2512,43 @@ module IBMClass
       
    end subroutine MinimumDistancePoints
    
-   recursive subroutine MinimumDistOtherBoxesPoints( Point, tree, Radius, New_minsqrDist, &
-                                                     LowerBound, PointsIndex, LeafIndex,  &
-                                                     temp_index, forcingPointsMask        )
-                                                                              
+   recursive subroutine MinimumDistOtherBoxesPoints( Point, tree, BandRegion, Radius, &
+                                                     New_minsqrDist, LowerBound,      &
+                                                     PointsIndex, LeafIndex,          &
+                                                     temp_index, forcingPointsMask,   &
+                                                     elements                         )
+      use elementClass                                                                 
       implicit none
       !-arguments----------------------------------------------------------
       real(kind=rp), dimension(:),   intent(in)    :: Point
       type(KDtree),                  intent(inout) :: tree
+      type(MPI_M_Points_type),       intent(in)    :: BandRegion
       real(kind=rp),                 intent(in)    :: Radius, LowerBound
       real(kind=rp),                 intent(inout) :: New_minsqrDist
       integer,                       intent(inout) :: temp_index
       integer,         dimension(:), intent(in)    :: PointsIndex
-      integer,                       intent(in)    :: LeafIndex 
+      integer,                       intent(in)    :: LeafIndex
       logical,                       intent(in)    :: forcingPointsMask
+      type(element),   optional,     intent(in)    :: elements(:)
       !-local-variables---------------------------------------------------
       real(kind=rp)                  :: sqrDist, BandPoint(NDIM)
       logical                        :: Intersect, found
-      integer                        :: i
+      integer                        :: i, eID, loc_pos(NDIM)
       
       Intersect = BoxIntersectSphere( Radius, Point, tree% vertices )
       
       if( Intersect ) then
          if( tree% isLast ) then
-            if( tree% index .ne. LeafIndex ) then
+            if( LeafIndex .ne. tree% index ) then
                do i = 1, tree% NumOfObjs
                
                   if( forcingPointsMask ) then
-                     if( BandPoints_ALL% x(tree% ObjsIndeces(i))% forcingPoint ) cycle
+                     eID     = BandRegion% x(tree% ObjsIndeces(i))% element_index
+                     loc_pos = BandRegion% x(tree% ObjsIndeces(i))% local_Position 
+                     if( elements(eID)% isForcingPoint(loc_pos(1),loc_pos(2),loc_pos(3)) ) cycle
                   end if
                
-                  BandPoint = BandPoints_ALL% x(tree% ObjsIndeces(i))% coords
+                  BandPoint = BandRegion% x(tree% ObjsIndeces(i))% coords
                
                   sqrDist = POW2(norm2(Point - BandPoint))
                   
@@ -2627,57 +2569,71 @@ module IBMClass
                end do    
             end if
          else
-            call MinimumDistOtherBoxesPoints( Point, tree% child_L, Radius, &
-                                              New_minsqrDist, LowerBound,   &
-                                              PointsIndex, LeafIndex,       & 
-                                              temp_index, forcingPointsMask )    
-            call MinimumDistOtherBoxesPoints( Point, tree% child_R, Radius, &
-                                              New_minsqrDist, LowerBound,   &
-                                              PointsIndex, LeafIndex,       &
-                                              temp_index, forcingPointsMask ) 
+            if( present(elements) ) then
+               call MinimumDistOtherBoxesPoints( Point, tree% child_L, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask,                &
+                                                 elements                          )    
+               call MinimumDistOtherBoxesPoints( Point, tree% child_R, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask,                &
+                                                 elements                          )
+            else
+               call MinimumDistOtherBoxesPoints( Point, tree% child_L, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask                 )
+               call MinimumDistOtherBoxesPoints( Point, tree% child_R, BandRegion, &
+                                                 Radius, New_minsqrDist,           &
+                                                 LowerBound, PointsIndex,          &
+                                                 LeafIndex, temp_index,            &
+                                                 forcingPointsMask                 )           
+            
+            end if 
          end if
       end if
           
    end subroutine MinimumDistOtherBoxesPoints
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!
-!  ---------------------
-!  TURBULENCE
-!  ---------------------
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
 
-   subroutine GetIDW_value( Point, normal, Q, PointsIndex, value )
+   subroutine GetIDW_value( Point, BandRegion, normal, Q, PointsIndex, value )
       use PhysicsStorage
       use MappedGeometryClass
       implicit none
       !-arguments---------------------------------------------------------
-      real(kind=RP), dimension(:),     intent(in)  :: Point, normal
-      real(kind=RP), dimension(:,:),   intent(in)  :: Q
-      integer,       dimension(:),     intent(in)  :: PointsIndex
-      real(kind=RP), dimension(NCONS), intent(out) :: value
+      real(kind=RP),           dimension(:),     intent(in)  :: Point, normal
+      type(MPI_M_Points_type),                   intent(in)  :: BandRegion
+      real(kind=RP),           dimension(:,:),   intent(in)  :: Q
+      integer,                 dimension(:),     intent(in)  :: PointsIndex
+      real(kind=RP),           dimension(NCONS), intent(out) :: value
       !-local-variables---------------------------------------------------
       real(kind=RP) :: DistanceNormal(NDIM), d2, d1, distanceSqr, sqrd1, &
                        num(NCONS), den
+      real(kind=RP), parameter :: eps = 1.0d-10
       integer       :: i, k
+   
+      num = 0.0_RP; den = 0.0_RP
    
       do i = 1, size(PointsIndex)
                           
-         DistanceNormal = BandPoints_ALL% x(PointsIndex(i))% coords - Point
-         d2 = vDot(DistanceNormal, normal)
+         DistanceNormal = BandRegion% x(PointsIndex(i))% coords - Point
+         d2 = dot_product(DistanceNormal, normal)
                
          distanceSqr = 0.0_RP
          do k = 1, NDIM
-            distanceSqr = distanceSqr + POW2(BandPoints_ALL% x(PointsIndex(i))% coords(k) - Point(k))
+            distanceSqr = distanceSqr + POW2(BandRegion% x(PointsIndex(i))% coords(k) - Point(k))
          end do
 
          sqrd1 = distanceSqr - POW2(d2)
-         if( AlmostEqual(sqrd1,0.0_RP) ) sqrd1 = 0.0_RP
-         d1 = sqrt(sqrd1) 
+          
+         d1 = sqrt(abs(sqrd1)) 
                
-         num = num + Q(:,i)/d1
-         den = den + 1.0_RP/d1
+         num = num + Q(:,i)/(d1+eps)
+         den = den + 1.0_RP/(d1+eps)
 
       end do 
    
@@ -2691,136 +2647,171 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
-#if defined(NAVIERSTOKES)
 !  -------------------------------------------------
 !  This subroutine performes iterations so that the 
 !  forcing point lies inside the log region 
 !  ------------------------------------------------
 
-   subroutine IBM_GetImagePoint_nearest( this )
-      use WallFunctionDefinitions
-      use WallFunctionBC
+   subroutine IBM_GetImagePoint_nearest( this, elements )
       use MappedGeometryClass
       use PhysicsStorage
       use MPI_Process_Info
+      use ElementClass
       implicit none
       !-arguments---------------------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
+      type(element),   intent(inout) :: elements(:)
       !-local-variables----------------------------------------------------------------------
-      real(kind=RP) :: Dist, LowerBound
-      integer       :: i, k
+      real(kind=RP) :: Dist, LowerBound, ImagePoint(NDIM)
+      integer       :: eID, i, j, k, m, n, Nearest_Points(this% KDtree_n_of_interPoints)
       
       if( allocated(this% ImagePoint_NearestPoints) ) deallocate(this% ImagePoint_NearestPoints)
-      allocate(this% ImagePoint_NearestPoints(this% KDtree_n_of_interPoints,BandPoints_ALL% NumOfObjs))
+      allocate(this% ImagePoint_NearestPoints(this% KDtree_n_of_interPoints,this% NumOfForcingPoints))
       
-      this% ImagePoint_NearestPoints = 0   
+      this% ImagePoint_NearestPoints = 0
+      m = 0  
 
-      if( MPI_Process% isRoot ) then
-!$omp parallel shared(i)
-!$omp do schedule(runtime) private(k,Dist,LowerBound)
-      do i = 1, BandPoints_ALL% NumOfObjs
-         if( .not. BandPoints_ALL% x(i)% forcingPoint ) cycle
-         LowerBound  = -huge(1.0_RP)
-         do k = 1, this% KDtree_n_of_interPoints        
-            call MinimumDistancePoints( BandPoints_ALL% x(i)% ImagePoint_coords, this% rootPoints,  &
-                                        Dist, LowerBound, k, this% ImagePoint_NearestPoints(:,i),   &
-                                        .true.                                                      ) 
-            LowerBound = POW2(Dist)
-         end do
+!$omp parallel
+!$omp do schedule(runtime) private(i,j,k,Dist,LowerBound,n,ImagePoint,Nearest_Points)
+      do eID = 1, size(elements)             
+         do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)
+            if( elements(eID)% isForcingPoint(i,j,k) ) then
+            
+               Dist = this% IP_distance - elements(eID)% geom% dWall(i,j,k)
+            
+               ImagePoint = elements(eID)% geom% x(:,i,j,k) + Dist * elements(eID)% geom% normal(:,i,j,k) 
+              
+               LowerBound  = -huge(1.0_RP)
+               do n = 1, this% KDtree_n_of_interPoints 
+                  call MinimumDistancePoints( ImagePoint, this% rootPoints, this% BandRegion, &
+                                              Dist, LowerBound, n, Nearest_Points,            &
+                                              .true., elements                                ) 
+                  LowerBound = POW2(Dist)
+               end do
+!$omp critical
+               m = m + 1
+               elements(eID)% IP_index(i,j,k) = m
+               this% ImagePoint_NearestPoints(:,m) = Nearest_Points
+               if(any(this% ImagePoint_NearestPoints(:,m) .eq. 0) ) then
+                  print *, "Can't fine nearest point"
+                  error stop
+               end if
+!$omp end critical
+            end if
+         end do               ; end do               ; end do                 
       end do
 !$omp end do
 !$omp end parallel
-      end if
-      
-      call recvIP_NearestPoints( this% ImagePoint_NearestPoints )    
-      call sendIP_NearestPoints( this% ImagePoint_NearestPoints )  
-
    end subroutine IBM_GetImagePoint_nearest
    
-   
-   subroutine IBM_SourceTermTurbulence( this, elements )
+#if defined(NAVIERSTOKES)  
+   subroutine ForcingPointState( Q_IP, y_IP, y_FP, normal, Q_FP )
       use PhysicsStorage
-      use VariableConversion
+      use WallFunctionDefinitions
       use WallFunctionBC
+      use VariableConversion
+      use SpallartAlmarasTurbulence
+      use FluidData   
       implicit none
-      !-arguments--------------------------------------------------
-      class(IBM_type),               intent(inout) :: this
-      type(element),   dimension(:), intent(inout) :: elements
-      !-local-variables--------------------------------------------
-      real(kind=rp), allocatable :: bpQ(:,:)
-      real(kind=rp)              :: Q(NCONS), Q_target(NCONS), nu,    &
-                                    mu, T, u_tau, uIP_t, uIP_n, y_IP, &
-                                    uFC_t, uFC_n, uFC(NDIM),          &
-                                    Source(NCONS), tangent(NDIM),     &
-                                    VIP_t(NDIM)
-      real(kind=rp), parameter   :: EPS = 1.0d-12
-      integer                    :: n, i
       
-      allocate( bpQ(NCONS,BandPoints_ALL% NumOfObjs) )
-      
-      call this% BandPoint_state( elements, bpQ )
-      
-      do i = 1, BandPoints_ALL% NumOfObjs 
- 
-         if( .not. BandPoints_ALL% x(i)% forcingPoint ) cycle
- 
-         if( BandPoints_ALL% x(i)% partition .eq. MPI_Process% rank ) then
-    
-            associate( y_FC             => BandPoints_ALL% x(i)% Dist,          &
-                       IP_NearestPoints => this% ImagePoint_NearestPoints(:,i), &
-                       normal           => BandPoints_ALL% x(i)% normal,        & 
-                       eID              => BandPoints_ALL% x(i)% element_index, &
-                       loc_pos          => BandPoints_ALL% x(i)% local_Position ) 
-                    
-            do n = 1, NCONS
-               Q(n) = sum(bpQ(n,IP_NearestPoints))
-            end do
-      
-            Q = Q/this% KDtree_n_of_interPoints
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
-            T  = Temperature(Q)
-            mu = SutherlandsLaw(T)
-      
-            nu = mu/Q(IRHO) 
-    
-            uIP_n = Q(IRHOU)*normal(1)+Q(IRHOV)*normal(2)+Q(IRHOW)*normal(3)
-   
-            VIP_t = Q(IRHOU:IRHOW) - uIP_n*normal
-   
-            uIP_t = norm2(VIP_t)
-   
-            y_IP = y_FC + norm2(BandPoints_ALL% x(i)% ImagePoint_coords - BandPoints_ALL% x(i)% coords)
-   
-            u_tau = u_tau_f(uIP_t,y_IP,nu, u_tau0=1.0_RP)
-         
-            uFC_t = u_plus_f( y_plus_f( y_IP, u_tau, nu ) ) * u_tau
-            uFC_n = uIP_n * y_FC/y_IP
-         
-            tangent = VIP_t/(uIP_t+EPS)
-            
-            uFC = uFC_t*tangent  + uFC_n*normal 
-            
-            Q_target = elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3))
-            Q_target(IRHOU) = Q_target(IRHO) * uFC(1)
-            Q_target(IRHOV) = Q_target(IRHO) * uFC(2)
-            Q_target(IRHOW) = Q_target(IRHO) * uFC(3)
-    
-            call this% SourceTerm( eID, elements(eID)% storage% Q(:,loc_pos(1),loc_pos(2),loc_pos(3)), Q_target, Source )
+      real(kind=rp), dimension(:), intent(in)    :: Q_IP, normal
+      real(kind=rp),               intent(in)    :: y_IP, Y_FP
+      real(kind=rp), dimension(:), intent(inout) :: Q_FP
+      !-local-variables--------------------------------------------------------
+      real(kind=rp)              :: nu_IP, nu_FP, mu_IP, mu_FP, T_IP, T_FP, &
+                                    u_tau, u_IP(NDIM), u_IPt, u_FPt,        &
+                                    u_FPn, u_FP(NDIM), u_IP_t(NDIM),        &
+                                    tangent(NDIM), yplus_FP, nu_tilde,      &
+                                    kappa_IP, kappa_FP
+
+#if defined(SPALARTALMARAS)
+      real(kind=rp)              :: Dump, chi, fv1, nu_t
 #endif
-            elements(eID)% storage% QDot(:,loc_pos(1),loc_pos(2),loc_pos(3)) = &
-            elements(eID)% storage% QDot(:,loc_pos(1),loc_pos(2),loc_pos(3)) + Source
-    
-            end associate
-    
-         end if
-         
-      end do  
+     
+      call get_laminar_mu_kappa(Q_IP,mu_IP,kappa_IP)      
+      nu_IP = mu_IP/Q_IP(IRHO)
+            
+      u_IP   = Q_IP(IRHOU:IRHOW)/Q_IP(IRHO)
+      u_IP_t = u_IP - ( dot_product(u_IP,normal) * normal )
    
-      deallocate(bpQ)
+      tangent = u_IP_t/norm2(u_IP_t)   
+   
+      u_IPt = dot_product(u_IP,tangent)
+            
+      if( almostEqual(u_IPt,0.0_RP) ) return
+
+      u_tau = u_tau_f(u_IPt, y_IP, nu_IP, u_tau0=1.0_RP)
+
+      call get_laminar_mu_kappa(Q_FP,mu_FP,kappa_FP)
+      nu_FP = mu_FP/Q_FP(IRHO)                 
+         
+      u_FPt = u_plus_f( y_plus_f( y_FP, u_tau, nu_FP) ) * u_tau
+      u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
+         
+      u_FP = u_FPt*tangent + u_FPn*normal 
+            
+      T_FP = Temperature(Q_IP) + (dimensionless% Pr)**(1._RP/3._RP)/(2.0_RP*thermodynamics% cp) * (POW2(u_IPt) - POW2(u_FPt))
+            
+#if defined(SPALARTALMARAS)      
+!~       yplus_FP = y_plus_f( y_FP, u_tau, nu_FP) 
+         
+!~       Dump     = 1.0_RP - exp(-yplus_FP/19.0_RP)      
+      
+!~       chi      = QuarticRealPositiveRoot( 1.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP, 0.0_RP, 0.0_RP, -kappa*u_tau*y_FP*Dump/nu_FP*POW3(SAmodel% cv1) )
+      
+!~       nu_t = nu_FP * chi
+      
+      nu_T = kappa * u_tau * y_FP
+      
+#endif
+
+      T_FP = refValues% T * T_FP
+
+      Q_FP(IRHO)  = Pressure(Q_IP)*refvalues% p/(thermodynamics% R * T_FP)
+      Q_FP(IRHO)  = Q_FP(IRHO)/refvalues% rho     
+      Q_FP(IRHOU) = Q_FP(IRHO) * u_FP(1)
+      Q_FP(IRHOV) = Q_FP(IRHO) * u_FP(2)
+      Q_FP(IRHOW) = Q_FP(IRHO) * u_FP(3)
+      Q_FP(IRHOE) = pressure(Q_IP)/( thermodynamics% gamma - 1._RP) + 0.5_RP*Q_FP(IRHO)*(POW2(u_FP(1)) + POW2(u_FP(2)) + POW2(u_FP(3)))
+#if defined(SPALARTALMARAS)
+      Q_FP(IRHOTHETA) = Q_FP(IRHO) * nu_t
+#endif              
+   end subroutine ForcingPointState
+#endif  
+   
+   
+#if defined(NAVIERSTOKES)    
+   subroutine IBM_SourceTermTurbulence( this, eID, Q, Qdot, Qbp, normal, x, dWall, IP_index, TurbulenceSource )
+      use PhysicsStorage
+      implicit none
+      !-arguments--------------------------------------------------------------
+      class(IBM_type), intent(inout) :: this
+      integer,         intent(in)    :: eID, IP_index
+      real(kind=rp),   intent(in)    :: Q(:), Qdot(:), Qbp(:,:), x(:), dWall, normal(:)
+      real(kind=rp),   intent(inout) :: TurbulenceSource(NCONS)
+      !-local-variables--------------------------------------------------------
+      real(kind=rp)              :: Q_IP(NCONS), Q_FP(NCONS), Dist, ImagePoint(NDIM)
+      
+      Dist = this% IP_distance - dWall
+            
+      ImagePoint = x + Dist * normal
+        
+      call GetIDW_value( ImagePoint, this% BandRegion, normal,              &
+                         Qbp(:,this% ImagePoint_NearestPoints(:,IP_index)), &
+                         this% ImagePoint_NearestPoints(:,IP_index),        &
+                         Q_IP                                               )
+                                 
+      Q_FP = Q
+                                 
+      call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
+
+      TurbulenceSource =  1.0_RP/this% penalization(eID) * (Q_FP - Q)
    
    end subroutine IBM_SourceTermTurbulence
-   
-! estimate the y_plus for a flat plate 
+#endif 
+
+
+! estimate the yplus for a flat plate 
    
    real(kind=RP) function InitializeDistance( y_plus ) result( y )
       use FluidData
@@ -2828,22 +2819,28 @@ module IBMClass
       !-arguments
       real(kind=rp), intent(in) :: y_plus
       !-local-varirables-------------------------
-      real(kind=RP) :: nu, u_tau
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
+      real(kind=RP) :: nu, Cf
+      
+#if defined(NAVIERSTOKES)     
       nu = refValues% mu / refValues% rho
 #endif
-      u_tau = Estimate_u_tau( )
-   
-      y = GetEstimated_y( y_plus, nu, u_tau )
-   
+
+      Cf = Estimate_Cf()
+#if defined(NAVIERSTOKES)      
+      y = sqrt(2.0_RP) * y_plus * nu /(refValues% V * sqrt(Cf)) 
+#endif  
    end function InitializeDistance
    
    real(kind=RP) function Estimate_Cf() result( Cf )
       use FluidData
       implicit none
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
+      
+      Cf = 0.0_RP
+      
+#if defined(NAVIERSTOKES)   
      ! Schlichting, Hermann (1979), Boundary Layer Theory... ok if Re < 10^9
-      Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
+!~       Cf = (2.0_RP*log10(dimensionless% Re) - 0.65_RP)**(-2.3_RP)     
+      Cf = 0.058_RP * dimensionless% Re**(-0.2)     
 #endif        
    end function Estimate_Cf
    
@@ -2853,8 +2850,10 @@ module IBMClass
       !-local-variables--------------------------------
       real(kind=RP) :: Cf
       
+      u_tau = 0.0_RP
+      
       Cf = Estimate_Cf()
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))      
+#if defined(NAVIERSTOKES) 
       u_tau = sqrt( 0.5_RP * POW2(refValues% V) * Cf ) !sqrt(tau_w/rho)
 #endif      
    end function Estimate_u_tau
@@ -2871,7 +2870,93 @@ module IBMClass
       y = y/Lref 
    
    end function GetEstimated_y
-#endif
+
+
+   real(kind=RP) function QuarticRealPositiveRoot(a0, b0, c0, d0, e0) result( value )
+      !https://math.stackexchange.com/questions/115631/quartic-equation-solution-and-conditions-for-real-roots
+      implicit none
+      !-arguments--------------------------------------
+      real(kind=rp), intent(in) :: a0, b0, c0, d0, e0
+      !-local-variables--------------------------------
+      real(kind=rp) :: a, b, c, d, x, m2, m, n,  &
+                       alpha, beta, psi,         & 
+                       solution(2)
+
+      a = b0/a0; b = c0/a0; c = d0/a0; d = e0/a0
+      
+      x = cubic_poly( 1.0_RP, -b, a*c-4.0_RP*d, d*(4.0_RP*b-POW2(a)) - POW2(c) )
+
+      m2 = 0.25_RP*POW2(a)-b+x
+      
+      if( m2 .gt. 0.0_RP ) then
+         m = sqrt(m2)
+         n = (a*x-2.0_RP*c)/(4.0_RP*m)
+      elseif( almostEqual(m2,0.0_RP) ) then
+         m = 0.0_RP
+         n = sqrt(0.25_RP*POW2(x) - d)
+      else
+         print *, 'no real roots found'
+         error stop
+      end if
+      
+      alpha = 0.5_RP*POW2(a) - x - b
+      
+      beta = 4.0_RP * n - a * m
+      
+      if( (alpha + beta) .ge. 0.0_RP ) then
+         psi = sqrt(alpha+beta)
+         solution(1) = -0.25_RP*a + 0.5_RP*m + 0.5_RP*psi
+         solution(2) = -0.25_RP*a + 0.5_RP*m - 0.5_RP*psi
+      elseif( (alpha - beta) .ge. 0.0_RP ) then
+         psi = sqrt(alpha-beta)
+         solution(1) = -0.25_RP*a - 0.5_RP*m + 0.5_RP*psi
+         solution(2) = -0.25_RP*a - 0.5_RP*m - 0.5_RP*psi        
+      end if
+      !take positive solution
+      value = maxval(solution) 
+
+   end function QuarticRealPositiveRoot
+   
+   real(KIND=rp) function cubic_poly( a0, b0, c0, d0 ) result( x )
+   
+      implicit none
+      !-arguments----------------------------------------------
+      real(kind=RP),      intent(in) :: a0, b0, c0, d0
+      !-local-variables----------------------------------------
+      real(kind=RP) :: a, b, c, Jac, x0, q, r
+      real(kind=RP) :: theta, m, s, txx
+      integer :: i
+      
+      
+      a = b0/a0; b = c0/a0; c = d0/a0
+           
+      x0 = 1.0_RP
+      
+      do  i = 1, 100
+      
+         Jac = 3.0_RP*a0*POW2(x0) + 2.0_RP*b0*x0 + c0
+   
+         x = x0 - eval_cubic(a0, b0, c0, d0, x0)/Jac
+   
+         if( abs(x-x0) .lt. 1.0E-10_RP ) return
+   
+         x0 = x
+   
+      end do
+    
+      print *, "cubic_poly:: Newtown method doesn't coverge"
+      error stop
+    
+   end function cubic_poly
+
+   real(kind=RP) function eval_cubic( a0, b0, c0, d0, x0 ) result( value )
+   
+      implicit none
+      !-arguments----------------------------------
+      real(kind=RP), intent(in) :: a0, b0, c0, d0, x0
+      
+      value = a0*POW3(x0) + b0*POW2(x0) + c0*x0 + d0
+   
+   end function eval_cubic
 
 end module IBMClass
-

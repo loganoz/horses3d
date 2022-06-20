@@ -78,8 +78,9 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body
-         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true.
+         logical, dimension(:,:,:),   allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
+         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
+         integer, dimension(:,:,:),   allocatable :: IP_index !image point index (IB) 
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -171,6 +172,11 @@
          call self % hexMap % destruct
 
          call self % SurfInfo % destruct
+         
+         if( allocated(self% isInsideBody) )   deallocate(self% isInsideBody)
+         if( allocated(self% isForcingPoint) ) deallocate(self% isForcingPoint)
+         if( allocated(self% IP_index) )       deallocate(self% IP_index)
+         if( allocated(self% STL) )            deallocate(self% STL)
 
       END SUBROUTINE HexElement_Destruct
 !
@@ -853,10 +859,14 @@
          integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files
 
          allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
+         allocate(self% isForcingPoint(0:Nx,0:Ny,0:Nz))
+         allocate(self% IP_index(0:Nx,0:Ny,0:Nz))
          allocate(self% STL(NumOfSTL,0:Nx,0:Ny,0:Nz))
-
-         self% isInsideBody = .false.
-         self% STL          = 0
+         
+         self% isInsideBody   = .false.
+         self% isForcingPoint = .false.
+         self% STL            = 0
+         self% IP_index       = 0
 
       end subroutine HexElement_ConstructIBM
 
