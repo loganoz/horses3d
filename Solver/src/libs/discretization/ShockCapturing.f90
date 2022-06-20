@@ -666,10 +666,10 @@ module ShockCapturing
 !        -----------------
          select case (self % updateMethod)
          case (SC_CONST_ID)
-            mu = merge(self % mu2, self % mu1, switch >= 1.0_RP) * e % hn
+            mu = merge(self % mu2, self % mu1, switch >= 1.0_RP)
 
          case (SC_SENSOR_ID)
-            mu = (self % mu1 * (1.0_RP-switch) + self % mu2 * switch) * e % hn
+            mu = self % mu1 * (1.0_RP-switch) + self % mu2 * switch
 
 #if !defined (SPALARTALMARAS)
          case (SC_SMAG_ID)
@@ -682,7 +682,6 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           mu(i,j,k))
-               mu(i,j,k) = mu(i,j,k) * e % hn
             end do                ; end do                ; end do
 #endif
 
@@ -888,12 +887,12 @@ module ShockCapturing
 !        -------------------
          select case (self % updateMethod)
          case (SC_CONST_ID)
-            sqrt_mu = merge(self % sqrt_mu2,    self % sqrt_mu1,    switch >= 1.0_RP) * e % hn
-            salpha  = merge(self % sqrt_alpha2, self % sqrt_alpha1, switch >= 1.0_RP) * e % hn
+            sqrt_mu = merge(self % sqrt_mu2,    self % sqrt_mu1,    switch >= 1.0_RP)
+            salpha  = merge(self % sqrt_alpha2, self % sqrt_alpha1, switch >= 1.0_RP)
 
          case (SC_SENSOR_ID)
-            sqrt_mu = (self % sqrt_mu1 * (1.0_RP-switch) + self % sqrt_mu2 * switch) * e % hn
-            salpha  = (self % sqrt_alpha1 * (1.0_RP-switch) + self % sqrt_alpha2 * switch) * e % hn
+            sqrt_mu = self % sqrt_mu1 * (1.0_RP-switch) + self % sqrt_mu2 * switch
+            salpha  = self % sqrt_alpha1 * (1.0_RP-switch) + self % sqrt_alpha2 * switch
 
 #if !defined (SPALARTALMARAS)
          case (SC_SMAG_ID)
@@ -906,7 +905,7 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           sqrt_mu(i,j,k))
-               sqrt_mu(i,j,k) = sqrt(e % hn * sqrt_mu(i,j,k))
+               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
             end do                ; end do                ; end do
 #endif
 
@@ -968,18 +967,18 @@ module ShockCapturing
 
       if (self % updateMethod == SC_SMAG_ID) then
 #if !defined (SPALARTALMARAS)
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+         write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
 #endif
       else
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 1: ", self % mu1
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 2: ", self % mu2
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2
       end if
 
       if (self % alphaIsPropToMu) then
-         write(STD_OUT,"(30X,A,A30,1pG10.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
+         write(STD_OUT,"(30X,A,A30,F7.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
       else
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 1: ", self % alpha1
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 2: ", self % alpha2
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 1: ", self % alpha1
+         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 2: ", self % alpha2
       end if
 
       call SVV % Describe()

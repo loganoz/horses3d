@@ -45,8 +45,8 @@ Module DGSEMClass
 
    private
    public   ComputeTimeDerivative_f, DGSem, ConstructDGSem
+
    public   DestructDGSEM, MaxTimeStep, ComputeMaxResiduals
-   public   hnRange
 
    TYPE DGSem
       REAL(KIND=RP)                                           :: maxResidual
@@ -286,17 +286,28 @@ Module DGSEMClass
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
+      
+      
+!     
+!     Immersed boundary method parameter
+!     -----------------------------------
+      call self% mesh% IBM% read_info( controlVariables )
+      
 !
 !     Compute wall distances
 !     ----------------------
 #if defined(NAVIERSTOKES)
-      call self % mesh % ComputeWallDistances
+      if( .not. self% mesh% IBM% active ) then
+         call self % mesh % ComputeWallDistances
+      end if
 #endif
       IF(.NOT. success) RETURN
+      
 !
 !     construct surfaces mesh
 !     -----------------------
       call surfacesMesh % construct(controlVariables, self % mesh)
+      
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -325,20 +336,21 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-!
-      call self% mesh% IBM% read_info( controlVariables )
+!       
 
       if( self% mesh% IBM% active ) then
-
+      
          if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
 
-!
+! 
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
-!
+!            
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-
+#if defined(NAVIERSTOKES)
+         call self% mesh% IBM% ComputeIBMWallDistance( self% mesh% elements, self% mesh% faces )
+#endif
       end if
 
 !
@@ -674,12 +686,16 @@ Module DGSEMClass
 #endif
       !--------------------------------------------------------
 !     Initializations
-!     ---------------
-
+!     ---------------              
+              
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
+#if defined(SPALARTALMARAS)
+!$omp parallel shared(self,SAModel,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
+#else
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
+#endif
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements)
          N = self % mesh % elements(eID) % Nxyz
@@ -727,7 +743,7 @@ Module DGSEMClass
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
 
 #if defined(SPALARTALMARAS)
-            CALL ComputeEigenvaluesForStateSA( Q , eValues )
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )            
 #else
             CALL ComputeEigenvaluesForState( Q , eValues )
 #endif
@@ -760,8 +776,10 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
+              
               call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
+          
               mu = mu + musa
 
 #endif
@@ -802,48 +820,5 @@ Module DGSEMClass
       end if
 #endif
    end subroutine MaxTimeStep
-!
-!////////////////////////////////////////////////////////////////////////
-!
-   subroutine hnRange(mesh, hnmin, hnmax)
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      type(HexMesh), intent(in)  :: mesh
-      real(RP),      intent(out) :: hnmin
-      real(RP),      intent(out) :: hnmax
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer  :: eID, ierr
-      real(RP) :: hn
-      real(RP) :: l_hnmin, l_hnmax
-
-
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         l_hnmin = huge(1.0_RP)
-         l_hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            l_hnmin = min(hn, l_hnmin)
-            l_hnmax = max(hn, l_hnmax)
-         end do
-         call mpi_reduce(l_hnmin, hnmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
-         call mpi_reduce(l_hnmax, hnmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-#endif
-      else
-         hnmin = huge(1.0_RP)
-         hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            hnmin = min(hn, hnmin)
-            hnmax = max(hn, hnmax)
-         end do
-      end if
-   end subroutine hnRange
 !
 end module DGSEMClass

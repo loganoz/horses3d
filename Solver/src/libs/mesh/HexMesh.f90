@@ -206,7 +206,7 @@ MODULE HexMeshClass
          if( self% IBM% active ) then
             if( self% child ) then
                call self% IBM% destruct( .true. )
-            else
+            else 
                call self% IBM% destruct( .false. )
             end if
          end if
@@ -1411,7 +1411,7 @@ slavecoord:             DO l = 1, 4
       integer, intent(in) :: bFaceOrder
       !-local-variables------------------------------------
       integer           :: ierr
-      integer           :: zoneID
+      integer           :: fID, zoneID
       integer           :: no_of_bdry_faces
       integer           :: no_of_faces
       integer, allocatable :: facesPerZone(:)
@@ -3776,7 +3776,6 @@ slavecoord:             DO l = 1, 4
 !     ---------------------
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
-         e % hn = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)  ! Also compute h/p here
          e % storage => self % storage % elements(eID)
          end associate
       END DO
