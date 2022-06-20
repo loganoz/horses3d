@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    SVV.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Mon Sep  6 22:44:54 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 module SpectralVanishingViscosity

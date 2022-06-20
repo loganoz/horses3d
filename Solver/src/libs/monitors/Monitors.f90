@@ -44,7 +44,7 @@ module MonitorsClass
 !  *****************************
 !  Main monitor class definition
 !  *****************************
-!  
+!
    type Monitor_t
       character(len=LINE_LENGTH)           :: solution_file
       integer                              :: no_of_probes
@@ -84,14 +84,14 @@ module MonitorsClass
 !
 !///////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Monitors_Construct( Monitors, mesh, controlVariables ) 
+      subroutine Monitors_Construct( Monitors, mesh, controlVariables )
          use FTValueDictionaryClass
          use mainKeywordsModule
          implicit none
          class(Monitor_t)                     :: Monitors
          class(HexMesh), intent(in)           :: mesh
          class(FTValueDictionary), intent(in) :: controlVariables
-         
+
 !
 !        ---------------
 !        Local variables
@@ -100,7 +100,7 @@ module MonitorsClass
          integer                         :: fID , io
          integer                         :: i
          character(len=STR_LEN_MONITORS) :: line
-         character(len=STR_LEN_MONITORS) :: solution_file                                            
+         character(len=STR_LEN_MONITORS) :: solution_file
          logical, save                   :: FirstCall = .TRUE.
          logical                         :: saveGradients
 !
@@ -109,7 +109,7 @@ module MonitorsClass
          if (controlVariables % containsKey("monitors flush interval") ) then
             BUFFER_SIZE = controlVariables % integerValueForKey("monitors flush interval")
          end if
-         
+
          allocate ( Monitors % TotalSimuTime(BUFFER_SIZE), &
                     Monitors % SolverSimuTime(BUFFER_SIZE), &
                     Monitors % t(BUFFER_SIZE), &
@@ -162,9 +162,9 @@ module MonitorsClass
 #endif
 
          Monitors % write_dt_restriction = controlVariables % logicalValueForKey( "write dt restriction" )
-         
+
          Monitors % bufferLine = 0
-         
+
          FirstCall = .FALSE.
       end subroutine Monitors_Construct
 
@@ -178,8 +178,8 @@ module MonitorsClass
          use MPI_Process_Info
          implicit none
          class(Monitor_t)              :: self
-         integer                       :: i 
-      
+         integer                       :: i
+
          if ( .not. MPI_Process % isRoot ) return
 !
 !        Write "Iteration" and "Time"
@@ -221,11 +221,11 @@ module MonitorsClass
 !        ------------------------------
          if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) "dt restr."
 
-         write(STD_OUT , *) 
+         write(STD_OUT , *)
 
       end subroutine Monitor_WriteLabel
 
-      subroutine Monitor_WriteUnderlines( self ) 
+      subroutine Monitor_WriteUnderlines( self )
 !
 !        ********************************************************
 !              This subroutine displays the underlines for the
@@ -248,8 +248,8 @@ module MonitorsClass
 !
 !        Print dashes for "Iteration" and "Time"
 !        ---------------------------------------
-         write ( STD_OUT , ' ( A10    ) ' , advance = "no" ) trim ( dashes ) 
-         write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes ) 
+         write ( STD_OUT , ' ( A10    ) ' , advance = "no" ) trim ( dashes )
+         write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes )
 !
 !        Print dashes for residuals
 !        --------------------------
@@ -285,13 +285,13 @@ module MonitorsClass
          if ( self % stats % state .ne. 0 ) write(STD_OUT,'(3X,A10)',advance="no") trim(dashes)
 #endif
 
-         
+
 !
 !        Print dashes for dt restriction
 !        -------------------------------
-         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes ) 
-         
-         write(STD_OUT , *) 
+         if (self % write_dt_restriction) write ( STD_OUT , ' ( 3X,A10 ) ' , advance = "no" ) trim ( dashes )
+
+         write(STD_OUT , *)
 
       end subroutine Monitor_WriteUnderlines
 
@@ -311,8 +311,8 @@ module MonitorsClass
 !
 !        Print iteration and time
 !        ------------------------
-         write ( STD_OUT , ' ( I10            ) ' , advance = "no" ) self % iter    ( self % bufferLine ) 
-         write ( STD_OUT , ' ( 1X,A,1X,ES10.3 ) ' , advance = "no" ) "|" , self % t ( self % bufferLine ) 
+         write ( STD_OUT , ' ( I10            ) ' , advance = "no" ) self % iter    ( self % bufferLine )
+         write ( STD_OUT , ' ( 1X,A,1X,ES10.3 ) ' , advance = "no" ) "|" , self % t ( self % bufferLine )
 !
 !        Print residuals
 !        ---------------
@@ -354,7 +354,7 @@ module MonitorsClass
             end select
          end if
 
-         write(STD_OUT , *) 
+         write(STD_OUT , *)
 
       end subroutine Monitor_WriteValues
 
@@ -364,7 +364,7 @@ module MonitorsClass
 !              This subroutine updates the values for the residuals,
 !           for the probes, surface and volume monitors.
 !        ***************************************************************
-!        
+!
          use PhysicsStorage
          use StopwatchClass
          implicit none
@@ -378,7 +378,7 @@ module MonitorsClass
 !        Local variables
 !        ---------------
 !
-         integer                       :: i 
+         integer                       :: i
 !
 !        Move to next buffer line
 !        ------------------------
@@ -426,11 +426,11 @@ module MonitorsClass
 !
 !        Update dt restriction
 !        ---------------------
-         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction 
-         
+         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction
+
       end subroutine Monitor_UpdateValues
 
-      subroutine Monitor_WriteToFile ( self , mesh, force) 
+      subroutine Monitor_WriteToFile ( self , mesh, force)
 !
 !        ******************************************************************
 !              This routine has a double behaviour:
@@ -444,7 +444,7 @@ module MonitorsClass
          class(HexMesh)          :: mesh
          logical, optional       :: force
 !        ------------------------------------------------
-         integer                 :: i 
+         integer                 :: i
          logical                 :: forceVal
 
          if ( present ( force ) ) then
@@ -455,12 +455,12 @@ module MonitorsClass
 
          end if
 
-         if ( forceVal ) then 
+         if ( forceVal ) then
 !
 !           In this case the monitors are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t, self % TotalSimuTime, self % SolverSimuTime , self % bufferLine )
-   
+
             do i = 1 , self % no_of_volumeMonitors
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -470,8 +470,8 @@ module MonitorsClass
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 #endif
-   
-#if defined(NAVIERSTOKES)   
+
+#if defined(NAVIERSTOKES)
             do i = 1 , self % no_of_surfaceMonitors
                call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -504,7 +504,7 @@ module MonitorsClass
 
 #ifdef FLOW
                do i = 1 , self % no_of_probes
-                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
+                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 
@@ -522,34 +522,33 @@ module MonitorsClass
          end if
 
       end subroutine Monitor_WriteToFile
-      
+
       subroutine Monitor_Destruct (self)
          implicit none
          class(Monitor_t)        :: self
-         
+
          deallocate (self % iter)
          deallocate (self % t)
          deallocate (self % TotalSimuTime)
          deallocate (self % SolverSimuTime)
-         
+
          call self % residuals % destruct
-         
+
          call self % volumeMonitors % destruct
          safedeallocate(self % volumeMonitors)
-         
+
 #ifdef FLOW
          call self % probes % destruct
          safedeallocate (self % probes)
 #endif
-         
+
 #if defined(NAVIERSTOKES)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
-         
-         !call self % stats % destruct
-#endif         
+
+#endif
       end subroutine
-      
+
       elemental subroutine Monitor_Assign ( to, from )
          implicit none
          !-arguments--------------------------------------
@@ -557,54 +556,54 @@ module MonitorsClass
          type(Monitor_t) , intent(in)     :: from
          !-local-variables--------------------------------
          !------------------------------------------------
-         
+
          to % solution_file         = from % solution_file
          to % no_of_probes          = from % no_of_probes
          to % no_of_surfaceMonitors = from % no_of_surfaceMonitors
          to % no_of_volumeMonitors  = from % no_of_volumeMonitors
          to % bufferLine            = from % bufferLine
-         
+
          safedeallocate ( to % iter )
          allocate ( to % iter ( size(from % iter) ) )
          to % iter = from % iter
-         
+
          to % dt_restriction        = from % dt_restriction
          to % write_dt_restriction  = from % write_dt_restriction
-         
+
          safedeallocate (to % t)
-         allocate (to % t (size (from % t) ) ) 
+         allocate (to % t (size (from % t) ) )
          to % t = from % t
-         
+
          safedeallocate ( to % TotalSimuTime )
          allocate ( to % TotalSimuTime ( size(from % TotalSimuTime) ) )
          to % TotalSimuTime = from % TotalSimuTime
-         
+
          safedeallocate ( to % SolverSimuTime )
          allocate ( to % SolverSimuTime ( size(from % SolverSimuTime) ) )
          to % SolverSimuTime = from % SolverSimuTime
-         
+
          to % residuals = from % residuals
-         
+
          safedeallocate ( to % volumeMonitors )
          allocate ( to % volumeMonitors ( size(from % volumeMonitors) ) )
          to % volumeMonitors = from % volumeMonitors
-      
+
 #ifdef FLOW
          safedeallocate ( to % probes )
          allocate ( to % probes ( size(from % probes) ) )
          to % probes = from % probes
 #endif
-         
+
 #if defined(NAVIERSTOKES)
          safedeallocate ( to % surfaceMonitors )
          allocate ( to % surfaceMonitors ( size(from % surfaceMonitors) ) )
          to % surfaceMonitors = from % surfaceMonitors
-         
+
          to % stats = from % stats
 #endif
-         
+
       end subroutine Monitor_Assign
-      
+
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
@@ -645,7 +644,7 @@ module MonitorsClass
 !
 !     Read the whole file to find monitors
 !     ------------------------------------
-readloop:do 
+readloop:do
          read ( fID , '(A)' , iostat = io ) line
 
          if ( io .lt. 0 ) then
@@ -672,20 +671,20 @@ readloop:do
                no_of_probes = no_of_probes + 1
 
             elseif ( index ( line , '#definesurfacemonitor' ) .gt. 0 ) then
-               no_of_surfaceMonitors = no_of_surfaceMonitors + 1 
+               no_of_surfaceMonitors = no_of_surfaceMonitors + 1
 
             elseif ( index ( line , '#definevolumemonitor' ) .gt. 0 ) then
-               no_of_volumeMonitors = no_of_volumeMonitors + 1 
+               no_of_volumeMonitors = no_of_volumeMonitors + 1
 
             end if
-            
+
          end if
 
       end do readloop
 !
 !     Close case file
 !     ---------------
-      close(fID)                             
+      close(fID)
 
 end subroutine getNoOfMonitors
 

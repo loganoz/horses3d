@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    process_info.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat Nov 25 10:26:10 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 module MPI_Process_Info
    use SMConstants
 #ifdef _HAS_MPI_
@@ -45,7 +33,7 @@ module MPI_Process_Info
 !
          integer     :: ierr
 
-#ifdef _HAS_MPI_   
+#ifdef _HAS_MPI_
          call mpi_init(ierr)
          call mpi_comm_rank(MPI_COMM_WORLD, self % rank, ierr)
          call mpi_comm_size(MPI_COMM_WORLD, self % nProcs, ierr)
@@ -89,7 +77,7 @@ module MPI_Process_Info
 
 #ifdef _HAS_MPI_
          call mpi_finalize(ierr)
-#endif 
-      end subroutine MPI_Process_Close 
+#endif
+      end subroutine MPI_Process_Close
 
 end module MPI_Process_Info
