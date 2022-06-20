@@ -1,21 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    PhysicsStorage_CH.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Apr 19 17:24:30 2018
-!   @Last revision date: Thu Jul 26 17:26:21 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ba557cd23630b1bd1f528599b9b33812f58d1f7b
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
       Module Physics_CHKeywordsModule
          IMPLICIT NONE 

@@ -1,15 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400
-!      By: David Kopriva
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
@@ -487,7 +475,7 @@ module SpatialDiscretization
 !$omp single
             if ( flowIsNavierStokes ) then
                if ( ShockCapturingDriver % isActive ) then
-                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     
                   call mesh % GatherMPIFacesAviscflux(NCONS)
                end if
             end if

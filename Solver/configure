@@ -36,11 +36,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
 	        ./Euler/Diffuser \
-	        ./Euler/PeriodicFlow \
 	        ./Euler/UniformFlow \
-	        ./Euler/UniformFlowPETSc \
-	        ./Euler/VortexTransport2D \
-	        ./Euler/Benchmark \
 	        ./Euler/JFNK \
 	        ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
@@ -48,46 +44,35 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/Convergence_entropy \
             ./NavierStokes/Cylinder \
             ./NavierStokes/CylinderFAS \
-            ./NavierStokes/CylinderAnisFAS \
             ./NavierStokes/CylinderBR2 \
             ./NavierStokes/CylinderIP \
-            ./NavierStokes/CylinderIP_BDF2 \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
-            ./NavierStokes/FlatPlate \
             ./NavierStokes/TaylorGreen \
             ./NavierStokes/TaylorGreenKEPEC_IP \
             ./NavierStokes/TaylorGreenKEP_BR2 \
-            ./NavierStokes/ManufacturedSolutions \
             ./NavierStokes/NACA0012 \
             ./NavierStokes/ForwardFacingStepSVV \
             ./NavierStokes/TaylorGreenSVVLES \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \
+            ./NavierStokes/FWH_Cylinder \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-	        ./CahnHilliard/SpinodalDecomposition \
-	        ./CahnHilliard/TJokisaari \
-	        ./CahnHilliard/Bubble \
-	        ./CahnHilliard/Pipe \
-            ./iNSCH/RisingBubble \
-            ./iNSCH/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
             ./Multiphase/Pipe \
             ./Particles/FreeFall \
-            ./Particles/RadiationHeat \
-            ./Particles/Pouransari \
-            ./Particles/ParticleBoundaryCond "
+            ./Particles/RadiationHeat "
 
 COMPONENTS_TEST_CASES="FacePatches \
  		       HexMesh \

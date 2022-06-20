@@ -259,9 +259,9 @@ module Solution2PltModule
             associate( spAoutXi   => spA(Nout(1)), &
                        spAoutEta  => spA(Nout(2)), &
                        spAoutZeta => spA(Nout(3)) )
-            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), spAoutXi   % x)   ! TODO: check why it was Nsol(1)
-            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), spAoutEta  % x)   ! TODO: check why it was Nsol(1)
-            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), spAoutZeta % x)   ! TODO: check why it was Nsol(1)
+            call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), spAoutXi   % x)  
+            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), spAoutEta  % x)  
+            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), spAoutZeta % x)   
             end associate
 !
 !           Perform interpolation
@@ -464,15 +464,15 @@ module Solution2PltModule
 !           Construct interpolation matrices for the mesh
 !           ---------------------------------------------
             call addNewInterpolationMatrix(Tset, e % Nmesh(1), spA(e % Nmesh(1)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(2)), e % Nout(2), eta)      ! TODO: check why it was Nmesh(1) 
-            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(3)), e % Nout(3), zeta)     ! TODO: check why it was Nmesh(1)
+            call addNewInterpolationMatrix(Tset, e % Nmesh(2), spA(e % Nmesh(2)), e % Nout(2), eta)      
+            call addNewInterpolationMatrix(Tset, e % Nmesh(3), spA(e % Nmesh(3)), e % Nout(3), zeta)     
 
 !
 !           Construct interpolation matrices for the solution
 !           -------------------------------------------------
             call addNewInterpolationMatrix(Tset, e % Nsol(1), spA(e % Nsol(1)), e % Nout(1), xi)
-            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), eta)        ! TODO: check why it was Nout(1)
-            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), zeta)       ! TODO: check why it was Nout(1)
+            call addNewInterpolationMatrix(Tset, e % Nsol(2), spA(e % Nsol(2)), e % Nout(2), eta)        
+            call addNewInterpolationMatrix(Tset, e % Nsol(3), spA(e % Nsol(3)), e % Nout(3), zeta)       
 !
 !           Perform interpolation
 !           ---------------------

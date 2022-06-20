@@ -1,12 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      HexMappingsTests.f90
-!      Created: May 19, 2015 at 4:37 PM 
-!      By: David Kopriva  
-!
-!////////////////////////////////////////////////////////////////////////
-!
       PROGRAM HexMappingsTests
          USE TestSuiteManagerClass
          IMPLICIT NONE

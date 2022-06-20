@@ -1,15 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      NodalStorage.f95
-!      Created: 2008-01-15 10:35:59 -0500
-!      By: David Kopriva
-!
-!     Algorithms:
-!        Algorithm
-!
-!////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 MODULE NodalStorageClass
    USE SMConstants

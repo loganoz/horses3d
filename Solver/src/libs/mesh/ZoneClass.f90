@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    ZoneClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es), Andrés Rueda (am.rueda@upm.es)
-!   @Created: 
-!   @Last revision date: Tue Feb 12 17:06:51 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
 !
 !//////////////////////////////////////////////////////

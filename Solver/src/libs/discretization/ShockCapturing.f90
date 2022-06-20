@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ShockCapturing.f90
-!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
-!   @Created: Thu Jun 17 2021
-!   @Last revision date: Thu Jun 17 2021
-!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ShockCapturing
 
@@ -476,7 +465,6 @@ module ShockCapturing
                   stop
                end if
 
-               ! TODO: Use the default constructor
                self % Smagorinsky % active = .true.
                self % Smagorinsky % requiresWallDistances = .false.
                self % Smagorinsky % WallModel = 0  ! No wall model
@@ -627,11 +615,6 @@ module ShockCapturing
 !///////////////////////////////////////////////////////////////////////////////
 !
    subroutine NoSVV_viscosity(self, mesh, e, switch, SCflux)
-!
-!     --------------------------------------------------------------------------
-!     TODO: Introduce alpha viscosity, which probably means reimplementing here
-!           all the viscous fluxes of `Physics_NS`...
-!     --------------------------------------------------------------------------
 !
 !     ---------
 !     Interface
@@ -822,7 +805,6 @@ module ShockCapturing
       integer,                 intent(in)    :: region
 
 
-      ! TODO: Implement it also for region 2, but SVV does not seem very useful there...
       if (region == 2) then
          write(STD_OUT,*) "ERROR. SVV viscosity can be used only in the first region of the sensor."
          stop

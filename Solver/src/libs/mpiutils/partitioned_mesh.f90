@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    partitioned_mesh.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Wed Jul 17 11:52:48 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module PartitionedMeshClass
    use SMConstants
@@ -20,7 +8,7 @@ module PartitionedMeshClass
 
    private
    public  PartitionedMesh_t
-   
+
    public  Initialize_MPI_Partitions
    public  SendPartitionsMPI, RecvPartitionMPI
 
@@ -32,7 +20,7 @@ module PartitionedMeshClass
       integer              :: no_of_allElements
       integer              :: no_of_mpifaces
       integer, allocatable :: global2localeID(:)         ! if 0, that element does not belong to the current partition
-      integer, allocatable :: global2localeIDwith0(:)        
+      integer, allocatable :: global2localeIDwith0(:)
       integer, allocatable :: nodeIDs(:)
       integer, allocatable :: HOPRnodeIDs(:)
       integer, allocatable :: elementIDs(:)
@@ -41,8 +29,8 @@ module PartitionedMeshClass
       integer, allocatable :: element_mpifaceSideOther(:)   ! Side of the element where the MPI face is (on the other partition)
       integer, allocatable :: mpiface_rotation(:)
       integer, allocatable :: mpiface_elementSide(:)
-      
-      integer, allocatable :: mpiface_sharedDomain(:)    
+
+      integer, allocatable :: mpiface_sharedDomain(:)
       contains
          procedure   :: Destruct             => PartitionedMesh_Destruct
          procedure   :: ConstructGeneralInfo => PartitionedMesh_ConstructGeneralInfo
@@ -50,11 +38,11 @@ module PartitionedMeshClass
 
    type(PartitionedMesh_t), public :: mpi_partition
    type(PartitionedMesh_t), allocatable, public :: mpi_allPartitions(:)
-   
+
    integer, protected, public :: MPI_Partitioning
    integer, parameter, public :: METIS_PARTITIONING = 1
    integer, parameter, public :: SFC_PARTITIONING   = 2
-   
+
 #ifdef _HAS_MPI_
    integer :: recv_req(9)
    integer, allocatable    :: send_req(:,:)
@@ -74,7 +62,7 @@ module PartitionedMeshClass
          !--------------------------------------------------------------
 !
 !        Create the set of MPI_Partitions in the root rank
-!        -------------------------------------------------      
+!        -------------------------------------------------
          if ( MPI_Process % doMPIRootAction ) then
 #ifdef _HAS_MPI_
             allocate(mpi_allPartitions(MPI_Process % nProcs))
@@ -89,18 +77,18 @@ module PartitionedMeshClass
 !        Initialize the own MPI partition
 !        --------------------------------
          mpi_partition = PartitionedMesh_t(MPI_Process % rank)
-         
+
          if ( MPI_Process % doMPIAction ) then
-!            
+!
 !           Partitioning method
 !           -------------------
             select case (partitioning)
-!     
+!
 !              Space-filling curve partitioning
 !              --------------------------------
                case ('SFC')
                   MPI_Partitioning = SFC_PARTITIONING
-!     
+!
 !              METIS partitioning
 !              ------------------
                case default
@@ -113,9 +101,9 @@ module PartitionedMeshClass
 #endif
             end select
          end if
-         
+
       end subroutine Initialize_MPI_Partitions
-         
+
       function ConstructPartitionedMesh(ID)
 !
 !        ********************************************************
@@ -140,7 +128,7 @@ module PartitionedMeshClass
          safedeallocate(ConstructPartitionedMesh % mpiface_rotation)
          safedeallocate(ConstructPartitionedMesh % mpiface_elementSide)
          safedeallocate(ConstructPartitionedMesh % mpiface_sharedDomain)
-   
+
       end function ConstructPartitionedMesh
 
       subroutine RecvPartitionMPI(meshIsHOPR)
@@ -176,7 +164,7 @@ module PartitionedMeshClass
          mpi_partition % no_of_elements = sizes(2)
          mpi_partition % no_of_mpifaces = sizes(3)
 
-         allocate(mpi_partition % nodeIDs                   (mpi_partition % no_of_nodes   )) 
+         allocate(mpi_partition % nodeIDs                   (mpi_partition % no_of_nodes   ))
          allocate(mpi_partition % elementIDs                (mpi_partition % no_of_elements))
          allocate(mpi_partition % mpiface_elements          (mpi_partition % no_of_mpifaces))
          allocate(mpi_partition % element_mpifaceSide       (mpi_partition % no_of_mpifaces))
@@ -184,14 +172,14 @@ module PartitionedMeshClass
          allocate(mpi_partition % mpiface_rotation          (mpi_partition % no_of_mpifaces))
          allocate(mpi_partition % mpiface_elementSide       (mpi_partition % no_of_mpifaces))
          allocate(mpi_partition % mpiface_sharedDomain      (mpi_partition % no_of_mpifaces))
-         
-         if (meshIsHOPR) allocate(mpi_partition % HOPRnodeIDs(mpi_partition % no_of_nodes   )) 
+
+         if (meshIsHOPR) allocate(mpi_partition % HOPRnodeIDs(mpi_partition % no_of_nodes   ))
 !
 !        Receive the rest of the PartitionedMesh_t arrays
 !        ------------------------------------------------
          call mpi_irecv(mpi_partition % nodeIDs, mpi_partition % no_of_nodes, MPI_INT, 0, &
                         MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
-         
+
          call mpi_irecv(mpi_partition % elementIDs, mpi_partition % no_of_elements, MPI_INT, 0, &
                         MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
 
@@ -200,19 +188,19 @@ module PartitionedMeshClass
 
          call mpi_irecv(mpi_partition % element_mpifaceSide, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr)
-         
+
          call mpi_irecv(mpi_partition % element_mpifaceSideOther, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr)
-         
+
          call mpi_irecv(mpi_partition % mpiface_rotation, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr)
-                     
+
          call mpi_irecv(mpi_partition % mpiface_elementSide, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr)
 
          call mpi_irecv(mpi_partition % mpiface_sharedDomain, mpi_partition % no_of_mpifaces, &
                         MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr)
-         
+
          if (meshIsHOPR) then
             call mpi_irecv(mpi_partition % HOPRnodeIDs, mpi_partition % no_of_nodes, MPI_INT, 0, &
                         MPI_ANY_TAG, MPI_COMM_WORLD, recv_reqHOPR, ierr)
@@ -220,8 +208,8 @@ module PartitionedMeshClass
 !
 !        Wait until all messages have been received
 !        ------------------------------------------
-         call mpi_waitall(9, recv_req, array_of_statuses, ierr) 
-         if (meshIsHOPR) call mpi_wait(recv_reqHOPR, status_HOPR, ierr) 
+         call mpi_waitall(9, recv_req, array_of_statuses, ierr)
+         if (meshIsHOPR) call mpi_wait(recv_reqHOPR, status_HOPR, ierr)
 
          mpi_partition % Constructed = .true.
 #endif
@@ -246,7 +234,7 @@ module PartitionedMeshClass
          integer          :: array_of_statuses(MPI_STATUS_SIZE,MPI_Process % nProcs)
          integer          :: send_reqHOPR( MPI_Process % nProcs - 1)
 !
-!        Send the MPI mesh partition to all processes 
+!        Send the MPI mesh partition to all processes
 !        --------------------------------------------
          do domain = 2, MPI_Process % nProcs
 !
@@ -255,7 +243,7 @@ module PartitionedMeshClass
             sizes(1) = mpi_allPartitions(domain) % no_of_nodes
             sizes(2) = mpi_allPartitions(domain) % no_of_elements
             sizes(3) = mpi_allPartitions(domain) % no_of_mpifaces
-            
+
             call mpi_isend(sizes, 3, MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,1), ierr)
          end do
@@ -264,7 +252,7 @@ module PartitionedMeshClass
             call mpi_isend(mpi_allPartitions(domain) % nodeIDs, &
                            mpi_allPartitions(domain) % no_of_nodes, MPI_INT, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,2), ierr)
-   
+
             call mpi_isend(mpi_allPartitions(domain) % elementIDs, &
                            mpi_allPartitions(domain) % no_of_elements, MPI_INT, domain-1, &
                            DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,3), ierr)
@@ -278,27 +266,27 @@ module PartitionedMeshClass
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,5), ierr)
-            
+
             call mpi_isend(mpi_allPartitions(domain) % element_mpifaceSideOther, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
-                           MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &  
+                           MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,6), ierr)
-            
+
             call mpi_isend(mpi_allPartitions(domain) % mpiface_rotation, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,7), ierr)
-                     
+
             call mpi_isend(mpi_allPartitions(domain) % mpiface_elementSide, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
-                           MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &  
+                           MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,8), ierr)
-            
+
             call mpi_isend(mpi_allPartitions(domain) % mpiface_sharedDomain, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
                            send_req(domain-1,9), ierr)
-            
+
             if (meshIsHOPR) then
                call mpi_isend(mpi_allPartitions(domain) % HOPRnodeIDs, &
                            mpi_allPartitions(domain) % no_of_nodes, MPI_INT, domain-1, &
@@ -314,10 +302,10 @@ module PartitionedMeshClass
 !        Wait until all messages have been delivered
 !        -------------------------------------------
          do msg = 1, 9
-            call mpi_waitall(MPI_Process % nProcs - 1, send_req(:,msg), array_of_statuses, ierr) 
+            call mpi_waitall(MPI_Process % nProcs - 1, send_req(:,msg), array_of_statuses, ierr)
          end do
-         if (meshIsHOPR) call mpi_waitall(MPI_Process % nProcs - 1, send_reqHOPR(:), array_of_statuses, ierr) 
-         
+         if (meshIsHOPR) call mpi_waitall(MPI_Process % nProcs - 1, send_reqHOPR(:), array_of_statuses, ierr)
+
 !
 !        Destruct the array containing all partitions (only local copies remain)
 !        -----------------------------------------------------------------------
@@ -348,7 +336,7 @@ module PartitionedMeshClass
 !        -------------------------
          allocate ( this % global2localeID(no_of_allElements) )
          this % global2localeID = 0
-         
+
          if (MPI_Process % doMPIAction) then
             do eID = 1, this % no_of_elements
                this % global2localeID( this % elementIDs(eID) ) = eID
@@ -361,7 +349,7 @@ module PartitionedMeshClass
          this % global2localeIDwith0(0) = 0
          this % global2localeIDwith0(1:no_of_allElements) = this % global2localeID
       end subroutine PartitionedMesh_ConstructGeneralInfo
-      
+
       subroutine PartitionedMesh_Destruct(self)
          implicit none
          class(PartitionedMesh_t) :: self
@@ -385,5 +373,5 @@ module PartitionedMeshClass
          safedeallocate(self % global2localeIDwith0      )
 
       end subroutine PartitionedMesh_Destruct
-   
+
 end module PartitionedMeshClass

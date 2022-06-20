@@ -1,13 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      InterpolationAndDerivatives.f90
-!      Created: 2009-12-15 15:36:24 -0500
-!      By: David Kopriva
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module InterpolationMatrices
    use PolynomialInterpAndDerivsModule

@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    MultigridTypes.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Wed Nov 24 17:19:26 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: 7f2742c299bcc588eb9b0816d9636904de01d3e0
 !
 !//////////////////////////////////////////////////////

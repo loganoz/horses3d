@@ -2,15 +2,6 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      HexElementConnectivityDefinitions.f90
-!      Created: May 7, 2015 at 2:15 PM From DSEM code
-!      By: David Kopriva  
-!
-!!
-!!     Modification History:
-!!        version 0.0  July 18, 2002   Dan Stanescu
-!!        version 0.1  Sept 09, 2002   Dan Stanescu - changed face numbering
-!!        version 0.2  April 22, 2005 David Kopriva - add additional arrays for 
-!!                                                    extra storage as needed.
 !!
 !!     This module defines the connectivity in the master element.
 !
@@ -19,8 +10,6 @@
 !                              FACES_PER_ELEMENT, EDGES_PER_ELEMENT
 !        INTEGER, DIMENSION(4,6)  :: localFaceNode
 !        INTEGER, DIMENSION(2,12) :: localEdgeNode
-!
-!!    @author Dan Stanescu
 !!
 ! /////////////////////////////////////////////////////////////////////
 !

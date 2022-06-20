@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    FASMultigridClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Thu Feb  3 11:36:33 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
 !
 !//////////////////////////////////////////////////////
@@ -1175,7 +1171,7 @@ module FASMultigridClass
       if (lvl > 1 ) then
          DO
             counter = counter + 1
-            call FASVCycle(this,t,lvl,lvl, ComputeTimeDerivative, ComputeTimeDerivativeIsolated) ! FMG is still for STEADY_STATE. TODO: Change that
+            call FASVCycle(this,t,lvl,lvl, ComputeTimeDerivative, ComputeTimeDerivativeIsolated) ! FMG is still for STEADY_STATE.
             maxResidual = ComputeMaxResiduals(this % p_sem % mesh)
             if (maxval(maxResidual) <= tol) exit
          end DO

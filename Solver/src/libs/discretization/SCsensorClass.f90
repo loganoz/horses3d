@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ShockCapturing.f90
-!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
-!   @Created: Thu Jun 17 2021
-!   @Last revision date: Thu Wed 28 2021
-!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SCsensorClass
 
@@ -691,7 +680,6 @@ module SCsensorClass
       real(RP)                             :: mTE
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 
-      ! TODO: ifort does not like associates with OpenMP
       type(DGSem),   pointer :: csem => null()
       type(Element), pointer :: e  => null()
       type(Element), pointer :: ce => null()

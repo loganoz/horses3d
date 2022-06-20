@@ -1,15 +1,10 @@
 !
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 25 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+!   This class represents the general behaviour of the Ffowcs Williams and Hawckings aero acoustic analogy
 !
 !//////////////////////////////////////////////////////
 !
-!This class represents the general behaviour of the Ffowcs Williams and Hawckings aero accoustic analogy
-
 #include "Includes.h"
 Module FWHGeneralClass  !
 
@@ -78,10 +73,9 @@ Module FWHGeneralClass  !
         integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
         logical, save                                       :: FirstCall = .TRUE.
 
-!        look if the accoustic analogy calculations are set to be computed
+!        look if the acoustic analogy calculations are set to be computed
 !        --------------------------------
-        !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
-        if (.not. controlVariables % containsKey("accoustic analogy")) then
+        if (.not. controlVariables % containsKey("acoustic analogy")) then
             self % isActive = .FALSE.
             ! print *, "FWH not activated"
             return
@@ -93,7 +87,7 @@ Module FWHGeneralClass  !
             self % isActive = .FALSE.
             print *, "FWH surface not found, the FWH routines will not deactivated"
             return
-        end if 
+        end if
 
 !       Setup the buffer
 !       ----------------
@@ -107,7 +101,7 @@ Module FWHGeneralClass  !
 !       Get the general configuration of control file
 !       First get the surface as a zone
 !       -------------------------------
-        self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
+        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permable")
 
 !       Get the solution file name
 !       --------------------------
@@ -127,9 +121,7 @@ Module FWHGeneralClass  !
         end if
 
 !       Set interpolate atribute as TRUE by default
-        ! todo: read from constrol variables
         self % interpolate = .TRUE.
-        ! self % interpolate = .FALSE.
 
 !       Initialize observers
 !       --------------------
@@ -139,11 +131,11 @@ Module FWHGeneralClass  !
         do i = 1, self % numberOfObservers
             call self % observers(i) % construct(surfacesMesh % zones(SURFACE_TYPE_FWH) , mesh, i, self % solution_file, FirstCall, &
                                                  self % interpolate, no_of_faces, surfacesMesh % elementSide(:,1))
-        end do 
+        end do
 
         self % bufferLine = 0
         self % firstWrite = .FALSE.
-        
+
         FirstCall = .FALSE.
 
 !        Describe the zones
@@ -153,7 +145,7 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces
-         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", controlVariables % containsKey("accoustic save timestep")
+         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", controlVariables % containsKey("acoustic save timestep")
 
     End Subroutine FWHConstruct
 
@@ -171,7 +163,7 @@ Module FWHGeneralClass  !
 !       Local variables
 !       ---------------
 !
-        integer                                             :: i 
+        integer                                             :: i
         logical                                             :: prolong
 
 !       Check if is activated
@@ -184,7 +176,7 @@ Module FWHGeneralClass  !
             prolong = .not. isFromFile
         else
             prolong = .TRUE.
-        end if 
+        end if
 !
 !       Move to next buffer line
 !       ------------------------
@@ -204,11 +196,11 @@ Module FWHGeneralClass  !
         if (.not. self % firstWrite) then
             do i = 1, self % numberOfObservers
                 call self % observers(i) % update(mesh, self % isSolid, self % bufferLine, self % interpolate)
-            end do 
+            end do
         else
             do i = 1, self % numberOfObservers
                 call self % observers(i) % updateOneStep(mesh, self % bufferLine, self % isSolid, t)
-            end do 
+            end do
         end if
 
     End Subroutine FWHUpate
@@ -230,7 +222,7 @@ Module FWHGeneralClass  !
 !       ---------------
 !       Local variables
 !       ---------------
-        integer                                             :: i 
+        integer                                             :: i
         logical                                             :: forceVal
 
 !       Check if is activated
@@ -243,7 +235,7 @@ Module FWHGeneralClass  !
            forceVal = .false.
         end if
 
-        if ( forceVal ) then 
+        if ( forceVal ) then
 !
 !           In this case the observers are exported to their files and the buffer is reseted
 !           -------------------------------------------------------------------------------
@@ -288,7 +280,7 @@ Module FWHGeneralClass  !
 !       ---------------
 !       Local variables
 !       ---------------
-        integer                                          :: i 
+        integer                                          :: i
 
 !       Check if is activated
 !       ------------------------
@@ -339,7 +331,7 @@ Module FWHGeneralClass  !
 !
 !     Read the whole file to find the observers
 !     ------------------------------------
-readloop:do 
+readloop:do
          read ( fID , '(A)' , iostat = io ) line
 
          if ( io .lt. 0 ) then
@@ -362,18 +354,18 @@ readloop:do
 !           ---------
             line = getSquashedLine( line )
 
-            if ( index ( line , '#defineaccousticobserver' ) .gt. 0 ) then
+            if ( index ( line , '#defineacousticobserver' ) .gt. 0 ) then
                no_of_observers = no_of_observers + 1
 
             end if
-            
+
          end if
 
       end do readloop
 !
 !     Close case file
 !     ---------------
-      close(fID)                             
+      close(fID)
 
     End Function getNoOfObservers
 

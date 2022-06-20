@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    BoundaryConditions.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Apr 18 18:07:28 2018
-!   @Last revision date: Thu Oct 18 16:09:43 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module BoundaryConditions
    use SMConstants

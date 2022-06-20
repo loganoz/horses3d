@@ -1,0 +1,66 @@
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3.mesh"
+Polynomial order      = 3
+Number of time steps  = 400
+Output Interval       = 10
+
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+dcfl                  = 0.3
+mach number           = 0.3
+Reynolds number       = 40.0
+
+AOA theta             = 0.0
+AOA phi               = 90.0
+solution file name    = "RESULTS/Cylinder.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/Cylinder.hsol"
+
+simulation type       = time-accurate
+autosave mode         = "time"
+autosave interval     = 1.d0
+
+riemann solver        = roe
+
+! -------------------------
+! FWH parameteres
+! -------------------------
+acoustic analogy       = "FWH"
+acoustic analogy permable  = .false.
+acoustic solid surface = "[innercylinder]"
+observers flush interval = 350
+acoustic solution save  = .false.
+acoustic save timestep  =  0.01
+
+!-------------------------------------------------------------
+!------ BC --------
+!-------------------------------------------------------------
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+! -------------------------
+! FWH Observers
+! -------------------------
+#define acoustic observer 1
+    name            = os1
+    position        = [0.0, 2.0, 128.0]
+#end
+
+#define acoustic observer 2
+    name            = os2
+    position        = [128.0, 2.0, 0.0]
+#end

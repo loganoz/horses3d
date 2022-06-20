@@ -1,27 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    main.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Tue Mar 12 15:43:34 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 321880e2a7ff1c1a96d33bc8e5d9cc0ccdb4ef05
-!
-!//////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      HORSES3DMain.f90
-!      Created: May 21, 2015 at 12:56 PM 
-!      By: David Kopriva  
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
       PROGRAM HORSES3DMainMU
       
       USE SMConstants
@@ -144,7 +120,7 @@
 !     ----------------------------------
 !     Export particles to VTK (temporal)
 !     ----------------------------------
-!TODO
+!
 !      call sem % particles % ExportToVTK()
 !
 !     ------------------------------------------

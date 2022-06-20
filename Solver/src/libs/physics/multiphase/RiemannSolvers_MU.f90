@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    RiemannSolvers_MU.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Wed Jul 18 10:33:20 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 4977ebc1252872ccf3ec1e535ebb8619da12e2c8
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module RiemannSolvers_MU
    use SMConstants

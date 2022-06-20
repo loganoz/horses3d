@@ -1,15 +1,6 @@
 !
-!   @File:    WallFunctionDefinitions.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Dec 15 2021
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
-!//////////////////////////////////////////////////////
-!
 !This module stores the definitions of the wall fuction and update the default values based on the controlVariables
-
+!
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 Module WallFunctionDefinitions  !
@@ -121,9 +112,6 @@ Module WallFunctionDefinitions  !
 
 
         useAverageV = controlVariables%logicalValueForKey("wall function use average")
-
-        !todo: see if there are negative values and return if thats the case
-            ! write(STD_OUT,'(A)') "Wall function will not be activated"
 
         ! if it arrives here everything has gone well
         correct = .true.
