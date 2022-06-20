@@ -31,35 +31,24 @@ We recommend using recent versions of such compilers (2019 or newer).
 Make is necessary (e.g., Gnu's version, which is included in most linux distributions).
 Post processing can be peformed in tecplot or paraview.
 
-Optional/useful third-party software
-------------------------------------
-
-1. cmake: baseline build method, but make can alternatively be used; see below.
-
-2. (Open) MPI and associated header files: to make optional parallel solvers.
-
-3. Tecplot and/or Paraview, VisIt: for visualisation and some postprocessing.
-
 
 Compiling & Running 
 -----------
 1.- Go to the Solver folder to compile the code
 		$ cd Solver
-2.- Create a build directory
-		$ mkdir build
-3.- Run configure file. This will configure the forders and test cases.
+2.- Run configure file. This will configure the forders and test cases.
 		$ ./configure
-4.- Install (refer to user manual for particular options, within the /doc folder)
+3.- Install (refer to user manual for particular options, within the /doc folder)
 		$ make clean
-		$ make install
-5.- Run the solver for the parameter file file.control (see manual in the /doc folder)
+		$ make 
+4.- Run the solver for the parameter file file.control (see manual in the /doc folder)
 		$ ./horses3d.ns file.control
-6.-Test cases for various physics are provided in the folder /test
+5.-Test cases for various physics are provided in the folder /test
 -----------
 Additional libraries:
-7.-If you need to use HDF5, remember to set the paths
+6.-If you need to use HDF5, remember to set the paths
 		$ export HDF5_ROOT=path_to_hdf5
 		$ export HDF5_DIR=$HDF5_ROOT
-8.-If you need to use PETSc, remember to set the paths
+7.-If you need to use PETSc, remember to set the paths
 		$ export PETSC_DIR=path_to_petsc
 
