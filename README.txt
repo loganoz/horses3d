@@ -2,8 +2,8 @@
 #                                                                              #
 #            HORSES3D High-Order (DG) Spectral Element Solver                  #
 #                                                                              #                                                                             
-#							   MIT License									   #
-#		  Copyright (c) 2021 NUMATH https://numath.dmae.upm.es                 #
+#                             MIT License                                      #
+#         Copyright (c) 2021 NUMATH https://numath.dmae.upm.es                 #
 ################################################################################
 
 Synopsis
@@ -35,35 +35,35 @@ Post processing can be peformed in tecplot or paraview.
 Compiling & Running 
 -----------
 1.- Go to the Solver folder to compile the code
-		$ cd Solver
+        $ cd Solver
 2.- Run configure file. This will configure the forders and test cases.
-		$ ./configure
+        $ ./configure
 3.- Install using the Make file (refer to user manual for particular options, within the /doc folder)
-		$ make clean
-		$ make all <<Options>>
+        $ make clean
+        $ make all <<Options>>
 
 	with the desired options:
-		 MODE=DEBUG/RELEASE
-		 COMPILER=ifort/gfortran
-		 COMM=PARALLEL/SEQUENTIAL
-		 PLATFORM=MACOSX/LINUX
-		 ENABLE THREADS=NO/YES
-		 WITH MKL=y/n
-	For example:
-		$ make all COMPILER=ifort COMM=PARALLEL
+         MODE=DEBUG/RELEASE
+         COMPILER=ifort/gfortran
+         COMM=PARALLEL/SEQUENTIAL
+         PLATFORM=MACOSX/LINUX
+         ENABLE THREADS=NO/YES
+         WITH MKL=y/n
+    For example:
+         $ make all COMPILER=ifort COMM=PARALLEL
 
 4.- Run the solver for the parameter file file.control (see manual in the /doc folder)
-		$ ./horses3d.ns file.control
+        $ ./horses3d.ns file.control
 5.-Test cases for various physics are provided in the folder /test
 
 
 -----------
 Additional libraries:
 6.-If you need to use HDF5, remember to set the paths
-		$ export HDF5_ROOT=path_to_hdf5
-		$ export HDF5_DIR=$HDF5_ROOT
+        $ export HDF5_ROOT=path_to_hdf5
+        $ export HDF5_DIR=$HDF5_ROOT
 7.-If you need to use PETSc, remember to set the path
-		$ export PETSC_DIR=path_to_petsc
+        $ export PETSC_DIR=path_to_petsc
 8.-If you need to use METIS, remember to set the path
-		$ export METIS_HOME=path_to_metis
+        $ export METIS_HOME=path_to_metis
 
