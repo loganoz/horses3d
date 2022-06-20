@@ -29,7 +29,7 @@ Compilers and third-party software
 HORSES3D is an object-oriente Fortran 2008 solver, that can be compiled using gcc and intel compiler, in Unix-based operating systems.
 We recommend using recent versions of such compilers (2019 or newer).
 Make is necessary (e.g., Gnu's version, which is included in most linux distributions).
-
+Post processing can be peformed in tecplot or paraview.
 
 Optional/useful third-party software
 ------------------------------------
