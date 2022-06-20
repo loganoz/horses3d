@@ -34,30 +34,31 @@
          
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSSAKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME      ="rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME="lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME        ="u-diss"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME        ="central"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME            ="roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME        ="rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME  ="lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ESLAXFRIEDRICHS_SOLVER_NAME="es lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME         ="standard roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME        ="roe-pike"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME     ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME     ="matrix dissipation"
 
          !PARTICLES 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box" 
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesPerParcelKey    = "particles per parcel"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: sourceTermKey            = "high order particles source term"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_FILE_KEY            = "particles file"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_FILE_KEY        = "vel and temp from file"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_INJ_KEY         = "injection"         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_INJ_KEY         = "injection"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_INJ_KEY             = "particles injection"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_NUMB_PER_STEP_KEY   = "particles per step"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_PERIOD_KEY          = "particles iter period"
@@ -86,7 +87,7 @@
      public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
      public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
      public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS, RIEMANN_UDISS
+     public    RIEMANN_MATRIXDISS
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    CHANDRASEKAR_SPLIT
@@ -141,8 +142,7 @@
      enum, bind(C)
         enumerator :: RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV
         enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
-        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
-        enumerator :: RIEMANN_UDISS
+        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_MATRIXDISS
      end enum
      integer, protected :: whichRiemannSolver = -1
 !
@@ -460,11 +460,6 @@
          case(MATRIXDISS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_MATRIXDISS
 
-         case(VISCOUSNS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_VISCOUSNS
-
-         case(UDISS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_UDISS
             
          case default 
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
@@ -477,8 +472,6 @@
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
             print*, "   * Matrix dissipation"
-            print*, "   * Viscous NS"
-            print*, "   * u-diss"
             errorMessage(STD_OUT)
             stop
          end select 

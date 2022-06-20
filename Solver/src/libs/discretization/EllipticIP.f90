@@ -83,6 +83,10 @@ module EllipticIP
             self % eqName = ELLIPTIC_NS
             self % PenaltyParameter => PenaltyParameterNS
 
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
+            self % PenaltyParameter => PenaltyParameterNS
+
          case(ELLIPTIC_iNS)
             self % eqName = ELLIPTIC_iNS
             self % PenaltyParameter => PenaltyParameterNS

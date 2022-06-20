@@ -325,7 +325,6 @@
 
          ! with Pr = constant, dmudx = dkappadx
       end subroutine ViscousFlux_STATE
-
       
       pure subroutine ViscousFlux_ENTROPY(nEqn, nGradEqn, Q, Q_x, Q_y, Q_z, mu, beta, kappa, F)
          implicit none
