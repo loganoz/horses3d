@@ -24,10 +24,21 @@ External libraries
 The following external routines/libraries can be used with HORSES3D, but are not necessary: METIS, MPI, HDF5, MKL, PETSc.
 
 
-Compilers
+Compilers and third-party software
 -----------
-HORSES3D is an object-oriente Fortran 2008 solver, that can be compiled using gcc and intel compiler. 
+HORSES3D is an object-oriente Fortran 2008 solver, that can be compiled using gcc and intel compiler, in Unix-based operating systems.
 We recommend using recent versions of such compilers (2019 or newer).
+Make is necessary (e.g., Gnu's version, which is included in most linux distributions).
+
+
+Optional/useful third-party software
+------------------------------------
+
+1. cmake: baseline build method, but make can alternatively be used; see below.
+
+2. (Open) MPI and associated header files: to make optional parallel solvers.
+
+3. Tecplot and/or Paraview, VisIt: for visualisation and some postprocessing.
 
 
 Compiling & Running 
