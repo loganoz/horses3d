@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    Physics_MU.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Wed Aug  1 15:48:18 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 !  **************
    module Physics_MU
@@ -172,18 +161,9 @@
 !     ---------------
 !
       REAL(KIND=Rp) :: u, v, w, p, a
-print*, "Get eigenvalues!!"
+print*, "Compute eigenvalues for state not implemented in MU"
 errorMessage(STD_OUT)
 stop
-!      
-!      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
-!      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )
-!      w = ABS( Q(IMSQRHOW)/Q(IMSQRHO) )
-!      a = sqrt(u*u+v*v+w*w + 4.0_RP * thermodynamics % rho0c02/Q(IMSQRHO))
-      
-!      eigen(1) = 0.5_RP * (u + a)
-!      eigen(2) = 0.5_RP * (v + a)
-!      eigen(3) = 0.5_RP * (w + a)
        eigen = 0.0_RP
       
       END SUBROUTINE ComputeEigenvaluesForState

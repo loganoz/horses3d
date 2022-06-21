@@ -1,16 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Stopwatch.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Oct 25 13:36:18 2017
-!   @Last revision date: Mon Jan 28 12:16:34 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: b9918cac4908927d56ed9cc3534d32bab72b264a
-!
-!//////////////////////////////////////////////////////
-!
-!
 !///////////////////////////////////////////////////////////////////////////
 !
 !     This class is a stopwatch to measure computation times. It handles 

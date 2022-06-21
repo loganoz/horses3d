@@ -1,19 +1,10 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File: NumericalJacobian.f90
-!   @Author: Andrés Rueda (am.rueda@upm.es) 
-!   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Thu Mar 24 17:00:46 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 083a15731d760f8d57a800a12d04211fb5fb6396
-
-!
-!//////////////////////////////////////////////////////
-!
 !      Routines for computing the Jacobian matrix numerically using the colorings technique
-!  ! TODO1: Implement as a class with a destructor to prevent memory leaking
+!
 !////////////////////////////////////////////////////////////////////////
+!
 module NumericalJacobian
    use SMConstants
    use MatrixClass
@@ -36,31 +27,30 @@ module NumericalJacobian
    use mpi
 #endif
    implicit none
-   
+
    private
    public NumJacobian_t, GetRowsAndColsVector
-   
+
 !
 !  *************************************************
 !  Main type for the numerical Jacobian computations
 !  *************************************************
    type, extends(JacobianComputer_t) :: NumJacobian_t
-      
+
       contains
          procedure :: Construct           => NumJacobian_Construct
          procedure :: AssignColToJacobian => NumJacobian_AssignColToJacobian
          procedure :: Compute   => NumJacobian_Compute
    end type NumJacobian_t
-   
+
 !
 !  Module variables
-!  -> TODO: They will have to be moved to the class definition or to other types in the future
 !  *******************
    type(Neighbor_t), allocatable :: nbr(:)  ! Neighbors information
    type(Neighbor_t), allocatable :: nbr_g(:)  ! Global neighbors array
    type(Colors_t)               :: ecolors
    type(Colors_t)               :: ecolors_g
-   integer        , allocatable :: used(:)                  ! array containing index of elements whose contributions to Jacobian has already been considered (TODO: replace with integer linked list)
+   integer        , allocatable :: used(:)                  ! array containing index of elements whose contributions to Jacobian has already been considered
    integer                      :: usedctr                  ! counter to fill positions of used
    integer                      :: num_of_neighbor_levels   ! Number of neighboring levels that affect one element's column of the Jacobian
    integer                      :: max_num_of_neighbors     ! Maximum number of neighboring elements that affect one element's column of the Jacobian
@@ -77,18 +67,16 @@ contains
       integer              , intent(in)    :: nEqn
       type(FTValueDictionary)  , intent(in)  :: controlVariables
       !---------------------------------------------------
-      
+
 !
 !     Construct parent
 !     ----------------
       call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
 
       call SetNoNeighbours(this, controlVariables)
-      
+
       call Stopwatch % CreateNewEvent("Numerical Jacobian construction")
-      
-      ! Big TODO: Move everything that is inside "if (isfirst)" to here!!
-      
+
    end subroutine NumJacobian_Construct
 
 !
@@ -110,21 +98,21 @@ contains
       integer                                            :: nelm
       integer                                            :: thiscolor, thiselmidx, thiselm         ! specific counters
       integer                                            :: thisdof                           ! specific counters
-      integer                                            :: ielm, felm                      
+      integer                                            :: ielm, felm
       integer, save                                      :: nnz, totalnnz
       integer                           , save           :: maxndofel
       integer, allocatable, dimension(:), save           :: Nx, Ny, Nz                             ! Polynomial orders
-      integer, allocatable, dimension(:), save           :: ndofcol                                ! Maximum number of degrees of freedom in each color        
+      integer, allocatable, dimension(:), save           :: ndofcol                                ! Maximum number of degrees of freedom in each color
       integer, allocatable                               :: cols(:)
       integer, allocatable                               :: rows(:)
       integer, allocatable                               :: diag(:)
       real(kind=RP), allocatable, save                   :: Q0(:)
       real(kind=RP), allocatable, save                   :: QDot0(:)
-      
+
       integer :: i, j, ii, jj, kk, eID ! General counters
       integer, dimension(4)                              :: ijkl                                   ! Indexes to locate certain degree of freedom i,j,k...l:equation number
       real(kind=RP), save                                :: eps                                    ! Perturbation magnitude
-      
+
       logical, save                                      :: isfirst = .TRUE.
 #if (!defined(NAVIERSTOKES))
       logical                                            :: computeGradients = .true.
@@ -137,14 +125,14 @@ contains
       type(TProgressBar) :: progress_bar
       integer, allocatable, dimension(:) :: el_reordering, el_reordering_idx
       !-------------------------------------------------------------------
-      
+
       if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
 !
 !     --------------------------------------------------------------------
 !     Initialize variables that will be used throughout all the simulation
 !     --------------------------------------------------------------------
 !
-      
+
       call Stopwatch % Start("Numerical Jacobian construction")
 
 #ifdef _HAS_MPI_
@@ -153,7 +141,7 @@ contains
       withMPI = .false.
 #endif
 
-      if (.NOT. isfirst) then 
+      if (.NOT. isfirst) then
          deallocate(nbr)
          deallocate(Nx)
          deallocate(Ny)
@@ -222,22 +210,22 @@ contains
 !     Assemble colors
 !     ---------------
 
-      call ecolors % construct(nbr_g, num_of_neighbor_levels)       
+      call ecolors % construct(nbr_g, num_of_neighbor_levels)
 !
 !     Allocate storage
 !     ----------------
       allocate(Nx(nelm), Ny(nelm), Nz(nelm))
-      
+
       do i = 1, nelm
          Nx(i) = sem % mesh % elements(i) % Nxyz(1)
          Ny(i) = sem % mesh % elements(i) % Nxyz(2)
          Nz(i) = sem % mesh % elements(i) % Nxyz(3)
-      end do         
+      end do
 
-      maxndofel = MAXVAL(this % ndofelm)                                             ! TODO: if there's p-adaptation, this value has to be recomputed         
+      maxndofel = MAXVAL(this % ndofelm)
 !
 !     ---------------------------------------------------------------------------------
-!     Get the maximum number of neighbors ["of neighbors" * (num_of_neighbor_levels-1)] 
+!     Get the maximum number of neighbors ["of neighbors" * (num_of_neighbor_levels-1)]
 !     that are needed for the Jacobian computation (mesh dependent)
 !     ---------------------------------------------------------------------------------
 !
@@ -247,7 +235,7 @@ contains
             max_num_of_neighbors = max (getNumOfNeighbors (i, num_of_neighbor_levels), max_num_of_neighbors)
          end do
       end if
-      
+
 !
 !     ---------------------------------------------------------------
 !     Allocate the used array that will contain the information about
@@ -259,8 +247,8 @@ contains
       allocate ( used(max_num_of_neighbors+1) )
 !
 !     -------------------------------------------------------------------------
-!     Set max number of nonzero values expected in a row of the Jacobian matrix    TODO: if there's p-adaptation, this has to be recomputed
-!           Assumes Legendre-Gauss quadrature and neglects zero values in each 
+!     Set max number of nonzero values expected in a row of the Jacobian matrix
+!           Assumes Legendre-Gauss quadrature and neglects zero values in each
 !              block (taken into account later when assembling)
 !           For Legendre-Gauss-Lobatto much less entries are expected (a node on the
 !              interface has more cols than an interior node)
@@ -270,13 +258,13 @@ contains
       nnz = maxndofel * max_num_of_neighbors
 !
 !     --------------------------------------------------------------
-!     Compute the maximum number of degrees of freedom in each color               TODO: if there's p-adaptation, this has to be recomputed
+!     Compute the maximum number of degrees of freedom in each color
 !     --------------------------------------------------------------
-!    
+!
       allocate(ndofcol(ecolors % num_of_colors))
       ndofcol = 0
       DO thiscolor = 1 , ecolors % num_of_colors
-         ielm = ecolors%bounds(thiscolor)             
+         ielm = ecolors%bounds(thiscolor)
          felm = ecolors%bounds(thiscolor+1)
          DO thiselmidx = ielm, felm-1              !perturbs a dof in all elements within current color
             thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
@@ -284,10 +272,10 @@ contains
             if (thiselm .gt. 0) ndofcol(thiscolor) = MAX(ndofcol(thiscolor),this % ndofelm(thiselm))
          END DO
       END DO
-      
+
       allocate(QDot0(size(sem % mesh % storage % QDot)))
       allocate(Q0   (size(sem % mesh % storage % QDot)))
-      
+
       ! All initializations done!
       isfirst = .FALSE.
 !
@@ -318,18 +306,16 @@ contains
             type is(SparseBlockDiagMatrix_t)
                call Matrix_p % Preallocate(nnzs=this % ndofelm_l) ! Constructing with block size
             type is(CSRMat_t)
-!~                call GetRowsAndColsVector(sem, nbr, nEqn, Matrix_p % num_of_Rows, totalnnz, this % firstIdx, rows, cols, diag)
-!~                call Matrix_p % PreAllocateWithStructure(totalnnz, rows, cols, diag) 
                call Matrix_p % Preallocate()
             class default ! Construct with nonzeros in each row
                call Matrix_p % Preallocate(nnz)
          end select
-         
+
          call Matrix % SpecifyBlockInfo(this % firstIdx,this % ndofelm)
       end if
-      
+
       call Matrix % Reset(ForceDiagonal = .TRUE.)
-      
+
 #if defined(CAHNHILLIARD)
       CALL TimeDerivative( sem % mesh, sem % particles, time, mode)
 #else
@@ -364,7 +350,7 @@ contains
 #if defined(CAHNHILLIARD)
       call sem % mesh % SetStorageToEqn(C_BC)
 #endif
-      
+
       call sem % mesh % storage % local2GlobalQdot (sem % NDOF)
       call sem % mesh % storage % local2GlobalQ    (sem % NDOF)
       QDot0 = sem % mesh % storage % QDot
@@ -392,7 +378,7 @@ contains
             if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
 
             ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
-            felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
+            felm = ecolors%bounds(thiscolor+1)           ! Final element of the color!
 
 !           Iterate through the DOFs in thiscolor
 !              ( Computes one column for each dof within an elment )
@@ -401,7 +387,7 @@ contains
 
 !              Perturb the current degree of freedom in all elements within current color
 !              --------------------------------------------------------------------------
-               do thiselmidx = ielm, felm-1              
+               do thiselmidx = ielm, felm-1
                   thiselm_g = ecolors%elmnts(thiselmidx) ! global eID
                   thiselm = mpi_partition % global2localeID(thiselm_g) ! local eID
 
@@ -410,11 +396,11 @@ contains
 
                      ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
                      sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                         sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+                                                         sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps
 
                   end if
-               end do ! thiselmidx = ielm, felm-1 
-!  
+               end do ! thiselmidx = ielm, felm-1
+!
 !              Compute the time derivative
 !              ---------------------------
 #if defined(CAHNHILLIARD)
@@ -448,7 +434,7 @@ contains
                call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
                sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
                call sem % mesh % storage % global2LocalQdot
-               
+
    !
    !           Add the contributions to the Jacobian
    !           -------------------------------------
@@ -460,19 +446,19 @@ contains
 
                      IF (this % ndofelm(thiselm)<thisdof) CYCLE
 
-                     pbuffer(1:this % ndofelm(thiselm)) => sem % mesh % storage % elements(thiselm) % QDot 
+                     pbuffer(1:this % ndofelm(thiselm)) => sem % mesh % storage % elements(thiselm) % QDot
 
                      do j=1, this % ndofelm(thiselm)
                         call Matrix % AddToBlockEntry (sem % mesh % elements(thiselm) % GlobID, sem % mesh % elements(thiselm) % GlobID, &
                            j, thisdof, pbuffer(j) )
                      end do
-                     
+
                   end if
 
-               end do ! thiselmidx = ielm, felm-1      
+               end do ! thiselmidx = ielm, felm-1
    !
-   !           Restore original values for Q (TODO: this can be improved)
-   !           ----------------------------------------------------------
+   !           Restore original values for Q
+   !           -----------------------------
                sem % mesh % storage % Q = Q0
                call sem % mesh % storage % global2LocalQ
 
@@ -488,22 +474,22 @@ contains
          if (this % verbose) write(STD_OUT,'(10X,A,1I6,A,1I6,A)') "Numerical Jacobian computing ", thiscolor , " out of ", ecolors % num_of_colors, " colors."
          ielm = ecolors%bounds(thiscolor)             ! Initial element of the color
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
-!         
+!
 !        Iterate through the DOFs in thiscolor
 !           ( Computes one column for each dof within an elment )
 !        ********************************************************
          do thisdof = 1, ndofcol(thiscolor)
-            
+
 !           Perturb the current degree of freedom in all elements within current color
 !           --------------------------------------------------------------------------
-            DO thiselmidx = ielm, felm-1              
+            DO thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
                IF (this % ndofelm(thiselm)<thisdof) CYCLE    ! Do nothing if the DOF exceeds the NDOF of thiselm
-               
+
                ijkl = local2ijk(thisdof,nEqn,Nx(thiselm),Ny(thiselm),Nz(thiselm))
-               
+
                sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) = &
-                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps 
+                                                   sem%mesh%elements(thiselm)% storage % Q(ijkl(1),ijkl(2),ijkl(3),ijkl(4)) + eps
             ENDDO
 !
 !           Compute the time derivative
@@ -539,7 +525,7 @@ contains
             call sem % mesh % storage % local2GlobalQdot (sem %NDOF)
             sem % mesh % storage % QDot = (sem % mesh % storage % QDot - QDot0) / eps
             call sem % mesh % storage % global2LocalQdot
-            
+
 !
 !           Add the contributions to the Jacobian
 !           -------------------------------------
@@ -549,13 +535,13 @@ contains
                ! Redifine used array and counter
                used    = 0
                usedctr = 1
-               
+
                call this % AssignColToJacobian(Matrix, sem % mesh, thiselm, thiselm, thisdof, num_of_neighbor_levels)
-               
-            END DO           
+
+            END DO
 !
-!           Restore original values for Q (TODO: this can be improved)
-!           ----------------------------------------------------------
+!           Restore original values for Q
+!           -----------------------------
             sem % mesh % storage % Q = Q0
             call sem % mesh % storage % global2LocalQ
          ENDDO
@@ -564,9 +550,9 @@ contains
       end if ! MPI
 
       CALL Matrix % Assembly()                             ! Matrix A needs to be assembled before being used
-      
+
       call Stopwatch % Pause("Numerical Jacobian construction")
-      
+
       IF (this % verbose) PRINT*, "Numerical Jacobian construction: ", Stopwatch % lastElapsedTime("Numerical Jacobian construction"), "seconds"
 
 !
@@ -577,7 +563,7 @@ contains
 #if defined(FLOW) && defined(CAHNHILLIARD)
       call sem % mesh % SetStorageToEqn(NS_BC)
 #endif
-      
+
       ! call Matrix % Visualize('Jacobian.txt')
       ! error stop "TBC"
    end subroutine NumJacobian_Compute
@@ -585,7 +571,7 @@ contains
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -------------------------------------------------------------------------------------------------------
-!  Assign to Jacobian the column that corresponds to the element "eID" and the degree of freedom "thisdof" 
+!  Assign to Jacobian the column that corresponds to the element "eID" and the degree of freedom "thisdof"
 !  taking into account the contribution of the neighbors [(depth-1) * "of neighbors"]
 !  -------------------------------------------------------------------------------------------------------
    recursive subroutine NumJacobian_AssignColToJacobian(this, Matrix, mesh, eID, eIDn, thisdof, depth)
@@ -594,7 +580,7 @@ contains
       class(NumJacobian_t)           , intent(inout) :: this
       class(Matrix_t)                , intent(inout) :: Matrix  !<> Jacobian Matrix
       type(HexMesh)                  , intent(in)    :: mesh
-      integer                        , intent(in)    :: eID     !<  Element ID 
+      integer                        , intent(in)    :: eID     !<  Element ID
       integer                        , intent(in)    :: eIDn    !<  ID of the element, whose neighbors' contributions are added
       integer                        , intent(in)    :: thisdof !<  Current degree of freedom
       integer                        , intent(in)    :: depth   !<  Amount of neighbors to visit
@@ -604,31 +590,31 @@ contains
       integer :: ndof                      ! Number of degrees of freedom of element
       real(kind=RP), pointer :: pbuffer(:) ! Buffer to point to an element's Qdot
       !-------------------------------------------------
-      
+
       if ( (eID  == 0) .or. (eIDn == 0) ) return
 
 !
 !     Go through all the neighbors
 !     ----------------------------
       do i = 1, size(nbr(eIDn) % elmnt)
-         elmnbr = nbr(eIDn) % elmnt(i) 
-      
+         elmnbr = nbr(eIDn) % elmnt(i)
+
          if (.NOT. any(used == elmnbr)) THEN
             ndof   = this % ndofelm(elmnbr)
             pbuffer(1:ndof) => mesh % storage % elements(elmnbr) % QDot  !maps Qdot array into a 1D pointer
-            
+
             do j=1, this % ndofelm(elmnbr)
                call Matrix % AddToBlockEntry (mesh % elements(elmnbr) % GlobID, mesh % elements(eID) % GlobID, j, thisdof, pbuffer(j) )
             end do
-            
+
             used(usedctr) = elmnbr
             usedctr = usedctr + 1
          end if
-         
+
          if (depth > 1) call this % AssignColToJacobian(Matrix, mesh, eID, elmnbr, thisdof, depth-1)
-         
+
       end do
-      
+
    end subroutine NumJacobian_AssignColToJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -639,60 +625,60 @@ contains
    function getNumOfNeighbors (eID, depth) result(num)
       implicit none
       !-arguments---------------------------------------
-      integer                      , intent(in)              :: eID     !<  Element ID 
+      integer                      , intent(in)              :: eID     !<  Element ID
       integer                      , intent(in)              :: depth   !<  Amount of neighbors to visit
       integer           :: num
       !-local-variables---------------------------------
       type(IntegerDataLinkedList_t) :: neighborsList
       !-------------------------------------------------
-      
+
       num = 0
-      if (eID == 0) return 
-      
+      if (eID == 0) return
+
 !
 !     Create list of already counted elements
 !     ---------------------------------------
       neighborsList = IntegerDataLinkedList_t(.FALSE.)
-      
+
 !
 !     Add neighbors to list
 !     ---------------------
       call addNeighborsToList(eID,depth,neighborsList)
       num = neighborsList % no_of_entries
-      
+
 !
 !     destruct list of already counted elements
 !     -----------------------------------------
       call neighborsList % destruct
-      
+
    end function getNumOfNeighbors
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!   
+!
    recursive subroutine addNeighborsToList(eID, depth, neighborsList)
       implicit none
       !-arguments---------------------------------------
-      integer                      , intent(in)    :: eID     !<  Element ID 
+      integer                      , intent(in)    :: eID     !<  Element ID
       integer                      , intent(in)    :: depth   !<  Amount of neighbors to visit
       type(IntegerDataLinkedList_t), intent(inout) :: neighborsList
       !-local-variables---------------------------------
       integer :: elmnbr                    ! Neighbor element index
       integer :: i                         ! Counter
       !-------------------------------------------------
-      
+
       do i = 1, NUM_OF_NEIGHBORS + 1
          elmnbr = nbr(eID) % elmnt(i)
-         
+
          if (elmnbr == 0) cycle
-            
+
          call neighborsList % add(elmnbr)
          if (depth > 1) call addNeighborsToList (elmnbr, depth - 1, neighborsList)
-         
+
       end do
    end subroutine addNeighborsToList
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!   
+!
 !  ! To be deprecated(?)
    subroutine GetRowsAndColsVector(sem, nbr, nEqn, nRows, nnz, firstIdx, rows, cols, diag)
       implicit none
@@ -714,14 +700,12 @@ contains
       integer                 :: pos_i, pos_j
       integer                 :: lb, ub
       integer, dimension(26)  :: neighbours
-  
+
 !
 !     *********************
-!     First loop to get nnz: TODO could I already set rows here?
+!     First loop to get nnz
 !     *********************
 !
-!!$omp parallel private(counter, neighbours, i, j)
-!!$omp do reduction(+:nnz)
       nnz = 0
       do eID = 1, sem % mesh % no_of_elements
          associate(e => sem % mesh % elements(eID))
@@ -737,7 +721,7 @@ contains
                if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle
 
                if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then
-                  counter = counter + 1 
+                  counter = counter + 1
                   neighbours(counter) = nbr(nbr(eID) % elmnt(i)) % elmnt(j)
                end if
             end do
@@ -750,8 +734,6 @@ contains
          end do
          end associate
       end do
-!!$omp end do
-!!$omp end parallel
       allocate(rows(1:nRows+1))
       allocate(cols(1:nnz))
       allocate(diag(1:nRows))
@@ -775,7 +757,7 @@ contains
                if (nbr(nbr(eID) % elmnt(i)) % elmnt(j) .le. 0) cycle  ! For only neighbors comment this
 
                if ( .not. any(neighbours .eq. nbr(nbr(eID) % elmnt(i)) % elmnt(j)) ) then ! For neighbors change by if ( .not. any(neighbours .eq. nbr(eID) % elmnt(i)) ) then
-                  counter = counter + 1 
+                  counter = counter + 1
                   neighbours(counter) = nbr(eID) % elmnt(i)                               ! For neighbors change by neighbours(counter) = nbr(eID) % elmnt(i)
                end if
             end do                                                    ! For only neighbors comment this
@@ -786,21 +768,21 @@ contains
 
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) ; do ieq = 1, nEqn
             rows(pos_i) = csr_pos
-            pos_i = pos_i + 1 
+            pos_i = pos_i + 1
             do nID = 1, counter
                associate(neigh => sem % mesh % elements(neighbours(nID)))
 
                pos_j = firstIdx(neighbours(nID))
 
                do kk = 0, neigh % Nxyz(3) ; do jj = 0, neigh % Nxyz(2) ; do ii = 0, neigh % Nxyz(1) ; do iieq = 1, nEqn
-                    
+
                   cols(csr_pos) = pos_j
 
                   pos_j = pos_j + 1
-                  csr_pos = csr_pos + 1 
+                  csr_pos = csr_pos + 1
                end do                  ; end do                ; end do                 ; end do
                end associate
-            end do   
+            end do
          end do                ; end do                ; end do                ; end do
 
          end associate
@@ -850,13 +832,13 @@ contains
                num_of_neighbor_levels = 1
             case('IP')
                num_of_neighbor_levels = 1
-            case default 
+            case default
                if (MPI_Process % isRoot) ERROR STOP 'JacobianComputerClass :: Viscous discretization not recognized.'
             end select
          else
             if (MPI_Process % isRoot) write(STD_OUT,*) 'JacobianComputerClass :: Viscous discretization not defined. Jacobian assumes BR1.'
             num_of_neighbor_levels = 2
-         end if 
+         end if
       else
          num_of_neighbor_levels = 1
       end if

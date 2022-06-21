@@ -1,3 +1,4 @@
+!
 #if defined(NAVIERSTOKES)
 MODULE WallFunctionBC
 
@@ -58,7 +59,6 @@ MODULE WallFunctionBC
       REAL(kind=RP), DIMENSION(NDIM) :: u_parallel_aux     ! Velocity parallel to wall auxiliar, is the instantaneus when the average is used
       REAL(kind=RP)                  :: u_II               ! Velocity magnitude parallel to wall, used in Wall Function
       REAL(kind=RP)                  :: tau_w              ! Wall shear stress
-      REAL(kind=RP)                  :: beta               ! damping factor from Thomas et. al
 
       if (useAverageV) then
           U_ref = U_avg
@@ -72,15 +72,11 @@ MODULE WallFunctionBC
 
       ! Wall model only modifies momentum viscous fluxes. 
       call wall_shear(u_II, dWall, rho, mu, tau_w, u_tau)
-      ! visc_flux(IRHOU:IRHOW) = - tau_w_f (u_II,dWall,rho,mu) * x_II 
       if (useAverageV) then
           u_parallel_aux = U_inst - (dot_product(U_inst, nHat) * nHat)
           x_II = u_parallel_aux / u_II !schuman, the direction scales with the instantaneus values
-          ! beta = 0.3_RP ! thomas arbitrary value. If set to 0.0_RP, the schuman eq is recovered
-          ! x_II = (beta * u_parallel_aux + (1-beta) * u_parallel) / u_II ! thomas, the direction scales with both the instantaneus and the mean
       end if 
       visc_flux(IRHOU:IRHOW) = - tau_w * x_II 
-      ! print *, "visc_flux: ", visc_flux
 
    END SUBROUTINE 
 !   
@@ -151,10 +147,9 @@ MODULE WallFunctionBC
       ! The damped Newton method is used. 
 
       ! Initial seed for Newton method
-      u_tau = u_tau0
-
-      ! Iterate in Newton's method until convergence criteria is met
-
+      
+      u_tau = u_tau0          
+      
       DO i = 1, newtonMaxIter
 
          ! Evaluate auxiliar function at u_tau
@@ -180,7 +175,8 @@ MODULE WallFunctionBC
               ( ABS ( Aux_x0 )                         < newtonTol ) ) THEN
 
             ! Asign output value to u_tau   
-            u_tau_f = u_tau_next  
+            u_tau_f = u_tau_next 
+            
             RETURN
 
          END IF
@@ -189,7 +185,7 @@ MODULE WallFunctionBC
          u_tau = u_tau_next
 
       END DO
- 
+      
       STOP "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 

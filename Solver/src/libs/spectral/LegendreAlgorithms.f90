@@ -1,13 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!   @File:    LegendreAlgorithms.f90
-!   @Author:  David Kopriva
-!   @Created: Created: 2009-12-08 13:47:42 -0500 
-!   @Last revision date: Wed Jun  2 18:14:23 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 28e347f1c2e07ee09992b923a6ed72dacfe9ffb9
-!
 !      Contains:
 !            ALGORITHM 20: FUNCTION LegendrePolynomial( N, x ) RESULT(L_N)
 !            ALGORITHM 22: SUBROUTINE LegendrePolyAndDerivative( N, x, L_N, LPrime_N )
@@ -52,7 +45,7 @@
 !
       INTEGER       :: k
       REAL(KIND=RP) :: L_NM1, L_NM2
-      
+
       IF( N == 0 )     THEN
          L_N      = 1.0_rp
       ELSE IF ( N == 1 )     THEN
@@ -66,7 +59,7 @@
             L_NM1      = L_N
          END DO
       END IF
-      
+
       END FUNCTION LegendrePolynomial
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -74,7 +67,7 @@
       MODULE GaussQuadrature
       USE SMConstants
       IMPLICIT NONE
-      
+
       PUBLIC  :: GaussLegendreNodesAndWeights, LegendreLobattoNodesAndWeights
       PUBLIC  :: LegendrePolyAndDerivative
       PRIVATE :: qAndLEvaluation
@@ -108,7 +101,7 @@
 !
       INTEGER       :: k
       REAL(KIND=RP) :: L_NM1, L_NM2, LPrime_NM2, LPrime_NM1
-      
+
       IF( N == 0 )     THEN
          L_N      = 1.0_rp
          LPrime_N = 0.0_rp
@@ -129,7 +122,7 @@
             LPrime_NM1 = LPrime_N
          END DO
       END IF
-      
+
       END SUBROUTINE LegendrePolyAndDerivative
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -164,7 +157,7 @@
 !
       INTEGER, PARAMETER       :: noNewtonIterations = 10
       REAL(KIND=RP), PARAMETER :: toleranceFactor    = 4.0_RP
-      
+
       tolerance = toleranceFactor*EPSILON(L_NP1)
       IF( N == 0 )     THEN
          x(0) = 0.0_RP
@@ -207,7 +200,7 @@
          x(N/2) = 0.0_RP
          w(N/2) = 2.0_RP/LPrime_NP1**2
       END IF
-      
+
       END SUBROUTINE GaussLegendreNodesAndWeights
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -237,7 +230,7 @@
 !
       INTEGER       :: k
       REAL(KIND=RP) :: L_kM1, L_kM2, LPrime_kM2, LPrime_kM1, L_k, LPrime_k
-      
+
       IF( N == 0 )     THEN       !Should never be called
          L_N      = 1.0_rp
          Q = HUGE(Q)
@@ -262,12 +255,12 @@
          k = N+1
          L_k        = ((2*k-1)*x*L_kM1 - (k-1)*L_kM2)/k
          LPrime_k   = LPrime_kM2 + (2*k-1)*L_kM1
-         
+
          Q = L_k - L_kM2
          Q_prime = LPrime_k - LPrime_kM2
          L_N = L_kM1
       END IF
-      
+
       END SUBROUTINE qAndLEvaluation
 !
 !////////////////////////////////////////////////////////////////////////////////////////
@@ -302,7 +295,7 @@
 !
       INTEGER, PARAMETER       :: noNewtonIterations = 10
       REAL(KIND=RP), PARAMETER :: toleranceFactor    = 4.0_RP
-      
+
       tolerance = toleranceFactor*EPSILON(L_N)
       IF( N == 0 )     THEN ! Error - Must have at least two points, +/-1
          x(0) = 0.0_RP
@@ -354,9 +347,9 @@
          x(N/2) = 0.0_RP
          w(N/2) = 2.0_RP/(N*(N+1)*L_N**2)
       END IF
-      
+
       END SUBROUTINE LegendreLobattoNodesAndWeights
 !
-!     ==========      
+!     ==========
       END MODULE GaussQuadrature
-!     ==========      
+!     ==========

@@ -1,4 +1,9 @@
-
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:    TesselationTypes.f90
+!
+!//////////////////////////////////////////////////////
 #include "Includes.h"
 module TessellationTypes
 
@@ -41,7 +46,8 @@ module TessellationTypes
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
                                         forcingPoint = .false.
-    
+!~       real(kind=rp), dimension(NCONS) :: Q_IP
+      
       contains
          procedure :: copy => point_type_copy
    

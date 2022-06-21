@@ -2,10 +2,6 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !   @File:    TimeIntegrator.f90
-!   @Author:  David kopriva
-!   @Created: 2007-10-23 09:25:32 -0400
-!   @Last revision date: Wed Sep 15 12:15:51 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !   Module for general time integration.
@@ -409,7 +405,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) 
          sem % mesh% IBM% eta = self% CorrectDt(t, dt)
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -494,11 +490,11 @@ print*, "Method selected: RK5"
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
-            if( sem% mesh% IBM% active ) then
-               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
-            else
+!~             if( sem% mesh% IBM% active ) then
+!~                call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+!~             else
               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
-            end if
+!~             end if
          END IF
 !
 !        Correct time step
@@ -543,7 +539,12 @@ print*, "Method selected: RK5"
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+            if( sem% mesh% IBM% active ) then
+               call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
+!~                call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
+            end if
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -562,6 +563,7 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
+
 !
 !        Compute the new time
 !        --------------------

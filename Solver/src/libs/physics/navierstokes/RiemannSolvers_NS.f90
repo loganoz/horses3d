@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    RiemannSolvers_NS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date: Mon Apr 22 18:37:37 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module RiemannSolvers_NS
    use SMConstants

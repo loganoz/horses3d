@@ -8,13 +8,6 @@ module VolumeMonitorClass
    implicit none
 
    private
-!~   public VOLUME
-#if defined(NAVIERSTOKES)
-!~   public KINETIC_ENERGY, KINETIC_ENERGY_RATE, ENSTROPHY
-!~   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY
-#elif defined(CAHNHILLIARD)
-!~   public FREE_ENERGY
-#endif
    public VolumeMonitor_t
 
 !

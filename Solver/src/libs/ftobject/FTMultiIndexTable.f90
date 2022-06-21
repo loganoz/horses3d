@@ -1,13 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      MultiIndexTableClass.f90
-!      Created: July 29, 2013 10:59 AM 
-!      By: David Kopriva  
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
       Module FTMultiIndexTableData 
       USE FTObjectClass
       IMPLICIT NONE

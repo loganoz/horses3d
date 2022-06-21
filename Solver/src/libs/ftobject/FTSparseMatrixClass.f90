@@ -1,13 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      SparseMatrixClass.f90
-!      Created: July 29, 2013 10:59 AM 
-!      By: David Kopriva  
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !>FTSparseMatrixData is used by the FTSparseMatrix Class. Users will 
 !>usually not interact with or use this class directly.
 !>

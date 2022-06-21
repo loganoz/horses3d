@@ -1,12 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      ReadInputFile.f90
-!      Created: June 10, 2015 at 3:09 PM 
-!      By: David Kopriva  
-!
-!////////////////////////////////////////////////////////////////////////
-!
    module FileReaders
       use SMConstants
       use FileReadingUtilities, only: GetKeyword, GetValueAsString, PreprocessInputLine

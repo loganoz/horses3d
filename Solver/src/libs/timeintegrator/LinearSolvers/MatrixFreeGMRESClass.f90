@@ -2,10 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    MatrixFreeGMRESClass.f90
-!   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Wed Jul 17 16:55:05 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
 !   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
 !
 !//////////////////////////////////////////////////////
@@ -432,11 +428,13 @@ contains
          CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
          REAL(KIND=RP)        , INTENT(IN)    :: dt
          !------------------------------------------------
+         REAL(KIND=RP) :: shift
          
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
-            call this % BlockA % shift( MatrixShift(dt) )
+            shift = MatrixShift(dt)
+            call this % BlockA % shift( shift )
             call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
          end if
          
@@ -450,11 +448,13 @@ contains
          CLASS(MatFreeGMRES_t), INTENT(INOUT)  :: this
          REAL(KIND=RP)        , INTENT(IN)     :: dt
          !------------------------------------------------
+         REAL(KIND=RP) :: Matrix_Shift
          
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
-            call this % BlockA % shift( MatrixShift(dt) )
+            Matrix_Shift = MatrixShift(dt)
+            call this % BlockA % shift( Matrix_Shift )
             call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
          end if
          
@@ -711,7 +711,7 @@ contains
           
          CALL this % PCSolver % SetRHS(v)
          CALL this % PCSolver % Solve(NCONS, NGRAD, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
-         CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
+         CALL this % PCSolver % Settol(1e-1_RP)          
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed
                         
@@ -793,7 +793,7 @@ contains
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q
-         this % p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
+         this % p_sem % mesh % storage % Q = u_p  
          call this % p_sem % mesh % storage % global2LocalQ
       END FUNCTION p_F
 !

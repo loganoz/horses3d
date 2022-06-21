@@ -2,16 +2,12 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    AnalyticalJacobian.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Sep 15 12:15:48 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
 !   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
-!  -> Only for p-conforming representations (TODO: make general)
+!  -> Only for p-conforming representations 
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
 !//////////////////////////////////////////////////////
@@ -71,7 +67,7 @@ module AnalyticalJacobian
    
    
 #if defined(NAVIERSTOKES)
-   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix. TODO: Define only once in the constructor (When this is a class!!)
+   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix.
 #endif
 contains
 !
@@ -118,9 +114,7 @@ contains
          call mesh % faces(fID) % storage % ConstructAnJac (NDIM)
       end do
 !$omp end parallel do
-      
-      !TODO: Add conformity check
-      
+            
    end subroutine AnJacobian_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -161,8 +155,6 @@ contains
       end if
       
       nelem = size(sem % mesh % elements)
-
-      !TODO: Check if there was p-adaptation and reconstruct if necessary
       
 !
 !     *************************************************
@@ -543,7 +535,7 @@ contains
       
 !
 !     ********************
-!     Viscous contribution - Temporarily done fully numerically. TODO: This can be improved
+!     Viscous contribution - Temporarily done fully numerically.
 !     ********************
 !
       if (flowIsNavierStokes) then
@@ -975,7 +967,6 @@ contains
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
       
-!     TODO: Fill this only once in class constructor
 !     ----------------------------------------------
       Identity = 0._RP
       do i=1, NCONS
@@ -1009,7 +1000,6 @@ contains
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
       if (flowIsNavierStokes) then
          call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
-         ! TODO: Read this from Viscous discretization
          dqHat_dqp = 0.5_RP
          dqHat_dqm = 0.5_RP
          
@@ -1052,7 +1042,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  ! TODO: This can be improved by setting the whole matrix at once
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1485,7 +1475,6 @@ contains
 !     the equations that correspond to e_plus and inserting it in the Matrix
 !
 !     -> Currently, this routine only works for p-conforming representations
-!           TODO: Add routine for p-nonconforming representations (block computation is more expensive and delta cycling is ruled out)
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
       implicit none
@@ -1551,7 +1540,7 @@ contains
 !     Definitions
 !     ***********
 !
-      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
+      a_minus = 0.5_RP 
       
       ! Entry spacing for element e⁺
       nXi1     = e_plus % Nxyz(1) + 1
@@ -1590,11 +1579,6 @@ contains
       normAx_minus = abs(normAx_minus)
       
       ! Nodal storage
-      ! --------------------------------------
-      ! TODO: Why this doesn't work since ifort ver. 19.1?
-      ! --------------------------------------
-      ! spA_plus  = NodalStorage(e_plus  % Nxyz)
-      ! spA_minus = NodalStorage(e_minus % Nxyz)
       
       spA_plus(1)  = NodalStorage(e_plus  % Nxyz(1))
       spA_plus(2)  = NodalStorage(e_plus  % Nxyz(2))
@@ -1772,10 +1756,7 @@ contains
                      * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
                      * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
 !
-!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
-!                 The tangent directions here are taken in the reference frame of e⁻
-!              *********************************************************************
-!
+!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART
 !
                MatEntries = MatEntries &
                    +   df_dGradQ_f(:,:,tanAx_minus(1),faceInd_plus(1),faceInd_plus(2))                               &

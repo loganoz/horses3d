@@ -1,21 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    VariableConversion_CH.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Apr 19 17:24:31 2018
-!   @Last revision date: Thu May 24 12:03:20 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: a9728294bcfa3ec9f4c553776074055792be41e2
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module VariableConversion_CH
    use SMConstants

@@ -2,11 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    OrientedBoundingBox.f90
-!   @Author:  Stefano Colombo (stefano.colombo@upm.es) 
-!   @Created: Mon Aug  9 11:44:25 2018
-!   @Last revision date: Mon Aug 09 17:24:24 2021
-!   @Last revision author: Stefano Colombo (stefano.colombo@upm.es)
-!   @Last revision commit: 
 !
 !//////////////////////////////////////////////////////
 !
@@ -315,30 +310,36 @@ contains
       real(kind=rp), dimension(NDIM), intent(out)   :: vNew
       !-local-variables----------------------------------------------
       real(kind=rp), dimension(NDIM)      :: b
-      real(kind=rp), dimension(NDIM,NDIM) :: R, invR
+      real(kind=rp), dimension(NDIM,NDIM) :: T, invT
 
-      R = 0.0_RP
-      R(NDIM,NDIM) = 1.0_RP
-      R(1,1) = cos(this% MBR% Angle); R(2,2)  = R(1,1)
-      R(1,2) = -sin(this% MBR% Angle); R(2,1) = -R(1,2)
+      T = 0.0_RP
+      T(NDIM,NDIM) = 1.0_RP
+      T(1,1) = cos(this% MBR% Angle); T(2,2)  = T(1,1)
+      T(1,2) = sin(this% MBR% Angle); T(2,1) = -T(1,2)
             
-      invR(:,1) = R(1,:)
-      invR(:,2) = R(2,:)
-      invR(:,3) = R(3,:)
+      invT(:,1) = T(1,:)
+      invT(:,2) = T(2,:)
+      invT(:,3) = T(3,:)
       
       select case( trim(FRAME) )
          
          case('local')
          
-            b = matmul( this% invR,(v - this% CloudCenter))
+!~             b = matmul( this% invR,(v - this% CloudCenter))
+!~             b(1:2) = b(1:2) - this% MBR% Center
+!~             vNew = matmul(invR,b)
+            b = matmul( this% R,(v - this% CloudCenter))
             b(1:2) = b(1:2) - this% MBR% Center
-            vNew = matmul(invR,b)
+            vNew = matmul(T,b)
 
          case('global')
          
-            b = matmul(R,v)
+!~             b = matmul(R,v)
+!~             b(1:2) = b(1:2) + this% MBR% center
+!~             vNew = this% CloudCenter + matmul(this% R,b)
+            b = matmul(invT,v)
             b(1:2) = b(1:2) + this% MBR% center
-            vNew = this% CloudCenter + matmul(this% R,b)
+            vNew = this% CloudCenter + matmul(this% invR,b)
             
       end select
 
@@ -357,9 +358,9 @@ contains
       class(OBB_type),                 intent(inout) :: this
       real(kind=rp),  dimension(NDIM), intent(in)    :: u, v, w
       
-      this% R(:,1) = (/ u(1), u(2), u(3) /)
-      this% R(:,2) = (/ v(1), v(2), v(3) /)
-      this% R(:,3) = (/ w(1), w(2), w(3) /)
+      this% R(1,:) = (/ u(1), u(2), u(3) /)
+      this% R(2,:) = (/ v(1), v(2), v(3) /)
+      this% R(3,:) = (/ w(1), w(2), w(3) /)
       
       this% invR(:,1) = this% R(1,:)
       this% invR(:,2) = this% R(2,:)
@@ -1188,13 +1189,14 @@ contains
 ! This function check if a point is inside a generic box
 !  -------------------------------------------------   
 
-   logical function isInsideBox( Point, vertices, equal ) result( isInside )
+   logical function isInsideBox( Point, vertices, equal, coeff ) result( isInside )
    
       implicit none
 
       real(kind=rp), dimension(:),   intent(in) :: Point
       real(kind=rp), dimension(:,:), intent(in) :: vertices
       logical,                       intent(in) :: equal
+      real(kind=rp), optional,       intent(in) :: coeff
       
       optional :: equal
 

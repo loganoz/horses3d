@@ -2,14 +2,6 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      FaceClass.f
-!      Created: 2008-06-05 14:12:52 -0400 
-!      By: David Kopriva  
-!       
-!      Modification history:
-!           Modified to 3D             5/27/15, 11:13 AM: David A. Kopriva
-!           Added isotropic mortars    4/26/17, 11:12 AM: Andrés Rueda
-!           Added anisotropic mortars  5/16/17, 11:11 AM: Andrés Rueda
-!           Embedded mortars          11/13/17, 05:37 PM: Juan Manzanero
 !
 !////////////////////////////////////////////////////////////////////////
 !

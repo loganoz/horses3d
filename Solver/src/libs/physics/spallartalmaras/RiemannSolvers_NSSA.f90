@@ -1,15 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    RiemannSolvers_NS.f90
-!   @Author:  Gerasimos Ntoukas (gerasimos.ntoukas@upm.es)
-!   @Created: Fri May 28 11:29:03 2021
-!   @Last revision date: Tue Nov 23 11:59:55 2021
-!   @Last revision author: Jerryntk (gerasimos.ntoukas@upm.es)
-!   @Last revision commit: e2210c2603c414c0d606eb185a63105833c1844c
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module RiemannSolvers_NSSA
    use SMConstants

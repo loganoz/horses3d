@@ -1,16 +1,11 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    mkl_dfti.f90
-!   @Author:  Intel Corporation
-!   @Created: 
-!
-!//////////////////////////////////////////////////////
-!
 ! Useful Fortran interfaces for direct fff routines. All of the them come from
 ! from Intel OneAPI v. 2022.0.2
 !
 !//////////////////////////////////////////////////////
+!
 !===============================================================================
 ! Copyright 2002-2021 Intel Corporation.
 !
