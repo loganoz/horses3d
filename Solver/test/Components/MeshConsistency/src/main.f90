@@ -1,6 +1,15 @@
 !
 !//////////////////////////////////////////////////////
 !
+!   @File:    main.f90
+!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
+!   @Created: Sun Dec 24 15:18:48 2017
+!   @Last revision date: Tue Sep 25 10:03:25 2018
+!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
+!   @Last revision commit: f80714f4c78c40aeae2f260a53c2dd6437a97038
+!
+!//////////////////////////////////////////////////////
+!
 program main
    use SMConstants
    use MeshTests

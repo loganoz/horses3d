@@ -22,7 +22,6 @@ restart file name     = "RESULTS/restart.hsol"
 riemann solver         = "lax-friedrichs"
 viscous discretization = "IP"
 
-
 !simulation type       = time-accurate
 !final time            = 40.d0
 simulation type       = steady-state

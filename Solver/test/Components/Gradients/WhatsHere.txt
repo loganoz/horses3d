@@ -1,0 +1,54 @@
+This test suite computes the divergence of the flux on multiple meshes. Special case routines are included in this directory for the flux functions, boundaries and "initial conditions". The fluxes are defined to be
+
+\[ 
+F(Q) = Q\hat x + Q\hat y + Q\hat z
+\]
+
+The five state vectors are 
+
+Q(1) = x
+Q(2) = y
+Q(3) = z
+Q(4) = 1
+Q(5) = x + y + z
+
+so that the divergence of the flux for each variable are
+
+Div F(1) = 1
+Div F(2) = 1
+Div F(3) = 1
+Div F(4) = 0
+Div F(5) = 3
+
+A description of what the meshes test is below. To add more tests, simply add the path to 
+the file GradientsMeshFileNames.txt. A way to not have to use absolute paths is needed. Choices are an environment variable or relative reference.
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/SingleCube.mesh
+
+	A single cube, [0,1]^3
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/SingleRectCube.mesh
+
+	A single cube, [0,1]\times [0,2] \times [0,3]
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/TwoCubesLR.mesh
+
+	Two unit cubes side by side, with a single interface between faces 4 and 6
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/Star5Mesh.mesh
+
+	Five unit cube elements with one in the center and elements to the left, right, top and bottom. Tests the face connections.
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/TwoClyindricalElements.mesh
+
+	Two cylindrical sections, one on top of the other. Tests inclusion of metric terms (though orthogonal). Divergence error is only spectrally accurate, so need the polynomial rder high enough in the control file for this one.
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/Star5MeshRot.mesh
+
+	The same five element mesh, but with the top and bottom elements rotated WRT the center one. This tests rotations 2 and 3.
+
+/Users/kopriva/Documents/Research/FortranCode/NSLite3D/Tests/Gradients/meshes/Ramp3D2.mesh
+
+	A larger mesh with non-rectangular elements to test the divergence in non-orthogonal coordinates. Some elements have rotation 1.
+
+

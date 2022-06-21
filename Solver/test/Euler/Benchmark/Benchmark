@@ -1,0 +1,78 @@
+#!/bin/bash
+############################################
+##
+##	This scripts configures and runs
+##   several Benchmark test cases.
+##
+############################################
+
+echo ""
+echo "*******************************************************************"
+echo "      This program runs several manufactured solution simulations, "
+echo "   varying the grid and polynomial order. "
+echo ""
+echo " 	*** Warning: This program requires PYTHON and MATPLOTLIB to "
+echo "		     perform the postprocessing. If not, include it "
+echo " 		     to the PATH environment variable "
+echo ""
+echo "*******************************************************************"
+echo ""
+echo "  Starting:"
+
+## Reset the file
+rm -rf ./RESULTS/BenchResults.out
+touch ./RESULTS/BenchResults.out
+
+## Case with 2^3 mesh
+POLYNOMIAL_ORDERS="2 3 4 5 6 7 8 9 10 11 12"
+MESH=./MESH/Cube2.mesh
+for P in $POLYNOMIAL_ORDERS; do
+	echo "** Running 2x2x2 mesh with P =" $P
+	cp -f ./BenchmarkTemplate.control ./Benchmark.control
+	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
+	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_2_$P.log
+done
+
+## Case with 4^3 mesh
+POLYNOMIAL_ORDERS="1 2 3 4 5 6 7 8"
+MESH=./MESH/Cube4.mesh
+for P in $POLYNOMIAL_ORDERS; do
+	echo "** Running 4x4x4 mesh with P =" $P
+	cp -f ./BenchmarkTemplate.control ./Benchmark.control
+	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
+	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_4_$P.log
+done
+
+## Case with 8^3 mesh
+POLYNOMIAL_ORDERS="1 2 3 4 5"
+MESH=./MESH/Cube8.mesh
+for P in $POLYNOMIAL_ORDERS; do
+	echo "** Running 8x8x8 mesh with P =" $P
+	cp -f ./BenchmarkTemplate.control ./Benchmark.control
+	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
+	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_8_$P.log
+done
+
+## Case with 16^3 mesh
+POLYNOMIAL_ORDERS="1 2 3"
+MESH=./MESH/Cube16.mesh
+for P in $POLYNOMIAL_ORDERS; do
+	echo "** Running 16x16x16 mesh with P =" $P
+	cp -f ./BenchmarkTemplate.control ./Benchmark.control
+	sed -i -e "s#@MESH_FILE#$MESH#g" ./Benchmark.control
+	sed -i -e "s#@POLYNOMIAL_ORDER#$P#g" ./Benchmark.control
+	./horses3d.ns ./Benchmark.control > RESULTS/bench_16_$P.log
+done
+
+
+
+## Plot
+if [ "$PYTHONISSET" != "YES" ]; then
+. ../../../../utils/PythonUtilities/configure-python
+fi
+python RESULTS/PlotBench.py
+## Clean
+rm -f Benchmark.control

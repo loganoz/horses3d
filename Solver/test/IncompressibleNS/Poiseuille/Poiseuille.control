@@ -1,0 +1,47 @@
+mesh file name        = "./MESH/Channel2D.mesh"
+restart file name     = "RESULTS/Channel2D.hsol"
+solution file name    = "RESULTS/Channel2D.hsol"
+restart               = .false.
+Polynomial order      = 3
+Number of time steps  = 1000
+Output Interval       = 100
+Convergence tolerance = 1.d-10
+2D mesh offset direction   = y
+dt                    = 1.0d-6
+riemann solver        = Exact
+artificial compressibility factor = 1.0d8
+reference velocity (m/s) = 1.0
+viscosity (Pa.s) = 100.0d0
+simulation type       = time-accurate
+final time            = 100.0d0
+autosave mode         = time
+autosave interval     = 0.2d0
+AOA theta             = 0.0
+AOA phi               = 0.0
+
+#define boundary top
+   type = NoSlipWall
+#end
+
+#define boundary bottom
+   type = NoSlipWall
+#end
+
+#define boundary left
+   type = user-defined
+#end
+
+#define boundary right
+   type = outflow
+#end
+
+#define boundary front
+   type = periodic
+   coupled boundary = back
+#end
+
+#define boundary back
+   type = periodic
+   coupled boundary = front
+#end
+

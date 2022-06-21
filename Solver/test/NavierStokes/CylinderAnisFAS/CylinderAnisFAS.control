@@ -1,0 +1,71 @@
+/* Test case for nonlinear multigrid */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/CylinderNSpol3_1elem_y.mesh"
+Polynomial order i    = 3
+Polynomial order j    = 3
+Polynomial order k    = 1
+Number of time steps  = 3
+Output Interval       = 1
+Convergence tolerance = 1.d-10
+cfl                   = 0.3
+dcfl                  = 0.3
+mach number           = 0.3
+Reynolds number       = 45.0
+AOA theta             = 0.0
+AOA phi               = 90.0
+solution file name    = "RESULTS/Cylinder.hsol"
+save gradients with solution = .FALSE.
+restart               = .FALSE.
+restart file name     = "RESULTS/Cylinder.hsol"
+riemann solver        = roe
+
+#define boundary InnerCylinder
+  type = NoSlipWall
+#end
+
+#define boundary bottom__top
+  type = FreeSlipWall
+#end
+
+#define boundary back__left__front
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
+
+!time integration     = FAS
+time integration     = AnisFAS
+mg smoother          = RK3
+multigrid levels     = 15
+delta n              = 1
+mg sweeps            = 10
+mg sweeps coarsest   = 20
+postsmooth option    = "smooth"
+smooth fine          = 1.2
+multigrid output     = .TRUE.
+
+#define surface monitor 1
+   Name = cyl-drag
+   Marker = innercylinder
+   Variable = drag
+   Direction = [0.0,0.0,1.0]
+   Reference surface = 1.0	
+#end
+
+#define surface monitor 2
+   Name = cyl-lift
+   Marker = innercylinder
+   Variable = lift
+   Direction = [1.0,0.0,0.0]
+   Reference surface = 1.0
+#end
+
+!#define statistics
+!   Sampling interval = 10
+!   Starting iteration = 15
+!   Starting time = 0.0
+!   @start*
+!   @stop
+!#end
