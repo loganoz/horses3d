@@ -1,2 +1,0 @@
-main: MeshConsistencyTests MeshConsistencySetup
-MeshConsistencyTests: MeshConsistencySetup
