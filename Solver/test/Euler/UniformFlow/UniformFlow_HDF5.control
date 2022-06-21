@@ -1,0 +1,22 @@
+/* Control file for the uniform flow test case */
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/Box27.h5"
+partitioning          = SFC
+restart file name     = "RESULTS/Box27.rst"
+solution file name    = "RESULTS/Box27_saved.rst"
+restart               = .false.
+Polynomial order      = 5
+Number of time steps  = 5000
+Output Interval       = 100
+Number of plot points = 6
+Convergence tolerance = 1.d-10
+cfl                   = 0.4
+mach number           = 0.5
+Reynolds number       = 0.0
+AOA theta             = 0.0
+AOA phi               = 0.0
+Riemann solver        = Rusanov
+
+#define boundary left__right__front__back__bottom__top
+   type = Inflow
+#end

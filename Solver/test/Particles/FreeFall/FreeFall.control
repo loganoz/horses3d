@@ -1,0 +1,71 @@
+Flow equations        = "NS"
+mesh file name        = "MESH/FDS_FreeFall_box.mesh"
+restart file name     = ""
+solution file name    = "RESULTS/FreeFall.hsol"
+restart               = .false.
+Polynomial order      = 2
+!polynomial order file = "MeshFiles/PolOrder.csv"
+Number of time steps  = 1000
+Output Interval       = 100
+Number of plot points = 5
+Convergence tolerance = 1.d-14
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 0.1
+Reynolds number       = 66096.2
+prandtl number        = 0.72
+AOA theta             = 0.0
+AOA phi               = 0.0
+Gravity direction = [0,0,-1]
+#################
+#   PARTICLES   #
+#################
+lagrangian particles  = .true.
+high order particles source term = .false.
+number of particles   = 1
+particles per parcel  = 1
+injection             = .false.
+particles file        = "RandomParticles.txt"
+vel and temp from file = .false.
+bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic
+stokes number         = 0.0468652
+Froude number         = 0.319275
+Gamma                 = 1.0
+phi_m                 = 8.29310d-10
+Radiation source      = 0.0
+minimum box           = [0,0,0]
+maximum box           = [0.5,0.5,10.0]
+bc box                = [2,2,2] ! [i,j,k] 0 is inflow/outflow, 1 is wall, 2 is periodic
+#################
+# END PARTICLES	#
+#################
+
+#define boundary front
+  type = periodic
+  coupled boundary = back
+#end
+
+#define boundary back
+  type = periodic
+  coupled boundary = front
+#end
+
+#define boundary top
+  type = periodic
+  coupled boundary = bottom
+#end
+
+#define boundary bottom
+  type = periodic
+  coupled boundary = top
+#end
+
+#define boundary left
+  type = periodic
+  coupled boundary = right
+#end
+
+#define boundary right
+  type = periodic
+  coupled boundary = left
+#end

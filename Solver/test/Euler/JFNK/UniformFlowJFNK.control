@@ -1,0 +1,30 @@
+/* Control file for Uniform flow with Jacobian-Free Newton-Krylov algorithms */
+Flow equations        = "Euler"
+mesh file name        = "../../TestMeshes/Box27.mesh"
+restart file name     = "RESULTS/Box27.rst"
+solution file name    = "RESULTS/Box27_saved.rst"
+restart               = .false.
+Polynomial order      = 5
+Number of time steps  = 5000
+Output Interval       = 1
+
+Convergence tolerance = 1.d-10
+cfl                   = 5.d5
+mach number           = 0.5d0
+Reynolds number       = 0.0d0
+AOA theta             = 0.0d0
+AOA phi               = 0.0d0
+
+#define boundary front__back__bottom__top__left__right
+   type = Inflow
+#end
+!-------------------------------------------------------------
+!-----Information about time integration solver---------------
+simulation type        = steady-state
+time integration       = implicit
+linear solver          = "matrix-free gmres"
+preconditioner         = "GMRES"
+bdf order              = 1
+/*print newton info      = .TRUE.*/
+!-------------------------------------------------------------
+riemann solver       = rusanov

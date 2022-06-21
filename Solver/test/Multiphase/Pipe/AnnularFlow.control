@@ -1,0 +1,69 @@
+!
+!       *********************
+!       Template control file
+!       *********************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = "./MESH/Pipe_L10_D1_xie.mesh"
+                      Solution file name = "./RESULTS/Pipe_L10_D1_xie.hsol"
+!                2D mesh offset direction = 3D
+                                 Restart = .false.
+                       Restart file name = ./RESULTS/Pipe_L10_D1_xie.hsol
+
+!-------------------- Physical parameters:-
+                reference velocity (m/s) = 1.0
+                      velocity direction = [0.0, 0.0, 1.0]
+            gravity acceleration (m/s^2) = 1.0
+                       gravity direction = [-1 0 0]
+                  Number of fluids (1/2) = 2
+                fluid 1 density (kg/m^3) = 1.0
+                fluid 2 density (kg/m^3) = 5.0
+                fluid 1 viscosity (Pa.s) = 0.005
+                fluid 2 viscosity (Pa.s) = 0.01
+! MAINTAINED TO COMPARE!!        mobility = 0.18856
+        chemical characteristic time (s) = 900.0
+                     interface width (m) = 0.0424
+                 Interface tension (N/m) = 0.00025
+       artificial compressibility factor = 1000.0
+
+!------------------------- Discretization:-
+                        Polynomial order = 3
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Exact
+                  Viscous discretization = BR1 
+            Cahn-Hilliard discretization = BR1
+                       Penalty parameter = 1.0
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+  Compute time derivative after timestep = .true.
+                                      dt = 1.0e-05
+                    Number of time steps = 20
+                         Output interval = 1
+                         Simulation type = time-accurate
+                 Convergence tolerance = 1.0d-10
+                              Final time = 10000.0
+                           Autosave mode = iteration
+                       Autosave interval = 1000
+#define Jacobian
+type = 1
+#end
+
+!-------------------- Boundary conditions:-
+#define boundary inlet
+   type = User-defined
+#end
+
+#define boundary outlet
+   type = Outflow
+#end
+
+#define boundary pipe
+   type = NoSlipWall
+   contact angle = 45.0
+#end
+
+#define volume monitor 1
+   name = entropy rate
+   variable = entropy rate
+#end

@@ -1,0 +1,29 @@
+Flow equations        = "NS"
+mesh file name        = "MeshFiles/Box27.mesh"
+plot file name        = "PlotFiles/Box27NS2D.tec"
+restart file name     = "RestartFiles/Box27NS2D.rst"
+save file name        = "RestartFiles/Box27_savedNS2D.rst"
+restart               = .false.
+!Polynomial order      = 6
+polynomial order file = "MeshFiles/PolOrder.csv"
+Number of time steps  = 100000
+Output Interval       = 50
+!Number of plot points = 6
+Convergence tolerance = 1.d-10
+manufactured solution = 2D
+cfl                   = 0.4
+dcfl                  = 0.4
+mach number           = 1.5
+Reynolds number       = 300.0
+AOA theta             = 45.0
+AOA phi               = 0.0
+Number of boundaries  = 6
+front 0.0 manufacturedsol
+back 0.0 manufacturedsol
+bottom 0.0 freeslipwall
+top 0.0 freeslipwall
+left 0.0 manufacturedsol
+right 0.0 manufacturedsol
+!back: MSOutflowSpecifyP
+!right: MSOutflowSpecifyP
+riemann solver       = rusanov

@@ -1,0 +1,87 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = MESH/UnitSquare4x4.mesh
+                      Solution file name = RESULTS/Convergence.hsol
+              Save gradients to solution = .false.
+                2D mesh offset direction = y
+                                 Restart = .false.
+                       Restart file name = RESTART_FILE_NAME.hsol
+
+!-------------------- Physical parameters:-
+                Fluid 1 Density (kg/m^3) = 1.0
+                Fluid 2 Density (kg/m^3) = 2.0
+               Fluid 1 Viscosity (Pa.s)  = 0.001
+               Fluid 2 Viscosity (Pa.s)  = 0.001
+                    !   Gravity direction = [x,y,z]
+                      Velocity direction = [1,0,0]
+                       Compute gradients = .true.
+
+interface width (m) = 0.70711
+interface tension (N/m) = 6.236E-3
+chemical characteristic time (s) = 1000.0
+artificial sound speed square (m/s) = 1000.0
+!------------------------- Discretization:-
+                        Polynomial order = 5
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Exact ! Standard Roe/Low dissipation Roe
+                  Viscous discretization = BR1   ! IP/BR2
+            Cahn-Hilliard discretization = BR1   ! IP/BR2
+#define Jacobian
+   type = 1
+#end
+
+
+!----------------------- Time integration:-
+                        Time integration = IMEX
+!Explicit method = RK5
+!                                     CFL = 0.5
+!                                    dCFL = 100.0
+dt = 0.5E-4
+  Compute time derivative after timestep = .true.
+                    Number of time steps = 100000
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+                         Simulation type = time-accurate
+                              Final time = 0.1
+                           Autosave mode = Iteration  ! Time
+                       Autosave interval = 1000000   ! 1.0
+
+!-------------------- Boundary conditions:-
+#define boundary Front
+   type = periodic
+   coupled boundary = Back
+#end
+ 
+#define boundary bottom
+    type = periodic
+    coupled boundary = top
+#end
+ 
+#define boundary top
+    type = periodic
+    coupled boundary = bottom
+#end
+ 
+#define boundary Back
+    type = periodic
+    coupled boundary = Front
+#end
+ 
+#define boundary Left
+    type = periodic
+    coupled boundary = Right
+#end
+ 
+#define boundary Right
+    type = periodic
+    coupled boundary = Left
+#end
+
+#define volume monitor 1
+   name = entr-rate
+   variable = entropy rate
+#end
