@@ -456,10 +456,7 @@ module SurfaceIntegrals
 !           in the form:
 !                 val = \int \vec{v}·\vec{n}dS
 !           The data at the boundary point (BP) is computed through a Inverse Distance Weight
-!           procedure. To do that the closest n points to the BP are selected using a Nearest
-!           Neighbor Algorithm and their distance is stored in the vector Dist.
-!           The surface integal is computed on the triangles the body is made of. The BP point
-!           are computed using a linear map for each triangle.
+!           procedure. 
 !        -----------------------------------------------------------------------------------------
       implicit none
       !-arguments---------------------------------------------------------------------------------
@@ -565,10 +562,7 @@ module SurfaceIntegrals
 !           in the form:
 !                 val = \int \vec{v}·\vec{n}dS
 !           The data at the boundary point (BP) is computed through a Inverse Distance Weight
-!           procedure. To do that the closest n points to the BP are selected using a Nearest
-!           Neighbor Algorithm and their distance is stored in the vector Dist.
-!           The surface integal is computed on the triangles the body is made of. The BP point
-!           are computed using a linear map for each triangle.
+!           procedure. 
 !        -----------------------------------------------------------------------------------------
       implicit none
       !-arguments---------------------------------------------------------------------------------
