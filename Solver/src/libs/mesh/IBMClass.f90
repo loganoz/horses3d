@@ -2745,6 +2745,9 @@ module IBMClass
       call get_laminar_mu_kappa(Q_FP,mu_FP,kappa_FP)
       nu_FP = mu_FP/Q_FP(IRHO)                 
          
+      if( any(isnan(Q_IP)) ) write(*,*) 'Q_IP is nan'
+      if( isnan(nu_IP) ) write(*,*) 'nu_IP is nan, rho_ip =', Q_IP(IRHO)
+         
       u_FPt = u_plus_f( y_plus_f( y_FP, u_tau, nu_FP) ) * u_tau
       u_FPn = dot_product(u_IP,normal) * y_FP/y_IP
          
