@@ -151,6 +151,12 @@
 !>The className() procedure returns the name of the class.
 !>
 !>Subclasses should override className() !>
+!>
+!>Created: January 7, 2013 11:30 AM 
+
+!>@author 
+!>David A. Kopriva 
+!
       Module FTObjectClass 
       IMPLICIT NONE
 !

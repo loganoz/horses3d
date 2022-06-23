@@ -1,3 +1,10 @@
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!      FTMutableObjectArray.f90
+!      Created: February 7, 2013 3:24 PM 
+!      By: David Kopriva  
+!
 !>FTMutableObjectArray is a mutable array class to which objects
 !>can be added, removed, replaced and accessed according to their 
 !>index in the array.

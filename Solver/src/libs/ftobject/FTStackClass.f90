@@ -1,5 +1,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
+!
+!      FTStackClass.f90
+!      Created: January 25, 2013 12:56 PM 
+!      By: David Kopriva  
+!
 !>Inherits from FTLinkedListClass : FTObjectClass
 !>
 !>##Definition (Subclass of FTLinkedListClass):

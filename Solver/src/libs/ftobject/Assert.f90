@@ -1,5 +1,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
+!
+! Assert.f90
+! Created: February 21, 2013 2:34 PM 
+! By: David Kopriva  
+!
 !> Assertions are functions that return true or false
 !> that can be placed in a program to test whether
 !> a predicate is true.

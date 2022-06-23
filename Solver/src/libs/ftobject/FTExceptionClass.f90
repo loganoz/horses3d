@@ -1,5 +1,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
+!
+!      FTExceptionClass.f90
+!      Created: January 29, 2013 5:06 PM 
+!      By: David Kopriva  
+!
+!
 !>An FTException object gives a way to pass generic
 !>information about an exceptional situation.
 !>
