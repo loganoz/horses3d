@@ -111,8 +111,3 @@ for subdir in $COMPONENTS_TEST_CASES; do
 	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
 	rm -f ./test/Components/$subdir/Makefile-e
 done
-
-cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
-mkdir -p ./test/Components/Gradients/MESH
-sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
-rm -f ./test/Components/Gradients/Makefile-e
