@@ -1,21 +1,7 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ProblemFile.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Mon Mar 11 19:20:19 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
 !
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific

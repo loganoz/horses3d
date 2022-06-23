@@ -3,8 +3,6 @@ function A = ReadCSR(FileName)
 %% //////////////////////////////////////////////////////
 %
 %    @File:    ReadCSR.m
-%    @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-%    @Created: Mon Jul 24 08:11:10 2021
 %
 %    Function translates matrix in the CSR format
 %    obtained from HORSES3D (CSRMatrix % Visualize) to

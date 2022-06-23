@@ -2,11 +2,6 @@
 !//////////////////////////////////////////////////////
 !
 !   @File:    ProlongMeshAndSolution.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Fri Oct 13 11:46:47 2017
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
 !
 !//////////////////////////////////////////////////////
 !

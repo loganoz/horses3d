@@ -1,10 +1,5 @@
 !
 !   @File:    WallFunctionConnectivity.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Nov 23 2021
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
 !
 !//////////////////////////////////////////////////////
 !

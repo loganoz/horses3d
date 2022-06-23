@@ -2428,7 +2428,6 @@ contains
 !
 !  --------------------------------------
 !  Convert the DBD matrix to a CSR matrix
-!  Author: Wojciech Laskowski (wj.laskowski@upm.es) 
 !  --------------------------------------
    subroutine getDBDfromCSR(this,Adbd)
 !  ---------------------------------------------------------

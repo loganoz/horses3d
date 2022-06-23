@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    sharedSpectralBasis.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Oct 15 13:07:03 2017
-!   @Last revision date: Tue Sep 25 10:03:15 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f80714f4c78c40aeae2f260a53c2dd6437a97038
-!
-!//////////////////////////////////////////////////////
-!
 module SharedSpectralBasis
    use SMConstants
    use NodalStorageClass
