@@ -44,7 +44,7 @@ The following external routines/libraries can be used with **HORSES3D**, but are
     For example:  
          $ make all COMPILER=ifort COMM=PARALLEL  
 
-4. Run the solver for the parameter file *file.control* (see manual in the /doc folder and examples in /tests)  
+4. Run the solver for the parameter file *file.control* (see manual in the /doc folder and examples in /test)  
         $ ./horses3d.ns *file.control*  
 5. Test cases for various physics are provided in the folder /test  
 
