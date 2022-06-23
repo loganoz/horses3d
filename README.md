@@ -32,9 +32,9 @@ The following external routines/libraries can be used with **HORSES3D**, but are
         $ ./configure  
 3. Install using the Make file (see manual in the /doc folder)  
         $ make clean  
-        $ make all <<Options>>  
+        $ make all *Options*
 
-	with the desired Options (default options are bold):  
+	with the desired *Options* (default options are bold):  
          - MODE=DEBUG/**RELEASE**  
          - COMPILER=ifort/**gfortran**  
          - COMM=PARALLEL/**SEQUENTIAL**  
@@ -44,8 +44,8 @@ The following external routines/libraries can be used with **HORSES3D**, but are
     For example:  
          $ make all COMPILER=ifort COMM=PARALLEL  
 
-4. Run the solver for the parameter file file.control (see manual in the /doc folder)  
-        $ ./horses3d.ns file.control  
+4. Run the solver for the parameter file *file.control* (see manual in the /doc folder and examples in /tests)  
+        $ ./horses3d.ns *file.control*  
 5. Test cases for various physics are provided in the folder /test  
 
 
