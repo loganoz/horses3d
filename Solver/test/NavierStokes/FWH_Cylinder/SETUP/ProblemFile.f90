@@ -2,11 +2,10 @@
 !////////////////////////////////////////////////////////////////////////
 !
 !      ProblemFile.f90
-!
+
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
-!      problem to be solved. These procedures include initial
-!      conditions,
+!      problem to be solved. These procedures include initial conditions,
 !      exact solutions (e.g. for tests), etc. and allow modifications 
 !      without having to modify the main code.
 !
@@ -78,8 +77,7 @@ module ProblemFileFunctions
 #endif
       end subroutine UserDefinedInitialCondition_f
 #ifdef FLOW
-      subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_,
-dimensionless_, refValues_)
+      subroutine UserDefinedState_f(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
@@ -93,8 +91,7 @@ dimensionless_, refValues_)
          type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U,
-thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
@@ -110,8 +107,7 @@ thermodynamics_, dimensionless_, refValues_)
       end subroutine UserDefinedGradVars_f
 
 
-      subroutine UserDefinedNeumann_f(x, t, nHat, Q, U_x, U_y, U_z,
-flux, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedNeumann_f(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
@@ -133,8 +129,7 @@ flux, thermodynamics_, dimensionless_, refValues_)
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt,
-Monitors)
+      SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
          use SMConstants
          USE HexMeshClass
          use MonitorsClass
@@ -148,8 +143,7 @@ Monitors)
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-      subroutine UserDefinedSourceTermNS_f(x, Q, time, S,
-thermodynamics_, dimensionless_, refValues_ &
+      subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 ,multiphase_ &
 #endif
@@ -238,8 +232,7 @@ end module ProblemFileFunctions
                                         )
 !
 !           ----------------------------------------------------------------------
-!           Called after the mesh is read in to allow mesh related
-!           initializations
+!           Called after the mesh is read in to allow mesh related initializations
 !           or memory allocations.
 !           ----------------------------------------------------------------------
 !
@@ -328,8 +321,7 @@ end module ProblemFileFunctions
                   q(2) = q(1)*u
                   q(3) = q(1)*v
                   q(4) = q(1)*w
-                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 +
-w**2)
+                  q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
 
                   mesh % elements(eID) % storage % q(:,i,j,k) = q 
                end do;        end do;        end do
@@ -349,8 +341,7 @@ w**2)
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
                do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP,
-1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
                end do;        end do;        end do
                end associate
             end do
@@ -378,8 +369,7 @@ w**2)
 
          end subroutine UserDefinedInitialCondition
 #ifdef FLOW
-         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_,
-dimensionless_, refValues_)
+         subroutine UserDefinedState1(x, t, nHat, Q, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -393,8 +383,7 @@ dimensionless_, refValues_)
             type(RefValues_t),         intent(in)  :: refValues_
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedGradVars1(x, t, nHat, Q, U,
-thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -409,8 +398,7 @@ thermodynamics_, dimensionless_, refValues_)
             type(RefValues_t),      intent(in) :: refValues_
          end subroutine UserDefinedGradVars1
 
-         subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z,
-flux, thermodynamics_, dimensionless_, refValues_)
+         subroutine UserDefinedNeumann1(x, t, nHat, Q, U_x, U_y, U_z, flux, thermodynamics_, dimensionless_, refValues_)
             use SMConstants
             use PhysicsStorage
             use FluidData
@@ -431,8 +419,7 @@ flux, thermodynamics_, dimensionless_, refValues_)
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt,
-Monitors)
+         SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
 !           Called before every time-step to allow periodic operations
@@ -453,8 +440,7 @@ Monitors)
 !//////////////////////////////////////////////////////////////////////// 
 ! 
 #ifdef FLOW
-         subroutine UserDefinedSourceTermNS(x, Q, time, S,
-thermodynamics_, dimensionless_, refValues_ &
+         subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
 , multiphase_ &
 #endif
