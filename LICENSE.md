@@ -1,6 +1,9 @@
-MIT License
-
-Copyright (c) 2021 NUMATH https://numath.dmae.upm.es
+################################################################################ 
+#            HORSES3D High-Order (DG) Spectral Element Solver                  #
+#                             **MIT License**                                  #
+################################################################################ 
+MIT License  
+Copyright (c) 2021 NUMATH https://numath.dmae.upm.es  
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
