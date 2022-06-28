@@ -1,6 +1,6 @@
 ## References
 -----------
-When using **HORSES3D** in publication, please cite: Ferrer et al., "HORSES3D: a high-order discontinuous Galerkin solver for flow simulations and multi-physics applications", arXiv:2206.09733, 2022
+When using **HORSES3D** in publications, please cite: Ferrer et al., "HORSES3D: a high-order discontinuous Galerkin solver for flow simulations and multi-physics applications", arXiv:2206.09733, 2022
 
 or if using Bibtex:
 
