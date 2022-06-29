@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    OutputVariables.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Tue Dec  3 18:47:37 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 74aa71e8675dba27cdc3e65b0539a36f31e86478
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module OutputVariables
 !

@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File: ColorsClass.f90
-!   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
-!   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Sep  6 22:44:56 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
 !//////////////////////////////////////////////////////
 !
 !      Module for computing element colorings in order to generate the numerical Jacobian

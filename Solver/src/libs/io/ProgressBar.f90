@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ProgressBar.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Tue Mar 15 12:36:25 2022
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 !+++++++++++++++++++++++++++++++++++++++++
 !> \brief Module containing a set of classes that can be used as progress-bars
 !! and status counters. These counters only write to the standard ooutput.

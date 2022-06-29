@@ -1,16 +1,12 @@
 !
-!   @File:    WallFunctionConnectivity.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Nov 23 2021
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This module stores the connection of each face of the wall that will be used in the 
+! Wall Function with the first normal neighbour
+! elelement and other needed variables
 !
 !//////////////////////////////////////////////////////
 !
-!This module stores the connection of each face of the wall that will be used in the Wall Function with the first normal neighbour
-!elelement and other needed variables
-
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 Module WallFunctionConnectivity  !

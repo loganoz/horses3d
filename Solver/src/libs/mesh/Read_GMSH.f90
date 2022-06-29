@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Read_GMSH.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Wed Dec  8 15:01:26 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: b5333663c75aa634b30d7da7e488de0f2da06bc3
-!
 !//////////////////////////////////////////////////////
 !
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.

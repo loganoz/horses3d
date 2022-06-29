@@ -1,22 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      MappedGeometry.f95
-!      Created: 2008-06-19 15:58:02 -0400
-!      By: David Kopriva
-!
-!      Modification history:
-!        2008-06-19: Created by David Kopriva
-!        XXXX-XX-XX: Gonzalo Rubio implemented cross-product metrics
-!        2017-05-05: Andrés Rueda implemented polynomial anisotropy
-!        2017-05-23: Juan Manzanero implemented invatiant metrics and
-!                    face geometry construction
-!      Contains:
-!         ALGORITHM 101: MappedGeometryClass
-!         ALGORITHM 102: ConstructMappedGeometry
-!
-!////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 Module MappedGeometryClass
    USE SMConstants

@@ -1,21 +1,4 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    MatrixFreeSmootherClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sat May 12 20:54:07 2018
-!   @Last revision date: Sun May 19 16:54:14 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
-!
-!//////////////////////////////////////////////////////
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!      MatrixFreeSmootherClass.f90
-!      Created: 2017-04-XX 10:006:00 +0100 
-!      By: Andrés Rueda
-!
 !      Class for solving a system with a simple BlockJacobi smoother and matrix free operations
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

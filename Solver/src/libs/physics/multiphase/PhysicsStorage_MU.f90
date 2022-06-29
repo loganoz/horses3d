@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    PhysicsStorage_MU.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Fri Aug 17 10:25:40 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 0760ac964cfb71dec1e13da0780b72ca9d38e064
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
       Module Physics_MUKeywordsModule
          IMPLICIT NONE 

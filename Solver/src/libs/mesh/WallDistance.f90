@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    WallDistance.f90
-!   @Author:  Diego Lodares and Juan Manzanero (juan.manzanero@upm.es) 
-!   @Created: Wed Jan  3 13:33:07 2018
-!   @Last revision date: Thu Apr 19 17:24:24 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 
 module WallDistance

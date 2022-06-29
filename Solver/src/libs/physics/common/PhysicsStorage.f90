@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    PhysicsStorage.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Tue Nov 19 15:40:44 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4a1cb0b60ba7214f9ea84015f2ec8b4c04526553
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module PhysicsStorage
    use SMConstants     , only: RP, STD_OUT

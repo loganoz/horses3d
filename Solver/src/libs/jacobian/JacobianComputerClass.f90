@@ -1,16 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    JacobianComputerClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Mon Mar 14 22:31:23 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-
-!
-!//////////////////////////////////////////////////////
-!
 ! Base class for the Jacobian computers
 !
 !//////////////////////////////////////////////////////

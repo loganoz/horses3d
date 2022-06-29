@@ -1,16 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!
-!   @File:    FileReading.f90
-!   @Author:  David Kopriva
-!   @Created: 2010-08-27 12:14:31 -0400 
-!   @Last revision date: Thu Mar 24 14:45:59 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: c4549abb9c0f1a7f0d18a5e679b0e7820da9405c
-!
-!//////////////////////////////////////////////////////
-!
 module FileReadingUtilities
    USE SMConstants
    use RealDataLinkedList

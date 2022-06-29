@@ -1,11 +1,3 @@
-!
-!   @File:    TripForceClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Dec 16 2020
-!   @Last revision date: Feb 14 2022
-!   @Last revision author: Oscar Marino (oscar.marino@upm.es)
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
 !This class represents the numerical force use to induce turbulence, or tripping

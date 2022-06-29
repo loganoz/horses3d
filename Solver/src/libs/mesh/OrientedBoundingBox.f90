@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    OrientedBoundingBox.f90
-!   @Author:  Stefano Colombo (stefano.colombo@upm.es) 
-!   @Created: Mon Aug  9 11:44:25 2018
-!   @Last revision date: Mon Aug 09 17:24:24 2021
-!   @Last revision author: Stefano Colombo (stefano.colombo@upm.es)
-!   @Last revision commit: 
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module OrientedBoundingBox
 

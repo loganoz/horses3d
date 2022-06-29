@@ -1,4 +1,4 @@
-Module readSpecM  !
+Module readSpecM
     use HexMeshClass
     use ElementClass
     use SMConstants

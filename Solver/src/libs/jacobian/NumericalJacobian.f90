@@ -1,16 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File: NumericalJacobian.f90
-!   @Author: Andrés Rueda (am.rueda@upm.es) 
-!   @Created: Tue Mar 31 17:05:00 2017
-!   @Last revision date: Thu Mar 24 17:00:46 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 083a15731d760f8d57a800a12d04211fb5fb6396
-
-!
-!//////////////////////////////////////////////////////
-!
 !      Routines for computing the Jacobian matrix numerically using the colorings technique
 !  ! TODO1: Implement as a class with a destructor to prevent memory leaking
 !////////////////////////////////////////////////////////////////////////

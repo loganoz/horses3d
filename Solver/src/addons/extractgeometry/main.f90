@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    main.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Nov  1 19:56:54 2017
-!   @Last revision date: Mon Feb 25 16:07:49 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
-!
-!////////////////////////////////////////////////////
-!
 program ExtractGeometry
    use SMConstants
    use Headers

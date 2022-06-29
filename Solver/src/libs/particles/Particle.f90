@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Particle.f90
-!   @Author:  Gonzalo (g.rubio@upm.es)
-!   @Created: Tue Apr 10 17:31:21 2018
-!   @Last revision date: Sat Aug  3 23:57:40 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 #ifdef FLOW
 module ParticleClass

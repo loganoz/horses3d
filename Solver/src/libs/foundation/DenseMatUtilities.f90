@@ -1,18 +1,10 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    DenseMatUtilities.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue May  5 16:26:02 2018
-!   @Last revision date: Thu Jun 10 18:40:59 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
+!      Module containing useful routines for dense matrices
 !
 !//////////////////////////////////////////////////////
 !
-!      Module containing useful routines for dense matrices
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE DenseMatUtilities
    USE SMConstants
    IMPLICIT NONE

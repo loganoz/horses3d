@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    FreeSlipWallBC.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jul 25 15:26:41 2018
-!   @Last revision date: Thu Oct 18 16:09:45 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module FreeSlipWallBCClass
    use SMConstants

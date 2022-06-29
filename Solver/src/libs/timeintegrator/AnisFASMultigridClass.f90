@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnisFASMultigridClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
-!
 !//////////////////////////////////////////////////////
 !
 !      Anisotropic version of the FAS Multigrid Class
