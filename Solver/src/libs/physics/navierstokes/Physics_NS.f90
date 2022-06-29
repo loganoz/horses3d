@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    Physics_NS.f90
-!   @Author:  David Kopriva
-!   @Created: Tue Jul 20 18:27:46 2011
-!   @Last revision date: Mon Apr 22 18:37:36 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
-!
-!//////////////////////////////////////////////////////
-!
 !      Compressible Navier-Stokes physics.
 !      Modified from DSEM Code
 !

@@ -1,24 +1,10 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
-!
-!     Utilities.F
-!
-!!
-!!     Modification History:
-!!        version 0.0 June 1, 2005 David A. Kopriva
-!!
-!!     The main entry here is AlmostEqual, which returns true if the arguments are 
-!!     within rounding error of each other. No adjustments are made for scaling;
-!!     We assume numbers are in [-1,1] since this routine is meant to be used
-!!     by the Gauss point routines.
-!
-!      PUBLIC DATA:
-!          None
-!      PUBLIC METHODS:
-!          ALGORITHM 139: AlmostEqual( a, b )
-!
-!!     @author David A. Kopriva
+!     The main entry here is AlmostEqual, which returns true if the arguments are 
+!     within rounding error of each other. No adjustments are made for scaling;
+!     We assume numbers are in [-1,1] since this routine is meant to be used
+!     by the Gauss point routines.
 !
 ! /////////////////////////////////////////////////////////////////////
 !

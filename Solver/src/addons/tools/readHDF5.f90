@@ -1,4 +1,4 @@
-Module  readHDF5  !
+Module  readHDF5
 #ifdef HAS_HDF5
    use HDF5
 #endif

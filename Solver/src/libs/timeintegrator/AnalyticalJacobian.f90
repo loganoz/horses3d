@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnalyticalJacobian.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Sep 15 12:15:48 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix

@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    pAdaptationClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Sep 15 12:15:52 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
-!//////////////////////////////////////////////////////
-!
 !      Class cotaining routines for adapting polynomial orders.
 !        -> Currently, the adaptation procedure is only performed with  
 !           truncation error estimations (TruncationErrorClass.f90), but other

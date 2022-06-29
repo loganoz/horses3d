@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    mkl_spblas.f90
-!   @Author:  Intel Corporation / Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Wed Nov 24 17:19:26 2021
-!   @Last revision date: Thu Nov 25 17:47:59 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: fbeae1d65fd76b31b595bc87af77d516ae428311
-!
-!//////////////////////////////////////////////////////
-!
 ! Useful Fortran interfaces for SparseBLAS routines. Most of the them are copied
 ! from Intel OneAPI v. 2021.3.0. 
 !

@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:
-!   @Author:  David Kopriva
-!   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Sun Aug  4 16:39:47 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
-!
-!//////////////////////////////////////////////////////
-!
 !      Implements Algorithms:
 !         Algorithm: 124: ElementClass (QuadElementClass)
 !

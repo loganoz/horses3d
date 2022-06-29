@@ -1,17 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      NodeClass.f
-!      Created: 2008-06-05 14:29:53 -0400 
-!      By: David Kopriva  
-!
-!      Implements Algorithms:
-!         Algorithm 123: Node (CornerNode)
-!         
-!      Modified for 3D DG 5/27/15, 12:18 PM
-!
-!////////////////////////////////////////////////////////////////////////
-!
       Module NodeClass 
       USE SMConstants
       USE MeshTypes

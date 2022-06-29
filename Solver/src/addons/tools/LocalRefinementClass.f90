@@ -1,14 +1,10 @@
 !
-!   @File:    LocalRefinementClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 3 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This class represents the local p-refinement of a mesh
 !
 !//////////////////////////////////////////////////////
 !
-!This class represents the local p-refinement of a mesh
 
 Module  LocalRefinement  !
 

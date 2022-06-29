@@ -1,11 +1,4 @@
 !
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 22 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
 !This class represents the observer for the fW-H accoustic analogy, including the relations with several observers

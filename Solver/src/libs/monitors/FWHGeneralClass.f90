@@ -1,15 +1,10 @@
-!
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 25 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
+
 !//////////////////////////////////////////////////////
 !
 !This class represents the general behaviour of the Ffowcs Williams and Hawckings aero accoustic analogy
-
+!
+!//////////////////////////////////////////////////////
+!
 #include "Includes.h"
 Module FWHGeneralClass  !
 

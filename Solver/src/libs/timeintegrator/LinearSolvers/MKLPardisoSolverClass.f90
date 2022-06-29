@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MKLPardisoSolverClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Wed Sep 15 12:15:50 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
 !//////////////////////////////////////////////////////
 !
 !     Class for solving linear systems using MKL version of Pardiso

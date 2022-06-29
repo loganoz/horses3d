@@ -1,17 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Storage.f90
-!   @Author:  UNK
-!   @Created: UNK
-!   @Last revision date: Mon Sep  6 22:44:49 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
-! TODO: Create destructors
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module Storage
    use SMConstants

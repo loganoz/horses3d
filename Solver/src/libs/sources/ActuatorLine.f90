@@ -1,12 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ActuatorLine.f90
-!   @Author:  Esteban (esteban.ferrer@upm.es)
-!   @Created: Tue Feb 25 17:31:21 2022
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 
 module ActuatorLine

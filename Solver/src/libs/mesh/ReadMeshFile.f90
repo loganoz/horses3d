@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ReadMeshFile.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Apr 27 12:57:00 2017
-!   @Last revision date: Mon Mar 14 22:31:25 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ReadMeshFile
    use SMConstants

@@ -1,8 +1,5 @@
 !////////////////////////////////////////////////////////////////////////
 !
-!      SparseBlockDiagonalMatrixClass.f90
-!      Created: 2018-02-19 17:07:00 +0100 
-!      By: Andrés Rueda
 !
 !      Class for sparse block diagonal matrices with sparse CSR blocks
 !

@@ -1,14 +1,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM
-!      By: David Kopriva
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
-!      exact solutions (e.g. for tests), etc. and allow modifications
+!      exact solutions (e.g. for tests), etc. and allow modifications 
 !      without having to modify the main code.
 !
 !      The procedures, *even if empty* that must be defined are
@@ -19,8 +15,8 @@
 !      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #include "Includes.h"
 module ProblemFileFunctions
    implicit none

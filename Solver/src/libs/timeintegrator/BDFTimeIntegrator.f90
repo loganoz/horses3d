@@ -1,13 +1,4 @@
 !
-!////////////////////////////////////////////////////////////////////////
-!
-!   @File:    BDFTimeIntegrator.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 2017-04-09 16:30:00 +0100 
-!   @Last revision date: Mon Sep  6 22:45:04 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
 !   Module for integrating in time using the Backward Differentiation Formulas (BDF)
 !
 !////////////////////////////////////////////////////////////////////////

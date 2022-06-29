@@ -1,10 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    mkl_dfti.f90
-!   @Author:  Intel Corporation
-!   @Created: 
-!
 !//////////////////////////////////////////////////////
 !
 ! Useful Fortran interfaces for direct fff routines. All of the them come from

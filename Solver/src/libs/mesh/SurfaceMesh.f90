@@ -1,11 +1,3 @@
-!
-!   @File:    SurfaceMesh.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 21 2022
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
 !This module handle the ficticious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy

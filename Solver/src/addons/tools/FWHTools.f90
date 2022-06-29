@@ -1,16 +1,11 @@
 !
-!   @File:    FWHTools.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Sep 3 2021
-!   @Last revision date: Feb 28 2022
-!   @Last revision author: 
-!   @Last revision commit: 
-!
 !////////////////////////////////////////////////////////////////////////
 !
-!This module contains the definitions for the FWH preprocessing of creating a permeable surface
+! This module contains the definitions for the FWH preprocessing of creating a permeable surface
 ! and the postprocessing of calculating the FWH based on the surface results of the compressible NodalStorageClass
 ! over a suface, which is stored in files .fwhs.hsol (one per time step)
+!
+!////////////////////////////////////////////////////////////////////////
 !
 Module FWHTools  !
 

@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    PETScMatrixClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Wed Jul 17 11:52:32 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 !      Class for sparse csr matrices in PETSc context
 !
 !////////////////////////////////////////////////////////////////////////

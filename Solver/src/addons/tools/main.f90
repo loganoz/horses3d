@@ -1,16 +1,3 @@
-!
-!   @File:    main.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: May 3 2020
-!   @Last revision date: 28 Feb 2022
-!   @Last revision author: 
-!   @Last revision commit: 
-!
-!//////////////////////////////////////////////////////
-!
-!
-!////////////////////////////////////////////////////////////////////////
-!
 Program main
     use SMConstants
     use FTValueDictionaryClass

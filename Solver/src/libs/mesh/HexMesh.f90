@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:
-!   @Author:  David Kopriva
-!   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Feb 11 11:25:13 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 MODULE HexMeshClass
       use Utilities                       , only: toLower, almostEqual, AlmostEqualRelax

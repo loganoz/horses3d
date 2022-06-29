@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    main.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue May 14 10:13:08 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 ! Small program to test that the Euler Jacobians are working
 program TestEulerJacobians
    use SMConstants           , only: RP, NDIM
