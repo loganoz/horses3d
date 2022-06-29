@@ -300,6 +300,11 @@ module NoSlipWallBCClass
 !        ---------------------------------
          !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
 
+
+         !Isothermal BC
+         Q(IRHOE) = Q(IRHOE) + self % wallType * (Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2 * thermodynamics % gammaMinus1) - Q(IRHOE))
+
+
       end subroutine NoSlipWallBC_FlowState
 
       subroutine NoSlipWallBC_FlowGradVars(self, x, t, nHat, Q, U, GetGradients)
