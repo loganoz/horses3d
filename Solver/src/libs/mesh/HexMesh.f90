@@ -3078,10 +3078,20 @@ slavecoord:             DO l = 1, 4
                call ReadOrderFile(trim(orderFileName), Nx, Ny, Nz)
             end if
 
+            if ( controlVariables % containsKey("restart nodetype") ) then
+               select case ( trim(controlVariables % stringValueForKey("restart nodetype",requestedLength = LINE_LENGTH)) )
+               case("Gauss")
+                  auxMesh % nodeType = 1
+               case("Gauss-Lobatto")
+                  auxMesh % nodeType = 2
+               end select
+            else 
+               auxMesh % nodeType = self % nodeType
+            end if
+!
 !           Construct an auxiliar mesh to read the solution
 !           -----------------------------------------------
 
-            auxMesh % nodeType = self % nodeType
             auxMesh % no_of_elements = self % no_of_elements
             auxMesh % no_of_allElements = self % no_of_allElements
             allocate ( auxMesh % elements (self % no_of_elements) )
@@ -3221,8 +3231,10 @@ slavecoord:             DO l = 1, 4
          nodeType = getSolutionFileNodeType(trim(fileName))
 
          if ( nodeType .ne. self % nodeType ) then
-            print*, "Solution file uses a different discretization nodes than the mesh."
-            errorMessage(STD_OUT)
+            print*, "WARNING: Solution file uses a different discretization nodes than the mesh."
+            print*, "Add restart polorder = (Pol order in your restart file) in the control file if you want interpolation routines to be used."
+            print*, "If restart polorder is not specified the values in the original set of nodes are loaded into the new nodes without interpolation."
+            errorMessage(STD_OUT) 
          end if
 !
 !        Read the number of elements
