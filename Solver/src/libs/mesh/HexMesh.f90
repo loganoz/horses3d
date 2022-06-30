@@ -4235,13 +4235,13 @@ slavecoord:             DO l = 1, 4
       allocate(to % elements_sequential(size(from % elements_sequential)))
       allocate(to % elements_mpi       (size(from % elements_mpi       )))
       allocate(to % faces_interior     (size(from % faces_interior     )))
-      allocate(to % faces_mpi          (size(to % faces_mpi            )))
+      allocate(to % faces_mpi          (size(from % faces_mpi          )))
       allocate(to % faces_boundary     (size(from % faces_boundary     )))
 
       to % elements_sequential = from % elements_sequential
       to % elements_mpi        = from % elements_mpi
       to % faces_interior      = from % faces_interior
-      to % faces_mpi           = to % faces_mpi
+      to % faces_mpi           = from % faces_mpi
       to % faces_boundary      = from % faces_boundary
 
 
