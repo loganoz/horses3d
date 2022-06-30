@@ -31,12 +31,12 @@ jobs:
         enable_threads: ['YES']
         mkl: ['y','n']
         exclude:
-        - os: gfortran
+        - compiler: gfortran
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
           mkl: 'y'
-        - os: ifort
+        - compiler: ifort
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
