@@ -49,13 +49,13 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      # sudo apt-get install -qq pkg-config libhdf5-serial-dev
       - name: Install Linux packages
         run: |
           sudo apt-get update
-#          sudo apt-get install -qq pkg-config libhdf5-serial-dev
           sudo apt install libhdf5-dev
           dpkg -L libhdf5-dev
-          
+
       # IF COMPILER = IFORT -> INSTALL IFORT #
       - name: cache-intel-compilers
         # if: (matrix.compiler == 'ifort')
