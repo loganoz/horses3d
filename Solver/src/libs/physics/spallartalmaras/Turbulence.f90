@@ -31,7 +31,7 @@ module SpallartAlmarasTurbulence
       real(kind=RP)              :: cw2 = 0.3_RP
       real(kind=RP)              :: cw3 = 2.0_RP
       real(kind=RP)              :: kappa = 0.41_RP
-      real(kind=RP)              :: sigma = 2.0_RP/3.0_RP
+      real(kind=RP)              :: sigma_sa = 2.0_RP/3.0_RP
       real(kind=RP)              :: rmax  = 2.0_RP
       real(kind=RP)              :: cw1
 
@@ -80,7 +80,7 @@ module SpallartAlmarasTurbulence
 
          if (.not. allocated(model)) allocate( Spalart_Almaras_t :: model)
 
-            call model % Initialize(controlVariables)
+         call model % Initialize(controlVariables)
             
       end subroutine InitializeTurbulenceModel
 
@@ -90,7 +90,7 @@ module SpallartAlmarasTurbulence
          class(Spalart_Almaras_t)              :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
 
-         self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma
+         self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma_sa
 
       end subroutine SAmodel_Initialize
 !
@@ -124,10 +124,10 @@ module SpallartAlmarasTurbulence
 
          if (theta .GE. 0.0_RP ) then
             mu_t = rho * theta * fv1 
-            eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma
+            eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma_sa
         else
              mu_t = 0.0_RP       
-             eta  = dimensionless % mu * mu * (1.0_RP + chi + (POW2(chi))/2.0_RP) / self % sigma
+             eta  = dimensionless % mu * mu * (1.0_RP + chi + (POW2(chi))/2.0_RP) / self % sigma_sa
         endif 
 
       end subroutine SA_ComputeViscosity
@@ -230,7 +230,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: gn, PRODUCTION1, PRODUCTION2, PRODUCTION3
 
       if (theta .GE. 0.0_RP ) then
-            
+
             fv2    =  Compute_fv2(self, chi, fv1)
             sbar   =  Compute_sbar(self, theta, dwall, fv2)
             stilda =  Compute_modifiedvorticity(self, vort, sbar)
@@ -331,8 +331,13 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: stilda
          real(kind=RP)                        :: g
          real(kind=RP)                        :: r
-
-         r = min(dimensionless % mu * theta/(stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
+         
+         !IF ( AlmostEqual( stilda, 0.0_RP ) ) THEN
+         if (stilda .eq. 0.0_RP) then
+            r = self % rmax
+         else 
+            r = min(dimensionless % mu * theta/(stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
+         endif
 
          g = r + self % cw2 * ( (r**6.0_RP) - r)
 
@@ -360,7 +365,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: Theta_z
          real(kind=RP), intent(inout)           :: source_Kappa
 
-         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z)) / self % sigma
+         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z)) / self % sigma_sa
                
       end subroutine Compute_AdditionalSourceTermKappa
 

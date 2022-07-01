@@ -226,7 +226,7 @@ module SpatialDiscretization
    !
    !        Initialize models
    !        -----------------
-            call InitializeTurbulenceModel(SAmodel, controlVariables)
+            call InitializeTurbulenceModel(SAmodel,controlVariables)
 
             call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, sem, &
                                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)

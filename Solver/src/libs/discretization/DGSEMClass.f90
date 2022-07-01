@@ -21,7 +21,7 @@ Module DGSEMClass
    use FWHGeneralClass
 #elif defined(SPALARTALMARAS)
    use ManufacturedSolutionsNSSA
-   use SpallartAlmarasTurbulence
+   use SpallartAlmarasTurbulence , only: Spalart_Almaras_t
 #endif
    use MonitorsClass
    use ParticlesClass
@@ -50,6 +50,9 @@ Module DGSEMClass
       type(Monitor_t)                                         :: monitors
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       type(FWHClass)                                          :: fwh
+#endif
+#if defined(SPALARTALMARAS)
+      type(Spalart_Almaras_t), private    :: SAModel
 #endif
 #ifdef FLOW
       type(Particles_t)                                       :: particles
@@ -660,13 +663,11 @@ Module DGSEMClass
       logical :: flowIsNavierStokes = .true.
 #endif
 #if defined(SPALARTALMARAS)
-      type(Spalart_Almaras_t)       :: SAModel
-      external                      :: ComputeEigenvaluesForStateSA
+      external                            :: ComputeEigenvaluesForStateSA
 #endif
       !--------------------------------------------------------
 !     Initializations
 !     ---------------
-
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
@@ -751,15 +752,13 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
-              call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
+              call self % SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
               mu = mu + musa
-
 #endif
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
                lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
-
                TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
                if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), &
                                                       dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v)  )

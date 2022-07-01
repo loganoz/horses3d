@@ -531,12 +531,12 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(2)+1.0_RP, &
                                actualValue   = monitors % residuals % values(2,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "X-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(3)+1.0_RP, &
                                actualValue   = monitors % residuals % values(3,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "Y-Momentum residual")
 
             CALL FTAssertEqual(expectedValue = residuals(4)+1.0_RP, &
@@ -546,12 +546,12 @@ end module ProblemFileFunctions
 
             CALL FTAssertEqual(expectedValue = residuals(5)+1.0_RP, &
                                actualValue   = monitors % residuals % values(5,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "Energy residual")
             
             CALL FTAssertEqual(expectedValue = residuals(6)+1.0_RP, &
                                actualValue   = monitors % residuals % values(6,1)+1.0_RP, &
-                               tol           = 1.d-11, &
+                               tol           = 1.d-8, &
                                msg           = "Turbulence model residual")
 
             CALL sharedManager % summarizeAssertions(title = testName,iUnit = 6)
