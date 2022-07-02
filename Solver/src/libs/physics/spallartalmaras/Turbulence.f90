@@ -332,7 +332,6 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: g
          real(kind=RP)                        :: r
          
-         !IF ( AlmostEqual( stilda, 0.0_RP ) ) THEN
          if (stilda .eq. 0.0_RP) then
             r = self % rmax
          else 
