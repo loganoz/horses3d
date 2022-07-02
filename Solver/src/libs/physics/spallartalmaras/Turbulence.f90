@@ -332,7 +332,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: g
          real(kind=RP)                        :: r
          
-         if (stilda .eq. 0.0_RP) then
+         if (stilda .EQ. 0.0_RP) then
             r = self % rmax
          else 
             r = min(dimensionless % mu * theta/(stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
