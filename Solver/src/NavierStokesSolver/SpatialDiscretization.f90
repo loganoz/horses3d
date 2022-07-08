@@ -820,8 +820,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -904,8 +904,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -953,9 +953,9 @@ module SpatialDiscretization
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
 !
-!        --------------------------
-!        Artifical viscosity fluxes
-!        --------------------------
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)

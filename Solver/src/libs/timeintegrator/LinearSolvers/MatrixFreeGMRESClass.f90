@@ -74,7 +74,7 @@ module MatrixFreeGMRESClass
       
       
       contains
-         ! Overriden procedures:
+         ! Overridden procedures:
          procedure                           :: Construct         => GMRES_Construct
          procedure                           :: Destroy           => GMRES_Destruct
          procedure                           :: SetRHSValue

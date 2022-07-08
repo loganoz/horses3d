@@ -29,7 +29,7 @@
 !>- destruct()
 !>
 !>     Destructor of the object, which releases and deallocates owned objects and memory.
-!>     Should be overrided in subclasses. The base class implementation does nothing but
+!>     Should be overridden in subclasses. The base class implementation does nothing but
 !>     decrease the reference count of the object.
 !>
 !>- printDescription(iUnit)
@@ -351,7 +351,7 @@
 !>   Returns a character string of length DESCRIPTION_CHARACTER_LENGTH that
 !>    represents the object. the base class implementation returns an empty
 !>    string. Note that if the description is too long, the expected string
-!>    will be trunctated. In general, one wants to use printDescription.
+!>    will be truncated. In general, one wants to use printDescription.
 !<
 !     ----------------------------------------------------------------------
 !
@@ -385,10 +385,10 @@
 ! 
 !
 !     --------------------------------------------------------------------
-!>   Base class implemetation of the assignment function. Call this from
+!>   Base class implementation of the assignment function. Call this from
 !>    within any subclasses copy assignment function. All FTObject's 
 !>    implementation does is set
-!>    the reference count to one, implying no additional ownwership to the 
+!>    the reference count to one, implying no additional ownership to the 
 !>    caller that is creating the copy.
 !<
 !     --------------------------------------------------------------------

@@ -879,7 +879,7 @@ readloop:do
       real(kind=RP)              :: t                 !< time!!
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
-      type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
+      type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
       !-local-variables----------------------
       integer                    :: eID               !   Element counter
       integer                    :: Dir               !   Direction
@@ -1152,7 +1152,7 @@ readloop:do
          if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
       end do
       
-!     Initialiation of TEmap and NNew
+!     Initialization of TEmap and NNew
 !     -------------------------------
       TEmap = 0._RP
       NNew = -1 ! Initialized to negative value
@@ -1510,7 +1510,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------
-!  Subroutine for reorganizing the polynomial orders with neighbor contraints
+!  Subroutine for reorganizing the polynomial orders with neighbor constraints
 !  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
 !  -----------------------------------------------------------------------
    subroutine ReorganizePolOrders(faces,NNew,last)
@@ -1527,7 +1527,7 @@ readloop:do
       
       sweep = 0
       
-      ! perform succesive (serial) sweeps until no further elements have to be modified 
+      ! perform successive (serial) sweeps until no further elements have to be modified 
       do 
          sweep = sweep + 1
          finalsweep = .TRUE. ! let's first assume this is the final sweep
@@ -1641,7 +1641,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  Subroutines to specify the maximum polynomial order jump across a face
-!  The element accross the face is of order a
+!  The element across the face is of order a
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

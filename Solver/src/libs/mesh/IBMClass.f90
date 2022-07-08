@@ -1861,10 +1861,10 @@ module IBMClass
 !  
 !  ---------------------------------------------------------------------
 ! This subroutine checks if a ray (RayDirection) starting from a point (Point) intersects
-! a traingle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
+! a triangle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
 ! If there is more than one intersections, the second one is not counted if it has the same t
 ! as the one previously found.
-! See Fast, Minimum Storage Ray/Trinagle INtersection,  Moller TRumbore
+! See Fast, Minimum Storage Ray/Triangle Intersection,  Moller Trumbore
 !  ---------------------------------------------------------------------
    
    subroutine PointIntersectTriangle( Point, TriangleVertex1, TriangleVertex2, &
@@ -2246,7 +2246,7 @@ module IBMClass
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  -------------------------------------------------
-! This subroutine computes the minumum distance from x (global ref. frame) to the body. First,
+! This subroutine computes the minimum distance from x (global ref. frame) to the body. First,
 ! the box (tree) where x lies is found, then the min distance between the objects inside the tree and
 ! the point is computed. If the sphere whose radius is minDist, is enclosed in the box, the subroutine stops.
 ! If the latter condition is not true, all the boxes that intersects the sphere are checked in the same way as
@@ -2686,14 +2686,14 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
-!                                          TURBULENCE 
+!                                          TURBULENCE
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 #if defined(NAVIERSTOKES)
 !  -------------------------------------------------
-!  This subroutine performes iterations so that the 
-!  forcing point lies inside the log region 
+!  This subroutine performs iterations so that the
+!  forcing point lies inside the log region
 !  ------------------------------------------------
 
    subroutine IBM_GetImagePoint_nearest( this )

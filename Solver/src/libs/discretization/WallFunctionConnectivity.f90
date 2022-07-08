@@ -3,7 +3,7 @@
 !
 ! This module stores the connection of each face of the wall that will be used in the 
 ! Wall Function with the first normal neighbour
-! elelement and other needed variables
+! element and other needed variables
 !
 !//////////////////////////////////////////////////////
 !
@@ -431,7 +431,7 @@ Module WallFunctionConnectivity  !
             end if
         end do
 
-        ! if the code reach this point the elemt does not exists
+        ! if the code reach this point the element does not exists
         write(STD_OUT,'(A,I0)') "Error: The element of the wall function does not exists in the mesh or mesh partition, global ID: ", globeID
         errorMessage(STD_OUT)
         stop 

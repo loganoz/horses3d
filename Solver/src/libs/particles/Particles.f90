@@ -474,7 +474,7 @@ subroutine InjectParticles( self, mesh  )
     real(KIND=RP)     :: v(3), T
     real(KIND=RP)     :: eps
 
-    ! This is a harcoded value that makes sure that the particle is inside the domain.
+    ! This is a hardcoded value that makes sure that the particle is inside the domain.
     ! Injection position is Min + (Max - Min) * eps or Max - (Max - Min) * eps depending if it is in positive or negative directions
     eps = 1.d-2 
 

@@ -476,7 +476,7 @@
       INTEGER                               :: k
 !
 !     -------------------------------------------
-!     Compute flow quantitites inside the element
+!     Compute flow quantities inside the element
 !     The code below gives the exact solution for
 !     a subsonic point source. This solution
 !     requires the inflow flux, which is computed

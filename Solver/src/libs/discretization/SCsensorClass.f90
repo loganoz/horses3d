@@ -30,7 +30,7 @@ module SCsensorClass
          integer  :: sens_type  ! ID of the sensor type
 
          real(RP) :: s0    !< Centre of the sensor scaling
-         real(RP) :: ds    !< Bandwith of the sensor scaling
+         real(RP) :: ds    !< Bandwidth of the sensor scaling
          real(RP) :: ds2   !< Half-bandwidth
          real(RP) :: low   !< Lower threshold
          real(RP) :: high  !< Upper threshold
@@ -142,7 +142,7 @@ module SCsensorClass
          sensor % Compute  => Sensor_aliasing
 
       case default
-         write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
+         write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_GRADRHO_VAL

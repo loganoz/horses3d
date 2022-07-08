@@ -352,7 +352,7 @@ contains
         end if
 !       ------------------------------------------------------------------
 
-        ! Sepcify the version of the solver (matrix-based or matrix-free) 
+        ! Specify the version of the solver (matrix-based or matrix-free) 
 !       ------------------------------------------------------------------
         if ( controlVariables % containsKey("jacobian assembly") ) then
         select case ( trim( controlVariables % StringValueForKey("jacobian assembly",LINE_LENGTH) ) )
@@ -1324,7 +1324,7 @@ contains
       call z_spAd % construct(this % p_sem % mesh % nodeType, z_Ndest  )
 
 
-      ! 1D X directin
+      ! 1D X direction
       !-----------------------------------------------------
       call PolynomialInterpolationMatrix(x_Norigin, x_Ndest, x_spAo % x, x_spAo % wb, x_spAd % x, this % ProlX)
       !-----------------------------------------------------
@@ -1739,14 +1739,14 @@ contains
 !  
 !  N_x_coarse/fine is a pol. order in x direction.
 !  Nel is a number of elements.
-!  Neqn is a number of sovled equations. 
+!  Neqn is a number of solved equations. 
 !  ---------------------------------------------------------
       implicit none
 !-----Arguments-----------------------------------------------------------
       class(LinearMultigridSolver_t), target, intent(inout) :: this
       integer                         , intent(in)    :: nEqn
 !-----Local-Variables-----------------------------------------------------
-      class(LinearMultigridSolver_t), pointer               :: child_p
+      class(LinearMultigridSolver_t), pointer         :: child_p
       real(kind=RP), dimension(:,:), pointer          :: R_p
       real(kind=RP), dimension(:,:), pointer          :: P_p
       integer                                         :: iEl_row

@@ -693,7 +693,7 @@ module SpectralVanishingViscosity
 !
 !           We add what remains from the decomposition, from Hflux: Fv = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!        Recall that in D we took away the constants (to avoid unnecessary sqrts)
 !
 !        D = diag(α  µT  µT  µT  T²κ | α  0  µT  µT  T²κ | α  0  0  0  T²κ),
 !
@@ -779,9 +779,9 @@ module SpectralVanishingViscosity
 !
 !        ***************************************************************************************
 !
-!           We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
+!        We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!        Recall that in D we took away the constants (to avoid unnecessary sqrts)
 !
 !        D = diag(αρ  µp  µp  µp  αρ | αρ  0  µp  µp  αρ  | αρ  0  0  µp  αρ),
 !

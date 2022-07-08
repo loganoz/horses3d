@@ -440,8 +440,8 @@ Module FWHPreSurface  !
         end do
         if (numberOfFaces .ne. numberOfVerifiedFaces) print *, "Warning, not all possible faces have been created. Check results first"
 
-!       get bounday faces if needed
-!       --------------------------------------------
+!       get boundary faces if needed
+!       ----------------------------
         if (connectedAtBoundary) then
             call getBCFaces(mesh, isInGeometry, radii, ratio, centerPosition, lengthAspect, allExcludedElemID, allNewElemID, zoneMarkers, numberOfBCZones, bcFaces, numberOfBCFaces)
             allocate(oldIdsTemp(numberOfVerifiedFaces+numberOfBCFaces,3))
@@ -493,7 +493,7 @@ Module FWHPreSurface  !
             allocate(allElements(nElements,2))
             k = 0
             do eID = 1, nElements
-                ! works if theres is only one element neighbour for each face
+                ! works if there's only one element neighbour for each face
                 totalNeighbours = FACES_PER_ELEMENT
                 numberOfNeighbours = 0
                 associate ( e => mesh % elements(elementsTemp(eID,1)) )

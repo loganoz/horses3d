@@ -40,7 +40,7 @@ Module readSpecM
          ! CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
          integer                         :: Nx, Ny, Nz     !<  Polynomial orders for each element
-         integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actaul nodes are not computed
+         integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actual nodes are not computed
 !
 !        ------------------
 !        For curved patches

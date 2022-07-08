@@ -223,7 +223,7 @@
 !
 !     -------------------------------------------------------------------------
 !     Side Map: Given two corner points, return the index in which an array 
-!     runs betweeen these two corners. This is shown in the figure below:
+!     runs between these two corners. This is shown in the figure below:
 !
 !               4 -----------3-------------3
 !               |                          |

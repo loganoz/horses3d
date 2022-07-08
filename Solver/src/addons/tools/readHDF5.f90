@@ -33,7 +33,7 @@ Implicit None
 
 contains
 
-! adpated from Horses core Read_HDF5Mesh_HOPR
+! adapted from Horses core Read_HDF5Mesh_HOPR
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------
@@ -106,7 +106,7 @@ contains
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
-      integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actaul nodes are not computed
+      integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actual nodes are not computed
       !---------------------------------------------------------------
       
 !

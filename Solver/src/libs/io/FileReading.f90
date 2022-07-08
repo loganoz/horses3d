@@ -215,8 +215,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last forward slash ocurrence
-!        ------------------------------------
+!        Get the last forward slash occurrence
+!        -------------------------------------
          pos = index(inputLine,'/',BACK=.true.)
 
          if ( pos .eq. 0 ) then
@@ -239,8 +239,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last point ocurrence
-!        ----------------------------
+!        Get the last point occurrence
+!        -----------------------------
          pos = index(inputLine,'.',BACK=.true.)
 
          if ( pos .eq. 0 ) then  
@@ -263,8 +263,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last point ocurrence
-!        ----------------------------
+!        Get the last point occurrence
+!        -----------------------------
          pos = index(inputLine,'.',BACK=.true.)
 
          if ( pos .eq. 0 ) then  

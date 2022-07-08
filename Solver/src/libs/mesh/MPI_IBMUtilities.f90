@@ -972,7 +972,7 @@ contains
    end subroutine SendSTLPartitions
    
 
-! PARTION FOR MASK POINTS
+! PARTITION FOR MASK POINTS
 
    subroutine MPI_M_Points_type_Destroy( this )
       

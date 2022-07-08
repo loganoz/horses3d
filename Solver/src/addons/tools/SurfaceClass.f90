@@ -196,8 +196,8 @@ Module SurfaceClass
             end associate
         end do
 
-!       Write the conections
-!       --------------------
+!       Write the connections
+!       ---------------------
         row = 0
         do fID = 1 , self % totalNumberOfFaces
             ! if (self % fIDs(fID) .eq. 0) cycle
@@ -394,7 +394,7 @@ Module SurfaceClass
             call self % edges(i) % construct(mesh % faces(fID), i)
         end do
 
-        ! This is change only for faces at boundarys, for non closed surfaces
+        ! This is change only for faces at boundaries, for non closed surfaces
         self % numberOfConnections = NODES_PER_FACE
 
     End Subroutine FaceConstruct
@@ -680,7 +680,7 @@ Module SurfaceClass
         self % isInBCZone = .false.
         if (.not. notcheckBC) call self % updateIsInZone(mesh, zoneMarkers, M)
 
-        ! is false by default, will be change if neccesary in future
+        ! is false by default, will be change if necessary in future
         self % needSecondFace = .false.
 
     End Subroutine ElementConstruct
@@ -791,8 +791,8 @@ Module SurfaceClass
             if (self % faces(i) % fID .eq. self % fID) surfaceFace => self % faces(i)
         end do
 
-    ! first try with the oposite element to the actual face
-        ! first get the oposite element
+    ! first try with the opposite element to the actual face
+        ! first get the opposite element
         do i = 1, NUM_OF_NEIGHBORS
             if (mesh % elements(self % eID) % faceIDs(i) .ne. self % fID) cycle
             thisFaceIndexes(1) = i
@@ -867,7 +867,7 @@ Module SurfaceClass
             allElements(i) = eID
         end do con_elems_loop 
 
-        ! now reduce to non connected by corner if neccesary
+        ! now reduce to non connected by corner if necessary
         numE = i
         if (numE .eq. 1) then
             targetEID = allElements(1)
@@ -886,11 +886,11 @@ Module SurfaceClass
                 exit
                 i = i + 1
             end do pos_elems_loop
-            ! if (i .gt. 1) print *, "Warning: more than one element is possible to be neightbour"
+            ! if (i .gt. 1) print *, "Warning: more than one element is possible to be neighbour"
         end if 
 
         if (targetEID .eq. 0) then 
-            ! print *, "Warning: for element ", self%globaleID, "a neightbour was not found"
+            ! print *, "Warning: for element ", self%globaleID, "a neighbour was not found"
             return
         end if
 
@@ -944,7 +944,7 @@ Module SurfaceClass
         integer, dimension(NODES_PER_FACE)                  :: oldNewCornersMap
         real(kind=RP), dimension(NODES_PER_FACE)            :: residual
 
-        ! get the new face and the oposite to it: the one without any conections and the one with FACES_PER_ELEMENT-2 conections
+        ! get the new face and the opposite to it: the one without any connections and the one with FACES_PER_ELEMENT-2 connections
         ! --------------------------------------
         faces_loop: do i = 1, FACES_PER_ELEMENT
             faceConnections = 0

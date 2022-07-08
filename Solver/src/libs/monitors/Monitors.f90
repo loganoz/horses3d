@@ -436,8 +436,8 @@ module MonitorsClass
 
          if ( forceVal ) then 
 !
-!           In this case the monitors are exported to their files and the buffer is reseted
-!           -------------------------------------------------------------------------------
+!           In this case the monitors are exported to their files and the buffer is reset
+!           -----------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t, self % TotalSimuTime, self % SolverSimuTime , self % bufferLine )
    
             do i = 1 , self % no_of_volumeMonitors

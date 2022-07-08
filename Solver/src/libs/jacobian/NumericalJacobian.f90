@@ -385,7 +385,7 @@ contains
             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color! 
 
 !           Iterate through the DOFs in thiscolor
-!              ( Computes one column for each dof within an elment )
+!              ( Computes one column for each dof within an element )
 !           ********************************************************
             do thisdof = 1, ndofcol(thiscolor)
 
@@ -480,7 +480,7 @@ contains
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !         
 !        Iterate through the DOFs in thiscolor
-!           ( Computes one column for each dof within an elment )
+!           ( Computes one column for each dof within an element )
 !        ********************************************************
          do thisdof = 1, ndofcol(thiscolor)
             
