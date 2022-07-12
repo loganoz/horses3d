@@ -46,7 +46,7 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                        ! Number of degrees of freedom in this partition
       integer                                                 :: totalNDOF                   ! Number of degrees of freedom in the whole domain
       TYPE(HexMesh)                                           :: mesh
-      LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
+      LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manufactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       type(FWHClass)                                          :: fwh

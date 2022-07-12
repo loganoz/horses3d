@@ -54,7 +54,7 @@ module FluidData_MU
 !
 !///////////////////////////////////////////////////////////////////////
 !
-!        This Set* subroutines are required since the intances defined
+!        This Set* subroutines are required since the instances defined
 !     here are protected. The protected argument implies that they
 !     can not be modified outside this module (these quantities are
 !     really important to risk accidental modification).

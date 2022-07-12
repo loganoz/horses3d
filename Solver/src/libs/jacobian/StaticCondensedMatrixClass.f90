@@ -511,7 +511,7 @@ contains
       end if
       
       if ( (count_i+count_b) /= this % num_of_Rows ) then
-         ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
+         ERROR stop 'StaticCondensedMatrixClass :: Invalid arguments in constructPermutationArrays'
       end if
       
       this % size_i        = count_i

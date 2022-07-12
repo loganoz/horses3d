@@ -121,7 +121,7 @@ Module FWHGeneralClass  !
            self % numberOfObservers = getNoOfObservers()
         end if
 
-!       Set interpolate atribute as TRUE by default
+!       Set interpolate attribute as TRUE by default
         ! todo: read from constrol variables
         self % interpolate = .TRUE.
         ! self % interpolate = .FALSE.
@@ -240,8 +240,8 @@ Module FWHGeneralClass  !
 
         if ( forceVal ) then 
 !
-!           In this case the observers are exported to their files and the buffer is reseted
-!           -------------------------------------------------------------------------------
+!           In this case the observers are exported to their files and the buffer is reset
+!           ------------------------------------------------------------------------------
             if (.not. self % firstWrite .and. self % interpolate) then
                 do i =1, self % numberOfObservers
                     call self % observers(i) % interpolateSol(self % t, self % bufferLine)

@@ -860,7 +860,7 @@ module RiemannSolvers_NS
       subroutine ViscousNSRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
 !
 !        ***********************************************************************
-!           This solver is designed such that it mimicks the dissipation
+!           This solver is designed such that it mimics the dissipation
 !           introduced by compressible Navier-Stokes terms
 !        ***********************************************************************
 !

@@ -653,7 +653,7 @@ Module SurfaceMesh
               padding = NCONS*2
           end if 
       case (SURFACE_TYPE_BC)
-          ! more variables such as friction velocity, mu, and hight of first node will be saved in the future
+          ! more variables such as friction velocity, mu, and height of first node will be saved in the future
           solution_type = ZONE_SOLUTION_FILE
           if (saveGradients)  then
               padding = NCONS + NGRAD*3
@@ -790,7 +790,7 @@ Module SurfaceMesh
       case (ZONE_SOLUTION_AND_DOT_FILE)
 
       case default
-          write(STD_OUT,'(A,I0,A,I0)') "Erro, hsol file expected is ", ZONE_SOLUTION_AND_DOT_FILE, ", got: ", fileType
+          write(STD_OUT,'(A,I0,A,I0)') "Error, hsol file expected is ", ZONE_SOLUTION_AND_DOT_FILE, ", got: ", fileType
           errorMessage(STD_OUT)
       end select
 
@@ -1058,7 +1058,7 @@ Module SurfaceMesh
 !       ------------------
         if ( (MPI_Process % doMPIAction) ) then
 
-!         Broadcast from root, since other process didnt read the file
+!         Broadcast from root, since other process didn't read the file
 !         ------------------
 #ifdef _HAS_MPI_
           call mpi_barrier(MPI_COMM_WORLD, ierr)
@@ -1072,7 +1072,7 @@ Module SurfaceMesh
 #endif
 
 !         First compare the globaleID read from the element in the partition and save the normal (not global) eID, and the
-!         correspondend read nodeIDs
+!         correspondent read nodeIDs
 !         ------------------
           allocate( nodeIDs(4,allNumberOfFaces), eIDs(allNumberOfFaces) )
           j = 0
@@ -1135,7 +1135,7 @@ Module SurfaceMesh
           deallocate(allGeIDs, allfIDs)
           eSides = 0
           do i = 1, numberOfFaces
-              ! if findloc is suport by the compiler use this line and comment the if
+              ! if findloc is supported by the compiler use this line and comment the if
               ! eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
               if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
                 eSides(i) = 1
@@ -1144,7 +1144,7 @@ Module SurfaceMesh
               end if
               if (eSides(i) .eq. 0) then
                 print *, "Error: the element ", eIDs(i), " does not correspond to the face ", mesh % faces(facesIDs(i)) % ID, &
-                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the elemet are: ", mesh % elements(eIDs(i)) % faceIDs
+                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the element are: ", mesh % elements(eIDs(i)) % faceIDs
                 call exit(99)
               end if 
           end do
@@ -1252,8 +1252,8 @@ Module SurfaceMesh
         do i = 1, mesh % no_of_faces
             associate( x => mesh % faces(i) % geom % x(:,:,:) )
                 if ( all(abs(x(direction,:,:)-coordinate) .le. sliceTolerance) ) then
-                    ! not use the face if there is no element in mesh associated wiht it.
-                    ! wierd check, but necessary for strange bug when the coordinate is 0
+                    ! not use the face if there is no element in mesh associated with it.
+                    ! weird check, but necessary for strange bug when the coordinate is 0
                     if (mesh % faces(i) % elementIDs(1) .eq. 0) cycle
                     if (useLimits) then
                         dirLims(1) = direction + 1

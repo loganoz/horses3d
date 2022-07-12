@@ -21,8 +21,8 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 **HORSES3D** is an object-oriente Fortran 2008 solver, that can be compiled using gcc and intel compiler, in Unix-based operating systems. 
 - We recommend using recent versions of such compilers (2019 or newer).
 - Make is necessary (e.g., Gnu's version, which is included in most linux distributions).
-- Suported meshes in GMSH, HDF5 and SpecMesh/HOHQMesh format.
-- Post processing can be peformed in tecplot or paraview.  
+- Supported meshes in GMSH, HDF5 and SpecMesh/HOHQMesh format.
+- Post processing can be performed in tecplot or paraview.  
 
 
 ## Compiling & Running 

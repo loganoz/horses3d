@@ -335,7 +335,7 @@ module Storage
                   read(fid) e % Q_z
 
 !                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
-!                 Set state as is the default option TODO point to the correct one if its posible (oscar note)
+!                 Set state as is the default option TODO point to the correct one if its possible (oscar note)
 !                 ---------------------------
                   call set_getVelocityGradients(GRADVARS_STATE)
 

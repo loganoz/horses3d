@@ -305,7 +305,7 @@
 !           ---------------
 !
 #if defined(NAVIERSTOKES)
-            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex with Kinetic Energy preserving and entrophy conserving split form + IP"
+            CHARACTER(LEN=29)                  :: testName           = "Taylor-Green vortex with Kinetic Energy preserving and entropy conserving split form + IP"
             REAL(KIND=RP)                      :: maxError
             REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID

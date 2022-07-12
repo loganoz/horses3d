@@ -1,7 +1,7 @@
 !//////////////////////////////////////////////////////
 !
 !     Class for solving linear systems using MKL version of Pardiso
-!     -> It is possible to construct the matrix using PETSc. Thhis option is currently deactivated... deprecate??
+!     -> It is possible to construct the matrix using PETSc. This option is currently deactivated... deprecate??
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"

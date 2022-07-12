@@ -1,6 +1,6 @@
 !//////////////////////////////////////////////////////
 !
-!This module stores the definitions of the wall fuction and update the default values based on the controlVariables
+!This module stores the definitions of the wall function and update the default values based on the controlVariables
 
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
@@ -66,7 +66,7 @@ Module WallFunctionDefinitions  !
         character(len=STRING_CONSTANT_LENGTH)  :: wallFuncType
         real(kind=RP)                          :: Lref
 
-        ! is false by default so it returns false if stoped
+        ! is false by default so it returns false if stopped
         correct = .false.
 
         if (.not. controlVariables % containsKey("wall function")) then
