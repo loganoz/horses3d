@@ -1,7 +1,7 @@
 
 !//////////////////////////////////////////////////////
 !
-!This class represents the general behaviour of the Ffowcs Williams and Hawckings aero accoustic analogy
+!This class represents the general behaviour of the Ffowcs Williams and Hawckings aero acoustic analogy
 !
 !//////////////////////////////////////////////////////
 !
@@ -73,10 +73,10 @@ Module FWHGeneralClass  !
         integer                                             :: no_of_zones, no_of_face_i, ierr, no_of_faces
         logical, save                                       :: FirstCall = .TRUE.
 
-!        look if the accoustic analogy calculations are set to be computed
+!        look if the acoustic analogy calculations are set to be computed
 !        --------------------------------
-        !TODO read accoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
-        if (.not. controlVariables % containsKey("accoustic analogy")) then
+        !TODO read acoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
+        if (.not. controlVariables % containsKey("acoustic analogy")) then
             self % isActive = .FALSE.
             ! print *, "FWH not activated"
             return
@@ -102,7 +102,7 @@ Module FWHGeneralClass  !
 !       Get the general configuration of control file
 !       First get the surface as a zone
 !       -------------------------------
-        self % isSolid   = .not. controlVariables % logicalValueForKey("accoustic analogy permable")
+        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permeable")
 
 !       Get the solution file name
 !       --------------------------
@@ -148,7 +148,7 @@ Module FWHGeneralClass  !
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces
-         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", controlVariables % containsKey("accoustic save timestep")
+         write(STD_OUT,'(30X,A,A28,L1)') "->", "Save zone solution: ", controlVariables % containsKey("acoustic save timestep")
 
     End Subroutine FWHConstruct
 
@@ -357,7 +357,7 @@ readloop:do
 !           ---------
             line = getSquashedLine( line )
 
-            if ( index ( line , '#defineaccousticobserver' ) .gt. 0 ) then
+            if ( index ( line , '#defineacousticobserver' ) .gt. 0 ) then
                no_of_observers = no_of_observers + 1
 
             end if
