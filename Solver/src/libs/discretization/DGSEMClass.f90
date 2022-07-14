@@ -348,24 +348,33 @@ Module DGSEMClass
 !
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (self % ManufacturedSol) THEN
+      IF (flowIsNavierStokes) THEN
+         DO el = 1, SIZE(self % mesh % elements)
+            DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)                     
+                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      ELSE
          DO el = 1, SIZE(self % mesh % elements)
             DO k=0, Nz(el)
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
-                     IF (flowIsNavierStokes) THEN
-                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
-                                                          0._RP, &
-                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
-                     ELSE
-                        CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
-                     END IF
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                   END DO
                END DO
             END DO
          END DO
       END IF
+      END IF
+
 #elif defined(SPALARTALMARAS)
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements)
