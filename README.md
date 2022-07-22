@@ -1,15 +1,24 @@
-################################################################################                   
-#            HORSES3D High-Order (DG) Spectral Element Solver                  #
-#                                                                              #
-#                             MIT License                                      #
-#         Copyright (c) 2021 NUMATH https://numath.dmae.upm.es                 #
-################################################################################
+## HORSES3D High-Order (DG) Spectral Element Solver                  
+
+MIT License                                      
+Copyright (c) 2021 NUMATH https://numath.dmae.upm.es                 
 
 ## Synopsis
 -----------
 **HORSES3D** is a multiphysics environment where the compressible Navier-Stokes equations, the incompressible Navier–Stokes equations, the Cahn–Hilliard equation and entropy–stable variants are solved. Arbitrary high–order, p–anisotropic discretisations are used, including static and dynamic p–adaptation methods (feature-based and truncation error-based). Explicit and implicit time-steppers for steady and time-marching solutions are available, including efficient multigrid and preconditioners. Numerical and analytical Jacobian computations with a coloring algorithm have been implemented. Multiphase flows are solved using a diffuse interface model: Navier–Stokes/Cahn–Hilliard. Turbulent models implemented include RANS: Spalart-Allmaras and LES: Smagorinsky, Wale, Vreman; including wall models. Immersed boundary methods can be used, to avoid creating body fitted meshes. Acoustic propagation can be computed using Ffowcs-Williams and Hawkings models.
 HORSES3D supports curvilinear, hexahedral, conforming meshes in GMSH, HDF5 and SpecMesh/HOHQMesh format. A hybrid CPU-based parallelisation strategy (shared and distributed memory) with OpenMP and MPI is followed.  
 
+## How to cite
+-----------
+If you are working with **HORSES3D** and need to reference it, please use:
+
+@article{ferrer2022horses3d,  
+  title={HORSES3D: a high-order discontinuous Galerkin solver for flow simulations and multi-physics applications},  
+  author={Ferrer, E and Rubio, G and Ntoukas, G and Laskowski, W and Mari{\~n}o, OA and Colombo, S and Mateo-Gab{\'\i}n, A and Manrique de Lara, F and Huergo, D and Manzanero, J and Rueda-Ram{\'\i}rez, AM and Kopriva, DA and  Valero, E},  
+  journal={arXiv e-prints},  
+  pages={arXiv--2206},  
+  year={2022}  
+}
 
 ## External libraries
 -----------
