@@ -57,7 +57,7 @@ Module WallFunctionConnectivity  !
         use FileReadingUtilities, only: getCharArrayFromString
         use ElementConnectivityDefinitions, only: normalAxis, FACES_PER_ELEMENT
         use MPI_Process_Info
-        use WallFunctionDefinitions, only: Initialize_Wall_Fuction, wallFuncIndex, STD_WALL, ABL_WALL, u_tau0, useAverageV
+        use WallFunctionDefinitions, only: Initialize_Wall_Function, wallFuncIndex, STD_WALL, ABL_WALL, u_tau0, useAverageV
         use Headers
 #ifdef _HAS_MPI_
        use mpi
@@ -77,7 +77,7 @@ Module WallFunctionConnectivity  !
         integer                                :: actualElementID, linkedElementID, normalIndex, oppositeIndex, oppositeNormalIndex
         integer                                :: allFaces, ierr
 
-        call Initialize_Wall_Fuction(controlVariables, useWallFunc)
+        call Initialize_Wall_Function(controlVariables, useWallFunc)
         if (.not. useWallFunc) then
             return
         end if

@@ -157,7 +157,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)           :: vort, somega
          real(kind=RP)           :: fv1
          real(kind=RP)           :: production_G
-         real(kind=RP)           :: destruciton_Y
+         real(kind=RP)           :: destruction_Y
          real(kind=RP)           :: source_Kappa
          real(kind=RP)           :: U_x(NDIM)
          real(kind=RP)           :: U_y(NDIM)
@@ -173,16 +173,16 @@ module SpallartAlmarasTurbulence
 
          if (dwall .GT. 0.0_RP) then 
             call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall,  production_G)
-            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruciton_Y)       
+            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruction_Y)       
          else
             production_G = 0.0_RP
-            destruciton_Y = 0.0_RP
+            destruction_Y = 0.0_RP
          endif
 
          call self % Compute_AdditionalSourceTermKappa(rho, Theta_x, Theta_y, Theta_z, source_Kappa)   
 
          S_SA(1:5) = 0.0_RP
-         S_SA(6)   = production_G - destruciton_Y + source_Kappa 
+         S_SA(6)   = production_G - destruction_Y + source_Kappa 
             
      end subroutine SA_Compute_SourceTerms
 
@@ -292,9 +292,9 @@ module SpallartAlmarasTurbulence
      end function Compute_gn
 
 !/////////////////////////////////////////////////////////
-! compute destruciton terms 
+! compute destruction terms 
       
-      subroutine Compute_DestructionTerm(self, chi, fv1, vort, rho, theta, dwall, destruciton_Y)
+      subroutine Compute_DestructionTerm(self, chi, fv1, vort, rho, theta, dwall, destruction_Y)
          implicit none
          class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: chi
@@ -303,7 +303,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: dwall
-         real(kind=RP), intent(inout)         :: destruciton_Y
+         real(kind=RP), intent(inout)         :: destruction_Y
          
          real(kind=RP)            :: g
          real(kind=RP)            :: fw
@@ -316,9 +316,9 @@ module SpallartAlmarasTurbulence
             stilda =  Compute_modifiedvorticity(self, vort, sbar)
             g  = Compute_g(self, theta, dwall, stilda)
             fw = Compute_fw(self, g)
-            destruciton_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall))          
+            destruction_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall))          
          else
-            destruciton_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
+            destruction_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
          end if 
 
       end subroutine Compute_DestructionTerm

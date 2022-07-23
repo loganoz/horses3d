@@ -1,6 +1,6 @@
 !//////////////////////////////////////////////////////
 !
-!This module handle the ficticious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy
+!This module handle the fictitious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy
 ! The solution is saved before the first time step and at a fixed dt
 
 #include "Includes.h"
@@ -28,7 +28,7 @@ Module SurfaceMesh
         integer                                                 :: numberOfSurfaces
         integer, dimension(:), allocatable                      :: totalFaces       ! number of faces in all partitions for each surface
         integer, dimension(:), allocatable                      :: surfaceTypes     ! type of each surface
-        type(Zone_t), dimension(:), allocatable                 :: zones            ! ficticious zones that contains the faces of each surface
+        type(Zone_t), dimension(:), allocatable                 :: zones            ! fictitious zones that contains the faces of each surface
         logical, dimension(:), allocatable                      :: surfaceActive    ! flag for each surface
         character(len=LINE_LENGTH), dimension(:), allocatable   :: file_names
         integer, dimension(:,:), allocatable                    :: globalFid        ! for I/O with mpi
@@ -300,7 +300,7 @@ Module SurfaceMesh
 !       ------------------
         if ( .not. MPI_Process % isRoot ) return
         if (hasFWH .and. .not. (hasBC .or. hasSliceX .or. hasSliceY .or. hasSliceZ)) return
-        call Subsection_Header("Ficticious surfaces zone")
+        call Subsection_Header("Fictitious surfaces zone")
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of surfaces: ", self % numberOfSurfaces
         if (.not. all(self % surfaceActive)) write(STD_OUT,'(30X,A,A28,I0)') "->", "Inactive surfaces: ", count(.not. self % surfaceActive, dim=1)
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of slices: ", idSliceX + idSliceY + idSliceZ
@@ -573,7 +573,7 @@ Module SurfaceMesh
         self % file_names(surface_index) = trim(file_name)
         ! not set active nor create zone if there are no faces
         if (no_of_faces .le. 0) return
-        call self % zones(surface_index) % CreateFicticious(-1, trim(zone_name), no_of_faces, facesIDs)
+        call self % zones(surface_index) % CreateFictitious(-1, trim(zone_name), no_of_faces, facesIDs)
         self % surfaceActive(surface_index) = .true.
 
     End Subroutine createSingleSurface

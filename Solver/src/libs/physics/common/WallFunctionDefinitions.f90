@@ -30,7 +30,7 @@ Module WallFunctionDefinitions  !
 !  Public definitions
 !  ******************
 !
-    public Initialize_Wall_Fuction
+    public Initialize_Wall_Function
 !
     integer,       parameter                                  :: STD_WALL = 1
     integer,       parameter                                  :: ABL_WALL = 2
@@ -53,7 +53,7 @@ Module WallFunctionDefinitions  !
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
-    Subroutine Initialize_Wall_Fuction(controlVariables, correct)
+    Subroutine Initialize_Wall_Function(controlVariables, correct)
         use FTValueDictionaryClass
         implicit none
         class(FTValueDictionary),  intent(in)  :: controlVariables
@@ -116,7 +116,7 @@ Module WallFunctionDefinitions  !
         ! if it arrives here everything has gone well
         correct = .true.
 
-    End Subroutine Initialize_Wall_Fuction
+    End Subroutine Initialize_Wall_Function
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !

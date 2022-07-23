@@ -23,11 +23,11 @@ Module  LocalRefinement  !
         real(kind=RP), dimension(:,:), allocatable          :: xlim         ! limits for refinement in x direction
         real(kind=RP), dimension(:,:), allocatable          :: ylim
         real(kind=RP), dimension(:,:), allocatable          :: zlim
-        integer, dimension(:), allocatable         :: Nx           ! polynomial order for each selection whithin the limits in x diredirection
+        integer, dimension(:), allocatable         :: Nx           ! polynomial order for each selection within the limits in x redirection
         integer, dimension(:), allocatable         :: Ny
         integer, dimension(:), allocatable         :: Nz
         integer, dimension(3)                      :: globalNxyz   ! default polynomial order, outside the limits
-        integer                                    :: lenRegions   ! number of regions, it has to be the same for each diredirection
+        integer                                    :: lenRegions   ! number of regions, it has to be the same for each redirection
 
         contains
            procedure   :: Construct               => LocalRef_Construct
@@ -54,7 +54,7 @@ Module  LocalRefinement  !
         integer, allocatable                    :: Nx(:), Ny(:), Nz(:) !temporal variables for getting the default pol orders
         integer                                 :: Nmax
 
-        !get polynomial orders for all regions in all diredirections
+        !get polynomial orders for all regions in all redirections
         NxName = trim(controlVariables%stringValueForKey("x regions orders",LINE_LENGTH))
         NyName = trim(controlVariables%stringValueForKey("y regions orders",LINE_LENGTH))
         NzName = trim(controlVariables%stringValueForKey("z regions orders",LINE_LENGTH))
