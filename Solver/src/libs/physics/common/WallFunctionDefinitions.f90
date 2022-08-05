@@ -110,7 +110,7 @@ Module WallFunctionDefinitions  !
 
         useAverageV = controlVariables%logicalValueForKey("wall function use average")
 
-        !todo: see if there are negative values and return if thats the case
+        !todo: see if there are negative values and return if that's the case
             ! write(STD_OUT,'(A)') "Wall function will not be activated"
 
         ! if it arrives here everything has gone well
