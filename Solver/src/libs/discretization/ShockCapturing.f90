@@ -1406,8 +1406,7 @@ module ShockCapturing
 !
 !     Blending
 !     --------
-      c2 = (self % c2 * (1.0_RP-switch) + self % c1 * switch)**2
-      ! c2 = self % c2 * (1.0_RP-switch) + self % c1 * switch
+      c2 = self % c2 * (1.0_RP-switch) + self % c1 * switch
 
       do k = 0, Nz ; do j = 0, Ny ; do i = 1, Nx
 
