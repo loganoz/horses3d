@@ -22,6 +22,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/EllipticDiscretizations.o \
 		./build_ns/ShockCapturingKeywords.o \
 		./build_ns/SVV.o \
+		./build_ns/Clustering.o \
 		./build_ns/SCsensorClass.o \
 		./build_ns/ShockCapturing.o \
 		./build_ns/mkl_dfti.o \
@@ -41,6 +42,7 @@ LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
                 ./build_nssa/EllipticDiscretizations.o \
                 ./build_nssa/ShockCapturingKeywords.o \
                 ./build_nssa/SVV.o \
+				./build_nssa/Clustering.o \
                 ./build_nssa/SCsensorClass.o \
                 ./build_nssa/ShockCapturing.o \
 				./build_nssa/mkl_dfti.o \

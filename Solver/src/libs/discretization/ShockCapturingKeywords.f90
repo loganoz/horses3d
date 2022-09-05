@@ -33,22 +33,25 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_TE_NMIN_KEY    = "sensor te min n"
    character(len=*), parameter :: SC_TE_DELTA_KEY   = "sensor te delta n"
    character(len=*), parameter :: SC_TE_DTYPE_KEY   = "sensor te derivative"
+   character(len=*), parameter :: SC_NUM_CLUSTERS   = "sensor number of clusters"
 !
 !  Sensor types
 !  ------------
-   character(len=*), parameter :: SC_ZERO_VAL    = "zeros"
-   character(len=*), parameter :: SC_ONE_VAL     = "ones"
-   character(len=*), parameter :: SC_GRADRHO_VAL = "grad rho"
-   character(len=*), parameter :: SC_MODAL_VAL   = "modal"
-   character(len=*), parameter :: SC_TE_VAL      = "truncation error"
-   character(len=*), parameter :: SC_ALIAS_VAL   = "aliasing error"
+   character(len=*), parameter :: SC_ZERO_VAL     = "zeros"
+   character(len=*), parameter :: SC_ONE_VAL      = "ones"
+   character(len=*), parameter :: SC_INTEGRAL_VAL = "integral"
+   character(len=*), parameter :: SC_MODAL_VAL    = "modal"
+   character(len=*), parameter :: SC_TE_VAL       = "truncation error"
+   character(len=*), parameter :: SC_ALIAS_VAL    = "aliasing error"
+   character(len=*), parameter :: SC_GMM_VAL      = "GMM"
 
-   integer, parameter :: SC_ZERO_ID    = 1
-   integer, parameter :: SC_ONE_ID     = 2
-   integer, parameter :: SC_GRADRHO_ID = 3
-   integer, parameter :: SC_MODAL_ID   = 4
-   integer, parameter :: SC_TE_ID      = 5
-   integer, parameter :: SC_ALIAS_ID   = 6
+   integer, parameter :: SC_ZERO_ID     = 1
+   integer, parameter :: SC_ONE_ID      = 2
+   integer, parameter :: SC_INTEGRAL_ID = 3
+   integer, parameter :: SC_MODAL_ID    = 4
+   integer, parameter :: SC_TE_ID       = 5
+   integer, parameter :: SC_ALIAS_ID    = 6
+   integer, parameter :: SC_GMM_ID      = 7
 !
 !  Shock-capturing methods
 !  -----------------------
@@ -77,27 +80,31 @@ module ShockCapturingKeywords
 !
 !  Sensed variables
 !  ----------------
-   character(len=*), parameter :: SC_RHO_VAL  = "rho"
-   character(len=*), parameter :: SC_RHOU_VAL = "rhou"
-   character(len=*), parameter :: SC_RHOV_VAL = "rhov"
-   character(len=*), parameter :: SC_RHOW_VAL = "rhow"
-   character(len=*), parameter :: SC_RHOE_VAL = "rhoe"
-   character(len=*), parameter :: SC_U_VAL    = "u"
-   character(len=*), parameter :: SC_V_VAL    = "v"
-   character(len=*), parameter :: SC_W_VAL    = "w"
-   character(len=*), parameter :: SC_P_VAL    = "p"
-   character(len=*), parameter :: SC_RHOP_VAL = "rhop"
+   character(len=*), parameter :: SC_RHO_VAL        = "rho"
+   character(len=*), parameter :: SC_RHOU_VAL       = "rhou"
+   character(len=*), parameter :: SC_RHOV_VAL       = "rhov"
+   character(len=*), parameter :: SC_RHOW_VAL       = "rhow"
+   character(len=*), parameter :: SC_RHOE_VAL       = "rhoe"
+   character(len=*), parameter :: SC_U_VAL          = "u"
+   character(len=*), parameter :: SC_V_VAL          = "v"
+   character(len=*), parameter :: SC_W_VAL          = "w"
+   character(len=*), parameter :: SC_P_VAL          = "p"
+   character(len=*), parameter :: SC_RHOP_VAL       = "rhop"
+   character(len=*), parameter :: SC_RHO_GRAD_VAL   = "rho grad"
+   character(len=*), parameter :: SC_RHO_P_GRAD_VAL = "rho-p grad"
 
-   integer, parameter :: SC_RHO_ID  = 1
-   integer, parameter :: SC_RHOU_ID = 2
-   integer, parameter :: SC_RHOV_ID = 3
-   integer, parameter :: SC_RHOW_ID = 4
-   integer, parameter :: SC_RHOE_ID = 5
-   integer, parameter :: SC_U_ID    = 6
-   integer, parameter :: SC_V_ID    = 7
-   integer, parameter :: SC_W_ID    = 8
-   integer, parameter :: SC_P_ID    = 9
-   integer, parameter :: SC_RHOP_ID = 10
+   integer, parameter :: SC_RHO_ID        = 1
+   integer, parameter :: SC_RHOU_ID       = 2
+   integer, parameter :: SC_RHOV_ID       = 3
+   integer, parameter :: SC_RHOW_ID       = 4
+   integer, parameter :: SC_RHOE_ID       = 5
+   integer, parameter :: SC_U_ID          = 6
+   integer, parameter :: SC_V_ID          = 7
+   integer, parameter :: SC_W_ID          = 8
+   integer, parameter :: SC_P_ID          = 9
+   integer, parameter :: SC_RHOP_ID       = 10
+   integer, parameter :: SC_RHO_GRAD_ID   = 11
+   integer, parameter :: SC_RHO_P_GRAD_ID = 12
 !
 !  Derivative types
 !  ----------------

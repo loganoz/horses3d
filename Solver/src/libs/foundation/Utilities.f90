@@ -33,7 +33,7 @@ module Utilities
 
    private
    public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
-   public   toLower, Qsort, QsortWithFriend, my_findloc
+   public   toLower, Qsort, QsortWithFriend, BubblesortWithFriend, my_findloc
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
    
@@ -121,7 +121,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL pure FUNCTION AlmostEqual( a, b, tol ) 
+      LOGICAL elemental FUNCTION AlmostEqual( a, b, tol )
       USE SMConstants
       IMPLICIT NONE
 !
@@ -466,6 +466,41 @@ SUBROUTINE PartitionWithFriend(A, B, marker)
   END DO
 
 END SUBROUTINE PartitionWithFriend
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+pure subroutine BubblesortWithFriend(A, B)
+    implicit none
+    !--------------------------------------
+    real(RP), intent(inout) :: A(:)
+    integer,  intent(inout) :: B(size(A))
+    !--------------------------------------
+    integer :: n, newn
+    integer :: i, temp
+    !--------------------------------------
+
+    n = size(A)
+    do
+        newn = 0
+        do i = 1, n-1
+            if (A(i) > A(i+1)) then
+                ! Swap A
+                temp = A(i)
+                A(i) = A(i+1)
+                A(i+1) = temp
+                ! Swap B
+                temp = B(i)
+                B(i) = B(i+1)
+                B(i+1) = temp
+                ! Update number of unsorted elements
+                newn = i
+            end if
+        end do
+        n = newn
+        if (n <= 1) exit
+    end do
+
+end subroutine BubblesortWithFriend
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

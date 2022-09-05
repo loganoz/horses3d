@@ -30,6 +30,8 @@ module ShockCapturing
 
    implicit none
 
+   private
+
    public :: Initialize_ShockCapturing
    public :: ShockCapturingDriver
 
