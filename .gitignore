@@ -58,3 +58,4 @@ utils/modulefile/horses/dev
 Solver/include/
 .local.vimrc
 .vscode/
+.fortls
