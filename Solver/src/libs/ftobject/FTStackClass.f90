@@ -99,10 +99,10 @@
          CALL self % FTLinkedList % init()
 !
 !        ---------------------------------
-!        Then initialize ivars of subclass 
+!        Then initialize ivars of subclass
 !        ---------------------------------
 !
-         !None to intialize
+         !None to initialize
          
       END SUBROUTINE initFTStack
 !

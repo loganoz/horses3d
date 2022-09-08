@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ShockCapturing.f90
-!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
-!   @Created: Thu Jun 17 2021
-!   @Last revision date: Thu Wed 28 2021
-!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SCsensorClass
 
@@ -52,7 +41,7 @@ module SCsensorClass
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
          procedure(Compute_Int), pointer :: Compute => null()
-         procedure(Rescale_Int), pointer :: Rescale => SinRamp
+         procedure(Rescale_Int), pointer :: Rescale => null()
 
       contains
 
@@ -88,7 +77,7 @@ module SCsensorClass
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, controlVariables, sem, complementaryGeometry, &
+   subroutine Set_SCsensor(sensor, controlVariables, sem, &
                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
@@ -103,7 +92,6 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
-      logical,                            intent(in)    :: complementaryGeometry
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
@@ -143,7 +131,7 @@ module SCsensorClass
       case (SC_TE_VAL)
          sensor % sens_type = SC_TE_ID
          sensor % Compute  => Sensor_truncation
-         call Construct_TEsensor(sensor, controlVariables, sem, complementaryGeometry, &
+         call Construct_TEsensor(sensor, controlVariables, sem, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
       case (SC_ALIAS_VAL)
@@ -155,14 +143,13 @@ module SCsensorClass
          sensor % Compute  => Sensor_GMM
 
       case default
-         write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
+         write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_INTEGRAL_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
          write(STD_OUT,*) '   * ', SC_ALIAS_VAL
-         write(STD_OUT,*) '   * ', SC_GMM_VAL
          stop
 
       end select
@@ -258,7 +245,7 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Construct_TEsensor(sensor, controlVariables, sem, complementaryGeometry, &
+   subroutine Construct_TEsensor(sensor, controlVariables, sem, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
@@ -276,7 +263,6 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
-      logical,                            intent(in)    :: complementaryGeometry
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
@@ -288,9 +274,6 @@ module SCsensorClass
       real(RP)                         :: deltaN
       integer                          :: eID
       integer,          allocatable    :: N(:,:)
-      type(TransfiniteHexMap), pointer :: hexMap    => null()
-      type(TransfiniteHexMap), pointer :: hex8Map   => null()
-      type(TransfiniteHexMap), pointer :: genHexMap => null()
 
 !
 !     Read the control file
@@ -365,44 +348,6 @@ module SCsensorClass
       call sensor % TEestim % coarseSem % mesh % pAdapt(N, controlVariables)
       call sensor % TEestim % coarseSem % mesh % storage % PointStorage()
 !
-!     Generate the complementary geometry if needed
-!     ---------------------------------------------
-      if (complementaryGeometry) then
-      associate(mesh => sensor % TEestim % coarseSem % mesh)
-
-         allocate(hex8Map)
-         call hex8Map % constructWithCorners(mesh % elements(1) % SurfInfo % corners)
-         allocate(genHexMap)
-
-         do eID = 1, mesh % no_of_elements
-
-            associate(e => mesh % elements(eID))
-
-            if (e % SurfInfo % IsHex8) then
-               call hex8Map % setCorners(e % SurfInfo % corners)
-               hexMap => hex8Map
-            else
-               call genHexMap % destruct()
-               call genHexMap % constructWithFaces(e % SurfInfo % facePatches)
-               hexMap => genHexMap
-            end if
-
-            call e % geom % updateComplementaryGrid(NodalStorage(e % Nxyz(IX)), &
-                                                    NodalStorage(e % Nxyz(IY)), &
-                                                    NodalStorage(e % Nxyz(IZ)), &
-                                                    hexMap)
-
-            end associate
-
-         end do
-
-         deallocate(hex8Map)
-         deallocate(genHexMap)
-         nullify(hexMap)
-
-      end associate
-      end if
-!
 !     Update the SVV if active
 !     ------------------------
       if (SVV % enabled) then
@@ -424,12 +369,12 @@ module SCsensorClass
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
       select case (sensor % sens_type)
-         case (SC_ZERO_ID);    write(STD_OUT,"(A)") SC_ZERO_VAL
-         case (SC_ONE_ID);     write(STD_OUT,"(A)") SC_ONE_VAL
+         case (SC_ZERO_ID);     write(STD_OUT,"(A)") SC_ZERO_VAL
+         case (SC_ONE_ID);      write(STD_OUT,"(A)") SC_ONE_VAL
          case (SC_INTEGRAL_ID); write(STD_OUT,"(A)") SC_INTEGRAL_VAL
-         case (SC_MODAL_ID);   write(STD_OUT,"(A)") SC_MODAL_VAL
-         case (SC_TE_ID);      write(STD_OUT,"(A)") SC_TE_VAL
-         case (SC_ALIAS_ID);   write(STD_OUT,"(A)") SC_ALIAS_VAL
+         case (SC_MODAL_ID);    write(STD_OUT,"(A)") SC_MODAL_VAL
+         case (SC_TE_ID);       write(STD_OUT,"(A)") SC_TE_VAL
+         case (SC_ALIAS_ID);    write(STD_OUT,"(A)") SC_ALIAS_VAL
       end select
 
       if (sensor % sens_type == SC_TE_ID) then
@@ -614,17 +559,19 @@ module SCsensorClass
 !     ---------------
       integer               :: eID
       integer               :: i, j, k, r
-      integer               :: Nx, Ny, Nz
+      integer               :: maxNx, maxNy, maxNz
       real(RP), allocatable :: sVar(:,:,:)
       real(RP), allocatable :: sVarMod(:,:,:)
+      real(RP), allocatable :: Lwx(:), Lwy(:), Lwz(:)
+      real(RP)              :: num, den
 
 
       ! Only allocate once
-      Nx = maxval(sem % mesh % Nx)
-      Ny = maxval(sem % mesh % Ny)
-      Nz = maxval(sem % mesh % Nz)
-      allocate(sVar(Nx,Ny,Nz))
-      allocate(sVarMod(Nx,Ny,Nz))
+      maxNx = maxval(sem % mesh % Nx)
+      maxNy = maxval(sem % mesh % Ny)
+      maxNz = maxval(sem % mesh % Nz)
+      allocate(sVar(maxNx,maxNy,maxNz))
+      allocate(sVarMod(maxNx,maxNy,maxNz))
 
 !$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
       do eID = 1, sem % mesh % no_of_elements
@@ -673,11 +620,47 @@ module SCsensorClass
 !
 !        Ratio of higher modes vs all the modes
 !        --------------------------------------
-         if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
-            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
-         else
-            e % storage % sensor = log10( sVarMod(Nx,Ny,Nz)**2 / sum(sVarMod**2) )
-         end if
+!        Explanation: The higher modes are contained in the subspace V(Nx,Ny,Nz) - V(Nx-1,Ny-1,Nz-1)
+!                     Representing them as cubes, this subspace corresponds to the outer shell of
+!                     V(Nx,Ny,Nz), thus the terms "faces", "edges" and "corner"
+!        --------------------------------------------------------------------------------------------
+         Lwx = NodalStorage(Nx) % Lw
+         Lwy = NodalStorage(Ny) % Lw
+         Lwz = NodalStorage(Nz) % Lw
+
+         ! Corner (Nx, Ny, Nz)
+         num = sVarMod(Nx,Ny,Nz)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(Nz)
+
+         ! Edges
+         do i = 0, Nx-1  ! +X edge
+            num = num + sVarMod(i,Ny,Nz)**2 * Lwx(i) * Lwy(Ny) * Lwz(Nz)
+         end do
+         do j = 0, Ny-1  ! +Y edge
+            num = num + sVarMod(Nx,j,Nz)**2 * Lwx(Nx) * Lwy(j) * Lwz(Nz)
+         end do
+         do k = 0, Nz-1  ! +Z edge
+            num = num + sVarMod(Nx,Ny,k)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(k)
+         end do
+
+         ! Faces
+         do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
+            num = num + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
+         end do         ; end do
+         do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
+            num = num + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
+         end do         ; end do
+         do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
+            num = num + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
+         end do         ; end do
+
+         ! Total sum
+         den = 0.0_RP
+         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            den = den + sVarMod(i,j,k)**2 * Lwx(i) * Lwy(j) * Lwz(k)
+         end do       ; end do       ; end do
+
+         ! Sensor value as the ratio of num / den
+         e % storage % sensor = log10( num / den )
 
          end associate
 

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    TruncationErrorClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Tue Apr 23 17:08:55 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
-!
-!//////////////////////////////////////////////////////
-!
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes            , only: MGSolStorage_t

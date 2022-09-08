@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    LESModels.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:10 2018
-!   @Last revision date: Thu May  2 09:41:43 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67c9993eab2425db318bd6a45ef48d4abba673b7
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module LESModels
    use SMConstants
@@ -407,6 +395,8 @@ module LESModels
          LS = this % Cw * delta
          
          mu = Q(IRHO) * POW2(LS) * (normSd**(3.0_RP / 2.0_RP) / (normS**(5.0_RP / 2.0_RP)+normSd**(5.0_RP / 4.0_RP)))
+
+         if (normS<1.0e-8_RP .and. normSd<1.0e-8_RP) mu=0.0_RP
          
       end subroutine WALE_ComputeViscosity
 
@@ -507,7 +497,7 @@ module LESModels
             &  - G__ij(1,3) * G__ij(1,3)
 
          if(alpha>1.0e-10_RP) then
-            mu = Q(IRHO) * this % C * sqrt (Bbeta/alpha)
+            mu = Q(IRHO) * this % C * sqrt (abs(Bbeta)/alpha)
          else 
             mu = 0.0_RP
          end if

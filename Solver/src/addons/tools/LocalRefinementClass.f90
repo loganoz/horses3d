@@ -1,14 +1,10 @@
 !
-!   @File:    LocalRefinementClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 3 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This class represents the local p-refinement of a mesh
 !
 !//////////////////////////////////////////////////////
 !
-!This class represents the local p-refinement of a mesh
 
 Module  LocalRefinement  !
 
@@ -147,7 +143,7 @@ Module  LocalRefinement  !
         Ny = self % globalNxyz(2)
         Nz = self % globalNxyz(3)
 
-        ! search for the coordinates whithin the limits and set the order of the corresponded one
+        ! search for the coordinates within the limits and set the order of the corresponded one
          associate (cx => coordinates(1,:)); associate (cy => coordinates(2,:)); associate (cz => coordinates(3,:))
             do i = 1, self%lenRegions
                 if (all(cx .ge. self%xlim(1,i)) .and. all(cx .le. self%xlim(2,i))) then

@@ -168,11 +168,6 @@ module HyperbolicSplitForm
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
 
-#ifndef SPALARTALMARAS
-         case (RIEMANN_ESLXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","ES Lax-Friedrichs"
-#endif
-
          case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
 
@@ -190,10 +185,10 @@ module HyperbolicSplitForm
 
          case (RIEMANN_MATRIXDISS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
-
+#if !defined(SPALARTALMARAS)
          case (RIEMANN_VISCOUSNS)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
-
+#endif
          end select
 #elif defined(INCNS)
          select case ( splitType )
@@ -293,8 +288,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, thetaL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, thetaR
+         real(kind=RP)     :: theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
@@ -310,6 +306,11 @@ module HyperbolicSplitForm
          pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                                                       + QR(IRHOV) * vR &
                                                                       + QR(IRHOW) * wR ))
+
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 !
 !        Average metrics: (Note: Here all average (1/2)s are accounted later)
 !        ---------------
@@ -334,6 +335,12 @@ module HyperbolicSplitForm
          h(IRHOV) = (QL(IRHOW)*vL + QR(IRHOW)*vR)
          h(IRHOW) = (QL(IRHOW)*wL + QR(IRHOW)*wR + pL + pR)
          h(IRHOE) = ( wL*(QL(IRHOE) + pL) + wR*(QR(IRHOE) + pR) )
+
+#if defined(SPALARTALMARAS)
+         f(IRHOTHETA) = ( QL(IRHOU) + QR(IRHOU) ) * theta
+         g(IRHOTHETA) = ( QL(IRHOV) + QR(IRHOV) ) * theta
+         h(IRHOTHETA) = ( QL(IRHOW) + QR(IRHOW) ) * theta
+#endif
 !
 !        Compute the sharp flux: (And account for the (1/2)^2)
 !        ----------------------
@@ -355,8 +362,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, hL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, hR
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, hL, thetaL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, hR, thetaR
+         real(kind=RP)     :: theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
@@ -375,6 +383,11 @@ module HyperbolicSplitForm
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
          end associate
+
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 !
 !        Here the enthalpy does not contain the kinetic energy
 !        -----------------------------------------------------
@@ -418,6 +431,11 @@ module HyperbolicSplitForm
                                               - 0.25_RP * ( QL(IRHOW)*POW2(uL) + QR(IRHOW)*POW2(uR)   ) &
                                               - 0.25_RP * ( QL(IRHOW)*POW2(vL) + QR(IRHOW)*POW2(vR)   ) &
                                               - 0.25_RP * ( QL(IRHOW)*POW2(wL) + QR(IRHOW)*POW2(wR)   )
+#if defined(SPALARTALMARAS)
+         f(IRHOTHETA) = 0.5_RP * ( QL(IRHOU) + QR(IRHOU) ) * theta
+         g(IRHOTHETA) = 0.5_RP * ( QL(IRHOV) + QR(IRHOV) ) * theta
+         h(IRHOTHETA) = 0.5_RP * ( QL(IRHOW) + QR(IRHOW) ) * theta
+#endif
 !
 !        Compute the sharp flux
 !        ----------------------
@@ -439,8 +457,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, thetaL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, thetaR
+         real(kind=RP)     :: theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
@@ -459,6 +478,11 @@ module HyperbolicSplitForm
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
          end associate
+
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 !
 !        Average metrics
 !        ---------------
@@ -483,6 +507,12 @@ module HyperbolicSplitForm
          h(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (wL + wR)
          h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (wL + wR) + 0.5_RP * (pL + pR)
          h(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (wL + wR)
+
+#if defined(SPALARTALMARAS)
+         f(IRHOTHETA) = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (uL + uR) * theta
+         g(IRHOTHETA) = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (vL + vR) * theta
+         h(IRHOTHETA) = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (wL + wR) * theta
+#endif
 !
 !        Compute the sharp flux
 !        ----------------------
@@ -504,9 +534,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
-         real(kind=RP)     :: rho, u, v, w, e, p
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, thetaL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, thetaR
+         real(kind=RP)     :: rho, u, v, w, e, p, theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
 
@@ -525,6 +555,11 @@ module HyperbolicSplitForm
                                              + QR(IRHOV) * vR &
                                              + QR(IRHOW) * wR ))
          end associate
+
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 
          rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
          u   = 0.5_RP * (uL + uR)
@@ -556,6 +591,12 @@ module HyperbolicSplitForm
          h(IRHOV) = rho * w * v
          h(IRHOW) = rho * w * w + p
          h(IRHOE) = rho * w * e + p * w
+
+#if defined(SPALARTALMARAS)
+         f(IRHOTHETA) = rho * u * theta
+         g(IRHOTHETA) = rho * v * theta
+         h(IRHOTHETA) = rho * w * theta
+#endif
 !
 !        Compute the sharp flux
 !        ----------------------
@@ -577,9 +618,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
-         real(kind=RP)     :: rho, u, v, w, h, p
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, thetaL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, thetaR
+         real(kind=RP)     :: rho, u, v, w, h, p, theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
 
@@ -595,6 +636,11 @@ module HyperbolicSplitForm
          pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                                                       + QR(IRHOV) * vR &
                                                                       + QR(IRHOW) * wR ))
+
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 
          rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
          u   = 0.5_RP * (uL + uR)
@@ -626,6 +672,12 @@ module HyperbolicSplitForm
          hh(IRHOV) = rho * w * v
          hh(IRHOW) = rho * w * w + p
          hh(IRHOE) = rho * w * h
+
+#if defined(SPALARTALMARAS)
+         ff(IRHOTHETA) = rho * u * theta
+         gg(IRHOTHETA) = rho * v * theta
+         hh(IRHOTHETA) = rho * w * theta
+#endif
 !
 !        Compute the sharp flux
 !        ----------------------
@@ -673,9 +725,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL
-         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR
-         real(kind=RP)     :: rho, u, v, w, h, p, p2
+         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL, thetaL
+         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR, thetaR
+         real(kind=RP)     :: rho, u, v, w, h, p, p2, theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: zL(NCONS), zR(NCONS), zAv(NCONS), invZ1Sum
          real(kind=RP)     :: z5Log, z1Log, invZ1Av
@@ -699,7 +751,10 @@ module HyperbolicSplitForm
          pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
                                                                       + QR(IRHOV) * vR &
                                                                       + QR(IRHOW) * wR ))
-
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 !
 !        Compute Ismail and Roe parameter vector
 !        ---------------------------------------
@@ -747,6 +802,11 @@ module HyperbolicSplitForm
          hh(IRHOW) = rho * w * w + p
          hh(IRHOE) = rho * w * h
 !
+#if defined(SPALARTALMARAS)
+         ff(IRHOTHETA) = rho * u * theta
+         gg(IRHOTHETA) = rho * v * theta
+         hh(IRHOTHETA) = rho * w * theta
+#endif
 !        Compute the sharp flux
 !        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
@@ -770,9 +830,9 @@ module HyperbolicSplitForm
 !        Local variables
 !        ---------------
 !
-         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL, betaL
-         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR, betaR
-         real(kind=RP)     :: rho, u, v, w, h, p, betaLog
+         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL, betaL, thetaL
+         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR, betaR, thetaR
+         real(kind=RP)     :: rho, u, v, w, h, p, betaLog, theta
          real(kind=RP)     :: Ja(1:NDIM)
          real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
 
@@ -792,6 +852,10 @@ module HyperbolicSplitForm
                                                                       + QR(IRHOV) * vR &
                                                                       + QR(IRHOW) * wR ))
 
+#if defined(SPALARTALMARAS)
+         thetaL = QL(IRHOTHETA)/QL(IRHO) ; thetaR = QR(IRHOTHETA)/QR(IRHO)
+         theta  = AVERAGE(thetaL, thetaR)
+#endif
 !
 !        Compute Chandrasekar's variables
 !        --------------------------------
@@ -831,6 +895,11 @@ module HyperbolicSplitForm
          hh(IRHOW) = rho * w * w + p
          hh(IRHOE) = rho * w * h
 !
+#if defined(SPALARTALMARAS)
+         ff(IRHOTHETA) = rho * u * theta
+         gg(IRHOTHETA) = rho * v * theta
+         hh(IRHOTHETA) = rho * w * theta
+#endif
 !        Compute the sharp flux
 !        ----------------------
          fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)

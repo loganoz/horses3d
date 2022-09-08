@@ -2,14 +2,15 @@
 
 name: CI PARALLEL (MPI)
 
-########################################################################  
-# Controls when the action will run. 
+########################################################################
+# Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # Comment lines 10-13 to deactivate automatic running until Metis webpage is online again.
+  #push:
+  #  branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -23,15 +24,15 @@ jobs:
 
     # Define strategy matrix
     strategy:
-      fail-fast: true 
+      fail-fast: true
       matrix:
         compiler: ['ifort']
         mode: ['RELEASE']
         comm: ['PARALLEL']
         enable_threads: ['NO']
 
-    env: 
-      METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64   
+    env:
+      METIS_HOME:  /home/runner/work/horses3d/horses3d/metis-5.1.0/build/Linux-x86_64
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -46,7 +47,7 @@ jobs:
         with:
           path: /opt/intel
           key: intel-${{ runner.os }}-compilers-b
-      
+
       - name: Install Intel compilers and libraries
         if: (matrix.compiler == 'ifort' && steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
@@ -90,20 +91,20 @@ jobs:
       ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
       ##   sudo apt update
       ##   sudo apt-get install gfortran-9
-      
+
       ##- name: Show gfortran version
       ##  run: gfortran-9 --version
       - name: Show ${{matrix.compiler}} version
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ${{matrix.compiler}} --version
-        
+
       - name: Configure
         working-directory: ./Solver
         run: ./configure
-      
+
       - name: Compile horses3d
-        working-directory: ./Solver  
+        working-directory: ./Solver
         run: |
          source /opt/intel/oneapi/setvars.sh || true
          make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
@@ -160,7 +161,7 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns BoxAroundCirclePirozzoli.control
-        
+
 #
 # 5) Inviscid TGV with KEPEC
 # --------------------------
@@ -197,7 +198,7 @@ jobs:
 # 7) Jacobian-Free Newton-Krylov
 # ------------------------------
 
-      # Deactivated because a mismatch in the accuracy. 
+      # Deactivated because a mismatch in the accuracy.
       # Double Precision equality failed:
       #  Final maximum residual
       #  Expected [1.6257217794191102E-011], Got [3.4106051316484809E-013]
@@ -548,7 +549,7 @@ jobs:
 #          mpiexec -n 8 ./horses3d.nssa FlatPlate.control
 
 #
-# 18) Numerical Jacobian for BIRK5 
+# 18) Numerical Jacobian for BIRK5
 # --------------------------------
 
       - name: Build BIRK5NumJac
@@ -561,6 +562,36 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder.control
+#
+# 19) Forward facing step with SVV
+# --------------------------------
+
+      - name: Build ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStepSVV
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SVV.control
+#
+# 20) Taylor-Green vortex with SVV-LES
+# ------------------------------------
+
+      - name: Build TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run TaylorGreenSVVLES
+        working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenSVVLES.control
 
 ########################################################################
 #######                       PARTICLES                         ########
@@ -706,7 +737,7 @@ jobs:
 #           mpiexec -n 8 ./horses3d.ins Convergence4P5.control
 
 # #
-# # 2) Kovasznay 
+# # 2) Kovasznay
 # # ----------------------------
 
 #       - name: Build iNS-Kovasznay
@@ -722,7 +753,7 @@ jobs:
 #           mpiexec -n 8 ./horses3d.ins Kovasznay.control
 
 # #
-# # 3) Lid driven cavity 
+# # 3) Lid driven cavity
 # # ----------------------------
 
 #       - name: Build iNS-LidDrivenCavity
@@ -754,7 +785,7 @@ jobs:
 #           mpiexec -n 8 ./horses3d.ins TaylorGreen.control
 
 # #
-# # 5) Rayleigh-Taylor instability 
+# # 5) Rayleigh-Taylor instability
 # # -------------------------------
 
 #       - name: Build iNS-RayleighTaylor

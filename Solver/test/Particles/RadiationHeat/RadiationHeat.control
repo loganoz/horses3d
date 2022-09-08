@@ -30,6 +30,7 @@ Froude number         = 0.319275
 #################
 lagrangian particles  = .true.
 injection             = .false.
+high order particles source term = .false.
 particles file        = "RandomParticles.txt"
 vel and temp from file= .false.
 minimum box           = [0,0,0]

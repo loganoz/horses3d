@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    RiemannSolvers_NS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:14 2018
-!   @Last revision date: Mon Apr 22 18:37:37 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module RiemannSolvers_NS
    use SMConstants
@@ -86,9 +74,6 @@ module RiemannSolvers_NS
          case ( RIEMANN_LXF )
             RiemannSolver => LxFRiemannSolver
             RiemannSolver_dFdQ => LxFRiemannSolver_dFdQ
-
-         case ( RIEMANN_ESLXF )
-            RiemannSolver => ESLxFRiemannSolver
 
          case ( RIEMANN_RUSANOV)
             RiemannSolver => RusanovRiemannSolver
@@ -875,7 +860,7 @@ module RiemannSolvers_NS
       subroutine ViscousNSRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
 !
 !        ***********************************************************************
-!           This solver is designed such that it mimicks the dissipation
+!           This solver is designed such that it mimics the dissipation
 !           introduced by compressible Navier-Stokes terms
 !        ***********************************************************************
 !
@@ -1146,104 +1131,6 @@ module RiemannSolvers_NS
          end associate
 
       END SUBROUTINE LxFRiemannSolver
-
-      SUBROUTINE ESLxFRiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
-!
-!        ---------
-!        Arguments
-!        ---------
-!
-         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
-         real(kind=RP), intent(in)       :: QRight(1:NCONS)
-         real(kind=RP), intent(in)       :: nHat(1:NDIM)
-         real(kind=RP), intent(in)       :: t1(1:NDIM)
-         real(kind=RP), intent(in)       :: t2(1:NDIM)
-         real(kind=RP), intent(out)      :: flux(1:NCONS)
-!
-!        ---------------
-!        Local Variables
-!        ---------------
-!
-         real(kind=RP)  :: rhoL, rhouL, rhovL, rhowL, rhoeL, pL, aL, rhoV2L
-         real(kind=RP)  :: rhoR, rhouR, rhovR, rhowR, rhoeR, pR, aR, rhoV2R
-         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
-         real(kind=RP)  :: invRhoL, invRhoR
-         real(kind=RP)  :: fluxEC(NCONS)
-         real(kind=RP)  :: lambda, stab(NCONS)
-         real(kind=RP)  :: wL(NCONS), wR(NCONS)
-         real(kind=RP)  :: b, d
-
-
-         associate(gamma => thermodynamics % gamma, gm1 => thermodynamics % gammaMinus1)
-!
-!        Rotate the variables to the face local frame using normal and tangent vectors
-!        -----------------------------------------------------------------------------
-         rhoL = QLeft(1)                  ; rhoR = QRight(1)
-         invRhoL = 1.0_RP/ rhoL           ; invRhoR = 1.0_RP / rhoR
-
-         rhouL = QLeft(2)  * nHat(1) + QLeft(3)  * nHat(2) + QLeft(4)  * nHat(3)
-         rhouR = QRight(2) * nHat(1) + QRight(3) * nHat(2) + QRight(4) * nHat(3)
-
-         rhovL = QLeft(2)  * t1(1) + QLeft(3)  * t1(2) + QLeft(4)  * t1(3)
-         rhovR = QRight(2) * t1(1) + QRight(3) * t1(2) + QRight(4) * t1(3)
-
-         rhowL = QLeft(2)  * t2(1) + QLeft(3)  * t2(2) + QLeft(4)  * t2(3)
-         rhowR = QRight(2) * t2(1) + QRight(3) * t2(2) + QRight(4) * t2(3)
-
-         rhoV2L = (POW2(rhouL) + POW2(rhovL) + POW2(rhowL)) * invRhoL
-         rhoV2R = (POW2(rhouR) + POW2(rhovR) + POW2(rhowR)) * invRhoR
-
-         rhoeL = QLeft(5) ; rhoeR = QRight(5)
-
-         pL = gm1 * (rhoeL - 0.5_RP * rhoV2L)
-         pR = gm1 * (rhoeR - 0.5_RP * rhoV2R)
-
-         aL = sqrt(gamma * pL * invRhoL)
-         aR = sqrt(gamma * pR * invRhoR)
-!
-!        Eigenvalues: lambda = max(|uL|+aL,|uR|+aR)
-!        -----------
-         lambda = max(abs(rhouL*invRhoL) + aL,abs(rhouR*invRhoR) + aR)
-!
-!        ****************
-!        Compute the flux
-!        ****************
-!
-!        Perform the average using the averaging function (EC and simple average)
-!        ------------------------------------------------------------------------
-         QLRot = [ rhoL, rhouL, rhovL, rhowL, rhoeL ]
-         QRRot = [ rhoR, rhouR, rhovR, rhowR, rhoeR ]
-         call AveragedStates(QLRot, QRRot, pL, pR, invRhoL, invRhoR, fluxEC)
-         call StandardAverage(QLRot, QRRot, pL, pR, invRhoL, invRhoR, flux)
-!
-!        Compute the Lax-Friedrichs stabilization
-!        ----------------------------------------
-         stab = 0.5_RP * lambda * (QRRot - QLRot)
-!
-!        Compute the flux: apply the lambda stabilization here.
-!        ----------------
-         flux = flux - stab
-!
-!        Entropy stable blending
-!        -----------------------
-         call getEntropyVariables(QLRot, pL, invRhoL, wL)
-         call getEntropyVariables(QRRot, pR, invRhoR, wR)
-
-         b = dot_product(wR-wL, fluxEC-flux)
-         d = sqrt(b**2 + lambdaStab**2)
-         d = (d-b) / d
-
-         flux = flux + d*(fluxEC-flux)
-!
-!        ************************************************
-!        Return momentum equations to the cartesian frame
-!        ************************************************
-!
-         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
-
-         end associate
-
-      END SUBROUTINE ESLxFRiemannSolver
 
       SUBROUTINE u_dissRiemannSolver( QLeft, QRight, nHat, t1, t2, flux )
          implicit none

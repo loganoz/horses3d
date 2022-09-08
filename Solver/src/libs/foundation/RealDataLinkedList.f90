@@ -1,24 +1,3 @@
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!    HORSES2D - A high-order discontinuous Galerkin spectral element solver.
-!    Copyright (C) 2017  Juan Manzanero Torrico (juan.manzanero@upm.es)
-!
-!    This program is free software: you can redistribute it and/or modify
-!    it under the terms of the GNU General Public License as published by
-!    the Free Software Foundation, either version 3 of the License, or
-!    (at your option) any later version.
-!
-!    This program is distributed in the hope that it will be useful,
-!    but WITHOUT ANY WARRANTY; without even the implied warranty of
-!    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!    GNU General Public License for more details.
-!
-!    You should have received a copy of the GNU General Public License
-!    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-!
-!////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
 module RealDataLinkedList
    use SMConstants
    implicit none
@@ -32,6 +11,7 @@ module RealDataLinkedList
       contains
          procedure   :: Append   => RealDataLinkedList_Append
          procedure   :: Load     => RealDataLinkedList_Load
+         procedure   :: check    => CheckReal
          procedure   :: Destruct => RealDataLinkedList_Destruct
     end type RealDataLinkedList_t
    
@@ -110,6 +90,40 @@ module RealDataLinkedList
          end do
 
       end subroutine RealDataLinkedList_Load
+      
+      logical function CheckReal( self, value ) result( found ) 
+         use Utilities
+         implicit none
+         !-arguments-------------------------------------------------
+         class(RealDataLinkedList_t), intent(inout) :: self
+         real(kind=RP),               intent(in)    :: value
+         !-local-variables-------------------------------------------
+         type(RealData_t), pointer :: current => null()
+      
+         found = .false.
+      
+         if( .not. associated(self% head) ) return
+      
+         current => self% head
+
+         if( AlmostEqual(current% value, value) ) then
+            found = .true.
+            nullify(current)
+            return
+         end if
+      
+         do while( associated(current% next) )
+            current => current% next
+            if ( AlmostEqual(current% value, value)  ) then
+               found = .true.
+               nullify(current)
+               return
+            end if
+         end do
+      
+         nullify(current)
+      
+      end function CheckReal
       
       elemental subroutine RealDataLinkedList_Destruct( self )
          implicit none

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    HyperbolicDiscretizationClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Dec 12 13:16:30 2017
-!   @Last revision date: Tue Apr 23 10:31:08 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 7822258ddb4f7e8e08607845bc7881e1f71837c8
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 #if defined(NAVIERSTOKES) || defined(INCNS)
 #define HAS_SPLIT_FORM
@@ -142,9 +130,6 @@ module HyperbolicDiscretizationClass
 
          case (RIEMANN_LXF)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
-
-         case (RIEMANN_ESLXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","ES Lax-Friedrichs"
 
          case (RIEMANN_RUSANOV)
             write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"

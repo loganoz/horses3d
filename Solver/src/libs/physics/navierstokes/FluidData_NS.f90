@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    FluidData_NS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:09 2018
-!   @Last revision date: Fri Mar  1 17:09:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module FluidData_NS
    use SMConstants
@@ -93,7 +81,7 @@ module FluidData_NS
 !
 !///////////////////////////////////////////////////////////////////////
 !
-!        This Set* subroutines are required since the intances defined
+!        This Set* subroutines are required since the instances defined
 !     here are protected. The protected argument implies that they
 !     can not be modified outside this module (these quantities are
 !     really important to risk accidental modification).

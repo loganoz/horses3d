@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    Physics_NS.f90
-!   @Author:  David Kopriva
-!   @Created: Tue Jul 20 18:27:46 2011
-!   @Last revision date: Mon Apr 22 18:37:36 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
-!
-!//////////////////////////////////////////////////////
-!
 !      Compressible Navier-Stokes physics.
 !      Modified from DSEM Code
 !
@@ -42,7 +33,7 @@
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
-      public  getStressTensor, ViscousJacobian
+      public  getStressTensor, ViscousJacobian, getFrictionVelocity
 !
 !     ========
       CONTAINS 
@@ -892,6 +883,32 @@
          end associate
 
       end subroutine getStressTensor
+
+      Subroutine getFrictionVelocity(Q,Q_x,Q_y,Q_z,normal,u_tau)
+         implicit none
+         real(kind=RP), intent(in)      :: Q   (1:NCONS   )
+         real(kind=RP), intent(in)      :: Q_x (1:NGRAD   )
+         real(kind=RP), intent(in)      :: Q_y (1:NGRAD   )
+         real(kind=RP), intent(in)      :: Q_z (1:NGRAD   )
+         real(kind=RP), intent(in)      :: normal (1:NDIM )
+         real(kind=RP), intent(out)     :: u_tau
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                  :: tau (1:NDIM, 1:NDIM   )
+         real(kind=RP)                  :: tau_w_vec(1:NDIM)
+         real(kind=RP)                  :: tau_w
+
+         call getStressTensor(Q, Q_x, Q_y, Q_z, tau)
+         tau_w_vec = matmul(tau, normal)
+         tau_w = norm2(tau_w_vec)
+
+         u_tau = sqrt(tau_w / Q(IRHO))
+
+      End Subroutine getFrictionVelocity
    END Module Physics_NS
 !@mark -
 !

@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ReadHDF5Mesh.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Nov 01 14:00:00 2017
-!   @Last revision date: Sun Jul 21 16:34:58 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3a3b3537f2ab57f789c42bdc46a6d882364587f6
-!
 !//////////////////////////////////////////////////////
 !
 !  Module for reading HDF5 meshes as written by HOPR

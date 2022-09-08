@@ -1,14 +1,7 @@
 !
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 22 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
-!This class represents the observer for the fW-H accoustic analogy, including the relations with several observers
+!This class represents the observer for the fW-H acoustic analogy, including the relations with several observers
 
 #include "Includes.h"
 Module  FWHObseverClass  !
@@ -31,7 +24,7 @@ Module  FWHObseverClass  !
 !  *****************************
 !  Observer source pair class definition
 !  class for the coupling of each pair of observer and source(face)
-!  mainly accoustic geometrical relations and face link
+!  mainly acoustic geometrical relations and face link
 !  *****************************
    type ObserverSourcePairClass
        real(kind=RP), dimension(:,:,:), allocatable        :: rVect
@@ -44,7 +37,7 @@ Module  FWHObseverClass  !
        integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
        integer                                             :: elementSide
        real(kind=RP)                                       :: normalCorrection
-       real(kind=RP), dimension(:,:),   allocatable        :: Pacc ! temporal solution of accoustic pressure for each pair
+       real(kind=RP), dimension(:,:),   allocatable        :: Pacc ! temporal solution of acoustic pressure for each pair
        real(kind=RP), dimension(:),     allocatable        :: tInterp ! time array for interpolation
 
        contains
@@ -71,7 +64,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(NDIM)                                  :: x        ! position of the observer at global coordinates
        integer                                                         :: numberOfFaces
        class(ObserverSourcePairClass), dimension(:), allocatable       :: sourcePair
-       real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! accoustic pressure, two componenets and the total (sum)
+       real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! acoustic pressure, two componenets and the total (sum)
        real(kind=RP)                                                   :: tDelay
        real(kind=RP)                                                   :: tDelayMax
        logical                                                         :: active
@@ -133,7 +126,7 @@ Module  FWHObseverClass  !
 !
 !      Search for the parameters in the case file
 !      ------------------------------------------
-       write(in_label , '(A,I0)') "#define accoustic observer " , self % ID
+       write(in_label , '(A,I0)') "#define acoustic observer " , self % ID
 
        call get_command_argument(1, paramFile)
        call readValueInRegion(trim ( paramFile), "name",   self % observerName, in_label, "# end" ) 
@@ -201,7 +194,7 @@ Module  FWHObseverClass  !
    Subroutine ObserverUpdate(self, mesh, isSolid, BufferPosition, interpolate)
 
 !     *******************************************************************
-!        This subroutine updates the observer accoustic pressure computing it from
+!        This subroutine updates the observer acoustic pressure computing it from
 !        the mesh storage. It is stored in the "bufferPosition" position of the 
 !        buffer.
 !     *******************************************************************
@@ -266,7 +259,7 @@ use VariableConversion, only: Pressure, PressureDot
 
              localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid )
 
-             ! sum without interpolate: supose little change of each tDelay
+             ! sum without interpolate: suppose little change of each tDelay
              valx = valx + localPacc(1)
              valy = valy + localPacc(2)
              valz = valz + localPacc(3)
@@ -588,7 +581,7 @@ use VariableConversion, only: Pressure, PressureDot
        ! source position, for each node of the face
        associate (y => f % geom % x)
            do j= 0, Ny; do i = 0,Nx
-               ! store geometrical accoustic relations for each node
+               ! store geometrical acoustic relations for each node
                self % rVect(:,i,j) = x(:) - y(:,i,j)
                self % r(i,j) = norm2(self % rVect(:,i,j))
                self % reStar(i,j) = fwGammaInv*sqrt( self%r(i,j)**2 + fwGamma2*( dot_product(M0, self%rVect(:,i,j)) )**2 )
@@ -742,7 +735,7 @@ use VariableConversion, only: Pressure, PressureDot
 
     End Subroutine ObserverSourcePairInterpolateSolSecond
 
-   ! calculate the surface integrals of the FW-H analogy for stacionary surfaces (permable or impermeable) with a general flow
+   ! calculate the surface integrals of the FW-H analogy for stationary surfaces (permeable or impermeable) with a general flow
    ! direction of the medium
    ! the integrals are for a single face (pane in FWH terminology) for a single observer
 !         TODO: check if is more efficient to store FWHvariables for each face instead of calculating it always
@@ -759,7 +752,7 @@ use VariableConversion, only: Pressure, PressureDot
        class(ObserverSourcePairClass)                      :: self
        class(Face), intent(in)                             :: f
        logical, intent(in)                                 :: isSolid
-       real(kind=RP),dimension(3)                          :: Pacc  ! accoustic pressure values
+       real(kind=RP),dimension(3)                          :: Pacc  ! acoustic pressure values
        ! logical, intent(in)                                 :: isSolid, interpolate
        ! integer, intent(in), optional                       :: bufferPosition
 
@@ -810,7 +803,7 @@ use VariableConversion, only: Pressure, PressureDot
                    ! Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
                    !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
-                   ! thickness term integrals, only for permable surfaces
+                   ! thickness term integrals, only for permeable surfaces
                    if (.not. isSolid) then
                        Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
@@ -829,7 +822,7 @@ use VariableConversion, only: Pressure, PressureDot
        Pt = Pt / (4.0_RP * PI)
        Pl = Pl / (4.0_RP * PI)
 
-      ! get total accoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
+      ! get total acoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
        Pacc = (/Pt, Pl, Pt+Pl/)
 
    End Function FWHSurfaceIntegral 
@@ -926,9 +919,9 @@ use VariableConversion, only: Pressure, PressureDot
        real(kind=RP), dimension(NCONS), intent(in)         :: Q        ! horses variables array
        real(kind=RP), dimension(NCONS), intent(in)         :: Qdot     ! horses time derivatives array
        logical, intent(in)                                 :: isSolid
-       real(kind=RP), dimension(NDIM), intent(out)         :: Qi       ! fwh Qi array, related with the accoustic pressure thickness
+       real(kind=RP), dimension(NDIM), intent(out)         :: Qi       ! fwh Qi array, related with the acoustic pressure thickness
        real(kind=RP), dimension(NDIM), intent(out)         :: Qidot
-       real(kind=RP), dimension(NDIM,NDIM), intent(out)    :: Lij      ! fwh Lij tensor: related with the accoustic pressure loading
+       real(kind=RP), dimension(NDIM,NDIM), intent(out)    :: Lij      ! fwh Lij tensor: related with the acoustic pressure loading
        real(kind=RP), dimension(NDIM,NDIM), intent(out)    :: LijDot
 
        !local variables
@@ -959,7 +952,7 @@ use VariableConversion, only: Pressure, PressureDot
        Lij = Pij
        ! Lij = 0.0_RP
 
-       !calculate terms for permable surface
+       !calculate terms for permeable surface
        if (.not. isSolid) then
            Qi(:) = Qi(:) + Q(2:4)
            ! convert to complete velocity instead of perturbation velocity

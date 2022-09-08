@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    NoSlipWallBC.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Mon Feb 25 16:07:51 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 17d60e4e57235a57aa406023ebe4c26157bc211a
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module NoSlipWallBCClass
    use SMConstants
@@ -293,13 +281,17 @@ module NoSlipWallBCClass
          real(kind=RP),          intent(inout) :: Q(NCONS)
 
 #if defined (SPALARTALMARAS)
-         Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
-         Q(IRHOTHETA) = - Q(IRHOTHETA)
-#else
-         Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
+         Q(IRHOTHETA)   = -Q(IRHOTHETA)
 #endif
+         Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
 !        This boundary condition should be
 !        ---------------------------------
+         !Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * sum(Q(IRHOU:IRHOW)*nHat)*nHat
+
+
+         !Isothermal BC
+         Q(IRHOE) = Q(IRHOE) + self % wallType * (Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2 * thermodynamics % gammaMinus1) - Q(IRHOE))
+
 
       end subroutine NoSlipWallBC_FlowState
 

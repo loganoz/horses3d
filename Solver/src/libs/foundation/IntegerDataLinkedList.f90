@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    IntegerDataLinkedList.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat Nov 25 13:29:58 2017
-!   @Last revision date: Tue Feb 12 16:38:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
-!
-!//////////////////////////////////////////////////////
-!
 module IntegerDataLinkedList
    implicit none
 
@@ -23,6 +11,7 @@ module IntegerDataLinkedList
       contains
          procedure   :: Add        => IntegerDataLinkedList_Add
          procedure   :: ExportToArray => IntegerDataLinkedList_ExportToArray
+         procedure   :: check         => CheckInteger
          procedure   :: Destruct      => IntegerDataLinkedList_Destruct
     end type IntegerDataLinkedList_t
    
@@ -112,6 +101,41 @@ module IntegerDataLinkedList
          end if
 
       end subroutine IntegerDataLinkedList_ExportToArray
+      
+      
+     logical function CheckInteger( self, value ) result( found ) 
+   
+         implicit none
+         !-arguments-------------------------------------------------
+         class(IntegerDataLinkedList_t), intent(inout) :: self
+         integer,                        intent(in)    :: value
+         !-local-variables-------------------------------------------
+         type(IntegerData_t), pointer :: current => null()
+      
+         found = .false.
+      
+         if( .not. associated(self% head) ) return
+      
+         current => self% head
+
+         if( current% value .eq. value ) then
+            found = .true.
+            nullify(current)
+            return
+         end if
+      
+         do while( associated(current% next) )
+            current => current% next
+            if ( current% value .eq. value  ) then
+               found = .true.
+               nullify(current)
+               return
+            end if
+         end do
+       
+         nullify(current)
+      
+      end function CheckInteger
 
       elemental subroutine IntegerDataLinkedList_Destruct(self)
          implicit none

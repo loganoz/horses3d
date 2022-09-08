@@ -1,21 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    StatsAveragingModule.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Wed Feb 27 15:57:18 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 module StatsAveragingModule
    use SMConstants
    use SolutionFile

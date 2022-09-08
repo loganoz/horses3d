@@ -25,9 +25,11 @@ Module FWHPostProc  !
         character(LEN=LINE_LENGTH)                              :: pattern, fullExpression
         real(kind=RP)                                           :: r
         character(len=OBS_LENGTH), parameter                    :: dashes = "----------"
+        logical                                                 :: hasGradients
 
+        hasGradients = controlVariables % logicalValueForKey("has gradients")
         ! get files in temporal txt
-        pattern = controlVariables % stringValueForKey("accoustic files pattern", LINE_LENGTH)
+        pattern = controlVariables % stringValueForKey("acoustic files pattern", LINE_LENGTH)
         write(fullExpression,'(A,A,A)') "ls ", trim(pattern), " > horses_temporal_file.txt"
         call system(trim(fullExpression))
 
@@ -62,7 +64,7 @@ Module FWHPostProc  !
         write(STD_OUT , *) 
 
         do i = 1, numberOfFiles
-            call LoadSingleFile(fileNames(i), sem % mesh, sem % fwh, i)
+            call LoadSingleFile(fileNames(i), sem % mesh, sem % fwh, i, hasGradients)
         end do 
 
         call sem % fwh % writeToFile(force=.TRUE.)
@@ -71,13 +73,15 @@ Module FWHPostProc  !
 
     End Subroutine LoadAllFiles
 
-    Subroutine LoadSingleFile(fileName, mesh, fwh, actualIter)
+    Subroutine LoadSingleFile(fileName, mesh, fwh, actualIter, hasGradients)
 
         Implicit None
         character(len=*), intent(in)                            :: fileName
         class (HexMesh), intent(inout)                          :: mesh
         class(FWHClass), intent(inout)                          :: fwh
         integer, intent(in)                                     :: actualIter
+        logical, intent(in)                                  :: hasGradients
+
 
         !local variables
         integer                                                 :: iter
@@ -109,14 +113,12 @@ Module FWHPostProc  !
                errorMessage(STD_OUT)
                stop
 
-            case(ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_GRAD_FILE)
+            case(ZONE_SOLUTION_FILE)
                print*, "The selected file is a zone file without time derivative"
                errorMessage(STD_OUT)
                stop
 
             case(ZONE_SOLUTION_AND_DOT_FILE)
-
-            case(ZONE_SOLUTION_AND_GRAD_D_FILE)
 
             case default
                print*, "Unknown restart file format"
@@ -161,7 +163,7 @@ Module FWHPostProc  !
 !
 !       Load Solution to FWH Surface
 !       -----------------------------
-        call surfacesMesh % loadSolution(trim(fileName), mesh)
+        call surfacesMesh % loadSolution(trim(fileName), mesh, hasGradients)
 !
 !       Update and Write if necessary
 !       -----------------------------

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GenericBoundaryConditionClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jul 25 15:26:42 2018
-!   @Last revision date: Fri Jul 27 20:21:58 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: 54fc6197be909fe77072218aee3b60701b51e971
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module GenericBoundaryConditionClass
    use SMConstants

@@ -1,15 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400
-!      By: David Kopriva
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
@@ -33,6 +21,7 @@ module SpatialDiscretization
                                     set_getVelocityGradients
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
+      use IBMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -71,6 +60,7 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
+         real(RP)                         :: hnmin, hnmax
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
@@ -79,6 +69,11 @@ module SpatialDiscretization
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
             end if
+
+            call hnRange(sem % mesh, hnmin, hnmax)
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+            write(STD_OUT,'(/)')
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
@@ -210,11 +205,6 @@ module SpatialDiscretization
             call ShockCapturingDriver % Describe
 
          end if
-
-!
-!        Initialize Wall Function
-!        ------------------------
-         call Initialize_WallConnection(controlVariables, sem % mesh)
 
       end subroutine Initialize_SpaceAndTimeMethods
 !
@@ -353,7 +343,9 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+      use WallFunctionConnectivity
          use TripForceClass, only: randomTrip
+         use ActuatorLine, only: farm
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -365,7 +357,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl
-         real(kind=RP)  :: mu_smag, delta
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -388,7 +380,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
-               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+               delta = ((e % geom % Volume ) ** (1.0_RP / 3.0_RP))/(real(e % Nxyz (1)) -1.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                                                    e % storage % U_x(:,i,j,k), &
@@ -536,9 +528,13 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
+               ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
+               ! different contributions and not accumulate each call
+               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -601,6 +597,24 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+         if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  if( e% isInsideBody(i,j,k) ) then
+                     call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                  end if
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+         end if
 
       end subroutine TimeDerivative_ComputeQDot
 
@@ -666,6 +680,7 @@ module SpatialDiscretization
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
          use TripForceClass, only: randomTrip
+         use ActuatorLine, only: farm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -708,9 +723,11 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
                   call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -751,8 +768,15 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux   ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux        ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         logical       :: SChyperbolic
 
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -779,45 +803,30 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         SChyperbolic = .false.
-         if (ShockCapturingDriver % isActive) then
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+!
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
+!
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
+
+         type is (SplitDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-            SChyperbolic = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, &
-                                                                   e % storage % QDot, isStrong=.true.)
-         end if
 
-         if (.not. SChyperbolic) then
-!
-!           Compute inviscid contravariant flux
-!           -----------------------------------
-            call HyperbolicDiscretization % ComputeInnerFluxes ( e, EulerFlux, inviscidContravariantFlux )
+            e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
-            select type ( HyperbolicDiscretization )
-            type is (StandardDG_t)
-!
-!              Compute the total Navier-Stokes flux
-!              ------------------------------------
-               contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
-!
-!              Perform the Weak Volume Green integral
-!              --------------------------------------
-               e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
-
-            type is (SplitDG_t)
-!
-!              Compute sharp fluxes for skew-symmetric approximations
-!              ------------------------------------------------------
-               call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
-!
-!              Peform the Weak volume green integral
-!              -------------------------------------
-               viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-
-               e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
-
-            end select
-
-         end if
+         end select
 
       end subroutine TimeDerivative_StrongVolumetricContribution
 !
@@ -843,8 +852,15 @@ module SpatialDiscretization
          real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
-         logical       :: SChyperbolic
 
+!
+!        *************************************
+!        Compute interior contravariant fluxes
+!        *************************************
+!
+!        Compute inviscid contravariant flux
+!        -----------------------------------
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
@@ -871,46 +887,30 @@ module SpatialDiscretization
 !        Perform volume integrals
 !        ************************
 !
-         if (ShockCapturingDriver % isActive) then
+         select type ( HyperbolicDiscretization )
+         type is (StandardDG_t)
+!
+!           Compute the total Navier-Stokes flux
+!           ------------------------------------
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
+!
+!           Perform the Weak Volume Green integral
+!           --------------------------------------
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
+
+         type is (SplitDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-            SChyperbolic = ShockCapturingDriver % ComputeAdvection(e, viscousContravariantFlux, &
-                                                                   e % storage % QDot, isStrong=.false.)
-         end if
-!
-!        Usual hyperbolic term if shock-capturing does not modify the advection
-!        ----------------------------------------------------------------------
-         if (.not. SChyperbolic) then
-!
-!           Compute inviscid contravariant flux
-!           -----------------------------------
-            call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 
-            select type ( HyperbolicDiscretization )
-            type is (StandardDG_t)
-!
-!              Compute the total Navier-Stokes flux
-!              ------------------------------------
-               contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
-!
-!              Perform the Weak Volume Green integral
-!              --------------------------------------
-               e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
+            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
-            type is (SplitDG_t)
-!
-!              Compute sharp fluxes for skew-symmetric approximations
-!              ------------------------------------------------------
-               call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
-!
-!              Peform the Weak volume green integral
-!              -------------------------------------
-               viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
-
-               e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
-
-            end select
-
-         end if
+         end select
 
       end subroutine TimeDerivative_VolumetricContribution
 !
@@ -953,9 +953,9 @@ module SpatialDiscretization
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
 !
-!        --------------------------
-!        Artifical viscosity fluxes
-!        --------------------------
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
@@ -1157,6 +1157,7 @@ module SpatialDiscretization
       integer                         :: Sidearray(2)
       logical                         :: useWallFuncFace
       real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunVavg(NDIM, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
@@ -1194,7 +1195,7 @@ module SpatialDiscretization
               end do
           end if
           if (useWallFuncFace) then
-              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY)
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY, wallFunVavg)
           end if
 
          do j = 0, f % Nf(2)
@@ -1216,8 +1217,10 @@ module SpatialDiscretization
                visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
 
                if (useWallFuncFace) then
-                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), wallFunRho(i,j), wallFunMu(i,j), visc_flux(:,i,j))
-               end if
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                        wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                        visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
+               end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &

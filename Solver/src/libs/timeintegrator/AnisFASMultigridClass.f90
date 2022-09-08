@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnisFASMultigridClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
-!
 !//////////////////////////////////////////////////////
 !
 !      Anisotropic version of the FAS Multigrid Class
@@ -453,6 +443,21 @@ module AnisFASMultigridClass
          call Stopwatch % Pause("AnisFAS: child-adapt")
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
+         
+!~          Child_p % MGStorage(Dir) % p_sem % mesh % IBM % active = .false.
+         Child_p% MGStorage(Dir)%  p_sem% mesh% IBM% active = Solver% MGStorage(Dir)% p_sem% mesh% IBM% active
+         if( Child_p% MGStorage(Dir)% p_sem% mesh% IBM% active ) then
+            Child_p% MGStorage(Dir)% p_sem% mesh% IBM% lvl = lvl 
+            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% copyKDtree( Solver% MGStorage(Dir)% p_sem% mesh% IBM% root )
+            
+            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% build( Child_p% MGStorage(Dir)% p_sem% mesh% elements,       &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% no_of_elements, &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% NDOF,           &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% child           )
+            
+         end if
+         
+         
 !New>
 !
 !        Following code is the old way the child representation was generated.

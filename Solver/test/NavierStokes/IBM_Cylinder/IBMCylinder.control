@@ -1,0 +1,93 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "MESH/Cylinder.mesh"
+
+!--STL
+stl file name         = "cylinder3"
+
+Polynomial order      = 3
+Number of time steps  = 500000
+Output Interval       = 10 ! for explicit
+autosave mode         = "iteration"
+autosave interval     = 10000
+
+!Convergence tolerance = 1.d-11
+mach number           = 0.2d0
+Reynolds number       = 40.0d0
+
+discretization nodes  = Gauss
+
+solution file name    = "RESULTS/IBMCylinder.hsol"
+save gradients with solution = .false.
+restart               = .false.
+restart file name     = "RESULTS/IBMCylinder_0000100000.hsol"
+riemann solver         = "lax-friedrichs"
+viscous discretization = "IP"
+
+!----Solver
+time integration = fas
+convergence tolerance = 8.d-4
+!bdf order = 2
+!--time step/CFL
+cfl                   = 0.15d0
+dcfl                  = 0.15d0
+
+multigrid levels        = 3
+mg smoother             = RK3
+!mg preconditioner       = LTS
+mg sweeps exact         = [1,1,1]
+
+! CFL for pseudo-steps (pseudo dt not supported). Pseudo CFL have to smaller than CFL/dt for physical step, otherwise stability issues may occur.
+pseudo cfl              = 0.1d0
+pseudo dcfl             = 0.1d0
+
+pseudo convergence monitor = .true.
+
+symmetry planes = [-3,3]
+
+#define IBM
+  name = Cylinder
+  active = .true.
+  semi implicit = .true.
+  describe = .true.
+  number of objects = 3
+  number of interpolation points = 15
+  integration order = 3
+  band region coefficient = 3.5
+  plot mask = .true.
+  plot kdtree = .true.
+  plot band points = .true.
+#end
+
+#define boundary BACK
+  type = FreeSlipWall
+#end
+
+#define boundary FRONT
+  type = FreeSlipWall
+#end
+
+#define boundary B1
+  type = FreeSlipWall
+#end
+
+#define boundary B2
+  type = OutFlow
+#end
+
+#define boundary B3
+  type = FreeSlipWall
+#end
+
+#define boundary B4
+  type = InFlow
+#end
+
+
+#define surface monitor 1
+   Name = C_d
+  Marker = cylinder3
+  Variable = drag
+  Direction = [1.d0, 0.d0, 0.d0]
+  Reference surface =  0.861d0 
+#end

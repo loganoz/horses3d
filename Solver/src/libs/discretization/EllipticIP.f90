@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    EllipticIP.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue May 14 10:13:01 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module EllipticIP
    use SMConstants
@@ -93,6 +81,10 @@ module EllipticIP
          select case (eqName)
          case(ELLIPTIC_NS)
             self % eqName = ELLIPTIC_NS
+            self % PenaltyParameter => PenaltyParameterNS
+
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
             self % PenaltyParameter => PenaltyParameterNS
 
          case(ELLIPTIC_iNS)

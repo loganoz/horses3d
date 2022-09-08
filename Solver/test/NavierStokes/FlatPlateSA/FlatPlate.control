@@ -1,15 +1,15 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NSSA"
-mesh file name        = "MESH/FlatPlate_mesh.h5"
+mesh file name        = "MESH/flatplate.msh"
 polynomial order      = 2
 Number of time steps  = 100
 Output Interval       = 10 for explicit
 autosave mode         = "iteration"
-autosave interval     = 100
+autosave interval     = 1000
 
 Convergence tolerance = 1.d-10
-cfl                    = 0.75d0
-dcfl                   = 0.75d0
+cfl                    = 0.9d0
+dcfl                   = 0.9d0
 mach number            = 0.2d0
 Reynolds number        = 5000000.0d0
 reference temperature (k) = 300.0d0
@@ -17,15 +17,15 @@ reference temperature (k) = 300.0d0
 discretization nodes  = Gauss-Lobatto
 solution file name    = "RESULTS/FlatPlateSA.hsol"
 save gradients with solution = .true.
-restart               = .FALSE.
+restart               = .false.
 restart file name     = "RESULTS/FlatPlateSA.hsol"
 
-inviscid discretization = standard
-riemann solver         = "lax-friedrichs"
-viscous discretization = "BR1"
-simulation type       = steady-state
-time integration      = fas
-multigrid levels      = 2
+Inviscid Discretization   = standard
+riemann solver            = "lax-friedrichs"
+viscous discretization    = "BR1"
+simulation type           = steady-state
+time integration          = fas
+multigrid levels          = 2
 delta n = 1
 mg sweeps exact = [2,1]
 mg smoother = RKOpt
@@ -35,39 +35,40 @@ partitioning = SFC
 ! Inflow
 !-------------------------------------------------------------
 
-#define boundary b2-symmetry_y_strong
+#define boundary Front
   type = FreeSlipWall
 #end
 
-#define boundary b3-symmetry_yy_strong
+#define boundary Back
   type = FreeSlipWall
 #end
 
-#define boundary b4-subsonic_inflow_pt
+#define boundary ReflectiveWall
+  type = FreeSlipWall
+#end
+
+#define boundary INLET
   type = Inflow
 #end
 
-#define boundary b5-back_pressure
+#define boundary OUTLET
   type = Outflow
 #end
 
-#define boundary b6-symmetry_z_strong
-  type = FreeSlipWall
-#end
-
-#define boundary b7-viscous_solid
+#define boundary NoSlipAdiabaticWall
   type = NoSlipWall
 #end
 
-#define boundary b8-farfield_riem
+#define boundary Top
   type = Inflow
 #end
+
 !-------------------------------------------------------------
 
 #define surface monitor 1
 name = Drag
-marker = b7-viscous_solid
+marker = NoSlipAdiabaticWall
 variable = drag
-reference surface = 2.d0
+reference surface = 0.002d0
 direction = [ 1.d0, 0.d0, 0.d0 ]
 #end

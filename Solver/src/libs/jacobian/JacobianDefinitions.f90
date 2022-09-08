@@ -1,18 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    JacobianDefinitions.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Wed Jul 17 11:53:06 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 !  Module containing types and definitions for the Jacobian matrices
 !
 !//////////////////////////////////////////////////////

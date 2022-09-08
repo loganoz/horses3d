@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    IntegerArrayLinkedListTable.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Fri Jan 18 18:03:41 2019
-!   @Last revision date: Thu Nov 21 17:53:41 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ce8e66392935295156afd1c49990154b2f523f86
-!
-!//////////////////////////////////////////////////////
-!
 module IntegerArrayLinkedListTable
    use SMConstants, only: STD_OUT
    use Utilities,   only: Qsort

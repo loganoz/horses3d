@@ -15,7 +15,7 @@ case $i in
     -p=*|--patch=*)
     MACHINE="${i#*=}"
     if [ "$MACHINE" = "bender" ]; then
-        echo "Aplying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
+        echo "Applying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
     fi
     git apply ../utils/patches/$MACHINE.patch
     shift
@@ -64,12 +64,8 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/TaylorGreenKEP_BR2 \
             ./NavierStokes/ManufacturedSolutions \
             ./NavierStokes/NACA0012 \
-            ./NavierStokes/ForwardFacingStep/NonFiltered \
-            ./NavierStokes/ForwardFacingStep/SVV \
-            ./NavierStokes/ForwardFacingStep/SSFV \
+            ./NavierStokes/ForwardFacingStepSVV \
             ./NavierStokes/TaylorGreenSVVLES \
-            ./NavierStokes/DoubleMachReflectionSSFV \
-            ./NavierStokes/BackwardFacingStepSSFV \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \

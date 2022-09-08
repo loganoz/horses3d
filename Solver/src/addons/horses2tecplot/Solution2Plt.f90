@@ -108,7 +108,7 @@ module Solution2PltModule
 !
 !           Project mesh and solution
 !           -------------------------
-            call ProjectStorageGaussPoints(e, spA, e % Nmesh, Nsol, mesh % hasGradients)
+            call ProjectStorageGaussPoints(e, spA, e % Nmesh, Nsol, mesh % hasGradients, mesh % isStatistics)
 
             end associate
          end do
@@ -128,7 +128,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
+         call getOutputVariables()
 
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
@@ -142,7 +142,7 @@ module Solution2PltModule
 !
 !              Write the tecplot file
 !              ----------------------
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients) 
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
                end associate
             end do
          end if
@@ -167,7 +167,7 @@ module Solution2PltModule
       
       end subroutine Solution2Plt_GaussPoints
 
-      subroutine ProjectStorageGaussPoints(e, spA, NM, NS, hasGradients)
+      subroutine ProjectStorageGaussPoints(e, spA, NM, NS, hasGradients, hasStats)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -177,6 +177,7 @@ module Solution2PltModule
          integer           ,  intent(in)  :: NM(3)
          integer           ,  intent(in)  :: NS(3)
          logical,             intent(in)  :: hasGradients
+         logical,             intent(in)  :: hasStats
          
          e % Nout = e % Nsol
          if ( all(e % Nmesh .eq. e % Nout) ) then
@@ -194,8 +195,11 @@ module Solution2PltModule
             e % U_yout(1:,0:,0:,0:) => e % U_y
             e % U_zout(1:,0:,0:,0:) => e % U_z
          end if
-         e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
          e % QDot_out(1:,0:,0:,0:) => e % QDot
+         if (hasStats) e % statsout(1:,0:,0:,0:) => e % stats
+         if (hasUt_NS) e % ut_NSout(1:,0:,0:,0:) => e % ut_NS
+         if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
+         if (hasWallY) e % wallYout(1:,0:,0:,0:) => e % wallY
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -266,7 +270,7 @@ module Solution2PltModule
                                                                     Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                                     Tset(e % Nout(2), e % Nsol(2)) % T, &
                                                                     Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                                   mesh % hasGradients    )
+                                                                    mesh % hasGradients, mesh % isStatistics )
 
             end associate
          end do
@@ -286,7 +290,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
+         call getOutputVariables()
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
@@ -297,7 +301,7 @@ module Solution2PltModule
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
 
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
                end associate
             end do
          end if
@@ -322,7 +326,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_GaussPoints_FixedOrder
 
-      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients)
+      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients, hasStats)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -336,6 +340,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: Ty(0:e % Nout(2), 0:e % Nsol(2))
          real(kind=RP),       intent(in)  :: Tz(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
+         logical,             intent(in)  :: hasStats
 !
 !        Project mesh
 !        ------------         
@@ -361,6 +366,7 @@ module Solution2PltModule
 
             e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
             e % QDot_out(1:,0:,0:,0:) => e % QDot
+            if (hasStats) e % statsout(1:,0:,0:,0:) => e % stats
 
          else
             allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -375,8 +381,25 @@ module Solution2PltModule
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
             end if
 
-            allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_NS, e % Nout, e % mu_NSout, Tx, Ty, Tz)            
+            if (hasStats) then
+                allocate( e % statsout(1:NSTAT,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(NSTAT, e % Nsol, e % stats, e % Nout, e % statsout, Tx, Ty, Tz)
+            end if
+
+            if (hasUt_NS) then
+                allocate( e % ut_NSout(1:NSTAT,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(1, e % Nsol, e % ut_NS, e % Nout, e % ut_NSout, Tx, Ty, Tz)
+            end if
+
+            if (hasMu_NS) then
+                allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_NS, e % Nout, e % mu_NSout, Tx, Ty, Tz)            
+            end if
+
+            if (hasWallY) then
+                allocate( e % wallYout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(1, e % Nsol, e % WallY, e % Nout, e % wallYout, Tx, Ty, Tz)            
+            end if
 
             allocate( e % QDot_out(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             call prolongSolutionToGaussPoints(NVARS, e % Nsol, e % QDot, e % Nout, e % QDot_out, Tx, Ty, Tz)
@@ -459,7 +482,7 @@ module Solution2PltModule
                                                      Tset(e % Nout(1), e % Nsol(1)) % T, &
                                                      Tset(e % Nout(2), e % Nsol(2)) % T, &
                                                      Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                    mesh % hasGradients   )
+                                                     mesh % hasGradients, mesh % isStatistics )
 
 
             end associate
@@ -480,7 +503,7 @@ module Solution2PltModule
 !
 !        Add the variables
 !        -----------------
-         call getOutputVariables(OUTPUT_VARIABLES_FLAG)
+         call getOutputVariables()
          write(fid,'(A,A)') 'VARIABLES = "x","y","z"', trim(getOutputVariablesLabel())
 !
 !        Write elements
@@ -491,7 +514,7 @@ module Solution2PltModule
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
 
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients)
+               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
                end associate
             end do
          end if
@@ -517,7 +540,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_Homogeneous
 
-      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients)
+      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats)
          use Storage
          use NodalStorageClass
          implicit none
@@ -529,6 +552,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: TySol(0:e % Nout(2), 0:e % Nsol(2))
          real(kind=RP),       intent(in)  :: TzSol(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
+         logical,             intent(in)  :: hasStats
 !
 !        ---------------
 !        Local variables
@@ -588,15 +612,46 @@ module Solution2PltModule
             end do            ; end do            ; end do
 
          end if
-         
-         allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         e % mu_NSout = 0.0_RP
 
-         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
-            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-               e % mu_NSout(:,i,j,k) = e % mu_NSout(:,i,j,k) + e % mu_NS(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+         if (hasStats) then
+            allocate( e % statsout(1:NSTAT,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % statsout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % statsout(:,i,j,k) = e % statsout(:,i,j,k) + e % stats(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
             end do            ; end do            ; end do
-         end do            ; end do            ; end do  
+         end if
+         
+         if (hasUt_NS) then
+            allocate( e % ut_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % ut_NSout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % ut_NSout(:,i,j,k) = e % ut_NSout(:,i,j,k) + e % ut_NS(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do
+         end if
+         
+         if (hasMu_NS) then
+            allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % mu_NSout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % mu_NSout(:,i,j,k) = e % mu_NSout(:,i,j,k) + e % mu_NS(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do  
+         end if
+         
+         if (hasWallY) then
+            allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % wallYout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % wallYout(:,i,j,k) = e % wallYout(:,i,j,k) + e % WallY(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do  
+         end if
 
       end subroutine ProjectStorageHomogeneousPoints
 !
@@ -623,7 +678,7 @@ module Solution2PltModule
          integer :: eID          ! Spectral (not finite) element counter
          integer :: i, j, k
          integer :: N(3)
-         integer :: corners(8)
+         integer :: corners(8), cornersFace(4)
          character(len=LINE_LENGTH) :: formatout
          !---------
          
@@ -633,17 +688,30 @@ module Solution2PltModule
          
          ! Count points and elements
          numOfPoints   = product(mesh % elements(1) % Nout + 1)
-         numOfFElems   = product(mesh % elements(1) % Nout    )
+         if (mesh % isSurface) then
+             numOfFElems   = product(mesh % elements(1) % Nout(1:2))
+         else
+             numOfFElems   = product(mesh % elements(1) % Nout)
+         end if
          firstPoint(1) = 1
          do eID = 2, size(mesh % elements)
             associate ( e => mesh % elements(eID) )
             firstPoint(eID) = numOfPoints + 1
             numOfPoints = numOfPoints + product(e % Nout + 1)
-            numOfFElems = numOfFElems + product(e % Nout    )
+            if (mesh % isSurface) then
+                numOfFElems   = numOfFElems + product(e % Nout(1:2))
+            else
+                numOfFElems   = numOfFElems + product(e % Nout)
+            end if
+            ! numOfFElems = numOfFElems + product(e % Nout    )
             end associate
          end do
          
-         write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfFElems,' ET=BRICK, F=FEPOINT'
+         if (mesh % isSurface) then
+             write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfFElems,' ET=QUADRILATERAL, F=FEPOINT'
+         else
+             write(fid,'(A,I0,A,I0,A)') 'ZONE T="FLUID" N=',numOfPoints,' E=',numOfFElems,' ET=BRICK, F=FEPOINT'
+         end if
          
 !        Write the points
 !        ----------------
@@ -651,7 +719,7 @@ module Solution2PltModule
             associate ( e => mesh % elements(eID) )
             N = e % Nout
             allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, mesh % hasGradients)
+            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, mesh % hasGradients, mesh % isStatistics)
             
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
@@ -661,17 +729,32 @@ module Solution2PltModule
          
 !        Write the elems connectivity
 !        ----------------------------
-         do eID = 1, size(mesh % elements)
-            associate ( e => mesh % elements(eID) )
-            
-            do k = 0, e % Nout(3) - 1 ; do j = 0, e % Nout(2) - 1 ; do i = 0, e % Nout(1) - 1
-               corners =  [ ijk2localDOF(i,j,k  ,e%Nout), ijk2localDOF(i+1,j,k  ,e%Nout), ijk2localDOF(i+1,j+1,k  ,e%Nout), ijk2localDOF(i,j+1,k  ,e%Nout), &
-                            ijk2localDOF(i,j,k+1,e%Nout), ijk2localDOF(i+1,j,k+1,e%Nout), ijk2localDOF(i+1,j+1,k+1,e%Nout), ijk2localDOF(i,j+1,k+1,e%Nout)  ] + firstPoint(eID)
-               write(fid,*) corners
-            end do                    ; end do                    ; end do
-            
-            end associate
-         end do
+         ! surface mesh case
+         if (mesh % isSurface) then
+             do eID = 1, size(mesh % elements)
+                associate ( e => mesh % elements(eID) )
+
+                do j = 0, e % Nout(2) - 1 ; do i = 0, e % Nout(1) - 1
+                   cornersFace =  [ ij2localDOF(i,j,e%Nout(1:2)), ij2localDOF(i+1,j,e%Nout(1:2)), ij2localDOF(i+1,j+1,e%Nout(1:2)), ij2localDOF(i,j+1,e%Nout(1:2)) ] + firstPoint(eID)
+                   write(fid,*) cornersFace
+                end do                  ; end do
+
+                end associate
+             end do
+         ! normal elements case
+         else
+             do eID = 1, size(mesh % elements)
+                associate ( e => mesh % elements(eID) )
+                
+                do k = 0, e % Nout(3) - 1 ; do j = 0, e % Nout(2) - 1 ; do i = 0, e % Nout(1) - 1
+                   corners =  [ ijk2localDOF(i,j,k  ,e%Nout), ijk2localDOF(i+1,j,k  ,e%Nout), ijk2localDOF(i+1,j+1,k  ,e%Nout), ijk2localDOF(i,j+1,k  ,e%Nout), &
+                                ijk2localDOF(i,j,k+1,e%Nout), ijk2localDOF(i+1,j,k+1,e%Nout), ijk2localDOF(i+1,j+1,k+1,e%Nout), ijk2localDOF(i,j+1,k+1,e%Nout)  ] + firstPoint(eID)
+                   write(fid,*) corners
+                end do                    ; end do                    ; end do
+                
+                end associate
+             end do
+         end if
       end subroutine WriteSingleFluidZoneToTecplot
 !
 !////////////////////////////////////////////////////////////////////////////
@@ -743,7 +826,7 @@ module Solution2PltModule
             end associate
          end do
 
-         ! don't write if boundary doesn't have elements associated, happends for periodic conditions
+         ! don't write if boundary doesn't have elements associated, happens for periodic conditions
          if (numOfFElems .eq. 0) return
          
          write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &
@@ -826,7 +909,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      subroutine WriteElementToTecplot(fid,e,refs, hasGradients)
+      subroutine WriteElementToTecplot(fid,e,refs, hasGradients, hasStats)
          use Storage
          use NodalStorageClass
          use prolongMeshAndSolution
@@ -837,6 +920,7 @@ module Solution2PltModule
          type(Element_t),    intent(inout) :: e 
          real(kind=RP),      intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,            intent(in)    :: hasGradients
+         logical,            intent(in)    :: hasStats
 !
 !        ---------------
 !        Local variables
@@ -849,7 +933,7 @@ module Solution2PltModule
 !        --------------------
          
          allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients)
+         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients, hasStats)
 !
 !        Write variables
 !        ---------------        

@@ -3,8 +3,6 @@
 %
 %	This code evaluates the Kinetic Energy spectra
 %	of a given 3D velocity field.
-%	@Author: Esteban Ferrer (e.ferrer@upm.es)
-%   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
 %
 %/////////////////////////////////////////////////////////////////
 %

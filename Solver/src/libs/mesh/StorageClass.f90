@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    StorageClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Dec  4 11:34:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
-!
 !//////////////////////////////////////////////////////
 !
 !     TODO1: Store FaceStorage in SolutionStorage
@@ -187,6 +177,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:),     allocatable :: U_xNS, U_yNS, U_zNS
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
+      real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -884,7 +875,7 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
-         self % sensor = -999.9_RP  ! Make sure there is a low value when the integration starts
+         self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
 
       end subroutine ElementStorage_Construct
 !
@@ -1305,7 +1296,8 @@ module StorageClass
 
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
-
+         allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
+         
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
 #ifdef CAHNHILLIARD
@@ -1354,6 +1346,7 @@ module StorageClass
 
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
+         self % u_tau_NS = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1433,6 +1426,7 @@ module StorageClass
              safedeallocate(self % QdotNS)
          end if
          safedeallocate(self % mu_NS)
+         safedeallocate(self % u_tau_NS)
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
@@ -1596,6 +1590,7 @@ module StorageClass
          if (to % computeQdot) to % QdotNS = from % QdotNS
          to % rho = from % rho
          to % mu_NS  = from % mu_NS
+         to % u_tau_NS  = from % u_tau_NS
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF

@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnalyticalJacobian.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Wed Sep 15 12:15:48 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
@@ -331,7 +321,8 @@ contains
                                       mesh % faces( e % faceIDs(ERIGHT ) ), &
                                       mesh % faces( e % faceIDs(ETOP   ) ), &
                                       mesh % faces( e % faceIDs(ELEFT  ) ), &
-                                      Matrix )
+                                      Matrix,                               &
+                                      mesh% IBM                             )
       end do
 !$omp end do
       nullify (e)
@@ -908,12 +899,14 @@ contains
 !  Local_SetDiagonalBlock:
 !     Subroutine to set a diagonal block in the Jacobian
 !  -----------------------------------------------------
-   subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix)
+   subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix, IBM)
+      use IBMClass
       implicit none
       !-------------------------------------------
       type(Element)     , intent(inout) :: e
       type(Face), target, intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
       class(Matrix_t)   , intent(inout) :: Matrix
+      type(IBM_type),     intent(inout) :: IBM
       !-------------------------------------------
       real(kind=RP) :: MatEntries(NCONS,NCONS)
       real(kind=RP) :: dFdQ      (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
@@ -955,6 +948,9 @@ contains
       real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
       real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
       type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+      
+      optional :: IBM      
+      
       !-------------------------------------------
       spAxi   => NodalStorage(e % Nxyz(1))
       spAeta  => NodalStorage(e % Nxyz(2))
@@ -1440,6 +1436,31 @@ contains
          end do
             
          nullify (dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le )
+      end if
+      
+!
+!     adding IBM contributes
+!     ---------------------- 
+      if( present(IBM) .and. IBM% active ) then
+         do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
+            if( e% isInsideBody(i12,j12,k12) ) then
+               associate( Q => e% storage% Q(:,i12,j12,k12) )
+               call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
+
+               baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+               baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+ 
+               ! IBM contributes affect only the diagonal of the block diag. matrix
+               !-------------------------------------
+               do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
+                  i = eq1 + baseRow  ! row index (1-based)
+                  j = eq2 + baseCol  ! column index (1-based)
+                  call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               end do; end do
+
+               end associate
+            end if
+         end do; end do; end do
       end if
       
       nullify(dF_dgradQ)

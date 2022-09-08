@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    IMEXMethods.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Tue Apr 17 16:55:49 2018
-!   @Last revision date: Sun May 19 16:54:10 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 MODULE IMEXMethods
    USE SMConstants                  

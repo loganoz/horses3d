@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    pAdaptationClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Dec 10 12:57:00 2017
-!   @Last revision date: Wed Sep 15 12:15:52 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
-!//////////////////////////////////////////////////////
-!
 !      Class cotaining routines for adapting polynomial orders.
 !        -> Currently, the adaptation procedure is only performed with  
 !           truncation error estimations (TruncationErrorClass.f90), but other
@@ -888,7 +879,7 @@ readloop:do
       real(kind=RP)              :: t                 !< time!!
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
-      type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
+      type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
       !-local-variables----------------------
       integer                    :: eID               !   Element counter
       integer                    :: Dir               !   Direction
@@ -1161,7 +1152,7 @@ readloop:do
          if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
       end do
       
-!     Initialiation of TEmap and NNew
+!     Initialization of TEmap and NNew
 !     -------------------------------
       TEmap = 0._RP
       NNew = -1 ! Initialized to negative value
@@ -1519,7 +1510,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------
-!  Subroutine for reorganizing the polynomial orders with neighbor contraints
+!  Subroutine for reorganizing the polynomial orders with neighbor constraints
 !  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
 !  -----------------------------------------------------------------------
    subroutine ReorganizePolOrders(faces,NNew,last)
@@ -1536,7 +1527,7 @@ readloop:do
       
       sweep = 0
       
-      ! perform succesive (serial) sweeps until no further elements have to be modified 
+      ! perform successive (serial) sweeps until no further elements have to be modified 
       do 
          sweep = sweep + 1
          finalsweep = .TRUE. ! let's first assume this is the final sweep
@@ -1650,7 +1641,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  Subroutines to specify the maximum polynomial order jump across a face
-!  The element accross the face is of order a
+!  The element across the face is of order a
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

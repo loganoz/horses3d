@@ -18,6 +18,7 @@ Split form = Pirozzoli
 #   PARTICLES   #
 #################
 lagrangian particles  = .true.
+high order particles source term = .false.
 number of particles   = 25100 
 particles per parcel  = 1
 # Right now, it has to be chosen between injecting particles through one face (only one) or 

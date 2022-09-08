@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ShockCapturingKeywords.f90
-!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
-!   @Created: Thu Jun 17 2021
-!   @Last revision date: Thu Jun 17 2021
-!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 module ShockCapturingKeywords
 !
 !  Keywords
@@ -25,8 +14,6 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_MU2_KEY        = "shock mu 2"
    character(len=*), parameter :: SC_ALPHA2_KEY     = "shock alpha 2"
    character(len=*), parameter :: SC_ALPHA_MU_KEY   = "shock alpha/mu"
-   character(len=*), parameter :: SC_BLENDING1_KEY  = "ssfv blending 1"
-   character(len=*), parameter :: SC_BLENDING2_KEY  = "ssfv blending 2"
    character(len=*), parameter :: SC_VARIABLE_KEY   = "sensor variable"
    character(len=*), parameter :: SC_LOW_THRES_KEY  = "sensor lower limit"
    character(len=*), parameter :: SC_HIGH_THRES_KEY = "sensor higher limit"
@@ -58,7 +45,6 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_NO_VAL    = "none"
    character(len=*), parameter :: SC_NOSVV_VAL = "non-filtered"
    character(len=*), parameter :: SC_SVV_VAL   = "svv"
-   character(len=*), parameter :: SC_SSFV_VAL  = "ssfv"
 !
 !  Artificial viscosity fluxes
 !  ---------------------------

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    SVV.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Jan  6 11:47:48 2018
-!   @Last revision date: Mon Sep  6 22:44:54 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 module SpectralVanishingViscosity
@@ -705,7 +693,7 @@ module SpectralVanishingViscosity
 !
 !           We add what remains from the decomposition, from Hflux: Fv = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!        Recall that in D we took away the constants (to avoid unnecessary sqrts)
 !
 !        D = diag(α  µT  µT  µT  T²κ | α  0  µT  µT  T²κ | α  0  0  0  T²κ),
 !
@@ -791,9 +779,9 @@ module SpectralVanishingViscosity
 !
 !        ***************************************************************************************
 !
-!           We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
+!        We add what remains from the decomposition, from Hflux: FGP = Lᵀ·√D·H.
 !
-!        Recall that in D we took away the constants (to avoid innecesary sqrts)
+!        Recall that in D we took away the constants (to avoid unnecessary sqrts)
 !
 !        D = diag(αρ  µp  µp  µp  αρ | αρ  0  µp  µp  αρ  | αρ  0  0  µp  αρ),
 !

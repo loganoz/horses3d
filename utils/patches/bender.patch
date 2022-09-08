@@ -31,21 +31,6 @@ index a26ea4e5..e5bbfd49 100644
 -      END Module TestSuiteManagerClass    
 \ No newline at end of file
 +      END Module TestSuiteManagerClass
-diff --git a/Solver/src/libs/mesh/HexMesh.f90 b/Solver/src/libs/mesh/HexMesh.f90
-index 65a79b04..b42df6f6 100644
---- a/Solver/src/libs/mesh/HexMesh.f90
-+++ b/Solver/src/libs/mesh/HexMesh.f90
-@@ -2868,7 +2868,9 @@ slavecoord:             DO l = 1, 4
- !           ----------------------------------------------------------------------
-             
-             call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients)
--            call auxMesh % storage % elements % InterpolateSolution (self % storage % elements,auxMesh % nodeType , with_gradients)
-+            do eID=1, self % no_of_elements
-+               call auxMesh % storage % elements (eID)% InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
-+            end do
-             
- !           Clean up
- !           --------
 diff --git a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90 b/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
 index fee33e5e..98bb607f 100644
 --- a/Solver/src/libs/timeintegrator/LinearSolvers/GenericLinSolverClass.f90
