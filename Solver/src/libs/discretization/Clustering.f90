@@ -229,7 +229,7 @@ module Clustering
       ndims = size(x, dim=1)
       npts  = size(x, dim=2)
 
-      call GMM_init(g, ndims, nclusters, x)
+      call GMM_init(g, ndims, nclusters, xavg)
 !
 !     EM algorithm
 !     ------------
@@ -402,46 +402,40 @@ module Clustering
          ! "Number of points" in the cluster
          ns = sum(R(:,j))
 
-         ! Delete empty clusters...
-         if (ns < tol) then
-            deleteit = .true.
-
-         ! ...and update the rest
-         else
-            g % tau(k) = ns / npts
-            g % mu(:,k) = matmul(x, R(:,j)) / ns
-            g % cov(:,:,k) = 0.0_RP
-            do i = 1, npts
-               xmu = x(:,i) - g % mu(:,k)
-               do m = 1, ndims
-                  do l = 1, ndims
-                     g % cov(l,m,k) = g % cov(l,m,k) + R(i,j) * xmu(l) * xmu(m)
-                  end do
-               end do
-            end do
-            g % cov(:,:,k) = g % cov(:,:,k) / ns
-            call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
-
-            deleteit = .false.
-
-            ! If a cluster collapses, limit its size
-            if (info_ < 0) then
+         ! Update the clusters
+         g % tau(k) = ns / npts
+         g % mu(:,k) = matmul(x, R(:,j)) / ns
+         g % cov(:,:,k) = 0.0_RP
+         do i = 1, npts
+            xmu = x(:,i) - g % mu(:,k)
+            do m = 1, ndims
                do l = 1, ndims
-                  g % cov(:,l,k) = 0.0_RP
-                  g % cov(l,l,k) = tol**(1.0_RP/ndims) * 1e1_RP
+                  g % cov(l,m,k) = g % cov(l,m,k) + R(i,j) * xmu(l) * xmu(m)
                end do
-               call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
-            end if
-
-            ! Also look for overlapping clusters
-            do l = 1, k-1
-               if (all(AlmostEqual(g % mu(:,k), g % mu(:,l), tol))) then
-                  deleteit = .true.
-                  exit
-               end if
             end do
+         end do
+         g % cov(:,:,k) = g % cov(:,:,k) / ns
+         call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
 
+         deleteit = .false.
+
+         ! If a cluster collapses, limit its size
+         if (info_ < 0) then
+            do l = 1, ndims
+               g % cov(:,l,k) = 0.0_RP
+               g % cov(l,l,k) = tol**(1.0_RP/ndims) * 1e1_RP
+            end do
+            call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
          end if
+
+         ! Also look for overlapping clusters
+         do l = 1, k-1
+            if (all(AlmostEqual(g % mu(:,k), g % mu(:,l), tol))) then
+               deleteit = .true.
+               exit
+            end if
+         end do
+
 
          ! Delete the cluster and step forward onto the next iteration
          if (deleteit) then
