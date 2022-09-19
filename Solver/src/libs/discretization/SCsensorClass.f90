@@ -101,6 +101,8 @@ module SCsensorClass
       character(len=:), allocatable :: sensorType
       character(len=:), allocatable :: sVar
 
+
+      sensor % Rescale => SinRamp
 !
 !     Sensor type
 !     -----------
