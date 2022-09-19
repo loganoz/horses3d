@@ -30,7 +30,7 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_MODAL_VAL    = "modal"
    character(len=*), parameter :: SC_TE_VAL       = "truncation error"
    character(len=*), parameter :: SC_ALIAS_VAL    = "aliasing error"
-   character(len=*), parameter :: SC_GMM_VAL      = "GMM"
+   character(len=*), parameter :: SC_GMM_VAL      = "gmm"
 
    integer, parameter :: SC_ZERO_ID     = 1
    integer, parameter :: SC_ONE_ID      = 2
