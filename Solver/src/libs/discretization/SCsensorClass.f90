@@ -152,6 +152,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
          write(STD_OUT,*) '   * ', SC_ALIAS_VAL
+         write(STD_OUT,*) '   * ', SC_GMM_VAL
          stop
 
       end select
@@ -377,6 +378,7 @@ module SCsensorClass
          case (SC_MODAL_ID);    write(STD_OUT,"(A)") SC_MODAL_VAL
          case (SC_TE_ID);       write(STD_OUT,"(A)") SC_TE_VAL
          case (SC_ALIAS_ID);    write(STD_OUT,"(A)") SC_ALIAS_VAL
+         case (SC_GMM_ID);      write(STD_OUT,"(A)") SC_GMM_VAL
       end select
 
       if (sensor % sens_type == SC_TE_ID) then
@@ -388,26 +390,30 @@ module SCsensorClass
 
          write(STD_OUT,"(30X,A,A30,I0,A,I0,A)") "->", "Delta N: ", sensor % TEestim % deltaN, &
                                                 " (min. order is ", sensor % TEestim % Nmin, ")"
-
-      else if (sensor % sens_type /= SC_INTEGRAL_ID) then
-         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
-         select case (sensor % sVar)
-            case (SC_RHO_ID);  write(STD_OUT,"(A)") SC_RHO_VAL
-            case (SC_RHOU_ID); write(STD_OUT,"(A)") SC_RHOU_VAL
-            case (SC_RHOV_ID); write(STD_OUT,"(A)") SC_RHOV_VAL
-            case (SC_RHOW_ID); write(STD_OUT,"(A)") SC_RHOW_VAL
-            case (SC_RHOE_ID); write(STD_OUT,"(A)") SC_RHOE_VAL
-            case (SC_U_ID);    write(STD_OUT,"(A)") SC_U_VAL
-            case (SC_V_ID);    write(STD_OUT,"(A)") SC_V_VAL
-            case (SC_W_ID);    write(STD_OUT,"(A)") SC_W_VAL
-            case (SC_P_ID);    write(STD_OUT,"(A)") SC_P_VAL
-            case (SC_RHOP_ID); write(STD_OUT,"(A)") SC_RHOP_VAL
-         end select
-
       end if
 
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
-      write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
+      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
+      select case (sensor % sVar)
+         case (SC_RHO_ID);        write(STD_OUT,"(A)") SC_RHO_VAL
+         case (SC_RHOU_ID);       write(STD_OUT,"(A)") SC_RHOU_VAL
+         case (SC_RHOV_ID);       write(STD_OUT,"(A)") SC_RHOV_VAL
+         case (SC_RHOW_ID);       write(STD_OUT,"(A)") SC_RHOW_VAL
+         case (SC_RHOE_ID);       write(STD_OUT,"(A)") SC_RHOE_VAL
+         case (SC_U_ID);          write(STD_OUT,"(A)") SC_U_VAL
+         case (SC_V_ID);          write(STD_OUT,"(A)") SC_V_VAL
+         case (SC_W_ID);          write(STD_OUT,"(A)") SC_W_VAL
+         case (SC_P_ID);          write(STD_OUT,"(A)") SC_P_VAL
+         case (SC_RHOP_ID);       write(STD_OUT,"(A)") SC_RHOP_VAL
+         case (SC_RHO_GRAD_ID);   write(STD_OUT,"(A)") SC_RHO_GRAD_VAL
+         case (SC_RHO_P_GRAD_ID); write(STD_OUT,"(A)") SC_RHO_P_GRAD_VAL
+      end select
+
+      if (sensor % sens_type == SC_GMM_ID) then
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % nclusters
+      else
+         write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
+         write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
+      end if
 
 
    end subroutine Describe_SCsensor
