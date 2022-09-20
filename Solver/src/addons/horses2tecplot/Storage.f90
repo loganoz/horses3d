@@ -376,7 +376,7 @@ module Storage
                    read(fid) e % ut_NS
                end if 
 
-               if (hasUt_NS) then
+               if (hasMu_NS) then
                    allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % mu_NS
                end if 

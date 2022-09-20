@@ -242,6 +242,30 @@ contains
          
       end function RemovePath
 
+      character(len=LINE_LENGTH) function getPath( inputLine )
+         implicit none
+         character(len=*)     :: inputLine
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos
+!
+!        Get the last forward slash ocurrence
+!        ------------------------------------
+         pos = index(inputLine,'/',BACK=.true.)
+
+         if ( pos .eq. 0 ) then
+            getPath = inputLine
+
+         else
+            getPath = inputLine(1:pos-1)
+
+         end if
+         
+      end function getPath
+
       character(len=LINE_LENGTH) function getFileName( inputLine )
          implicit none
          character(len=*)     :: inputLine
