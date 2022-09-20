@@ -192,6 +192,7 @@ Module WallFunctionConnectivity  !
             case (ABL_WALL)
                 write(STD_OUT,'(30X,A,A28,A10)') "->", "Wall Function Law: ", "ABL"
         end select
+        if (useAverageV) write(STD_OUT,'(30X,A,A28)') "->", "Wall Function using time averaged values"
 
     End Subroutine Initialize_WallConnection
 
@@ -308,7 +309,7 @@ Module WallFunctionConnectivity  !
         integer                                                         :: eID, solIndex
         ! integer                                                         :: faceIndex, eID, solIndex
 
-        allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NCONS,0:f % Nf(1),0:f % Nf(2)) )
+        allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NDIM,0:f % Nf(1),0:f % Nf(2)) )
 
         ! use the maxloc line if the compiler doesn't support findloc
         ! faceIndex = findloc(wallFaceID, f % ID, dim=1)
