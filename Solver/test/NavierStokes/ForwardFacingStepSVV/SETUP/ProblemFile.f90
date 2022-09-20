@@ -1,14 +1,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM
-!      By: David Kopriva
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
-!      exact solutions (e.g. for tests), etc. and allow modifications
+!      exact solutions (e.g. for tests), etc. and allow modifications 
 !      without having to modify the main code.
 !
 !      The procedures, *even if empty* that must be defined are
@@ -19,8 +15,8 @@
 !      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #include "Includes.h"
 module ProblemFileFunctions
    implicit none
@@ -529,12 +525,12 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             character(len=29)                  :: testName = "Forward Facing Step (SVV)"
             type(FTAssertionsManager), pointer :: sharedManager
-            real(kind=RP), parameter           :: SVVdiss = 4.481e-3_RP
-            real(kind=RP), parameter           :: res(5) = [ 3734.090_RP, &
-                                                             2639.772_RP, &
-                                                             215.902_RP, &
+            real(kind=RP), parameter           :: SVVdiss = 9.66636e-7_RP
+            real(kind=RP), parameter           :: res(5) = [ 7636.3828_RP, &
+                                                             2404.6606_RP, &
+                                                             1245.3483_RP, &
                                                              0.0_RP, &
-                                                             3625.290_RP  ]
+                                                             7014.4413_RP  ]
 
             call initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()

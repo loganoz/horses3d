@@ -110,15 +110,15 @@
          CALL FTAssertEqual(expectedValue = 0.0_RP, &
                             actualValue   = eP,     &
                             tol           = tol,    &
-                            msg = "Points not sucessfully stored")
+                            msg = "Points not successfully stored")
          CALL FTAssertEqual(expectedValue = 0.0_RP, &
                             actualValue   = eU,     &
                             tol           = tol,    &
-                            msg = "uKnots not sucessfully stored")
+                            msg = "uKnots not successfully stored")
          CALL FTAssertEqual(expectedValue = 0.0_RP, &
                             actualValue   = eV,     &
                             tol           = tol,    &
-                            msg = "vKnots not sucessfully stored")
+                            msg = "vKnots not successfully stored")
 !
 !        -------------------------------
 !        Test interpolation at the knots

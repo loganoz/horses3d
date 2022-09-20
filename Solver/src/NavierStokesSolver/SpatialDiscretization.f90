@@ -1,15 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400
-!      By: David Kopriva
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
@@ -72,6 +60,7 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
+         real(RP)                         :: hnmin, hnmax
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
@@ -80,6 +69,11 @@ module SpatialDiscretization
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
             end if
+
+            call hnRange(sem % mesh, hnmin, hnmax)
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+            write(STD_OUT,'(/)')
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
@@ -826,8 +820,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -910,8 +904,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -959,9 +953,9 @@ module SpatialDiscretization
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
 !
-!        --------------------------
-!        Artifical viscosity fluxes
-!        --------------------------
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)

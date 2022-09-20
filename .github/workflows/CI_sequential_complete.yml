@@ -22,7 +22,7 @@ jobs:
 
     # Define strategy matrix
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         compiler: ['gfortran', 'ifort']
         mode: ['RELEASE', 'DEBUG']

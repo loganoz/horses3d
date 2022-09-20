@@ -826,7 +826,7 @@ module Solution2PltModule
             end associate
          end do
 
-         ! don't write if boundary doesn't have elements associated, happends for periodic conditions
+         ! don't write if boundary doesn't have elements associated, happens for periodic conditions
          if (numOfFElems .eq. 0) return
          
          write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &

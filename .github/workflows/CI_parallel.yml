@@ -6,10 +6,11 @@ name: CI PARALLEL (MPI)
 # Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  # Comment lines 10-13 to deactivate automatic running until Metis webpage is online again.
+  #push:
+  #  branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:

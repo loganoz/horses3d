@@ -1,17 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Storage.f90
-!   @Author:  UNK
-!   @Created: UNK
-!   @Last revision date: Mon Sep  6 22:44:49 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
-! TODO: Create destructors
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module Storage
    use SMConstants
@@ -349,7 +335,7 @@ module Storage
                   read(fid) e % Q_z
 
 !                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
-!                 Set state as is the default option TODO point to the correct one if its posible (oscar note)
+!                 Set state as is the default option TODO point to the correct one if its possible (oscar note)
 !                 ---------------------------
                   call set_getVelocityGradients(GRADVARS_STATE)
 

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    OutputVariables.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Tue Dec  3 18:47:37 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 74aa71e8675dba27cdc3e65b0539a36f31e86478
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module OutputVariables
 !
@@ -386,7 +374,7 @@ module OutputVariables
 
                case(MACH_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
+                     output(var,i,j,k) = (POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k)))/POW2(Q(IRHO,i,j,k))     ! Vabs**2
                      output(var,i,j,k) = sqrt( output(var,i,j,k) / ( refs(GAMMA_REF)*(refs(GAMMA_REF)-1.0_RP)*(Q(IRHOE,i,j,k)/Q(IRHO,i,j,k)-0.5_RP * output(var,i,j,k)) ) )
                   end do         ; end do         ; end do
 

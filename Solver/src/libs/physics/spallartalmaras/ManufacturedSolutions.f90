@@ -1,23 +1,7 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    ManufacturedSolutions.f90
-!   @Author:  Gerasimos Ntoukas (gerasimos.ntoukas@upm.es)
-!   @Created: Fri May 28 11:29:03 2021
-!   @Last revision date: Tue Nov 23 11:55:57 2021
-!   @Last revision author: Jerryntk (gerasimos.ntoukas@upm.es)
-!   @Last revision commit: 898b65703f0a5fc068dff7098b523cb2be6f7684
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
 !
-!      ManufacturedSolutions.f90
-!      By: Gerasimos Ntoukas
-!
 !      Manufactured solutions definitions for 3D case (Navier-Stokes/Spalart-Almaras)
-!
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 MODULE ManufacturedSolutionsNSSA

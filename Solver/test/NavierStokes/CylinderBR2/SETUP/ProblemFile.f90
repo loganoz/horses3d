@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,

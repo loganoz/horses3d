@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    CSRMatrixClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 
-!   @Last revision date: Sat Nov 27 12:23:21 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass   , only: Matrix_t, DenseBlock_t

@@ -1,14 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ShockCapturing.f90
-!   @Author:  Andrés Mateo (andres.mgabin@upm.es)
-!   @Created: Thu Jun 17 2021
-!   @Last revision date: Thu Wed 28 2021
-!   @Last revision author: Andrés Mateo (andres.mgabin@upm.es)
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SCsensorClass
 
@@ -41,7 +30,7 @@ module SCsensorClass
          integer  :: sens_type  ! ID of the sensor type
 
          real(RP) :: s0    !< Centre of the sensor scaling
-         real(RP) :: ds    !< Bandwith of the sensor scaling
+         real(RP) :: ds    !< Bandwidth of the sensor scaling
          real(RP) :: ds2   !< Half-bandwidth
          real(RP) :: low   !< Lower threshold
          real(RP) :: high  !< Upper threshold
@@ -50,7 +39,7 @@ module SCsensorClass
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
          procedure(Compute_Int), pointer :: Compute => null()
-         procedure(Rescale_Int), pointer :: Rescale => SinRamp
+         procedure(Rescale_Int), pointer :: Rescale => null()
 
       contains
 
@@ -153,7 +142,7 @@ module SCsensorClass
          sensor % Compute  => Sensor_aliasing
 
       case default
-         write(STD_OUT,*) "ERROR. The sensor type is unkown. Options are:"
+         write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_GRADRHO_VAL
@@ -223,6 +212,7 @@ module SCsensorClass
       sensor % s0   = (sensor % high + sensor % low) / 2.0_RP
       sensor % ds   = (sensor % high - sensor % low)
       sensor % ds2  = sensor % ds / 2.0_RP
+      sensor % Rescale => SinRamp
 
    end subroutine Set_SCsensor
 !
@@ -551,17 +541,19 @@ module SCsensorClass
 !     ---------------
       integer               :: eID
       integer               :: i, j, k, r
-      integer               :: Nx, Ny, Nz
+      integer               :: maxNx, maxNy, maxNz
       real(RP), allocatable :: sVar(:,:,:)
       real(RP), allocatable :: sVarMod(:,:,:)
+      real(RP), allocatable :: Lwx(:), Lwy(:), Lwz(:)
+      real(RP)              :: num, den
 
 
       ! Only allocate once
-      Nx = maxval(sem % mesh % Nx)
-      Ny = maxval(sem % mesh % Ny)
-      Nz = maxval(sem % mesh % Nz)
-      allocate(sVar(Nx,Ny,Nz))
-      allocate(sVarMod(Nx,Ny,Nz))
+      maxNx = maxval(sem % mesh % Nx)
+      maxNy = maxval(sem % mesh % Ny)
+      maxNz = maxval(sem % mesh % Nz)
+      allocate(sVar(maxNx,maxNy,maxNz))
+      allocate(sVarMod(maxNx,maxNy,maxNz))
 
 !$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
       do eID = 1, sem % mesh % no_of_elements
@@ -604,11 +596,47 @@ module SCsensorClass
 !
 !        Ratio of higher modes vs all the modes
 !        --------------------------------------
-         if (AlmostEqual(sVarMod(Nx,Ny,Nz), 0.0_RP)) then
-            e % storage % sensor = -999.0_RP  ! This is likely to be big enough ;)
-         else
-            e % storage % sensor = log10( sVarMod(Nx,Ny,Nz)**2 / sum(sVarMod**2) )
-         end if
+!        Explanation: The higher modes are contained in the subspace V(Nx,Ny,Nz) - V(Nx-1,Ny-1,Nz-1)
+!                     Representing them as cubes, this subspace corresponds to the outer shell of
+!                     V(Nx,Ny,Nz), thus the terms "faces", "edges" and "corner"
+!        --------------------------------------------------------------------------------------------
+         Lwx = NodalStorage(Nx) % Lw
+         Lwy = NodalStorage(Ny) % Lw
+         Lwz = NodalStorage(Nz) % Lw
+
+         ! Corner (Nx, Ny, Nz)
+         num = sVarMod(Nx,Ny,Nz)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(Nz)
+
+         ! Edges
+         do i = 0, Nx-1  ! +X edge
+            num = num + sVarMod(i,Ny,Nz)**2 * Lwx(i) * Lwy(Ny) * Lwz(Nz)
+         end do
+         do j = 0, Ny-1  ! +Y edge
+            num = num + sVarMod(Nx,j,Nz)**2 * Lwx(Nx) * Lwy(j) * Lwz(Nz)
+         end do
+         do k = 0, Nz-1  ! +Z edge
+            num = num + sVarMod(Nx,Ny,k)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(k)
+         end do
+
+         ! Faces
+         do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
+            num = num + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
+         end do         ; end do
+         do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
+            num = num + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
+         end do         ; end do
+         do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
+            num = num + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
+         end do         ; end do
+
+         ! Total sum
+         den = 0.0_RP
+         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+            den = den + sVarMod(i,j,k)**2 * Lwx(i) * Lwy(j) * Lwz(k)
+         end do       ; end do       ; end do
+
+         ! Sensor value as the ratio of num / den
+         e % storage % sensor = log10( num / den )
 
          end associate
 

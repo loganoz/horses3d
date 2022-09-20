@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:
-!   @Author:  David Kopriva
-!   @Created: Tue Mar 22 17:05:00 2007
-!   @Last revision date: Fri Feb 11 11:25:13 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 MODULE HexMeshClass
       use Utilities                       , only: toLower, almostEqual, AlmostEqualRelax
@@ -206,7 +194,7 @@ MODULE HexMeshClass
          if( self% IBM% active ) then
             if( self% child ) then
                call self% IBM% destruct( .true. )
-            else 
+            else
                call self% IBM% destruct( .false. )
             end if
          end if
@@ -1411,7 +1399,7 @@ slavecoord:             DO l = 1, 4
       integer, intent(in) :: bFaceOrder
       !-local-variables------------------------------------
       integer           :: ierr
-      integer           :: fID, zoneID
+      integer           :: zoneID
       integer           :: no_of_bdry_faces
       integer           :: no_of_faces
       integer, allocatable :: facesPerZone(:)
@@ -3078,10 +3066,20 @@ slavecoord:             DO l = 1, 4
                call ReadOrderFile(trim(orderFileName), Nx, Ny, Nz)
             end if
 
+            if ( controlVariables % containsKey("restart nodetype") ) then
+               select case ( trim(controlVariables % stringValueForKey("restart nodetype",requestedLength = LINE_LENGTH)) )
+               case("Gauss")
+                  auxMesh % nodeType = 1
+               case("Gauss-Lobatto")
+                  auxMesh % nodeType = 2
+               end select
+            else 
+               auxMesh % nodeType = self % nodeType
+            end if
+!
 !           Construct an auxiliar mesh to read the solution
 !           -----------------------------------------------
 
-            auxMesh % nodeType = self % nodeType
             auxMesh % no_of_elements = self % no_of_elements
             auxMesh % no_of_allElements = self % no_of_allElements
             allocate ( auxMesh % elements (self % no_of_elements) )
@@ -3223,8 +3221,10 @@ slavecoord:             DO l = 1, 4
          nodeType = getSolutionFileNodeType(trim(fileName))
 
          if ( nodeType .ne. self % nodeType ) then
-            print*, "Solution file uses a different discretization nodes than the mesh."
-            errorMessage(STD_OUT)
+            print*, "WARNING: Solution file uses a different discretization nodes than the mesh."
+            print*, "Add restart polorder = (Pol order in your restart file) in the control file if you want interpolation routines to be used."
+            print*, "If restart polorder is not specified the values in the original set of nodes are loaded into the new nodes without interpolation."
+            errorMessage(STD_OUT) 
          end if
 !
 !        Read the number of elements
@@ -3778,6 +3778,7 @@ slavecoord:             DO l = 1, 4
 !     ---------------------
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
+         e % hn = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)  ! Also compute h/p here
          e % storage => self % storage % elements(eID)
          end associate
       END DO
@@ -4236,13 +4237,13 @@ slavecoord:             DO l = 1, 4
       allocate(to % elements_sequential(size(from % elements_sequential)))
       allocate(to % elements_mpi       (size(from % elements_mpi       )))
       allocate(to % faces_interior     (size(from % faces_interior     )))
-      allocate(to % faces_mpi          (size(to % faces_mpi            )))
+      allocate(to % faces_mpi          (size(from % faces_mpi          )))
       allocate(to % faces_boundary     (size(from % faces_boundary     )))
 
       to % elements_sequential = from % elements_sequential
       to % elements_mpi        = from % elements_mpi
       to % faces_interior      = from % faces_interior
-      to % faces_mpi           = to % faces_mpi
+      to % faces_mpi           = from % faces_mpi
       to % faces_boundary      = from % faces_boundary
 
 

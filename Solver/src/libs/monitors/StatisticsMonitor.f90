@@ -196,7 +196,7 @@ module StatisticsMonitor
 !
 !        Dump the contents if requested
 !        ------------------------------
-         if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration) ) ) then
+         if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration .or. t > self % starting_time) ) ) then
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'

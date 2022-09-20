@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GradientsStabilization.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Thu Apr 12 11:32:49 2018
-!   @Last revision date: Wed Jul 25 17:15:32 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: d886ff7a7d37081df645692157131f3ecc98f761
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module GradientsStabilization
 #if defined(CAHNHILLIARD)

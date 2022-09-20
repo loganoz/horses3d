@@ -1,13 +1,6 @@
 !
 ! //////////////////////////////////////////////////////////////////////////////
 !
-!
-!     FacePatchClass.F
-!
-!!
-!!     Modification History:
-!!        version 0.0 July 30, 2002
-!!        Updated for NSLite 5/19/15, 10:51 AM
 !!
 !!     self class stores data needed to define a 2D interpolant. In
 !!     self context, self means an iterpolant that defines a surface.
@@ -22,7 +15,6 @@
 !         SUBROUTINE PrintFacePatch             ( self )
 !         LOGICAL FUNCTION FaceIs4CorneredQuad  ( self )
 !
-!!    @author David A. Kopriva
 !!    
 ! //////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"

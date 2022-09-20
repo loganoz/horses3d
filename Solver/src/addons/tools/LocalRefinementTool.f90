@@ -1,15 +1,10 @@
 !
-!   @File:    LocalRefinementTool.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 3 2020
-!   @Last revision date: Feb 28 2022
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This module contains the pre-define local p-refinement of a mesh
 !
 !//////////////////////////////////////////////////////
 !
-!This module contains the pre-define local p-refinement of a mesh
-
 Module LocalRefinementTool  !
 
     use SMConstants

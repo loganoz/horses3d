@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File: ColorsClass.f90
-!   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
-!   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Sep  6 22:44:56 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
 !//////////////////////////////////////////////////////
 !
 !      Module for computing element colorings in order to generate the numerical Jacobian
@@ -72,7 +62,7 @@ MODULE ColorsClass
                
 !              Check if its neighbors(...depth times) were used in this color
 !              --------------------------------------------------------------  
-               used(0) = .FALSE. !boundary neigbour is empty
+               used(0) = .FALSE. !boundary neighbour is empty
                if (neighbors_were_used(used,nbr,i,depth)) cycle
                
 !              Mark neighbors as used
@@ -94,8 +84,8 @@ MODULE ColorsClass
          ALLOCATE(this%elmnts(ntotal))
          ALLOCATE(this%bounds(this % num_of_colors + 1))
          
-!        Order elements acording to colors
-!        *********************************
+!        Order elements according to colors
+!        **********************************
          idx = 1
          DO i = 1, this % num_of_colors
             this%bounds(i)= idx

@@ -1,11 +1,3 @@
-!
-!   @File:    TripForceClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Dec 16 2020
-!   @Last revision date: Feb 14 2022
-!   @Last revision author: Oscar Marino (oscar.marino@upm.es)
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
 !This class represents the numerical force use to induce turbulence, or tripping
@@ -397,7 +389,7 @@ Module TripForceClass
   End Subroutine gtripDestruct 
 !
   Subroutine randSignal(self, signal)
-  ! creates a random signal (array) with the first Ncutz modes random and .le. 1.0 and 0 for modes grater than Ncutz.
+  ! creates a random signal (array) with the first Ncutz modes random and .le. 1.0 and 0 for modes greater than Ncutz.
   ! The array is created in an evenly distributed z (spanwise direction), it needs to be interpolated at the mesh points later.
 
     use MPI_Process_Info
@@ -428,9 +420,9 @@ Module TripForceClass
         fourierCoeficients(0) = real(fourierArg)*sqrt(2.0_RP)
         fourierCoeficients(1) = 0
 
-        ! for the other values of n less than the cutt off, the random amplitud is ampliated by sqrt 2 for the real part and 0 for the
+        ! for the other values of n less than the cutt off, the random amplitude is ampliated by sqrt 2 for the real part and 0 for the
         ! img for the symmetric case
-        ! for the non symmetric case, the amplitud is set to 1.0 and the phase is random (both real and part are saved)
+        ! for the non symmetric case, the amplitude is set to 1.0 and the phase is random (both real and part are saved)
         if (self%isSimetric) then
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
@@ -554,7 +546,7 @@ Module TripForceClass
 !
   Function getgTripForceAtZ(self, specificZ) result(gz)
     ! returns the value of the g term at a given z position, using linear interpolation
-    ! it asumes that the array g correponds position by position to the array z
+    ! it assumes that the array g corresponds position by position to the array z
 
     implicit none
 

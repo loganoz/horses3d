@@ -1,15 +1,10 @@
-!
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 25 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
+
 !//////////////////////////////////////////////////////
 !
 !This class represents the general behaviour of the Ffowcs Williams and Hawckings aero acoustic analogy
-
+!
+!//////////////////////////////////////////////////////
+!
 #include "Includes.h"
 Module FWHGeneralClass  !
 
@@ -107,7 +102,7 @@ Module FWHGeneralClass  !
 !       Get the general configuration of control file
 !       First get the surface as a zone
 !       -------------------------------
-        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permable")
+        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permeable")
 
 !       Get the solution file name
 !       --------------------------
@@ -126,7 +121,7 @@ Module FWHGeneralClass  !
            self % numberOfObservers = getNoOfObservers()
         end if
 
-!       Set interpolate atribute as TRUE by default
+!       Set interpolate attribute as TRUE by default
         ! todo: read from constrol variables
         self % interpolate = .TRUE.
         ! self % interpolate = .FALSE.
@@ -245,8 +240,8 @@ Module FWHGeneralClass  !
 
         if ( forceVal ) then 
 !
-!           In this case the observers are exported to their files and the buffer is reseted
-!           -------------------------------------------------------------------------------
+!           In this case the observers are exported to their files and the buffer is reset
+!           ------------------------------------------------------------------------------
             if (.not. self % firstWrite .and. self % interpolate) then
                 do i =1, self % numberOfObservers
                     call self % observers(i) % interpolateSol(self % t, self % bufferLine)

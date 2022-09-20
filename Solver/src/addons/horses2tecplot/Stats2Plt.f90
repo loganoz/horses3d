@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Stats2Plt.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Oct 19 18:27:04 2017
-!   @Last revision date: Wed Nov  7 13:19:10 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6f065eb346a958a99034c17a2ae5d4e3c333c4b1
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module Stats2PltModule
    use SMConstants

@@ -1,18 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    MatrixFreeClass.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Mon Sep  6 22:45:07 2021
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
-!
-!//////////////////////////////////////////////////////
-!
 !
 !   Matrix-free operations.
 !

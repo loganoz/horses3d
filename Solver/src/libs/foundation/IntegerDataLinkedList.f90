@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    IntegerDataLinkedList.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat Nov 25 13:29:58 2017
-!   @Last revision date: Tue Feb 12 16:38:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 60d7d3f1bfd48fae2244902fb041a5b5c4cfef9c
-!
-!//////////////////////////////////////////////////////
-!
 module IntegerDataLinkedList
    implicit none
 

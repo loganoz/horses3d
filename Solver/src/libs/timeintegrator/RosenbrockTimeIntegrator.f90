@@ -1,21 +1,5 @@
 !
-!//////////////////////////////////////////////////////
-!
-!   @File:    RosenbrockTimeIntegrator.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sat May 12 20:54:08 2018
-!   @Last revision date: Mon Sep  6 22:45:07 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
-!//////////////////////////////////////////////////////
-!
-!
 !////////////////////////////////////////////////////////////////////////
-!
-!      RosenbrockTimeIntegrator.f90
-!      Created: 2018-03-01 16:30:00 +0100 
-!      By:  Andrés Rueda
 !
 !      Module for integrating in time using Rosenbrock type implicit Runge-Kutta schemes
 !

@@ -1,11 +1,4 @@
 !
-!   @File:    ObserverClass.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Mar 22 2020
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
-!
 !//////////////////////////////////////////////////////
 !
 !This class represents the observer for the fW-H acoustic analogy, including the relations with several observers
@@ -266,7 +259,7 @@ use VariableConversion, only: Pressure, PressureDot
 
              localPacc = self % sourcePair(zoneFaceID) % FWHSurfaceIntegral( mesh % faces(meshFaceID), isSolid )
 
-             ! sum without interpolate: supose little change of each tDelay
+             ! sum without interpolate: suppose little change of each tDelay
              valx = valx + localPacc(1)
              valy = valy + localPacc(2)
              valz = valz + localPacc(3)
@@ -742,7 +735,7 @@ use VariableConversion, only: Pressure, PressureDot
 
     End Subroutine ObserverSourcePairInterpolateSolSecond
 
-   ! calculate the surface integrals of the FW-H analogy for stacionary surfaces (permable or impermeable) with a general flow
+   ! calculate the surface integrals of the FW-H analogy for stationary surfaces (permeable or impermeable) with a general flow
    ! direction of the medium
    ! the integrals are for a single face (pane in FWH terminology) for a single observer
 !         TODO: check if is more efficient to store FWHvariables for each face instead of calculating it always
@@ -810,7 +803,7 @@ use VariableConversion, only: Pressure, PressureDot
                    ! Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
                    !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
-                   ! thickness term integrals, only for permable surfaces
+                   ! thickness term integrals, only for permeable surfaces
                    if (.not. isSolid) then
                        Pt = Pt + (1 - dot_product(M0(:),self%reUnitVect(:,i,j))) * dot_product(QiDot(:),n(:)) / (self%reStar(i,j)) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
@@ -959,7 +952,7 @@ use VariableConversion, only: Pressure, PressureDot
        Lij = Pij
        ! Lij = 0.0_RP
 
-       !calculate terms for permable surface
+       !calculate terms for permeable surface
        if (.not. isSolid) then
            Qi(:) = Qi(:) + Q(2:4)
            ! convert to complete velocity instead of perturbation velocity

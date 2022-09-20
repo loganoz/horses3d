@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:
-!   @Author:  David Kopriva
-!   @Created: Tue Jun 04 15:34:44 2008
-!   @Last revision date: Sun Aug  4 16:39:47 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
-!
-!//////////////////////////////////////////////////////
-!
 !      Implements Algorithms:
 !         Algorithm: 124: ElementClass (QuadElementClass)
 !
@@ -43,9 +34,9 @@
       IMPLICIT NONE
 
       private
-      public   Element 
+      public   Element
       public   PrintElement, SetElementBoundaryNames, SurfInfo_t
-      
+
 !
 !     -----------------------------------------------------------------------------------------
 !     Type containing the information of the surfaces of an element, as read from the mesh file
@@ -68,7 +59,7 @@
          real(kind=RP)                   :: Psvv
          logical                         :: hasSharedFaces
          integer                         :: dir2D
-         integer                         :: globDir(3)        ! If the global coordinate (GLOBAL) is aligned with the local coordinate (REFERENCE): globDir(GLOBAL) = REFERENCE 
+         integer                         :: globDir(3)        ! If the global coordinate (GLOBAL) is aligned with the local coordinate (REFERENCE): globDir(GLOBAL) = REFERENCE
          integer                         :: eID               ! ID of this element
          integer                         :: globID            ! globalID of the element
          integer                         :: offsetIO          ! Offset from the first element for IO
@@ -76,6 +67,7 @@
          integer                         :: faceIDs(6)
          integer                         :: faceSide(6)
          INTEGER, DIMENSION(3)           :: Nxyz              ! Polynomial orders in every direction (Nx,Ny,Nz)
+         real(kind=RP)                   :: hn                ! Ratio of size and polynomial order
          TYPE(MappedGeometry)            :: geom
          CHARACTER(LEN=BC_STRING_LENGTH) :: boundaryName(6)
          INTEGER                         :: NumberOfConnections(6)
@@ -83,8 +75,8 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body  
-         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. 
+         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body
+         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true.
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -100,19 +92,19 @@
             procedure   :: copy                    => HexElement_Assign
             procedure   :: ConstructIBM            => HexElement_ConstructIBM
             generic     :: assignment(=)           => copy
-      END TYPE Element 
-            
-      CONTAINS 
+      END TYPE Element
+
+      CONTAINS
 !
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE HexElement_Construct( self, Nx, Ny, Nz, nodeIDs, eID, globID)
          IMPLICIT NONE
          class(Element)      :: self
-         integer, intent(in) :: Nx, Ny, Nz  !<  Polynomial orders         
+         integer, intent(in) :: Nx, Ny, Nz  !<  Polynomial orders
          integer, intent(in) :: nodeIDs(8)
          integer, intent(in) :: eID, globID
-         
+
          self % eID                 = eID
          self % dir2D               = 0
          self % globDir             = 0
@@ -121,6 +113,7 @@
          self % Nxyz(1)             = Nx
          self % Nxyz(2)             = Ny
          self % Nxyz(3)             = Nz
+         self % hn                  = 0.0_RP
          self % boundaryName        = emptyBCName
          self % hasSharedFaces      = .false.
          self % NumberOfConnections = 0
@@ -142,26 +135,26 @@
          class(Element)         , intent(inout) :: self
          TYPE(TransfiniteHexMap), intent(in)    :: hexMap
          !--------------------------------------
-         
+
          self % hexMap = hexMap
          CALL self % geom % Construct( NodalStorage(Self % Nxyz(1)), NodalStorage(Self % Nxyz(2)), NodalStorage(Self % Nxyz(3)), hexMap )
-         
+
       end subroutine HexElement_ConstructGeometry
 
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE SetElementBoundaryNames( self, names ) 
+      SUBROUTINE SetElementBoundaryNames( self, names )
          use Utilities, only: toLower
          IMPLICIT NONE
          TYPE(Element)                   :: self
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(6)
          INTEGER                         :: j
-         
+
          DO j = 1, 6
-            CALL toLower(names(j)) 
+            CALL toLower(names(j))
             self % boundaryName(j) = names(j)
-         END DO  
+         END DO
       END SUBROUTINE SetElementBoundaryNames
 !
 !////////////////////////////////////////////////////////////////////////
@@ -169,11 +162,11 @@
       elemental SUBROUTINE HexElement_Destruct( self )
          IMPLICIT NONE
          class(Element), intent(inout) :: self
-         
+
          CALL self % geom % Destruct
          call self % Connection % destruct
          call self % hexMap % destruct
-         
+
          call self % SurfInfo % destruct
 
       END SUBROUTINE HexElement_Destruct
@@ -181,7 +174,7 @@
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE PrintElement( self, id )
-         IMPLICIT NONE 
+         IMPLICIT NONE
          TYPE(Element) :: self
          INTEGER      :: id
          PRINT *, id, self % nodeIDs
@@ -199,9 +192,9 @@
 !
          TYPE(Element) :: self
          INTEGER       :: fUnit
-         
+
          WRITE(funit) self % storage % Q
-      
+
       END SUBROUTINE SaveSolutionStorageToUnit
 !
 !////////////////////////////////////////////////////////////////////////
@@ -215,9 +208,9 @@
 !
          TYPE(Element) :: self
          INTEGER       :: fUnit
-         
+
          READ(funit) self % storage % Q
-      
+
       END SUBROUTINE LoadSolutionFromUnit
 !
 !////////////////////////////////////////////////////////////////////////
@@ -240,7 +233,7 @@
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: QL, QR, QdotL, QdotR
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
          logical :: prolongQdot
-         
+
          N = self % Nxyz
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
@@ -259,13 +252,13 @@
          QL   = 0.0_RP     ; QR   = 0.0_RP
          QFR  = 0.0_RP     ; QBK  = 0.0_RP
          QBOT = 0.0_RP     ; QT   = 0.0_RP
-         
+
          ! if (prolongQdot) then
              QdotL   = 0.0_RP     ; QdotR   = 0.0_RP
              QdotFR  = 0.0_RP     ; QdotBK  = 0.0_RP
              QdotBOT = 0.0_RP     ; QdotT   = 0.0_RP
          ! end if
-         
+
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             QL  (:,j,k)= QL  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,LEFT  )
             QR  (:,j,k)= QR  (:,j,k)+ self % storage % Q(:,i,j,k)* spAxi % v  (i,RIGHT )
@@ -283,7 +276,7 @@
             end if
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
-         
+
          call fL   % AdaptSolutionToFace(nEqn, N(2), N(3), QL   , self % faceSide(ELEFT  ), QdotL, computeQdot)
          call fR   % AdaptSolutionToFace(nEqn, N(2), N(3), QR   , self % faceSide(ERIGHT ), QdotR, computeQdot)
          call fFR  % AdaptSolutionToFace(nEqn, N(1), N(3), QFR  , self % faceSide(EFRONT ), QdotFR, computeQdot)
@@ -312,7 +305,7 @@
          real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxL, UyL, UzL
          real(kind=RP), dimension(nGradEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: UxR, UyR, UzR
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-         
+
          N = self % Nxyz
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
@@ -328,7 +321,7 @@
          UxBK = 0.0_RP ; UyBK = 0.0_RP ; UzBK = 0.0_RP
          UxBT = 0.0_RP ; UyBT = 0.0_RP ; UzBT = 0.0_RP
          UxT  = 0.0_RP ; UyT  = 0.0_RP ; UzT  = 0.0_RP
-         
+
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             UxL (:,j,k) = UxL (:,j,k) + self % storage % U_x(:,i,j,k)* spAxi   % v (i,LEFT  )
             UxR (:,j,k) = UxR (:,j,k) + self % storage % U_x(:,i,j,k)* spAxi   % v (i,RIGHT )
@@ -353,7 +346,7 @@
 
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
-         
+
          call fL   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxL , UyL , UzL , self % faceSide(ELEFT  ))
          call fR   % AdaptGradientsToFace(nGradEqn, N(2), N(3), UxR , UyR , UzR , self % faceSide(ERIGHT ))
          call fFR  % AdaptGradientsToFace(nGradEqn, N(1), N(3), UxFR, UyFR, UzFR, self % faceSide(EFRONT ))
@@ -380,7 +373,7 @@
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(1), 0:self % Nxyz(2)) :: VBOT, VT
          real(kind=RP), dimension(1:nEqn, 0:self % Nxyz(2), 0:self % Nxyz(3)) :: VL, VR
          type(NodalStorage_t), pointer                                        :: spAxi, spAeta, spAzeta
-         
+
          N = self % Nxyz
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
@@ -393,7 +386,7 @@
          VL   = 0.0_RP     ; VR   = 0.0_RP
          VFR  = 0.0_RP     ; VBK  = 0.0_RP
          VBOT = 0.0_RP     ; VT   = 0.0_RP
-         
+
          do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             VL  (:,j,k) = VL  (:,j,k) - AVflux(:,i,j,k,IX) * spAxi   % v(i,LEFT  )
             VR  (:,j,k) = VR  (:,j,k) + AVflux(:,i,j,k,IX) * spAxi   % v(i,RIGHT )
@@ -403,7 +396,7 @@
             VT  (:,i,j) = VT  (:,i,j) + AVflux(:,i,j,k,IZ) * spAzeta % v(k,TOP   )
          end do                   ; end do                   ; end do
          nullify (spAxi, spAeta, spAzeta)
-         
+
          call fL   % AdaptAviscFluxToFace(nEqn, N(2), N(3), VL   , self % faceSide(ELEFT  ))
          call fR   % AdaptAviscFluxToFace(nEqn, N(2), N(3), VR   , self % faceSide(ERIGHT ))
          call fFR  % AdaptAviscFluxToFace(nEqn, N(1), N(3), VFR  , self % faceSide(EFRONT ))
@@ -420,11 +413,11 @@
 !
 !        ****************************************************************
 !           This subroutine computes local gradients as:
-!  
+!
 !              nabla U = (1/J) \sum_i Ja^i \cdot \partial(u)/ \partial \xi^i
 !
 !        ****************************************************************
-!  
+!
          implicit none
          class(Element),   intent(inout)  :: self
          integer,          intent(in)     :: nEqn
@@ -442,7 +435,7 @@
          real(kind=RP)  :: U_eta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          real(kind=RP)  :: U_zeta(1:nGradEqn, 0:self % Nxyz(1), 0:self % Nxyz(2), 0:self % Nxyz(3))
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-         
+
          associate( N => self % Nxyz )
          spAxi   => NodalStorage(N(1))
          spAeta  => NodalStorage(N(2))
@@ -495,7 +488,7 @@
          do l = 0, N(3)   ; do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
             U_zeta(:,i,j,k) = U_zeta(:,i,j,k) + U(:,i,j,l) * spAzeta % D(k,l)
          end do           ; end do         ; end do         ; end do
-         
+
          nullify (spAxi, spAeta, spAzeta)
 !
 !        ******************************
@@ -504,18 +497,18 @@
 !
          do k = 0, N(3) ; do j = 0, N(2)  ; do i = 0, N(1)
             self % storage % U_x(:,i,j,k) = (   U_xi(:,i,j,k) * self % geom % jGradXi(1,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) & 
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(1,i,j,k) &
                                               + U_zeta(:,i,j,k) * self % geom % jGradZeta(1,i,j,k))&
                                              * self % geom % InvJacobian(i,j,k)
 
             self % storage % U_y(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(2,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) & 
-                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))& 
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(2,i,j,k) &
+                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(2,i,j,k))&
                                             * self % geom % InvJacobian(i,j,k)
 
             self % storage % U_z(:,i,j,k) = (    U_xi(:,i,j,k) * self % geom % jGradXi(3,i,j,k) &
-                                              + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) & 
-                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))& 
+                                              + U_eta(:,i,j,k) * self % geom % jGradEta(3,i,j,k) &
+                                              + U_zeta(:,i,j,k) * self % geom % jGradZeta(3,i,j,k))&
                                             * self % geom % InvJacobian(i,j,k)
          end do         ; end do          ; end do
          end associate
@@ -549,21 +542,21 @@
          real(kind=RP), parameter   :: STEP = 1.0_RP
          real(kind=RP), parameter   :: INSIDE_TOL = 1.0e-08_RP
          !-arguments-------------------------------------------------
-         
-         
+
+
          do i = 1, NODES_PER_ELEMENT
             corners(:,i) = nodes(self % nodeIDs(i)) % x
          end do
-         
+
 !
 !        Initial seed
-!        ------------      
-         xi = 0.0_RP    
-         
+!        ------------
+         xi = 0.0_RP
+
          do i = 1 , N_MAX_ITER
-            
+
             call Hex8TransfiniteMap ( xi, F, corners )
-            
+
             F = F - x
 !
 !           Stopping criteria: there are several
@@ -575,12 +568,12 @@
 !
 !           Perform a step
 !           --------------
-            
+
             call GradHex8TransfiniteMap (xi, Jac, corners)
-            
+
             dx = solveThreeEquationLinearSystem( Jac , -F )
             xi = xi + STEP * dx
-   
+
          end do
 
          if ( (abs(xi(1)) .lt. 1.0_RP + INSIDE_TOL) .and. &
@@ -590,31 +583,31 @@
 !           Solution is valid
 !           -----------------
             HexElement_FindPointInLinearizedElement = .true.
-   
+
          else
 !
 !           Solution is not valid
 !           ---------------------
             HexElement_FindPointInLinearizedElement = .false.
-         
+
          end if
-         
-         
+
+
       end function HexElement_FindPointInLinearizedElement
-      
+
 !
 !////////////////////////////////////////////////////////////////////////
 !
       logical function HexElement_FindPointWithCoords(self, x, dir2D, xi)
 !
 !        **********************************************************
-!          
-!           This function finds whether a point is inside or not 
+!
+!           This function finds whether a point is inside or not
 !           of the element. This is done solving
 !           the mapping non-linear system
 !
 !        **********************************************************
-!          
+!
 !
          use Utilities, only: SolveThreeEquationLinearSystem
          implicit none
@@ -637,25 +630,25 @@
 !
          integer                       :: i, j, k, iter
          real(kind=RP), parameter      :: INSIDE_TOL = 1.0e-08_RP
-         real(kind=RP)                 :: lxi   (0:self % Nxyz(1)) 
-         real(kind=RP)                 :: leta  (0:self % Nxyz(2)) 
-         real(kind=RP)                 :: lzeta (0:self % Nxyz(3)) 
-         real(kind=RP)                 :: dlxi   (0:self % Nxyz(1)) 
-         real(kind=RP)                 :: dleta  (0:self % Nxyz(2)) 
-         real(kind=RP)                 :: dlzeta (0:self % Nxyz(3)) 
+         real(kind=RP)                 :: lxi   (0:self % Nxyz(1))
+         real(kind=RP)                 :: leta  (0:self % Nxyz(2))
+         real(kind=RP)                 :: lzeta (0:self % Nxyz(3))
+         real(kind=RP)                 :: dlxi   (0:self % Nxyz(1))
+         real(kind=RP)                 :: dleta  (0:self % Nxyz(2))
+         real(kind=RP)                 :: dlzeta (0:self % Nxyz(3))
          real(kind=RP)                 :: F(NDIM)
          real(kind=RP)                 :: Jac(NDIM,NDIM)
          real(kind=RP)                 :: dx(NDIM)
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-         
+
          spAxi   => NodalStorage(self % Nxyz(1))
          spAeta  => NodalStorage(self % Nxyz(2))
          spAzeta => NodalStorage(self % Nxyz(3))
-         
+
 !
 !        Initial seed
-!        ------------      
-         xi = 0.0_RP    
+!        ------------
+         xi = 0.0_RP
 
          do iter = 1 , N_MAX_ITER
 !
@@ -664,12 +657,12 @@
             lxi     = spAxi % lj   (xi(1))
             leta    = spAeta % lj  (xi(2))
             lzeta   = spAzeta % lj (xi(3))
-  
+
             F = 0.0_RP
             do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
                F = F + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
             end do               ; end do             ; end do
-   
+
             F = F - x
 !
 !           Stopping criteria: there are several
@@ -688,9 +681,9 @@
 
             Jac = 0.0_RP
             do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
-               Jac(:,1) = Jac(:,1) + self % geom % x(:,i,j,k) * dlxi(i) * leta(j) * lzeta(k) 
-               Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k) 
-               Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k) 
+               Jac(:,1) = Jac(:,1) + self % geom % x(:,i,j,k) * dlxi(i) * leta(j) * lzeta(k)
+               Jac(:,2) = Jac(:,2) + self % geom % x(:,i,j,k) * lxi(i) * dleta(j) * lzeta(k)
+               Jac(:,3) = Jac(:,3) + self % geom % x(:,i,j,k) * lxi(i) * leta(j) * dlzeta(k)
             end do               ; end do             ; end do
 
             if ( (all(abs(Jac(:,1)) .lt. epsilon(1.0_RP))) .and. (spAxi % N .eq. 0) ) then
@@ -707,11 +700,11 @@
 
             dx = solveThreeEquationLinearSystem( Jac , -F )
             xi = xi + STEP * dx
-   
+
          end do
-         
+
          nullify (spAxi, spAeta, spAzeta)
-         
+
          if ( (abs(xi(1)) .lt. 1.0_RP + INSIDE_TOL) .and. &
               (abs(xi(2)) .lt. 1.0_RP + INSIDE_TOL) .and. &
               (abs(xi(3)) .lt. 1.0_RP + INSIDE_TOL)          ) then
@@ -719,13 +712,13 @@
 !           Solution is valid
 !           -----------------
             HexElement_FindPointWithCoords = .true.
-   
+
          else
 !
 !           Solution is not valid
 !           ---------------------
             HexElement_FindPointWithCoords = .false.
-         
+
          end if
 
       end function HexElement_FindPointWithCoords
@@ -747,7 +740,7 @@
          real(kind=RP)  :: lzeta(0:self % Nxyz(3))
          real(kind=RP)  :: Q(nEqn)
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-         
+
          spAxi   => NodalStorage(self % Nxyz(1))
          spAeta  => NodalStorage(self % Nxyz(2))
          spAzeta => NodalStorage(self % Nxyz(3))
@@ -761,13 +754,13 @@
 !        Compute the tensor product
 !        --------------------------
          Q = 0.0_RP
-      
+
          do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
             Q = Q + self % storage % Q(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
-         end do               ; end do             ; end do   
+         end do               ; end do             ; end do
 
          HexElement_EvaluateSolutionAtPoint = Q
-         
+
          nullify (spAxi, spAeta, spAzeta)
       end function HexElement_EvaluateSolutionAtPoint
 !
@@ -792,42 +785,43 @@
          logical, parameter            :: computeGradients = .true.
 #endif
          !-----------------------------------------------------
-         
+
 !
 !        Reconstruct storage
 !        -------------------
-         
+
          anJacobian = self % storage % anJacobian
-         
-         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)         
+
+         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)
          tempStorage = self % storage
-         
+
          self % Nxyz = NNew
-         
+         self % hn = (self % geom % Volume / product(self % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+
          call self % storage % destruct()
          call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)
-         
+
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
-         
+
          if (prevSol_num > 0) then
             ! TODO : call InterpolatePrevSol
          end if
          call tempStorage % destruct()
-         
+
       end subroutine HexElement_pAdapt
-      
+
       pure subroutine SurfInfo_Destruct (self)
          implicit none
          class(SurfInfo_t), intent(inout) :: self
-         
+
          call self % facePatches % destruct
       end subroutine SurfInfo_Destruct
-      
+
          elemental subroutine HexElement_Assign(to, from)
             implicit none
             class(Element), intent(inout) :: to
             class(Element), intent(in)    :: from
-            
+
             to % hasSharedFaces = from % hasSharedFaces
             to % dir2D = from % dir2D
             to % globDir = from % globDir
@@ -838,6 +832,7 @@
             to % faceIDs = from % faceIDs
             to % faceSide = from % faceSide
             to % Nxyz = from % Nxyz
+            to % hn = from % hn
             to % geom = from % geom
             to % boundaryName = from % boundaryName
             to % NumberOfConnections = from % NumberOfConnections
@@ -845,7 +840,7 @@
             to % hexMap = from % hexMap
             to % SurfInfo = from % SurfInfo
 !~            IGNORE to % storage
-            
+
          end subroutine HexElement_Assign
       !
 !////////////////////////////////////////////////////////////////////////
@@ -853,14 +848,14 @@
       subroutine HexElement_ConstructIBM( self, Nx, Ny, Nz, NumOfSTL )
          implicit none
          class(Element), intent(inout) :: self
-         integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files        
-         
+         integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files
+
          allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
          allocate(self% STL(NumOfSTL,0:Nx,0:Ny,0:Nz))
-         
+
          self% isInsideBody = .false.
          self% STL          = 0
 
       end subroutine HexElement_ConstructIBM
-      
+
       END Module ElementClass

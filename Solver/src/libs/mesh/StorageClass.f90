@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    StorageClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Thu Oct  5 09:17:17 2017
-!   @Last revision date: Wed Dec  4 11:34:59 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
-!
 !//////////////////////////////////////////////////////
 !
 !     TODO1: Store FaceStorage in SolutionStorage
@@ -886,7 +876,7 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
-         self % sensor = -999.9_RP  ! Make sure there is a low value when the integration starts
+         self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
 
       end subroutine ElementStorage_Construct
 !

@@ -1,16 +1,12 @@
 !
-!   @File:    WallFunctionConnectivity.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Nov 23 2021
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This module stores the connection of each face of the wall that will be used in the 
+! Wall Function with the first normal neighbour
+! element and other needed variables
 !
 !//////////////////////////////////////////////////////
 !
-!This module stores the connection of each face of the wall that will be used in the Wall Function with the first normal neighbour
-!elelement and other needed variables
-
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 Module WallFunctionConnectivity  !
@@ -436,7 +432,7 @@ Module WallFunctionConnectivity  !
             end if
         end do
 
-        ! if the code reach this point the elemt does not exists
+        ! if the code reach this point the element does not exists
         write(STD_OUT,'(A,I0)') "Error: The element of the wall function does not exists in the mesh or mesh partition, global ID: ", globeID
         errorMessage(STD_OUT)
         stop 

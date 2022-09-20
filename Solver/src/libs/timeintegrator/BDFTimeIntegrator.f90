@@ -1,13 +1,4 @@
 !
-!////////////////////////////////////////////////////////////////////////
-!
-!   @File:    BDFTimeIntegrator.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 2017-04-09 16:30:00 +0100 
-!   @Last revision date: Mon Sep  6 22:45:04 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
 !   Module for integrating in time using the Backward Differentiation Formulas (BDF)
 !
 !////////////////////////////////////////////////////////////////////////
@@ -86,7 +77,7 @@ MODULE BDFTimeIntegrator
    real(kind=RP), parameter   :: NEWTON_MIN_CONVRATE = 0.1_RP     ! Minimum convergence rate for Newton method... If newton loop convergence rate passes this value, inner_dt is decreased
    real(kind=RP), parameter   :: NEWTON_MAX_CONVRATE = 1.7_RP     ! Maximum convergence rate for Newton method... If newton loop convergence rate passes this value, inner_dt is increased
    real(kind=RP), parameter   :: NEWTON_TOL_DEFAULT  = 1.e-6_RP   ! Default convergence tolerance
-   integer      , parameter   :: MAX_NEWTON_ITER = 30          ! If newton iter reachs this limit, this iteration is marked as  not converged 
+   integer      , parameter   :: MAX_NEWTON_ITER = 30          ! If newton iter reaches this limit, this iteration is marked as  not converged 
    integer      , parameter   :: LIM_NEWTON_ITER = 12          ! If Newton converges but this limit is reached, jacobian matrix will be recomputed
    logical                    :: PRINT_NEWTON_INFO
    
@@ -264,8 +255,8 @@ contains
          
          call BDF_SetPreviousSolution(sem % mesh % storage)
          
-!        Perform Newton interative procedure
-!        -----------------------------------
+!        Perform Newton iterative procedure
+!        ----------------------------------
          
          if (computeA) then
             this % StepsSinceJac = 0
@@ -437,9 +428,9 @@ contains
          
          norm = linsolver%Getxnorm('infinity')
          
-!        Sometimes, iterative methods take 0 iterations becasue of a high initial linsolver_tol
+!        Sometimes, iterative methods take 0 iterations because of a high initial linsolver_tol
 !        -> In such cases, here norm = 0 even though that's not true. As a workaround we take the residual norm
-!        ------------------------------------------------------------------------------------------------------ 
+!        ------------------------------------------------------------------------------------------------------
          if ( AlmostEqual(norm,0._RP) ) then
             norm = linsolver%Getrnorm()
          end if

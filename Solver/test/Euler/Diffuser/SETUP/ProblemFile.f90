@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
@@ -480,7 +476,7 @@
       INTEGER                               :: k
 !
 !     -------------------------------------------
-!     Compute flow quantitites inside the element
+!     Compute flow quantities inside the element
 !     The code below gives the exact solution for
 !     a subsonic point source. This solution
 !     requires the inflow flux, which is computed

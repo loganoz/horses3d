@@ -1,16 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    JacobianComputerClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Mon Mar 14 22:31:23 2022
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-
-!
-!//////////////////////////////////////////////////////
-!
 ! Base class for the Jacobian computers
 !
 !//////////////////////////////////////////////////////
@@ -316,7 +306,7 @@ module JacobianComputerClass
          integer :: nXi_od, nEta_od       ! Number of nodes in every direction (diagonal blocks)
          integer :: EtaSpa_od, ZetaSpa_od ! Spacing for these two coordinate directions (diagonal blocks)
          integer :: deltas          ! Number of deltas for a specific dof combination
-         integer :: baseCol         ! Base column for a specidic DOF
+         integer :: baseCol         ! Base column for a specific DOF
          integer :: nnz             ! Total number of nonzeros
          integer :: nnz_row         ! Number of nonzeros for specific row
          integer :: elSide          ! Side of element
@@ -432,7 +422,7 @@ module JacobianComputerClass
                      if (flowIsNavierStokes) then  ! Elliptic terms
                         if (mesh % nodeType == GAUSSLOBATTO) then
                            if ( elInd_minus(normAx_minus) /= normAxInd_minus .and. &
-                                elInd_plus (normAx_plus)  /= normAxInd_plus       ) cycle  ! TODO: This gives a sparsity pattern that works but thay may be too dense!!
+                                elInd_plus (normAx_plus)  /= normAxInd_plus       ) cycle  ! TODO: This gives a sparsity pattern that works but they may be too dense!!
                         end if
                      else                          ! Hyperbolic terms
                         if (mesh % nodeType == GAUSSLOBATTO) then

@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Read_GMSH.f90
-!   @Author:  Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Created: Thu Mar 18 13:18:13 2021
-!   @Last revision date: Wed Dec  8 15:01:26 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: b5333663c75aa634b30d7da7e488de0f2da06bc3
-!
 !//////////////////////////////////////////////////////
 !
 !  Module for reading hexahedral conforming meshes in GMSH (https://gmsh.info/) mesh format.
@@ -2346,7 +2336,7 @@ MODULE Read_GMSH
                select case (el_types(i))
                case (5) ! 3D - 1st order
                   no_nodes_i = 8
-               case (12) ! 3D - 2st order
+               case (12) ! 3D - 2nd order
                   no_nodes_i = 27
                case (92) ! 3D - 3rd order
                   no_nodes_i = 64
@@ -2356,7 +2346,7 @@ MODULE Read_GMSH
                   no_nodes_i = 216
                case (3) ! 2D - 1st order
                   no_nodes_i = 4
-               case (10) ! 2D - 2st order
+               case (10) ! 2D - 2nd order
                   no_nodes_i = 9
                case (36) ! 2D - 3rd order
                   no_nodes_i = 16
@@ -2877,7 +2867,7 @@ MODULE Read_GMSH
                   select case (el_types(i))
                   case (5) ! 3D - 1st order
                      no_nodes_i = 8
-                  case (12) ! 3D - 2st order
+                  case (12) ! 3D - 2nd order
                      no_nodes_i = 27
                   case (92) ! 3D - 3rd order
                      no_nodes_i = 64
@@ -2887,7 +2877,7 @@ MODULE Read_GMSH
                      no_nodes_i = 216
                   case (3) ! 2D - 1st order
                      no_nodes_i = 4
-                  case (10) ! 2D - 2st order
+                  case (10) ! 2D - 2nd order
                      no_nodes_i = 9
                   case (36) ! 2D - 3rd order
                      no_nodes_i = 16
@@ -3493,7 +3483,7 @@ MODULE Read_GMSH
                   select case (el_types(i))
                   case (5) ! 3D - 1st order
                      no_nodes_i = 8
-                  case (12) ! 3D - 2st order
+                  case (12) ! 3D - 2nd order
                      no_nodes_i = 27
                   case (92) ! 3D - 3rd order
                      no_nodes_i = 64
@@ -3503,7 +3493,7 @@ MODULE Read_GMSH
                      no_nodes_i = 216
                   case (3) ! 2D - 1st order
                      no_nodes_i = 4
-                  case (10) ! 2D - 2st order
+                  case (10) ! 2D - 2nd order
                      no_nodes_i = 9
                   case (36) ! 2D - 3rd order
                      no_nodes_i = 16
