@@ -47,7 +47,7 @@ module OutputVariables
       enumerator :: OMEGAABS_V, QCRIT_V, DIV_V
       enumerator :: Vvec_Vmean, U_Vmean, V_Vmean, W_Vmean, ReST 
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
-      enumerator :: Vvec_Vrms, U_Vrms, V_Vrms, W_Vrms
+      enumerator :: Vfvec_Vrms, Uf_Vrms, Vf_Vrms, Wf_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, UPLUS, Cf_V, MUTMINF
       enumerator :: LASTVARIABLE
    end enum
@@ -123,10 +123,10 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: ReSTyyKey     = "Syy"
    character(len=STR_VAR_LEN), parameter  :: ReSTyzKey     = "Syz"
    character(len=STR_VAR_LEN), parameter  :: ReSTzzKey     = "Szz"
-   character(len=STR_VAR_LEN), parameter  :: VvecRmsKey    = "Vrms"
-   character(len=STR_VAR_LEN), parameter  :: URmsKey       = "urms"
-   character(len=STR_VAR_LEN), parameter  :: VRmsKey       = "vrms"
-   character(len=STR_VAR_LEN), parameter  :: WRmsKey       = "wrms"
+   character(len=STR_VAR_LEN), parameter  :: VfvecRmsKey    = "Vfrms"
+   character(len=STR_VAR_LEN), parameter  :: UfRmsKey       = "ufrms"
+   character(len=STR_VAR_LEN), parameter  :: VfRmsKey       = "vfrms"
+   character(len=STR_VAR_LEN), parameter  :: WfRmsKey       = "wfrms"
    character(len=STR_VAR_LEN), parameter  :: UTAUKey       = "u_tau"
    character(len=STR_VAR_LEN), parameter  :: WallYKey      = "wall_distance"
    character(len=STR_VAR_LEN), parameter  :: TauwKey       = "wall_shear"
@@ -150,7 +150,7 @@ module OutputVariables
                                                                             omegaAbsKey, QCriterionKey, divVKey, &
                                                                             VvecMeanKey, UMeanKey, VMeanKey, WMeanKey, ReSTKey, &
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
-                                                                            VvecRmsKey, URmsKey, VRmsKey, WRmsKey, &
+                                                                            VfvecRmsKey, UfRmsKey, VfRmsKey, WfRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
                                                                             uplusKey, cfKey, mutminfKey /)
                                                                         
@@ -522,21 +522,21 @@ module OutputVariables
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
-               case(U_Vrms)
+               case(Uf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(UU,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(UU,i,j,k) - POW2(stats(U,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
-               case(V_Vrms)
+               case(Vf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(VV,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(VV,i,j,k) - POW2(stats(V,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
-               case(W_Vrms)
+               case(Wf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(WW,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(WW,i,j,k) - POW2(stats(W,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
@@ -658,7 +658,7 @@ module OutputVariables
 
                case(U_TAU_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  u_tau(1,i,j,k)
+                     output(var,i,j,k) =  abs(u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * refs(V_REF)
 
@@ -670,25 +670,25 @@ module OutputVariables
 
                case(Tauw_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k))
+                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(YPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  wallY(1,i,j,k) * u_tau(1,i,j,k) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
+                     output(var,i,j,k) =  wallY(1,i,j,k) * abs(u_tau(1,i,j,k)) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * Lreference
 
                case(UPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * u_tau(1,i,j,k)
+                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * abs(u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
                
                case(Cf_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * 2.0_RP !here we are assuming that u_inf and rho_inf are 1.0 as is common in a free stream
+                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k)) * 2.0_RP !here we are assuming that u_inf and rho_inf are 1.0 as is common in a free stream
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) ! is non dimensional
 
@@ -803,7 +803,7 @@ module OutputVariables
          case(ReST)
             outputVariablesForVariable = 6
 
-         case(Vvec_Vrms)
+         case(Vfvec_Vrms)
             outputVariablesForVariable = 3
 
          case default
@@ -866,8 +866,8 @@ module OutputVariables
          case(ReST)
             output = (/ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz/)
 
-         case(Vvec_Vrms)
-            output = (/U_Vrms, V_Vrms, W_Vrms/)
+         case(Vfvec_Vrms)
+            output = (/Uf_Vrms, Vf_Vrms, Wf_Vrms/)
 
          case default
             output = iVar

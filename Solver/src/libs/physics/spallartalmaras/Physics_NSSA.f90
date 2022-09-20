@@ -19,7 +19,7 @@
       public  ViscousFlux_STATE, ViscousFlux_ENTROPY, ViscousFlux_ENERGY
       public  GuermondPopovFlux_ENTROPY
       public  InviscidJacobian
-      public  getStressTensor
+      public  getStressTensor, getFrictionVelocity
 !
 !     ========
       CONTAINS 
@@ -647,6 +647,35 @@
          end associate
 
       end subroutine getStressTensor
+
+      Subroutine getFrictionVelocity(Q,Q_x,Q_y,Q_z,normal,tangent,u_tau)
+         implicit none
+         real(kind=RP), intent(in)      :: Q   (1:NCONS   )
+         real(kind=RP), intent(in)      :: Q_x (1:NGRAD   )
+         real(kind=RP), intent(in)      :: Q_y (1:NGRAD   )
+         real(kind=RP), intent(in)      :: Q_z (1:NGRAD   )
+         real(kind=RP), intent(in)      :: normal (1:NDIM )
+         real(kind=RP), intent(in)      :: tangent (1:NDIM )
+         real(kind=RP), intent(out)     :: u_tau
+
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)                  :: tau (1:NDIM, 1:NDIM   )
+         real(kind=RP)                  :: tau_w_vec(1:NDIM)
+         real(kind=RP)                  :: tau_w
+
+         call getStressTensor(Q, Q_x, Q_y, Q_z, tau)
+         tau_w_vec = matmul(tau, normal)
+         tau_w = dot_product(tau_w_vec, tangent)
+
+         ! get the value of the friction velocity with the sign of the wall shear stress, so that the shear stress can be fully
+         ! recovered if needed
+         u_tau = sqrt(abs(tau_w) / Q(IRHO)) * sign(1.0_RP, tau_w)
+
+      End Subroutine getFrictionVelocity
    END Module Physics_NSSA
 !@mark -
 !

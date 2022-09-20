@@ -8,7 +8,7 @@
 
 Module  LocalRefinement  !
 
-    use FileReadingUtilities, only: getRealArrayFromString
+    use FileReadingUtilities, only: getRealArrayFromString, getIntArrayFromString
     use FTValueDictionaryClass
     use SMConstants
     use pAdaptationClass          , only: GetMeshPolynomialOrders
@@ -53,19 +53,25 @@ Module  LocalRefinement  !
         real(kind=RP),dimension(:),allocatable  :: tempArray
         integer, allocatable                    :: Nx(:), Ny(:), Nz(:) !temporal variables for getting the default pol orders
         integer                                 :: Nmax
+        logical                                 :: hasZ
 
         !get polynomial orders for all regions in all diredirections
         NxName = trim(controlVariables%stringValueForKey("x regions orders",LINE_LENGTH))
         NyName = trim(controlVariables%stringValueForKey("y regions orders",LINE_LENGTH))
         NzName = trim(controlVariables%stringValueForKey("z regions orders",LINE_LENGTH))
 
-        !get the size of each array, that is remove count of [] and all "," (there are one less than the size)
-        lenRegions = (len_trim(NxName) - 1) / 2
-        lenRegiony = (len_trim(NyName) - 1) / 2
-        lenRegionz = (len_trim(NzName) - 1) / 2
+        hasZ = NzName .ne. "0"
+        self % Nx = getIntArrayFromString(NxName)
+        self % Ny = getIntArrayFromString(NyName)
+        if (hasZ) self % Nz = getIntArrayFromString(NzName)
+
+        lenRegions = size(self % Nx)
+        lenRegiony = size(self % Ny)
+        lenRegionz = 0
+        if (hasZ) lenRegionz = size(self % Nz)
+        ! print *, "lenRegionz: ", lenRegionz
 
         Allocate (self % xlim(2,lenRegions), self % ylim(2,lenRegions), self % zlim(2,lenRegions) )
-        Allocate ( self % Nx(lenRegions), self % Ny(lenRegions), self % Nz(lenRegions))
 
         self % lenRegions              = lenRegions
 
@@ -74,9 +80,6 @@ Module  LocalRefinement  !
         self % globalNxyz(1) = Nx(1)
         self % globalNxyz(2) = Ny(1)
         self % globalNxyz(3) = Nz(1)
-
-        self % Nx = getRealArrayFromString(NxName)
-        self % Ny = getRealArrayFromString(NyName)
 
         !get the limits of the regions for all directions
         allocate (tempArray(2*lenRegions))
@@ -91,13 +94,15 @@ Module  LocalRefinement  !
         self % ylim = reshape(source= tempArray, shape=[2,lenRegions])
 
         !check if z arrays are set in control file
-        if (lenRegionz .gt. 0) then 
+        if (lenRegionz .gt. 0) hasZ = .true.
+        if (hasZ) then 
             self % Nz = getRealArrayFromString(NzName)
             limsName = trim(controlVariables%stringValueForKey("z regions limits",LINE_LENGTH))
             tempArray = getRealArrayFromString(limsName)
             self % zlim = reshape(source= tempArray, shape=[2,lenRegions])
         else
             ! set default values
+            allocate(self % Nz(lenRegions))
             self % Nz = Nz(1)
             self % zlim(1,:) = -10
             self % zlim(2,:) = 10

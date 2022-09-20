@@ -178,6 +178,7 @@ module StorageClass
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
       real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
+      real(kind=RP), dimension(:,:),     allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -1297,6 +1298,7 @@ module StorageClass
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
          allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
+         allocate( self % wallNodeDistance  (0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1347,6 +1349,7 @@ module StorageClass
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
          self % u_tau_NS = 0.0_RP
+         self % wallNodeDistance = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1427,6 +1430,7 @@ module StorageClass
          end if
          safedeallocate(self % mu_NS)
          safedeallocate(self % u_tau_NS)
+         safedeallocate(self % wallNodeDistance)
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
@@ -1591,6 +1595,7 @@ module StorageClass
          to % rho = from % rho
          to % mu_NS  = from % mu_NS
          to % u_tau_NS  = from % u_tau_NS
+         to % wallNodeDistance  = from % wallNodeDistance
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF
