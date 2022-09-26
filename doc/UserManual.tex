@@ -1380,7 +1380,7 @@ For postprocessing the Simulation Results
 
 \section{Visualization with Tecplot Format: \textit{horses2plt}}
 
-HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. Usage:
+HORSES3D provides a script for converting the native binary solution files (*.hsol) into tecplot ASCII format (*.tec), which can be visualized in Pareview or Tecplot. It can also export the solution to the more recent VTKHDF format; however, note that this feature does \textbf{not} export boundary information or mesh files. Usage:
 
 \begin{lstlisting}[language=bash]
 	$ horses2plt SolutionFile.hsol MeshFile.hmesh <<Options>>
@@ -1427,6 +1427,10 @@ The options comprise following flags:
 -{}-boundary-file= 	&
 			\textit{CHARACTER}: Specifies the path to the boundary mesh file (*.bmesh) to export the surfaces as additional zones of the Tecplot file. &
 							Not Present  \\ \hline
+
+-{}-output-type= 	&
+            \textit{CHARACTER}: Specifies the type of output file: \textit{tecplot} or \textit{vtkhdf}. &
+                            \textit{tecplot}  \\ \hline
 \multicolumn{3}{p{16.4cm}}{*  \textit{Homogeneous} when \textit{-{}-output-order} is specified} \\
 
 \end{longtable}
