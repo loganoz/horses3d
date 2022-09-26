@@ -142,6 +142,8 @@ module Storage
 !           Use a 0 index for the case of a surface mesh
             if (dimensionsSize .eq. 3) then
                e % Nmesh(3) = 0
+            end if
+            if (e % Nmesh(3) .eq. 0) then
                self % is2D = .true.
             end if
             allocate( e % x(NDIM,0:e % Nmesh(1),0:e % Nmesh(2),0:e % Nmesh(3)) )

@@ -324,7 +324,7 @@ module Solution2VtkHdfModule
 !
 !     Project mesh
 !     ------------
-      allocate( e % xOut(1:3,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+      allocate( e % xOut(1:3, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
       e % xOut = 0.0_RP
 
       do n = 0, e % Nmesh(3) ; do m = 0, e % Nmesh(2) ; do l = 0, e % Nmesh(1)
@@ -336,7 +336,7 @@ module Solution2VtkHdfModule
 !
 !     Project the solution
 !     --------------------
-      allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+      allocate( e % Qout(1:NVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
       e % Qout = 0.0_RP
 
       do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -346,7 +346,7 @@ module Solution2VtkHdfModule
       end do            ; end do            ; end do
 
       if ( hasGradients ) then
-         allocate( e % U_xout(1:NGRADVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
+         allocate( e % U_xout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
          e % U_xout = 0.0_RP
 
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -376,7 +376,7 @@ module Solution2VtkHdfModule
       end if
 
       if (hasStats) then
-         allocate( e % statsout(1:NSTAT,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % statsout(1:NSTAT, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % statsout = 0.0_RP
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
