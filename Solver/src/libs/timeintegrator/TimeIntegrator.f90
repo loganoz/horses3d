@@ -31,7 +31,11 @@
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
+#if defined(NAVIERSTOKES)
+      use SurfaceMesh                     , only: surfacesMesh, getU_tauInSurfaces, getWallDistInSurfaces
+#else
       use SurfaceMesh                     , only: surfacesMesh
+#endif
       IMPLICIT NONE
 
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -312,7 +316,7 @@ print*, "Method selected: RK5"
       use TripForceClass, only: randomTrip
       use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
-      use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV
+      use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
       IMPLICIT NONE
 !
@@ -454,6 +458,7 @@ print*, "Method selected: RK5"
       if (ShockCapturingDriver % isActive) then
          call ShockCapturingDriver % Detect(sem, t)
       end if
+      call getWallDistInSurfaces(surfacesMesh, sem % mesh)
 #endif
 !
 !     Save surfaces sol before the first time step
@@ -482,7 +487,11 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % construct(controlVariables,sem)
 
       end select
-
+!
+!     ----------------
+!     Start time loop
+!     ----------------
+!
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 
 !
@@ -648,6 +657,9 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
+#endif
+#if defined(NAVIERSTOKES)
+      if (.not. useWallFunc) call getU_tauInSurfaces(surfacesMesh, sem % mesh)
 #endif
              call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
          end if

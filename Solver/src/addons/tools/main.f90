@@ -8,6 +8,7 @@ Program main
     use MPI_Process_Info
     use LocalRefinementTool
     use FWHTools
+    use ConverStats
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -53,6 +54,9 @@ Program main
     case ("local p refinement")
         call Main_Header("HORSES additional proccesing tools: Local Refinement Pre-Proccesing",__DATE__,__TIME__)
         call LocalRef(controlVariables)
+    case ("convert stats for restart")
+        call Main_Header("HORSES additional proccesing tools: Convert stats file for restart",__DATE__,__TIME__)
+        call ConvertStatsForRestart(controlVariables)
     case default
         call Main_Header("HORSES additional proccesing tools",__DATE__,__TIME__)
         write(STD_OUT,'(A)') "The requested tool type is not implemented"

@@ -33,6 +33,7 @@ OBJS=	\
 	readSpecM \
 	readHDF5 \
 	LocalRefinementTool \
+	ConverStats \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
