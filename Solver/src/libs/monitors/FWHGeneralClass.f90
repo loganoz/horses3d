@@ -144,7 +144,7 @@ Module FWHGeneralClass  !
 !        Describe the zones
 !        ------------------
          if ( .not. MPI_Process % isRoot ) return
-         call Subsection_Header("Ficticious FWH zone")
+         call Subsection_Header("Fictitious FWH zone")
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces

@@ -118,7 +118,7 @@ Module SurfaceClass
         self % name = RemovePath(getFileName(fileName))
 
         allocate(self % surfaceZone)
-        call self % surfaceZone % CreateFicticious(-1, self % name, totalN, fIDs)
+        call self % surfaceZone % CreateFictitious(-1, self % name, totalN, fIDs)
 
         allocate( self % globaleIDs(totalN), self % fIDs(totalN) )
         self % globaleIDs = gIDs
@@ -781,7 +781,7 @@ Module SurfaceClass
         integer                                         :: i, j, k, numE, eID, targetEID, edgeIndex, targertEfID, faceIndex, normalFace
         integer, dimension(2)                           :: thisFaceIndexes
         class(SurfaceFace_t), pointer                   :: surfaceFace
-        integer, dimension(:), allocatable              :: allElements, connectedElements, posibleElements
+        integer, dimension(:), allocatable              :: allElements, connectedElements, possibleElements
 
         if ( .not. self % needSecondFace ) return
         newFaceID = 0
@@ -854,7 +854,7 @@ Module SurfaceClass
         deallocate(allElements)
 
         ! get the element that is not connected to the already found surface
-        ! first get the elements whith non shared edges
+        ! first get the elements with non shared edges
         allocate(allElements(numE))
         targetEID = 0
         i = 0
@@ -873,12 +873,12 @@ Module SurfaceClass
             targetEID = allElements(1)
             deallocate(allElements)
         else
-            allocate(posibleElements(numE))
-            posibleElements = allElements(1:numE)
+            allocate(possibleElements(numE))
+            possibleElements = allElements(1:numE)
             deallocate(allElements)
             i = 0
             pos_elems_loop: do k = 1, numE
-                eID = posibleElements(k)
+                eID = possibleElements(k)
                 do j = 1, NUM_OF_NEIGHBORS
                     if (surfaceFace % shareCorner(surfaceElements(eID) % faces(j))) cycle pos_elems_loop
                 end do
@@ -936,7 +936,7 @@ Module SurfaceClass
         class(SurfaceElement_t), target                     :: self
 
         !local variables
-        class(SurfaceFace_t), pointer                       :: faceNew=>null(), faceOposite=>null()
+        class(SurfaceFace_t), pointer                       :: faceNew=>null(), faceOpposite=>null()
         integer                                             :: faceConnections
         real(kind=RP), dimension(:,:), allocatable          :: allCorners
         real(kind=RP), dimension(NDIM,FACES_PER_ELEMENT)    :: newCorners, notChangeCorners, oldCorners
@@ -956,7 +956,7 @@ Module SurfaceClass
                 faceNew => self % faces(i)
                 cycle faces_loop
             elseif (faceConnections .eq. FACES_PER_ELEMENT-2) then
-                faceOposite => self % faces(i)
+                faceOpposite => self % faces(i)
                 cycle faces_loop
             end if 
         end do faces_loop
@@ -975,12 +975,12 @@ Module SurfaceClass
                 allCorners(:,(i-1)*NODES_PER_FACE+j) = self % faces(i) % edges(j) % corners(:,1)
             end do
         end do 
-        ! get new and oposite corners
+        ! get new and opposite corners
         do j = 1, NODES_PER_FACE
             newCorners(:,j) = faceNew % edges(j) % corners(:,1)
-            notChangeCorners(:,j) = faceOposite % edges(j) % corners(:,1)
+            notChangeCorners(:,j) = faceOpposite % edges(j) % corners(:,1)
         end do
-        ! get old corners, the ones that are not new nor oposite corners, remove duplicated
+        ! get old corners, the ones that are not new nor opposite corners, remove duplicated
         k = 0
         outer: do i = 1, size(allCorners(1,:))
             if (k .ge. NODES_PER_FACE) exit outer
@@ -1007,11 +1007,11 @@ Module SurfaceClass
 
         do i = 1, FACES_PER_ELEMENT
             if (associated(faceNew, target=self % faces(i))) cycle
-            if (associated(faceOposite, target=self % faces(i))) cycle
+            if (associated(faceOpposite, target=self % faces(i))) cycle
             call self % faces(i) % reconstructPeriod(oldCorners, newCorners, oldNewCornersMap)
         end do
 
-        nullify(faceNew, faceOposite)
+        nullify(faceNew, faceOpposite)
 
     End Subroutine ElementReconstructPeriodic
 !
