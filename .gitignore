@@ -51,10 +51,12 @@ Tests/TestMeshes/CylinderNSpol3_v2.mesh
 *.nssa
 *.ins
 bin/
-Makefile*
-!./Makefile.in
+Makefile
+Makefile.template
+!Solver/src/**/Makefile
 !utils/ProblemFile/Makefile
 utils/modulefile/horses/dev
 Solver/include/
 .local.vimrc
 .vscode/
+.fortls

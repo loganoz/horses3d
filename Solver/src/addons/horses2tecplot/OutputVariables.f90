@@ -23,6 +23,7 @@ module OutputVariables
    private
    public   no_of_outputVariables, askedVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
+   public   getOutputVariablesList
    public   outScale, hasVariablesFlag, Lreference
 
    integer, parameter   :: STR_VAR_LEN = 16
@@ -745,6 +746,23 @@ module OutputVariables
          end do
 
       end subroutine ComputeOutputVariables
+
+      subroutine getOutputVariablesList(list)
+         implicit none
+         character(len=STRING_CONSTANT_LENGTH), allocatable, intent(out) :: list(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: iVar
+
+         allocate(list(no_of_outputVariables))
+         do iVar = 1, no_of_outputVariables
+            list(iVar) = trim(variableNames(outputVariableNames(iVar)))
+         end do
+
+      end subroutine getOutputVariablesList
 
       character(len=1024) function getOutputVariablesLabel()
          implicit none

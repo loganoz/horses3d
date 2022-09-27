@@ -76,6 +76,7 @@ module Storage
       logical                    :: isSurface
       logical                    :: hasTimeDeriv
       logical                    :: isStatistics
+      logical                    :: is2D
       contains
          procedure   :: ReadMesh     => Mesh_ReadMesh
          procedure   :: ReadSolution => Mesh_ReadSolution
@@ -127,6 +128,7 @@ module Storage
 !        ----------------
          fid = putSolutionFileInReadDataMode(meshName)
 
+         self % is2D = .false.
          do eID = 1, self % no_of_elements
             associate ( e => self % elements(eID) )
             e % eID = eID
@@ -138,7 +140,12 @@ module Storage
             ! e % Nmesh(1:3) = arrayDimensions(2:4) - 1
             e % Nmesh(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1
 !           Use a 0 index for the case of a surface mesh
-            if (dimensionsSize .eq. 3) e % Nmesh(3) = 0
+            if (dimensionsSize .eq. 3) then
+               e % Nmesh(3) = 0
+            end if
+            if (e % Nmesh(3) .eq. 0) then
+               self % is2D = .true.
+            end if
             allocate( e % x(NDIM,0:e % Nmesh(1),0:e % Nmesh(2),0:e % Nmesh(3)) )
 !
 !           Read data
