@@ -57,7 +57,9 @@ module StorageClass
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: Nxyz(NDIM)
       real(kind=RP)                                   :: min_lcl_dst       ! Minimum local distance between nodal points for CFL calculation (physical space)
-      real(kind=RP)                                   :: sensor            ! Value of the shock-capturing sensor
+      integer                                         :: last_sensed       ! Time-steps since the element was last sensed
+      real(kind=RP)                                   :: prev_sensor       ! Previous value of the sensor
+      real(kind=RP)                                   :: sensor            ! Value of the sensor
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
@@ -875,6 +877,8 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
+         self % last_sensed = 1
+         self % prev_sensor = 1.0_RP
          self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
 
       end subroutine ElementStorage_Construct

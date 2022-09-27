@@ -146,6 +146,7 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       character(len=:), allocatable :: method
+      integer                       :: minSteps
 
 !
 !     Check if shock-capturing is requested
@@ -219,9 +220,17 @@ module ShockCapturing
       if (allocated(self % method1)) call self % method1 % Initialize(controlVariables, sem % mesh, 1)
       if (allocated(self % method2)) call self % method2 % Initialize(controlVariables, sem % mesh, 2)
 !
+!     Sensor 'inertia'
+!     ----------------
+      if (controlVariables % containsKey(SC_SENSOR_INERTIA_KEY)) then
+         minSteps = controlVariables % realValueForKey(SC_SENSOR_INERTIA_KEY)
+      else
+         minSteps = 1
+      end if
+!
 !     Construct sensor
 !     ----------------
-      call Set_SCsensor(self % sensor, controlVariables, sem, &
+      call Set_SCsensor(self % sensor, controlVariables, sem, minSteps, &
                         TimeDerivative, TimeDerivativeIsolated)
 
    end subroutine Initialize_ShockCapturing
@@ -270,7 +279,7 @@ module ShockCapturing
       real(RP) :: switch
 
 
-      switch = self % sensor % Rescale(e % storage % sensor)
+      switch = e % storage % sensor
 
       if (switch >= 1.0_RP) then
          if (allocated(self % method2)) then

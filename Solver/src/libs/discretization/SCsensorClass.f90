@@ -37,15 +37,16 @@ module SCsensorClass
          real(RP) :: high       !< Upper threshold
          integer  :: sVar       !< Variable used as input for the sensor
          integer  :: nclusters  !< Number of clusters (not for all the sensors)
+         integer  :: min_steps  !< Minimum number of steps before the sensor is deactivated
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
-         procedure(Compute_Int), pointer :: Compute => null()
-         procedure(Rescale_Int), pointer :: Rescale => null()
+         procedure(Compute_Int), pointer :: Compute_Raw => null()
 
       contains
 
          procedure :: Describe => Describe_SCsensor
+         procedure :: Compute  => Compute_SCsensor
          final     :: Destruct_SCsensor
 
    end type SCsensor_t
@@ -59,13 +60,6 @@ module SCsensorClass
          type(DGSem),       target, intent(inout) :: sem
          real(RP),                  intent(in)    :: t
       end subroutine Compute_Int
-
-      pure function Rescale_Int(this, sensVal) result(scaled)
-         import RP, SCsensor_t
-         class(SCsensor_t), intent(in) :: this
-         real(RP),          intent(in) :: sensVal
-         real(RP)                      :: scaled
-      end function Rescale_Int
    end interface
 !
 !  Private variables
@@ -77,7 +71,7 @@ module SCsensorClass
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, controlVariables, sem, &
+   subroutine Set_SCsensor(sensor, controlVariables, sem, minSteps, &
                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
@@ -92,6 +86,7 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
+      integer,                            intent(in)    :: minSteps
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
@@ -102,7 +97,7 @@ module SCsensorClass
       character(len=:), allocatable :: sVar
 
 
-      sensor % Rescale => SinRamp
+      sensor % min_steps = minSteps
 !
 !     Sensor type
 !     -----------
@@ -116,33 +111,33 @@ module SCsensorClass
       select case (sensorType)
       case (SC_ZERO_VAL)
          sensor % sens_type = SC_ZERO_ID
-         sensor % Compute  => Sensor_zero
+         sensor % Compute_Raw => Sensor_zero
 
       case (SC_ONE_VAL)
          sensor % sens_type = SC_ONE_ID
-         sensor % Compute  => Sensor_one
+         sensor % Compute_Raw => Sensor_one
 
       case (SC_INTEGRAL_VAL)
          sensor % sens_type = SC_INTEGRAL_ID
-         sensor % Compute  => Sensor_integral
+         sensor % Compute_Raw => Sensor_integral
 
       case (SC_MODAL_VAL)
          sensor % sens_type = SC_MODAL_ID
-         sensor % Compute  => Sensor_modal
+         sensor % Compute_Raw => Sensor_modal
 
       case (SC_TE_VAL)
          sensor % sens_type = SC_TE_ID
-         sensor % Compute  => Sensor_truncation
+         sensor % Compute_Raw => Sensor_truncation
          call Construct_TEsensor(sensor, controlVariables, sem, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
       case (SC_ALIAS_VAL)
          sensor % sens_type = SC_ALIAS_ID
-         sensor % Compute  => Sensor_aliasing
+         sensor % Compute_Raw => Sensor_aliasing
 
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
-         sensor % Compute  => Sensor_GMM
+         sensor % Compute_Raw => Sensor_GMM
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -160,8 +155,8 @@ module SCsensorClass
 !     Options for the clustering sensor
 !     ---------------------------------
       if (sensor % sens_type == SC_GMM_ID) then
-         if (controlVariables % containsKey(SC_NUM_CLUSTERS)) then
-            sensor % nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS)
+         if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
+            sensor % nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
          else
             sensor % nclusters = 2
          end if
@@ -408,6 +403,8 @@ module SCsensorClass
          case (SC_RHO_P_GRAD_ID); write(STD_OUT,"(A)") SC_RHO_P_GRAD_VAL
       end select
 
+      write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
+
       if (sensor % sens_type == SC_GMM_ID) then
          write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % nclusters
       else
@@ -428,11 +425,53 @@ module SCsensorClass
       type(SCsensor_t), intent(inout) :: sensor
 
 
-      if (allocated(sensor % TEestim))  deallocate(sensor % TEestim)
-      if (associated(sensor % Compute)) nullify(sensor % Compute)
-      if (associated(sensor % Rescale)) nullify(sensor % Rescale)
+      if (allocated(sensor % TEestim))      deallocate(sensor % TEestim)
+      if (associated(sensor % Compute_Raw)) nullify(sensor % Compute_Raw)
 
    end subroutine Destruct_SCsensor
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Compute_SCsensor(sensor, sem, t)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGsem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      integer  :: eID
+
+!
+!     Compute the sensor
+!     ------------------
+      call sensor % Compute_Raw(sem, t)
+!
+!     Add 'inertia' to the scaled value
+!     ---------------------------------
+!$omp parallel do
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e     => sem % mesh % elements(eID),                  &
+                value => sem % mesh % elements(eID) % storage % sensor)
+         if (value <= 0.0_RP .and. e % storage % last_sensed < sensor % min_steps) then
+            e % storage % sensor = e % storage % prev_sensor
+            e % storage % last_sensed = e % storage % last_sensed + 1
+         else
+            e % storage % sensor = value
+            e % storage % prev_sensor = value
+            e % storage % last_sensed = 0
+         end if
+      end associate
+      end do
+!$omp end parallel do
+
+   end subroutine Compute_SCsensor
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -537,7 +576,7 @@ module SCsensorClass
                       * contribution
          end do                ; end do                ; end do
 
-         e % storage % sensor = sqrt(val)
+         e % storage % sensor = SinRamp(sensor, sqrt(val))
 
       end associate
       end do
@@ -668,7 +707,7 @@ module SCsensorClass
          end do       ; end do       ; end do
 
          ! Sensor value as the ratio of num / den
-         e % storage % sensor = log10( num / den )
+         e % storage % sensor = SinRamp(sensor, log10( num / den ))
 
          end associate
 
@@ -764,9 +803,9 @@ module SCsensorClass
          end do                  ; end do                  ; end do
 
          if (AlmostEqual(mTE, 0.0_RP)) then
-            e % storage % sensor = -999.0_RP  ! This is likely to be small enough ;)
+            e % storage % sensor = 0.0_RP
          else
-            e % storage % sensor = log10(mTE)
+            e % storage % sensor = SinRamp(sensor, log10(mTE))
          end if
 
       end do
@@ -841,9 +880,9 @@ module SCsensorClass
          aliasing = abs(aliasing)
          e % storage % sensor = maxval(aliasing)
          if (AlmostEqual(e % storage % sensor, 0.0_RP)) then
-            e % storage % sensor = -999.0_RP
+            e % storage % sensor = 0.0_RP
          else
-            e % storage % sensor = log10(e % storage % sensor)
+            e % storage % sensor = SinRamp(sensor, log10(e % storage % sensor))
          end if
 
          deallocate(F)
