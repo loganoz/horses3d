@@ -64,7 +64,7 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(NDIM)                                  :: x        ! position of the observer at global coordinates
        integer                                                         :: numberOfFaces
        class(ObserverSourcePairClass), dimension(:), allocatable       :: sourcePair
-       real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! acoustic pressure, two componenets and the total (sum)
+       real(kind=RP), dimension(:,:), allocatable                      :: Pac      ! acoustic pressure, two components and the total (sum)
        real(kind=RP)                                                   :: tDelay
        real(kind=RP)                                                   :: tDelayMax
        logical                                                         :: active

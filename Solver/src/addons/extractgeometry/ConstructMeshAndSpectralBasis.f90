@@ -18,6 +18,7 @@ module ConstructMeshAndSpectralBasis_MOD
    contains
       subroutine ConstructMeshAndSpectralBasis(meshFile, solutionFile, ControlFile, mesh, controlVariables)
          use ReadMeshFile
+         use PartitionedMeshClass
          implicit none
          character(len=*),                intent(in)  :: meshFile
          character(len=*),                intent(in)  :: solutionFile
@@ -32,6 +33,7 @@ module ConstructMeshAndSpectralBasis_MOD
          logical                                      :: success
          real(kind=RP)                                :: time
          integer                                      :: NDOF
+         logical                                      :: useRelaxPeriodic
          
          call AssignControlFileName(controlFile)
          
@@ -81,6 +83,8 @@ module ConstructMeshAndSpectralBasis_MOD
 !        ----------------------
 !
          call InitializeNodalStorage( nodeType, max(maxval(Nx), maxval(Ny), maxval(Nz)) )
+      call NodalStorage(0) % Construct(CurrentNodes, 0)   ! Always construct orders 0
+      call NodalStorage(1) % Construct(CurrentNodes, 1)   ! and 1
          
          do eID = 1, no_of_elements
             if( .not. NodalStorage(Nx(eID)) % Constructed) then   
@@ -103,12 +107,15 @@ module ConstructMeshAndSpectralBasis_MOD
 !        --------------------------
 !
          call ConstructSharedBCModule
+         CALL ConstructPhysicsStorage( controlVariables, success )
 !      
 !        --------------
 !        Construct mesh
 !        --------------
 !      
-         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , 0, .false., success )
+         ! call Initialize_MPI_Partitions ( trim(controlVariables % stringValueForKey('partitioning', requestedLength = LINE_LENGTH)) )
+         useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
+         CALL constructMeshFromFile(mesh, trim(meshfile), nodeType, Nx, Ny, Nz, .true. , 0, useRelaxPeriodic, success )
 !
 !     ------------------------
 !     Allocate and zero memory

@@ -31,6 +31,7 @@ OBJS=	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\
+	Solution2VtkHdf\
 	Stats2Plt\
 	main \
 

@@ -24,7 +24,7 @@ module getTask
    implicit none
    
    private
-   public   MESH_2_PLT, SOLUTION_2_PLT, UNKNOWN_JOB
+   public   MESH_2_PLT, SOLUTION_2_PLT, SOLUTION_2_VTKHDF, UNKNOWN_JOB
    public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG, MODE_MULTIZONE, MODE_FINITEELM
 
    public   getTaskType
@@ -32,6 +32,10 @@ module getTask
    integer, parameter   :: UNKNOWN_JOB = 0
    integer, parameter   :: MESH_2_PLT = 1
    integer, parameter   :: SOLUTION_2_PLT = 2
+   integer, parameter   :: SOLUTION_2_VTKHDF = 3
+
+   integer, parameter   :: OUTPUT_IS_TECPLOT = 1
+   integer, parameter   :: OUTPUT_IS_VTKHDF = 2
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
@@ -45,6 +49,7 @@ module getTask
    character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
    character(len=*), parameter   :: BOUNDARY_FILE_FLAG="--boundary-file="
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
+   character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
 
    contains
 
@@ -119,11 +124,12 @@ module getTask
          logical                                                :: meshFilePresent, basisPresent, modePresent, solutionPresent, patternPresent
          character(len=LINE_LENGTH)                             :: basisName, modeName, auxiliarName
          character(len=LINE_LENGTH)                             :: solutionsPattern, fullExpression
-         real(kind=RP)                                           :: r
+         real(kind=RP)                                          :: r
          integer                                                :: pos, pos2
          character(len=LINE_LENGTH)                             :: additionalVariablesStr, addVar
          character(len=LINE_LENGTH), dimension(:), allocatable  :: additionalVariablesArr
          integer                                                :: i, fID, reason
+         integer                                                :: fileType
 !
          call controlVariables % initWithSize(16)
          call ReadControlFile( controlVariables )
@@ -174,13 +180,43 @@ module getTask
             end do 
          end if
 !
+!        Select the output file type
+!        ---------------------------
+         if (controlVariables % containsKey("output file type")) then
+            if (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "tecplot") then
+                fileType = OUTPUT_IS_TECPLOT
+            elseif (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "vtkhdf") then
+                fileType = OUTPUT_IS_VTKHDF
+            else
+               write(STD_OUT,'(A)') "Output file type not recognized"
+               errorMessage(STD_OUT)
+               taskType = UNKNOWN_JOB
+               return
+            end if
+         else
+             fileType = OUTPUT_IS_TECPLOT
+         end if
+!
 !        Select the job type: Mesh if no solutions files are present, solution otherwise.
 !        -------------------             
          if ( no_of_solutions .ne. 0 ) then
-            taskType = SOLUTION_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+                taskType = SOLUTION_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                taskType = SOLUTION_2_VTKHDF
+            end if
+
          else
-            taskType = MESH_2_PLT
-        end if
+            if (fileType == OUTPUT_IS_TECPLOT) then
+                taskType = MESH_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                write(STD_OUT,'(A)') "Mesh to VTKHDF conversion not implemented"
+                errorMessage(STD_OUT)
+                taskType = UNKNOWN_JOB
+                return
+            end if
+
+         end if
 !
 !        Get the order
 !        -------------
@@ -292,6 +328,8 @@ module getTask
          logical                                              :: meshFilePresent
          logical                                              :: basisPresent
          character(len=LINE_LENGTH)                           :: auxiliarName, basisName, modeName
+         character(len=LINE_LENGTH)                           :: fileTypeName
+         integer                                              :: fileType
 !
 !        Get number of command arguments         
 !        -------------------------------
@@ -368,13 +406,50 @@ module getTask
 
          end if
 !
+!        Select the output file type
+!        ---------------------------
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), OUTPUT_FILE_TYPE)
+            if ( pos .ne. 0 ) then
+                read(auxiliarName(pos+len_trim(OUTPUT_FILE_TYPE):len_trim(auxiliarName)),*) fileTypeName
+            else
+                fileTypeName = "tecplot"
+            end if
+         end do
+
+         if (fileTypeName == "tecplot") then
+             fileType = OUTPUT_IS_TECPLOT
+
+         elseif (fileTypeName == "vtkhdf") then
+             fileType = OUTPUT_IS_VTKHDF
+
+         else
+            write(STD_OUT,'(A)') "Output file type not recognized"
+            errorMessage(STD_OUT)
+            taskType = UNKNOWN_JOB
+            return
+
+         end if
+!
 !        Select the job type: Mesh if no solutions files are present, solution otherwise.
 !        -------------------             
          if ( no_of_solutions .ne. 0 ) then
-            taskType = SOLUTION_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+               taskType = SOLUTION_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+               taskType = SOLUTION_2_VTKHDF
+            end if
    
          else
-            taskType = MESH_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+               taskType = MESH_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                write(STD_OUT,'(A)') "Mesh file to VTKHDF conversion not implemented"
+                errorMessage(STD_OUT)
+                taskType = UNKNOWN_JOB
+                return
+            end if
 
          end if
 !

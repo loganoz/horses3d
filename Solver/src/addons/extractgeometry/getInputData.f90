@@ -25,6 +25,7 @@ module getInputData_MOD
    contains
       subroutine getInputData(controlVariables)
          use FTValueDictionaryClass
+         use FileReaders, only: ReadControlFile
          implicit none
          class(FTValueDictionary),  intent(inout)  :: controlVariables
 !
@@ -62,6 +63,8 @@ module getInputData_MOD
 !        -----------------------------------------
          call get_command_argument(3,line)
          call controlVariables % addValueForKey(trim(line),ControlFileKey)
+
+         call ReadControlFile( controlVariables , trim(line))
 !
 !        Get geometry flags 
 !        ------------------

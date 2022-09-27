@@ -615,7 +615,8 @@ module SolutionFile
          end if
 
          if ( size(N) .ne. arrayDimension) then
-            print*, "Array found in file dimensions does not match that of the introduced variable."
+            print*, "Array found in file dimensions does not match that of the introduced variable. File dimensions: ", &
+                    arrayDimension, ", Variable: ", size(N)
             errorMessage(STD_OUT)
             stop
          end if

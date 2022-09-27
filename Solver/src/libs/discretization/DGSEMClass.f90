@@ -485,7 +485,8 @@ Module DGSEMClass
          withSensor = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
 
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-            loadFromNSSA = controlVariables % logicalValueForKey("NS load from NSSA")
+            loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
+            if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA, withSensor)
          ELSE
 

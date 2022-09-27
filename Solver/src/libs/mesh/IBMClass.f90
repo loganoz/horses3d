@@ -1986,7 +1986,7 @@ module IBMClass
 ! This function computes the minimum distance from a point to a triangle in 3D. 
 ! for more ditails see https://www.geometrictools.com/Documentation/DistancePoint3Triangle3.pdf
 !  ------------------------------------------------   
-   subroutine MinumumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
+   subroutine MinimumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
                                        TriangleVertex3, dist, IntersectionPoint ) 
       use MappedGeometryClass
       implicit none
@@ -2031,7 +2031,7 @@ module IBMClass
       
       IntersectionPoint = bb + s*E0 + t*E1    
         
-   end subroutine MinumumPointTriDistance
+   end subroutine MinimumPointTriDistance
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -2275,7 +2275,7 @@ module IBMClass
 
       do i = 1, tree% NumOfObjs
          index = tree% ObjsIndeces(i)
-         call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+         call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                        root% ObjectsList(index)% vertices(2)% coords,        &
                                        root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                        IntersPoint                                           )
@@ -2348,7 +2348,7 @@ module IBMClass
          if( tree% isLast ) then
                do i = 1, tree% NumOfObjs
                   index = tree% ObjsIndeces(i)
-                  call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+                  call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                                 root% ObjectsList(index)% vertices(2)% coords,        &
                                                 root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                                 IntersPoint                                           )
@@ -2372,7 +2372,7 @@ module IBMClass
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  ---------------------------------------------------------------------------------------------------
-! This subroutine checks if a the sphere whit radius minDist is inside the box or not. If it's not
+! This subroutine checks if a sphere with radius minDist is inside the box or not. If it's not
 ! a/ circle/s is/are computed. Each circle is the base of a cylinder used to find possible boxes that 
 ! can intersect the sphere. 
 !  ---------------------------------------------------------------------------------------------------

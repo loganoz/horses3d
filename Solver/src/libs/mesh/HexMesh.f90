@@ -3182,7 +3182,7 @@ slavecoord:             DO l = 1, 4
 !
          INTEGER                        :: fID, eID, fileType, no_of_elements, flag, nodetype
          integer                        :: padding, pos
-         integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank
+         integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank, expectedNoEqs
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
          logical                        :: gradients
@@ -3194,7 +3194,8 @@ slavecoord:             DO l = 1, 4
              NS_from_NSSA = loadFromNSSA
          else
              NS_from_NSSA = .FALSE.
-         end if
+         end if 
+         expectedNoEqs = NCONS
          if (present(with_sensor)) then
              has_sensor = with_sensor
          else
@@ -3237,6 +3238,7 @@ slavecoord:             DO l = 1, 4
             stop
          end select
          if (NS_from_NSSA) then
+             expectedNoEqs = NCONS + 1
              if (gradients) then
                  ! add 1 as NNSA has one more NCONS, and 3 as has one more NGRAD, the whole will be padding = (NCONS + 1) + 3*(NGRAD+1)
                  padding = padding + 1 + 3
@@ -3293,7 +3295,7 @@ slavecoord:             DO l = 1, 4
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
                  .or. ((Nyp1-1) .ne. e % Nxyz(2)) &
                  .or. ((Nzp1-1) .ne. e % Nxyz(3)) &
-                 .or. (no_of_eqs .ne. NCONS )       ) then
+                 .or. (no_of_eqs .ne. expectedNoEqs )       ) then
                write(STD_OUT,'(A,I0,A)') "Error reading restart file: wrong dimension for element "&
                                            ,eID,"."
 
@@ -3311,7 +3313,7 @@ slavecoord:             DO l = 1, 4
                stop
             end if
 
-            allocate(Q(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            allocate(Q(expectedNoEqs, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
             read(fID) Q
 #ifdef FLOW
             e % storage % QNS = Q(1:NCONS,:,:,:)

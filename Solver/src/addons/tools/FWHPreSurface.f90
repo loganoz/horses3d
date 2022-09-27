@@ -182,7 +182,7 @@ Module FWHPreSurface  !
                          globaleIDs, useFilter)
         numberOfElements = size(eIDs)
 
-!       get the firs faces ids and construct the faces
+!       get the first faces ids and construct the faces
 !       ----------------------------------------------
         allocate(firstFIDs(numberOfElements))
         allocate(firstFaces(numberOfElements))
@@ -707,7 +707,7 @@ Module FWHPreSurface  !
 !
 !////////////////////////////////////////////////////////////////////////
 !
-    Subroutine getAdditionalElements(mesh, BCeID, numberOfElements, zoneMarkers, zN, newEIDs, realNumberOfElemts)
+    Subroutine getAdditionalElements(mesh, BCeID, numberOfElements, zoneMarkers, zN, newEIDs, realNumberOfElements)
 
         use ElementConnectivityDefinitions, only: normalAxis, FACES_PER_ELEMENT
         use ElementClass
@@ -717,7 +717,7 @@ Module FWHPreSurface  !
         integer, intent(in)                             :: BCeID, numberOfElements, zN
         integer, dimension(zN), intent(in)              :: zoneMarkers
         integer, dimension(:), allocatable, intent(out) :: newEIDs
-        integer, intent(out)                            :: realNumberOfElemts
+        integer, intent(out)                            :: realNumberOfElements
 
         ! local variables
         integer                                         :: i, j, neID, zoneID
@@ -725,7 +725,7 @@ Module FWHPreSurface  !
         integer                                         :: thisMarker, fBCindex, conIndex, conNormal
         integer, dimension(:), allocatable              :: nEs
 
-        realNumberOfElemts = 0
+        realNumberOfElements = 0
         BCe => mesh%elements(BCeID)
 
         zone_loop: do i = 1, zN
@@ -745,7 +745,7 @@ Module FWHPreSurface  !
         i=1
         do i = 1, numberOfElements
             nEs(i) = e%eID
-            realNumberOfElemts = realNumberOfElemts + 1
+            realNumberOfElements = realNumberOfElements + 1
             conNormal = normalAxis(fBCindex) * (-1)
             ! conIndex = findloc(normalAxis, conNormal, dim=1)
             conIndex = maxloc(merge(1.0, 0.0, normalAxis == conNormal), dim=1)
@@ -756,8 +756,8 @@ Module FWHPreSurface  !
 
         !todo check that new bc have been reached
 
-        allocate(newEIDs(realNumberOfElemts))
-        newEIDs = nEs(1:realNumberOfElemts)
+        allocate(newEIDs(realNumberOfElements))
+        newEIDs = nEs(1:realNumberOfElements)
         deallocate(nEs)
 
 
