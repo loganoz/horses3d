@@ -932,6 +932,12 @@ module StorageClass
          to % currentlyLoaded = from % currentlyLoaded
          to % NDOF            = from % NDOF
          to % Nxyz            = from % Nxyz
+!
+!        Copy the sensors
+!        ----------------
+         to % last_sensed = from % last_sensed
+         to % prev_sensor = from % prev_sensor
+         to % sensor      = from % sensor
 
 #ifdef FLOW
          to % QNS    = from % QNS
