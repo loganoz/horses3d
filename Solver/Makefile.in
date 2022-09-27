@@ -370,7 +370,7 @@ addons:
 	done
 
 ##########################################
-##	Extra auxiliar rules 		##
+##	Extra auxiliary rules 		##
 ##########################################
 clean: FORCE horseslibclean problemfileclean horsesclean addonsclean
 	$(info Removing object *.o files from $(NSLITE3D_PATH)/build)

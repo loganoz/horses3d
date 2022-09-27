@@ -722,7 +722,7 @@
 !        Derivative with respect to q
 !        ****************************
 !
-!        Auxiliar variables
+!        Auxiliary variables
 !        ------------------
          
          rho_DivV      = Q(IRHO) * ( U_x(IX) + U_y(IY) + U_z(IZ) )       ! rho ∇ · v

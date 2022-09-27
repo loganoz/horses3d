@@ -55,7 +55,7 @@ MODULE WallFunctionBC
       REAL(kind=RP), DIMENSION(NDIM) :: x_II               ! Unitary vector parallel to wall
       REAL(kind=RP), DIMENSION(NDIM) :: U_ref              ! Reference Velocity
       REAL(kind=RP), DIMENSION(NDIM) :: u_parallel         ! Velocity parallel to wall
-      REAL(kind=RP), DIMENSION(NDIM) :: u_parallel_aux     ! Velocity parallel to wall auxiliar, is the instantaneous when the average is used
+      REAL(kind=RP), DIMENSION(NDIM) :: u_parallel_aux     ! Velocity parallel to wall auxiliary, is the instantaneous when the average is used
       REAL(kind=RP)                  :: u_II               ! Velocity magnitude parallel to wall, used in Wall Function
       REAL(kind=RP)                  :: tau_w              ! Wall shear stress
       REAL(kind=RP)                  :: beta               ! damping factor from Thomas et. al
@@ -159,10 +159,10 @@ MODULE WallFunctionBC
 
       DO i = 1, newtonMaxIter
 
-         ! Evaluate auxiliar function at u_tau
+         ! Evaluate auxiliary function at u_tau
          Aux_x0  =   Aux_f ( u_tau      , u_II, y, nu )
 
-         ! Compute numerical derivative of auxiliar function at u_tau
+         ! Compute numerical derivative of auxiliary function at u_tau
          eps     = ABS(u_tau) * 1.0E-8_RP
          JAC     = ( Aux_f ( u_tau + eps, u_II, y, nu ) - Aux_x0 ) / eps
 
@@ -209,7 +209,7 @@ MODULE WallFunctionBC
 
       REAL(kind=RP)              :: Aux_f ! (OUT)
         
-      ! Auxiliar function is evaluated at x0
+      ! Auxiliary function is evaluated at x0
       ! When Aux_f = 0 The definition of the 
       ! dimensionless mean streamwise velocity 
       ! parallel to the wall is recovered and 

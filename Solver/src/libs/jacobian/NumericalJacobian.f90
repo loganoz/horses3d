@@ -536,7 +536,7 @@ contains
             do thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
                IF (this % ndofelm(thiselm)<thisdof) CYCLE
-               ! Redifine used array and counter
+               ! Redefine used array and counter
                used    = 0
                usedctr = 1
                

@@ -223,7 +223,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
       
@@ -290,7 +290,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
       
@@ -667,7 +667,7 @@ contains
       !----------------------------------------------------------------
       
       
-!     Construct auxiliar matrices
+!     Construct auxiliary matrices
 !     ---------------------------
       select case (this % MatrixType)
          case (SC_MATRIX_CSR)

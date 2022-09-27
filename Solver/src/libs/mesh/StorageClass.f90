@@ -72,7 +72,7 @@ module StorageClass
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
-      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
+      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
@@ -95,7 +95,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_y  ! CHE chemical potential y-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
-      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
 #endif
       contains
          procedure   :: Assign              => ElementStorage_Assign
