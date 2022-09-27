@@ -49,6 +49,7 @@ module OutputVariables
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
       enumerator :: Vvec_Vrms, U_Vrms, V_Vrms, W_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, UPLUS, Cf_V, MUTMINF
+      enumerator :: SENSOR_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -135,6 +136,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus"
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "Cf"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+   character(len=STR_VAR_LEN), parameter  :: sensorKey     = "sensor"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
@@ -152,7 +154,7 @@ module OutputVariables
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
                                                                             VvecRmsKey, URmsKey, VRmsKey, WRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
-                                                                            uplusKey, cfKey, mutminfKey /)
+                                                                            uplusKey, cfKey, mutminfKey, sensorKey /)
                                                                         
                                                                         
                                                                
@@ -268,7 +270,7 @@ module OutputVariables
 
       end subroutine getOutputVariables
 
-      subroutine ComputeOutputVariables(N, e, output, refs, hasGradients, hasStats)
+      subroutine ComputeOutputVariables(N, e, output, refs, hasGradients, hasStats, hasSensor)
          use SolutionFile
          use Storage
          use StatisticsMonitor
@@ -279,6 +281,7 @@ module OutputVariables
          real(kind=RP), intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,       intent(in)    :: hasGradients
          logical,       intent(in)    :: hasStats
+         logical,       intent(in)    :: hasSensor
 !
 !        ---------------
 !        Local variables
@@ -288,7 +291,7 @@ module OutputVariables
          real(kind=RP) :: Sym, Asym
          logical       :: hasAdditionalVariables
 
-         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients
+         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor
 
          do var = 1, no_of_outputVariables
             if ( hasAdditionalVariables .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
@@ -734,6 +737,13 @@ module OutputVariables
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_z(size(U_z,1),i,j,k)
                   end do         ; end do         ; end do
+!
+!              **************
+!              Element sensor
+!              **************
+!
+               case(SENSOR_V)
+                  output(var,:,:,:) = e % sensor
 
                end select
                end associate

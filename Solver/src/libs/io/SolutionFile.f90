@@ -41,6 +41,7 @@ module SolutionFile
    private
    public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_MESH_FILE, IBM_MESH
    public      :: ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE
+   public      :: SOLUTION_AND_SENSOR_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE
    public      :: BEGINNING_DATA
    public      :: SOLFILE_STR_LEN, POS_INIT_DATA
    public      :: NO_OF_SAVED_REFS, GAMMA_REF, RGAS_REF, V_REF, RHO_REF, T_REF, MACH_REF, RE_REF
@@ -56,14 +57,16 @@ module SolutionFile
 !
 !  Possible solution file types
 !  ----------------------------
-   integer, parameter      :: MESH_FILE                     = 1
-   integer, parameter      :: SOLUTION_FILE                 = 2
-   integer, parameter      :: SOLUTION_AND_GRADIENTS_FILE   = 3
-   integer, parameter      :: STATS_FILE                    = 4
-   integer, parameter      :: ZONE_MESH_FILE                = 5
-   integer, parameter      :: ZONE_SOLUTION_FILE            = 6
-   integer, parameter      :: ZONE_SOLUTION_AND_DOT_FILE    = 7
-   integer, parameter      :: IBM_MESH                      = 8
+   integer, parameter      :: MESH_FILE                              = 1
+   integer, parameter      :: SOLUTION_FILE                          = 2
+   integer, parameter      :: SOLUTION_AND_GRADIENTS_FILE            = 3
+   integer, parameter      :: STATS_FILE                             = 4
+   integer, parameter      :: ZONE_MESH_FILE                         = 5
+   integer, parameter      :: ZONE_SOLUTION_FILE                     = 6
+   integer, parameter      :: ZONE_SOLUTION_AND_DOT_FILE             = 7
+   integer, parameter      :: IBM_MESH                               = 8
+   integer, parameter      :: SOLUTION_AND_SENSOR_FILE               = 9
+   integer, parameter      :: SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE = 10
 
    integer, parameter      :: SOLFILE_STR_LEN = 128
    integer, parameter      :: END_OF_FILE    = 99
@@ -134,6 +137,9 @@ module SolutionFile
             case(ZONE_MESH_FILE)
             case(ZONE_SOLUTION_FILE)
             case(ZONE_SOLUTION_AND_DOT_FILE)
+            case(IBM_MESH)
+            case(SOLUTION_AND_SENSOR_FILE)
+            case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
             case default
                print*, "Incorrect solution file type", type_
                errorMessage(STD_OUT)

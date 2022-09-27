@@ -82,6 +82,7 @@ module pAdaptationClass
       real(kind=RP)                     :: reqTEc                          ! Requested truncation error for coarsening
       logical                           :: TEFiles = .FALSE.               ! Write truncation error files?
       logical                           :: saveGradients                   ! Save gradients in pre-adapt and p-adapted solution files?
+      logical                           :: saveSensor                      ! Save sensor in pre-adapt and p-adapted solution files?
       logical                           :: Adapt                           ! Is the adaptator going to be used??
       logical                           :: increasing      = .FALSE.       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
@@ -713,6 +714,7 @@ readloop:do
 !      
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+      this % saveSensor       = controlVariables % logicalValueForKey("save sensor with solution")
       if ( trim( controlVariables % StringValueForKey("simulation type",LINE_LENGTH) ) == 'time-accurate' ) this % UnSteady = .TRUE.
       
       
@@ -930,7 +932,7 @@ readloop:do
       if (this % restartFiles) then
          write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
          call sem % mesh % Export(AdaptedMeshFile)         
-         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
+         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       end if
       
 !
@@ -1084,7 +1086,7 @@ readloop:do
       call sem % mesh % Export(AdaptedMeshFile)
       call sem % mesh % ExportOrders(AdaptedMeshFile)
       
-      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
+      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       
 !
 !     ------------------------------------------------

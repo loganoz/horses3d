@@ -476,15 +476,17 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA
+         logical                                :: saveGradients, loadFromNSSA, withSensor
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
 
+         withSensor = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
+
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             loadFromNSSA = controlVariables % logicalValueForKey("NS load from NSSA")
-            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA, withSensor)
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)
@@ -496,7 +498,7 @@ Module DGSEMClass
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor)
             !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF
