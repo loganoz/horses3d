@@ -997,7 +997,7 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call GetClusterVariables(sensor % nclusters, [1.0_RP, 20.0_RP], derivs, centroids)
+      call GetClusterVariables(sensor % nclusters, [1.0_RP, 1.0_RP], derivs, centroids)
 !
 !     Compute the GMM clusters
 !     ------------------------
