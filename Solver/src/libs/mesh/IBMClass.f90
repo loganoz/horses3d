@@ -251,7 +251,7 @@ module IBMClass
          this% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(filename), requestedLength = LINE_LENGTH)
          call STLfile_GetMotionInfo( this% stl(STLNum), this% STLfilename(STLNum), this% NumOfSTL )
          this% stl(STLNum)% body = STLNum       
-         call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) )   
+         call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) )   
          call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB )
          this% root(STLNum)% STLNum = STLNum
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
