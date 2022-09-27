@@ -525,12 +525,12 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             character(len=29)                  :: testName = "Forward Facing Step (SVV)"
             type(FTAssertionsManager), pointer :: sharedManager
-            real(kind=RP), parameter           :: SVVdiss = 9.66636e-7_RP
-            real(kind=RP), parameter           :: res(5) = [ 7636.3828_RP, &
-                                                             2404.6606_RP, &
-                                                             1245.3483_RP, &
+            real(kind=RP), parameter           :: SVVdiss = 7.56510e-8_RP
+            real(kind=RP), parameter           :: res(5) = [ 3590.0433_RP, &
+                                                             831.1562_RP, &
+                                                             176.0218_RP, &
                                                              0.0_RP, &
-                                                             7014.4413_RP  ]
+                                                             3018.6708_RP  ]
 
             call initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
