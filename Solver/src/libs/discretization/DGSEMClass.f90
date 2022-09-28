@@ -28,6 +28,7 @@ Module DGSEMClass
    use Physics
    use FluidData
    use ProblemFileFunctions, only: UserDefinedInitialCondition_f
+   use MPI_Utilities,        only: MPI_MinMax
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -822,30 +823,18 @@ Module DGSEMClass
 !     ---------------
       integer  :: eID, ierr
       real(RP) :: hn
-      real(RP) :: l_hnmin, l_hnmax
 
 
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         l_hnmin = huge(1.0_RP)
-         l_hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            l_hnmin = min(hn, l_hnmin)
-            l_hnmax = max(hn, l_hnmax)
-         end do
-         call mpi_reduce(l_hnmin, hnmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
-         call mpi_reduce(l_hnmax, hnmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-#endif
-      else
-         hnmin = huge(1.0_RP)
-         hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            hnmin = min(hn, hnmin)
-            hnmax = max(hn, hnmax)
-         end do
-      end if
+      hnmin = huge(1.0_RP)
+      hnmax = -huge(1.0_RP)
+      do eID = 1, mesh % no_of_elements
+         hn = mesh % elements(eID) % hn
+         hnmin = min(hn, hnmin)
+         hnmax = max(hn, hnmax)
+      end do
+
+      call MPI_MinMax(hnmin, hnmax)
+
    end subroutine hnRange
 !
 end module DGSEMClass
