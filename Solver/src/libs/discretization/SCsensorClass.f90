@@ -7,6 +7,11 @@ module SCsensorClass
    use NodalStorageClass, only: NodalStorage
    use Utilities,         only: toLower
    use Clustering,        only: GMM
+   use MPI_Process_Info,  only: MPI_Process
+   use MPI_Utilities,     only: MPI_MinMax
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 
    use ShockCapturingKeywords
 
@@ -1130,7 +1135,7 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GetClusterVariables(nclusters, limit, x, xavg)
+   subroutine GetClusterVariables(nclusters, limit, x, xavg)
 !
 !     -------
 !     Modules
@@ -1149,6 +1154,7 @@ module SCsensorClass
 !     Local variables
 !     ---------------
       integer  :: i
+      real(RP) :: lminmax_in(4), lminmax_out(4)
       real(RP) :: minimum(2)
       real(RP) :: maximum(2)
       real(RP) :: diff(2)
@@ -1157,6 +1163,12 @@ module SCsensorClass
       x = abs(x)
       minimum = minval(x, dim=2)
       maximum = maxval(x, dim=2)
+
+      if (MPI_Process % doMPIAction) then
+#ifdef _HAS_MPI_
+         call MPI_MinMax(minimum, maximum)
+#endif
+      end if
 
       if (AlmostEqual(maximum(1), minimum(1))) then
          if (maximum(1) > 0.0_RP) then

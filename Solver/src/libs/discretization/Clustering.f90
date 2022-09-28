@@ -1,7 +1,12 @@
 module Clustering
 
-   use SMConstants, only: RP, PI
-   use Utilities,   only: AlmostEqual, BubblesortWithFriend
+   use SMConstants,       only: RP, PI
+   use Utilities,         only: AlmostEqual, BubblesortWithFriend
+   use MPI_Process_Info,  only: MPI_Process
+   use MPI_Utilities,     only: MPI_OpAll, MPI_SumAll, MPI_MinMax
+#ifdef _HAS_MPI_
+   use mpi
+#endif
 
    implicit none
 
@@ -23,7 +28,7 @@ module Clustering
    contains
 !  ========
 !
-   pure subroutine kMeans(nclusters, x, xavg, clusters, info)
+   subroutine kMeans(nclusters, x, xavg, clusters, info)
 !
 !     ---------
 !     Interface
@@ -46,7 +51,6 @@ module Clustering
 
       ndims = size(x, dim=1)
       npts  = size(x, dim=2)
-
 !
 !     Initial clusters
 !     ----------------
@@ -107,7 +111,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine kMeans_compute_centroids(nclusters, ndims, npts, x, xavg, clusters)
+   subroutine kMeans_compute_centroids(nclusters, ndims, npts, x, xavg, clusters)
 !
 !     ---------
 !     Interface
@@ -125,13 +129,23 @@ module Clustering
       integer :: i
       integer :: ptsInCluster(nclusters)
 
-
+!
+!     Summation over the points
+!     -------------------------
       xavg = 0.0_RP
       ptsInCluster = 0
       do i = 1, npts
          xavg(:,clusters(i)) = xavg(:,clusters(i)) + x(:,i)
          ptsInCluster(clusters(i)) = ptsInCluster(clusters(i)) + 1
       end do
+!
+!     Syncronization between MPI processes
+!     ------------------------------------
+      call MPI_SumAll(xavg)
+      call MPI_SumAll(ptsInCluster)
+!
+!     Final computation of the average
+!     --------------------------------
       do i = 1, nclusters
          if (ptsInCluster(i) == 0) cycle
          xavg(:,i) = xavg(:,i) / real(ptsInCluster(i), kind=RP)
@@ -141,7 +155,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine kMeans_sort_clusters(nclusters, ndims, npts, xavg, clusters)
+   subroutine kMeans_sort_clusters(nclusters, ndims, npts, xavg, clusters)
 !
 !     ---------
 !     Interface
@@ -187,7 +201,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GMM(init_nclusters, nclusters, x, xavg, clusters, info)
+   subroutine GMM(init_nclusters, nclusters, x, xavg, clusters, info)
 !
 !     ---------
 !     Interface
@@ -206,7 +220,7 @@ module Clustering
       real(RP), parameter :: small = 1e4_RP * epsilon(1.0_RP)  ! Magic!!
       integer,  parameter :: maxIters = 50
 
-      type(GaussianList_t)  :: g
+      type(GaussianList_t)  :: g, local_g
       integer               :: info_
       integer               :: ndims
       integer               :: npts
@@ -214,6 +228,7 @@ module Clustering
       real(RP)              :: ll
       real(RP)              :: llprev
       real(RP), allocatable :: R(:,:)
+      real(RP), allocatable :: minimum(:), maximum(:)
 
 
       nclusters = init_nclusters
@@ -222,7 +237,10 @@ module Clustering
 !     ------------
       if (nclusters == 1) then
          clusters = 1
-         xavg(:,1) = (minval(x, dim=2) + maxval(x, dim=2)) * 0.5_RP
+         minimum = minval(x, dim=2)
+         maximum = maxval(x, dim=2)
+         call MPI_MinMax(minimum, maximum)
+         xavg(:,1) = (minimum + maximum) * 0.5_RP
          return
       end if
 
@@ -238,7 +256,7 @@ module Clustering
       do iter = 1, maxIters
          llprev = ll
          call GMM_Estep(ndims, npts, nclusters, g, x, R, small, ll)
-         call GMM_Mstep(ndims, npts, nclusters, g, x, R, small)
+         call GMM_Mstep(ndims, npts, nclusters, g, local_g, x, R, small)
          nclusters = g % n
          if (abs((ll - llprev) / ll) <= tol .or. nclusters < 1) exit
       end do
@@ -329,7 +347,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GMM_Estep(ndims, npts, nclusters, g, x, R, small, logL)
+   subroutine GMM_Estep(ndims, npts, nclusters, g, x, R, small, logL)
 !
 !     ---------
 !     Interface
@@ -349,7 +367,9 @@ module Clustering
       integer  :: i, j
       real(RP) :: den
 
-
+!
+!     E-step loop
+!     -----------
       logL = 0.0_RP
       do i = 1, npts
          den = 0.0_RP
@@ -369,12 +389,16 @@ module Clustering
          end if
          logL = logL + log(den)
       end do
+!
+!     Global log-likelihood
+!     ---------------------
+      call MPI_SumAll(logL)
 
    end subroutine GMM_Estep
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GMM_Mstep(ndims, npts, nclusters, g, x, R, tol)
+   subroutine GMM_Mstep(ndims, npts, nclusters, g, local_g, x, R, tol)
 !
 !     ---------
 !     Interface
@@ -383,6 +407,7 @@ module Clustering
       integer,              intent(in)    :: npts
       integer,              intent(inout) :: nclusters
       type(GaussianList_t), intent(inout) :: g
+      type(GaussianList_t), intent(inout) :: local_g
       real(RP),             intent(in)    :: x(:,:)
       real(RP),             intent(in)    :: R(:,:)
       real(RP),             intent(in)    :: tol
@@ -391,65 +416,102 @@ module Clustering
 !     Local variables
 !     ---------------
       integer  :: i, j, k, l, m
-      integer  :: info_
+      integer  :: nptsAll
+      integer  :: info
       logical  :: deleteit
-      real(RP) :: ns
+      real(RP) :: ns(nclusters)
       real(RP) :: xmu(ndims)
 
-
-      k = 1
+!
+!     Total number of points
+!     ----------------------
+      nptsAll = npts
+      call MPI_SumAll(nptsAll)
+!
+!     "Number of points" in the cluster
+!     ---------------------------------
+      ns = sum(R, dim=1)
+      call MPI_SumAll(ns)
+!
+!     M-step loop
+!     -----------
       do j = 1, nclusters
-         ! "Number of points" in the cluster
-         ns = sum(R(:,j))
-
-         ! Update the clusters
-         g % tau(k) = ns / npts
-         g % mu(:,k) = matmul(x, R(:,j)) / ns
-         g % cov(:,:,k) = 0.0_RP
+         g % tau(j) = ns(j) / nptsAll
+         g % mu(:,j) = matmul(x, R(:,j)) / ns(j)
+         g % cov(:,:,j) = 0.0_RP
          do i = 1, npts
-            xmu = x(:,i) - g % mu(:,k)
+            xmu = x(:,i) - g % mu(:,j)
             do m = 1, ndims
                do l = 1, ndims
-                  g % cov(l,m,k) = g % cov(l,m,k) + R(i,j) * xmu(l) * xmu(m)
+                  g % cov(l,m,j) = g % cov(l,m,j) + R(i,j) * xmu(l) * xmu(m)
                end do
             end do
          end do
-         g % cov(:,:,k) = g % cov(:,:,k) / ns
-         call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
-
-         deleteit = .false.
-
-         ! If a cluster collapses, limit its size
-         if (info_ < 0) then
-            do l = 1, ndims
-               g % cov(:,l,k) = 0.0_RP
-               g % cov(l,l,k) = tol**(1.0_RP/ndims) * 1e1_RP
-            end do
-            call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info_)
-         end if
-
-         ! Also look for overlapping clusters
-         do l = 1, k-1
-            if (all(AlmostEqual(g % mu(:,k), g % mu(:,l), tol))) then
-               deleteit = .true.
-               exit
-            end if
-         end do
-
-
-         ! Delete the cluster and step forward onto the next iteration
-         if (deleteit) then
-            do l = k+1, g % n
-               g % tau(l-1) = g % tau(l)
-               g % mu(:,l-1) = g % mu(:,l)
-               g % cov(:,:,l-1) = g % cov(:,:,l)
-               g % covinv(:,:,l-1) = g % covinv(:,:,l)
-            end do
-            g % n = g % n - 1
-         else
-            k = k + 1
-         end if
+         g % cov(:,:,j) = g % cov(:,:,j) / ns(j)
       end do
+!
+!     Make sure the clusters are OK
+!     -----------------------------
+      if (MPI_Process % doMPIAction) then
+#ifdef _HAS_MPI_
+         local_g = g
+         call MPI_reduce(local_g % tau, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_reduce(local_g % mu, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_reduce(local_g % cov, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+#endif
+      end if
+
+      if (MPI_Process % isRoot) then
+         k = 1
+         do j = 1, nclusters
+
+            ! Compute the inverse of the covariance matrix
+            call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info)
+
+            ! If a cluster collapses, limit its size
+            if (info < 0) then
+               do l = 1, ndims
+                  g % cov(:,l,k) = 0.0_RP
+                  g % cov(l,l,k) = tol**(1.0_RP/ndims) * 1e1_RP
+               end do
+               call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info)
+            end if
+
+            ! Also look for overlapping clusters
+            deleteit = .false.
+            do l = 1, k-1
+               if (all(AlmostEqual(g % mu(:,k), g % mu(:,l), tol))) then
+                  deleteit = .true.
+                  exit
+               end if
+            end do
+
+            ! Delete the marked clusters
+            if (deleteit) then
+               do l = k+1, g % n
+                  g % tau(l-1) = g % tau(l)
+                  g % mu(:,l-1) = g % mu(:,l)
+                  g % cov(:,:,l-1) = g % cov(:,:,l)
+                  g % covinv(:,:,l-1) = g % covinv(:,:,l)
+               end do
+               g % n = g % n - 1
+            else
+               k = k + 1
+            end if
+
+         end do
+      end if
+!
+!     Syncronize
+!     ----------
+      if (MPI_Process % doMPIAction) then
+#ifdef _HAS_MPI_
+         call MPI_Bcast(g % tau, size(g % tau), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
+         call MPI_Bcast(g % mu, size(g % mu), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
+         call MPI_Bcast(g % cov, size(g % cov), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
+         call MPI_Bcast(g % covinv, size(g % covinv), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
+#endif
+      end if
 
    end subroutine GMM_Mstep
 !
