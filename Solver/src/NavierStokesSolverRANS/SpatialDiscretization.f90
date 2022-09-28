@@ -94,16 +94,17 @@ module SpatialDiscretization
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
+            call hnRange(sem % mesh, hnmin, hnmax)
+
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
-            end if
 
-            call hnRange(sem % mesh, hnmin, hnmax)
-            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
-            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
-            write(STD_OUT,'(/)')
+               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+               write(STD_OUT,'(/)')
+            end if
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
