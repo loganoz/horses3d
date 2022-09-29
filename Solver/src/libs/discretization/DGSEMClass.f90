@@ -488,7 +488,7 @@ Module DGSEMClass
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
             loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
             if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
-            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA, withSensor)
+            CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
          ELSE
 
             call UserDefinedInitialCondition(self % mesh, FLUID_DATA_VARS)

@@ -3043,7 +3043,7 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------------
 !     Subroutine to load a solution for restart using the information in the control file
 !     -----------------------------------------------------------------------------------
-      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA, with_sensor )
+      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA )
          use mainKeywordsModule, only: restartFileNameKey
          use FileReaders       , only: ReadOrderFile
          implicit none
@@ -3051,7 +3051,6 @@ slavecoord:             DO l = 1, 4
          class(HexMesh)                       :: self
          type(FTValueDictionary), intent(in)  :: controlVariables
          logical                , intent(in)  :: loadFromNSSA
-         logical                , intent(in)  :: with_sensor
          integer                , intent(out) :: initial_iteration
          real(kind=RP)          , intent(out) :: initial_time
          !-local-variables-----------------------------------------
@@ -3134,7 +3133,7 @@ slavecoord:             DO l = 1, 4
 !           Read the solution in the auxiliar mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
 
-            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA, with_sensor=with_sensor )
+            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA )
             do eID=1, self % no_of_elements
                call auxMesh % storage % elements (eID) % InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
             end do
@@ -3155,7 +3154,7 @@ slavecoord:             DO l = 1, 4
 !        *****************************************************
 !
          else
-            call self % LoadSolution ( fileName, initial_iteration, initial_time, loadFromNSSA=loadFromNSSA, with_sensor=with_sensor )
+            call self % LoadSolution ( fileName, initial_iteration, initial_time, loadFromNSSA=loadFromNSSA )
          end if
 
       end subroutine HexMesh_LoadSolutionForRestart
@@ -3165,7 +3164,7 @@ slavecoord:             DO l = 1, 4
 !     ----------------------------------------------
 !     Subroutine to load a solution (*.hsol) in self
 !     ----------------------------------------------
-      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA, with_sensor)
+      subroutine HexMesh_LoadSolution( self, fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA)
          IMPLICIT NONE
          CLASS(HexMesh)                  :: self
          character(len=*)                :: fileName
@@ -3173,7 +3172,6 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)     , intent(out) :: initial_time
          logical, optional , intent(out) :: with_gradients
          logical, optional , intent(in)  :: loadFromNSSA
-         logical, optional , intent(in)  :: with_sensor
 
 !
 !        ---------------
@@ -3190,17 +3188,13 @@ slavecoord:             DO l = 1, 4
          logical                        :: has_sensor
 
          gradients = .FALSE.
+         has_sensor = .FALSE.
          if (present(loadFromNSSA)) then
              NS_from_NSSA = loadFromNSSA
          else
              NS_from_NSSA = .FALSE.
          end if 
          expectedNoEqs = NCONS
-         if (present(with_sensor)) then
-             has_sensor = with_sensor
-         else
-             has_sensor = .FALSE.
-         end if
 !
 !        Get the file title
 !        ------------------
@@ -3216,18 +3210,22 @@ slavecoord:             DO l = 1, 4
             errorMessage(STD_OUT)
             stop
 
-         case(SOLUTION_FILE, SOLUTION_AND_SENSOR_FILE)
+         case(SOLUTION_FILE)
             padding = 1*NCONS
 
-         case(SOLUTION_AND_GRADIENTS_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
-#ifdef SPALARTALMARAS
-            padding = NCONS + 3 * NGRAD
-            gradients = .TRUE.
-#else
+         case(SOLUTION_AND_SENSOR_FILE)
+            padding = 1*NCONS
+            has_sensor = .TRUE.
+
+         case(SOLUTION_AND_GRADIENTS_FILE)
             padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
-#endif
+         case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            padding = NCONS + 3 * NGRAD
+            gradients = .TRUE.
+            has_sensor = .TRUE.
+
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
