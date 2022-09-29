@@ -760,25 +760,25 @@ module ShockCapturing
 
       if (self % updateMethod == SC_SMAG_ID) then
 #if !defined (SPALARTALMARAS)
-         write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
 #endif
       else
          if (self % region == 1) then
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 1: ", self % mu1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 2: ", self % mu2
          else ! self % region == 2
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity: ", self % mu2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity: ", self % mu2
          end if
       end if
 
       if (self % alphaIsPropToMu) then
-         write(STD_OUT,"(30X,A,A30,F7.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
+         write(STD_OUT,"(30X,A,A30,1pG10.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
       else
          if (self % region == 1) then
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 1: ", self % alpha1
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 2: ", self % alpha2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 1: ", self % alpha1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 2: ", self % alpha2
          else ! self % region == 2
-            write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity: ", self % alpha2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity: ", self % alpha2
          end if
       end if
 
