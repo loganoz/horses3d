@@ -412,7 +412,7 @@ module getTask
             call get_command_argument(i, auxiliarName)
             pos = index(trim(auxiliarName), OUTPUT_FILE_TYPE)
             if ( pos .ne. 0 ) then
-                read(auxiliarName(pos+len_trim(OUTPUT_FILE_TYPE):len_trim(auxiliarName)),*) fileTypeName
+                fileTypeName = auxiliarName(pos+len_trim(OUTPUT_FILE_TYPE):len_trim(auxiliarName))
             else
                 fileTypeName = "tecplot"
             end if
@@ -497,7 +497,7 @@ module getTask
             pos = index(trim(auxiliarName), OUTPUT_BASIS_FLAG)
             
             if ( pos .ne. 0 ) then
-               read(auxiliarName(pos+len_trim(OUTPUT_BASIS_FLAG):len_trim(auxiliarName)),*) basisName
+               basisName = auxiliarName(pos+len_trim(OUTPUT_BASIS_FLAG):len_trim(auxiliarName))
                basisPresent = .true.
                exit
             end if
@@ -512,7 +512,7 @@ module getTask
             pos = index(trim(auxiliarName), OUTPUT_MODE_FLAG)
             
             if ( pos .ne. 0 ) then
-               read(auxiliarName(pos+len_trim(OUTPUT_MODE_FLAG):len_trim(auxiliarName)),*) modeName
+               modeName = auxiliarName(pos+len_trim(OUTPUT_MODE_FLAG):len_trim(auxiliarName))
                select case(modeName)
                case ("multizone")
                   mode = MODE_MULTIZONE
@@ -535,13 +535,13 @@ module getTask
             pos = index(trim(auxiliarName),BOUNDARY_FILE_FLAG)
             if ( pos .ne. 0 ) then
                hasBoundaries = .TRUE.
-               write(boundaryFileName,'(A)') auxiliarName(pos+len_trim(BOUNDARY_FILE_FLAG):len_trim(auxiliarName))
+               boundaryFileName = auxiliarName(pos+len_trim(BOUNDARY_FILE_FLAG):len_trim(auxiliarName))
                cycle
             end if
             pos = index(trim(auxiliarName),PARTITION_FILE_FLAG)
             if ( pos .ne. 0 ) then
                hasMPIranks = .TRUE.
-               read(auxiliarName(pos+len_trim(PARTITION_FILE_FLAG):len_trim(auxiliarName)),*) partitionFileName
+               partitionFileName = auxiliarName(pos+len_trim(PARTITION_FILE_FLAG):len_trim(auxiliarName))
                cycle
             end if
             pos = index(trim(auxiliarName),"--dimensionless")
@@ -552,7 +552,7 @@ module getTask
             pos = index(trim(auxiliarName),OUTPUT_VARIABLES_FLAG)
             if ( pos .ne. 0 ) then
                hasVariablesFlag = .true.
-               write(askedVariables,'(A)') auxiliarName(pos+len_trim(OUTPUT_VARIABLES_FLAG):len_trim(auxiliarName))
+               askedVariables = auxiliarName(pos+len_trim(OUTPUT_VARIABLES_FLAG):len_trim(auxiliarName))
                cycle
             end if
          end do
