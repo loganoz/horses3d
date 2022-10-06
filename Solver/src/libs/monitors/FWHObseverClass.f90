@@ -893,7 +893,7 @@ use VariableConversion, only: Pressure, PressureDot
    End Subroutine SourceProlongSolution
 !
 !/////////////////////////////////////////////////////////////////////////
-!           AUXILIAR PROCEDURES --------------------------
+!           AUXILIARY PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////
 
 ! get the interpolated value of an array

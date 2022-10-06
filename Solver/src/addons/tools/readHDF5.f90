@@ -97,7 +97,7 @@ contains
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
       
-      ! Auxiliar variables
+      ! Auxiliary variables
       integer :: i,j,k,l  ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR

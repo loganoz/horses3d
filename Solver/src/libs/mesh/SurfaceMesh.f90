@@ -1436,7 +1436,7 @@ Module SurfaceMesh
                 nodeEnd = N - 1
         end select
 
-        ! get x of 1 (or 2) and N (or N-1) node of elemnt
+        ! get x of 1 (or 2) and N (or N-1) node of element
         xf = f % geom % x(:,0,0)
         associate ( e => mesh % elements(eID) )
             select case (normalDirection)
