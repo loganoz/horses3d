@@ -126,6 +126,10 @@ module SCsensorClass
          sensor % sens_type = SC_INTEGRAL_ID
          sensor % Compute_Raw => Sensor_integral
 
+      case (SC_INTEGRAL_SQRT_VAL)
+         sensor % sens_type = SC_INTEGRAL_SQRT_ID
+         sensor % Compute_Raw => Sensor_integral_sqrt
+
       case (SC_MODAL_VAL)
          sensor % sens_type = SC_MODAL_ID
          sensor % Compute_Raw => Sensor_modal
@@ -149,6 +153,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
          write(STD_OUT,*) '   * ', SC_INTEGRAL_VAL
+         write(STD_OUT,*) '   * ', SC_INTEGRAL_SQRT_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
          write(STD_OUT,*) '   * ', SC_ALIAS_VAL
@@ -197,7 +202,7 @@ module SCsensorClass
 !     Sensed variable
 !     ---------------
       if (sensor % sens_type == SC_GMM_ID) then
-         sensor % sVar = SC_RHO_P_GRAD_ID
+         sensor % sVar = SC_DIVV_P_GRAD_ID
 
       elseif (controlVariables % containsKey(SC_VARIABLE_KEY)) then
          sVar = controlVariables % stringValueForKey(SC_VARIABLE_KEY, LINE_LENGTH)
@@ -215,6 +220,7 @@ module SCsensorClass
          case (SC_P_VAL);        sensor % sVar = SC_P_ID
          case (SC_RHOP_VAL);     sensor % sVar = SC_RHOP_ID
          case (SC_RHO_GRAD_VAL); sensor % sVar = SC_RHO_GRAD_ID
+         case (SC_DIVV_VAL);     sensor % sVar = SC_DIVV_ID
          case default
             write(STD_OUT,*) 'ERROR. The sensor variable is unknown. Options are:'
             write(STD_OUT,*) '   * ', SC_RHO_VAL
@@ -228,6 +234,7 @@ module SCsensorClass
             write(STD_OUT,*) '   * ', SC_P_VAL
             write(STD_OUT,*) '   * ', SC_RHOP_VAL
             write(STD_OUT,*) '   * ', SC_RHO_GRAD_VAL
+            write(STD_OUT,*) '   * ', SC_DIVV_VAL
             errorMessage(STD_OUT)
             stop
          end select
@@ -394,18 +401,19 @@ module SCsensorClass
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
       select case (sensor % sVar)
-         case (SC_RHO_ID);        write(STD_OUT,"(A)") SC_RHO_VAL
-         case (SC_RHOU_ID);       write(STD_OUT,"(A)") SC_RHOU_VAL
-         case (SC_RHOV_ID);       write(STD_OUT,"(A)") SC_RHOV_VAL
-         case (SC_RHOW_ID);       write(STD_OUT,"(A)") SC_RHOW_VAL
-         case (SC_RHOE_ID);       write(STD_OUT,"(A)") SC_RHOE_VAL
-         case (SC_U_ID);          write(STD_OUT,"(A)") SC_U_VAL
-         case (SC_V_ID);          write(STD_OUT,"(A)") SC_V_VAL
-         case (SC_W_ID);          write(STD_OUT,"(A)") SC_W_VAL
-         case (SC_P_ID);          write(STD_OUT,"(A)") SC_P_VAL
-         case (SC_RHOP_ID);       write(STD_OUT,"(A)") SC_RHOP_VAL
-         case (SC_RHO_GRAD_ID);   write(STD_OUT,"(A)") SC_RHO_GRAD_VAL
-         case (SC_RHO_P_GRAD_ID); write(STD_OUT,"(A)") SC_RHO_P_GRAD_VAL
+         case (SC_RHO_ID);         write(STD_OUT,"(A)") SC_RHO_VAL
+         case (SC_RHOU_ID);        write(STD_OUT,"(A)") SC_RHOU_VAL
+         case (SC_RHOV_ID);        write(STD_OUT,"(A)") SC_RHOV_VAL
+         case (SC_RHOW_ID);        write(STD_OUT,"(A)") SC_RHOW_VAL
+         case (SC_RHOE_ID);        write(STD_OUT,"(A)") SC_RHOE_VAL
+         case (SC_U_ID);           write(STD_OUT,"(A)") SC_U_VAL
+         case (SC_V_ID);           write(STD_OUT,"(A)") SC_V_VAL
+         case (SC_W_ID);           write(STD_OUT,"(A)") SC_W_VAL
+         case (SC_P_ID);           write(STD_OUT,"(A)") SC_P_VAL
+         case (SC_RHOP_ID);        write(STD_OUT,"(A)") SC_RHOP_VAL
+         case (SC_RHO_GRAD_ID);    write(STD_OUT,"(A)") SC_RHO_GRAD_VAL
+         case (SC_DIVV_ID);        write(STD_OUT,"(A)") SC_DIVV_VAL
+         case (SC_DIVV_P_GRAD_ID); write(STD_OUT,"(A)") SC_DIVV_P_GRAD_VAL
       end select
 
       write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
@@ -536,7 +544,7 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Sensor_integral(sensor, sem, t)
+   subroutine Sensor_integral_sqrt(sensor, sem, t)
 !
 !     -------
 !     Modules
@@ -582,6 +590,61 @@ module SCsensorClass
          end do                ; end do                ; end do
 
          e % storage % sensor = SinRamp(sensor, sqrt(val))
+
+      end associate
+      end do
+!$omp end parallel do
+
+   end subroutine Sensor_integral_sqrt
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_integral(sensor, sem, t)
+!
+!     -------
+!     Modules
+!     -------
+      use NodalStorageClass, only: NodalStorage
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: eID
+      integer  :: i
+      integer  :: j
+      integer  :: k
+      real(RP) :: contribution
+      real(RP) :: val
+
+!$omp parallel do schedule(runtime)
+      do eID = 1, sem % mesh % no_of_elements
+      associate(e => sem % mesh % elements(eID))
+
+         val = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            contribution = GetSensedVariable( &
+               sensor % sVar,                 &
+               e % storage % Q(:,i,j,k),      &
+               e % storage % U_x(:,i,j,k),    &
+               e % storage % U_y(:,i,j,k),    &
+               e % storage % U_z(:,i,j,k)     &
+            )
+            val = val + NodalStorage(e % Nxyz(1)) % w(i) &
+                      * NodalStorage(e % Nxyz(2)) % w(j) &
+                      * NodalStorage(e % Nxyz(3)) % w(k) &
+                      * e % geom % jacobian(i,j,k)       &
+                      * contribution
+         end do                ; end do                ; end do
+
+         e % storage % sensor = SinRamp(sensor, val)
 
       end associate
       end do
@@ -952,20 +1015,7 @@ module SCsensorClass
 
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             cnt = cnt + 1
-            u2 = (                               &
-               e % storage % Q(IRHOU,i,j,k)**2 + &
-               e % storage % Q(IRHOV,i,j,k)**2 + &
-               e % storage % Q(IRHOW,i,j,k)**2   &
-            ) / e % storage % Q(IRHO,i,j,k)**2
-
-            ! Derivative of density
-            derivs(1,cnt) = sqrt(                 &
-               e % storage % U_x(IRHO,i,j,k)**2 + &
-               e % storage % U_y(IRHO,i,j,k)**2 + &
-               e % storage % U_z(IRHO,i,j,k)**2   &
-            )
-
-            ! Derivative of pressure
+            ! Divergence of V
             call getVelocityGradients(     &
                e % storage % Q(:,i,j,k),   &
                e % storage % U_x(:,i,j,k), &
@@ -973,6 +1023,15 @@ module SCsensorClass
                e % storage % U_z(:,i,j,k), &
                ux, uy, uz                  &
             )
+            derivs(1,cnt) = (ux(1) + uy(2) + uz(3))**2
+
+            ! Derivative of pressure
+            u2 = (                               &
+               e % storage % Q(IRHOU,i,j,k)**2 + &
+               e % storage % Q(IRHOV,i,j,k)**2 + &
+               e % storage % Q(IRHOW,i,j,k)**2   &
+            ) / e % storage % Q(IRHO,i,j,k)**2
+
             dp(1) = thermodynamics % gammaMinus1 * (         &
                e % storage % U_x(IRHOE,i,j,k) -              &
                0.5_RP * e % storage % U_x(IRHO,i,j,k) * u2 - &
@@ -994,7 +1053,7 @@ module SCsensorClass
                e % storage % Q(IRHOV,i,j,k) * uz(2) -        &
                e % storage % Q(IRHOW,i,j,k) * uz(3)          &
             )
-            derivs(2,cnt) = sqrt(dp(1)**2 + dp(2)**2 + dp(3)**2)
+            derivs(2,cnt) = dp(1)**2 + dp(2)**2 + dp(3)**2
          end do ;                end do ;                end do
 
       end associate
@@ -1002,7 +1061,7 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call GetClusterVariables(sensor % nclusters, [1.0_RP, 1.0_RP], derivs, centroids)
+      call RescaleClusterVariables(2, sensor % nclusters, [1.0_RP, 1.0_RP], derivs, centroids)
 !
 !     Compute the GMM clusters
 !     ------------------------
@@ -1071,13 +1130,13 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function GetSensedVariable(varType, Q, U_x, U_y, U_z) result(s)
+   function GetSensedVariable(varType, Q, U_x, U_y, U_z) result(s)
 !
 !     -------
 !     Modules
 !     -------
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-      use VariableConversion, only: Pressure
+      use VariableConversion, only: Pressure, getVelocityGradients
       implicit none
 !
 !     ---------
@@ -1089,6 +1148,11 @@ module SCsensorClass
       real(RP), intent(in) :: U_y(:)
       real(RP), intent(in) :: U_z(:)
       real(RP)             :: s
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      real(RP) :: ux(3), uy(3), uz(3)
 
 
       select case (varType)
@@ -1129,13 +1193,17 @@ module SCsensorClass
             s = POW2(sum(Q * U_x)) + POW2(sum(Q * U_y)) + POW2(sum(Q * U_z))
          end if
 
+      case (SC_DIVV_ID)
+         call getVelocityGradients(Q, U_x, U_y, U_z, ux, uy, uz)
+         s = (ux(1) + uy(2) + uz(3))**2
+
       end select
 
    end function GetSensedVariable
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GetClusterVariables(nclusters, limit, x, xavg)
+   subroutine RescaleClusterVariables(ndims, nclusters, limit, x, xavg)
 !
 !     -------
 !     Modules
@@ -1145,8 +1213,9 @@ module SCsensorClass
 !     ---------
 !     Interface
 !     ---------
+      integer,  intent(in)    :: ndims
       integer,  intent(in)    :: nclusters
-      real(RP), intent(in)    :: limit(:)
+      real(RP), intent(in)    :: limit(ndims)
       real(RP), intent(inout) :: x(:,:)
       real(RP), intent(out)   :: xavg(:,:)
 !
@@ -1154,10 +1223,9 @@ module SCsensorClass
 !     Local variables
 !     ---------------
       integer  :: i
-      real(RP) :: lminmax_in(4), lminmax_out(4)
-      real(RP) :: minimum(2)
-      real(RP) :: maximum(2)
-      real(RP) :: diff(2)
+      real(RP) :: minimum(ndims)
+      real(RP) :: maximum(ndims)
+      real(RP) :: diff(ndims)
 
 
       x = abs(x)
@@ -1170,37 +1238,23 @@ module SCsensorClass
 #endif
       end if
 
-      if (AlmostEqual(maximum(1), minimum(1))) then
-         if (maximum(1) > 0.0_RP) then
-            x(1,:) = limit(1)
-            minimum(1) = limit(1)
-            maximum(1) = limit(1)
+      do i = 1, ndims
+         if (AlmostEqual(maximum(i), minimum(i))) then
+            if (maximum(i) > 0.0_RP) then
+               x(i,:) = limit(i)
+               minimum(i) = limit(i)
+               maximum(i) = limit(i)
+            else
+               x(i,:) = 0.0_RP
+               minimum(i) = 0.0_RP
+               maximum(i) = 0.0_RP
+            end if
          else
-            x(1,:) = 0.0_RP
-            minimum(1) = 0.0_RP
-            maximum(1) = 0.0_RP
+            x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i))
+            minimum(i) = 0.0_RP
+            maximum(i) = limit(i)
          end if
-      else
-         x(1,:) = (x(1,:) - minimum(1)) / (maximum(1) - minimum(1))
-         minimum(1) = 0.0_RP
-         maximum(1) = limit(1)
-      end if
-
-      if (AlmostEqual(maximum(2), minimum(2))) then
-         if (maximum(2) > 0.0_RP) then
-            x(2,:) = limit(2)
-            minimum(2) = limit(2)
-            maximum(2) = limit(2)
-         else
-            x(2,:) = 0.0_RP
-            minimum(2) = 0.0_RP
-            maximum(2) = 0.0_RP
-         end if
-      else
-         x(2,:) = (x(2,:) - minimum(2)) / (maximum(2) - minimum(2))
-         minimum(2) = 0.0_RP
-         maximum(2) = limit(2)
-      end if
+      end do
 
       xavg(:,1) = minimum
       xavg(:,nclusters) = maximum
@@ -1209,6 +1263,6 @@ module SCsensorClass
          xavg(:,i) = minimum + (i - 1) * diff
       end do
 
-   end subroutine GetClusterVariables
+   end subroutine RescaleClusterVariables
 
 end module SCsensorClass
