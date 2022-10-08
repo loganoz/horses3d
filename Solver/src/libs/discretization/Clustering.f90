@@ -626,7 +626,7 @@ module Clustering
 
       if (n == 1) then
           info_ = 1
-          Ainv = A
+          Ainv = 1.0_RP / A
 
       elseif (n == 2) then
           d = matdet(2, A)
