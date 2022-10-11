@@ -3,7 +3,7 @@ module SCsensorClass
 
    use SMConstants,       only: RP, PI, STD_OUT, NDIM, IX, IY, IZ, LINE_LENGTH
    use DGSEMClass,        only: ComputeTimeDerivative_f, DGSem
-   use PhysicsStorage,    only: grad_vars, GRADVARS_STATE, GRADVARS_ENTROPY, NCONS
+   use PhysicsStorage,    only: grad_vars, GRADVARS_STATE, GRADVARS_ENERGY, GRADVARS_ENTROPY, NCONS
    use NodalStorageClass, only: NodalStorage
    use Utilities,         only: toLower
    use Clustering,        only: GMM
@@ -242,13 +242,6 @@ module SCsensorClass
       else
          sensor % sVar = SC_RHOP_ID
 
-      end if
-
-      if (sensor % sVar == SC_RHO_GRAD_ID) then
-         if (.not. grad_vars == GRADVARS_STATE .and. .not. grad_vars == GRADVARS_ENTROPY) then
-            write(STD_OUT,*) "ERROR. The density gradient sensor only works with state or entropy variables."
-            stop
-         end if
       end if
 
    end subroutine Set_SCsensor
@@ -975,8 +968,8 @@ module SCsensorClass
 !     Modules
 !     -------
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-      use FluidData,          only: thermodynamics
-      use VariableConversion, only: getVelocityGradients
+      use FluidData,          only: thermodynamics, dimensionless
+      use VariableConversion, only: Pressure, getVelocityGradients
 !
 !     ---------
 !     Interface
@@ -996,7 +989,7 @@ module SCsensorClass
       integer  :: cnt
       integer  :: n
       integer  :: higherCluster
-      real(RP) :: u2
+      real(RP) :: u2, p
       real(RP) :: ux(3), uy(3), uz(3)
       real(RP) :: dp(3)
       real(RP), allocatable :: centroids(:,:)
@@ -1016,7 +1009,9 @@ module SCsensorClass
       associate(e => sem % mesh % elements(eID))
 
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+
             cnt = cnt + 1
+
             ! Divergence of V
             call getVelocityGradients(     &
                e % storage % Q(:,i,j,k),   &
@@ -1025,37 +1020,75 @@ module SCsensorClass
                e % storage % U_z(:,i,j,k), &
                ux, uy, uz                  &
             )
+
             derivs(1,cnt) = (ux(1) + uy(2) + uz(3))**2
 
-            ! Derivative of pressure
-            u2 = (                               &
-               e % storage % Q(IRHOU,i,j,k)**2 + &
-               e % storage % Q(IRHOV,i,j,k)**2 + &
-               e % storage % Q(IRHOW,i,j,k)**2   &
-            ) / e % storage % Q(IRHO,i,j,k)**2
+            ! Derivative of density
+            ! if (grad_vars == GRADVARS_ENTROPY) then
+            !     derivs(1,cnt) = dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k))**2 + &
+            !                     dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k))**2 + &
+            !                     dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k))**2
+            ! else
+            !     derivs(1,cnt) = e % storage % U_x(IRHO,i,j,k)**2 + &
+            !                     e % storage % U_y(IRHO,i,j,k)**2 + &
+            !                     e % storage % U_z(IRHO,i,j,k)**2
+            ! end if
 
-            dp(1) = thermodynamics % gammaMinus1 * (         &
-               e % storage % U_x(IRHOE,i,j,k) -              &
-               0.5_RP * e % storage % U_x(IRHO,i,j,k) * u2 - &
-               e % storage % Q(IRHOU,i,j,k) * ux(1) -        &
-               e % storage % Q(IRHOV,i,j,k) * ux(2) -        &
-               e % storage % Q(IRHOW,i,j,k) * ux(3)          &
-            )
-            dp(2) = thermodynamics % gammaMinus1 * (         &
-               e % storage % U_y(IRHOE,i,j,k) -              &
-               0.5_RP * e % storage % U_y(IRHO,i,j,k) * u2 - &
-               e % storage % Q(IRHOU,i,j,k) * uy(1) -        &
-               e % storage % Q(IRHOV,i,j,k) * uy(2) -        &
-               e % storage % Q(IRHOW,i,j,k) * uy(3)          &
-            )
-            dp(3) = thermodynamics % gammaMinus1 * (         &
-               e % storage % U_z(IRHOE,i,j,k) -              &
-               0.5_RP * e % storage % U_z(IRHO,i,j,k) * u2 - &
-               e % storage % Q(IRHOU,i,j,k) * uz(1) -        &
-               e % storage % Q(IRHOV,i,j,k) * uz(2) -        &
-               e % storage % Q(IRHOW,i,j,k) * uz(3)          &
-            )
+            ! Derivative of pressure
+            if (grad_vars == GRADVARS_STATE) then
+               u2 = (                               &
+                  e % storage % Q(IRHOU,i,j,k)**2 + &
+                  e % storage % Q(IRHOV,i,j,k)**2 + &
+                  e % storage % Q(IRHOW,i,j,k)**2   &
+               ) / e % storage % Q(IRHO,i,j,k)**2
+
+               dp(1) = thermodynamics % gammaMinus1 * (         &
+                  e % storage % U_x(IRHOE,i,j,k) -              &
+                  0.5_RP * e % storage % U_x(IRHO,i,j,k) * u2 - &
+                  e % storage % Q(IRHOU,i,j,k) * ux(1) -        &
+                  e % storage % Q(IRHOV,i,j,k) * ux(2) -        &
+                  e % storage % Q(IRHOW,i,j,k) * ux(3)          &
+               )
+               dp(2) = thermodynamics % gammaMinus1 * (         &
+                  e % storage % U_y(IRHOE,i,j,k) -              &
+                  0.5_RP * e % storage % U_y(IRHO,i,j,k) * u2 - &
+                  e % storage % Q(IRHOU,i,j,k) * uy(1) -        &
+                  e % storage % Q(IRHOV,i,j,k) * uy(2) -        &
+                  e % storage % Q(IRHOW,i,j,k) * uy(3)          &
+               )
+               dp(3) = thermodynamics % gammaMinus1 * (         &
+                  e % storage % U_z(IRHOE,i,j,k) -              &
+                  0.5_RP * e % storage % U_z(IRHO,i,j,k) * u2 - &
+                  e % storage % Q(IRHOU,i,j,k) * uz(1) -        &
+                  e % storage % Q(IRHOV,i,j,k) * uz(2) -        &
+                  e % storage % Q(IRHOW,i,j,k) * uz(3)          &
+               )
+
+            elseif (grad_vars == GRADVARS_ENERGY) then
+               p = Pressure(e % storage % Q(:,i,j,k))
+               dp(1) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_x(IRHO,i,j,k) + &
+                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_x(IRHOE,i,j,k)
+               dp(2) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_y(IRHO,i,j,k) + &
+                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_y(IRHOE,i,j,k)
+               dp(3) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_z(IRHO,i,j,k) + &
+                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_z(IRHOE,i,j,k)
+
+            else ! grad_vars == GRADVARS_ENTROPY
+               p = Pressure(e % storage % Q(:,i,j,k))
+               dp(1) = p / e % storage % Q(IRHO,i,j,k) * &
+                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k)) + &
+                      p * e % storage % U_x(IRHOE,i,j,k))
+               dp(2) = p / e % storage % Q(IRHO,i,j,k) * &
+                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k)) + &
+                      p * e % storage % U_y(IRHOE,i,j,k))
+               dp(3) = p / e % storage % Q(IRHO,i,j,k) * &
+                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k)) + &
+                      p * e % storage % U_z(IRHOE,i,j,k))
+
+            end if
+
             derivs(2,cnt) = dp(1)**2 + dp(2)**2 + dp(3)**2
+
          end do ;                end do ;                end do
 
       end associate
@@ -1191,8 +1224,10 @@ module SCsensorClass
       case (SC_RHO_GRAD_ID)
          if ( grad_vars == GRADVARS_STATE ) then
             s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
-         else if (grad_vars == GRADVARS_ENTROPY) then
-            s = POW2(sum(Q * U_x)) + POW2(sum(Q * U_y)) + POW2(sum(Q * U_z))
+         else if ( grad_vars == GRADVARS_ENERGY ) then
+            s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
+         else ! grad_vars == GRADVARS_ENTROPY
+            s = POW2(dot_product(Q, U_x)) + POW2(dot_product(Q, U_y)) + POW2(dot_product(Q, U_z))
          end if
 
       case (SC_DIVV_ID)
