@@ -468,21 +468,23 @@ module SCsensorClass
 !
 !     Add 'inertia' to the scaled value
 !     ---------------------------------
+      if (sensor % min_steps > 1) then   ! Enter the loop only if necessary
 !$omp parallel do
-      do eID = 1, sem % mesh % no_of_elements
-      associate(e     => sem % mesh % elements(eID),                  &
-                value => sem % mesh % elements(eID) % storage % sensor)
-         if (value <= 0.0_RP .and. e % storage % last_sensed < sensor % min_steps) then
-            e % storage % sensor = e % storage % prev_sensor
-            e % storage % last_sensed = e % storage % last_sensed + 1
-         else
-            e % storage % sensor = value
-            e % storage % prev_sensor = value
-            e % storage % last_sensed = 0
-         end if
-      end associate
-      end do
+         do eID = 1, sem % mesh % no_of_elements
+         associate(e     => sem % mesh % elements(eID),                  &
+                   value => sem % mesh % elements(eID) % storage % sensor)
+            if (value <= 0.0_RP .and. e % storage % last_sensed < sensor % min_steps) then
+               e % storage % sensor = e % storage % prev_sensor
+               e % storage % last_sensed = e % storage % last_sensed + 1
+            else
+               e % storage % sensor = value
+               e % storage % prev_sensor = value
+               e % storage % last_sensed = 0
+            end if
+         end associate
+         end do
 !$omp end parallel do
+      end if
 
    end subroutine Compute_SCsensor
 !
