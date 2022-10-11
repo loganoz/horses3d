@@ -180,6 +180,7 @@ module ShockCapturing
          allocate(SC_SVV_t :: self % method1)
 
       case (SC_NO_VAL)
+         safedeallocate(self % method1)
 
       case default
          write(STD_OUT,*) 'ERROR. Unavailable first shock-capturing method. Options are:'
@@ -205,6 +206,7 @@ module ShockCapturing
          allocate(SC_SVV_t :: self % method2)
 
       case (SC_NO_VAL)
+         safedeallocate(self % method2)
 
       case default
          write(STD_OUT,*) 'ERROR. Unavailable second shock-capturing method. Options are:'
@@ -224,6 +226,10 @@ module ShockCapturing
 !     ----------------
       if (controlVariables % containsKey(SC_SENSOR_INERTIA_KEY)) then
          minSteps = controlVariables % realValueForKey(SC_SENSOR_INERTIA_KEY)
+         if (minSteps < 1) then
+            write(STD_OUT,*) 'ERROR. Sensor inertia must be at least 1.'
+            stop
+         end if
       else
          minSteps = 1
       end if
