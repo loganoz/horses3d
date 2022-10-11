@@ -43,9 +43,6 @@
                           Shock alpha 1 = 0.0
                              Shock mu 2 = 20.0e-3
                           Shock alpha 2 = 20.0e-3
-!                       Sensor variable = rho grad
-!                    Sensor lower limit = -1.0
-!                   Sensor higher limit = 1.0
                       SVV filter cutoff = 4.0
                        SVV filter shape = power
                         SVV filter type = low-pass
