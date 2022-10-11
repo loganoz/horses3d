@@ -685,8 +685,8 @@ module SCsensorClass
       maxNx = maxval(sem % mesh % Nx)
       maxNy = maxval(sem % mesh % Ny)
       maxNz = maxval(sem % mesh % Nz)
-      allocate(sVar(maxNx,maxNy,maxNz))
-      allocate(sVarMod(maxNx,maxNy,maxNz))
+      allocate(sVar(0:maxNx,0:maxNy,0:maxNz))
+      allocate(sVarMod(0:maxNx,0:maxNy,0:maxNz))
 
 !$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
       do eID = 1, sem % mesh % no_of_elements
@@ -769,8 +769,8 @@ module SCsensorClass
          end do         ; end do
 
          ! Total sum
-         den = 0.0_RP
-         do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
+         den = num
+         do k = 0, Nz-1 ; do j = 0, Ny-1 ; do i = 0, Nx-1
             den = den + sVarMod(i,j,k)**2 * Lwx(i) * Lwy(j) * Lwz(k)
          end do       ; end do       ; end do
 
