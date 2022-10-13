@@ -500,7 +500,7 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType)
+   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType,TEForm)
       implicit none
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
@@ -509,6 +509,8 @@ module AnisFASMultigridClass
       procedure(ComputeTimeDerivative_f), optional             :: ComputeTimeDerivativeIsolated
       type(TruncationError_t), target, optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
+      integer                , optional, intent(in)    :: TEForm     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
+
       !-------------------------------------------------
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
@@ -524,9 +526,9 @@ module AnisFASMultigridClass
          EstimateTE = .TRUE.
          TE_p => TE
          if (present(TEType)) then
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType,TEForm, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          else ! using NON_ISOLATED_TE by default
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE,TEForm, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          end if
       else
          EstimateTE = .FALSE.

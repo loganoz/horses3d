@@ -21,7 +21,7 @@ module pAdaptationClass
    use ElementClass
    use ElementConnectivityDefinitions  , only: axisMap
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
-   use TruncationErrorClass            , only: NMINest, TruncationError_t, ISOLATED_TE, NON_ISOLATED_TE, GenerateExactTEmap
+   use TruncationErrorClass            , only: NMINest, TruncationError_t, ISOLATED_TE, NON_ISOLATED_TE, GenerateExactTEmap, OLD_TE, NEW_TE
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
    use FileReadingUtilities            , only: RemovePath, getFileName, getIntArrayFromString, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
@@ -93,6 +93,7 @@ module pAdaptationClass
       type(MultiTauEstim_t)             :: MultiTauEstim
       integer                           :: NxyzMax(3)                      ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType                  ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
+      integer                           :: TruncErrorForm                  ! Truncation error form (either OLD_TE or NEW_TE)
       integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
       integer, allocatable              :: maxNdecrease
       real(kind=RP)                     :: time_interval
@@ -466,7 +467,7 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_TruncErrorForm, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
       logical      , allocatable     :: R_increasing, R_TEFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError, R_pSmoothing, R_cTruncError
       ! Extra vars
@@ -505,6 +506,7 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType   , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "truncation error formulation"  , R_TruncErrorForm   , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "max n decrease"         , this % maxNdecrease, in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
@@ -588,6 +590,24 @@ readloop:do
       else
          this % TruncErrorType = ISOLATED_TE
       end if
+
+!     Truncation error formulation, the selecion is between old and new (Andre's Rueda Ramirez thesis for more details)
+!     ---------------------
+      if ( R_TruncErrorForm /= "" ) then
+         call toLower (R_TruncErrorForm)
+         select case ( trim(R_TruncErrorForm) )
+            case ('old')
+               this % TruncErrorForm = OLD_TE
+            case ('new')
+               this % TruncErrorForm = NEW_TE
+            case default
+               write(STD_OUT,*) "Not recognized 'truncation error formulation'. Defaulting to old."
+               this % TruncErrorForm = OLD_TE
+         end select
+      else
+         this % TruncErrorForm = OLD_TE
+      end if
+
       
 !     Polynomial order jump
 !     ---------------------
@@ -919,7 +939,7 @@ readloop:do
 !
       if ( controlVariables % containsKey("get exact temap elem") ) then
          eID = controlVariables % integerValueForKey("get exact temap elem")
-         call GenerateExactTEmap(sem, NMIN, this % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, eID, this % TruncErrorType)
+         call GenerateExactTEmap(sem, NMIN, this % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, eID, TruncErrorType=this % TruncErrorType, TruncErrorForm =this % TruncErrorForm)
       end if
       
 !
@@ -943,7 +963,7 @@ readloop:do
       if (.not. this % ErrorEstimFromFiles) then
 
          CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
-         CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,this % TE, this % TruncErrorType)
+         CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,this % TE, TEType = this % TruncErrorType, TEForm = this % TruncErrorForm)
          CALL AnisFASpAdaptSolver % destruct
          
          ! Write truncation error files if specified
