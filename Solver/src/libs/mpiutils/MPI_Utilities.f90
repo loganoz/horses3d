@@ -28,14 +28,13 @@ module MPI_Utilities
       real(kind=RP), intent(in) :: x(:)
       real(kind=RP)             :: norm
       !-local-variables---------------------------------
-      real(kind=RP) :: xloc ! local x
       integer       :: ierr
       !-------------------------------------------------
 
       if (MPI_Process % doMPIAction) then
-         xloc = sum(x**2)
+         norm = sum(x**2)
 #ifdef _HAS_MPI_
-         call mpi_allreduce(xloc, norm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
+         call MPI_Allreduce(MPI_IN_PLACE, norm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
          norm = sqrt(norm)
       else
@@ -50,16 +49,14 @@ module MPI_Utilities
       real(kind=RP), intent(in) :: x(:)
       real(kind=RP)             :: norm
       !-local-variables---------------------------------
-      real(kind=RP) :: xloc ! local x
       integer       :: ierr
       !-------------------------------------------------
 
       norm = maxval(abs(x))
 
       if (MPI_Process % doMPIAction) then
-         xloc = norm
 #ifdef _HAS_MPI_
-         call mpi_allreduce(xloc, norm, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+         call MPI_Allreduce(MPI_IN_PLACE, norm, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
 #endif
       end if
 
@@ -71,25 +68,22 @@ module MPI_Utilities
       integer, intent(inout) :: x(..)
       integer, intent(in)    :: op
       !-local-variables---------------------------------
-      integer :: xloc(size(x)) ! local x
       integer :: ierr
       !-------------------------------------------------
 
 #ifdef _HAS_MPI_
-      select rank(x)
-      rank(0)
-         xloc = x
-         call mpi_allreduce(xloc, x, 1, MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
-      rank(1)
-         xloc = x
-         call mpi_allreduce(xloc, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
-      rank(2)
-         xloc = pack(x, .true.)
-         call mpi_allreduce(xloc, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
-      rank(3)
-         xloc = pack(x, .true.)
-         call mpi_allreduce(xloc, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
-      end select
+      if (MPI_Process % doMPIAction) then
+         select rank(x)
+         rank(0)
+            call MPI_Allreduce(MPI_IN_PLACE, x, 1, MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(1)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(2)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(3)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         end select
+      end if
 #endif
    end subroutine MPI_OpAll_int
 
@@ -99,25 +93,22 @@ module MPI_Utilities
       real(kind=RP), intent(inout) :: x(..)
       integer,       intent(in)    :: op
       !-local-variables---------------------------------
-      real(kind=RP) :: xloc(size(x)) ! local x
       integer       :: ierr
       !-------------------------------------------------
 
 #ifdef _HAS_MPI_
-      select rank(x)
-      rank(0)
-         xloc = x
-         call mpi_allreduce(xloc, x, 1, MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
-      rank(1)
-         xloc = x
-         call mpi_allreduce(xloc, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
-      rank(2)
-         xloc = pack(x, .true.)
-         call mpi_allreduce(xloc, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
-      rank(3)
-         xloc = pack(x, .true.)
-         call mpi_allreduce(xloc, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
-      end select
+      if (MPI_Process % doMPIAction) then
+         select rank(x)
+         rank(0)
+            call MPI_Allreduce(MPI_IN_PLACE, x, 1, MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(1)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(2)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(3)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         end select
+      end if
 #endif
    end subroutine MPI_OpAll_real
 
@@ -127,7 +118,7 @@ module MPI_Utilities
       integer, intent(inout) :: x(..)
       !-------------------------------------------------
 
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
       call MPI_OpAll(x, MPI_SUM)
 #endif
    end subroutine MPI_SumAll_int
@@ -138,7 +129,7 @@ module MPI_Utilities
       real(kind=RP), intent(inout) :: x(..)
       !-------------------------------------------------
 
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
       call MPI_OpAll(x, MPI_SUM)
 #endif
    end subroutine MPI_SumAll_real
@@ -148,46 +139,45 @@ module MPI_Utilities
       !-arguments---------------------------------------
       real(kind=RP), intent(inout) :: minimum(..), maximum(..)
       !-local-variables---------------------------------
-      real(kind=RP), allocatable :: lminmax_in(:), lminmax_out(:)
+      real(kind=RP), allocatable :: lminmax(:)
       integer                    :: nmin, nmax, n
       integer                    :: ierr
       !-------------------------------------------------
 
 #ifdef _HAS_MPI_
-      select rank(minimum)
-      rank(0)
-         select rank(maximum)
+      if (MPI_Process % doMPIAction) then
+         select rank(minimum)
          rank(0)
+            select rank(maximum)
+            rank(0)
 
-            lminmax_in = [-minimum, maximum]
-            allocate(lminmax_out(2))
+               lminmax = [-minimum, maximum]
 
-            call mpi_allreduce(lminmax_in, lminmax_out, 2, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+               call MPI_Allreduce(MPI_IN_PLACE, lminmax, 2, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-            minimum = -lminmax_out(1)
-            maximum = lminmax_out(2)
+               minimum = -lminmax(1)
+               maximum = lminmax(2)
 
-         end select
+            end select
 
-      rank(1)
-         select rank(maximum)
          rank(1)
+            select rank(maximum)
+            rank(1)
 
-            nmin = size(minimum)
-            nmax = size(maximum)
-            n = nmin + nmax
+               nmin = size(minimum)
+               nmax = size(maximum)
+               n = nmin + nmax
 
-            lminmax_in = [-minimum, maximum]
-            allocate(lminmax_out(n))
+               lminmax = [-minimum, maximum]
 
-            call mpi_allreduce(lminmax_in, lminmax_out, n, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+               call MPI_Allreduce(MPI_IN_PLACE, lminmax, n, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
 
-            minimum = -lminmax_out(1:nmin)
-            maximum = lminmax_out(nmin+1:n)
+               minimum = -lminmax(1:nmin)
+               maximum = lminmax(nmin+1:n)
 
+            end select
          end select
-
-      end select
+      end if
 
 #endif
    end subroutine MPI_MinMax
