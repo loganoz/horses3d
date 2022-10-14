@@ -46,7 +46,8 @@ module Clustering
       integer, allocatable :: prevClusters(:)
       integer              :: ndims
       integer              :: npts
-      integer              :: i
+      integer              :: i, ierr
+      logical              :: breakFlag
 
 
       ndims = size(x, dim=1)
@@ -59,10 +60,25 @@ module Clustering
 !     Loop until convergence
 !     ----------------------
       do i = 1, maxIters
+
          prevClusters = clusters
          call kMeans_compute_centroids(nclusters, ndims, npts, x, xavg, clusters)
          call kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
-         if (all(prevClusters == clusters)) exit
+
+         if (MPI_Process % isRoot) then
+            if (all(prevClusters == clusters)) then
+               breakFlag = .true.
+            else
+               breakFlag = .false.
+            end if
+         end if
+#if defined(_HAS_MPI_)
+         if (MPI_Process % doMPIAction) then
+            call MPI_Bcast(breakFlag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+         end if
+#endif
+         if (breakFlag) exit
+
       end do
 !
 !     Check convergence
@@ -77,7 +93,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
+   subroutine kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
 !
 !     ---------
 !     Interface
@@ -169,7 +185,7 @@ module Clustering
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: i, j
+      integer  :: i, j, ierr
       real(RP) :: normvec(nclusters)
       real(RP) :: xavg_tmp(ndims,nclusters)
       integer  :: indices(nclusters)
@@ -178,12 +194,19 @@ module Clustering
 !
 !     Sort the clusters by their distance to the origin
 !     -------------------------------------------------
-      normvec = norm2(xavg, dim=1)
-      indices = [(i, i = 1, nclusters)]
-      call BubblesortWithFriend(normvec, indices)
-      do i = 1, nclusters
-         clustermap(indices(i)) = i
-      end do
+      if (MPI_Process % isRoot) then
+         normvec = norm2(xavg, dim=1)
+         indices = [(i, i = 1, nclusters)]
+         call BubblesortWithFriend(normvec, indices)
+         do i = 1, nclusters
+            clustermap(indices(i)) = i
+         end do
+      end if
+#if defined(_HAS_MPI_)
+      if (MPI_Process % doMPIAction) then
+         call MPI_Bcast(clustermap, size(clustermap), MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      end if
+#endif
 !
 !     Assign nodes to clusters
 !     ------------------------
@@ -220,15 +243,20 @@ module Clustering
       real(RP), parameter :: small = 1e4_RP * epsilon(1.0_RP)  ! Magic!!
       integer,  parameter :: maxIters = 50
 
-      type(GaussianList_t)  :: g, local_g
+      type(GaussianList_t)  :: g
       integer               :: info_
       integer               :: ndims
       integer               :: npts
       integer               :: iter
+      logical               :: breakFlag
       real(RP)              :: ll
       real(RP)              :: llprev
       real(RP), allocatable :: R(:,:)
       real(RP), allocatable :: minimum(:), maximum(:)
+#if defined(_HAS_MPI_)
+      integer               :: i
+      integer               :: ierr
+#endif
 
 
       nclusters = init_nclusters
@@ -254,11 +282,26 @@ module Clustering
       allocate(R(npts, nclusters))
       ll = huge(1.0_RP)
       do iter = 1, maxIters
+
          llprev = ll
          call GMM_Estep(ndims, npts, nclusters, g, x, R, small, ll)
-         call GMM_Mstep(ndims, npts, nclusters, g, local_g, x, R, small)
+         call GMM_Mstep(ndims, npts, nclusters, g, x, R, small)
          nclusters = g % n
-         if (abs((ll - llprev) / ll) <= tol .or. nclusters < 1) exit
+
+         if (MPI_Process % isRoot) then
+            if (abs((ll - llprev) / ll) <= tol .or. nclusters < 1) then
+               breakFlag = .true.
+            else
+               breakFlag = .false.
+            end if
+         end if
+#if defined(_HAS_MPI_)
+         if (MPI_Process % doMPIAction) then
+            call MPI_Bcast(breakFlag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+         end if
+#endif
+         if (breakFlag) exit
+
       end do
 !
 !     Check convergence
@@ -281,7 +324,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GMM_init(g, ndims, nclusters, xavg)
+   subroutine GMM_init(g, ndims, nclusters, xavg)
 !
 !     ---------
 !     Interface
@@ -341,7 +384,7 @@ module Clustering
       xmu = x - mu
       det = matdet(ndims, S)
       GMM_pdf = exp(-0.5_RP * dot_product(xmu, matmul(Sinv, xmu))) / &
-          sqrt(pi2 ** ndims * det)
+                    sqrt(pi2 ** ndims * det)
 
    end function GMM_pdf
 !
@@ -365,6 +408,7 @@ module Clustering
 !     Local variables
 !     ---------------
       integer  :: i, j
+      integer  :: ierr
       real(RP) :: den
 
 !
@@ -390,15 +434,21 @@ module Clustering
          logL = logL + log(den)
       end do
 !
-!     Global log-likelihood
-!     ---------------------
-      call MPI_SumAll(logL)
+!     Global log-likelihood (only in root)
+!     ------------------------------------
+#if defined(_HAS_MPI_)
+      if (MPI_Process % doMPIRootAction) then
+         call MPI_Reduce(MPI_IN_PLACE, logL, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      elseif (MPI_Process % doMPIAction) then
+         call MPI_Reduce(logL, logL, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+      end if
+#endif
 
    end subroutine GMM_Estep
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_Mstep(ndims, npts, nclusters, g, local_g, x, R, tol)
+   subroutine GMM_Mstep(ndims, npts, nclusters, g, x, R, tol)
 !
 !     ---------
 !     Interface
@@ -407,7 +457,6 @@ module Clustering
       integer,              intent(in)    :: npts
       integer,              intent(inout) :: nclusters
       type(GaussianList_t), intent(inout) :: g
-      type(GaussianList_t), intent(inout) :: local_g
       real(RP),             intent(in)    :: x(:,:)
       real(RP),             intent(in)    :: R(:,:)
       real(RP),             intent(in)    :: tol
@@ -452,14 +501,17 @@ module Clustering
 !
 !     Make sure the clusters are OK
 !     -----------------------------
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         local_g = g
-         call MPI_reduce(local_g % tau, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_reduce(local_g % mu, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_reduce(local_g % cov, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-#endif
+#if defined(_HAS_MPI_)
+      if (MPI_Process % doMPIRootAction) then
+         call MPI_Reduce(MPI_IN_PLACE, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(MPI_IN_PLACE, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(MPI_IN_PLACE, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+      elseif (MPI_Process % doMPIAction) then
+         call MPI_Reduce(g % tau, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(g % mu, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(g % cov, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
       end if
+#endif
 
       if (MPI_Process % isRoot) then
          k = 1
@@ -504,20 +556,20 @@ module Clustering
 !
 !     Syncronize
 !     ----------
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
          call MPI_Bcast(g % tau, size(g % tau), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
          call MPI_Bcast(g % mu, size(g % mu), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
          call MPI_Bcast(g % cov, size(g % cov), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
          call MPI_Bcast(g % covinv, size(g % covinv), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
-#endif
       end if
+#endif
 
    end subroutine GMM_Mstep
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine GMM_sort_clusters(ndims, npts, nclusters, g, x, xavg, clusters)
+   subroutine GMM_sort_clusters(ndims, npts, nclusters, g, x, xavg, clusters)
 !
 !     ---------
 !     Interface
@@ -533,7 +585,7 @@ module Clustering
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: i, j
+      integer  :: i, j, ierr
       real(RP) :: val, tmp
       real(RP) :: normvec(nclusters)
       integer  :: indices(nclusters)
@@ -542,12 +594,19 @@ module Clustering
 !
 !     Sort the clusters by their distance to the origin
 !     -------------------------------------------------
-      normvec = norm2(g % mu(:,1:nclusters), dim=1)
-      indices = [(i, i = 1, nclusters)]
-      call BubblesortWithFriend(normvec, indices)
-      do i = 1, nclusters
-         clustermap(indices(i)) = i
-      end do
+      if (MPI_Process % isRoot) then
+         normvec = norm2(g % mu(:,1:nclusters), dim=1)
+         indices = [(i, i = 1, nclusters)]
+         call BubblesortWithFriend(normvec, indices)
+         do i = 1, nclusters
+            clustermap(indices(i)) = i
+         end do
+      end if
+#if defined(_HAS_MPI_)
+      if (MPI_Process % doMPIAction) then
+         call MPI_Bcast(clustermap, size(clustermap), MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      end if
+#endif
 !
 !     Assign nodes to clusters
 !     ------------------------
