@@ -3100,7 +3100,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % nodeType = self % nodeType
             end if
 !
-!           Construct an auxiliar mesh to read the solution
+!           Construct an auxiliary mesh to read the solution
 !           -----------------------------------------------
 
             auxMesh % no_of_elements = self % no_of_elements
@@ -3130,7 +3130,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % elements(eID) % storage => auxMesh % storage % elements(eID)
             end do
 
-!           Read the solution in the auxiliar mesh and interpolate to current mesh
+!           Read the solution in the auxiliary mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
 
             call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA )
@@ -3381,7 +3381,7 @@ slavecoord:             DO l = 1, 4
 
       fileName = controlVariables % stringValueForKey("get discretization error of",LINE_LENGTH)
 
-!     Construct an auxiliar mesh to read the solution
+!     Construct an auxiliary mesh to read the solution
 !     -----------------------------------------------
 
       refMesh % nodeType = mesh % nodeType
@@ -3401,7 +3401,7 @@ slavecoord:             DO l = 1, 4
       call refMesh % PrepareForIO
       call refMesh % AllocateStorage (NDOF, controlVariables,.FALSE.)
 
-!     Read the solution in the auxiliar mesh and interpolate to current mesh
+!     Read the solution in the auxiliary mesh and interpolate to current mesh
 !     ----------------------------------------------------------------------
 
       call refMesh % LoadSolution ( fileName, initial_iteration, initial_time )
@@ -3426,7 +3426,7 @@ slavecoord:             DO l = 1, 4
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!        AUXILIAR SUBROUTINES
+!        AUXILIARY SUBROUTINES
 !        --------------------
 !
 !////////////////////////////////////////////////////////////////////////

@@ -139,7 +139,7 @@ Module WallFunctionConnectivity  !
                     oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
                     linkedElementID = e % Connection(oppositeIndex) % globID
                 end associate
-                linkedElementID = getElemntID(mesh, linkedElementID)
+                linkedElementID = getElementID(mesh, linkedElementID)
                 wallFaceID(k) = fID
                 wallElemIds(k) = linkedElementID
                 !get the normalIndex of the linked element instead of actual element, needed for rotated meshes
@@ -407,7 +407,7 @@ Module WallFunctionConnectivity  !
 
     End Subroutine WallStartMeanV
 
-    integer Function getElemntID(mesh, globeID)
+    integer Function getElementID(mesh, globeID)
 
 !     *******************************************************************
 !        This subroutine get the element ID based on the global element ID
@@ -427,7 +427,7 @@ Module WallFunctionConnectivity  !
 
         do eID = 1, mesh % no_of_elements
             if (mesh % elements(eID) % globID .eq. globeID) then
-                getElemntID = eID
+                getElementID = eID
                 return
             end if
         end do
@@ -437,7 +437,7 @@ Module WallFunctionConnectivity  !
         errorMessage(STD_OUT)
         stop 
 
-    End Function getElemntID
+    End Function getElementID
 
 End Module WallFunctionConnectivity
 #endif

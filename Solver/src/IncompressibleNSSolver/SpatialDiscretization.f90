@@ -186,7 +186,7 @@ module SpatialDiscretization
          INTEGER :: k, eID
 !
 !        *******************************************************************
-!        Construct the auxiliar state for the fluxes with density positivity
+!        Construct the auxiliary state for the fluxes with density positivity
 !        *******************************************************************
 !
 !$omp do schedule(runtime)
