@@ -526,11 +526,11 @@ end module ProblemFileFunctions
             character(len=29)                  :: testName = "Forward Facing Step (SVV)"
             type(FTAssertionsManager), pointer :: sharedManager
             real(kind=RP), parameter           :: SVVdiss = 7.56510e-8_RP
-            real(kind=RP), parameter           :: res(5) = [ 3590.0433_RP, &
-                                                             838.7658_RP, &
-                                                             185.8130_RP, &
+            real(kind=RP), parameter           :: res(5) = [ 3593.8000_RP, &
+                                                             852.8293_RP, &
+                                                             180.8959_RP, &
                                                              0.0_RP, &
-                                                             3018.6708_RP  ]
+                                                             3022.6559_RP  ]
 
             call initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
