@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    FreeSlipWallBC.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jul 25 15:26:41 2018
-!   @Last revision date: Thu Oct 18 16:09:45 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: f0ca5b23053e717fbb5fcc06b6de56d366b37b53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module FreeSlipWallBCClass
    use SMConstants
@@ -284,11 +272,16 @@ module FreeSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: qNorm
+         real(kind=RP) :: qNorm, pressure_aux
 
          qNorm = nHat(IX) * Q(IRHOU) + nHat(IY) * Q(IRHOV) + nHat(IZ) * Q(IRHOW)
 
          Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * qNorm * nHat
+
+         !Isothermal BC
+         pressure_aux = Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2)
+         Q(IRHOE) = Q(IRHOE) + self % wallType*(pressure_aux/thermodynamics % gammaMinus1 + 0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO) - Q(IRHOE))
+
 
       end subroutine FreeSlipWallBC_FlowState
 
@@ -317,7 +310,9 @@ module FreeSlipWallBCClass
          Q_aux(IRHO) = Q(IRHO)
          Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW)
          Q_aux(IRHOE) = Q(IRHOE) + self % wallType*(Q(IRHO)*self % eWall+0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO)-Q(IRHOE))
-
+#if defined(SPALARTALMARAS)
+		   Q_aux(IRHOTHETA)= Q(IRHOTHETA)
+#endif
          call GetGradients(NCONS, NGRAD, Q_aux, U)
 
       end subroutine FreeSlipWallBC_FlowGradVars
@@ -350,7 +345,9 @@ module FreeSlipWallBCClass
          heatFlux = flux(IRHOE) - viscWork
          flux(IRHO:IRHOW) = 0.0_RP
          flux(IRHOE) = self % wallType * heatFlux  ! 0 (Adiabatic)/ heatFlux (Isothermal)
-         
+#if defined(SPALARTALMARAS)
+         flux(IRHOTHETA) = 0.0_RP
+#endif
       end subroutine FreeSlipWallBC_FlowNeumann
 #endif
 !

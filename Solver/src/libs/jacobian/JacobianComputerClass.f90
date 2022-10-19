@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    JacobianComputerClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Wed Jul 17 11:53:01 2019
-!   @Last revision date: Sun Aug  4 16:39:41 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
-!
-!//////////////////////////////////////////////////////
-!
 ! Base class for the Jacobian computers
 !
 !//////////////////////////////////////////////////////
@@ -27,6 +18,7 @@ module JacobianComputerClass
    use ParamfileRegions                , only: readValueInRegion
    use DenseBlockDiagonalMatrixClass   , only: DenseBlockDiagMatrix_t
    use SparseBlockDiagonalMatrixClass  , only: SparseBlockDiagMatrix_t
+   use FTValueDictionaryClass
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -92,12 +84,13 @@ module JacobianComputerClass
 !     ------------------------------------
 !     Construct the JacobianInfo variables
 !     ------------------------------------
-      subroutine Jacobian_Construct(this, mesh, nEqn)
+      subroutine Jacobian_Construct(this, mesh, nEqn, controlVariables)
          implicit none
          !-arguments-----------------------------------------
          class(JacobianComputer_t), intent(inout) :: this
          type(HexMesh)            , intent(inout) :: mesh
          integer                  , intent(in)    :: nEqn
+         type(FTValueDictionary)  , intent(in)    :: controlVariables
          !-local-variables-----------------------------------
          integer :: eID, ierr
          integer :: all_globIDs(mesh % no_of_allElements)
@@ -260,7 +253,7 @@ module JacobianComputerClass
 !     ----------------------------------------------------
 !     Generic subroutine for computing the Jacobian matrix
 !     ----------------------------------------------------
-      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
+      subroutine Jacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
          implicit none
          !-arguments----------------------------------
          class(JacobianComputer_t)        , intent(inout)     :: this
@@ -268,7 +261,8 @@ module JacobianComputerClass
          integer,                   intent(in)        :: nEqn               ! TODO:  Deprecate
          real(kind=RP)            , intent(in)        :: time
          class(Matrix_t)          , intent(inout)     :: Matrix
-         procedure(ComputeTimeDerivative_f), optional :: TimeDerivative      !   
+         procedure(ComputeTimeDerivative_f), optional :: TimeDerivative
+         procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated 
          real(kind=RP)  , optional, intent(in)        :: eps_in
          logical        , optional, intent(in)        :: BlockDiagonalized  !<? Construct only the block diagonal? (Only for AnJacobian_t)
          integer        , optional, intent(in)        :: mode
@@ -312,7 +306,7 @@ module JacobianComputerClass
          integer :: nXi_od, nEta_od       ! Number of nodes in every direction (diagonal blocks)
          integer :: EtaSpa_od, ZetaSpa_od ! Spacing for these two coordinate directions (diagonal blocks)
          integer :: deltas          ! Number of deltas for a specific dof combination
-         integer :: baseCol         ! Base column for a specidic DOF
+         integer :: baseCol         ! Base column for a specific DOF
          integer :: nnz             ! Total number of nonzeros
          integer :: nnz_row         ! Number of nonzeros for specific row
          integer :: elSide          ! Side of element
@@ -428,7 +422,7 @@ module JacobianComputerClass
                      if (flowIsNavierStokes) then  ! Elliptic terms
                         if (mesh % nodeType == GAUSSLOBATTO) then
                            if ( elInd_minus(normAx_minus) /= normAxInd_minus .and. &
-                                elInd_plus (normAx_plus)  /= normAxInd_plus       ) cycle  ! TODO: This gives a sparsity pattern that works but thay may be too dense!!
+                                elInd_plus (normAx_plus)  /= normAxInd_plus       ) cycle  ! TODO: This gives a sparsity pattern that works but they may be too dense!!
                         end if
                      else                          ! Hyperbolic terms
                         if (mesh % nodeType == GAUSSLOBATTO) then
@@ -518,8 +512,8 @@ module JacobianComputerClass
 !
 !////////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE Look_for_neighbour(this, mesh)
-         IMPLICIT NONE 
+   SUBROUTINE Look_for_neighbour(this, mesh)
+      IMPLICIT NONE 
 !
 !     -----------------------------------------------------------------------------
 !     This subroutine finds the neighbours of all elements (conforming meshes only)
@@ -531,70 +525,73 @@ module JacobianComputerClass
 !     Input parameters
 !     ----------------
 !
-         TYPE(Neighbor_t)                  :: this(:)
-         TYPE(HexMesh)                     :: mesh
+      TYPE(Neighbor_t)                  :: this(:)
+      TYPE(HexMesh)                     :: mesh
 !
 !     ---------------
 !     Local Variables
 !     ---------------
 !
-         INTEGER                         :: i,j,iEl
-         
+      INTEGER                         :: i,j,iEl
+
          DO iEl = 1, SIZE(mesh%elements)
-            this(iEl)%elmnt(7) = iEl  ! The last one is itself
+            this(iEl)%elmnt(7) = mesh % elements(iEl) % globID  ! The last one is itself
             DO j = 1, 6
                IF (mesh % elements(iEl) % NumberOfConnections(j) == 0) THEN
                   this(iEl)%elmnt(j) = 0
                ELSE
-                  this(iEl)%elmnt(j) = mesh % elements(iEl) % Connection(j) % globID ! TODO: Careful with this if NumJac is ever needed to work with MPI...
+                  this(iEl)%elmnt(j) = mesh % elements(iEl) % Connection(j) % globID 
                ENDIF
             ENDDO
          ENDDO
-    
-      END SUBROUTINE 
+
+   END SUBROUTINE 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !  
+   FUNCTION ijk2local(i,j,k,l,N_EQN,Nx,Ny,Nz) RESULT(idx)
+!  -----------------------------------------------------------------------------------------------------------------------------
 !  Returns the local index relative to an element from the local coordinates: i(lagrange node x), j(lagrange node y), 
 !  k(lagrange node z), l(equation number)
 !  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
-   
-      FUNCTION ijk2local(i,j,k,l,N_EQN,Nx,Ny,Nz) RESULT(idx)
-         IMPLICIT NONE
-         
-         INTEGER, INTENT(IN)   :: i, j, k, l, Nx, Ny, Nz, N_EQN
-         INTEGER               :: idx
-         
-         IF (l < 1 .OR. l > N_EQN)  STOP 'error in ijk2local, l has a wrong value'
-         IF (i < 0 .OR. i > Nx)     STOP 'error in ijk2local, i has a wrong value'
-         IF (j < 0 .OR. j > Ny)     STOP 'error in ijk2local, j has a wrong value'
-         IF (k < 0 .OR. k > Nz)     STOP 'error in ijk2local, k has a wrong value'
-         
-         idx = k*(Nx+1)*(Ny+1)*N_EQN + j*(Nx+1)*N_EQN + i*N_EQN + l
-      END FUNCTION
-   
+!  -----------------------------------------------------------------------------------------------------------------------------
+      IMPLICIT NONE
+      
+      INTEGER, INTENT(IN)   :: i, j, k, l, Nx, Ny, Nz, N_EQN
+      INTEGER               :: idx
+      
+      IF (l < 1 .OR. l > N_EQN)  STOP 'error in ijk2local, l has a wrong value'
+      IF (i < 0 .OR. i > Nx)     STOP 'error in ijk2local, i has a wrong value'
+      IF (j < 0 .OR. j > Ny)     STOP 'error in ijk2local, j has a wrong value'
+      IF (k < 0 .OR. k > Nz)     STOP 'error in ijk2local, k has a wrong value'
+      
+      idx = k*(Nx+1)*(Ny+1)*N_EQN + j*(Nx+1)*N_EQN + i*N_EQN + l
+   END FUNCTION
+!
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   FUNCTION local2ijk(idx,N_EQN,Nx,Ny,Nz) RESULT (indices)
+!  -----------------------------------------------------------------------------------------------------------------------------
 !  Returns the coordinates relative to an element: l(equation number), i(lagrange node x), j(lagrange node y), k(lagrange node z)
 !  from the local index  
 !  N are the polinomial orders in x, y and z directions, N_EQN is the number of equations
-   
-      FUNCTION local2ijk(idx,N_EQN,Nx,Ny,Nz) RESULT (indices)
+!  -----------------------------------------------------------------------------------------------------------------------------
+      INTEGER, INTENT(IN)   :: idx, Nx, Ny, Nz, N_EQN
+      INTEGER               :: indices(4)
+      INTEGER               :: tmp1, tmp2
       
-         INTEGER, INTENT(IN)   :: idx, Nx, Ny, Nz, N_EQN
-         INTEGER               :: indices(4)
-         INTEGER               :: tmp1, tmp2
-         
-         IF (idx < 1 .OR. idx > (Nx+1)*(Ny+1)*(Nz+1)*N_EQN) STOP 'error in local2ijk, idx has wrong value'
-         
-         indices(4) = (idx-1) / ((Nx+1)*(Ny+1) * N_EQN)
-         tmp1       = MOD((idx-1),((Nx+1)*(Ny+1) * N_EQN) )
-         indices(3) = tmp1 / ((Nx+1)*N_EQN)
-         tmp2       = MOD(tmp1,((Nx+1)*N_EQN))
-         indices(2) = tmp2 / (N_EQN)
-         indices(1) = MOD(tmp2, N_EQN) + 1
-      END FUNCTION
-
+      IF (idx < 1 .OR. idx > (Nx+1)*(Ny+1)*(Nz+1)*N_EQN) STOP 'error in local2ijk, idx has wrong value'
+      
+      indices(4) = (idx-1) / ((Nx+1)*(Ny+1) * N_EQN)
+      tmp1       = MOD((idx-1),((Nx+1)*(Ny+1) * N_EQN) )
+      indices(3) = tmp1 / ((Nx+1)*N_EQN)
+      tmp2       = MOD(tmp1,((Nx+1)*N_EQN))
+      indices(2) = tmp2 / (N_EQN)
+      indices(1) = MOD(tmp2, N_EQN) + 1
+   END FUNCTION
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module JacobianComputerClass
 
 

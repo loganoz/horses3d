@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
@@ -298,7 +294,6 @@
 !
             CHARACTER(LEN=29)                  :: testName           = "Euler Cylinder"
             REAL(KIND=RP)                      :: maxError
-            REAL(KIND=RP), ALLOCATABLE         :: QExpected(:,:,:,:)
             INTEGER                            :: eID
             INTEGER                            :: i, j, k, N
             TYPE(FTAssertionsManager), POINTER :: sharedManager
@@ -325,7 +320,7 @@
 
 #if defined(NAVIERSTOKES)
             real(kind=RP), parameter :: final_time = 8.4020848657635838_RP
-            real(kind=RP), parameter :: res(NCONS) = [ 3.2245412233756249E-003_RP, &
+            real(kind=RP), parameter :: res(5) = [ 3.2245412233756249E-003_RP, &
                                                        7.2948338786761158E-002_RP, &
                                                        7.8482433396760149E-012_RP, &
                                                        6.3956090995916370E-002_RP, &

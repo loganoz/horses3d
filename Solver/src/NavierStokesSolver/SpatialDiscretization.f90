@@ -1,22 +1,10 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      DGTimeDerivativeRoutines.f95
-!      Created: 2008-07-13 16:13:12 -0400 
-!      By: David Kopriva  
-!
-!      3D version by D.A. Kopriva 6/17/15, 12:35 PM
-!
-!
-!////////////////////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
       use HyperbolicDiscretizations
       use EllipticDiscretizations
       use LESModels
-      use SpectralVanishingViscosity
+      use ShockCapturing
       use DGIntegrals
       use MeshTypes
       use HexMeshClass
@@ -33,6 +21,7 @@ module SpatialDiscretization
                                     set_getVelocityGradients
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
+      use IBMClass
 #ifdef _HAS_MPI_
       use mpi
 #endif
@@ -41,53 +30,27 @@ module SpatialDiscretization
       public   ComputeTimeDerivative, ComputeTimeDerivativeIsolated, viscousDiscretizationKey
       public   Initialize_SpaceAndTimeMethods, Finalize_SpaceAndTimeMethods
 
+      procedure(GetGradientValues_f), pointer :: GetGradients
+      procedure(EllipticFlux_f),      pointer :: ViscousFlux
 
-      abstract interface
-         SUBROUTINE computeElementInterfaceFluxF(f)
-            use FaceClass
-            IMPLICIT NONE
-            TYPE(Face)   , INTENT(inout) :: f   
-         end subroutine computeElementInterfaceFluxF
-
-         SUBROUTINE computeMPIFaceFluxF(f)
-            use FaceClass
-            IMPLICIT NONE
-            TYPE(Face)   , INTENT(inout) :: f   
-         end subroutine computeMPIFaceFluxF
-
-         SUBROUTINE computeBoundaryFluxF(f, time)
-            use SMConstants
-            use FaceClass,  only: Face
-            IMPLICIT NONE
-            type(Face),    intent(inout) :: f
-            REAL(KIND=RP)                :: time
-         end subroutine computeBoundaryFluxF
-      end interface
-      
-      procedure(computeElementInterfaceFluxF), pointer :: computeElementInterfaceFlux
-      procedure(computeMPIFaceFluxF),          pointer :: computeMPIFaceFlux
-      procedure(computeBoundaryFluxF),         pointer :: computeBoundaryFlux
-
-      procedure(GetGradientValues_f),           pointer :: GetGradients
-      procedure(EllipticFlux_f),                pointer :: ViscousFlux
-   
       character(len=LINE_LENGTH), parameter  :: viscousDiscretizationKey = "viscous discretization"
 !
-!     ========      
-      CONTAINS 
-!     ========      
+!     ========
+      CONTAINS
+!     ========
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine Initialize_SpaceAndTimeMethods(controlVariables, mesh)
+      subroutine Initialize_SpaceAndTimeMethods(controlVariables, sem)
          use FTValueDictionaryClass
          use Utilities, only: toLower
          use mainKeywordsModule
          use Headers
          use MPI_Process_Info
+         use WallFunctionConnectivity
          implicit none
          class(FTValueDictionary),  intent(in)  :: controlVariables
-         class(HexMesh)                         :: mesh
+         class(DGSem)                           :: sem
 !
 !        ---------------
 !        Local variables
@@ -97,21 +60,27 @@ module SpatialDiscretization
          character(len=LINE_LENGTH)       :: viscousDiscretizationName
          character(len=*), parameter      :: gradient_variables_key = "gradient variables"
          character(len=LINE_LENGTH)       :: gradient_variables
-         
-         if (.not. mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
-         
+         real(RP)                         :: hnmin, hnmax
+
+         if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
+
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
             end if
+
+            call hnRange(sem % mesh, hnmin, hnmax)
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+            write(STD_OUT,'(/)')
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
             inviscidDiscretizationName = controlVariables % stringValueForKey(inviscidDiscretizationKey,requestedLength = LINE_LENGTH)
 
             call toLower(inviscidDiscretizationName)
-         
+
             select case ( trim(inviscidDiscretizationName) )
             case ( "standard" )
                if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
@@ -125,17 +94,17 @@ module SpatialDiscretization
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
                errorMessage(STD_OUT)
-               stop 
+               stop
 
             end select
-               
+
             call HyperbolicDiscretization % Initialize(controlVariables)
    !
    !        Initialize viscous discretization
-   !        ---------------------------------         
+   !        ---------------------------------
             if ( flowIsNavierStokes ) then
-               if ( controlVariables % ContainsKey(gradient_variables_key) ) then   
-                  gradient_variables = controlVariables % StringValueForKey(gradient_variables_key, LINE_LENGTH)   
+               if ( controlVariables % ContainsKey(gradient_variables_key) ) then
+                  gradient_variables = controlVariables % StringValueForKey(gradient_variables_key, LINE_LENGTH)
                   call toLower(gradient_variables)
 
                   select case (trim(gradient_variables))
@@ -144,7 +113,7 @@ module SpatialDiscretization
                      GetGradients => NSGradientVariables_STATE
                      ViscousFlux  => ViscousFlux_STATE
                      call set_getVelocityGradients(GRADVARS_STATE)
-   
+
                   case ("entropy")
                      call SetGradientVariables(GRADVARS_ENTROPY)
                      GetGradients => NSGradientVariables_ENTROPY
@@ -186,7 +155,7 @@ module SpatialDiscretization
 
                viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
                call toLower(viscousDiscretizationName)
-               
+
                select case ( trim(viscousDiscretizationName) )
                case("br1")
                   allocate(BassiRebay1_t     :: ViscousDiscretization)
@@ -204,13 +173,13 @@ module SpatialDiscretization
                   write(STD_OUT,'(A)') "  * BR2"
                   write(STD_OUT,'(A)') "  * IP"
                   errorMessage(STD_OUT)
-                  stop 
+                  stop
 
                end select
 
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
                call ViscousDiscretization % Describe
-      
+
             else
                if (.not. allocated(ViscousDiscretization)) allocate(EllipticDiscretization_t :: ViscousDiscretization)
                call ViscousDiscretization % Construct(controlVariables, ELLIPTIC_NS)
@@ -221,48 +190,41 @@ module SpatialDiscretization
                GetGradients => NSGradientVariables_STATE
                ViscousFlux  => ViscousFlux_STATE
                call set_getVelocityGradients(GRADVARS_STATE)
-               
+
             end if
 
    !
    !        Initialize models
    !        -----------------
             call InitializeLESModel(LESModel, controlVariables)
-         
-         end if
 !
-!        Initialize SVV
-!        --------------
-         call InitializeSVV(SVV, controlVariables, mesh)
-         
-         if (.not. mesh % child) then
-            if ( SVV % enabled ) then
-               computeElementInterfaceFlux => computeElementInterfaceFlux_SVV
-               computeMPIFaceFlux          => computeMPIFaceFlux_SVV
-               computeBoundaryFlux         => computeBoundaryFlux_SVV
-            else
-               computeElementInterfaceFlux => computeElementInterfaceFlux_NS
-               computeMPIFaceFlux          => computeMPIFaceFlux_NS
-               computeBoundaryFlux         => computeBoundaryFlux_NS
-            end if
+!           Initialize Shock-Capturing
+!           --------------------------
+            call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, sem, &
+                                           ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call ShockCapturingDriver % Describe
+
          end if
-         
+
       end subroutine Initialize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
 !
       subroutine Finalize_SpaceAndTimeMethods
          implicit none
-         IF ( ALLOCATED(HyperbolicDiscretization) ) DEALLOCATE( HyperbolicDiscretization )
-         IF ( ALLOCATED(LESModel) )       DEALLOCATE( LESModel )
-         
-         call SVV % destruct()
+
+
+         if ( allocated(HyperbolicDiscretization) ) deallocate( HyperbolicDiscretization )
+         if ( allocated(LESModel) )                 deallocate( LESModel )
+         if ( allocated(ShockCapturingDriver) )     deallocate( ShockCapturingDriver )
+
+
       end subroutine Finalize_SpaceAndTimeMethods
 !
 !////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE ComputeTimeDerivative( mesh, particles, time, mode)
-         IMPLICIT NONE 
+         IMPLICIT NONE
 !
 !        ---------
 !        Arguments
@@ -333,7 +295,7 @@ module SpatialDiscretization
 !
       SUBROUTINE ComputeTimeDerivativeIsolated( mesh, particles, time, mode)
          use EllipticDiscretizationClass
-         IMPLICIT NONE 
+         IMPLICIT NONE
 !
 !        ---------
 !        Arguments
@@ -381,6 +343,9 @@ module SpatialDiscretization
       END SUBROUTINE ComputeTimeDerivativeIsolated
 
       subroutine TimeDerivative_ComputeQDot( mesh , particles, t)
+      use WallFunctionConnectivity
+         use TripForceClass, only: randomTrip
+         use ActuatorLine, only: farm
          implicit none
          type(HexMesh)              :: mesh
          type(Particles_t)          :: particles
@@ -392,7 +357,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl
-         real(kind=RP)  :: mu_smag, delta
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -416,7 +381,6 @@ module SpatialDiscretization
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                delta = ((e % geom % Volume ) ** (1.0_RP / 3.0_RP))/(real(e % Nxyz (1)) -1.0_RP)
-               !delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                                                    e % storage % U_x(:,i,j,k), &
@@ -440,11 +404,19 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             call TimeDerivative_VolumetricContribution( mesh, mesh % elements(eID) , t)
          end do
-!$omp end do 
+!$omp end do
+
+#if defined(_HAS_MPI_)
+!$omp single
+         if (ShockCapturingDriver % isActive) then
+            call mesh % UpdateMPIFacesAviscflux(NCONS)
+         end if
+!$omp end single
+#endif
 !
 !        ******************************************
 !        Compute Riemann solver of non-shared faces
@@ -460,24 +432,24 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_boundary)
             fID = mesh % faces_boundary(iFace)
-            call computeBoundaryFlux(mesh % faces(fID), t)
+            call computeBoundaryFlux(mesh % faces(fID), t, mesh)
          end do
-!$omp end do 
+!$omp end do
 !
 !        ***************************************************************
 !        Surface integrals and scaling of elements with non-shared faces
 !        ***************************************************************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k,eID)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
-            associate(e => mesh % elements(eID)) 
-            call TimeDerivative_FacesContribution(e, t, mesh) 
- 
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-            end do         ; end do          ; end do 
-            end associate 
+            associate(e => mesh % elements(eID))
+            call TimeDerivative_FacesContribution(e, t, mesh)
+
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+            end associate
          end do
 !$omp end do
 !
@@ -488,16 +460,25 @@ module SpatialDiscretization
 #ifdef _HAS_MPI_
          if ( MPI_Process % doMPIAction ) then
 !$omp single
-            if ( flowIsNavierStokes ) then 
+            if ( flowIsNavierStokes ) then
                call mesh % GatherMPIFacesGradients(NGRAD)
-            else  
+            else
                call mesh % GatherMPIFacesSolution(NCONS)
-            end if          
+            end if
 !$omp end single
 !
 !           Compute viscosity at MPI faces
 !           ------------------------------
             call compute_viscosity_at_faces(size(mesh % faces_mpi), 2, mesh % faces_mpi, mesh)
+
+!$omp single
+            if ( flowIsNavierStokes ) then
+               if ( ShockCapturingDriver % isActive ) then
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mesh % GatherMPIFacesAviscflux(NCONS)
+               end if
+            end if
+!$omp end single
 !
 !           **************************************
 !           Compute Riemann solver of shared faces
@@ -508,22 +489,22 @@ module SpatialDiscretization
                fID = mesh % faces_mpi(iFace)
                call computeMPIFaceFlux(mesh % faces(fID))
             end do
-!$omp end do 
+!$omp end do
 !
 !           ***********************************************************
 !           Surface integrals and scaling of elements with shared faces
 !           ***********************************************************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k,eID)
             do iEl = 1, size(mesh % elements_mpi)
                eID = mesh % elements_mpi(iEl)
-               associate(e => mesh % elements(eID)) 
-               call TimeDerivative_FacesContribution(e, t, mesh) 
-   
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-               end do         ; end do          ; end do 
-               end associate 
+               associate(e => mesh % elements(eID))
+               call TimeDerivative_FacesContribution(e, t, mesh)
+
+               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+               end do         ; end do          ; end do
+               end associate
             end do
 !$omp end do
 !
@@ -547,8 +528,13 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
+               ! the source term is reset to 0 each time Qdot is calculated to enable the possibility to add source terms to
+               ! different contributions and not accumulate each call
+               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
@@ -556,42 +542,42 @@ module SpatialDiscretization
 !
 !           Add Particles source
 !           ********************
-            if ( particles % active ) then            
-!$omp do schedule(runtime)            
+            if ( particles % active ) then
+!$omp do schedule(runtime)
                do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
+                  associate ( e => mesh % elements(eID) )
                      e % storage % S_NSP = 0.0_RP
                   end associate
-               enddo 
-!$omp end do             
-               
-!$omp do schedule(runtime) 
+               enddo
+!$omp end do
+
+!$omp do schedule(runtime)
                do i = 1, particles % injection % injected + 1
-                  if (particles % particle(i) % active) then 
+                  if (particles % particle(i) % active) then
 
                      associate ( eID => particles % particle(i) % eID )
-                        
+
                      call particles % AddSource(i, mesh % elements( eID ), &
                         t, thermodynamics, dimensionless, refValues)
 
                      ! If this is uncommented, private(j) should be added to openmp.
                         !this commented section permits the computation of source term in neighbor elements
                      !do j = 1, 6
-                     !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then  
+                     !   if (particles % particle(i) % mesh%elements( eID )%NumberOfConnections(j) > 0) then
                      !      call particles % AddSource(i, &
                      !      mesh % elements( particles % particle(i) % mesh%elements( eID )%Connection(j)%ElementIDs(1)  ), &
                      !      t, thermodynamics, dimensionless, refValues)
-                     !   else 
+                     !   else
                      !      !
                      !   end if
-                     !end do   
-                     end associate   
-                  endif 
+                     !end do
+                     end associate
+                  endif
                end do
 !$omp end do
-!$omp do schedule(runtime)  
+!$omp do schedule(runtime)
                do eID = 1, mesh % no_of_elements
-                  associate ( e => mesh % elements(eID) )            
+                  associate ( e => mesh % elements(eID) )
                      e % storage % S_NS = e % storage % S_NS + e % storage % S_NSP
                   end associate
                enddo
@@ -611,9 +597,27 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+         if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
+!$omp do schedule(runtime) private(i,j,k)
+            do eID = 1, mesh % no_of_elements
+               associate ( e => mesh % elements(eID) )
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  if( e% isInsideBody(i,j,k) ) then
+                     call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                  end if
+               end do                  ; end do                ; end do
+               end associate
+            end do
+!$omp end do
+         end if
 
       end subroutine TimeDerivative_ComputeQDot
-   
+
       subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
          implicit none
          integer, intent(in)           :: no_of_faces
@@ -636,7 +640,7 @@ module SpatialDiscretization
                   do side = 1, no_of_sides
                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
                   end do
-               end do              ; end do         
+               end do              ; end do
                end associate
             end do
 !$omp end do
@@ -658,7 +662,7 @@ module SpatialDiscretization
                      f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
                      f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
                   end do
-               end do              ; end do         
+               end do              ; end do
                end associate
             end do
 !$omp end do
@@ -675,6 +679,8 @@ module SpatialDiscretization
 !     and boundaries. Therefore, the external states are not needed.
 !     -------------------------------------------------------------------------------
       subroutine TimeDerivative_ComputeQDotIsolated( mesh , t )
+         use TripForceClass, only: randomTrip
+         use ActuatorLine, only: farm
          implicit none
          type(HexMesh)              :: mesh
          real(kind=RP)              :: t
@@ -690,7 +696,7 @@ module SpatialDiscretization
 !        Volume integrals
 !        ****************
 !
-!$omp do schedule(runtime) 
+!$omp do schedule(runtime)
          do eID = 1 , size(mesh % elements)
             call TimeDerivative_StrongVolumetricContribution(mesh, mesh % elements(eID) , t)
          end do
@@ -699,15 +705,15 @@ module SpatialDiscretization
 !        *******************
 !        Scaling of elements
 !        *******************
-! 
+!
 !$omp do schedule(runtime) private(i,j,k)
-         do eID = 1, size(mesh % elements) 
+         do eID = 1, size(mesh % elements)
             associate(e => mesh % elements(eID))
 
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1) 
-               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k) 
-            end do         ; end do          ; end do 
-            end associate 
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) / e % geom % jacobian(i,j,k)
+            end do         ; end do          ; end do
+            end associate
          end do
 !$omp end do
 !
@@ -717,14 +723,17 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,k)
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
+               e % storage % S_NS = 0.0_RP
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, e % storage % S_NS(:,i,j,k), thermodynamics, dimensionless, refValues)
+                  call randomTrip % getTripSource( e % geom % x(:,i,j,k), e % storage % S_NS(:,i,j,k) )
+                  call farm % ForcesFarm(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), e % storage % S_NS(:,i,j,k), t)
                end do                  ; end do                ; end do
                end associate
             end do
 !$omp end do
          end if
-         
+
 !$omp do schedule(runtime) private(i,j,k)
          do eID = 1, mesh % no_of_elements
             associate ( e => mesh % elements(eID) )
@@ -734,7 +743,7 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
-         
+
       end subroutine TimeDerivative_ComputeQDotIsolated
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -752,14 +761,14 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: SVVContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         integer       :: eID
+         real(kind=RP) :: viscousContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux   ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: contravariantFlux        ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -767,18 +776,27 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux) 
+         if (flowIsNavierStokes) then
+
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux)
 !
-!        Compute the SVV dissipation
-!        ---------------------------
-         if ( .not. SVV % enabled ) then
-            SVVcontravariantFlux = 0.0_RP
+!           Compute the artificial dissipation
+!           ----------------------------------
+            if (ShockCapturingDriver % isActive) then
+               call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
+            else
+               AviscContravariantFlux = 0.0_RP
+            end if
+
          else
-            call SVV % ComputeInnerFluxes(mesh, e, SVVContravariantFlux)
+
+            viscousContravariantFlux = 0.0_RP
+            AviscContravariantFlux   = 0.0_RP
+
          end if
 !
 !        ************************
@@ -790,24 +808,23 @@ module SpatialDiscretization
 !
 !           Compute the total Navier-Stokes flux
 !           ------------------------------------
-            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - SVVContravariantFlux
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux ) 
+            e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux )
 
          type is (SplitDG_t)
-            ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
-!~ !
-!~ !           Compute sharp fluxes for skew-symmetric approximations
-!~ !           ------------------------------------------------------
-!~             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
-!~ !
-!~ !           Peform the Weak volume green integral
-!~ !           -------------------------------------
-!~             viscousContravariantFlux = viscousContravariantFlux + SVVContravariantFlux
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Perform the Weak volume green integral
+!           --------------------------------------
+            viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
-!~             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
+            e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
          end select
 
@@ -828,14 +845,14 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
+         real(kind=RP) :: inviscidContravariantFlux ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
          real(kind=RP) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(kind=RP) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
-         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: SVVContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM ) 
-         integer       :: eID
+         real(kind=RP) :: viscousContravariantFlux  ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: AviscContravariantFlux    ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+         real(kind=RP) :: contravariantFlux         ( 1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM )
+
 !
 !        *************************************
 !        Compute interior contravariant fluxes
@@ -843,23 +860,27 @@ module SpatialDiscretization
 !
 !        Compute inviscid contravariant flux
 !        -----------------------------------
-         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux ) 
+         call HyperbolicDiscretization % ComputeInnerFluxes ( e , EulerFlux, inviscidContravariantFlux )
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux) 
-!   
-!           Compute the SVV dissipation
-!           ---------------------------
-            if ( .not. SVV % enabled ) then
-               SVVcontravariantFlux = 0.0_RP
+
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
+!
+!           Compute the artificial dissipation
+!           ----------------------------------
+            if (ShockCapturingDriver % isActive) then
+               call ShockCapturingDriver % ComputeViscosity(mesh, e, AviscContravariantFlux)
             else
-               call SVV % ComputeInnerFluxes(mesh, e, SVVContravariantFlux)
+               AviscContravariantFlux = 0.0_RP
             end if
+
          else
+
             viscousContravariantFlux = 0.0_RP
-            SVVcontravariantFlux = 0.0_RP
+            AviscContravariantFlux   = 0.0_RP
+
          end if
 !
 !        ************************
@@ -871,11 +892,11 @@ module SpatialDiscretization
 !
 !           Compute the total Navier-Stokes flux
 !           ------------------------------------
-            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - SVVContravariantFlux
+            contravariantFlux = inviscidContravariantFlux - viscousContravariantFlux - AviscContravariantFlux
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux )
 
          type is (SplitDG_t)
 !
@@ -883,9 +904,9 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
-            viscousContravariantFlux = viscousContravariantFlux + SVVContravariantFlux
+!           Perform the Weak volume green integral
+!           --------------------------------------
+            viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
@@ -912,30 +933,43 @@ module SpatialDiscretization
 
       end subroutine TimeDerivative_FacesContribution
 !
-!///////////////////////////////////////////////////////////////////////////////////////////// 
-! 
-!        Riemann solver drivers 
-!        ---------------------- 
-! 
-!///////////////////////////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE computeElementInterfaceFlux_NS(f)
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
+!        Riemann solver drivers
+!        ----------------------
+!
+!/////////////////////////////////////////////////////////////////////////////////////////////
+!
+      subroutine computeElementInterfaceFlux(f)
          use FaceClass
          use RiemannSolvers_NS
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
+         implicit none
+         type(Face)   , intent(inout) :: f
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
-        integer        :: Sidearray(2)
-         
-         visc_flux = 0._RP
-         
+         integer       :: Sidearray(2)
+!
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
+!
+         if ( ShockCapturingDriver % isActive ) then
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+         else
+            Avisc_flux = 0.0_RP
+         end if
+!
+!        --------------
+!        Viscous fluxes
+!        --------------
+!
          if (flowIsNavierStokes) then
-            DO j = 0, f % Nf(2)
-               DO i = 0, f % Nf(1)
+            do j = 0, f % Nf(2)
+               do i = 0, f % Nf(1)
 
                   mu_left(1) = f % storage(1) % mu_NS(1,i,j)
                   mu_left(2) = 0.0_RP
@@ -944,12 +978,8 @@ module SpatialDiscretization
                   mu_right(1) = f % storage(2) % mu_NS(1,i,j)
                   mu_right(2) = 0.0_RP
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
-!      
-!                 --------------
-!                 Viscous fluxes
-!                 --------------
-!      
-                  CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+
+                  call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                      EllipticFlux = ViscousFlux, &
                                                      f = f, &
                                                      QLeft = f % storage(1) % Q(:,i,j), &
@@ -967,30 +997,30 @@ module SpatialDiscretization
 
                end do
             end do
+         else
+            visc_flux = 0.0_RP
          end if
-         
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-!      
+
+         do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
+!
 !              --------------
 !              Invscid fluxes
 !              --------------
-!      
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+!
+               call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
-
-               
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               
-            END DO   
-         END DO  
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
+
+            end do
+         end do
 !
 !        ---------------------------
 !        Return the flux to elements
@@ -999,25 +1029,39 @@ module SpatialDiscretization
          Sidearray = (/1,2/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray)
 
-      END SUBROUTINE computeElementInterfaceFlux_NS
+      end subroutine computeElementInterfaceFlux
 
-      SUBROUTINE computeMPIFaceFlux_NS(f)
+      subroutine computeMPIFaceFlux(f)
          use FaceClass
          use RiemannSolvers_NS
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
+         implicit none
+         type(Face)   , intent(inout) :: f
          integer       :: i, j
          integer       :: thisSide
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
-         
-         visc_flux = 0._RP
+!
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
+!
+         if ( ShockCapturingDriver % isActive ) then
+            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+         else
+            Avisc_flux = 0.0_RP
+         end if
+!
+!        --------------
+!        Viscous fluxes
+!        --------------
+!
          if (flowIsNavierStokes) then
-            DO j = 0, f % Nf(2)
-               DO i = 0, f % Nf(1)
+            do j = 0, f % Nf(2)
+               do i = 0, f % Nf(1)
 
                   mu_left(1) = f % storage(1) % mu_NS(1,i,j)
                   mu_left(2) = 0.0_RP
@@ -1026,12 +1070,8 @@ module SpatialDiscretization
                   mu_right(1) = f % storage(2) % mu_NS(1,i,j)
                   mu_right(2) = 0.0_RP
                   mu_right(3) = f % storage(2) % mu_NS(2,i,j)
-!      
-!                 --------------
-!                 Viscous fluxes
-!                 --------------
-!      
-                  CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+
+                  call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                      EllipticFlux = ViscousFlux, &
                                                      f = f, &
                                                      QLeft = f % storage(1) % Q(:,i,j), &
@@ -1050,47 +1090,48 @@ module SpatialDiscretization
 
                end do
             end do
-
+         else
+            visc_flux = 0.0_RP
          end if
-         
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-!      
+
+         do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
+!
 !              --------------
 !              Invscid fluxes
 !              --------------
-!      
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+!
+               call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
                                   QRight = f % storage(2) % Q(:,i,j), &
                                   nHat   = f % geom % normal(:,i,j), &
                                   t1     = f % geom % t1(:,i,j), &
                                   t2     = f % geom % t2(:,i,j), &
                                   flux   = inv_flux(:,i,j) )
-
-               
 !
 !              Multiply by the Jacobian
 !              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               
-            END DO   
-         END DO  
+               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
+
+            end do
+         end do
 !
 !        ---------------------------
 !        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
 !        ---------------------------
 !
          thisSide = maxloc(f % elementIDs, dim = 1)
-         
+
          Sidearray = (/thisSide, HMESH_NONE/)
          call f % ProjectFluxToElements(NCONS, flux, Sidearray )
 
-      end subroutine ComputeMPIFaceFlux_NS
+      end subroutine ComputeMPIFaceFlux
 
-      SUBROUTINE computeBoundaryFlux_NS(f, time)
+      SUBROUTINE computeBoundaryFlux(f, time, mesh)
       USE ElementClass
       use FaceClass
       USE RiemannSolvers_NS
+      use WallFunctionBC
+      use WallFunctionConnectivity
       IMPLICIT NONE
 !
 !     ---------
@@ -1099,6 +1140,7 @@ module SpatialDiscretization
 !
       type(Face),    intent(inout) :: f
       REAL(KIND=RP)                :: time
+      type(HexMesh), intent(in)    :: mesh
 !
 !     ---------------
 !     Local variables
@@ -1108,283 +1150,25 @@ module SpatialDiscretization
       INTEGER, DIMENSION(2)           :: N
       REAL(KIND=RP)                   :: inv_flux(NCONS)
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
       real(kind=RP)                   :: mu, kappa, beta, delta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
-      integer       :: Sidearray(2)
-!
-!     -------------------
-!     Get external states
-!     -------------------
-!
-      do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-         f % storage(2) % Q(:,i,j) = f % storage(1) % Q(:,i,j)
-         CALL BCs(f % zone) % bc % FlowState(f % geom % x(:,i,j), &
-                                      time, &
-                                      f % geom % normal(:,i,j), &
-                                      f % storage(2) % Q(:,i,j))
+      integer                         :: Sidearray(2)
+      logical                         :: useWallFuncFace
+      real(kind=RP)                   :: wallFunV(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunVavg(NDIM, 0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunRho(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunMu(0:f % Nf(1), 0:f % Nf(2))
+      real(kind=RP)                   :: wallFunY(0:f % Nf(1), 0:f % Nf(2))
 
-      end do               ; end do
-
-      if ( flowIsNavierStokes ) then
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-               mu    = f % storage(1) % mu_ns(1,i,j)
-               beta  = 0.0_RP
-               kappa = f % storage(1) % mu_ns(2,i,j)
-
-               call ViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
-                                            f % storage(1) % U_x(:,i,j), &
-                                            f % storage(1) % U_y(:,i,j), &
-                                            f % storage(1) % U_z(:,i,j), &
-                                            mu, beta, kappa, fv_3d)
-
-               visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
-                                  + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
-                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
-
-               CALL BCs(f % zone) % bc % FlowNeumann(&
-                                              f % geom % x(:,i,j), &
-                                              time, &
-                                              f % geom % normal(:,i,j), &
-                                              f % storage(1) % Q(:,i,j), &
-                                              f % storage(1) % U_x(:,i,j), &
-                                              f % storage(1) % U_y(:,i,j), &
-                                              f % storage(1) % U_z(:,i,j), &
-                                              visc_flux(:,i,j))
-
-            end do
-         end do
-      else
-         visc_flux = 0.0_RP
-
-      end if
-
-      DO j = 0, f % Nf(2)
-         DO i = 0, f % Nf(1)
-!
-!           Hyperbolic part
-!           -------------
-            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                               QRight = f % storage(2) % Q(:,i,j), &   
-                               nHat   = f % geom % normal(:,i,j), &
-                               t1     = f % geom % t1(:,i,j), &
-                               t2     = f % geom % t2(:,i,j), &
-                               flux   = inv_flux)
-
-            fStar(:,i,j) = (inv_flux - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
-         END DO   
-      END DO   
-
-      Sidearray = (/1, HMESH_NONE/)
-      call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
-
-      END SUBROUTINE computeBoundaryFlux_NS
-
-      SUBROUTINE computeElementInterfaceFlux_SVV(f)
-         use FaceClass
-         use RiemannSolvers_NS
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
-         integer       :: i, j
-         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu_left(3), mu_right(3)
-         integer       :: Sidearray(2)
-!
-!        ----------
-!        SVV fluxes
-!        ----------
-!
-         if ( SVV % enabled ) then 
-            SVV_Flux = 0.5_RP * (f % storage(1) % HFlux + f % storage(2) % HFlux)
-         else
-            SVV_Flux = 0.0_RP
-         end if
-
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-
-!      
-!              --------------
-!              Viscous fluxes
-!              --------------
-!      
-               mu_left(1) = f % storage(1) % mu_ns(1,i,j)
-               mu_left(2) = 0.0_RP
-               mu_left(3) = f % storage(1) % mu_ns(2,i,j)
-
-               mu_right(1) = f % storage(2) % mu_ns(1,i,j)
-               mu_right(2) = 0.0_RP
-               mu_right(3) = f % storage(2) % mu_ns(2,i,j)
-
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  EllipticFlux = ViscousFlux, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu_left  = mu_left, &
-                                                  mu_right = mu_right, &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
-
-!      
-!              --------------
-!              Invscid fluxes
-!              --------------
-!      
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                                  QRight = f % storage(2) % Q(:,i,j), &
-                                  nHat   = f % geom % normal(:,i,j), &
-                                  t1     = f % geom % t1(:,i,j), &
-                                  t2     = f % geom % t2(:,i,j), &
-                                  flux   = inv_flux(:,i,j) )
-
-               
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               flux(:,i,j) = (inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - SVV_flux(:,i,j)
-               
-            END DO   
-         END DO  
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
-         Sidearray = (/1,2/)
-         call f % ProjectFluxToElements(NCONS, flux, Sidearray )
-
-      END SUBROUTINE computeElementInterfaceFlux_SVV
-
-      SUBROUTINE computeMPIFaceFlux_SVV(f)
-         use FaceClass
-         use RiemannSolvers_NS
-         IMPLICIT NONE
-         TYPE(Face)   , INTENT(inout) :: f   
-         integer       :: i, j
-         integer       :: thisSide
-         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: SVV_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         integer       :: Sidearray(2)
-         real(kind=RP) :: mu(3)
-!
-!        ----------
-!        SVV fluxes
-!        ----------
-!
-         if ( SVV % enabled ) then
-            print*, "SVV Not configured with MPI"
-            errorMessage(STD_OUT)
-            stop
-         end if
-
-!
-!        --------------
-!        Invscid fluxes
-!        --------------
-!
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-!      
-!              --------------
-!              Viscous fluxes
-!              --------------
-!      
-               mu(1) = f % storage(1) % mu_ns(1,i,j)
-               mu(2) = 0.0_RP 
-               mu(3) = f % storage(1) % mu_ns(2,i,j)
-
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
-                                                  EllipticFlux = ViscousFlux, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = f % storage(1) % U_x(:,i,j), &
-                                                  U_yLeft = f % storage(1) % U_y(:,i,j), &
-                                                  U_zLeft = f % storage(1) % U_z(:,i,j), &
-                                                  U_xRight = f % storage(2) % U_x(:,i,j), &
-                                                  U_yRight = f % storage(2) % U_y(:,i,j), &
-                                                  U_zRight = f % storage(2) % U_z(:,i,j), &
-                                                  mu_left  = mu, &
-                                                  mu_right = mu, &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  flux  = visc_flux(:,i,j) )
-
-!
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                                  QRight = f % storage(2) % Q(:,i,j), &
-                                  nHat   = f % geom % normal(:,i,j), &
-                                  t1     = f % geom % t1(:,i,j), &
-                                  t2     = f % geom % t2(:,i,j), &
-                                  flux   = inv_flux(:,i,j) )
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j) - SVV_flux(:,i,j) ) * f % geom % jacobian(i,j)
-               
-            END DO   
-         END DO  
-!
-!        ---------------------------
-!        Return the flux to elements: The sign in eR % storage % FstarB has already been accouted.
-!        ---------------------------
-!
-         thisSide = maxloc(f % elementIDs, dim = 1)
-         
-         Sidearray = (/thisSide, HMESH_NONE/)
-         call f % ProjectFluxToElements(NCONS, flux, Sidearray)
-
-      end subroutine ComputeMPIFaceFlux_SVV
-
-      SUBROUTINE computeBoundaryFlux_SVV(f, time)
-      USE ElementClass
-      use FaceClass
-      USE RiemannSolvers_NS
-      IMPLICIT NONE
-!
-!     ---------
-!     Arguments
-!     ---------
-!
-      type(Face),    intent(inout) :: f
-      REAL(KIND=RP)                :: time
-!
-!     ---------------
-!     Local variables
-!     ---------------
-!
-      INTEGER               :: i, j
-      INTEGER, DIMENSION(2) :: N
-      REAL(KIND=RP)         :: inv_flux(NCONS)
-      real(kind=RP)         :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)         :: SVV_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
-      real(kind=RP)         :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)         :: mu, beta, kappa, delta
-      real(kind=RP)         :: tauSGS(NDIM,NDIM), qSGS(NDIM), fv_3d(NCONS,NDIM)
-      integer               :: Sidearray(2)
-
-      if ( SVV % enabled ) then
+      if ( ShockCapturingDriver % isActive ) then
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-            SVV_flux(:,i,j) = f % storage(1) % Hflux(:,i,j) / f % geom % jacobian(i,j)
+            Avisc_flux(:,i,j) = f % storage(1) % Aviscflux(:,i,j) / f % geom % jacobian(i,j)
          end do              ; end do
       else
-         SVV_flux = 0.0_RP
+         Avisc_flux = 0.0_RP
       end if
-
 !
 !     -------------------
 !     Get external states
@@ -1400,8 +1184,22 @@ module SpatialDiscretization
       end do               ; end do
 
       if ( flowIsNavierStokes ) then
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
+
+          useWallFuncFace = .false.
+          if (useWallFunc) then
+              do i = 1, len(wallFunBCs)
+                  if (trim(wallFunBCs(i)) .eq. trim(f % boundaryName)) then
+                      useWallFuncFace = .true.
+                      exit
+                  end if
+              end do
+          end if
+          if (useWallFuncFace) then
+              call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY, wallFunVavg)
+          end if
+
+         do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
                mu    = f % storage(1) % mu_ns(1,i,j)
                beta  = 0.0_RP
                kappa = f % storage(1) % mu_ns(2,i,j)
@@ -1414,9 +1212,15 @@ module SpatialDiscretization
 
                visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
                                   + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
-                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j) 
+                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j)
 
-               visc_flux(:,i,j) = visc_flux(:,i,j) + SVV_flux(:,i,j)
+               visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
+
+               if (useWallFuncFace) then
+                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                        wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                        visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
+               end if 
 
                CALL BCs(f % zone) % bc % FlowNeumann(&
                                               f % geom % x(:,i,j), &
@@ -1435,24 +1239,25 @@ module SpatialDiscretization
 
       end if
 
-      DO j = 0, f % Nf(2)
-         DO i = 0, f % Nf(1)
+      do j = 0, f % Nf(2)
+         do i = 0, f % Nf(1)
 !
 !           Hyperbolic part
 !           -------------
-            CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                               QRight = f % storage(2) % Q(:,i,j), &   
+            call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                               QRight = f % storage(2) % Q(:,i,j), &
                                nHat   = f % geom % normal(:,i,j), &
                                t1     = f % geom % t1(:,i,j), &
                                t2     = f % geom % t2(:,i,j), &
                                flux   = inv_flux)
 
             fStar(:,i,j) = (inv_flux - visc_flux(:,i,j) ) * f % geom % jacobian(i,j)
-         END DO   
-      END DO   
+         end do
+      end do
 
       Sidearray = (/1, HMESH_NONE/)
       call f % ProjectFluxToElements(NCONS, fStar, Sidearray)
 
-      END SUBROUTINE computeBoundaryFlux_SVV
+      end subroutine computeBoundaryFlux
+
 end module SpatialDiscretization

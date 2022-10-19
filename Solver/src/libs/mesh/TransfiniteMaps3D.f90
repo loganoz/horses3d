@@ -1,15 +1,6 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
-!
-!     TransfiniteMaps.F
-!
-!!
-!!     Modification History:
-!!
-!!        version 0.0 July 26,2002 Created from Geomlib3D.f
-!!        Modified 5/19/15, 3:18 PM To use mappings on [-1,1]
-!!
 !!     This is a collection of transfinite maps and operations
 !!     on those maps.
 !
@@ -25,7 +16,6 @@
 !          SUBROUTINE ComputeGradHexTransfiniteMap( xi, grad_x, face, faceDer, &
 !          &                                       edge, edgeDer, corners )
 !
-!!     @author David A. Kopriva
 !
 ! //////////////////////////////////////////////////////////////////////////////
 !
@@ -66,7 +56,7 @@
          PROCEDURE :: metricDerivativesAt
          PROCEDURE :: isHex8
          PROCEDURE :: setCorners
-         
+
       END TYPE TransfiniteHexMap
 !
 !     ========
@@ -134,13 +124,12 @@
          IMPLICIT NONE  
          CLASS(TransFiniteHexMap) :: self
          REAL(KIND=RP)            :: corners(3,8)
-         
-         self % corners = corners
-         
+
+          self % corners = corners
+
       END SUBROUTINE setCorners
 !
 !//////////////////////////////////////////////////////////////////////// 
-! 
       FUNCTION isHex8(self) RESULT(ans)  
          IMPLICIT NONE  
          CLASS(TransfiniteHexMap) :: self
@@ -440,7 +429,7 @@
                      - edge(j,4) *(1._RP - xi(1))*(1._RP - xi(2)) &
                      - edge(j,8) *(1._RP - xi(1))*         xi(2)  &
                      - edge(j,2) *         xi(1) *(1._RP - xi(2)) &
-                     - edge(j,6) *         xi(1) *         xi(2)
+                     - edge(j,6) *         xi(1) *         xi(2)  
 !
 !        ------------------
 !        Corner contributions

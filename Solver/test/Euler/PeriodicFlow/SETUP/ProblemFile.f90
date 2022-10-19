@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
@@ -14,9 +10,9 @@
 !      The procedures, *even if empty* that must be defined are
 !
 !      UserDefinedSetUp
-!      UserDefinedInitialCondition(sem)
-!      UserDefinedPeriodicOperation(sem)
-!      UserDefinedFinalize(sem)
+!      UserDefinedInitialCondition(mesh)
+!      UserDefinedPeriodicOperation(mesh)
+!      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -131,7 +127,24 @@
             type(RefValues_t),         intent(in)  :: refValues_
          end subroutine UserDefinedState1
 
-         subroutine UserDefinedNeumann(x, t, nHat, U_x, U_y, U_z)
+         subroutine UserDefinedGradVars1(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
+            use SMConstants
+            use PhysicsStorage
+            use FluidData
+            use VariableConversion, only: GetGradientValues_f
+            implicit none
+            real(kind=RP), intent(in)          :: x(NDIM)
+            real(kind=RP), intent(in)          :: t
+            real(kind=RP), intent(in)          :: nHat(NDIM)
+            real(kind=RP), intent(in)          :: Q(NCONS)
+            real(kind=RP), intent(inout)       :: U(NGRAD)
+            procedure(GetGradientValues_f)     :: GetGradients
+            type(Thermodynamics_t), intent(in) :: thermodynamics_
+            type(Dimensionless_t),  intent(in) :: dimensionless_
+            type(RefValues_t),      intent(in) :: refValues_
+         end subroutine UserDefinedGradVars1
+
+         subroutine UserDefinedNeumann1(x, t, nHat, U_x, U_y, U_z)
 !
 !           --------------------------------------------------------
 !           Used to define a Neumann user defined boundary condition
@@ -139,14 +152,15 @@
 !
             use SMConstants
             use PhysicsStorage
+            use FluidData
             implicit none
             real(kind=RP), intent(in)     :: x(NDIM)
             real(kind=RP), intent(in)     :: t
             real(kind=RP), intent(in)     :: nHat(NDIM)
-            real(kind=RP), intent(inout)  :: U_x(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_y(N_GRAD_EQN)
-            real(kind=RP), intent(inout)  :: U_z(N_GRAD_EQN)
-         end subroutine UserDefinedNeumann
+            real(kind=RP), intent(inout)  :: U_x(NGRAD)
+            real(kind=RP), intent(inout)  :: U_y(NGRAD)
+            real(kind=RP), intent(inout)  :: U_z(NGRAD)
+         end subroutine UserDefinedNeumann1
 
 !
 !//////////////////////////////////////////////////////////////////////// 

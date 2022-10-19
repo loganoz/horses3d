@@ -39,7 +39,7 @@ module EllipticBR1
          if (MPI_Process % isRoot) write(STD_OUT,'(/)')
 
          select case (self % eqName)
-         case (ELLIPTIC_NS,ELLIPTIC_iNS,ELLIPTIC_MU)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA,ELLIPTIC_iNS,ELLIPTIC_MU)
             call Subsection_Header("Viscous discretization")
       
          case (ELLIPTIC_CH)
@@ -56,7 +56,7 @@ module EllipticBR1
 
 #ifdef NAVIERSTOKES
          select case (self % eqName)
-         case (ELLIPTIC_NS)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA)
             select case (grad_vars)
             case(GRADVARS_STATE);   write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","State"
             case(GRADVARS_ENTROPY); write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Entropy"
@@ -453,10 +453,15 @@ module EllipticBR1
          real(kind=RP)       :: beta(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          integer             :: i, j, k
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
+
+#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
+         mu    = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = e % storage % mu_ns(3,:,:,:)
 
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -480,6 +485,7 @@ module EllipticBR1
          do k = 0, e%Nxyz(3)   ; do j = 0, e%Nxyz(2) ; do i = 0, e%Nxyz(1)
             call EllipticFlux( nEqn, nGradEqn, e % storage % Q(:,i,j,k) , e % storage % U_x(:,i,j,k) , & 
                                e % storage % U_y(:,i,j,k) , e % storage % U_z(:,i,j,k), mu(i,j,k), beta(i,j,k), kappa(i,j,k), cartesianFlux)
+            
             contravariantFlux(:,i,j,k,IX) =     cartesianFlux(:,IX) * e % geom % jGradXi(IX,i,j,k)  &
                                              +  cartesianFlux(:,IY) * e % geom % jGradXi(IY,i,j,k)  &
                                              +  cartesianFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)

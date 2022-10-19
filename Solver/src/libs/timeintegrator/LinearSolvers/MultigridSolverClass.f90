@@ -1,12 +1,9 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      MultigridSolverClass.f90
-!      Created: 2017-04-XX 10:006:00 +0100 
-!      By: Andrés Rueda
 !
 !      Class for solving a linear system obtained from a DGSEM discretization using p-Multigrid
 !
-!        çThis class is not finished yet!!!!
+!        This class is not finished yet!!!!
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 MODULE MultigridSolverClass
@@ -603,7 +600,9 @@ CONTAINS
       REAL(KIND=RP), ALLOCATABLE    :: w2x(:), w2y(:), w2z(:)  ! Weights for quadrature points on mesh 2
       !-----------------------------------------------------
       
-      IF (PRESENT(Lobatto) .AND. Lobatto) LGL = .TRUE.
+      IF (PRESENT(Lobatto)) THEN
+         if (Lobatto) LGL = .TRUE.
+      END IF
 !
 !     --------------------------------------
 !     Compute order of coarse representation

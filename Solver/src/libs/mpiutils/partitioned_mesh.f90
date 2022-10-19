@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    partitioned_mesh.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Sat Nov 25 10:26:09 2017
-!   @Last revision date: Wed Jul 17 11:52:48 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module PartitionedMeshClass
    use SMConstants
@@ -32,6 +20,7 @@ module PartitionedMeshClass
       integer              :: no_of_allElements
       integer              :: no_of_mpifaces
       integer, allocatable :: global2localeID(:)         ! if 0, that element does not belong to the current partition
+      integer, allocatable :: global2localeIDwith0(:)        
       integer, allocatable :: nodeIDs(:)
       integer, allocatable :: HOPRnodeIDs(:)
       integer, allocatable :: elementIDs(:)
@@ -355,6 +344,10 @@ module PartitionedMeshClass
          else
             this % global2localeID = [(eID, eID=1, no_of_allElements)]
          end if
+
+         allocate ( this % global2localeIDwith0(0:no_of_allElements) )
+         this % global2localeIDwith0(0) = 0
+         this % global2localeIDwith0(1:no_of_allElements) = this % global2localeID
       end subroutine PartitionedMesh_ConstructGeneralInfo
       
       subroutine PartitionedMesh_Destruct(self)
@@ -377,6 +370,7 @@ module PartitionedMeshClass
          safedeallocate(self % mpiface_elementSide       )
          safedeallocate(self % mpiface_sharedDomain      )
          safedeallocate(self % global2localeID           )
+         safedeallocate(self % global2localeIDwith0      )
 
       end subroutine PartitionedMesh_Destruct
    

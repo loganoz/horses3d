@@ -11,14 +11,14 @@ module VolumeIntegrals
    use mpi
 #endif
 #include "Includes.h"
-   
+
    private
    public   VOLUME
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    public KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE, ENSTROPHY, VELOCITY
-   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, SVV_DISSIPATION
-   public ENTROPY_BALANCE
+   public ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE, ARTIFICIAL_DISSIPATION
+   public ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 
 #if defined(INCNS)
@@ -33,16 +33,16 @@ module VolumeIntegrals
    public FREE_ENERGY
 #endif
 
-   public   ScalarVolumeIntegral, VectorVolumeIntegral
+   public   ScalarVolumeIntegral, VectorVolumeIntegral, GetSensorRange
 
 
 
    enum, bind(C)
-      enumerator :: VOLUME  
-#if defined(NAVIERSTOKES)
+      enumerator :: VOLUME
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       enumerator :: KINETIC_ENERGY, KINETIC_ENERGY_RATE, KINETIC_ENERGY_BALANCE
       enumerator :: ENSTROPHY, VELOCITY, ENTROPY, ENTROPY_RATE, INTERNAL_ENERGY, MOMENTUM, SOURCE, PSOURCE
-      enumerator :: SVV_DISSIPATION, ENTROPY_BALANCE
+      enumerator :: ARTIFICIAL_DISSIPATION, ENTROPY_BALANCE, MATH_ENTROPY
 #endif
 #if defined(INCNS)
       enumerator :: MASS, ENTROPY, KINETIC_ENERGY_RATE, ENTROPY_RATE
@@ -71,16 +71,6 @@ module VolumeIntegrals
 !           This function computes scalar integrals, that is, those
 !           in the form:
 !                 val = \int v dx
-!           Implemented integrals are:
-!              * VOLUME
-!              * KINETIC_ENERGY
-!              * KINETIC_ENERGY_RATE
-!              * ENSTROPHY
-!              * VELOCITY
-!              * ENTROPY
-!              * ENTROPY_RATE
-!              * INTERNAL ENERGY
-!              * FREE_ENERGY            
 !        -----------------------------------------------------------
 !
 
@@ -95,10 +85,10 @@ module VolumeIntegrals
 !
          real(kind=RP) :: localVal
          integer       :: eID, ierr
-         
+
 !
 !        Initialization
-!        --------------            
+!        --------------
          val = 0.0_RP
 !
 !        Loop the mesh
@@ -145,9 +135,9 @@ module VolumeIntegrals
          real(kind=RP)           :: grad_Mp(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: M_grad_p(1:NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
          real(kind=RP)           :: correction_term(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
-         real(kind=RP)           :: p, s, dtP
+         real(kind=RP)           :: p, s, ms
          real(kind=RP), pointer  :: Qb(:)
-         real(kind=RP)           :: free_en, fchem, entr, area, rho
+         real(kind=RP)           :: free_en, fchem, entr, area, rho , u , v, w, en, thetaeddy
          real(kind=RP)           :: Strain(NDIM,NDIM)
          real(kind=RP)           :: mu
 
@@ -164,7 +154,7 @@ module VolumeIntegrals
 !        Perform the numerical integration
 !        ---------------------------------
          select case ( integralType )
-   
+
          case ( VOLUME )
 !
 !           **********************************
@@ -176,7 +166,7 @@ module VolumeIntegrals
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          case ( KINETIC_ENERGY )
 !
 !           ***********************************
@@ -185,8 +175,8 @@ module VolumeIntegrals
 !              K = \int \rho V^2 dV
 !           ***********************************
 !
-            
-            KinEn =         POW2(e % storage % Q(IRHOU,:,:,:)) 
+
+            KinEn =         POW2(e % storage % Q(IRHOU,:,:,:))
             KinEn = KinEn + POW2( e % storage % Q(IRHOV,:,:,:) )
             KinEn = KinEn + POW2( e % storage % Q(IRHOW,:,:,:) )
             KinEn = 0.5_RP * KinEn / e % storage % Q(IRHO,:,:,:)
@@ -212,7 +202,7 @@ module VolumeIntegrals
             uvw = e % storage % Q(IRHOW,:,:,:) / e % storage % Q(IRHO,:,:,:)
             KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
-            
+
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
@@ -227,13 +217,13 @@ module VolumeIntegrals
 !           ***************************************************
 !
             inv_rho = 1.0_RP / e % storage % Q(IRHO,:,:,:)
-            uvw = e % storage % Q(IRHOU,:,:,:) * inv_rho 
+            uvw = e % storage % Q(IRHOU,:,:,:) * inv_rho
             KinEn = uvw * e % storage % QDot(IRHOU,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
-            uvw = e % storage % Q(IRHOV,:,:,:) * inv_rho 
+            uvw = e % storage % Q(IRHOV,:,:,:) * inv_rho
             KinEn = KinEn + uvw * e % storage % QDot(IRHOV,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 
-            uvw = e % storage % Q(IRHOW,:,:,:) * inv_rho 
+            uvw = e % storage % Q(IRHOW,:,:,:) * inv_rho
             KinEn = KinEn + uvw * e % storage % QDot(IRHOW,:,:,:) - 0.5_RP * POW2(uvw) * e % storage % QDot(IRHO,:,:,:)
 !
 !           I also need the pressure work
@@ -242,7 +232,7 @@ module VolumeIntegrals
                      - 0.5_RP*(POW2(e % storage % Q(IRHOU,:,:,:)) + POW2(e % storage % Q(IRHOV,:,:,:)) + &
                                POW2(e % storage % Q(IRHOW,:,:,:)))*inv_rho)
 !
-!           This correction term is because the split-form scheme will compute the pressure terms with de-aliased metrics, so I need 
+!           This correction term is because the split-form scheme will compute the pressure terms with de-aliased metrics, so I need
 !           to replicate that de-aliasing: 0.5<u,M∇p> + 0.5<u,∇(Mp)> = <u,∇(Mp)> + 0.5(<u,M∇p-∇(Mp)>).
 !           The first term is computed as <-p,M∇·u>, using the gradients, that already contain the surface term.
 !           ------------------------------------------------------------------------------------------------------------------------
@@ -256,13 +246,13 @@ module VolumeIntegrals
                call ViscousFlux_ENERGY(NCONS, NGRAD, e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k), e % storage % U_y(:,i,j,k), &
                                     e % storage % U_z(:,i,j,k), e % storage % mu_ns(1,i,j,k), 0.0_RP, e % storage % mu_ns(2,i,j,k), ViscFlux)
 
-               val = val + wx(i) * wy(j) * wz(k) * (e % geom % jacobian(i,j,k) * ( kinEn(i,j,k) + & 
-                     sum(ViscFlux(2:4,1)*e % storage % U_x(2:4,i,j,k)+ViscFlux(2:4,2)*e % storage % U_y(2:4,i,j,k)+ViscFlux(2:4,3)*e % storage % U_z(2:4,i,j,k)) & 
+               val = val + wx(i) * wy(j) * wz(k) * (e % geom % jacobian(i,j,k) * ( kinEn(i,j,k) + &
+                     sum(ViscFlux(2:4,1)*e % storage % U_x(2:4,i,j,k)+ViscFlux(2:4,2)*e % storage % U_y(2:4,i,j,k)+ViscFlux(2:4,3)*e % storage % U_z(2:4,i,j,k)) &
                    - p_3d(i,j,k)*(e % storage % U_x(IRHOU,i,j,k) + e % storage % U_y(IRHOV,i,j,k) + e % storage % U_z(IRHOW,i,j,k))) &
                    + correction_term(i,j,k))
             end do            ; end do           ; end do
 
-            val = val + e % storage % SVV_diss
+            val = val + e % storage % artificialDiss
 
 
          case ( ENSTROPHY )
@@ -278,7 +268,7 @@ module VolumeIntegrals
                                          e % storage % U_y(:,i,j,k), &
                                          e % storage % U_z(:,i,j,k), &
                                          U_x(:,i,j,k), U_y(:,i,j,k), U_z(:,i,j,k))
-            
+
                KinEn =   POW2( U_y(IZ,i,j,k) - U_z(IY,i,j,k) ) &
                        + POW2( U_z(IX,i,j,k) - U_x(IZ,i,j,k) ) &
                        + POW2( U_x(IY,i,j,k) - U_y(IX,i,j,k) )
@@ -290,7 +280,7 @@ module VolumeIntegrals
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val +   wx(i) * wy(j) * wz(k) * sqrt(   POW2(e % storage % Q(IRHOU,i,j,k)) &
-                                                           + POW2(e % storage % Q(IRHOV,i,j,k)) & 
+                                                           + POW2(e % storage % Q(IRHOV,i,j,k)) &
                                                            + POW2(e % storage % Q(IRHOW,i,j,k))  ) &
                                         / e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
             end do            ; end do           ; end do
@@ -302,9 +292,22 @@ module VolumeIntegrals
 !           ********************************************
 !
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               p = Pressure( e % storage % Q )
+               p = Pressure( e % storage % Q(:,i,j,k) )
                s = ( log(p) - thermodynamics % gamma * log(e % storage % Q(IRHO,i,j,k)) )
-               val = val +   wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * s
+            end do            ; end do           ; end do
+
+          case ( MATH_ENTROPY )
+!
+!           ******************************************************************
+!              Computes the mathematical entropy as: -\rho s / (\gamma - 1)
+!           ******************************************************************
+!
+            do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
+               p = Pressure( e % storage % Q(:,i,j,k) )
+               s = ( log(p) - thermodynamics % gamma * log(e % storage % Q(IRHO,i,j,k)) )
+               ms = - e % storage % Q(IRHO,i,j,k) * s / thermodynamics % gammaMinus1
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * ms
             end do            ; end do           ; end do
 
           case ( ENTROPY_RATE )
@@ -334,7 +337,7 @@ module VolumeIntegrals
                   val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (dot_product(e % storage % QDot(:,i,j,k),EntropyVars) + &
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
-            
+
             case(GRADVARS_ENTROPY)
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   call NSGradientVariables_ENTROPY(NCONS, NGRAD, e % storage % Q(:,i,j,k), EntropyVars)
@@ -344,7 +347,7 @@ module VolumeIntegrals
                      sum(ViscFlux(:,1)*e % storage % U_x(:,i,j,k)+ViscFlux(:,2)*e % storage % U_y(:,i,j,k)+ViscFlux(:,3)*e % storage % U_z(:,i,j,k)))
                end do            ; end do           ; end do
 
-               val = val + e % storage % SVV_diss
+               val = val + e % storage % artificialDiss
 
             case(GRADVARS_ENERGY)
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
@@ -357,8 +360,8 @@ module VolumeIntegrals
 
             end select
 
-         case (SVV_DISSIPATION)
-            val = val + e % storage % SVV_diss
+         case (ARTIFICIAL_DISSIPATION)
+            val = val + e % storage % artificialDiss
 
          case ( INTERNAL_ENERGY )
             !
@@ -368,12 +371,12 @@ module VolumeIntegrals
             !              \rho e = \int \rho e dV
             !           ***********************************
             !
-            
+
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * e % storage % Q(IRHOE,i,j,k)
             end do            ; end do           ; end do
-            
 #endif
+
 #if defined(INCNS)
          case (MASS)
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
@@ -449,7 +452,7 @@ module VolumeIntegrals
             KinEn = KinEn + dimensionless % Ma2*e % storage % Q(IMP,:,:,:)*e % storage % QDot(IMP,:,:,:)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
-               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k) 
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * kinEn(i,j,k)
             end do            ; end do           ; end do
 
 
@@ -478,13 +481,13 @@ module VolumeIntegrals
                Strain(1,2) = 0.5_RP * (e % storage % U_x(IGV,i,j,k) + e % storage % U_y(IGU,i,j,k))
                Strain(1,3) = 0.5_RP * (e % storage % U_x(IGW,i,j,k) + e % storage % U_z(IGU,i,j,k))
                Strain(2,3) = 0.5_RP * (e % storage % U_y(IGW,i,j,k) + e % storage % U_z(IGV,i,j,k))
-         
+
                Strain(2,1) = Strain(1,2)
                Strain(3,1) = Strain(1,3)
                Strain(3,2) = Strain(2,3)
 !               Strain = 0.0_RP
 
-               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (kinEn(i,j,k) + 2.0_RP*mu*sum(Strain*Strain)  & 
+               val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * (kinEn(i,j,k) + 2.0_RP*mu*sum(Strain*Strain)  &
                         + multiphase % M0 * (POW2(e % storage % U_x(IGMU,i,j,k)) + POW2(e % storage % U_y(IGMU,i,j,k)) + POW2(e % storage % U_z(IGMU,i,j,k)) ) )
 
             end do            ; end do           ; end do
@@ -512,7 +515,7 @@ module VolumeIntegrals
 
 
 #endif
-#if defined(CAHNHILLIARD)            
+#if defined(CAHNHILLIARD)
          case (FREE_ENERGY)
 
             do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
@@ -522,7 +525,7 @@ module VolumeIntegrals
                                                                        + POW2(e % storage % c_z(1,i,j,k)) )
                val = val + wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k) * free_en
             end do            ; end do           ; end do
-           
+
 #endif
          end select
 
@@ -562,16 +565,16 @@ module VolumeIntegrals
          real(kind=RP) :: localVal(num_of_vars)
          real(kind=RP) :: valAux(num_of_vars)
          real(kind=RP) :: val1, val2, val3, val4, val5
-         
+
          if (num_of_vars == 5) then    ! Ugly hack.. But only way to make it work with ifort....
             fiveVars = .TRUE.
          else
             fiveVars = .FALSE.
          end if
-         
+
 !
 !        Initialization
-!        --------------            
+!        --------------
          val1 = 0.0_RP
          val2 = 0.0_RP
          val3 = 0.0_RP
@@ -586,11 +589,11 @@ module VolumeIntegrals
 !           Compute the integral
 !           --------------------
             valAux = VectorVolumeIntegral_Local(mesh % elements(eID), integralType  , num_of_vars  )
-            
+
             val1 = val1 + valAux(1)
             val2 = val2 + valAux(2)
             val3 = val3 + valAux(3)
-            
+
             if (fiveVars) then
                val4 = val4 + valAux(4)
                val5 = val5 + valAux(5)
@@ -599,9 +602,9 @@ module VolumeIntegrals
 !$omp end parallel do
 
          val(1:3) = [val1, val2, val3]
-         
-         if (fiveVars) val(4:5) = [val4, val5] 
-         
+
+         if (fiveVars) val(4:5) = [val4, val5]
+
 #ifdef _HAS_MPI_
          localVal = val
          call mpi_allreduce(localVal, val, num_of_vars, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
@@ -622,7 +625,7 @@ module VolumeIntegrals
          integer     :: Nel(3)    ! Element polynomial order
          integer     :: i, j, k
          !-------------------------------------------------------------
-         
+
          Nel = e % Nxyz
 
          associate ( wx => NodalStorage(e % Nxyz(1)) % w, &
@@ -637,38 +640,38 @@ module VolumeIntegrals
 !        ---------------------------------
          select case ( integralType )
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             case ( VELOCITY )
-               
+
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
-               
+
             case ( MOMENTUM )
-               
+
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % Q(IRHOU:IRHOW,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
-               
+
             case ( SOURCE )
-               
+
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NS(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
                end do            ; end do           ; end do
 
             case ( PSOURCE )
-               
+
                do k = 0, Nel(3)  ; do j = 0, Nel(2) ; do i = 0, Nel(1)
                   val = val +   wx(i) * wy(j) * wz(k) * e % storage % S_NSP(1:num_of_vars,i,j,k) * e % geom % jacobian(i,j,k)
-               end do            ; end do           ; end do               
+               end do            ; end do           ; end do
 #endif
             case default
-               
+
                write(STD_OUT,'(A,A)') 'VectorVolumeIntegral :: ERROR: Not defined integral type'
                stop 99
-               
+
          end select
-         
+
          end associate
       end function VectorVolumeIntegral_Local
 
@@ -709,9 +712,44 @@ module VolumeIntegrals
             grad_Mp(:,i,j,k)  = grad_Mp(:,i,j,k)  + p(i,j,l) * Ja_zeta(:,i,j,l) * spAzeta % D(k,l)
             M_grad_p(:,i,j,k) = M_grad_p(:,i,j,k) + p(i,j,l) * Ja_zeta(:,i,j,k) * spAzeta % D(k,l)
          end do           ; end do         ; end do         ; end do
-         
+
          nullify (spAxi, spAeta, spAzeta)
 
       end subroutine GetPressureLocalGradient
+
+      subroutine GetSensorRange(mesh, minSensor, maxSensor)
+         implicit none
+         class(HexMesh), intent(in)  :: mesh
+         real(RP),       intent(out) :: minSensor
+         real(RP),       intent(out) :: maxSensor
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer  :: ielem
+         integer  :: ierr
+         real(RP) :: localMin
+         real(RP) :: localMax
+
+
+         minSensor =  huge(1.0_RP)/10.0_RP
+         maxSensor = -huge(1.0_RP)/10.0_RP
+
+!$omp parallel do schedule(runtime) private(ielem)
+         do ielem = 1, mesh % no_of_elements
+            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
+            maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
+         end do
+!$omp end parallel do
+
+#ifdef _HAS_MPI_
+         localMin = minSensor
+         localMax = maxSensor
+         call mpi_allreduce(localMin, minSensor, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
+         call mpi_allreduce(localMax, maxSensor, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+#endif
+
+      end subroutine GetSensorRange
 
 end module VolumeIntegrals

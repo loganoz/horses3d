@@ -1,18 +1,6 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    PhysicsStorage_NS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:12 2018
-!   @Last revision date: Fri Mar  1 17:09:55 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4245128a42d06e792757abf99679a1878cda2a95
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
       Module Physics_NSKeywordsModule
-         IMPLICIT NONE 
+         IMPLICIT NONE
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_TEMPERATURE_KEY      = "reference temperature (k)"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: REFERENCE_PRESSURE_KEY         = "reference pressure (pa)"
@@ -31,43 +19,46 @@
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY          = "compute gradients"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_TEMPERATURE_KEY     = "sutherland temperature"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_REF_TEMPERATURE_KEY = "sutherland reference temperature"
-         
-         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
-         
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME      ="central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME          ="roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME      ="rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME="lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME       ="standard roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME      ="roe-pike"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME   ="low dissipation roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME   ="matrix dissipation"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME    ="viscous ns"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME    ="u-diss"
 
-         !PARTICLES 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"          
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box" 
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box" 
+         CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
+
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME        ="central"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME            ="roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME        ="rusanov"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME  ="lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ESLAXFRIEDRICHS_SOLVER_NAME="es lax-friedrichs"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME         ="standard roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME        ="roe-pike"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME     ="low dissipation roe"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME     ="matrix dissipation"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME      ="viscous ns"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME          ="u-diss"
+
+         !PARTICLES
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesPerParcelKey    = "particles per parcel"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: sourceTermKey            = "high order particles source term"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STOKES_NUMBER_PART_KEY   = "stokes number"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: GAMMA_PART_KEY           = "gamma"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PHI_M_PART_KEY           = "phi_m"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: I0_PART_KEY              = "radiation source"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MIN_BOX_KEY              = "minimum box"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MAX_BOX_KEY              = "maximum box"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: BC_BOX_KEY               = "bc box"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_FILE_KEY            = "particles file"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_FILE_KEY        = "vel and temp from file"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_INJ_KEY         = "injection"         
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_LOG_INJ_KEY         = "injection"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_INJ_KEY             = "particles injection"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_NUMB_PER_STEP_KEY   = "particles per step"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: PART_PERIOD_KEY          = "particles iter period"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: INJ_VEL_KEY              = "particles injection velocity"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: INJ_TEMP_KEY             = "particles injection temperature"
-         
+
       END MODULE Physics_NSKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
-!    
+!
 !    ******
      MODULE PhysicsStorage_NS
 !    ******
@@ -75,7 +66,7 @@
      USE SMConstants
      use FluidData_NS
      use FileReadingUtilities, only: getRealArrayFromString
-     
+
      IMPLICIT NONE
 
      private
@@ -90,7 +81,7 @@
      public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
      public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
      public    CHANDRASEKAR_SPLIT
-      
+
      public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
      public    CheckPhysicsNSInputIntegrity
      public    GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
@@ -165,7 +156,7 @@
 !    Lambda stabilization - 1.0 by default
 !    -------------------------------------
 !
-     real(kind=RP), protected :: lambdaStab = 1.0_RP     
+     real(kind=RP), protected :: lambdaStab = 1.0_RP
 !
 !    ------------------------------
 !    Thermodynamic specs of the Air
@@ -176,12 +167,12 @@
                                                       287.15_RP, & ! R  ! J / (kg * °K)
                                                          1.4_RP, & ! gamma
                                                    sqrt(1.4_RP), & ! sqrtGamma
-                                                1.4_RP - 1.0_RP, & ! gammaMinus1         
+                                                1.4_RP - 1.0_RP, & ! gammaMinus1
                                      (1.4_RP - 1.0_RP) / 2.0_RP, & ! gammaMinus1Div2
                                      (1.4_RP + 1.0_RP) / 2.0_RP, & ! gammaPlus1Div2
-                    (1.4_RP - 1.0_RP) / (2.0_RP * sqrt(1.4_RP)), & ! gammaMinus1Div2sg 
-                          (1.4_RP - 1.0_RP) / (2.0_RP * 1.4_RP), & ! gammaMinus1Div2g 
-                                     2.0_RP / (1.4_RP + 1.0_RP), & ! InvGammaPlus1Div2 
+                    (1.4_RP - 1.0_RP) / (2.0_RP * sqrt(1.4_RP)), & ! gammaMinus1Div2sg
+                          (1.4_RP - 1.0_RP) / (2.0_RP * 1.4_RP), & ! gammaMinus1Div2g
+                                     2.0_RP / (1.4_RP + 1.0_RP), & ! InvGammaPlus1Div2
                                      1.0_RP / (1.4_RP - 1.0_RP), & ! InvGammaMinus1
                                                 1.0_RP / 1.4_RP, & ! InvGamma
                                    1.4_RP / ( 1.4_RP - 1.0_RP ), & ! gammaDivGammaMinus1
@@ -232,7 +223,7 @@
 !
       success = .TRUE.
       CALL CheckPhysicsNSInputIntegrity(controlVariables,success)
-      IF(.NOT. success) RETURN 
+      IF(.NOT. success) RETURN
 !
 !
 !     ---------------------
@@ -250,12 +241,12 @@
       dimensionless_ % Mach = controlVariables % doublePrecisionValueForKey(MACH_NUMBER_KEY)
 
       if ( controlVariables % ContainsKey(PRANDTL_NUMBER_KEY) ) then
-         dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY) 
+         dimensionless_ % Pr   = controlVariables % doublePrecisionValueForKey(PRANDTL_NUMBER_KEY)
       else
          dimensionless_ % Pr = 0.72_RP
       end if
       if ( controlVariables % ContainsKey(TURBULENT_PRANDTL_NUMBER_KEY) ) then
-         dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY) 
+         dimensionless_ % Prt   = controlVariables % doublePrecisionValueForKey(TURBULENT_PRANDTL_NUMBER_KEY)
       else
          dimensionless_ % Prt = dimensionless_ % Pr
       end if
@@ -269,11 +260,11 @@
 
       IF ( keyword == "euler" )     THEN
          flowIsNavierStokes = .FALSE.
-         dimensionless_ % Re = 0.0_RP   
+         dimensionless_ % Re = 0.0_RP
          dimensionless_ % mu = 0.0_RP
          dimensionless_ % kappa = 0.0_RP
 
-      ELSE 
+      ELSE
          flowIsNavierStokes = .TRUE.
 !
 !        ----------------------------
@@ -281,14 +272,14 @@
 !        ----------------------------
 !
          IF ( controlVariables % containsKey(REYNOLDS_NUMBER_KEY) )     THEN
-            dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY) 
+            dimensionless_ % Re = controlVariables % doublePrecisionValueForKey(REYNOLDS_NUMBER_KEY)
 
-         ELSE 
+         ELSE
             PRINT *, "Input file is missing entry for keyword: ", REYNOLDS_NUMBER_KEY
             success = .FALSE.
-            RETURN 
+            RETURN
 
-         END IF 
+         END IF
 !
 !        ------------------------------------------------
 !        Set molecular viscosity and thermal conductivity
@@ -306,7 +297,7 @@
          end if
 
          dimensionless_ % mu_to_kappa = 1.0_RP / (thermodynamics_ % gammaMinus1*POW2(dimensionless_ % Mach)* dimensionless_ % Pr)
-      END IF 
+      END IF
 !
 !     **************************************
 !     Check if state gradients are requested
@@ -362,7 +353,7 @@
       else
          refValues_ % mu = 0.0_RP
          refValues_ % kappa = 0.0_RP
-      
+
       end if
 
       timeref = Lref / refValues_ % V
@@ -433,15 +424,15 @@
 !        Choose the appropriate Riemann Solver
 !        -------------------------------------
          select case ( keyword )
-         case(ROE_SOLVER_NAME) 
+         case(ROE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_ROE
 
          case(LAXFRIEDRICHS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_LXF 
+            whichRiemannSolver = RIEMANN_LXF
 
          case(RUSANOV_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_RUSANOV
-   
+
          case(STDROE_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_STDROE
 
@@ -462,14 +453,15 @@
 
          case(UDISS_SOLVER_NAME)
             whichRiemannSolver = RIEMANN_UDISS
-            
-         case default 
+
+         case default
             print*, "Riemann solver: ", trim(keyword), " is not implemented."
             print*, "Options available are:"
             print*, "   * Central"
             print*, "   * Roe"
             print*, "   * Standard Roe"
             print*, "   * Lax-Friedrichs"
+            print*, "   * ES Lax-Friedrichs"
             print*, "   * Rusanov"
             print*, "   * Roe-Pike"
             print*, "   * Low dissipation Roe"
@@ -478,12 +470,12 @@
             print*, "   * u-diss"
             errorMessage(STD_OUT)
             stop
-         end select 
-      else 
+         end select
+      else
 !
 !        Select Roe by default
 !        ---------------------
-         whichRiemannSolver = RIEMANN_ROE 
+         whichRiemannSolver = RIEMANN_ROE
 
       end if
 !
@@ -528,7 +520,7 @@
 !     ***************
 !
       IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
-         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
+         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY)
 
       ELSE
 !
@@ -536,10 +528,10 @@
 !        --------------------------------------
          refValues_ % AOAPhi = 0.0_RP
 
-      END IF 
+      END IF
 
       IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
-         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
+         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY)
 
       ELSE
 !
@@ -547,7 +539,7 @@
 !        ----------------------------------------
          refValues_ % AOATheta = 0.0_RP
 
-      END IF 
+      END IF
 !
 !     **************************
 !     Sutherland's law constants
@@ -566,7 +558,7 @@
       end if
 
       S_div_TRef_Sutherland = S_Sutherland / TRef_Sutherland
-      TemperatureReNormalization_Sutherland = refValues_ % T / TRef_Sutherland      
+      TemperatureReNormalization_Sutherland = refValues_ % T / TRef_Sutherland
 !
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
@@ -585,7 +577,7 @@
 !     -------------------------------------------------
 !
       SUBROUTINE DestructPhysicsStorage_NS
-      
+
       END SUBROUTINE DestructPhysicsStorage_NS
 !
 !     //////////////////////////////////////////////////////
@@ -600,7 +592,7 @@
          IMPLICIT NONE
          real(kind=RP)  :: pRef
 
-         if ( .not. MPI_Process % isRoot ) return 
+         if ( .not. MPI_Process % isRoot ) return
 
          pRef = thermodynamics % R * refValues % rho * refValues % T
 
@@ -623,7 +615,7 @@
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , pRef, " Pa."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference density: " , refValues % rho , " kg/m^3."
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference velocity: " , refValues % V , " m/s."
-         
+
          if ( flowIsNavierStokes ) then
             write(STD_OUT,'(30X,A,A30,1pG10.3,A)') "->" , "Reference viscosity: ",refValues % mu , " Pa·s."
             write(STD_OUT,'(30X,A,A30,1pG10.3,A)') "->" , "Reference conductivity: ", refValues % kappa, " W/(m·K)."
@@ -646,9 +638,9 @@
 
       END SUBROUTINE DescribePhysicsStorage_NS
 !
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE CheckPhysicsNSInputIntegrity( controlVariables, success )  
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE CheckPhysicsNSInputIntegrity( controlVariables, success )
          USE FTValueDictionaryClass
          USE Physics_NSKeywordsModule
          IMPLICIT NONE
@@ -667,15 +659,15 @@
          CLASS(FTObject), POINTER :: obj
          INTEGER                  :: i
          success = .TRUE.
-         
+
          DO i = 1, SIZE(physics_NSKeywords)
             obj => controlVariables % objectForKey(physics_NSKeywords(i))
             IF ( .NOT. ASSOCIATED(obj) )     THEN
                PRINT *, "Input file is missing entry for keyword: ",physics_NSKeywords(i)
-               success = .FALSE. 
-            END IF  
-         END DO  
-         
+               success = .FALSE.
+            END IF
+         END DO
+
       END SUBROUTINE CheckPhysicsNSInputIntegrity
 
       subroutine SetGradientVariables(grad_vars_)
@@ -687,14 +679,13 @@
             grad_vars = grad_vars_
          case default
             print*, "Unrecognized option"
-            errorMessage(STD_OUT)   
-            stop  
+            errorMessage(STD_OUT)
+            stop
          end select
 
       end subroutine SetGradientVariables
 
 !
-!    **********       
+!    **********
      END MODULE PhysicsStorage_NS
 !    **********
-

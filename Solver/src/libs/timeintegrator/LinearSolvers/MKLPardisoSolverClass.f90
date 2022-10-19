@@ -1,17 +1,7 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MKLPardisoSolverClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 2017-04-10 10:006:00 +0100
-!   @Last revision date: Wed Jul 17 11:52:53 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
 !//////////////////////////////////////////////////////
 !
 !     Class for solving linear systems using MKL version of Pardiso
-!     -> It is possible to construct the matrix using PETSc. Thhis option is currently deactivated... deprecate??
+!     -> It is possible to construct the matrix using PETSc. This option is currently deactivated... deprecate??
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"
@@ -312,14 +302,14 @@ MODULE MKLPardisoSolverClass
       type(csrMat_t) :: B, Cmat !debug
       
       if (this % AIsPetsc) then
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % PETScA, ComputeTimeDerivative, ComputeTimeDerivative)
          
          call this % PETScA % GetCSRMatrix(this % A)
          call this % SetOperatorDt(dt)
          this % AIsPetsc = .FALSE.
          call this % PETScA % destruct
       else
-         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative)
+         call this % Jacobian % Compute (this % p_sem, nEqn, time, this % A, ComputeTimeDerivative, ComputeTimeDerivative)
          
 !~         !<debug
          
@@ -537,7 +527,7 @@ MODULE MKLPardisoSolverClass
          self % A % values = -dt * self % A % values
       
       else
-         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, eps, .false., mode_in)
+         call self % Jacobian % Compute (self % p_sem, nEqn, 0._RP, self % A, F_J, F_J, eps, .false., mode_in)
          call self % SetOperatorDt(dt)
          
          self % A % values = -dt * self % A % values

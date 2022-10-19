@@ -1,20 +1,11 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    CSRMatrixClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: 
-!   @Last revision date: Wed Jul 17 11:52:23 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 MODULE CSRMatrixClass
    USE SMConstants          , only: RP, STD_OUT   
    use GenericMatrixClass   , only: Matrix_t, DenseBlock_t
    use LinkedListMatrixClass, only: LinkedListMatrix_t
    use JacobianDefinitions  , only: JACEPS
+   use PartitionedMeshClass, only: mpi_partition ! for MPI
+   use MPI_Process_Info    , only: MPI_Process
+   use mkl_spblas
 #include "Includes.h"
    IMPLICIT NONE
    
@@ -28,35 +19,41 @@ MODULE CSRMatrixClass
       integer,        allocatable :: firstIdx(:,:)         ! For each row, specifies the position of the beginning of each element column
       type(LinkedListMatrix_t)    :: ListMatrix
       logical                     :: usingListMat =.FALSE.
+      type(MKL_Global)            :: mkl_options
    contains
    
-      procedure :: construct              => CSR_Construct
-      procedure :: constructWithCSRArrays => CSR_constructWithCSRArrays
-      procedure :: PreAllocate            => CSR_PreAllocate
-      procedure :: Reset                  => CSR_Reset
-      procedure :: ResetBlock             => CSR_ResetBlock
-      procedure :: assigndiag             => CSR_AssignDiag
-      procedure :: Visualize              => CSR2Visualize
-      procedure :: destruct
-      procedure :: Shift                  => SetMatShift
+      procedure :: construct                 => CSR_Construct
+      procedure :: constructWithCSRArrays    => CSR_constructWithCSRArrays
+      procedure :: PreAllocate               => CSR_PreAllocate
+      procedure :: Reset                     => CSR_Reset
+      procedure :: ResetBlock                => CSR_ResetBlock
+      procedure :: assigndiag                => CSR_AssignDiag
+      procedure :: Visualize                 => CSR2Visualize
+      procedure :: destruct   
+      procedure :: Shift                     => SetMatShift
       procedure :: SetColumn
-      procedure :: AddToColumn            => CSR_AddToColumn
-      procedure :: SetEntry               => CSR_SetEntry
-      procedure :: AddToEntry             => CSR_AddToEntry
-      procedure :: ForceAddToEntry        => CSR_ForceAddToEntry
-      procedure :: GetDense               => CSR2Dense
-      procedure :: GetBlock               => CSR_GetBlock
-      procedure :: Assembly               => CSR_Assembly
-      procedure :: SpecifyBlockInfo       => CSR_SpecifyBlockInfo
-      procedure :: AddToBlockEntry        => CSR_AddToBlockEntry
-      procedure :: ForceAddToBlockEntry   => CSR_ForceAddToBlockEntry
-      procedure :: SetBlockEntry          => CSR_SetBlockEntry
+      procedure :: AddToColumn               => CSR_AddToColumn
+      procedure :: SetEntry                  => CSR_SetEntry
+      procedure :: AddToEntry                => CSR_AddToEntry
+      procedure :: ForceAddToEntry           => CSR_ForceAddToEntry
+      procedure :: GetDense                  => CSR2Dense
+      procedure :: GetBlock                  => CSR_GetBlock
+      procedure :: Assembly                  => CSR_Assembly
+      procedure :: SpecifyBlockInfo          => CSR_SpecifyBlockInfo
+      procedure :: AddToBlockEntry           => CSR_AddToBlockEntry
+      procedure :: ForceAddToBlockEntry      => CSR_ForceAddToBlockEntry
+      procedure :: SetBlockEntry             => CSR_SetBlockEntry
       procedure :: ConstructFromDiagBlocks   => CSR_ConstructFromDiagBlocks
       procedure :: MatMatMul                 => CSR_MatMatMul
       procedure :: MatVecMul                 => CSR_MatVecMul
       procedure :: MatAdd                    => CSR_MatAdd
-!      procedure                           :: SetFirstIdx => CSR_SetFirstIdx
-      procedure :: PreAllocateWithStructure => CSR_PreAllocateWithStructure
+      procedure :: PreAllocateWithStructure  => CSR_PreAllocateWithStructure
+      procedure :: ForwSub                   => CSR_ForwardSubstitution
+      procedure :: BackSub                   => CSR_BackwardSubstitution
+      procedure :: LMatVecMul                => CSR_LowerTriangularMatVecMul
+      procedure :: UMatVecMul                => CSR_UpperTriangularMatVecMul
+      procedure :: CreateMKL                 => CSR_CreateMKLMat
+      procedure :: ILU0Factorization         => CSR_ILU0Factorization
    END TYPE
    !-----------------------------------------------------------------------------   
    
@@ -302,7 +299,7 @@ MODULE CSRMatrixClass
             end do
          end do
       else
-         ! TODO: This can be improved...
+         ! TODO: This can be improved.
          do row = this % BlockIdx(iBlock), this % BlockIdx(iBlock) + this % BlockSizes(iBlock) - 1
             do col = this % BlockIdx(jBlock), this % BlockIdx(jBlock) + this % BlockSizes(jBlock) - 1
                
@@ -560,9 +557,9 @@ MODULE CSRMatrixClass
    !----------------------------------------------------------------------------------
       IMPLICIT NONE
       !------------------------------------------
-      CLASS(csrMat_t)             :: this
-      CHARACTER(len=*)            :: FileName
-      LOGICAL, OPTIONAL           :: FirstRow   !< Write First row?
+      class(csrMat_t)   , intent(in) :: this
+      character(len=*)  , intent(in) :: filename
+      logical, optional , intent(in) :: FirstRow   !< Write First row?
       !------------------------------------------
       integer                     :: n, nnz, i, fd
       LOGICAL                     :: First
@@ -955,6 +952,7 @@ MODULE CSRMatrixClass
 !  Subroutine to add a value to the entries of a block with relative index
 !  -----------------------------------------------------------------------
    subroutine CSR_AddToBlockEntry(this, iBlock, jBlock, i, j, value )
+      ! use mpi
       implicit none
       !-arguments-----------------------------------
       class(csrMat_t), intent(inout) :: this
@@ -963,6 +961,7 @@ MODULE CSRMatrixClass
       real(kind=RP)  , intent(in)    :: value
       !-local-variables-----------------------------
       integer :: row, col
+      ! integer                         :: process_Rank, ierr
       !---------------------------------------------
       
       if (.not. allocated(this % BlockIdx)) then
@@ -971,8 +970,14 @@ MODULE CSRMatrixClass
          stop 99
       end if
       
-      row = this % BlockIdx(iBlock) + i - 1
-      col = this % BlockIdx(jBlock) + j - 1
+      ! row = this % BlockIdx(iBlock) + i - 1
+      ! col = this % BlockIdx(jBlock) + j - 1
+      row = this % BlockIdx(mpi_partition % global2localeID(iBlock)) + i - 1
+      col = this % BlockIdx(mpi_partition % global2localeID(jBlock)) + j - 1
+
+      ! call MPI_COMM_RANK(MPI_COMM_WORLD, process_Rank, ierr)
+      ! print *, process_Rank, "row = ", row, "/" ,this % num_of_Rows
+      ! print *, process_Rank, "col = ", col, "/" ,this % num_of_Cols
       
       call this % AddToEntry(row, col, value)
       
@@ -1085,4 +1090,244 @@ MODULE CSRMatrixClass
       call this % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine CSR_ConstructFromDiagBlocks
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Routine to compute forward substitution for CSR matrices.
+!  ---------------------------------------------------------
+   subroutine CSR_ForwardSubstitution(this, b, y, n, alpha)
+      implicit none
+!
+!  ----------------
+!  Arguments:
+!  ----------------
+!
+      class(csrMat_t), intent(in)               :: this
+      real(kind=RP)  , intent(in)               :: b(n)
+      real(kind=RP)  , intent(inout)            :: y(n)
+      integer        , intent(in)               :: n
+      real(kind=RP)  , intent(in)    , optional :: alpha
+!
+!  ----------------
+!  Local Variables:
+!  ----------------
+!
+      real(kind=RP) :: s
+      integer       :: i,j, stat
+!  ---------------------------------------------------------
+
+#ifdef HAS_MKL
+      stat = mkl_sparse_d_trsv (this % mkl_options % trans, alpha, this % mkl_options % csrA, this % mkl_options % descrA, b, y)
+      if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "CSRMatrix :: Lower solve failed."
+#else
+      associate(rows => this % rows, cols => this % cols, vals => this % values)
+         y = 0.0_RP
+         y(1) = b(1)
+
+         do i=2,n
+            s = b(i)
+            j=0
+            do while ( cols(rows(i)+j) .lt. i)
+               s = s - vals(rows(i)+j) * y(cols(rows(i)+j))
+               j = j + 1
+            end do
+            if (i<n) then
+               s = s - y(cols(rows(i)+j+1))
+            end if
+            y(i) = s
+         end do
+
+      end associate
+#endif
+   end subroutine CSR_ForwardSubstitution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ---------------------------------------------------------
+!  Routine to compute forward substitution for CSR matrices.
+!  ---------------------------------------------------------
+   subroutine CSR_BackwardSubstitution(this, y, x, n, alpha)
+      implicit none
+!
+!  ----------------
+!  Arguments:
+!  ----------------
+!
+      class(csrMat_t), intent(in)               :: this
+      real(kind=RP)  , intent(in)               :: y(n)
+      real(kind=RP)  , intent(inout)            :: x(n)
+      integer        , intent(in)               :: n
+      real(kind=RP)  , intent(in)    , optional :: alpha
+!
+!  ----------------
+!  Local Variables:
+!  ----------------
+!
+      real(kind=RP) :: s
+      integer       :: i,j, stat
+!  ---------------------------------------------------------
+
+#ifdef HAS_MKL
+      stat = mkl_sparse_d_trsv (this % mkl_options % trans, alpha, this % mkl_options % csrA, this % mkl_options % descrA, y, x)
+      if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "CSRMatrix :: Upper solve failed."
+#else
+      associate(rows => this % rows, cols => this % cols, vals => this % values)
+         x = 0.0
+         x(n) = y(n) / vals(size(vals,1))
+
+         do i = n-1,1,-1
+            s = y(i)
+            j=1
+            do while ( (cols(rows(i+1)-j) .ge. i) )
+               s = s - vals(rows(i+1)-j) * x(cols(rows(i+1)-j))
+               j = j + 1
+               if ( rows(i+1)-j .lt. 1) then
+                   exit
+               end if 
+            end do
+            x(i) = s / vals(rows(i+1)-j+1)
+         end do
+         x(1) = s / vals(1)
+
+      end associate
+#endif
+
+   end subroutine CSR_BackwardSubstitution
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  CSR_MatVecMul:
+!  Matrix vector product (v = Au) being A a CSR matrix
+!  -> v needs to be allocated beforehand
+!  ----------------------------------------------------
+   function CSR_LowerTriangularMatVecMul( A,u, trans, tri_shift) result(v)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in)    :: trans   !< A matrix is transposed?
+      real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
+      integer          , intent(in)    :: tri_shift
+      !------------------------------------------------------------------------------
+      integer           :: i,j
+      REAL(KIND=RP)     :: rsum
+      !------------------------------------------------------------------------------
+    
+      if (trans) ERROR stop "CSR_LowerTriangularMatVecMul :: A^T x not implemented."
+      
+!$omp parallel do private(j,rsum)
+      DO i=1,A % num_of_Rows
+         rsum = 0.0d0
+         DO j=A % Rows(i),A % Rows(i+1)-1
+            if ( A % Cols(j) .le. (i - tri_shift )) rsum = rsum + u(A % Cols(j)) * A % Values(j)
+         END DO
+         v(i) = rsum
+      END DO
+!$omp end parallel do
+
+   end function
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  CSR_MatVecMul:
+!  Matrix vector product (v = Au) being A a CSR matrix
+!  -> v needs to be allocated beforehand
+!  ----------------------------------------------------
+   function CSR_UpperTriangularMatVecMul( A,u, trans, tri_shift) result(v)
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
+      real(kind=RP)    , intent(in)    :: u(A % num_of_Cols)  !< Vector to be multiplied
+      logical, optional, intent(in)    :: trans   !< A matrix is transposed?
+      real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
+      integer          , intent(in)    :: tri_shift
+      !------------------------------------------------------------------------------
+      integer           :: i,j
+      REAL(KIND=RP)     :: rsum
+      character(len=1)  :: transInfo
+      !------------------------------------------------------------------------------
+    
+      if (trans) ERROR stop "CSR_UpperTriangularMatVecMul :: A^T x not implemented."
+      
+!$omp parallel do private(j,rsum)
+      DO i=1,A % num_of_Rows
+         rsum = 0.0d0
+         DO j=A % Rows(i),A % Rows(i+1)-1
+            if ( A % Cols(j) .ge. (i + tri_shift )) rsum = rsum + u(A % Cols(j)) * A % Values(j)
+         END DO
+         v(i) = rsum
+      END DO
+!$omp end parallel do
+
+   end function
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  CSR_CreateMKLMat:
+!  Creates matrix interface for MKL routines.
+!  ----------------------------------------------------
+   subroutine CSR_CreateMKLMat( A )
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
+      !------------------------------------------------------------------------------
+      integer           :: stat
+      !------------------------------------------------------------------------------
+
+#ifdef HAS_MKL
+      stat = mkl_sparse_d_create_csr ( A % mkl_options % csrA, SPARSE_INDEX_BASE_ONE, A % num_of_Rows, &
+         A % num_of_Rows, A % Rows(1:A % num_of_Rows), A % Rows(2:A % num_of_Rows+1), A % Cols, A % Values)
+      if (stat .ne. SPARSE_STATUS_SUCCESS) error stop "CSR construction failed."
+#else
+      error stop "CSR_CreateMKLMat :: The routine needs MKL to create MKL environment."
+#endif
+
+   end subroutine CSR_CreateMKLMat
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ----------------------------------------------------
+!  CSR_ILU0:
+!  ILU0 factorization using MKL routines.
+!  ----------------------------------------------------
+   subroutine CSR_ILU0Factorization( A )
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      class(csrMat_t)  , intent(inout) :: A  !< Structure holding matrix
+      !------------------------------------------------------------------------------
+      real(kind=rp), allocatable  :: bilu0(:) ! tmparray containing factorised matrix
+      real(kind=rp)               :: dpar(128)
+      integer                     :: ipar(128) 
+      integer                     :: ierr 
+      !------------------------------------------------------------------------------
+
+#ifdef HAS_MKL
+      ! initialisation
+      ipar(2)  = 6
+      ipar(6)  = 1
+      ipar(31) = 0
+
+      dpar(31) = 1.e-16
+      dpar(32) = 1.e-10
+
+      allocate(bilu0(size(A % Values,1)))
+      call dcsrilu0  ( A % num_of_Rows, A % Values, A % Rows, A % Cols, bilu0 , ipar , dpar , ierr )
+      if (ierr .ne. 0) then
+         print *, "Error in dscrilu0, ierr: ", ierr
+      endif
+
+      A % Values = bilu0
+      deallocate(bilu0)
+      ! call A % Visualize('iluA.dat')
+#else
+      error stop "CSR_ILU0Factorization :: ILU smoother needs MKL."
+#endif
+   end subroutine CSR_ILU0Factorization
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 END MODULE CSRMatrixClass

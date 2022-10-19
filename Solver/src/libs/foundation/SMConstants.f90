@@ -1,17 +1,7 @@
 !
 ! ////////////////////////////////////////////////////////////////////
 !
-!     SMConstants.F
-!
-!!
-!!     Modification History:
-!!       version 0.0 August 10, 2005 David A. Kopriva
-!
-!     MODULE SMConstants
-!
-!!        Defines constants for use by the spectral solver, including precision definitions. 
-!
-!!    @author David A. Kopriva
+! Defines constants for use by the spectral solver, including precision definitions. 
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -62,7 +52,7 @@
 
          enum, bind(C)
             enumerator :: NAVIERSTOKES_SOLVER, INCNS_SOLVER, CAHNHILLIARD_SOLVER
-            enumerator :: MULTIPHASE_SOLVER
+            enumerator :: MULTIPHASE_SOLVER, NAVIERSTOKESSA_SOLVER
             enumerator :: NO_OF_SOLVERS
             enumerator :: UNKNOWN_SOLVER = -1
          end enum

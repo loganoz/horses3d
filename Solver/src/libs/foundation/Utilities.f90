@@ -1,24 +1,10 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
-!
-!     Utilities.F
-!
-!!
-!!     Modification History:
-!!        version 0.0 June 1, 2005 David A. Kopriva
-!!
-!!     The main entry here is AlmostEqual, which returns true if the arguments are 
-!!     within rounding error of each other. No adjustments are made for scaling;
-!!     We assume numbers are in [-1,1] since this routine is meant to be used
-!!     by the Gauss point routines.
-!
-!      PUBLIC DATA:
-!          None
-!      PUBLIC METHODS:
-!          ALGORITHM 139: AlmostEqual( a, b )
-!
-!!     @author David A. Kopriva
+!     The main entry here is AlmostEqual, which returns true if the arguments are 
+!     within rounding error of each other. No adjustments are made for scaling;
+!     We assume numbers are in [-1,1] since this routine is meant to be used
+!     by the Gauss point routines.
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -32,8 +18,8 @@ module Utilities
    implicit none
 
    private
-   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product
-   public   toLower, Qsort, QsortWithFriend
+   public   AlmostEqual, UnusedUnit, SolveThreeEquationLinearSystem, GreatestCommonDivisor, outer_product, AlmostEqualRelax
+   public   toLower, Qsort, QsortWithFriend, my_findloc
    public   logarithmicMean, dot_product
    public   LeastSquaresLinRegression
    
@@ -121,7 +107,7 @@ module Utilities
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      LOGICAL pure FUNCTION AlmostEqual( a, b ) 
+      LOGICAL pure FUNCTION AlmostEqual( a, b, tol ) 
       USE SMConstants
       IMPLICIT NONE
 !
@@ -130,15 +116,20 @@ module Utilities
 !     ---------
 !
       REAL(KIND=RP), intent(in) :: a, b
+      REAL(KIND=RP), intent(in), optional :: tol
+      REAL(KIND=RP) :: mytol
 !
+      mytol = 2*epsilon(b)
+      if (present(tol)) mytol = tol
+
       IF ( a == 0.0_RP .OR. b == 0.0_RP )     THEN
-         IF ( ABS(a-b) <= 2*EPSILON(b) )     THEN
+         IF ( ABS(a-b) <= mytol )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
          END IF
       ELSE
-         IF( ABS( b - a ) <= 2*EPSILON(b)*MAX(ABS(a), ABS(b)) )     THEN
+         IF( ABS( b - a ) <= mytol*MAX(ABS(a), ABS(b)) )     THEN
             AlmostEqual = .TRUE.
          ELSE
             AlmostEqual = .FALSE.
@@ -146,6 +137,32 @@ module Utilities
       END IF
 
       END FUNCTION AlmostEqual
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+      LOGICAL pure FUNCTION AlmostEqualRelax( a, b, reference_length, tol) 
+      USE SMConstants
+      IMPLICIT NONE
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), intent(in) :: a, b, reference_length
+      REAL(KIND=RP), intent(in), optional :: tol
+!
+      REAL(KIND=RP)             :: mytol
+!
+      mytol = 1.0E-4_RP
+      if (present(tol)) mytol = tol
+
+      IF( ABS( b - a ) <= mytol * reference_length) THEN
+          AlmostEqualRelax = .TRUE.
+      ELSE
+          AlmostEqualRelax = .FALSE.
+      END IF
+
+      END FUNCTION AlmostEqualRelax
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -435,5 +452,34 @@ SUBROUTINE PartitionWithFriend(A, B, marker)
   END DO
 
 END SUBROUTINE PartitionWithFriend
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+integer function my_findloc(arr, val, dim)
+!  ---------------------------------------------------------
+!  Vanilla routine to find an index of matching value in the array.
+!  For INTEL or GNU v>9.0 just switch to 'findloc'.
+!  ---------------------------------------------------------
+      implicit none
+      !-----Arguments---------------------------------------------------
+      integer,dimension(:),intent(in) :: arr
+      integer,             intent(in) :: val, dim
+      !-----Local-Variables---------------------------------------------
+      integer :: i
+      !  -----------------------------------------------------------------------
+
+      ! my_findloc = findloc(arr,val,dim) ! intrinsic function
+      my_findloc = 0
+      do i = 1, size(arr,1)
+         if (arr(i) .eq. val) then
+         my_findloc = i
+         exit
+         end if
+      end do
+       
+   end function my_findloc
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module Utilities
 

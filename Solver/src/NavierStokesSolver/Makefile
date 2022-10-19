@@ -25,7 +25,7 @@ RANLIB=ranlib
 PROG=./bin/horses3d.ns
 
 OBJS_HORSES=	SpatialDiscretization \
-		main  
+				main  
 
 OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 
@@ -42,17 +42,17 @@ OBJS_HORSES_BUILD=$(foreach obj,$(OBJS_HORSES),./build/$(obj).o)
 ##		COMPILATION RULES 			##
 ##########################################################
 
-.DEFAULT_GOAL := $(PROG)
+.DEFAULT_GOAL :=  $(PROG) 
 
 ./build/%.o: ./%.f90
 	@echo
 	@echo $<
 	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
 
-./build/%.o: ./**/%.f90
+./build_ns/%.o: ./**/%.f90
 	@echo
 	@echo $<
-	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include
+	$(FC) $(FFLAGS) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) $(EXTLIB_INC) -c $< -o $@ $(MOD_FLAG) ./include_ns
 
 $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo
@@ -62,21 +62,20 @@ $(PROG): header mkdirs $(OBJS_HORSES_BUILD)
 	@echo "---------------------------------"
 	$(FC) $(FFLAGS) $(INCLUDE) $(INCLUDE)_ns -o $(PROG) $(OBJS_HORSES_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
 
-
 install: $(PROG)
 	cp -p $(PROG) $(INSTALL_DIR)/bin
 	@echo
 	@echo
 
 ##########################################
-##	Extra auxiliar rules 		##
+##	Extra auxiliary rules 		##
 ##########################################
+
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o
 	rm -f $(PROG)
-
 mkdirs: FORCE
-	@mkdir -p ./build
+	@mkdir -p ./build 
 	@mkdir -p ./include
 	@mkdir -p ./bin
 	@mkdir -p ./lib

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    PhysicsStorage.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Tue Nov 19 15:40:44 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 4a1cb0b60ba7214f9ea84015f2ec8b4c04526553
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module PhysicsStorage
    use SMConstants     , only: RP, STD_OUT
@@ -21,8 +9,10 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
    use FluidData, only: multiphase
 #endif
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use PhysicsStorage_NS
+#elif defined(SPALARTALMARAS)
+   use PhysicsStorage_NSSA
 #elif defined(INCNS)
    use PhysicsStorage_iNS
 #elif defined(MULTIPHASE)
@@ -87,8 +77,10 @@ module PhysicsStorage
 !
 !        Construct NSE physics
 !        ---------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call ConstructPhysicsStorage_NS( controlVariables, Lref, timeRef_NS, success )
+#elif defined(SPALARTALMARAS)
+         call ConstructPhysicsStorage_NSSA( controlVariables, Lref, timeRef_NS, success )
 #elif defined(INCNS)
          call ConstructPhysicsStorage_iNS( controlVariables, Lref, timeRef_NS, success )
 #elif defined(MULTIPHASE)
@@ -116,8 +108,10 @@ module PhysicsStorage
 !        ****************
 !
          call DescribePhysicsStorage_Common
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          call DescribePhysicsStorage_NS()
+#elif defined(SPALARTALMARAS)
+         call DescribePhysicsStorage_NSSA()
 #elif defined(INCNS)
          call DescribePhysicsStorage_iNS()
 #elif defined(MULTIPHASE)

@@ -1,8 +1,5 @@
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!      GenericLinSolverClass.f90
-!      Created: 2017-04-10 10:006:00 +0100 
-!      By: Andrés Rueda
 !
 !      Class for defining common variables and type-bound procedures of linear solvers
 !
@@ -125,7 +122,7 @@ contains
 !     ***************************
 !
       if ( present(sem) ) then
-         call this % Jacobian % construct(sem % mesh, nEqn)
+         call this % Jacobian % construct(sem % mesh, nEqn, controlVariables)
       end if
    end subroutine Construct
 !

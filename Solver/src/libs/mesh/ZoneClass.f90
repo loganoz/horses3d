@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ZoneClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es), Andrés Rueda (am.rueda@upm.es)
-!   @Created: 
-!   @Last revision date: Tue Feb 12 17:06:51 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ZoneClass
    use SMConstants
@@ -32,9 +20,10 @@ module ZoneClass
       integer                     :: no_of_faces
       integer, allocatable        :: faces(:)
       contains
-         procedure   :: Initialize     => Zone_Initialize
-         procedure   :: copy           => Zone_Assign
-         generic     :: assignment(=)  => copy
+         procedure   :: Initialize       => Zone_Initialize
+         procedure   :: copy             => Zone_Assign
+         generic     :: assignment(=)    => copy
+         procedure   :: CreateFictitious => Zone_CreateFictitious
    end type Zone_t
    
    contains
@@ -236,4 +225,22 @@ module ZoneClass
          allocate ( to % faces ( size(from % faces) ) )
          to % faces = from % faces
       end subroutine Zone_Assign
+
+      ! create a fictitious zone, useful to represent fictitious surfaces such as slices or FWH analogy
+      Subroutine Zone_CreateFictitious(self, marker, zoneName, no_of_faces, facesID)
+
+         implicit none
+         class(Zone_t)                                 :: self
+         integer, intent(in)                           :: marker, no_of_faces
+         character(len=*), intent(in)                  :: zoneName
+         integer, dimension(no_of_faces), intent(in)   :: facesID
+
+         self % marker = marker
+         self % Name = trim(zoneName)
+         self % no_of_faces = no_of_faces
+         allocate(self % faces(no_of_faces))
+         self % faces = facesID
+
+      End Subroutine Zone_CreateFictitious
+
 end module ZoneClass

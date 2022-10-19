@@ -76,6 +76,18 @@
          PROCEDURE :: stringValueForKey
          PROCEDURE :: logicalValueForKey
 !
+!        --------------------
+!        Getters with default
+!        --------------------
+         PROCEDURE, PRIVATE :: getRealValueOrDefault
+         PROCEDURE, PRIVATE :: getDoublePrescisionValueOrDefault
+         PROCEDURE, PRIVATE :: getIntegerValueOrDefault
+         PROCEDURE, PRIVATE :: getLogicalValueOrDefault
+         GENERIC, PUBLIC    :: getValueOrDefault => getRealValueOrDefault,             &
+                                                    getDoublePrescisionValueOrDefault, &
+                                                    getIntegerValueOrDefault,          &
+                                                    getLogicalValueOrDefault
+!
 !        -------------
 !        Introspection
 !        -------------
@@ -453,6 +465,97 @@
          s = "FTValueDictionary"
  
       END FUNCTION valueDictionaryClassName
- 
-      
+!
+!//////////////////////////////////////////////////////////////////////// 
+! Get values or a default one if doesn't exist
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      Function getIntegerValueOrDefault(self, key, default) result(val)
+
+         implicit none
+         class(FTValueDictionary)                :: self
+         character(len=*),           intent(in)  :: key
+         integer,                    intent(in)  :: default
+         integer                                 :: val
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         if ( self % ContainsKey(key) ) then
+            val = self % integerValueForKey(key)
+         else
+            val = default
+         end if
+   
+      End Function getIntegerValueOrDefault
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      Function getRealValueOrDefault(self, key, default) result(val)
+
+         implicit none
+         class(FTValueDictionary)                :: self
+         character(len=*),           intent(in)  :: key
+         real,                       intent(in)  :: default
+         real                                    :: val
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         if ( self % ContainsKey(key) ) then
+            val = self % realValueForKey(key)
+         else
+            val = default
+         end if
+   
+      End Function getRealValueOrDefault
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      Function getDoublePrescisionValueOrDefault(self, key, default) result(val)
+
+         implicit none
+         class(FTValueDictionary)                :: self
+         character(len=*),           intent(in)  :: key
+         double precision,           intent(in)  :: default
+         double precision                        :: val
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         if ( self % ContainsKey(key) ) then
+            val = self % DoublePrecisionValueForKey(key)
+         else
+            val = default
+         end if
+   
+      End Function getDoublePrescisionValueOrDefault
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
+      Function getLogicalValueOrDefault(self, key, default) result(val)
+
+         implicit none
+         class(FTValueDictionary)                :: self
+         character(len=*),           intent(in)  :: key
+         logical,                    intent(in)  :: default
+         logical                                 :: val
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         if ( self % ContainsKey(key) ) then
+            val = self % logicalValueForKey(key)
+         else
+            val = default
+         end if
+   
+      End Function getLogicalValueOrDefault
+!
+!//////////////////////////////////////////////////////////////////////// 
+! 
       END Module FTValueDictionaryClass    

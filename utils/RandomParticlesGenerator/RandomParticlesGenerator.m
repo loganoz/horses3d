@@ -21,7 +21,7 @@ for k = 2 : numberOfPoints
 	thisX = x(k);
 	thisY = y(k);
     thisZ = z(k);
-	% See how far is is away from existing keeper points.
+	% See how far it is away from existing keeper points.
 	distances = sqrt((thisX-keeperX).^2 + (thisY - keeperY).^2 + (thisZ - keeperZ).^2);
 	minDistance = min(distances);
     

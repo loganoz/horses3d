@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File: ColorsClass.f90
-!   @Author:  Carlos Redondo (module for 2D) and Andrés Rueda  (am.rueda@upm.es - 3D implementation and changes) 
-!   @Created: Tue Mar 17 17:05:00 2017
-!   @Last revision date: Mon Oct 15 14:43:11 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 63424dca21c42f958a3d51fbed93eaae84663507
-!
 !//////////////////////////////////////////////////////
 !
 !      Module for computing element colorings in order to generate the numerical Jacobian
@@ -40,21 +30,23 @@ MODULE ColorsClass
          type(Neighbor_t), intent(in)         :: nbr(:)
          integer        , intent(in)         :: depth
          !-local-variables------------------------------------------------
-         integer                             :: ncolored = 0
+         integer                             :: ncolored
          LOGICAL, DIMENSION(:), allocatable  :: colored, used
-         LOGICAL                             :: allcolored = .FALSE.
+         LOGICAL                             :: allcolored
          integer                             :: i, j, counter, idx
          integer                             :: ntotal, maxcolor
          integer, DIMENSION(:), allocatable  :: colors
          !----------------------------------------------------------------
-         
+
          ntotal = SIZE(nbr)
          this%ntotal = ntotal
          ALLOCATE(used(0:ntotal)) !0 correspond to boundary "neighbor"
          ALLOCATE(colored(ntotal))
          ALLOCATE(colors(ntotal))
          colored(:) = .FALSE.
+         allcolored = .FALSE.
          maxcolor = 0
+         ncolored = 0
          
 !        Create colors and assign elements
 !        *********************************
@@ -70,7 +62,7 @@ MODULE ColorsClass
                
 !              Check if its neighbors(...depth times) were used in this color
 !              --------------------------------------------------------------  
-               used(0) = .FALSE. !boundary neigbour is empty
+               used(0) = .FALSE. !boundary neighbour is empty
                if (neighbors_were_used(used,nbr,i,depth)) cycle
                
 !              Mark neighbors as used
@@ -92,8 +84,8 @@ MODULE ColorsClass
          ALLOCATE(this%elmnts(ntotal))
          ALLOCATE(this%bounds(this % num_of_colors + 1))
          
-!        Order elements acording to colors
-!        *********************************
+!        Order elements according to colors
+!        **********************************
          idx = 1
          DO i = 1, this % num_of_colors
             this%bounds(i)= idx

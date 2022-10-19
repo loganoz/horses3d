@@ -1,24 +1,5 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      MappedGeometry.f95
-!      Created: 2008-06-19 15:58:02 -0400 
-!      By: David Kopriva  
-!
-!      Modification history:
-!        2008-06-19: Created by David Kopriva
-!        XXXX-XX-XX: Gonzalo Rubio implemented cross-product metrics
-!        2017-05-05: Andrés Rueda implemented polynomial anisotropy
-!        2017-05-23: Juan Manzanero implemented invatiant metrics and
-!                    face geometry construction
-!      Contains:
-!         ALGORITHM 101: MappedGeometryClass
-!         ALGORITHM 102: ConstructMappedGeometry
-!
-!////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
-Module MappedGeometryClass 
+Module MappedGeometryClass
    USE SMConstants
    USE TransfiniteMapClass
    USE NodalStorageClass
@@ -28,6 +9,7 @@ Module MappedGeometryClass
       private
       public MappedGeometry, MappedGeometryFace
       public SetMappingsToCrossProduct
+      public vDot, vCross
 !
 !     ---------
 !     Constants
@@ -43,15 +25,19 @@ Module MappedGeometryClass
             INTEGER                                         :: Nx, Ny, Nz                    ! Polynomial order
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: jGradXi, jGradEta, jGradZeta  ! Contravariant vectors times Jacobian!
             REAL(KIND=RP), DIMENSION(:,:,:,:) , ALLOCATABLE :: x                             ! Position of points in absolute coordinates
-            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian 
-            real(kind=RP)                                   :: volume 
+            REAL(KIND=RP), DIMENSION(:,:,:)   , ALLOCATABLE :: jacobian, invJacobian         ! Mapping Jacobian and 1/Jacobian
+            real(kind=RP)                                   :: volume
             real(kind=RP), dimension(:,:,:),    allocatable :: dWall          ! Minimum distance to the nearest wall
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: ncXi, ncEta, ncZeta     ! Normals at the complementary grid nodes
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: t1cXi, t1cEta, t1cZeta  ! Tangent vector 1 at the complementary grid nodes
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: t2cXi, t2cEta, t2cZeta  ! Tangent vector 2 at the complementary grid nodes
+            real(kind=RP), dimension(:,:,:)   , allocatable :: JfcXi, JfcEta, JfcZeta  ! Normalization term of the faces of the complementary grid
             CONTAINS
-            
-            PROCEDURE :: construct => ConstructMappedGeometry
-            PROCEDURE :: destruct  => DestructMappedGeometry
+
+            PROCEDURE :: construct               => ConstructMappedGeometry
+            PROCEDURE :: destruct                => DestructMappedGeometry
       END TYPE MappedGeometry
-      
+
       type MappedGeometryFace
          real(kind=RP), dimension(:,:,:), allocatable   :: x
          real(kind=RP), dimension(:,:)  , allocatable   :: jacobian   ! |ja^i|: Normalization term of the normal vectors on a face
@@ -59,17 +45,17 @@ Module MappedGeometryClass
          real(kind=RP), dimension(:,:,:), allocatable   :: normal     ! normal vector on a face
          real(kind=RP), dimension(:,:,:), allocatable   :: t1         ! Tangent vector (along the xi direction)
          real(kind=RP), dimension(:,:,:), allocatable   :: t2         ! Tangent vector 2 (orthonormal to t1 and normal)
-         real(kind=RP), dimension(:,:),    allocatable  :: dWall          ! Minimum distance to the nearest wall
+         real(kind=RP), dimension(:,:),   allocatable   :: dWall      ! Minimum distance to the nearest wall
          real(kind=RP)                                  :: surface    ! Surface
          real(kind=RP)                                  :: h          ! Element dimension orthogonal to the face
          contains
             procedure :: construct => ConstructMappedGeometryFace
             procedure :: destruct  => DestructMappedGeometryFace
       end type MappedGeometryFace
-      
+
 !
 !  ========
-   CONTAINS 
+   CONTAINS
 !  ========
 !
 !////////////////////////////////////////////////////////////////////////
@@ -107,7 +93,7 @@ Module MappedGeometryClass
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
-      
+
       ALLOCATE( self % JGradXi  (3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % JGradEta (3,0:Nx,0:Ny,0:Nz) )
       ALLOCATE( self % JGradZeta(3,0:Nx,0:Ny,0:Nz) )
@@ -120,8 +106,8 @@ Module MappedGeometryClass
 !     --------------------------
 !
       DO k = 0, Nz
-         DO j= 0, Ny       
-            DO i = 0,Nx 
+         DO j= 0, Ny
+            DO i = 0,Nx
                x = [spAxi % x(i), spAeta % x(j), spAzeta % x(k)]
                self % x(:,i,j,k) = mapper %  transfiniteMapAt(x)
             END DO
@@ -132,14 +118,14 @@ Module MappedGeometryClass
 !     Metric terms
 !     ------------
 !
-      IF ( useCrossProductMetrics ) THEN 
-      
+      IF ( useCrossProductMetrics ) THEN
+
          CALL computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)
-         
+
       ELSE
-         
+
          CALL computeMetricTermsConservativeForm(self, spAxi, spAeta, spAzeta, mapper)
-      
+
       ENDIF
 !
 !     -----------
@@ -150,22 +136,35 @@ Module MappedGeometryClass
       do k = 0, Nz   ; do j = 0, Ny ; do i = 0, Nx
          self % volume = self % volume + spAxi % w(i) * spAeta % w(j) * spAzeta % w(k) * self % jacobian(i,j,k)
       end do         ; end do       ; end do
-      
+
    END SUBROUTINE ConstructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
 !
       pure SUBROUTINE DestructMappedGeometry(self)
-         IMPLICIT NONE 
+         IMPLICIT NONE
          CLASS(MappedGeometry), intent(inout) :: self
-         
-         safedeallocate( self % jGradXi     ) 
-         safedeallocate( self % jGradEta    ) 
-         safedeallocate( self % jGradZeta   ) 
-         safedeallocate( self % jacobian    ) 
-         safedeallocate( self % invJacobian ) 
-         safedeallocate( self % x           ) 
-         safedeallocate( self % dWall       ) 
+
+         safedeallocate( self % jGradXi     )
+         safedeallocate( self % jGradEta    )
+         safedeallocate( self % jGradZeta   )
+         safedeallocate( self % jacobian    )
+         safedeallocate( self % invJacobian )
+         safedeallocate( self % x           )
+         safedeallocate( self % dWall       )
+         safedeallocate( self % ncXi        )
+         safedeallocate( self % ncEta       )
+         safedeallocate( self % ncZeta      )
+         safedeallocate( self % t1cXi       )
+         safedeallocate( self % t1cEta      )
+         safedeallocate( self % t1cZeta     )
+         safedeallocate( self % t2cXi       )
+         safedeallocate( self % t2cEta      )
+         safedeallocate( self % t2cZeta     )
+         safedeallocate( self % JfcXi       )
+         safedeallocate( self % JfcEta      )
+         safedeallocate( self % JfcZeta     )
+
       END SUBROUTINE DestructMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
@@ -175,7 +174,7 @@ Module MappedGeometryClass
 !        *********************************************************************
 !              Currently, the invariant form is implemented
 !
-!              Ja^i_n = -1/2 \hat{x}^i ( Xl \nabla Xm - Xm \nabla Xl ) 
+!              Ja^i_n = -1/2 \hat{x}^i ( Xl \nabla Xm - Xm \nabla Xl )
 !                 (i,j,k) and (n,m,l) cyclic
 !        *********************************************************************
 !
@@ -227,7 +226,7 @@ Module MappedGeometryClass
             do l = 0, self % Nx
                auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
             end do
-      
+
             do l = 0, self % Ny
                auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
             end do
@@ -269,7 +268,7 @@ Module MappedGeometryClass
             do l = 0, self % Nx
                auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
             end do
-      
+
             do l = 0, self % Ny
                auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
             end do
@@ -311,7 +310,7 @@ Module MappedGeometryClass
             do l = 0, self % Nx
                auxgrad(:,1,i,j,k) = auxgrad(:,1,i,j,k) + coordsProduct(:,l,j,k) * spAxi % DCGL(i,l)
             end do
-      
+
             do l = 0, self % Ny
                auxgrad(:,2,i,j,k) = auxgrad(:,2,i,j,k) + coordsProduct(:,i,l,k) * spAeta % DCGL(j,l)
             end do
@@ -359,22 +358,22 @@ Module MappedGeometryClass
                self % jGradXi(:,i,j,k) = self % jGradXi(:,i,j,k) + Ja1CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jGradEta(:,i,j,k) = self % jGradEta(:,i,j,k) + Ja2CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jGradZeta(:,i,j,k) = self % jGradZeta(:,i,j,k) + Ja3CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jacobian(i,j,k) = self % jacobian(i,j,k) + JacobianCGL(l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
             end do              ; end do              ; end do
          end do               ; end do               ; end do
          do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
@@ -384,14 +383,14 @@ Module MappedGeometryClass
 !
 !///////////////////////////////////////////////////////////////////////
 !
-      SUBROUTINE computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)       
+      SUBROUTINE computeMetricTermsCrossProductForm(self, spAxi, spAeta, spAzeta, mapper)
 !
 !     -----------------------------------------------
-!     Compute the metric terms in cross product form 
+!     Compute the metric terms in cross product form
 !     -----------------------------------------------
 !
          use PhysicsStorage
-         IMPLICIT NONE  
+         IMPLICIT NONE
 !
 !        ---------
 !        Arguments
@@ -409,7 +408,7 @@ Module MappedGeometryClass
 !
          INTEGER       :: i,j,k,l,m,n
          INTEGER       :: Nx, Ny, Nz
-         REAL(KIND=RP) :: grad_x(3,3)         
+         REAL(KIND=RP) :: grad_x(3,3)
          real(kind=RP)  :: Ja1CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: Ja2CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
          real(kind=RP)  :: Ja3CGL(NDIM,0:self % Nx, 0:self % Ny, 0:self % Nz)
@@ -418,21 +417,21 @@ Module MappedGeometryClass
          Nx = spAxi % N
          Ny = spAeta % N
          Nz = spAzeta % N
-         
+
          DO k = 0, Nz
             DO j = 0,Ny
                DO i = 0,Nx
                   grad_x = mapper % metricDerivativesAt([spAxi % xCGL(i), spAeta % xCGL(j), &
                                                               spAzeta % xCGL(k)])
-                 
+
                   CALL vCross( grad_x(:,2), grad_x(:,3), Ja1CGL (:,i,j,k))
                   CALL vCross( grad_x(:,3), grad_x(:,1), Ja2CGL (:,i,j,k))
                   CALL vCross( grad_x(:,1), grad_x(:,2), Ja3CGL(:,i,j,k))
 
                   JacobianCGL(i,j,k) = jacobian3D(a1 = grad_x(:,1),a2 = grad_x(:,2),a3 = grad_x(:,3))
-               END DO   
-            END DO   
-         END DO  
+               END DO
+            END DO
+         END DO
 !
 !        **********************
 !        Return to Gauss points
@@ -448,22 +447,22 @@ Module MappedGeometryClass
                self % jGradXi(:,i,j,k) = self % jGradXi(:,i,j,k) + Ja1CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jGradEta(:,i,j,k) = self % jGradEta(:,i,j,k) + Ja2CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jGradZeta(:,i,j,k) = self % jGradZeta(:,i,j,k) + Ja3CGL(:,l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
 
                self % jacobian(i,j,k) = self % jacobian(i,j,k) + JacobianCGL(l,m,n) &
                                           * spAxi % TCheb2Gauss(i,l) &
                                           * spAeta % TCheb2Gauss(j,m) &
-                                          * spAzeta % TCheb2Gauss(k,n) 
+                                          * spAzeta % TCheb2Gauss(k,n)
             end do              ; end do              ; end do
          end do               ; end do               ; end do
          do k = 0, self % Nz  ; do j = 0, self % Ny  ; do i = 0, self % Nx
@@ -473,7 +472,7 @@ Module MappedGeometryClass
 
       END SUBROUTINE computeMetricTermsCrossProductForm
 !
-!//////////////////////////////////////////////////////////////////////// 
+!////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------
 !  Computation of the metric terms on a face
@@ -487,8 +486,8 @@ Module MappedGeometryClass
       integer,                   intent(in)     :: Nelf(2)  ! Element face pOrder (with rotation)
       integer,                   intent(in)     :: Nel(2)   ! Element face pOrder (without rotation)
       integer,                   intent(in)     :: Nel3D(3) ! Element pOrder
-      type(NodalStorage_t),        intent(in)     :: spAf(2)
-      type(NodalStorage_t),        intent(in)     :: spAe(3)
+      type(NodalStorage_t),      intent(in)     :: spAf(2)
+      type(NodalStorage_t),      intent(in)     :: spAe(3)
       type(MappedGeometry),      intent(in)     :: geom
       type(TransfiniteHexMap),   intent(in)     :: hexMap
       integer,                   intent(in)     :: side
@@ -549,7 +548,7 @@ Module MappedGeometryClass
 !           Swap orientation
 !           ----------------
             dS = -dS
-         
+
          case(ERIGHT)
 !
 !           Get face coordinates
@@ -568,7 +567,7 @@ Module MappedGeometryClass
                GradEta (:,j,k) = GradEta (:,j,k) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
                GradZeta(:,j,k) = GradZeta(:,j,k) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(1) % v(i,RIGHT)
             end do           ; end do           ; end do
-         
+
          case(EBOTTOM)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
@@ -588,7 +587,7 @@ Module MappedGeometryClass
 !           Swap orientation
 !           ----------------
             dS = -dS
-            
+
          case(ETOP)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
@@ -604,7 +603,7 @@ Module MappedGeometryClass
                GradEta (:,i,j) = GradEta (:,i,j) + geom % jGradEta (:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
                GradZeta(:,i,j) = GradZeta(:,i,j) + geom % jGradZeta(:,i,j,k) * geom % invJacobian(i,j,k) * spAe(3) % v(k,TOP)
             end do           ; end do           ; end do
-            
+
          case(EFRONT)
             do j = 0, Nf(2) ; do i = 0, Nf(1)
                call coordRotation(spAf(1) % x(i), spAf(2) % x(j), rot, xi, eta)
@@ -645,7 +644,7 @@ Module MappedGeometryClass
 !
 !     Change the orientation depending on whether left or right elements are used
 !     ---------------------------------------------------------------------------
-      if ( eSide .eq. 2 ) dS = -dS 
+      if ( eSide .eq. 2 ) dS = -dS
 !
 !     Perform the rotation
 !     --------------------
@@ -654,7 +653,7 @@ Module MappedGeometryClass
          GradXiRot   = GradXi
          GradEtaRot  = GradEta
          GradZetaRot = GradZeta
-   
+
       else
          do j = 0, Nelf(2) ; do i = 0, Nelf(1)
             call leftIndexes2Right(i,j,Nelf(1), Nelf(2), rot, ii, jj)
@@ -665,7 +664,7 @@ Module MappedGeometryClass
          end do            ; end do
 
       end if
-         
+
 !
 !     Perform p-Adaption
 !     ------------------
@@ -686,7 +685,7 @@ Module MappedGeometryClass
             self % GradEta (:,i,j) = self % GradEta (:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradEtaRot (:,l,j)
             self % GradZeta(:,i,j) = self % GradZeta(:,i,j) + Tset(Nelf(1), Nf(1)) % T(i,l) * GradZetaRot(:,l,j)
          end do                  ; end do                   ; end do
-         
+
       case (2)
          self % normal = 0.0_RP
          self % GradXi   = 0.0_RP
@@ -704,7 +703,7 @@ Module MappedGeometryClass
          self % GradXi   = 0.0_RP
          self % GradEta  = 0.0_RP
          self % GradZeta = 0.0_RP
-         do l = 0, Nelf(2)  ; do j = 0, Nf(2)   
+         do l = 0, Nelf(2)  ; do j = 0, Nf(2)
             do m = 0, Nelf(1) ; do i = 0, Nf(1)
                self % normal(:,i,j) = self % normal(:,i,j) +   Tset(Nelf(1), Nf(1)) % T(i,m) &
                                          * Tset(Nelf(2), Nf(2)) % T(j,l) &
@@ -758,24 +757,24 @@ Module MappedGeometryClass
 
    end subroutine ConstructMappedGeometryFace
 !
-!//////////////////////////////////////////////////////////////////////// 
+!////////////////////////////////////////////////////////////////////////
 !
       pure subroutine DestructMappedGeometryFace(self)
          implicit none
          !-------------------------------------------------------------------
          class(MappedGeometryFace), intent(inout) :: self
          !-------------------------------------------------------------------
-         
-         safedeallocate(self % x        ) 
-         safedeallocate(self % jacobian ) 
+
+         safedeallocate(self % x        )
+         safedeallocate(self % jacobian )
          safedeallocate(self % GradXi   )
          safedeallocate(self % GradEta  )
          safedeallocate(self % GradZeta )
-         safedeallocate(self % normal   ) 
-         safedeallocate(self % t1       ) 
-         safedeallocate(self % t2       ) 
-         safedeallocate(self % dWall    ) 
-         
+         safedeallocate(self % normal   )
+         safedeallocate(self % t1       )
+         safedeallocate(self % t2       )
+         safedeallocate(self % dWall    )
+
       end subroutine DestructMappedGeometryFace
 
 !
@@ -808,7 +807,7 @@ Module MappedGeometryClass
       SUBROUTINE vCross(u,v,result)
 !
       IMPLICIT NONE
-      
+
       REAL(KIND=RP), DIMENSION(3) :: u,v,result
 
       result(1) = u(2)*v(3) - v(2)*u(3)
@@ -826,7 +825,7 @@ Module MappedGeometryClass
       FUNCTION vDot(u,v)
 !
       IMPLICIT NONE
-      
+
       REAL(KIND=RP)               :: vDot
       REAL(KIND=RP), DIMENSION(3) :: u,v
 
@@ -843,7 +842,7 @@ Module MappedGeometryClass
       FUNCTION vNorm(u)
 !
       IMPLICIT NONE
-      
+
       REAL(KIND=RP)               :: vNorm
       REAL(KIND=RP), DIMENSION(3) :: u
 
@@ -851,15 +850,15 @@ Module MappedGeometryClass
 
       END FUNCTION vNorm
 
-      subroutine SetMappingsToCrossProduct() 
+      subroutine SetMappingsToCrossProduct()
          implicit none
-         
+
          useCrossProductMetrics = .true.
 
       end subroutine SetMappingsToCrossProduct
-         
+
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-      
+
 END Module MappedGeometryClass

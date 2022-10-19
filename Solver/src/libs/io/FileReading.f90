@@ -1,16 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!
-!   @File:    FileReading.f90
-!   @Author:  David Kopriva
-!   @Created: 2010-08-27 12:14:31 -0400 
-!   @Last revision date: Thu Mar 18 11:58:58 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 966274b24d0fb3507260ee580cfd52143429c8ae
-!
-!//////////////////////////////////////////////////////
-!
 module FileReadingUtilities
    USE SMConstants
    use RealDataLinkedList
@@ -228,8 +215,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last forward slash ocurrence
-!        ------------------------------------
+!        Get the last forward slash occurrence
+!        -------------------------------------
          pos = index(inputLine,'/',BACK=.true.)
 
          if ( pos .eq. 0 ) then
@@ -242,6 +229,30 @@ contains
          
       end function RemovePath
 
+      character(len=LINE_LENGTH) function getPath( inputLine )
+         implicit none
+         character(len=*)     :: inputLine
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: pos
+!
+!        Get the last forward slash occurrence
+!        -------------------------------------
+         pos = index(inputLine,'/',BACK=.true.)
+
+         if ( pos .eq. 0 ) then
+            getPath = inputLine
+
+         else
+            getPath = inputLine(1:pos-1)
+
+         end if
+         
+      end function getPath
+
       character(len=LINE_LENGTH) function getFileName( inputLine )
          implicit none
          character(len=*)     :: inputLine
@@ -252,8 +263,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last point ocurrence
-!        ----------------------------
+!        Get the last point occurrence
+!        -----------------------------
          pos = index(inputLine,'.',BACK=.true.)
 
          if ( pos .eq. 0 ) then  
@@ -276,8 +287,8 @@ contains
 !
          integer     :: pos
 !
-!        Get the last point ocurrence
-!        ----------------------------
+!        Get the last point occurrence
+!        -----------------------------
          pos = index(inputLine,'.',BACK=.true.)
 
          if ( pos .eq. 0 ) then  
@@ -521,7 +532,7 @@ contains
 !     ---------------------------------------------------------
          implicit none
 !-----Arguments-----------------------------------------------------------
-         character(len=1024),    intent(in)  :: line
+         character(len=4096),    intent(in)  :: line
          real(kind=RP), allocatable :: array(:)
 !-----Local-Variables-----------------------------------------------------
          character(len=:), allocatable :: auxline
@@ -568,5 +579,51 @@ contains
          deallocate(auxline)
          
       end subroutine getRealArrayFromStringNoCommas
+
+      subroutine getRealArrayFromStringNoCommasMulitpleSpaces( line, array )
+         !     ---------------------------------------------------------
+         !           Gets an array from a string of the form: 
+         !              line = "a   b  c ..."
+         !     ---------------------------------------------------------
+                  implicit none
+         !-----Arguments-----------------------------------------------------------
+                  character(len=1024),    intent(in)  :: line
+                  real(kind=RP), allocatable :: array(:)
+         !-----Local-Variables-----------------------------------------------------
+                  character(len=:), allocatable :: auxline
+                  integer     :: pos1 , pos2 , pos
+                  real(kind=RP) :: val
+                  integer  :: io,i,j
+         !-------------------------------------------------------------------------
+         
+                  allocate(character(len=len(trim(line))) :: auxline)
+                  auxline=trim(line)
+         
+                  array = 0.0_RP
+                  j = 0
+                  do i=1,len(auxline)         
+                     pos = index(auxline , " " ) 
+                     if ( pos .gt. 0 ) then
+                        read(auxline(1:pos-1),*,iostat=io) val 
+         
+                        if ( io .ge. 0 ) then
+                           j = j + 1
+                           array(j) = val
+                        end if
+                        auxline = auxline(pos+1:)
+                     else
+         
+                        read(auxline ,*,iostat=io) val 
+                        if ( io .ge. 0 ) then
+                           j = j + 1
+                           array(j) = val
+                        end if
+                        auxline = ''
+                     end if
+         
+                  end do
+         
+                  deallocate(auxline)
+               end subroutine getRealArrayFromStringNoCommasMulitpleSpaces
 
 end module FileReadingUtilities

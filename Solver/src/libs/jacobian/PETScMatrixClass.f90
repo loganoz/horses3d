@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    PETScMatrixClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Sun Feb 18 14:00:00 2018
-!   @Last revision date: Wed Jul 17 11:52:32 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 !      Class for sparse csr matrices in PETSc context
 !
 !////////////////////////////////////////////////////////////////////////
@@ -35,8 +26,8 @@ module PETScMatrixClass
       Mat         :: A        ! Matrix in PETSc context 
       PetscScalar :: Ashift   ! Stores the current shift to the matrix
       PetscBool   :: withMPI
-      Vec         :: rowvec   ! Auxiliar vector with size = num_of_Rows
-      Vec         :: colvec   ! Auxiliar vector with size = num_of_Cols
+      Vec         :: rowvec   ! Auxiliary vector with size = num_of_Rows
+      Vec         :: colvec   ! Auxiliary vector with size = num_of_Cols
       PetscInt    :: num_of_totalRows
 #endif
       
@@ -147,7 +138,7 @@ module PETScMatrixClass
 !~         CALL CheckPetscErr(ierr,'error in MatSetOption')
       end if
       
-!     Construct auxiliar vectors
+!     Construct auxiliary vectors
 !     --------------------------
       call VecCreate(PETSC_COMM_WORLD,this % rowvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
       call VecSetSizes(this % rowvec,this % num_of_Rows,this % num_of_totalRows,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')

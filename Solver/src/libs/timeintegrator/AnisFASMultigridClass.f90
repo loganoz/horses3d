@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnisFASMultigridClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr  4 09:17:17 2017
-!   @Last revision date: Wed May 5 16:30:01 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
-!
 !//////////////////////////////////////////////////////
 !
 !      Anisotropic version of the FAS Multigrid Class
@@ -26,8 +16,8 @@ module AnisFASMultigridClass
    use FTValueDictionaryClass , only: FTValueDictionary
    use MPI_Process_Info       , only: MPI_Process
    use StopwatchClass         , only: Stopwatch
-#if defined(NAVIERSTOKES)
-   use ManufacturedSolutions
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+   use ManufacturedSolutionsNS
 #endif
    
    implicit none
@@ -54,7 +44,7 @@ module AnisFASMultigridClass
       contains
          procedure                                  :: construct
          procedure                                  :: solve
-         procedure                                  :: destruct      
+         procedure                                  :: destruct
    end type AnisFASMultigrid_t
    
 !
@@ -377,7 +367,7 @@ module AnisFASMultigridClass
 !     Fill source term if required (manufactured solutions)
 !     -----------------------------------------------------
 !
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       if (ManSol) then
          do iEl = 1, nelem
             
@@ -453,6 +443,21 @@ module AnisFASMultigridClass
          call Stopwatch % Pause("AnisFAS: child-adapt")
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
+         
+!~          Child_p % MGStorage(Dir) % p_sem % mesh % IBM % active = .false.
+         Child_p% MGStorage(Dir)%  p_sem% mesh% IBM% active = Solver% MGStorage(Dir)% p_sem% mesh% IBM% active
+         if( Child_p% MGStorage(Dir)% p_sem% mesh% IBM% active ) then
+            Child_p% MGStorage(Dir)% p_sem% mesh% IBM% lvl = lvl 
+            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% copyKDtree( Solver% MGStorage(Dir)% p_sem% mesh% IBM% root )
+            
+            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% build( Child_p% MGStorage(Dir)% p_sem% mesh% elements,       &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% no_of_elements, &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% NDOF,           &
+                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% child           )
+            
+         end if
+         
+         
 !New>
 !
 !        Following code is the old way the child representation was generated.
@@ -495,7 +500,7 @@ module AnisFASMultigridClass
 !  ---------------------------------------------
 !  Driver of the FAS multigrid solving procedure
 !  ---------------------------------------------
-   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType)
+   subroutine solve(this,timestep,t,ComputeTimeDerivative,ComputeTimeDerivativeIsolated,TE,TEType,TEForm)
       implicit none
       class(AnisFASMultigrid_t)        , intent(inout) :: this       !<> The AnisFAS
       integer                          , intent(in)    :: timestep   !<  Current time step
@@ -504,6 +509,8 @@ module AnisFASMultigridClass
       procedure(ComputeTimeDerivative_f), optional             :: ComputeTimeDerivativeIsolated
       type(TruncationError_t), target, optional, intent(inout) :: TE(:)      !<> Truncation error for all elements. If present, the multigrid solver also estimates the TE
       integer                , optional, intent(in)    :: TEType     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
+      integer                , optional, intent(in)    :: TEForm     !<  Truncation error type (either NON_ISOLATED_TE or ISOLATED_TE)
+
       !-------------------------------------------------
       character(len=LINE_LENGTH)              :: FileName
       integer                                 :: Dir
@@ -519,9 +526,9 @@ module AnisFASMultigridClass
          EstimateTE = .TRUE.
          TE_p => TE
          if (present(TEType)) then
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,TEType,TEForm, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          else ! using NON_ISOLATED_TE by default
-            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            call InitializeForTauEstimation(TE,this % MGStorage(1) % p_sem,NON_ISOLATED_TE,TEForm, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
          end if
       else
          EstimateTE = .FALSE.

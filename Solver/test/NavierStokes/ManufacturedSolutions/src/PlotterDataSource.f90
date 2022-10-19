@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      PlotterDataSourceClass.f90
-!      Created: 2011-08-17 12:34:31 -0400 
-!      By: David Kopriva  
-!
 !      The PlotterDataSourceClass supplies the data needed for the
 !      plotter. This can be generalized once bound procedures become
 !      more common in fortran compilers.

@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    StaticCondensationSolverClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Sun May 19 16:54:16 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
-!
 !//////////////////////////////////////////////////////
 !
 !  StaticCondensationSolverClass:
@@ -214,7 +204,7 @@ contains
             allocate ( this % matSolver % Jacobian % ndofelm_l(nelem) )
             this % matSolver % Jacobian % ndofelm_l = this % A % BlockSizes - this % A % inner_blockSizes
             
-            ! Construct auxiliar matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
+            ! Construct auxiliary matrix (nor really needed now since the matrix is constructed in this % A % getSchurComplement())
 !~            call this % Mii_inv % construct (num_of_Rows = this % A % size_i)
             
          case(SSOLVER_MATF_GMRES)
@@ -222,7 +212,7 @@ contains
 !           Matrix-free solver
 !           ******************
             
-            ! Construct auxiliar CSR matrices
+            ! Construct auxiliary CSR matrices
             call this % Mii_LU % construct (num_of_Blocks = this % A % num_of_Blocks)
             call this % Mii_LU % PreAllocate(nnzs = this % A % inner_blockSizes)
             
@@ -263,7 +253,7 @@ contains
 !        **************
          case(SSOLVER_PARDISO, SSOLVER_PETSC)
 !
-!           Destroy auxiliar matrix (must be done prior to destroying solver)
+!           Destroy auxiliary matrix (must be done prior to destroying solver)
 !           -----------------------------------------------------------------
             call this % Mii_inv   % destruct
             deallocate (this % Mii_inv)
@@ -554,7 +544,7 @@ contains
          case (SSOLVER_PARDISO, SSOLVER_PETSC)
             call Stopwatch % Start("System condensation")
             
-            ! Construct auxiliar matrix for Mii⁻¹
+            ! Construct auxiliary matrix for Mii⁻¹
             call Mii_inv % construct (num_of_Blocks = this % A % num_of_Blocks)
             call Mii_inv % PreAllocate(nnzs = this % A % inner_blockSizes)
             
@@ -664,7 +654,7 @@ contains
       real(kind=RP)            , intent(in)    :: x(this % A % size_b)
       real(kind=RP)                            :: v(this % A % size_b)
       !-local-variables-----------------------------------------------------
-      real(kind=RP) :: Mbi_xb (this % A % size_i)   ! Auxiliar vector with size of Mii
+      real(kind=RP) :: Mbi_xb (this % A % size_i)   ! Auxiliary vector with size of Mii
       real(kind=RP) :: vi (this % A % size_i)
       real(kind=RP) :: vb (this % A % size_b)
       !---------------------------------------------------------------------
@@ -692,7 +682,7 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!  Auxiliar subroutines
+!  Auxiliary subroutines
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

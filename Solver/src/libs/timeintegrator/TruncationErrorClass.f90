@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    TruncationErrorClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Feb 28 14:00:00 2018
-!   @Last revision date: Tue Apr 23 17:08:55 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: d2874769ab35c47c4d27a7b3cbef87ec5b3af011
-!
-!//////////////////////////////////////////////////////
-!
 module TruncationErrorClass
    use SMConstants
    use MultigridTypes            , only: MGSolStorage_t
@@ -29,7 +17,7 @@ module TruncationErrorClass
    
    private
    public TruncationError_t, EstimateTruncationError, InitializeForTauEstimation, PrintTEmap, AssignTimeDerivative, GenerateExactTEmap, EstimateAndPlotTruncationError
-   public NON_ISOLATED_TE, ISOLATED_TE, NMINest
+   public NON_ISOLATED_TE, ISOLATED_TE, NMINest, OLD_TE, NEW_TE
    
    !---------------------------------------------------------------------------------------------------------
    ! Type for storing the truncation error for one element in one direction according to the polynomial order
@@ -47,6 +35,7 @@ module TruncationErrorClass
    type :: TruncationError_t
       type(TruncErrorPol_t)       :: Dir(3)
       integer                     :: TruncErrorType
+      integer                     :: TruncErrorForm
       contains
          procedure :: construct           => TruncationError_Construct
          procedure :: destruct            => TruncationError_Destruct
@@ -67,7 +56,8 @@ module TruncationErrorClass
    integer, parameter :: ISOLATED_TE = 0
    integer, parameter :: NON_ISOLATED_TE = 1
    integer, parameter :: NMINest    = 1      ! Minimum polynomial order used for estimation 
-   
+   integer, parameter :: OLD_TE = 2
+   integer, parameter :: NEW_TE = 3
 !========
  contains
 !========
@@ -291,12 +281,13 @@ module TruncationErrorClass
 !  ---------------------------------------------
 !  Subroutine that sets P for all elements in TE
 !  ---------------------------------------------
-   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+   subroutine InitializeForTauEstimation(TE,sem,TruncErrorType,TruncErrorForm,ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       implicit none
       !------------------------------------------
       type(TruncationError_t) :: TE(:)
       type(DGSem), intent(in) :: sem
       integer    , intent(in) :: TruncErrorType !<  Either NON_ISOLATED_TE or ISOLATED_TE
+      integer    , intent(in) :: TruncErrorForm !<  Either NON_ISOLATED_TE or ISOLATED_TE
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
       !------------------------------------------
@@ -306,6 +297,7 @@ module TruncationErrorClass
 !$omp parallel do schedule(runtime)
       do eID=1, size(sem % mesh % elements)
          TE(eID) % TruncErrorType = TruncErrorType
+         TE(eID) % TruncErrorForm = TruncErrorForm
          TE(eID) % Dir(1) % P = sem % mesh % Nx(eID)
          TE(eID) % Dir(2) % P = sem % mesh % Ny(eID)
          TE(eID) % Dir(3) % P = sem % mesh % Nz(eID)
@@ -344,7 +336,7 @@ module TruncationErrorClass
       real(kind=RP)            :: maxTE
       real(kind=RP)            :: S(NCONS)      !   Source term
       type(Element), pointer   :: e
-#if defined(NAVIERSTOKES)            
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))         
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 #endif
       !--------------------------------------------------------
@@ -364,7 +356,7 @@ module TruncationErrorClass
          
          ! loop over all the degrees of freedom of the element
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-#if defined(NAVIERSTOKES)            
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))         
             call UserDefinedSourceTermNS(e % geom % x(:,i,j,k), e % storage % Q(:,i,j,k), t, S, thermodynamics, dimensionless, refValues)
 #endif
             wx  = NodalStorage(e % Nxyz(1)) % w (i)
@@ -372,7 +364,11 @@ module TruncationErrorClass
             wz  = NodalStorage(e % Nxyz(3)) % w (k)
             Jac = e % geom % jacobian(i,j,k)
             do iEQ = 1, NCONS
-               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  )  ! The last term is included to do time-accurate p-adaptation...For steady-state it can be neglected (original formulation)
+               if (TE(1) % TruncErrorForm .EQ. OLD_TE) then
+                  maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  )  ! The last term is included to do time-accurate p-adaptation...For steady-state it can be neglected (original formulation)
+               elseif (TE(1) % TruncErrorForm .EQ. NEW_TE) then
+                  maxTE =  MAX(maxTE , (e % storage % Qdot (iEQ,i,j,k) + S(iEQ) + Var(iEl) % Scase(iEQ,i,j,k) - Var(iEl) % S(iEQ,i,j,k) )  ) 
+               endif
             end do
          end do         ; end do         ; end do
          
@@ -428,7 +424,7 @@ module TruncationErrorClass
 !  -> The exact solution must be coded down in UserDefinedState1 (ProblemFile.f90)
 !  ------------------------------------------------------------------------
 !
-   subroutine GenerateExactTEmap(sem, NMIN, NMAX, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, TruncErrorType)
+   subroutine GenerateExactTEmap(sem, NMIN, NMAX, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, iEl, TruncErrorType, TruncErrorForm)
       implicit none
       !-arguments---------------------------------------------------------------
       type(DGSem)                :: sem
@@ -440,6 +436,8 @@ module TruncationErrorClass
       type(FTValueDictionary)    :: controlVariables
       integer, intent(in)        :: iEl
       integer, intent(in)        :: TruncErrorType
+      integer, intent(in)        :: TruncErrorForm
+
       !-external-routines------------------------------------------------------
 #if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
       procedure(UserDefinedFinalSetup_f) :: UserDefinedFinalSetup
@@ -484,12 +482,12 @@ module TruncationErrorClass
                
                if(.NOT. success)   ERROR STOP ":: problem creating sem"
                
-#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD)
+#if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD) && !defined(SPALARTALMARAS)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
 #endif
                
                
-               TEmap(i,j,k) = EstimateTauOfElem(sem,t,iEl)
+               TEmap(i,j,k) = EstimateTauOfElem(sem,t,TruncErrorForm,iEl)
                
                print*, 'Done for N=',i,j,k
             end do
@@ -506,14 +504,16 @@ module TruncationErrorClass
 !     -----
 !     Estimates the infinity norm of the truncation error for a given mesh given a restart solution or a manufactured solution
 !     ---
-      function EstimateTauOfElem(sem,t,iEl, UseLoadedSol) result(maxTE)
+      function EstimateTauOfElem(sem,t,iEl,TruncErrorForm, UseLoadedSol) result(maxTE)
          implicit none
          !-arguments---------------------------------------------
          type(DGSem), target    , intent(inout) :: sem              !<> sem class (inout cause' we compute Qdot)
          real(kind=RP)          , intent(in)    :: t                !>  Time
          integer                , intent(in)    :: iEl              !<  Present if the result is wanted for a certain element
          real(kind=RP)                          :: maxTE            !>  |\tau|_{\infty}
+         integer                , intent(in)    :: TruncErrorForm
          logical      , optional, intent(in)    :: UseLoadedSol
+
          !-external-routines------------------------------------
 #if defined(NAVIERSTOKES)  
          procedure(UserDefinedState_f) :: UserDefinedState1
@@ -542,7 +542,7 @@ module TruncationErrorClass
          do eID = 1, nelem
             associate (e => sem % mesh % elements(eID))
             
-#if defined(NAVIERSTOKES)      
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
             if (UserDefinedSol) then
                do kk = 0, e % Nxyz(3) ; do jj = 0, e % Nxyz(2) ; do ii = 0, e % Nxyz(1)
                   call UserDefinedState1(e % geom % x(:,ii,jj,kk), t, [0._RP, 0._RP, 0._RP], e % storage % Q(:,ii,jj,kk), thermodynamics, dimensionless, refValues)
@@ -567,8 +567,13 @@ module TruncationErrorClass
                wy  = NodalStorage(e % Nxyz(2)) % w (jj)
                wz  = NodalStorage(e % Nxyz(3)) % w (kk)
                Jac = e % geom % jacobian(ii,jj,kk)
-      
-               maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+            
+              if (TruncErrorForm .EQ. OLD_TE) then 
+                  maxTE =  MAX(maxTE , wx * wy * wz * Jac * ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+              elseif (TruncErrorForm .EQ. NEW_TE) then
+                  maxTE =  MAX(maxTE , ABS  (e % storage % Qdot (iEQ,ii,jj,kk) ) )
+              endif
+            
             end do
          end do          ; end do          ; end do
           

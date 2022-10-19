@@ -31,6 +31,7 @@ OBJS=	Storage\
 	ProlongMeshAndSolution\
 	Mesh2Plt\
 	Solution2Plt\
+	Solution2VtkHdf\
 	Stats2Plt\
 	main \
 
@@ -70,7 +71,7 @@ install: $(PROG)
 	@echo
 
 ##########################################
-##	Extra auxiliar rules 		##
+##	Extra auxiliary rules 		##
 ##########################################
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o

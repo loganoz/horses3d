@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MPI_Utilities.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Thu May 16 12:17:25 2019
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 module MPI_Utilities
    use SMConstants
    use MPI_Process_Info

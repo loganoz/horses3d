@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    VariableConversion_NS.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sun Jan 14 13:23:34 2018
-!   @Last revision date: Mon Apr 22 18:37:38 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 8515114b0e5db8a89971614296ae2dd81ba0f8ee
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module VariableConversion_NS
    use SMConstants
@@ -18,7 +6,7 @@ module VariableConversion_NS
    implicit none
 
    private
-   public   Pressure, Temperature, TemperatureDeriv
+   public   Pressure, Temperature, TemperatureDeriv, PressureDot
    public   get_laminar_mu_kappa, SutherlandsLaw
    public   NSGradientVariables_STATE
    public   NSGradientVariables_ENTROPY
@@ -75,6 +63,31 @@ module VariableConversion_NS
       P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
       end function Pressure
+!
+! /////////////////////////////////////////////////////////////////////
+!---------------------------------------------------------------------
+!! Compute the pressure time derivate from the state variables and its time derivatives
+!---------------------------------------------------------------------
+!
+      PURE function PressureDot(Q,QDot) RESULT(PDot)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: QDot
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: PDot
+      
+      PDot = QDot(5) + 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/(Q(1)**2)*QDot(1) - dot_product(Q(2:4), QDot(2:4))/Q(1)
+      PDot = thermodynamics % gammaMinus1*PDot
+
+      end function PressureDot
 !
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -393,6 +406,26 @@ module VariableConversion_NS
 
       end subroutine getVelocityGradients_Energy
 
+      pure subroutine getVelocityGradients_Entropy(Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: pDivRho
+         real(kind=RP) :: U(NDIM)
+         !-------------------------------------------------------------
+
+         pDivRho = Pressure(Q) / Q(IRHO)
+         U = Q(IRHOU:IRHOW) / Q(IRHO)
+
+         U_x = pDivRho * Q_x(IRHOU:IRHOW) + U / pDivRho * Q_x(IRHOE)
+         U_y = pDivRho * Q_y(IRHOU:IRHOW) + U / pDivRho * Q_y(IRHOE)
+         U_z = pDivRho * Q_z(IRHOU:IRHOW) + U / pDivRho * Q_z(IRHOE)
+
+      end subroutine getVelocityGradients_Entropy
+
 !
 !/////////////////////////////////////////////////////////////////////////////
 !
@@ -576,6 +609,9 @@ module VariableConversion_NS
 
          case(GRADVARS_ENERGY)
             getVelocityGradients => getVelocityGradients_ENERGY
+
+         case(GRADVARS_ENTROPY)
+            getVelocityGradients => getVelocityGradients_ENTROPY
 
          end select
 

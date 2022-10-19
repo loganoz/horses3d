@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    GeometryClass.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Fri Nov 10 15:48:11 2017
-!   @Last revision date: Sat Aug  3 23:57:01 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
-!
-!//////////////////////////////////////////////////////
-!
 module GeometryClass
    use SMConstants
    use PhysicsStorage
@@ -243,9 +231,9 @@ module GeometryClass
          logical                    :: success
          character(len=LINE_LENGTH) :: solutionFile
 !
-!        ***********************
-!        Construct auxiliar mesh
-!        ***********************
+!        ************************
+!        Construct auxiliary mesh
+!        ************************
 !
          allocate(elems(0:self % Npoints,0:self % Npoints,0:self % Npoints))
          allocate(xi(NDIM,0:self % Npoints,0:self % Npoints,0:self % Npoints))

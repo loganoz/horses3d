@@ -1,19 +1,9 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    VariableConversion.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Apr 18 18:07:30 2018
-!   @Last revision date: Thu Jul  5 12:35:00 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: feb27efbae31c25d40a6183082ebd1dcd742615e
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module VariableConversion
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use VariableConversion_NS
+#elif defined(SPALARTALMARAS)
+   USE VariableConversion_NSSA
 #elif defined(INCNS)
    use VariableConversion_iNS
 #elif defined(MULTIPHASE)

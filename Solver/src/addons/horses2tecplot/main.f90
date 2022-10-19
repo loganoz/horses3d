@@ -3,6 +3,7 @@ program horses2plt
    use getTask
    use Mesh2PltModule
    use Solution2PltModule
+   use Solution2VtkHdfModule
    use Stats2PltModule
    use SolutionFile
    use SharedSpectralBasis
@@ -19,6 +20,8 @@ program horses2plt
    integer                                 :: basis
    integer                                 :: mode
    integer                                 :: iSol
+   logical                                 :: useCommandArgs
+   logical                                 :: oldStats
 
    call MPI_Process % Init
 
@@ -26,7 +29,7 @@ program horses2plt
 !
 !  Get the job type
 !  ----------------
-   jobType = getTaskType(meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode)
+   call getTaskType(jobType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, useCommandArgs, oldStats)
 !
 !  Construct Spectral basis
 !  ------------------------
@@ -44,7 +47,7 @@ program horses2plt
       do iSol = 1, no_of_solutions
 
          select case (solutionTypes(iSol))
-         case ( SOLUTION_FILE )
+         case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE )
             write(STD_OUT,'(/,/)')
             call Section_Header("Solution conversion")
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
@@ -56,11 +59,48 @@ program horses2plt
 
          case ( STATS_FILE )
             write(STD_OUT,'(/,/)')
-            call Section_Header("Statistics file conversion")
-            call Stats2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)
+            if (oldStats) then
+                call Section_Header("Statistics legacy file conversion")
+                call Stats2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout)
+            else
+                call Section_Header("Statistics file conversion")
+                call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
+            end if 
 
          end select
       end do
+
+   case (SOLUTION_2_VTKHDF)
+#ifdef HAS_HDF5
+      do iSol = 1, no_of_solutions
+
+         select case (solutionTypes(iSol))
+            case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE )
+               write(STD_OUT,'(/,/)')
+               call Section_Header("Solution conversion")
+               call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+
+            case ( SOLUTION_AND_GRADIENTS_FILE )
+               write(STD_OUT,'(/,/)')
+               call Section_Header("Solution with gradients conversion")
+               call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+
+            case ( STATS_FILE )
+               write(STD_OUT,'(/,/)')
+               if (oldStats) then
+                   write(STD_OUT,'(A)') "Statistics legacy file conversion not supported for VTKHDF"
+                   stop
+               else
+                  call Section_Header("Statistics file conversion")
+                  call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+               end if
+
+         end select
+      end do
+#else
+      write(STD_OUT, '(A)') "HDF5 support must be enabled to save to VTKHDF format"
+      stop
+#endif
 
    case (UNKNOWN_JOB)
       call exit(UNKNOWN_JOB)

@@ -18,7 +18,9 @@ Split form = Pirozzoli
 #   PARTICLES   #
 #################
 lagrangian particles  = .true.
+high order particles source term = .false.
 number of particles   = 10 
+particles per parcel  = 1
 # Right now, it has to be chosen between injecting particles through one face (only one) or 
 # initialise the domain with particles and follow their evolution.
 # particles file        = "RandomParticles.txt" ! If not provided, initialization without particles. 

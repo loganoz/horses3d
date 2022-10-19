@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnalyticalJacobian.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Oct 31 14:00:00 2017
-!   @Last revision date: Sun Aug  4 16:39:54 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
-!
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
@@ -36,11 +26,17 @@ module AnalyticalJacobian
    use FaceClass                       , only: Face
    use Utilities                       , only: dot_product
    use ConnectivityClass               , only: Connectivity
-#if defined(NAVIERSTOKES)
+   use FTValueDictionaryClass
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use RiemannSolvers_NS               , only: RiemannSolver_dFdQ, RiemannSolver
    use HyperbolicDiscretizations       , only: HyperbolicDiscretization
    use VariableConversion              , only: NSGradientVariables_STATE
    use FluidData_NS, only: dimensionless
+#elif defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSA               , only: RiemannSolver_dFdQ, RiemannSolver
+   use HyperbolicDiscretizations       , only: HyperbolicDiscretization
+   use VariableConversion              , only: NSGradientVariables_STATE
+   use FluidData_NSSA, only: dimensionless
 #endif
 #ifdef _HAS_MPI_
    use mpi
@@ -75,12 +71,13 @@ contains
 !  AnJacobian_Construct:
 !  Main class constructor
 !  -------------------------------------------------------
-   subroutine AnJacobian_Construct(this, mesh, nEqn)
+   subroutine AnJacobian_Construct(this, mesh, nEqn, controlVariables)
       implicit none
       !-arguments-----------------------------------------
       class(AnJacobian_t)  , intent(inout) :: this
       type(HexMesh)        , intent(inout) :: mesh
       integer              , intent(in)    :: nEqn
+      type(FTValueDictionary)  , intent(in)    :: controlVariables
       !-local-variables-----------------------------------
       integer :: fID, eID
       !---------------------------------------------------
@@ -88,7 +85,7 @@ contains
 !
 !     Construct parent
 !     ----------------
-      call this % JacobianComputer_t % construct (mesh, nEqn)
+      call this % JacobianComputer_t % construct (mesh, nEqn, controlVariables)
 !
 !     Create stopwatch event
 !     ----------------------
@@ -121,7 +118,7 @@ contains
 !  -------------------------------------------------------
 !  Subroutine for computing the analytical Jacobian matrix
 !  -------------------------------------------------------
-   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, eps_in, BlockDiagonalized, mode)
+   subroutine AnJacobian_Compute(this, sem, nEqn, time, Matrix, TimeDerivative, TimeDerivativeIsolated, eps_in, BlockDiagonalized, mode)
       implicit none
       !-arguments----------------------------------
       class(AnJacobian_t)      , intent(inout)     :: this
@@ -130,10 +127,11 @@ contains
       real(kind=RP)            , intent(in)        :: time
       class(Matrix_t)          , intent(inout)     :: Matrix
       procedure(ComputeTimeDerivative_f), optional :: TimeDerivative    ! Not needed here...
+      procedure(ComputeTimeDerivative_f), optional :: TimeDerivativeIsolated
       real(kind=RP)  , optional, intent(in)        :: eps_in            ! Not needed here...
       logical        , optional, intent(in)        :: BlockDiagonalized !<? Construct only the block diagonal?
       integer        , optional, intent(in)        :: mode
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) 
       !--------------------------------------------
       integer :: nnz
       integer :: nelem, ierr
@@ -269,8 +267,10 @@ contains
 #else
       ERROR stop ':: Analytical Jacobian only for NS'
 #endif
+
+   ! call Matrix % Visualize('Jacobian.txt')
    end subroutine AnJacobian_Compute
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) 
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -321,7 +321,8 @@ contains
                                       mesh % faces( e % faceIDs(ERIGHT ) ), &
                                       mesh % faces( e % faceIDs(ETOP   ) ), &
                                       mesh % faces( e % faceIDs(ELEFT  ) ), &
-                                      Matrix )
+                                      Matrix,                               &
+                                      mesh% IBM                             )
       end do
 !$omp end do
       nullify (e)
@@ -615,9 +616,10 @@ contains
          f % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * f % geom % jacobian(i,j)
          
       end do             ; end do
-      
+#ifndef SPALARTALMARAS
       if (flowIsNavierStokes) call ViscousDiscretization % RiemannSolver_Jacobians(f)
-      
+#endif
+
    end subroutine ComputeInterfaceFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -897,12 +899,14 @@ contains
 !  Local_SetDiagonalBlock:
 !     Subroutine to set a diagonal block in the Jacobian
 !  -----------------------------------------------------
-   subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix)
+   subroutine Local_SetDiagonalBlock(e, fF, fB, fO, fR, fT, fL, Matrix, IBM)
+      use IBMClass
       implicit none
       !-------------------------------------------
       type(Element)     , intent(inout) :: e
       type(Face), target, intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
       class(Matrix_t)   , intent(inout) :: Matrix
+      type(IBM_type),     intent(inout) :: IBM
       !-------------------------------------------
       real(kind=RP) :: MatEntries(NCONS,NCONS)
       real(kind=RP) :: dFdQ      (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
@@ -944,6 +948,9 @@ contains
       real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
       real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
       type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+      
+      optional :: IBM      
+      
       !-------------------------------------------
       spAxi   => NodalStorage(e % Nxyz(1))
       spAeta  => NodalStorage(e % Nxyz(2))
@@ -988,8 +995,8 @@ contains
 !     Inviscid contribution
 !     *********************
 !
+#ifndef SPALARTALMARAS     
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
-      
       if (flowIsNavierStokes) then
          call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
          ! TODO: Read this from Viscous discretization
@@ -1004,7 +1011,7 @@ contains
          call AnJac_GetFaceJac(fL, sideL, JacL, dqHat_dqp, dqHat_dqm)
          
       end if
-      
+#endif    
 !
 !     Pointers to the flux Jacobians with respect to q on the faces
 !     -------------------------------------------------------------
@@ -1113,7 +1120,7 @@ contains
          do k12 = 0, e % Nxyz(3) ; do j12 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do i1 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Xi auxiliar terms
+!           Get Xi auxiliary terms
 !           ---------------------
             xiAux   = 0._RP
             
@@ -1159,7 +1166,7 @@ contains
          do k12 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do j1 = 0, e % Nxyz(2) ; do i12 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Eta auxiliar terms
+!           Get Eta auxiliary terms
 !           ----------------------
             etaAux   = 0._RP
             
@@ -1204,7 +1211,7 @@ contains
          do k2 = 0, e % Nxyz(3)  ; do k1 = 0, e % Nxyz(3)   ; do j12 = 0, e % Nxyz(2)  ; do i12 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Zeta auxiliar terms
+!           Get Zeta auxiliary terms
 !           -----------------------
             zetaAux   = 0._RP
                   
@@ -1431,6 +1438,31 @@ contains
          nullify (dfdGradQ_fr, dfdGradQ_ba, dfdGradQ_bo, dfdGradQ_to, dfdGradQ_ri, dfdGradQ_le )
       end if
       
+!
+!     adding IBM contributes
+!     ---------------------- 
+      if( present(IBM) .and. IBM% active ) then
+         do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
+            if( e% isInsideBody(i12,j12,k12) ) then
+               associate( Q => e% storage% Q(:,i12,j12,k12) )
+               call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
+
+               baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+               baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+ 
+               ! IBM contributes affect only the diagonal of the block diag. matrix
+               !-------------------------------------
+               do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
+                  i = eq1 + baseRow  ! row index (1-based)
+                  j = eq2 + baseCol  ! column index (1-based)
+                  call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               end do; end do
+
+               end associate
+            end if
+         end do; end do; end do
+      end if
+      
       nullify(dF_dgradQ)
       nullify(spAxi,spAeta,spAzeta)
    end subroutine Local_SetDiagonalBlock
@@ -1499,9 +1531,9 @@ contains
       real(kind=RP) :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       real(kind=RP) :: a_minus
       real(kind=RP) :: normAux(NCONS,NCONS)
-      real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the direction normal to the face
-      real(kind=RP), pointer :: Gvec_tan1(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the first tangent direction to the face
-      real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the second tangent direction to the face
+      real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the direction normal to the face
+      real(kind=RP), pointer :: Gvec_tan1(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the first tangent direction to the face
+      real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the second tangent direction to the face
       real(kind=RP), allocatable :: nHat(:,:,:)
       !--------------------------------------------------------------------------------
 !
@@ -1548,8 +1580,19 @@ contains
       normAx_minus = abs(normAx_minus)
       
       ! Nodal storage
-      spA_plus  = NodalStorage(e_plus  % Nxyz)
-      spA_minus = NodalStorage(e_minus % Nxyz)
+      ! --------------------------------------
+      ! TODO: Why this doesn't work since ifort ver. 19.1?
+      ! --------------------------------------
+      ! spA_plus  = NodalStorage(e_plus  % Nxyz)
+      ! spA_minus = NodalStorage(e_minus % Nxyz)
+      
+      spA_plus(1)  = NodalStorage(e_plus  % Nxyz(1))
+      spA_plus(2)  = NodalStorage(e_plus  % Nxyz(2))
+      spA_plus(3)  = NodalStorage(e_plus  % Nxyz(3))
+      spA_minus(1)  = NodalStorage(e_minus  % Nxyz(1))
+      spA_minus(2)  = NodalStorage(e_minus  % Nxyz(2))
+      spA_minus(3)  = NodalStorage(e_minus  % Nxyz(3))
+
       spAnorm_plus  => spA_plus( normAx_plus   )
       spAtan1_plus  => spA_plus( tanAx_plus(1) )
       spAtan2_plus  => spA_plus( tanAx_plus(2) )
@@ -1674,7 +1717,7 @@ contains
 !              Computation of the matrix entry
 !              -------------------------------
                
-!              Get NORMAL auxiliar term
+!              Get NORMAL auxiliary term
 !              ------------------------
                normAux = 0._RP
                if (dtan1*dtan2 > 0.5_RP) then
@@ -1719,7 +1762,7 @@ contains
                      * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
                      * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
 !
-!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitely in another place (needed for purely viscous equations)
+!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitly in another place (needed for purely viscous equations)
 !                 The tangent directions here are taken in the reference frame of e⁻
 !              *********************************************************************
 !

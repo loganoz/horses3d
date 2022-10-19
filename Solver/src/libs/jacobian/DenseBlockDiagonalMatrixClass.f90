@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      DenseBlockDiagonalMatrixClass.f90
-!      Created: 2018-02-19 17:07:00 +0100 
-!      By: Andrés Rueda
-!
 !      Class for sparse block diagonal matrices
 !      -> The matrix is not dense, the block is!
 !
@@ -43,6 +39,7 @@ module DenseBlockDiagonalMatrixClass
          procedure :: InvertBlocks_LU
          procedure :: getCSR
          procedure :: getTransCSR
+         procedure :: Visualize
    end type DenseBlockDiagMatrix_t
 contains
 !
@@ -559,4 +556,35 @@ contains
       call Acsr % constructWithCSRArrays( Rows, Cols(1:nnz), Vals(1:nnz), this % num_of_Rows )
       
    end subroutine getTransCSR
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Visualize(this, filename, FirstRow)
+!  ---------------------------------------------------------
+!  Save Jacobian matrix in the ASCII file. 
+!  ---------------------------------------------------------
+      implicit none
+!-----Arguments-----------------------------------------------------------
+      class(DenseBlockDiagMatrix_t)  , intent(in) :: this
+      character(len=*)               , intent(in) :: filename
+      logical, optional              , intent(in) :: FirstRow   !< Write First row?
+!-----Local-Variables-----------------------------------------------------
+      class(csrMat_t) , allocatable :: Acsr
+!-------------------------------------------------------------------------
+
+      allocate(Acsr)
+      call Acsr % Construct(num_of_Rows = this % num_of_Rows)
+      call this % getCSR(Acsr)
+      if (present(FirstRow)) then
+         call Acsr % Visualize(trim(filename),FirstRow)
+      else
+         call Acsr % Visualize(trim(filename))
+      end if
+      call Acsr % destruct
+      write(STD_OUT,'(20X,A,A)') "Jacobian saved to: ",filename
+
+   end subroutine Visualize
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
 end module DenseBlockDiagonalMatrixClass

@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    SpatialDiscretization.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jun 20 18:14:45 2018
-!   @Last revision date: Tue Oct 30 18:23:58 2018
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: e995d28c5dd9fe9c7286ec6c7e53405ab11a7c14
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module SpatialDiscretization
       use SMConstants
@@ -198,7 +186,7 @@ module SpatialDiscretization
          INTEGER :: k, eID
 !
 !        *******************************************************************
-!        Construct the auxiliar state for the fluxes with density positivity
+!        Construct the auxiliary state for the fluxes with density positivity
 !        *******************************************************************
 !
 !$omp do schedule(runtime)
@@ -588,8 +576,8 @@ module SpatialDiscretization
 !~ !           ------------------------------------------------------
 !~             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !~ !
-!~ !           Peform the Weak volume green integral
-!~ !           -------------------------------------
+!~ !           Perform the Weak volume green integral
+!~ !           --------------------------------------
 !~             viscousContravariantFlux = viscousContravariantFlux + SVVContravariantFlux
 
 !~             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -653,8 +641,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux 
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)

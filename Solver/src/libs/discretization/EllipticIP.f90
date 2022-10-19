@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    EllipticIP.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Dec 12 13:32:09 2017
-!   @Last revision date: Tue May 14 10:13:01 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 6fbcdeaaba097820679acf6d84243a98f51a9f01
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module EllipticIP
    use SMConstants
@@ -47,7 +35,7 @@ module EllipticIP
          procedure      :: ComputeGradient         => IP_ComputeGradient
          procedure      :: ComputeInnerFluxes      => IP_ComputeInnerFluxes
          procedure      :: RiemannSolver           => IP_RiemannSolver
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && !(SPALARTALMARAS)
          procedure      :: RiemannSolver_Jacobians => IP_RiemannSolver_Jacobians
 #endif
          procedure      :: Describe                => IP_Describe
@@ -93,6 +81,10 @@ module EllipticIP
          select case (eqName)
          case(ELLIPTIC_NS)
             self % eqName = ELLIPTIC_NS
+            self % PenaltyParameter => PenaltyParameterNS
+
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
             self % PenaltyParameter => PenaltyParameterNS
 
          case(ELLIPTIC_iNS)
@@ -550,10 +542,15 @@ module EllipticIP
 
 #if (!defined(CAHNHILLIARD))
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
+
+#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
+         mu    = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = e % storage % mu_ns(3,:,:,:)
 
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
@@ -708,7 +705,7 @@ flux )
 !                    |                    |__________Jacobian for this component
 !                    |_______________________________1 for ∇q⁺ and 2 for ∇q⁻
 !     -----------------------------------------------------------------------------
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && !(SPALARTALMARAS)
       subroutine IP_RiemannSolver_Jacobians( self, f) 
          use FaceClass
          use Physics

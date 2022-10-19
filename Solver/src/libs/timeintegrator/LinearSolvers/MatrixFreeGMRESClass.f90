@@ -1,13 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MatrixFreeGMRESClass.f90
-!   @Author:  Carlos Redondo and Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Apr 10 16:26:02 2017
-!   @Last revision date: Wed Jul 17 16:55:05 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
-!
 !//////////////////////////////////////////////////////
 !
 !      Class for solving linear systems using a matrix free GMRES
@@ -38,7 +28,7 @@ module MatrixFreeGMRESClass
 !  Matrix-Free GMRES class
 !  ***********************
    type, extends(GenericLinSolver_t) :: MatFreeGMRES_t
-      integer                              :: m = 60           ! Number of GMRES iterations before restart -- Default petsc value m=30 
+      integer                              :: m = 500           ! Number of GMRES iterations before restart -- Default petsc value m=30 
       integer                              :: maxiter = 500
       real(kind=RP)                        :: tol = 1e-15_RP
       real(kind=RP)                        :: res = -1._RP
@@ -84,7 +74,7 @@ module MatrixFreeGMRESClass
       
       
       contains
-         ! Overriden procedures:
+         ! Overridden procedures:
          procedure                           :: Construct         => GMRES_Construct
          procedure                           :: Destroy           => GMRES_Destruct
          procedure                           :: SetRHSValue

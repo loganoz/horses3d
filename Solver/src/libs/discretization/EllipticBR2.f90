@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    EllipticBR2.f90
-!   @Author:  Juan (juan.manzanero@upm.es)
-!   @Created: Fri Dec 15 10:18:31 2017
-!   @Last revision date: Sat Aug  3 23:57:14 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 3919d52a3f75c1991f290d63ceec488de9bdd35a
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module EllipticBR2
    use SMConstants
@@ -34,7 +22,7 @@ module EllipticBR2
    type, extends(EllipticDiscretization_t)   :: BassiRebay2_t
       real(kind=RP)        :: eta = 1.0_RP
       contains
-         procedure      :: Construct         => BR2_Construct
+         procedure      :: Construct          => BR2_Construct
          procedure      :: ComputeGradient    => BR2_ComputeGradient
          procedure      :: ComputeInnerFluxes => BR2_ComputeInnerFluxes
          procedure      :: RiemannSolver      => BR2_RiemannSolver
@@ -68,6 +56,9 @@ module EllipticBR2
          select case (eqName)
          case(ELLIPTIC_NS)
             self % eqName = ELLIPTIC_NS
+         
+         case(ELLIPTIC_NSSA)
+            self % eqName = ELLIPTIC_NSSA
 
          case(ELLIPTIC_iNS)
             self % eqName = ELLIPTIC_iNS
@@ -116,6 +107,16 @@ module EllipticBR2
 
          write(STD_OUT,'(30X,A,A30,F10.3)') "->","Penalty parameter: ", self % eta
 
+#ifdef NAVIERSTOKES
+         select case (self % eqName)
+         case (ELLIPTIC_NS,ELLIPTIC_NSSA)
+            select case (grad_vars)
+            case(GRADVARS_STATE);   write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","State"
+            case(GRADVARS_ENTROPY); write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Entropy"
+            case(GRADVARS_ENERGY);  write(STD_OUT,'(30X,A,A30,A)') "->","Gradient variables: ","Energy"
+            end select
+         end select
+#endif
       end subroutine BR2_Describe
 
       subroutine BR2_ComputeGradient( self , nEqn, nGradEqn, mesh , time , GetGradients)
@@ -195,6 +196,7 @@ module EllipticBR2
 !        Wait for MPI faces
 !        ******************
 !
+#ifdef _HAS_MPI_
 !$omp single
          if ( MPI_Process % doMPIAction ) then 
             call mesh % GatherMPIFacesSolution(nEqn)
@@ -222,6 +224,7 @@ module EllipticBR2
             call BR2_ComputeGradientFaceIntegrals(self, nGradEqn, mesh % elements(eID), mesh)
          end do
 !$omp end do
+#endif
 
       end subroutine BR2_ComputeGradient
 !
@@ -545,10 +548,15 @@ module EllipticBR2
 
 #if (!defined(CAHNHILLIARD))
 
-#if defined(NAVIERSTOKES)
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          mu = e % storage % mu_ns(1,:,:,:)
          kappa = e % storage % mu_ns(2,:,:,:)
          beta  = 0.0_RP
+
+#elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
+         mu    = e % storage % mu_ns(1,:,:,:)
+         kappa = e % storage % mu_ns(2,:,:,:)
+         beta  = e % storage % mu_ns(3,:,:,:)
 #elif defined(INCNS)
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             call GetViscosity(e % storage % Q(INSRHO,i,j,k), mu(i,j,k))      

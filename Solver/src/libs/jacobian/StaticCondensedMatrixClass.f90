@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    StaticCondensedMatrixClass.f90
-!   @Author:  Andrés Rueda (am.rueda@upm.es)
-!   @Created: Tue Dec  4 16:26:02 2018
-!   @Last revision date: Wed Jul 17 11:52:40 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 !  StaticCondensedMatrixClass:
 !  -> This type of matrix reorganizes the Jacobian matrix as 
 !
@@ -232,7 +223,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
       
@@ -299,7 +290,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
       
@@ -520,7 +511,7 @@ contains
       end if
       
       if ( (count_i+count_b) /= this % num_of_Rows ) then
-         ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
+         ERROR stop 'StaticCondensedMatrixClass :: Invalid arguments in constructPermutationArrays'
       end if
       
       this % size_i        = count_i
@@ -676,7 +667,7 @@ contains
       !----------------------------------------------------------------
       
       
-!     Construct auxiliar matrices
+!     Construct auxiliary matrices
 !     ---------------------------
       select case (this % MatrixType)
          case (SC_MATRIX_CSR)

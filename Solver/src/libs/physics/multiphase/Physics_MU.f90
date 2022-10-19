@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    Physics_MU.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Tue Jun 19 17:39:26 2018
-!   @Last revision date: Wed Aug  1 15:48:18 2018
-!   @Last revision author: Juan Manzanero (juan.manzanero@upm.es)
-!   @Last revision commit: f358d5850cf9ae49fb85272ef0ea077425d7ed8b
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 !  **************
    module Physics_MU
