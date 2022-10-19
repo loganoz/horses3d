@@ -801,10 +801,6 @@ module FASMultigridClass
          fassolve_dt  => p_dt
          fassolve_cfl  => p_cfl
          fassolve_dcfl => p_dcfl
-! TODO: this check is needed for compilation to succeed. This is because QNS is only allocated for ElementStorage_t if the FLOW flag is active.
-!       However, there must be a better way of doint this.
-#ifdef FLOW
-#endif
       else
          fassolve_dt  => dt
          fassolve_cfl  => cfl
