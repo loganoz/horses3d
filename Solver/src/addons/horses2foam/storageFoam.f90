@@ -1,0 +1,424 @@
+!
+! ////////////////////////////////////////////////////////////////////
+!   HORSES3D to Foam Result - storageFoam Module
+!
+!      This module is the storage for mesh and solution
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
+#include "Includes.h"
+module storageFoam
+   use SMConstants
+   use PhysicsStorage
+   use SolutionFile
+   use VariableConversion
+   implicit none
+   
+   private
+   public Mesh_t, Element_t, Boundary_t
+   public NVARS, NGRADVARS, hasMPIranks, hasBoundaries
+
+   integer     :: NVARS, NGRADVARS
+   logical     :: hasMPIranks, hasBoundaries
+
+   type Element_t
+!                                /* Mesh quantities */
+      integer                    :: eID
+      integer                    :: Nmesh(NDIM)
+      integer                    :: mpi_rank = 0
+      real(kind=RP), pointer     :: x(:,:,:,:)
+!                                /* Solution quantities */
+      integer                    :: Nsol(NDIM)
+      real(kind=RP), pointer     :: Q(:,:,:,:)
+      real(kind=RP), pointer     :: U_x(:,:,:,:)
+      real(kind=RP), pointer     :: U_y(:,:,:,:)
+      real(kind=RP), pointer     :: U_z(:,:,:,:)
+      real(kind=RP), pointer     :: Q_x(:,:,:,:)
+      real(kind=RP), pointer     :: Q_y(:,:,:,:)
+      real(kind=RP), pointer     :: Q_z(:,:,:,:)
+      real(kind=RP), pointer     :: stats(:,:,:,:)
+!                                /* Output quantities */
+      integer                    :: Nout(NDIM)
+      real(kind=RP), pointer     :: xOut(:,:,:,:)
+      real(kind=RP), pointer     :: Qout(:,:,:,:)
+      real(kind=RP), pointer     :: U_xout(:,:,:,:)
+      real(kind=RP), pointer     :: U_yout(:,:,:,:)
+      real(kind=RP), pointer     :: U_zout(:,:,:,:)
+      real(kind=RP), pointer     :: statsout(:,:,:,:)
+      
+      real(kind=RP), allocatable :: outputVars(:,:,:,:)
+   end type Element_t
+   
+   type Boundary_t
+      character(len=LINE_LENGTH) :: Name
+      integer                    :: no_of_faces
+      integer, allocatable       :: elements(:)
+      integer, allocatable       :: elementSides(:)
+   end type Boundary_t
+   
+   type Mesh_t
+      integer  			:: no_of_elements
+      integer  			:: nodeType
+	  real (kind=RP) 	:: time
+      type(Element_t),   allocatable    :: elements(:)
+      type(Boundary_t),  allocatable    :: boundaries(:)
+      character(len=LINE_LENGTH) :: meshName
+      character(len=LINE_LENGTH) :: solutionName
+      real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
+      logical                    :: hasGradients
+      logical                    :: isStatistics
+      contains
+         procedure   :: ReadMesh     => Mesh_ReadMesh
+         procedure   :: ReadSolution => Mesh_ReadSolution
+   end type Mesh_t
+
+   contains
+      subroutine Mesh_ReadMesh(self,meshName,boundaryFile)
+         use Headers
+         implicit none
+         class(Mesh_t)         :: self
+         character(len=*), intent(in)     :: meshName
+         character(len=*), intent(in)     :: boundaryFile
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: arrayDimensions(4)
+         integer                          :: fid, eID, i, pos
+         character(len=1024)              :: msg
+         character(len=LINE_LENGTH)       :: flag
+
+         self % meshName = trim(meshName)
+!
+!        Get mesh node type
+!        ------------------
+         self % nodeType = getSolutionFileNodeType(meshName)
+!
+!        Get number of elements
+!        ----------------------
+         self % no_of_elements = getSolutionFileNoOfElements(meshName)
+!
+!        Allocate elements
+!        -----------------
+         allocate(self % elements(self % no_of_elements))
+!
+!        Read coordinates
+!        ----------------
+         fid = putSolutionFileInReadDataMode(meshName)
+      
+         do eID = 1, self % no_of_elements
+            associate ( e => self % elements(eID) ) 
+            e % eID = eID
+            
+            call getSolutionFileArrayDimensions(fid,arrayDimensions)
+!
+!           Allocate memory for the coordinates
+!           -----------------------------------            
+            e % Nmesh(1:3) = arrayDimensions(2:4) - 1 
+            allocate( e % x(NDIM,0:e % Nmesh(1),0:e % Nmesh(2),0:e % Nmesh(3)) )
+!
+!           Read data
+!           ---------
+            read(fid) e % x
+
+            end associate
+         end do
+!
+!        Close file
+!        ----------
+         close(fid)
+         
+!        Read boundary file (if present)
+!        -------------------------------
+
+            pos = len(trim(boundaryFile))
+            if ( pos .ne. 0 ) then
+               hasBoundaries = .TRUE.
+               
+               call readBoundaryFile(self % boundaries, boundaryFile)
+               
+            end if
+         
+!
+!        Describe the mesh
+!        -----------------
+         write(STD_OUT,'(10X,A,A)') "Loading Mesh File:"
+         write(STD_OUT,'(10X,A,A)') "-----------------"
+         write(STD_OUT,'(30X,A,A30,A)') "->", "Mesh File: ",trim(meshName)
+         write(STD_OUT,'(30X,A,A30,I0)') "->", "Number of elements: ", self % no_of_elements
+         select case ( self % nodeType )
+         case(1)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Discretization nodes: ","Gauss"
+         case(2)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Discretization nodes: ","Gauss-Lobatto"
+         end select
+		 write(STD_OUT,*)
+
+      end subroutine Mesh_ReadMesh
+
+      subroutine Mesh_ReadSolution(self,solutionName)
+         use Headers
+         implicit none
+         class(Mesh_t)         :: self
+         character(len=*), intent(in)     :: solutionName
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer       :: no_of_elements
+         integer       :: arrayDimensions(4)
+         integer       :: fid, eID, pos
+         integer       :: i,j,k
+         integer       :: iter
+         real(kind=RP) :: time
+         character(len=1024)  :: msg
+         character(len=LINE_LENGTH)    :: flag
+
+         self % solutionName = trim(solutionName)
+		 write(STD_OUT,'(10X,A,A)') "Loading Solution File:"
+         write(STD_OUT,'(10X,A,A)') "---------------------"
+		 write(STD_OUT,'(30X,A,A30,A)') "->","Solution File: ", trim(solutionName)
+!
+!        Get the solution file type
+!        --------------------------
+         select case ( getSolutionFileType(trim(solutionName)) )
+
+         case (SOLUTION_FILE)
+            self % hasGradients = .false.
+            self % isStatistics = .false.
+
+         case (SOLUTION_AND_GRADIENTS_FILE)
+            self % hasGradients = .true.
+            self % isStatistics = .false.
+
+         case (STATS_FILE)
+            self % hasGradients = .false.
+            self % isStatistics = .true.
+
+         case default
+            write(STD_OUT,'(30X,A,A)')"ERROR:: File expected to be a solution file"
+            stop
+         end select
+!
+!        Get node type
+!        -------------
+         if ( getSolutionFileNodeType(solutionName) .ne. self % nodeType ) then
+            write(STD_OUT,'(30X,A,A)')"ERROR:: Solution and Mesh node type differs"
+            stop
+         end if
+!
+!        Get number of elements
+!        ----------------------
+         no_of_elements = getSolutionFileNoOfElements(solutionName)
+         if ( self % no_of_elements .ne. no_of_elements ) then
+            write(STD_OUT,'(30X,A,I0,A,I0,A)') "ERROR:: The number of elements in the mesh (",self % no_of_elements,&
+                                           ") differs to that of the solution (",no_of_elements,")."
+            stop 
+         end if
+!
+!        Get time and iteration
+!        ----------------------
+         call getSolutionFileTimeAndIteration(trim(solutionName),iter,self % time)
+		 
+!
+!        Read reference values
+!        ---------------------
+         self % refs = getSolutionFileReferenceValues(trim(solutionName))
+!
+!        Read coordinates
+!        ----------------
+         fid = putSolutionFileInReadDataMode(solutionName)
+      
+         if ( .not. self % isStatistics ) then
+            do eID = 1, self % no_of_elements
+               associate ( e => self % elements(eID) ) 
+               call getSolutionFileArrayDimensions(fid,arrayDimensions)
+
+               NVARS = arrayDimensions(1)
+               NGRADVARS = NVARS     ! TODO: Read NCONS and NGRAD from physics!
+               select case(NVARS)
+               case(1)      ; NGRADVARS = 1
+               case(6)      ; NGRADVARS = 4
+               case default ; NGRADVARS = 3
+               end select
+!   
+!              Allocate memory for the coordinates
+!              -----------------------------------            
+               e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               allocate( e % Q(1:arrayDimensions(1),0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+!   
+!              Read data
+!              ---------
+               read(fid) e % Q
+   
+               if ( self % hasGradients ) then
+!   
+!                 Allocate memory for the gradients
+!                 ---------------------------------
+                  allocate( e % Q_x(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) ) ! TODO: Allocate depending on physics
+                  allocate( e % Q_y(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % Q_z(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  
+                  allocate( e % U_x(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_y(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                  allocate( e % U_z(1:NGRADVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+!   
+!                 Read data
+!                 ---------
+                  read(fid) e % Q_x
+                  read(fid) e % Q_y
+                  read(fid) e % Q_z
+
+!                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
+!                 Set state as is the default option TODO point to the correct one if its posible (oscar note)
+!                 ---------------------------
+                  call set_getVelocityGradients(GRADVARS_STATE)
+                  
+                  ! Following block works for NS, CH, NSCH and iNS .... but not iNSCH: change 5 by 6 to use iNSCH (NS won't work) 
+                  if (NVARS .ge. 5) then 
+                     do k = 0,e % Nsol(3) ; do j = 0, e % Nsol(2) ; do i = 0, e % Nsol(1)
+                        call getVelocityGradients(e % Q(:,i,j,k), e % Q_x(1:5,i,j,k), e % Q_y(1:5,i,j,k), e % Q_z(1:5,i,j,k), &
+                                                  e % U_x(1:3,i,j,k), e % U_y(1:3,i,j,k), e % U_z(1:3,i,j,k) )
+                     end do               ; end do                ; end do
+                     if (NVARS == 6) then
+                        e % U_x(6,:,:,:) = e % Q_x(6,:,:,:)
+                        e % U_y(6,:,:,:) = e % Q_y(6,:,:,:)
+                        e % U_z(6,:,:,:) = e % Q_z(6,:,:,:)
+                     end if
+                  else
+                     e % U_x = e % Q_x(1:NGRADVARS,:,:,:)
+                     e % U_y = e % Q_y(1:NGRADVARS,:,:,:)
+                     e % U_z = e % Q_z(1:NGRADVARS,:,:,:)
+                  end if
+                  
+               end if
+   
+               end associate
+            end do
+
+         else
+
+            do eID = 1, self % no_of_elements
+               associate ( e => self % elements(eID) )
+               call getSolutionFileArrayDimensions(fid,arrayDimensions)
+!
+!              Allocate memory for the statistics
+!              ----------------------------------
+               e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               allocate( e % stats(1:9,0:e % Nsol(1), 0:e % Nsol(2), 0:e % Nsol(3)) )
+!
+!              Read data
+!              ---------
+               read(fid) e % stats
+               end associate
+            end do
+         end if
+!
+!        Close file
+!        ----------
+         close(fid)
+         
+!        Read mpi ranks (if present)
+!        ---------------------------
+         do i = 1, command_argument_count()
+            call get_command_argument(i, flag)
+            
+            pos = index(trim(flag),"--partition-file")
+            if ( pos .ne. 0 ) then
+               hasMPIranks = .TRUE.
+               
+               call readPartitionFile(self,flag)
+               
+            end if
+         end do
+!
+!        Describe the solution
+!        ---------------------
+
+         if ( self % isStatistics ) then
+            write(STD_OUT,'(30X,A,A30)') "->","File is statistics file."
+         
+         else
+            if ( self % hasGradients ) then
+               write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "yes"
+            else
+               write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "no"
+            end if
+         end if
+
+         write(STD_OUT,'(30X,A,A30,I0)') "->","Iteration: ", iter
+         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", self % time
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference velocity: ", self % refs(V_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)
+         write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Mach number: ", self % refs(MACH_REF)
+		 write(STD_OUT,*)
+
+      end subroutine Mesh_ReadSolution
+      
+      
+      subroutine readPartitionFile(self,flag)
+         implicit none
+         !-arguments-----------------------------------------------
+         class(Mesh_t)   , intent(inout)  :: self
+         character(len=*), intent(in)     :: flag
+         !-local-variables-----------------------------------------
+         integer                    :: pos, nelem, eID, fID
+         character(len=LINE_LENGTH) :: partitionFileName
+         !---------------------------------------------------------
+         
+         pos = index(trim(flag),"=")
+               
+         if ( pos .eq. 0 ) then
+            print*, 'Missing "=" operator in --partition-file flag'
+            stop
+         end if
+         
+         partitionFileName = flag(pos+1:len_trim(flag))
+         
+         open(newunit = fID, file=trim(partitionFileName),action='read')
+         
+            read(fID,*) nelem
+            
+            do eID = 1, nelem
+               read(fID,*) self % elements(eID) % mpi_rank
+            end do
+            
+         close(fID)
+      end subroutine readPartitionFile
+      
+      subroutine readBoundaryFile(boundaries, flag)
+         implicit none
+         !-arguments-----------------------------------------------
+         type(Boundary_t), allocatable, intent(inout)  :: boundaries(:)
+         character(len=*)             , intent(in)     :: flag
+         !-local-variables-----------------------------------------
+         integer                    :: pos, fd, no_of_boundaries,bID
+         character(len=LINE_LENGTH) :: boundaryFileName
+         !---------------------------------------------------------
+
+         boundaryFileName = flag
+         
+         open(newunit = fd, file=trim(boundaryFileName),action='read')
+         
+            read(fd,*) no_of_boundaries
+            allocate ( boundaries(no_of_boundaries) )
+            
+            do bID = 1, no_of_boundaries
+               
+               read(fd,*) boundaries(bID) % Name
+               read(fd,*) boundaries(bID) % no_of_faces
+               
+               allocate ( boundaries(bID) % elements    (boundaries(bID) % no_of_faces) )
+               allocate ( boundaries(bID) % elementSides(boundaries(bID) % no_of_faces) )
+               
+               read(fd,*) boundaries(bID) % elements
+               read(fd,*) boundaries(bID) % elementSides
+            end do
+            
+         close(fd)
+         
+      end subroutine readBoundaryFile
+end module storageFoam
