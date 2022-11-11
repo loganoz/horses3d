@@ -65,16 +65,15 @@ module Clustering
          call kMeans_compute_centroids(nclusters, ndims, npts, x, xavg, clusters)
          call kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
 
-         if (MPI_Process % isRoot) then
-            if (all(prevClusters == clusters)) then
-               breakFlag = .true.
-            else
-               breakFlag = .false.
-            end if
+         if (all(prevClusters == clusters)) then
+            breakFlag = .true.
+         else
+            breakFlag = .false.
          end if
 #if defined(_HAS_MPI_)
          if (MPI_Process % doMPIAction) then
-            call MPI_Bcast(breakFlag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+            call MPI_AllReduce(MPI_IN_PLACE, breakFlag, 1, MPI_LOGICAL, MPI_LAND, &
+                0, MPI_COMM_WORLD, ierr)
          end if
 #endif
          if (breakFlag) exit
@@ -109,13 +108,15 @@ module Clustering
 !     Local variables
 !     ---------------
       integer  :: i, j
+      real(RP) :: xi(ndims)
       real(RP) :: dist, minDist
 
 
       do i = 1, npts
+         xi = x(:,i)
          minDist = huge(1.0_RP)
          do j = 1, nclusters
-            dist = norm2(x(:,i) - xavg(:,j))
+            dist = norm2(xi - xavg(:,j))
             if (dist < minDist) then
                minDist = dist
                clusters(i) = j
@@ -409,23 +410,29 @@ module Clustering
 !     ---------------
       integer  :: i, j
       integer  :: ierr
+      real(RP) :: tau
+      real(RP) :: mu(ndims)
+      real(RP) :: cov(ndims,ndims)
+      real(RP) :: covinv(ndims,ndims)
       real(RP) :: den
 
 !
 !     E-step loop
 !     -----------
       logL = 0.0_RP
-      do i = 1, npts
-         den = 0.0_RP
-         do j = 1, nclusters
-            R(i,j) = g % tau(j) * GMM_pdf(                                   &
-               ndims, x(:,i), g % mu(:,j), g % cov(:,:,j), g % covinv(:,:,j) &
-            )
-            den = den + R(i,j)
+      do j = 1, nclusters
+         tau = g % tau(j)
+         mu = g % mu(:,j)
+         cov = g % cov(:,:,j)
+         covinv = g % covinv(:,:,j)
+         do i = 1, npts
+            R(i,j) = tau * GMM_pdf(ndims, x(:,i), mu, cov, covinv)
          end do
+      end do
 
-         ! If the point is far from all clusters
-         if (AlmostEqual(den, 0.0_RP)) then
+      do i = 1, npts
+         den = sum(R(i,1:nclusters))
+         if (AlmostEqual(den, 0.0_RP)) then  ! The point is far from all clusters
              R(i,1:nclusters) = 1.0_RP / nclusters
              den = small
          else

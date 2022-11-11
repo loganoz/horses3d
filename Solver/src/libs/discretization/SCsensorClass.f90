@@ -41,8 +41,11 @@ module SCsensorClass
          real(RP) :: low        !< Lower threshold
          real(RP) :: high       !< Upper threshold
          integer  :: sVar       !< Variable used as input for the sensor
-         integer  :: nclusters  !< Number of clusters (not for all the sensors)
          integer  :: min_steps  !< Minimum number of steps before the sensor is deactivated
+
+         real(RP), allocatable :: x(:,:)       !< Feature space for each point
+         integer,  allocatable :: clusters(:)  !< Cluster ID for each point
+         integer               :: nclusters    !< Number of clusters (not for all the sensors)
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
@@ -147,6 +150,8 @@ module SCsensorClass
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
+         allocate(sensor % x(2, sem % NDOF))
+         allocate(sensor % clusters(sem % NDOF))
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -432,6 +437,8 @@ module SCsensorClass
 
 
       if (allocated(sensor % TEestim))      deallocate(sensor % TEestim)
+      if (allocated(sensor % x))            deallocate(sensor % x)
+      if (allocated(sensor % clusters))     deallocate(sensor % clusters)
       if (associated(sensor % Compute_Raw)) nullify(sensor % Compute_Raw)
 
    end subroutine Destruct_SCsensor
@@ -984,7 +991,6 @@ module SCsensorClass
 !     ---------------
       integer  :: eID
       integer  :: i, j, k
-      integer  :: ndofs
       integer  :: nclusters
       integer  :: cnt
       integer  :: n
@@ -992,15 +998,8 @@ module SCsensorClass
       real(RP) :: u2, p
       real(RP) :: ux(3), uy(3), uz(3)
       real(RP) :: dp(3)
-      real(RP), allocatable :: centroids(:,:)
-      real(RP), allocatable :: derivs(:,:)
-      integer,  allocatable :: clusters(:)
+      real(RP) :: centroids(2,sensor % nclusters)
 
-
-      ndofs = sem % mesh % NDOF
-      allocate(centroids(2,sensor % nclusters))
-      allocate(derivs(2,ndofs))
-      allocate(clusters(ndofs))
 !
 !     Compute the clustering variables and store them in a global array
 !     -----------------------------------------------------------------
@@ -1021,17 +1020,17 @@ module SCsensorClass
                ux, uy, uz                  &
             )
 
-            derivs(1,cnt) = (ux(1) + uy(2) + uz(3))**2
+            sensor % x(1,cnt) = (ux(1) + uy(2) + uz(3))**2
 
             ! Derivative of density
             ! if (grad_vars == GRADVARS_ENTROPY) then
-            !     derivs(1,cnt) = dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k))**2 + &
-            !                     dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k))**2 + &
-            !                     dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k))**2
+            !     sensor % x(1,cnt) = dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k))**2 + &
+            !                         dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k))**2 + &
+            !                         dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k))**2
             ! else
-            !     derivs(1,cnt) = e % storage % U_x(IRHO,i,j,k)**2 + &
-            !                     e % storage % U_y(IRHO,i,j,k)**2 + &
-            !                     e % storage % U_z(IRHO,i,j,k)**2
+            !     sensor % x(1,cnt) = e % storage % U_x(IRHO,i,j,k)**2 + &
+            !                         e % storage % U_y(IRHO,i,j,k)**2 + &
+            !                         e % storage % U_z(IRHO,i,j,k)**2
             ! end if
 
             ! Derivative of pressure
@@ -1087,7 +1086,7 @@ module SCsensorClass
 
             end if
 
-            derivs(2,cnt) = dp(1)**2 + dp(2)**2 + dp(3)**2
+            sensor % x(2,cnt) = dp(1)**2 + dp(2)**2 + dp(3)**2
 
          end do ;                end do ;                end do
 
@@ -1096,11 +1095,11 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % nclusters, [1.0_RP, 1.0_RP], derivs, centroids)
+      call RescaleClusterVariables(2, sensor % nclusters, [1.0_RP, 1.0_RP], sensor % x, centroids)
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call GMM(sensor % nclusters, nclusters, derivs, centroids, clusters)
+      call GMM(sensor % nclusters, nclusters, sensor % x, centroids, sensor % clusters)
 !
 !     Compute the sensor values
 !     -------------------------
@@ -1111,7 +1110,7 @@ module SCsensorClass
             e % storage % sensor = 0.0_RP
          else
             n = product(e % Nxyz + 1)
-            higherCluster = maxval(clusters(cnt+1:cnt+n))
+            higherCluster = maxval(sensor % clusters(cnt+1:cnt+n))
             e % storage % sensor = real(higherCluster - 1, RP) / (nclusters - 1)
          end if
          cnt = cnt + n
