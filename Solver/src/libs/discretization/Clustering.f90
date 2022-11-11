@@ -73,7 +73,7 @@ module Clustering
 #if defined(_HAS_MPI_)
          if (MPI_Process % doMPIAction) then
             call MPI_AllReduce(MPI_IN_PLACE, breakFlag, 1, MPI_LOGICAL, MPI_LAND, &
-                0, MPI_COMM_WORLD, ierr)
+                MPI_COMM_WORLD, ierr)
          end if
 #endif
          if (breakFlag) exit
