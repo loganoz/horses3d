@@ -12,68 +12,96 @@ module Clustering
 
    private
 
-   type GaussianList_t
-      integer               :: d              ! Space dimension
-      integer               :: n              ! # of components
-      real(RP), allocatable :: tau(:)         ! [n]: weights
-      real(RP), allocatable :: mu(:,:)        ! [d,n]: centroids
-      real(RP), allocatable :: cov(:,:,:)     ! [d,d,n]: covariance matrices
-      real(RP), allocatable :: covinv(:,:,:)  ! [d,d,n]: inverse covariance matrices
+   public :: KMeans_t
+   public :: GMM_t
+
+   type :: KMeans_t
+      integer               :: ndims
+      integer               :: nclusters
+      integer,  allocatable :: prevClusters(:)
+   contains
+      procedure :: init => KMeans_init
+      procedure :: fit  => kMeans_fit
+   end type KMeans_t
+
+   type :: GaussianList_t
+      real(RP), pointer, contiguous :: storage(:)      ! contiguous storage for MPI communication
+      real(RP), pointer, contiguous :: tau(:)          ! [n]: weights
+      real(RP), pointer, contiguous :: mu(:,:)         ! [d,n]: centroids
+      real(RP), pointer, contiguous :: cov(:,:,:)      ! [d,d,n]: covariance matrices
+      real(RP), pointer, contiguous :: covinv(:,:,:)   ! [d,d,n]: inverse covariance matrices
    end type GaussianList_t
 
-   public :: kMeans
-   public :: GMM
+   type :: GMM_t
+      integer                       :: ndims
+      integer                       :: nclusters
+      type(GaussianList_t)          :: g
+      real(RP),         allocatable :: R(:,:)
+      type(KMeans_t)                :: kmeans
+   contains
+      procedure :: init => GMM_init
+      procedure :: fit  => GMM_fit
+      final     :: GMM_final
+   end type GMM_t
 !
 !  ========
    contains
 !  ========
 !
-   subroutine kMeans(nclusters, x, xavg, clusters, info)
+   subroutine kMeans_init(self)
 !
 !     ---------
 !     Interface
 !     ---------
-      integer,           intent(in)    :: nclusters
+      class(kMeans_t), intent(inout) :: self
+
+
+      ! Allocate in fit
+      if (allocated(self % prevClusters)) deallocate(self % prevClusters)
+
+   end subroutine kMeans_init
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine kMeans_fit(self, x, clusters, centroids, info)
+!
+!     ---------
+!     Interface
+!     ---------
+      class(KMeans_t),   intent(inout) :: self
       real(RP),          intent(in)    :: x(:,:)
-      real(RP),          intent(inout) :: xavg(:,:)
       integer,           intent(out)   :: clusters(:)
+      real(RP),          intent(out)   :: centroids(:,:)
       integer, optional, intent(out)   :: info
 !
 !     ---------------
 !     Local variables
 !     ---------------
       integer, parameter   :: maxIters = 50
-      integer, allocatable :: prevClusters(:)
-      integer              :: ndims
       integer              :: npts
       integer              :: i, ierr
       logical              :: breakFlag
 
-
-      ndims = size(x, dim=1)
-      npts  = size(x, dim=2)
 !
 !     Initial clusters
 !     ----------------
-      call kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
+      npts = size(x, dim=2)
+      call kMeans_compute_clusters(self % nclusters, self % ndims, npts, x, centroids, clusters)
 !
 !     Loop until convergence
 !     ----------------------
       do i = 1, maxIters
 
-         prevClusters = clusters
-         call kMeans_compute_centroids(nclusters, ndims, npts, x, xavg, clusters)
-         call kMeans_compute_clusters(nclusters, ndims, npts, x, xavg, clusters)
+         self % prevClusters = clusters
 
-         if (all(prevClusters == clusters)) then
-            breakFlag = .true.
-         else
-            breakFlag = .false.
-         end if
+         call kMeans_compute_centroids(self % nclusters, self % ndims, npts, x, centroids, clusters)
+         call kMeans_compute_clusters(self % nclusters, self % ndims, npts, x, centroids, clusters)
+
+         breakFlag = all(self % prevClusters == clusters)
 #if defined(_HAS_MPI_)
          if (MPI_Process % doMPIAction) then
             call MPI_AllReduce(MPI_IN_PLACE, breakFlag, 1, MPI_LOGICAL, MPI_LAND, &
-                MPI_COMM_WORLD, ierr)
+                               MPI_COMM_WORLD, ierr)
          end if
 #endif
          if (breakFlag) exit
@@ -86,9 +114,9 @@ module Clustering
 !
 !     Sort clusters
 !     -------------
-      call kMeans_sort_clusters(nclusters, ndims, npts, xavg, clusters)
+      call kMeans_sort_clusters(self % nclusters, self % ndims, npts, centroids, clusters)
 
-   end subroutine kMeans
+   end subroutine kMeans_fit
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -225,16 +253,107 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM(init_nclusters, nclusters, x, xavg, clusters, info)
+   subroutine GMM_init(self)
 !
 !     ---------
 !     Interface
 !     ---------
-      integer,           intent(in)    :: init_nclusters
-      integer,           intent(out)   :: nclusters
+      class(GMM_t), intent(inout) :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: ndims, nclusters
+      integer :: tsize, msize, csize
+      integer :: ind1, ind2
+      integer :: i, j
+
+
+      ndims = self % ndims
+      nclusters = self % nclusters
+
+      nullify(self % g % tau)
+      nullify(self % g % mu)
+      nullify(self % g % cov)
+      nullify(self % g % covinv)
+
+      if (associated(self % g % storage)) deallocate(self % g % storage)
+      if (allocated(self % R))            deallocate(self % R)    ! Allocate in fit
+
+      tsize = nclusters
+      msize = ndims * nclusters
+      csize = ndims * ndims * nclusters
+
+      allocate(self % g % storage(tsize + msize + 2 * csize))
+
+      ind1 = 1
+      ind2 = tsize
+      self % g % tau => self % g % storage(ind1:ind2)
+
+      ind1 = ind2 + 1
+      ind2 = ind2 + msize
+      self % g % mu(1:ndims, 1:nclusters) => self % g % storage(ind1:ind2)
+
+      ind1 = ind2 + 1
+      ind2 = ind2 + csize
+      self % g % cov(1:ndims, 1:ndims, 1:nclusters) => self % g % storage(ind1:ind2)
+
+      ind1 = ind2 + 1
+      ind2 = ind2 + csize
+      self % g % covinv(1:ndims, 1:ndims, 1:nclusters) => self % g % storage(ind1:ind2)
+
+      self % g % tau = 1.0_RP / nclusters
+      self % g % cov = 0.0_RP
+      self % g % covinv = 0.0_RP
+      do i = 1, nclusters
+         do j = 1, ndims
+            self % g % cov(j,j,i) = 1.0_RP
+            self % g % covinv(j,j,i) = 1.0_RP
+         end do
+      end do
+
+      self % kmeans % ndims = ndims
+      self % kmeans % nclusters = nclusters
+      call self % kmeans % init()
+
+   end subroutine GMM_init
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GMM_final(self)
+!
+!     ---------
+!     Interface
+!     ---------
+      type(GMM_t), intent(inout) :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: ierr
+
+
+      nullify(self % g % tau)
+      nullify(self % g % mu)
+      nullify(self % g % cov)
+      nullify(self % g % covinv)
+
+      if (associated(self % g % storage)) deallocate(self % g % storage)
+      if (allocated(self % R))            deallocate(self % R)
+
+   end subroutine GMM_final
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine GMM_fit(self, x, clusters, centroids, info)
+!
+!     ---------
+!     Interface
+!     ---------
+      class(GMM_t),      intent(inout) :: self
       real(RP),          intent(in)    :: x(:,:)
-      real(RP),          intent(inout) :: xavg(:,:)
       integer,           intent(out)   :: clusters(:)
+      real(RP),          intent(out)   :: centroids(:,:)
       integer, optional, intent(out)   :: info
 !
 !     ---------------
@@ -244,57 +363,48 @@ module Clustering
       real(RP), parameter :: small = 1e4_RP * epsilon(1.0_RP)  ! Magic!!
       integer,  parameter :: maxIters = 50
 
-      type(GaussianList_t)  :: g
       integer               :: info_
-      integer               :: ndims
       integer               :: npts
       integer               :: iter
       logical               :: breakFlag
       real(RP)              :: ll
       real(RP)              :: llprev
-      real(RP), allocatable :: R(:,:)
       real(RP), allocatable :: minimum(:), maximum(:)
-#if defined(_HAS_MPI_)
       integer               :: i
       integer               :: ierr
-#endif
 
-
-      nclusters = init_nclusters
 !
 !     Trivial case
 !     ------------
-      if (nclusters == 1) then
-         clusters = 1
+      if (self % nclusters == 1) then
          minimum = minval(x, dim=2)
          maximum = maxval(x, dim=2)
          call MPI_MinMax(minimum, maximum)
-         xavg(:,1) = (minimum + maximum) * 0.5_RP
+         centroids(:,1) = (minimum + maximum) * 0.5_RP
+         if (present(info)) info = 0
          return
       end if
-
-      ndims = size(x, dim=1)
-      npts  = size(x, dim=2)
-
-      call GMM_init(g, ndims, nclusters, xavg)
+!
+!     Initialization
+!     --------------
+      npts = size(x, dim=2)
+      self % g % mu = centroids
+      if (size(self % R, dim=1) /= npts) then
+         if (allocated(self % R)) deallocate(self % R)
+         allocate(self % R(npts, self % nclusters))
+      end if
 !
 !     EM algorithm
 !     ------------
-      allocate(R(npts, nclusters))
       ll = huge(1.0_RP)
       do iter = 1, maxIters
 
          llprev = ll
-         call GMM_Estep(ndims, npts, nclusters, g, x, R, small, ll)
-         call GMM_Mstep(ndims, npts, nclusters, g, x, R, small)
-         nclusters = g % n
+         call GMM_Estep(self % ndims, npts, self % nclusters, self % g, x, self % R, small, ll)
+         call GMM_Mstep(self % ndims, npts, self % nclusters, self % g, x, self % R, small)
 
          if (MPI_Process % isRoot) then
-            if (abs((ll - llprev) / ll) <= tol .or. nclusters < 1) then
-               breakFlag = .true.
-            else
-               breakFlag = .false.
-            end if
+            breakFlag = abs((ll - llprev) / ll) <= tol .or. self % nclusters < 1
          end if
 #if defined(_HAS_MPI_)
          if (MPI_Process % doMPIAction) then
@@ -308,56 +418,20 @@ module Clustering
 !     Check convergence
 !     -----------------
       if (iter > maxIters) then
-         call kMeans(nclusters, x, xavg, clusters, info_)
+         call self % kmeans % fit(x, clusters, centroids, info_)
          if (info_ == -1) then
-            info_ = 2
+            info_ = -2
          end if
       else
-         info_ = 0
+         info_ = iter
       end if
       if (present(info)) info = info_
 !
 !     Sort clusters
 !     -------------
-      call GMM_sort_clusters(ndims, npts, nclusters, g, x, xavg, clusters)
+      call GMM_sort_clusters(self % ndims, npts, self % nclusters, self % g, x, centroids, clusters)
 
-   end subroutine GMM
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine GMM_init(g, ndims, nclusters, xavg)
-!
-!     ---------
-!     Interface
-!     ---------
-      type(GaussianList_t), intent(out) :: g
-      integer,              intent(in)  :: ndims
-      integer,              intent(in)  :: nclusters
-      real(RP),             intent(in)  :: xavg(ndims, nclusters)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer :: i, j
-
-
-      g % d = ndims
-      g % n = nclusters
-      allocate(g % tau(nclusters))
-      allocate(g % mu(ndims, nclusters))
-      allocate(g % cov(ndims, ndims, nclusters)); g % cov = 0.0_RP
-      allocate(g % covinv, source=g % cov)
-
-      g % tau = 1.0_RP / nclusters
-      g % mu = xavg
-      do i = 1, nclusters
-         do j = 1, ndims
-            g % cov(j,j,i) = 1.0_RP
-            g % covinv(j,j,i) = 1.0_RP
-         end do
-      end do
-
-   end subroutine GMM_init
+   end subroutine GMM_fit
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -473,6 +547,7 @@ module Clustering
 !     ---------------
       integer  :: i, j, k, l, m
       integer  :: nptsAll
+      integer  :: init_nclusters
       integer  :: info
       logical  :: deleteit
       real(RP) :: ns(nclusters)
@@ -510,19 +585,18 @@ module Clustering
 !     -----------------------------
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIRootAction) then
-         call MPI_Reduce(MPI_IN_PLACE, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_Reduce(MPI_IN_PLACE, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_Reduce(MPI_IN_PLACE, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(MPI_IN_PLACE, g % storage, size(g % storage), MPI_DOUBLE, &
+                         MPI_SUM, 0, MPI_COMM_WORLD, info)
       elseif (MPI_Process % doMPIAction) then
-         call MPI_Reduce(g % tau, g % tau, size(g % tau), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_Reduce(g % mu, g % mu, size(g % mu), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
-         call MPI_Reduce(g % cov, g % cov, size(g % cov), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, info)
+         call MPI_Reduce(g % storage, g % storage, size(g % storage), MPI_DOUBLE, &
+                         MPI_SUM, 0, MPI_COMM_WORLD, info)
       end if
 #endif
 
       if (MPI_Process % isRoot) then
          k = 1
-         do j = 1, nclusters
+         init_nclusters = nclusters
+         do j = 1, init_nclusters
 
             ! Compute the inverse of the covariance matrix
             call matinv(ndims, g % cov(:,:,k), g % covinv(:,:,k), tol=tol, info=info)
@@ -547,13 +621,13 @@ module Clustering
 
             ! Delete the marked clusters
             if (deleteit) then
-               do l = k+1, g % n
+               do l = k+1, nclusters
                   g % tau(l-1) = g % tau(l)
                   g % mu(:,l-1) = g % mu(:,l)
                   g % cov(:,:,l-1) = g % cov(:,:,l)
                   g % covinv(:,:,l-1) = g % covinv(:,:,l)
                end do
-               g % n = g % n - 1
+               nclusters = nclusters - 1
             else
                k = k + 1
             end if
@@ -565,10 +639,7 @@ module Clustering
 !     ----------
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-         call MPI_Bcast(g % tau, size(g % tau), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
-         call MPI_Bcast(g % mu, size(g % mu), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
-         call MPI_Bcast(g % cov, size(g % cov), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
-         call MPI_Bcast(g % covinv, size(g % covinv), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
+         call MPI_Bcast(g % storage, size(g % storage), MPI_DOUBLE, 0, MPI_COMM_WORLD, info)
       end if
 #endif
 

@@ -6,7 +6,7 @@ module SCsensorClass
    use PhysicsStorage,    only: grad_vars, GRADVARS_STATE, GRADVARS_ENERGY, GRADVARS_ENTROPY, NCONS
    use NodalStorageClass, only: NodalStorage
    use Utilities,         only: toLower
-   use Clustering,        only: GMM
+   use Clustering,        only: GMM_t
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_MinMax
 #ifdef _HAS_MPI_
@@ -43,9 +43,9 @@ module SCsensorClass
          integer  :: sVar       !< Variable used as input for the sensor
          integer  :: min_steps  !< Minimum number of steps before the sensor is deactivated
 
+         type(GMM_t)           :: gmm          !< Gaussian mixture model
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
          integer,  allocatable :: clusters(:)  !< Cluster ID for each point
-         integer               :: nclusters    !< Number of clusters (not for all the sensors)
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
@@ -150,8 +150,18 @@ module SCsensorClass
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
+
          allocate(sensor % x(2, sem % NDOF))
          allocate(sensor % clusters(sem % NDOF))
+
+         if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
+            sensor % gmm % nclusters = &
+                controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
+         else
+            sensor % gmm % nclusters = 2
+         end if
+         sensor % gmm % ndims = 2
+         call sensor % gmm % init()
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -170,11 +180,6 @@ module SCsensorClass
 !     Options for the clustering sensor
 !     ---------------------------------
       if (sensor % sens_type == SC_GMM_ID) then
-         if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
-            sensor % nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
-         else
-            sensor % nclusters = 2
-         end if
 !
 !     Options for the rest of sensors
 !     -------------------------------
@@ -417,7 +422,7 @@ module SCsensorClass
       write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
 
       if (sensor % sens_type == SC_GMM_ID) then
-         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % nclusters
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % nclusters
       else
          write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
          write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
@@ -998,7 +1003,7 @@ module SCsensorClass
       real(RP) :: u2, p
       real(RP) :: ux(3), uy(3), uz(3)
       real(RP) :: dp(3)
-      real(RP) :: centroids(2,sensor % nclusters)
+      real(RP) :: centroids(2,sensor % gmm % nclusters)
 
 !
 !     Compute the clustering variables and store them in a global array
@@ -1095,23 +1100,24 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % nclusters, [1.0_RP, 1.0_RP], sensor % x, centroids)
+      call RescaleClusterVariables(2, sensor % gmm % nclusters, [1.0_RP, 1.0_RP], &
+                                   sensor % x, centroids)
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call GMM(sensor % nclusters, nclusters, sensor % x, centroids, sensor % clusters)
+      call sensor % gmm % fit(sensor % x, sensor % clusters, centroids)
 !
 !     Compute the sensor values
 !     -------------------------
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
       associate(e => sem % mesh % elements(eID))
-         if (nclusters <= 1) then
+         if (sensor % gmm % nclusters <= 1) then
             e % storage % sensor = 0.0_RP
          else
             n = product(e % Nxyz + 1)
             higherCluster = maxval(sensor % clusters(cnt+1:cnt+n))
-            e % storage % sensor = real(higherCluster - 1, RP) / (nclusters - 1)
+            e % storage % sensor = real(higherCluster - 1, RP) / (sensor % gmm % nclusters - 1)
          end if
          cnt = cnt + n
       end associate
