@@ -1151,7 +1151,7 @@ module SCsensorClass
       if (dev <= -sensor % ds2) then
          scaled = 0.0_RP
 
-      else if (dev >= sensor % ds2) then
+      elseif (dev >= sensor % ds2) then
          scaled = 1.0_RP
 
       else
@@ -1226,7 +1226,7 @@ module SCsensorClass
       case (SC_RHO_GRAD_ID)
          if ( grad_vars == GRADVARS_STATE ) then
             s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
-         else if ( grad_vars == GRADVARS_ENERGY ) then
+         elseif ( grad_vars == GRADVARS_ENERGY ) then
             s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
          else ! grad_vars == GRADVARS_ENTROPY
             s = POW2(dot_product(Q, U_x)) + POW2(dot_product(Q, U_y)) + POW2(dot_product(Q, U_z))

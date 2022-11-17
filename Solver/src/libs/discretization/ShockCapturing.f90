@@ -292,7 +292,7 @@ module ShockCapturing
             call self % method2 % Viscosity(mesh, e, switch, SCflux)
          end if
 
-      else if (switch > 0.0_RP) then
+      elseif (switch > 0.0_RP) then
          if (allocated(self % method1)) then
             call self % method1 % Viscosity(mesh, e, switch, SCflux)
          end if
@@ -587,7 +587,7 @@ module ShockCapturing
 !     -----------------
       if (region == 1 .and. controlVariables % containsKey(SC_VISC_FLUX1_KEY)) then
          flux = controlVariables % stringValueForKey(SC_VISC_FLUX1_KEY, LINE_LENGTH)
-      else if (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
+      elseif (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
          flux = controlVariables % stringValueForKey(SC_VISC_FLUX2_KEY, LINE_LENGTH)
       else
          flux = SC_PHYS_VAL

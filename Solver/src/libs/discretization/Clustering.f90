@@ -19,12 +19,12 @@ module Clustering
       logical               :: initialized = .false.
       integer               :: ndims
       integer               :: nclusters
+      logical               :: centroids_set
       integer,  allocatable :: prevClusters(:)
       real(RP), allocatable :: centroids(:,:)
    contains
-      procedure :: init  => kMeans_init
-      procedure :: reset => kMeans_reset
-      procedure :: fit   => kMeans_fit
+      procedure :: init => kMeans_init
+      procedure :: fit  => kMeans_fit
       final     :: kMeans_final
    end type kMeans_t
 
@@ -43,14 +43,14 @@ module Clustering
       integer                       :: ndims
       integer                       :: nclusters
       integer                       :: max_nclusters
+      real(RP)                      :: logL
       real(RP), allocatable         :: R(:,:)
       real(RP), pointer, contiguous :: centroids(:,:)
       type(GaussianList_t)          :: g
       type(kMeans_t)                :: kmeans
    contains
-      procedure :: init  => GMM_init
-      procedure :: reset => GMM_reset
-      procedure :: fit   => GMM_fit
+      procedure :: init => GMM_init
+      procedure :: fit  => GMM_fit
       final     :: GMM_final
    end type GMM_t
 
@@ -68,16 +68,31 @@ module Clustering
       class(kMeans_t), intent(inout) :: self
       integer,         intent(in)    :: ndims
       integer,         intent(in)    :: nclusters
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      logical :: needs_alloc
 
 
       self % ndims     = ndims
       self % nclusters = nclusters
 
-      if (allocated(self % centroids)) deallocate(self % centroids)
-      allocate(self % centroids(ndims, nclusters))
+      needs_alloc = .true.
+      if (allocated(self % centroids)) then
+         if (size(self % centroids, 1) == ndims .and. size(self % centroids, 2) == nclusters) then
+            needs_alloc = .false.
+         else
+            deallocate(self % centroids)
+         end if
+      end if
 
-      call self % reset()
-      self % initialized = .true.
+      if (needs_alloc) then
+         allocate(self % centroids(ndims, nclusters))
+      end if
+
+      self % initialized   = .true.
+      self % centroids_set = .false.
 
    end subroutine kMeans_init
 !
@@ -88,10 +103,13 @@ module Clustering
 !     ---------
 !     Interface
 !     ---------
-      class(kMeans_t), intent(inout) :: self
+      type(kMeans_t), intent(inout) :: self
 
 
-      call random_number(self % centroids)
+      if (self % initialized) then
+         call random_number(self % centroids)
+         self % centroids_set = .true.
+      end if
 
    end subroutine kMeans_reset
 !
@@ -108,13 +126,14 @@ module Clustering
       if (allocated(self % prevClusters)) deallocate(self % prevClusters)
       if (allocated(self % centroids))    deallocate(self % centroids)
 
-      self % initialized = .false.
+      self % initialized   = .false.
+      self % centroids_set = .false.
 
    end subroutine kMeans_final
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine kMeans_fit(self, x, clusters, info, centroids)
+   subroutine kMeans_fit(self, x, clusters, info, centroids, reset)
 !
 !     ---------
 !     Interface
@@ -124,6 +143,7 @@ module Clustering
       integer,            intent(out)   :: clusters(:)
       integer,  optional, intent(out)   :: info
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % nclusters)
+      logical,  optional, intent(in)    :: reset
 !
 !     ---------------
 !     Local variables
@@ -131,20 +151,44 @@ module Clustering
       integer, parameter :: maxIters = 50
       integer            :: npts
       integer            :: i, ierr
+      logical            :: reset_centroids
       logical            :: breakFlag
 
-
-      if (.not. self % initialized) then
+!
+!     Checks
+!     ------
+      npts = size(x, dim=2)
+      if (.not. self % initialized .or.         &
+            size(x, dim=1) /= self % ndims .or. &
+            size(clusters) /= npts) then
          if (present(info)) info = -1
          return
+      end if
+
+      if (present(centroids)) then
+         if (size(centroids, dim=1) /= self % ndims .or. &
+               size(centroids, dim=2) /= self % nclusters) then
+            if (present(info)) info = -1
+            return
+         end if
       end if
 !
 !     Initial clusters
 !     ----------------
-      npts = size(x, dim=2)
       if (present(centroids)) then
-         self % centroids = centroids
+         self % centroids     = centroids
+         self % centroids_set = .true.
+         reset_centroids      = .false.
+      elseif (present(reset)) then
+         reset_centroids = reset
+      else
+         reset_centroids = .not. self % centroids_set
       end if
+
+      if (reset_centroids) then
+         call kMeans_reset(self)
+      end if
+
       call kMeans_compute_clusters(self % nclusters, self % ndims, npts, x, &
                                    self % centroids, clusters)
 !
@@ -326,9 +370,10 @@ module Clustering
 !     ---------------
 !     Local variables
 !     ---------------
-      integer :: tsize, msize, csize, dsize
+      integer :: tsize, msize, csize, dsize, ssize
       integer :: ind1, ind2
       integer :: i, j
+      logical :: needs_allocation
 
 !
 !     Reset all pointers
@@ -347,12 +392,22 @@ module Clustering
       msize = ndims * nclusters
       csize = ndims * ndims * nclusters
       dsize = nclusters
+      ssize = tsize + msize + 2 * csize + dsize
 
-      ! Required for gfortran?
-      if (self % initialized) then
-         if (associated(self % g % storage)) deallocate(self % g % storage)
+      needs_allocation = .true.
+      if (self % initialized) then  ! Required for gfortran?
+         if (associated(self % g % storage)) then
+            if (size(self % g % storage) == ssize) then
+               needs_allocation = .false.
+            else
+               deallocate(self % g % storage)
+            end if
+         end if
       end if
-      allocate(self % g % storage(tsize + msize + 2 * csize + dsize))
+
+      if (needs_allocation) then
+         allocate(self % g % storage(ssize))
+      end if
 
       self % g % taumu_st(1:tsize + msize) => self % g % storage(1:tsize + msize)
 
@@ -379,43 +434,23 @@ module Clustering
 !
 !     Set initial values
 !     ------------------
-      self % initialized   = .true.
       self % ndims         = ndims
+      self % nclusters     = 0
       self % max_nclusters = nclusters
-      call self % reset()
+      self % logL          = huge(1.0_RP)
+      self % initialized   = .true.
 
    end subroutine GMM_init
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_reset(self)
+   subroutine GMM_reset(self, centroids)
 !
 !     ---------
 !     Interface
 !     ---------
-      class(GMM_t), intent(inout) :: self
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer :: i, j
-
-
-      if (self % initialized) then
-         self % nclusters = 0
-         call GMM_reset_empty(self)
-      end if
-
-   end subroutine GMM_reset
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine GMM_reset_empty(self)
-!
-!     ---------
-!     Interface
-!     ---------
-      class(GMM_t), intent(inout) :: self
+      type(GMM_t),        intent(inout) :: self
+      real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
 !
 !     ---------------
 !     Local variables
@@ -423,7 +458,9 @@ module Clustering
       integer  :: i1, i2
       integer  :: i, j
 
-
+!
+!     Keep the last state if all the clusters are used
+!     ------------------------------------------------
       if (self % nclusters == self % max_nclusters) then
          return
       end if
@@ -433,6 +470,7 @@ module Clustering
 !
 !     Set default values for the new clusters
 !     ---------------------------------------
+      self % logL       = huge(1.0_RP)
       self % g % logtau = log(1.0_RP / self % max_nclusters)
       do i = i1, i2
          do j = 1, self % ndims
@@ -443,12 +481,18 @@ module Clustering
          end do
       end do
       self % g % logdet(i1:i2) = 0.0_RP
-
-      call random_number(self % g % mu(:, i1:i2))
+!
+!     Set the centroids
+!     -----------------
+      if (present(centroids)) then
+         self % centroids(:,i1:i2) = centroids(:,i1:i2)
+      else
+         call random_number(self % g % mu(:,i1:i2))
+      end if
 
       self % nclusters = self % max_nclusters
 
-   end subroutine GMM_reset_empty
+   end subroutine GMM_reset
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -481,7 +525,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_fit(self, x, clusters, info, centroids)
+   subroutine GMM_fit(self, x, clusters, info, centroids, reset)
 !
 !     ---------
 !     Interface
@@ -491,6 +535,7 @@ module Clustering
       integer,            intent(out)   :: clusters(:)
       integer,  optional, intent(out)   :: info
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
+      logical,  optional, intent(in)    :: reset
 !
 !     ---------------
 !     Local variables
@@ -504,7 +549,6 @@ module Clustering
       integer               :: npts
       integer               :: iter
       logical               :: breakFlag
-      real(RP), save        :: ll = huge(1.0_RP)
       real(RP)              :: llprev
       real(RP)              :: mudiff
       real(RP), allocatable :: minimum(:), maximum(:)
@@ -512,14 +556,34 @@ module Clustering
       integer               :: ierr
 
 !
+!     Checks
+!     ------
+      npts = size(x, dim=2)
+      if (.not. self % initialized .or.         &
+            size(x, dim=1) /= self % ndims .or. &
+            size(clusters) /= npts) then
+         if (present(info)) info = -1
+         return
+      end if
+
+      if (present(centroids)) then
+         if (size(centroids, dim=1) /= self % ndims .or. &
+               size(centroids, dim=2) /= self % nclusters) then
+            if (present(info)) info = -1
+            return
+         end if
+      end if
+!
 !     Reset "empty" clusters
 !     ----------------------
+      if (present(reset)) then
+         if (reset) self % nclusters = 0
+      end if
+
       if (present(centroids)) then
-         call self % reset()
-         self % centroids = centroids
+         call GMM_reset(self, centroids)
       else
-         if (self % nclusters < self % max_nclusters) ll = huge(1.0_RP)
-         call GMM_reset_empty(self)
+         call GMM_reset(self)
       end if
 !
 !     Minimum distance between cluster centroids
@@ -539,8 +603,6 @@ module Clustering
 !
 !     Initialization
 !     --------------
-      npts = size(x, dim=2)
-
       if (allocated(self % R)) then
          if (size(self % R, dim=1) /= npts) then
             deallocate(self % R)
@@ -553,7 +615,7 @@ module Clustering
 !     EM algorithm
 !     ------------
       do iter = 1, maxIters
-      associate(ndims => self % ndims, nclusters => self % nclusters)
+      associate(ndims => self % ndims, nclusters => self % nclusters, ll => self % logL)
 
          llprev = ll
          call GMM_Estep(ndims, npts, nclusters, self % g, x, self % R(:,1:nclusters), zerotol, ll)
