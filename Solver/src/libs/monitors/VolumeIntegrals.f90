@@ -9,6 +9,7 @@ module VolumeIntegrals
    use NodalStorageClass, only: NodalStorage, NodalStorage_t
 #ifdef _HAS_MPI_
    use mpi
+   use MPI_Utilities, only: MPI_MinMax
 #endif
 #include "Includes.h"
 
@@ -729,14 +730,12 @@ module VolumeIntegrals
 !
          integer  :: ielem
          integer  :: ierr
-         real(RP) :: localMin
-         real(RP) :: localMax
 
 
          minSensor =  huge(1.0_RP)/10.0_RP
          maxSensor = -huge(1.0_RP)/10.0_RP
 
-!$omp parallel do schedule(runtime) private(ielem)
+!$omp parallel do schedule(static) private(ielem)
          do ielem = 1, mesh % no_of_elements
             minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
             maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
@@ -744,10 +743,7 @@ module VolumeIntegrals
 !$omp end parallel do
 
 #ifdef _HAS_MPI_
-         localMin = minSensor
-         localMax = maxSensor
-         call mpi_allreduce(localMin, minSensor, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
-         call mpi_allreduce(localMax, maxSensor, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
+         call MPI_MinMax(minSensor, maxSensor)
 #endif
 
       end subroutine GetSensorRange
