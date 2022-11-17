@@ -103,6 +103,7 @@ module SCsensorClass
 !     ---------------
       character(len=:), allocatable :: sensorType
       character(len=:), allocatable :: sVar
+      integer                       :: nclusters
 
 
       sensor % min_steps = minSteps
@@ -155,13 +156,11 @@ module SCsensorClass
          allocate(sensor % clusters(sem % NDOF))
 
          if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
-            sensor % gmm % nclusters = &
-                controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
+            nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
          else
-            sensor % gmm % nclusters = 2
+            nclusters = 2
          end if
-         sensor % gmm % ndims = 2
-         call sensor % gmm % init()
+         call sensor % gmm % init(2, nclusters)
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -1003,7 +1002,6 @@ module SCsensorClass
       real(RP) :: u2, p
       real(RP) :: ux(3), uy(3), uz(3)
       real(RP) :: dp(3)
-      real(RP) :: centroids(2,sensor % gmm % nclusters)
 
 !
 !     Compute the clustering variables and store them in a global array
@@ -1100,12 +1098,11 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % gmm % nclusters, [1.0_RP, 1.0_RP], &
-                                   sensor % x, centroids)
+      call RescaleClusterVariables(2, sensor % gmm % nclusters, sensor % x)
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call sensor % gmm % fit(sensor % x, sensor % clusters, centroids)
+      call sensor % gmm % fit(sensor % x, sensor % clusters)
 !
 !     Compute the sensor values
 !     -------------------------
@@ -1245,7 +1242,7 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine RescaleClusterVariables(ndims, nclusters, limit, x, xavg)
+   subroutine RescaleClusterVariables(ndims, nclusters, x)
 !
 !     -------
 !     Modules
@@ -1257,9 +1254,7 @@ module SCsensorClass
 !     ---------
       integer,  intent(in)    :: ndims
       integer,  intent(in)    :: nclusters
-      real(RP), intent(in)    :: limit(ndims)
       real(RP), intent(inout) :: x(:,:)
-      real(RP), intent(out)   :: xavg(:,:)
 !
 !     ---------------
 !     Local variables
@@ -1283,26 +1278,13 @@ module SCsensorClass
       do i = 1, ndims
          if (AlmostEqual(maximum(i), minimum(i))) then
             if (maximum(i) > 0.0_RP) then
-               x(i,:) = limit(i)
-               minimum(i) = limit(i)
-               maximum(i) = limit(i)
+               x(i,:) = 1.0_RP
             else
                x(i,:) = 0.0_RP
-               minimum(i) = 0.0_RP
-               maximum(i) = 0.0_RP
             end if
          else
             x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i))
-            minimum(i) = 0.0_RP
-            maximum(i) = limit(i)
          end if
-      end do
-
-      xavg(:,1) = minimum
-      xavg(:,nclusters) = maximum
-      diff = (maximum - minimum) / (nclusters - 1)
-      do i = 2, nclusters - 1
-         xavg(:,i) = minimum + (i - 1) * diff
       end do
 
    end subroutine RescaleClusterVariables
