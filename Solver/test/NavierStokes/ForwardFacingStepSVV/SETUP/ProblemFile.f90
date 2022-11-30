@@ -527,10 +527,10 @@ end module ProblemFileFunctions
             type(FTAssertionsManager), pointer :: sharedManager
             real(kind=RP), parameter           :: SVVdiss = 7.56510e-8_RP
             real(kind=RP), parameter           :: res(5) = [ 3593.8000_RP, &
-                                                             852.8293_RP, &
-                                                             180.8959_RP, &
+                                                             870.3135_RP, &
+                                                             208.6886_RP, &
                                                              0.0_RP, &
-                                                             3022.6559_RP  ]
+                                                             3029.1678_RP  ]
 
             call initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
