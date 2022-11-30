@@ -464,6 +464,7 @@ module SCsensorClass
 !     ---------------
 !
       integer  :: eID
+      real(RP) :: s
 
 !
 !     Compute the sensor
@@ -475,15 +476,19 @@ module SCsensorClass
       if (sensor % min_steps > 1) then   ! Enter the loop only if necessary
 !$omp parallel do
          do eID = 1, sem % mesh % no_of_elements
-         associate(e     => sem % mesh % elements(eID),                  &
-                   value => sem % mesh % elements(eID) % storage % sensor)
-            if (value <= 0.0_RP .and. e % storage % last_sensed < sensor % min_steps) then
+         associate(e => sem % mesh % elements(eID))
+            s = e % storage % sensor
+            if (s > 0.0_RP) then
+               if (e % storage % prev_sensor <= 0.0_RP) then
+                  e % storage % first_sensed = 0
+                  e % storage % prev_sensor = s
+               else
+                  e % storage % first_sensed = e % storage % first_sensed + 1
+                  e % storage % prev_sensor = s
+               end if
+            elseif (e % storage % first_sensed < sensor % min_steps) then
+               e % storage % first_sensed = e % storage % first_sensed + 1
                e % storage % sensor = e % storage % prev_sensor
-               e % storage % last_sensed = e % storage % last_sensed + 1
-            else
-               e % storage % sensor = value
-               e % storage % prev_sensor = value
-               e % storage % last_sensed = 0
             end if
          end associate
          end do
