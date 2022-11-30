@@ -381,13 +381,14 @@ module SCsensorClass
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
       select case (sensor % sens_type)
-         case (SC_ZERO_ID);     write(STD_OUT,"(A)") SC_ZERO_VAL
-         case (SC_ONE_ID);      write(STD_OUT,"(A)") SC_ONE_VAL
-         case (SC_INTEGRAL_ID); write(STD_OUT,"(A)") SC_INTEGRAL_VAL
-         case (SC_MODAL_ID);    write(STD_OUT,"(A)") SC_MODAL_VAL
-         case (SC_TE_ID);       write(STD_OUT,"(A)") SC_TE_VAL
-         case (SC_ALIAS_ID);    write(STD_OUT,"(A)") SC_ALIAS_VAL
-         case (SC_GMM_ID);      write(STD_OUT,"(A)") SC_GMM_VAL
+         case (SC_ZERO_ID);          write(STD_OUT,"(A)") SC_ZERO_VAL
+         case (SC_ONE_ID);           write(STD_OUT,"(A)") SC_ONE_VAL
+         case (SC_INTEGRAL_ID);      write(STD_OUT,"(A)") SC_INTEGRAL_VAL
+         case (SC_INTEGRAL_SQRT_ID); write(STD_OUT,"(A)") SC_INTEGRAL_SQRT_VAL
+         case (SC_MODAL_ID);         write(STD_OUT,"(A)") SC_MODAL_VAL
+         case (SC_TE_ID);            write(STD_OUT,"(A)") SC_TE_VAL
+         case (SC_ALIAS_ID);         write(STD_OUT,"(A)") SC_ALIAS_VAL
+         case (SC_GMM_ID);           write(STD_OUT,"(A)") SC_GMM_VAL
       end select
 
       if (sensor % sens_type == SC_TE_ID) then
