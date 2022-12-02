@@ -4,7 +4,8 @@ module SCsensorClass
    use SMConstants,       only: RP, PI, STD_OUT, NDIM, IX, IY, IZ, LINE_LENGTH
    use DGSEMClass,        only: ComputeTimeDerivative_f, DGSem
    use PhysicsStorage,    only: grad_vars, GRADVARS_STATE, GRADVARS_ENERGY, GRADVARS_ENTROPY, NCONS
-   use NodalStorageClass, only: NodalStorage
+   use NodalStorageClass, only: NodalStorage, NodalStorage_t
+   use ElementClass,      only: Element
    use Utilities,         only: toLower
    use Clustering,        only: GMM_t
    use MPI_Process_Info,  only: MPI_Process
@@ -265,7 +266,6 @@ module SCsensorClass
 !     -------
       use FTValueDictionaryClass
       use TransfiniteMapClass,        only: TransfiniteHexMap
-      use NodalStorageClass,          only: NodalStorage
       use SpectralVanishingViscosity, only: SVV
 !
 !     ---------
@@ -464,8 +464,9 @@ module SCsensorClass
 !     Local variables
 !     ---------------
 !
-      integer  :: eID
-      real(RP) :: s
+      type(Element), pointer :: e
+      integer                :: eID
+      real(RP)               :: s
 
 !
 !     Compute the sensor
@@ -475,9 +476,9 @@ module SCsensorClass
 !     Add 'inertia' to the scaled value
 !     ---------------------------------
       if (sensor % min_steps > 1) then   ! Enter the loop only if necessary
-!$omp parallel do
+!$omp parallel do default(private) shared(sem)
          do eID = 1, sem % mesh % no_of_elements
-         associate(e => sem % mesh % elements(eID))
+            e => sem % mesh % elements(eID)
             s = e % storage % sensor
             if (s > 0.0_RP) then
                if (e % storage % prev_sensor <= 0.0_RP) then
@@ -491,10 +492,11 @@ module SCsensorClass
                e % storage % first_sensed = e % storage % first_sensed + 1
                e % storage % sensor = e % storage % prev_sensor
             end if
-         end associate
          end do
 !$omp end parallel do
       end if
+
+      nullify(e)
 
    end subroutine Compute_SCsensor
 !
@@ -558,11 +560,6 @@ module SCsensorClass
 !
    subroutine Sensor_integral_sqrt(sensor, sem, t)
 !
-!     -------
-!     Modules
-!     -------
-      use NodalStorageClass, only: NodalStorage
-!
 !     ---------
 !     Interface
 !     ---------
@@ -574,17 +571,17 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: eID
-      integer  :: i
-      integer  :: j
-      integer  :: k
-      real(RP) :: contribution
-      real(RP) :: val
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i
+      integer                :: j
+      integer                :: k
+      real(RP)               :: contribution
+      real(RP)               :: val
 
-!$omp parallel do schedule(runtime)
+!$omp parallel do default(private) shared(sem, sensor, NodalStorage)
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
-
+         e => sem % mesh % elements(eID)
          val = 0.0_RP
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             contribution = GetSensedVariable( &
@@ -603,20 +600,16 @@ module SCsensorClass
 
          e % storage % sensor = SinRamp(sensor, sqrt(val))
 
-      end associate
       end do
 !$omp end parallel do
+
+      nullify(e)
 
    end subroutine Sensor_integral_sqrt
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
    subroutine Sensor_integral(sensor, sem, t)
-!
-!     -------
-!     Modules
-!     -------
-      use NodalStorageClass, only: NodalStorage
 !
 !     ---------
 !     Interface
@@ -629,17 +622,17 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: eID
-      integer  :: i
-      integer  :: j
-      integer  :: k
-      real(RP) :: contribution
-      real(RP) :: val
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i
+      integer                :: j
+      integer                :: k
+      real(RP)               :: contribution
+      real(RP)               :: val
 
-!$omp parallel do schedule(runtime)
+!$omp parallel do default(private) shared(sem, sensor, NodalStorage)
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
-
+         e => sem % mesh % elements(eID)
          val = 0.0_RP
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
             contribution = GetSensedVariable( &
@@ -655,12 +648,11 @@ module SCsensorClass
                       * e % geom % jacobian(i,j,k)       &
                       * contribution
          end do                ; end do                ; end do
-
          e % storage % sensor = SinRamp(sensor, val)
-
-      end associate
       end do
 !$omp end parallel do
+
+      nullify(e)
 
    end subroutine Sensor_integral
 !
@@ -684,13 +676,15 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer               :: eID
-      integer               :: i, j, k, r
-      integer               :: maxNx, maxNy, maxNz
-      real(RP), allocatable :: sVar(:,:,:)
-      real(RP), allocatable :: sVarMod(:,:,:)
-      real(RP), allocatable :: Lwx(:), Lwy(:), Lwz(:)
-      real(RP)              :: num, den
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i, j, k, r
+      integer                :: maxNx, maxNy, maxNz
+      integer                :: Nx, Ny, Nz
+      real(RP), allocatable  :: sVar(:,:,:)
+      real(RP), allocatable  :: sVarMod(:,:,:)
+      real(RP), pointer      :: Lwx(:), Lwy(:), Lwz(:)
+      real(RP)               :: num, den
 
 
       ! Only allocate once
@@ -700,11 +694,12 @@ module SCsensorClass
       allocate(sVar(0:maxNx,0:maxNy,0:maxNz))
       allocate(sVarMod(0:maxNx,0:maxNy,0:maxNz))
 
-!$omp parallel do schedule(runtime) private(eID, sVar, sVarMod)
+!$omp parallel do default(private) shared(sem, sensor, NodalStorage)
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
-
-         associate(Nx => e % Nxyz(1), Ny => e % Nxyz(2), Nz => e % Nxyz(3))
+         e => sem % mesh % elements(eID)
+         Nx = e % Nxyz(1)
+         Ny = e % Nxyz(2)
+         Nz = e % Nxyz(3)
 !
 !        Compute the sensed variable
 !        ---------------------------
@@ -751,9 +746,9 @@ module SCsensorClass
 !                     Representing them as cubes, this subspace corresponds to the outer shell of
 !                     V(Nx,Ny,Nz), thus the terms "faces", "edges" and "corner"
 !        --------------------------------------------------------------------------------------------
-         Lwx = NodalStorage(Nx) % Lw
-         Lwy = NodalStorage(Ny) % Lw
-         Lwz = NodalStorage(Nz) % Lw
+         Lwx => NodalStorage(Nx) % Lw
+         Lwy => NodalStorage(Ny) % Lw
+         Lwz => NodalStorage(Nz) % Lw
 
          ! Corner (Nx, Ny, Nz)
          num = sVarMod(Nx,Ny,Nz)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(Nz)
@@ -791,11 +786,13 @@ module SCsensorClass
          ! Sensor value as the ratio of num / den
          e % storage % sensor = SinRamp(sensor, log10( num / den ))
 
-         end associate
-
-      end associate
       end do
 !$omp end parallel do
+
+      nullify(e)
+      nullify(Lwx)
+      nullify(Lwy)
+      nullify(Lwz)
 
    end subroutine Sensor_modal
 !
@@ -811,7 +808,6 @@ module SCsensorClass
       use PhysicsStorage,        only: CTD_IGNORE_MODE
       use FluidData,             only: thermodynamics, dimensionless, refValues
       use Utilities,             only: AlmostEqual
-      use ElementClass,          only: Element
 !
 !     ---------
 !     Interface
@@ -826,24 +822,22 @@ module SCsensorClass
 !     ---------------
       integer                              :: eID
       integer                              :: i, j, k
-      integer                              :: iEq
       real(RP)                             :: wx, wy, wz
       real(RP)                             :: Jac
       real(RP)                             :: S(NCONS)
       real(RP)                             :: mTE
       procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
 
-      ! TODO: ifort does not like associates with OpenMP
-      type(DGSem),   pointer :: csem => null()
-      type(Element), pointer :: e  => null()
-      type(Element), pointer :: ce => null()
+      type(Element), pointer :: e
+      type(Element), pointer :: ce
+      type(DGSem),   pointer :: csem
 
 
       csem => sensor % TEestim % coarseSem
 !
 !     Time derivative
 !     ---------------
-!$omp parallel do schedule(runtime) private(eID, e, ce)
+!$omp parallel do default(private) shared(sem, csem)
       do eID = 1, sem % mesh % no_of_elements
 
          e  => sem % mesh % elements(eID)
@@ -859,7 +853,7 @@ module SCsensorClass
 !
 !     Maximum TE computation
 !     ----------------------
-!$omp parallel do schedule(runtime) private(eID, e, ce, i, j, k, iEq, S, mTE, wx, wy, wz, Jac)
+!$omp parallel do default(private) shared(sem, csem)
       do eID = 1, sem % mesh % no_of_elements
 
          e  => sem % mesh % elements(eID)
@@ -881,7 +875,6 @@ module SCsensorClass
             mTE = max(mTE, Jac*wx*wy*wz * maxval(abs(ce % storage % QDot(:,i,j,k) + S(:) - &
                                                      ce % storage % G_NS(:,i,j,k))))
 
-
          end do                  ; end do                  ; end do
 
          if (AlmostEqual(mTE, 0.0_RP)) then
@@ -893,9 +886,9 @@ module SCsensorClass
       end do
 !$omp end parallel do
 
+      nullify(e)
+      nullify(ce)
       nullify(csem)
-      if (associated(e))  nullify(e)
-      if (associated(ce)) nullify(ce)
 
    end subroutine Sensor_truncation
 !
@@ -921,18 +914,25 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer               :: eID
-      integer               :: i, j, k, l
-      real(RP), allocatable :: F(:,:,:,:,:)
-      real(RP), allocatable :: Fs(:,:,:,:,:)
-      real(RP), allocatable :: Gs(:,:,:,:,:)
-      real(RP), allocatable :: Hs(:,:,:,:,:)
-      real(RP), allocatable :: aliasing(:,:,:,:)
+      type(Element),        pointer :: e
+      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+      integer                       :: eID
+      integer                       :: i, j, k, l
+      real(RP), allocatable         :: F(:,:,:,:,:)
+      real(RP), allocatable         :: Fs(:,:,:,:,:)
+      real(RP), allocatable         :: Gs(:,:,:,:,:)
+      real(RP), allocatable         :: Hs(:,:,:,:,:)
+      real(RP), allocatable         :: aliasing(:,:,:,:)
 
 
-!$omp parallel do schedule(runtime) private(eID, i, j, k, l, F, Fs, Gs, Hs, aliasing)
+!$omp parallel do default(private) shared(sem, sensor, NodalStorage, HyperbolicDiscretization)
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
+
+         e       => sem % mesh % elements(eID)
+         spAxi   => NodalStorage(e % Nxyz(1))
+         spAeta  => NodalStorage(e % Nxyz(2))
+         spAzeta => NodalStorage(e % Nxyz(3))
+
 
          allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
          allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
@@ -942,22 +942,16 @@ module SCsensorClass
          call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
          call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
 
-         associate(spAxi   => NodalStorage(e % Nxyz(1)), &
-                   spAeta  => NodalStorage(e % Nxyz(2)), &
-                   spAzeta => NodalStorage(e % Nxyz(3)))
-
-            allocate(aliasing(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)), source=0.0_RP)
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
-               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAxi % D(i,l) * (2.0_RP*Fs(:,i,l,j,k) - Fs(:,l,l,j,k))
-            end do                ; end do                ; end do                ; end do
-            do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAeta % D(j,l) * (2.0_RP*Gs(:,j,i,l,k) - Gs(:,l,i,l,k))
-            end do                ; end do                ; end do                ; end do
-            do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAzeta % D(k,l) * (2.0_RP*Hs(:,k,i,j,l) - Hs(:,l,i,j,l))
-            end do                ; end do                ; end do                ; end do
-
-         end associate
+         aliasing = 0.0_RP
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
+            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAxi % D(i,l) * (2.0_RP*Fs(:,i,l,j,k) - Fs(:,l,l,j,k))
+         end do                ; end do                ; end do                ; end do
+         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAeta % D(j,l) * (2.0_RP*Gs(:,j,i,l,k) - Gs(:,l,i,l,k))
+         end do                ; end do                ; end do                ; end do
+         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAzeta % D(k,l) * (2.0_RP*Hs(:,k,i,j,l) - Hs(:,l,i,j,l))
+         end do                ; end do                ; end do                ; end do
 
          aliasing = abs(aliasing)
          e % storage % sensor = maxval(aliasing)
@@ -972,10 +966,13 @@ module SCsensorClass
          deallocate(Gs)
          deallocate(Hs)
          deallocate(aliasing)
-
-      end associate
       end do
 !$omp end parallel do
+
+      nullify(e)
+      nullify(spAxi)
+      nullify(spAeta)
+      nullify(spAzeta)
 
    end subroutine Sensor_aliasing
 !
@@ -1001,21 +998,23 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: eID
-      integer  :: i, j, k
-      integer  :: cnt
-      integer  :: n
-      integer  :: higherCluster
-      real(RP) :: u2, p
-      real(RP) :: ux(3), uy(3), uz(3)
-      real(RP) :: dp(3)
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i, j, k
+      integer                :: cnt
+      integer                :: n
+      integer                :: higherCluster
+      real(RP)               :: u2, p
+      real(RP)               :: ux(3), uy(3), uz(3)
+      real(RP)               :: dp(3)
 
 !
 !     Compute the clustering variables and store them in a global array
 !     -----------------------------------------------------------------
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
+
+         e => sem % mesh % elements(eID)
 
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
@@ -1100,7 +1099,6 @@ module SCsensorClass
 
          end do ;                end do ;                end do
 
-      end associate
       end do
 !
 !     Rescale the values
@@ -1115,7 +1113,7 @@ module SCsensorClass
 !     -------------------------
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
-      associate(e => sem % mesh % elements(eID))
+         e => sem % mesh % elements(eID)
          if (sensor % gmm % nclusters <= 1) then
             e % storage % sensor = 0.0_RP
          else
@@ -1124,8 +1122,9 @@ module SCsensorClass
             e % storage % sensor = real(higherCluster - 1, RP) / (sensor % gmm % nclusters - 1)
          end if
          cnt = cnt + n
-      end associate
       end do
+
+      nullify(e)
 
    end subroutine Sensor_GMM
 !
