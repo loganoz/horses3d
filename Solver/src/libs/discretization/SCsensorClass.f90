@@ -769,16 +769,18 @@ module SCsensorClass
             num = num + sVarMod(Nx,Ny,k)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(k)
          end do
 
-         ! Faces
-         do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
-            num = num + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
-         end do         ; end do
-         do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
-            num = num + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
-         end do         ; end do
-         do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
-            num = num + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
-         end do         ; end do
+         ! Faces (Not in 2D cases, this would cover all the modes)
+         if (all(e % Nxyz > 0)) then
+            do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
+               num = num + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
+            end do         ; end do
+            do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
+               num = num + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
+            end do         ; end do
+            do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
+               num = num + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
+            end do         ; end do
+         end if
 
          ! Total sum
          den = num
