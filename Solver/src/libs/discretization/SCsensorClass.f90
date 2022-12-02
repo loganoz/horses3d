@@ -917,6 +917,8 @@ module SCsensorClass
       type(Element),        pointer :: e
       type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
       integer                       :: eID
+      logical                       :: need_dealloc
+      logical                       :: need_alloc
       integer                       :: i, j, k, l
       real(RP), allocatable         :: F(:,:,:,:,:)
       real(RP), allocatable         :: Fs(:,:,:,:,:)
@@ -933,11 +935,30 @@ module SCsensorClass
          spAeta  => NodalStorage(e % Nxyz(2))
          spAzeta => NodalStorage(e % Nxyz(3))
 
+         need_dealloc = .true.
+         need_alloc = .true.
+         if (allocated(F)) then
+            if (all(ubound(F) == [NCONS, e % Nxyz(1), e % Nxyz(2), e % Nxyz(3), NDIM])) then
+               need_alloc = .false.
+            end if
+         else
+            need_dealloc = .false.
+         end if
 
-         allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
-         allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-         allocate(Gs(NCONS, 0:e % Nxyz(2), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-         allocate(Hs(NCONS, 0:e % Nxyz(3), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         if (need_dealloc) then
+            deallocate(F)
+            deallocate(Fs)
+            deallocate(Gs)
+            deallocate(Hs)
+            deallocate(aliasing)
+         end if
+         if (need_alloc) then
+            allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
+            allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            allocate(Gs(NCONS, 0:e % Nxyz(2), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            allocate(Hs(NCONS, 0:e % Nxyz(3), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            allocate(aliasing(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+         end if
 
          call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
          call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
@@ -961,11 +982,6 @@ module SCsensorClass
             e % storage % sensor = SinRamp(sensor, log10(e % storage % sensor))
          end if
 
-         deallocate(F)
-         deallocate(Fs)
-         deallocate(Gs)
-         deallocate(Hs)
-         deallocate(aliasing)
       end do
 !$omp end parallel do
 
