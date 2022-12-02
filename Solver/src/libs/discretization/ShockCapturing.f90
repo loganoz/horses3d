@@ -686,7 +686,6 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           mu(i,j,k))
-               mu(i,j,k) = mu(i,j,k) * e % hn
             end do                ; end do                ; end do
 #endif
 
@@ -918,7 +917,7 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           sqrt_mu(i,j,k))
-               sqrt_mu(i,j,k) = sqrt(e % hn * sqrt_mu(i,j,k))
+               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
             end do                ; end do                ; end do
 #endif
 

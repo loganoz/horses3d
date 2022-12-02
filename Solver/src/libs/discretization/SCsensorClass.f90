@@ -177,13 +177,9 @@ module SCsensorClass
 
       end select
 !
-!     Options for the clustering sensor
-!     ---------------------------------
-      if (sensor % sens_type == SC_GMM_ID) then
-!
-!     Options for the rest of sensors
-!     -------------------------------
-      else
+!     Scaling options (not for GMM)
+!     -----------------------------
+      if (sensor % sens_type /= SC_GMM_ID) then
 !
 !         Sensor thresholds
 !         --------------
@@ -524,7 +520,7 @@ module SCsensorClass
 
 !$omp parallel do
       do eID = 1, sem % mesh % no_of_elements
-         sem % mesh % elements(eID) % storage % sensor = 0.0_RP
+         sem % mesh % elements(eID) % storage % sensor = SinRamp(sensor, 0.0_RP)
       end do
 !$omp end parallel do
 
@@ -550,7 +546,7 @@ module SCsensorClass
 
 !$omp parallel do
       do eID = 1, sem % mesh % no_of_elements
-         sem % mesh % elements(eID) % storage % sensor = 1.0_RP
+         sem % mesh % elements(eID) % storage % sensor = SinRamp(sensor, 1.0_RP)
       end do
 !$omp end parallel do
 
