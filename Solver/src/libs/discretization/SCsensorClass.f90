@@ -422,7 +422,7 @@ module SCsensorClass
       write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
 
       if (sensor % sens_type == SC_GMM_ID) then
-         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % nclusters
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
       else
          write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
          write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
@@ -1001,7 +1001,6 @@ module SCsensorClass
 !     ---------------
       integer  :: eID
       integer  :: i, j, k
-      integer  :: nclusters
       integer  :: cnt
       integer  :: n
       integer  :: higherCluster
@@ -1104,7 +1103,7 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % gmm % nclusters, sensor % x)
+      call RescaleClusterVariables(2, sensor % x)
 !
 !     Compute the GMM clusters
 !     ------------------------
@@ -1248,7 +1247,7 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine RescaleClusterVariables(ndims, nclusters, x)
+   subroutine RescaleClusterVariables(ndims, x)
 !
 !     -------
 !     Modules
@@ -1259,7 +1258,6 @@ module SCsensorClass
 !     Interface
 !     ---------
       integer,  intent(in)    :: ndims
-      integer,  intent(in)    :: nclusters
       real(RP), intent(inout) :: x(:,:)
 !
 !     ---------------
@@ -1268,7 +1266,6 @@ module SCsensorClass
       integer  :: i
       real(RP) :: minimum(ndims)
       real(RP) :: maximum(ndims)
-      real(RP) :: diff(ndims)
 
 
       x = abs(x)

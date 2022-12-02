@@ -372,7 +372,6 @@ module Clustering
 !     ---------------
       integer :: tsize, msize, csize, dsize, ssize
       integer :: ind1, ind2
-      integer :: i, j
       logical :: needs_allocation
 
 !
@@ -552,7 +551,6 @@ module Clustering
       real(RP)              :: llprev
       real(RP)              :: mudiff
       real(RP), allocatable :: minimum(:), maximum(:)
-      integer               :: i
       integer               :: ierr
 
 !
