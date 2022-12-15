@@ -3,6 +3,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage[section]{placeins}
 \usepackage{multirow}
 \usepackage{vmargin}
 \usepackage{longtable}
@@ -343,6 +344,8 @@ Turbulent Prandtl number	& \textit{REAL}:  & Equal to Prandtl \\ \hline
 
 LES model					& \textit{CHARACTER(*)}: Options are:
 \begin{itemize}
+\item Vreman
+\item Wale    
 \item Smagorinsky
 \item None
 \end{itemize}
@@ -530,7 +533,216 @@ tool type                       & \textit{CHARACTER(*)}: Necessary for post-proc
 
 \section{Incompressible Navier-Stokes}
 
-\section{Cahn-Hilliard}
+Among the various incompressible Navier-Stokes models, {\fontfamily{qcr}\selectfont  HORSES3D} uses an artificial compressibility 
+formulation, which converts the elliptic problem into a hyperbolic system of equations, at the expense of a non divergence–free 
+velocity field. However, it allows one to avoid constructing an approximation that satisfies the inf–sup condition. 
+This methodology is well suited for use as a fluid flow engine for interface–tracking multiphase flow models, as it allows the 
+density to vary spatially. 
+
+The artificial compressibility system of equations is
+%
+\begin{equation}
+  \rho_{t} + \vec{\nabla}\cdot\left(\rho\vec{u}\right)=0 ,
+  \label{eq:incomressible:continuity}
+\end{equation}
+%
+\begin{equation}
+\left(\rho\vec{u}\right)_t+\vec{\nabla}\cdot\left(\rho \vec{u}\vec{u}\right) = -\vec{\nabla}p + \vec{\nabla}\cdot\left(\frac{1}{\mathrm{Re}}\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\frac{1}{\mathrm{Fr^{2}}}\rho\vec{e}_{g},
+\label{eq:incomressible:momentum}
+\end{equation}
+%
+\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:incomressible:ACM}
+\end{equation}
+
+The factor $\rho_0$ is computed as $max(\rho_1/\rho_1,\rho_2/\rho_1)$.
+
+This solver is run with the binary horses3d.ins. 
+
+\begin{table}[htbp]
+    \caption{Keywords for incompressible Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    reference velocity (m/s)            & \textit{REAL}: Reference value for velocity                                                                                              & -- \\ \hline
+    number of fluids (1/2)              & \textit{INTEGER}: Number of fluids present in the simulation                                                                             &  1 \\ \hline
+    maximum density (kg/m\^{}3)            & \textit{REAL}: Maximum value used in the limiter of the density                                                                       &  Huge(1.0) \\ \hline
+    minimum density (kg/m\^{}3)            & \textit{REAL}: Minimum value used in the limiter of the density                                                                       & -Huge(1.0) \\ \hline
+    artificial compressibility factor   & \textit{REAL}: Artificial compressibility factor ${c_0}^2$.                                                                              & -- \\ \hline
+    gravity acceleration (m/s\^{}2)        & \textit{REAL}: Value of gravity acceleration                                                                                          & -- \\ \hline
+    gravity direction                   & \textit{REAL}: Array containing direction of gravity. Eg. $[0.0,-1.0,0.0]$.                                                              & -- \\ \hline
+    \end{tabular}
+    \label{tab:INSKey}
+    \end{table}
+
+The incompressible Navier Stokes solver has two modes: with 1 fluid and with 2 fluids. The required keywords are listed below.
+
+    \begin{table}[htbp]
+        \caption{Keywords for incompressible Navier-Stokes solver. Mode with 1 fluid}
+        \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+        \hline
+        \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+        density (kg/m\^{}3)            & \textit{REAL}: Density of the fluid   & -- \\ \hline
+        viscosity (pa.s)            & \textit{REAL}: Viscosity of the fluid & -- \\ \hline                                                                        
+    \end{tabular}
+    \label{tab:INSKey_1fluid}
+    \end{table}
+    
+    \begin{table}[htbp]
+        \caption{Keywords for incompressible Navier-Stokes solver. Mode with 2 fluids}
+        \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+        \hline
+        \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+        fluid 1 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 1 & -- \\ \hline
+        fluid 1 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 1 & -- \\ \hline     
+        fluid 2 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 2 & -- \\ \hline
+        fluid 2 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 2  & -- \\ \hline                                                                          
+    \end{tabular}
+    \label{tab:INSKey_2fluid}
+    \end{table}    
+
+
+\section{Multiphase}
+
+The multiphase flow solver implemented in {\fontfamily{qcr}\selectfont  HORSES3D} is constructed by a combination of the diffuse interface model of Cahn–Hilliard
+with the incompressible Navier–Stokes equations with variable density and artificial compressibility. 
+This model is entropy stable and guarantees phase conservation with an accurate representation of surface tension effects. 
+The modified entropy-stable version approximates:
+
+\begin{equation}
+c_t + \vec{\nabla}\cdot\left(c\vec{u}\right) = M_0 \vec{\nabla}^2 \mu,
+\label{eq:governing:cahn--hilliard}
+\end{equation}
+%
+\begin{equation}
+\sqrt{\rho}\left(\sqrt{\rho}\vec{u}\right)_t+\vec{\nabla}\cdot\left(\frac{1}{2}\rho \vec{u}\vec{u}\right) 
++\frac{1}{2}\rho\vec{u}\cdot\vec{\nabla}\vec{u}+c\vec{\nabla}\mu
+= -\vec{\nabla}p + \vec{\nabla}\cdot\left(\eta\left(\vec{\nabla}\vec{u} + 
+\vec{\nabla}\vec{u}^{T}\right)\right)+\rho\vec{g},
+\label{eq:governing:momentum-skewsymmetric-sqrtRho}
+\end{equation}
+%
+\begin{equation}
+  p_t + \rho_0 c_0^2 \vec{\nabla}\cdot\vec{u} = 0,
+  \label{eq:governing:ACM}
+\end{equation}
+%
+where $c$ is the phase field parameter, $M_0$ is the mobility, $\mu$ is the chemical potential, 
+$\eta$ is the viscosity and $c_0$ is the artificial speed of sound. The factor $\rho_0$ is computed as $max(\rho_1/\rho_1,\rho_2/\rho_1)$.
+Mobility $M_0$ is computed from the control file parameters chemical characteristic time $t_{CH}$, interface width $\epsilon$ and interface tension $\sigma$ with the formula 
+$M_0 = L_{ref}^2 \epsilon /(t_{CH} \sigma)$. 
+
+The term $M_0 \vec{\nabla}^2 \mu$ can be implicity integrated to reduce the stiffnes of the problem with the keyword time integration = IMEX. This is only recomended if the value of $M_0$ is very high so that the time step of the explicit scheme is very small. 
+
+This solver is run with the binary horses3d.mu. 
+
+\begin{table}[htbp]
+    \caption{Keywords for multiphase Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    fluid 1 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 1 & -- \\ \hline
+    fluid 1 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 1 & -- \\ \hline     
+    fluid 2 density (kg/m\^{}3)           & \textit{REAL}: Density of the fluid 2 & -- \\ \hline
+    fluid 2 viscosity (pa.s)           & \textit{REAL}: Viscosity of the fluid 2  & -- \\ \hline         
+    reference velocity (m/s)            & \textit{REAL}: Reference value for velocity                                                                                              & -- \\ \hline                                           
+    maximum density (kg/m\^{}3)            & \textit{REAL}: Maximum value used in the limiter of the density                                                                       &  Huge(1.0) \\ \hline
+    minimum density (kg/m\^{}3)            & \textit{REAL}: Minimum value used in the limiter of the density                                                                       & -Huge(1.0) \\ \hline
+    artificial compressibility factor   & \textit{REAL}: Artificial compressibility factor ${c_0}^2$.                                                                              & -- \\ \hline
+    gravity acceleration (m/s\^{}2)        & \textit{REAL}: Value of gravity acceleration                                                                                          & -- \\ \hline
+    gravity direction                   & \textit{REAL}: Array containing direction of gravity. Eg. $[0.0,-1.0,0.0]$.                                                              & -- \\ \hline
+    velocity direction                   & \textit{REAL}: Array containing direction of velocity used for the outflow BC. Eg. $[1.0,0.0,0.0]$.                                                              & -- \\ \hline
+    chemical characteristic time (s)    & \textit{REAL}: $t_{CH}$ controls the speed of the phase separation    & -- \\ \hline
+    interface width (m)                 & \textit{REAL}: $\epsilon$ controls the interface width between the phases   & -- \\ \hline
+    interface tension (N/m)             & \textit{REAL}: $\sigma$ controls the interface tension between the phases    & -- \\ \hline
+    \end{tabular}
+    \label{tab:MUKey}
+    \end{table}
+
+\section{Particles}
+
+\boxed{\centering \textit{WARNING: Lagrangian particles are only implemented for the compressible Navier Stokes (horses.ns binary)}}\vspace{1ex}
+\boxed{\centering \textit{WARNING: Lagrangian particles do not support MPI.}}\vspace{1ex}
+
+{\fontfamily{qcr}\selectfont  HORSES3D} includes a two-way coupled Lagrangian solver.
+Particles are tracked along their trajectories, according to the simplified particle equation of motion, where only contributions from Stokes drag and gravity are retained,
+\begin{equation}
+\label{eq:part_motion}
+\frac{d y_i}{dt} = u_i, \quad \frac{d u_i}{dt} = \frac{v_i - u_i}{\tau_p} + g_i,
+\end{equation}
+where $u_i$ and $y_i$ are the \emph{ith} components of velocity and position of the particle, respectively. Furthermore, $v_i$ accounts for the continuous velocity of the fluid at the position of the particle.  We consider spherical Stokesian particles, so their mass and aerodynamic response time are $m_p = \rho_p \pi D_p^3/6$ and $\tau_p = \rho_p D_p^2 / 18\mu $, respectively, $\rho_p$ being the particle density and $D_p$ the particle diameter. 
+
+Each particle is considered to be subject to a radiative heat flux $I_o$. The carrier phase is transparent to radiation, whereas the incident radiative flux on each particle is completely absorbed. Because we focus on relatively small volume fractions, the fluid-particle medium is considered to be optically thin. Under these hypotheses, the direction of the radiation is inconsequential, and each particle receives the same radiative heat flux, and its temperature $T_p$ is governed by
+\begin{equation}
+\label{eq:part_energy}
+\frac{d}{dt} (m_p c_{V,p} T_p) = \frac{\pi D_p^2}{4} I_o - \pi D_p^2 h (T_p-T),
+\end{equation}
+where $c_{V,p}$ is the specific heat of the particle, which is assumed to be constant with respect to temperature. $T_p$ is the particle temperature and $h$ is the convective heat transfer coefficient, which for a Stokesian particle can be calculated from the Nusselt number $Nu = hD_p/k = 2$.
+
+In practical simulations, integrating the trajectory of every particle is too expensive. Therefore, particles are agglomerated into parcels, each of them accounting for many particles with the same physical properties, position, velocity, and temperature. The evolution of the parcels is tracked with the same set of equations presented for the particles.
+
+The two-way coupling means that fluid flow is modified because of the presence of particles. Therefore, the Navier-Stokes equations are enriched with the following source terms:
+%
+\begin{equation}
+\boldsymbol{S} = \beta\left[\begin{array}{c} 0 \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{1,n}-v_1)\delta(\mathbf{x} - \mathbf{y}_n)  \\
+                                                                       \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{2,n}-v_2)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \frac{m_p}{\tau_p} (u_{3,n}-v_3)\delta(\mathbf{x} - \mathbf{y}_n) \\
+                                                                      \sum_{n=1}^{N_p} \pi D_p^2 h (T_{p,n} - T) \delta(\mathbf{x} - \mathbf{y}_n )
+\end{array}\right],
+\label{eq:particlessource}
+\end{equation}
+%
+where $\delta$ is the Dirac delta function, $N_p$ is the number of parcels, $\beta$ is the number of particles per parcel and $u_{i,n}$, $\mathbf{y}_{i,n}$, $T_{p,n}$ are the velocity, spatial coordinates, and temperature of the parcel \emph{nth}.
+The dimensionless form of the Navier Stokes equations can be seen in the appendix at the end of this document. 
+
+Particles are solved in a box domain inside the flow domain. The box is defined with the keywords ``minimum box'' and ``maximum box''. The boundary conditions for the particles are defined with the keyword ``bc box''. Possible options are inflow/outflow, periodic and wall (with perfect rebound). 
+
+\begin{table}[htbp]
+    \caption{Keywords for particles Navier-Stokes solver}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+    lagrangian particles                & \textit{LOGICAL}: If .true. activates particles & .false. \\ \hline
+    stokes number                       & \textit{REAL}: Stokes number which for Stokeisian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$  & -- \\ \hline
+    Gamma                               & \textit{REAL}: Ratio between specific heat of particles and fluid $\Gamma=c_{v,p}/c_{v}$ & -- \\ \hline
+    phi\_m                               & \textit{REAL}: Ratio between total mass of particles and fluid $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$  & -- \\ \hline
+    Radiation source                    & \textit{REAL}: Non dimensional radiation source intensity $I_o^*=\frac{I_o D_p}{4k_oT_o}$   & -- \\ \hline
+    Froude number                       & \textit{REAL}: Froude number $Fr=\frac{u_o}{\sqrt{g_o L_o}}$  & -- \\ \hline
+    high order particles source term    & \textit{LOGICAL}: source term with high order dirac delta or averaged in the whole element  & .false. \\ \hline
+    number of particles                 & \textit{INTEGER}: Total number of parcels in the simulation & -- \\ \hline
+    particles per parcel                & \textit{REAL}: $\Beta$ particles per parcel & -- \\ \hline
+
+    \end{tabular}
+    \label{tab:PartKey1}
+    \end{table}
+
+    \begin{table}[htbp]
+    \caption{Keywords for particles Navier-Stokes solver - continued}
+    \begin{tabular}{|l|p{10cm}|p{2.2cm}|}
+    \hline
+    \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
+
+    Gravity direction                   & \textit{INTEGER}: Array with direction of gravity. Only required if Fr number is specified.[0,0,-1] & -- \\ \hline
+    particles file                      & \textit{CHARACTER(*)}: Path to file with initial position of the particles. If not provided, initialization without particles inside the domain. Not compatible with injecting particles in the domain (see keyword below). & -- \\ \hline
+    vel and temp from file              & \textit{LOGICAL}: If .true. Initial velocity and temperature of particles read from file. If .false., initial velocity and temperature of particles are the same as flow at the position of the particle. & -- \\ \hline
+    injection                           & \textit{LOGICAL}: If .true. injection of particles through a face of the box. & -- \\ \hline
+    particles injection                 & \textit{INTEGER}: Array with a vector indicating the direction of the injection. Eg., [0,1,0]      & -- \\ \hline
+    particles per step                  & \textit{INTEGER}: Number of particles injected per time step. & -- \\ \hline
+    particles iter period               & \textit{INTEGER}: Iteration period for particles injection. Set to 1 to inject particles every time step.   & -- \\ \hline
+    particles injection velocity        & \textit{REAL}:   Array with particles injection non dimensional velocity. Eg., [0.d0,1.d0,0.d0] & -- \\ \hline
+    particles injection temperature     & \textit{REAL}:  Particles injection non-dimensional temperature & -- \\ \hline
+    minimum box                         & \textit{REAL}: Array with minimum x,y,z coordinates of box with particles. Eg., [0.d0,0.d0,0.d0]  & -- \\ \hline
+    maximum box                         & \textit{REAL}: Array with maximum x,y,z coordinates of box with particles. Eg., [4.d-2,1.6d-1,4.d-2]  & -- \\ \hline
+    bc box                              & \textit{INTEGER}: Array with boundary conditions for particles box in the form [yz,xz,xy]. 
+    0 is inflow/outflow, 1 is wall, 2 is periodic. Eg.,   [2,0,2]. In this example planes yz and xy are periodic, while plane xz is inflow/outflow for particles. & -- \\ \hline
+
+    \end{tabular}
+    \label{tab:PartKey2}
+    \end{table}
+
 
 \section{Complementary Modes}
 
@@ -1529,6 +1741,62 @@ Some remarks:
 \item Only constant time-stepping is supported.
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
+
+\clearpage
+\section*{Appendices}
+
+\subsection*{Non-dimensional Navier Stokes equations}
+
+To illustrate the roles of various terms in the governing equations, we present here the non-dimensionalized governing compressible Navier Stokes equations with particles. We define the non-dimensional variables as
+\begin{equation}
+x_i^*=x_i/L_o, \quad y_i^*=y_i/L_o, \quad t^*=tu_o/L_o, \quad \rho^*=\rho/\rho_o, \quad u_i^*=u_i/u_o	
+\end{equation}
+\begin{equation}
+v_i^*=v_i/u_o, \quad p^*=p/\rho_o u_o^2, \quad T^*=T/T_o, \quad T_p^* = T_p / T_o, 
+\end{equation}
+\begin{equation}
+\quad \mu^* = \mu / \mu_o, \quad \kappa^* = \kappa / \kappa_o \quad g^*_i = g_i / g_o	
+\end{equation}
+
+where the subscript $o$ denotes a reference value. Under these scalings, the Navier Stokes equations become
+\begin{equation}
+\label{eq:NS_cont_nd}
+\frac{\partial \rho^*}{\partial t^*} + \frac{\partial \rho^* u_j^*}{\partial x_j^*} = 0,	
+\end{equation}
+\begin{equation}
+\label{eq:NS_mom_nd}
+\frac{\partial \rho^* u_i^*}{\partial t^*} + \frac{\partial \rho^* u_i^* u_j^*}{\partial x_j^*} = - \frac{\partial p^*}{\partial x_i^*} + \frac{1}{Re}\frac{\partial \tau_{ij}^*}{\partial x_j^*} + \frac{1}{Fr^2} g_i^* - \beta\frac{\mu^* \phi_m}{N_p St}  \sum_{n=1}^{N_p} (u_i^*-v_{i,n}^*)\delta(\mathbf{x}^* - \mathbf{y}_n^* ),	
+\end{equation}
+\begin{equation}
+\label{eq:NS_en_nd}
+\begin{split}
+\frac{\partial \rho^* e^*}{\partial t^*} + \frac{\partial u_j^* (\rho^* e^* + p^*)}{\partial x_j^*} = & \frac{1}{Re}\left[\frac{\partial \tau_{ij}^* u_j^*}{\partial x_i^*} + \frac{1}{(\gamma-1)Pr M_o^2}\frac{\partial}{\partial x_j^*}\left( k^* \frac{\partial T^*}{\partial x_j^*}\right)\right]+ \\
+& + \beta \frac{\phi_m}{3N_p} \frac{Nu}{(\gamma-1)Pr M_o^2St}\sum_{n=1}^{N_p} (T_{p,n}^* - T^*) \delta(\mathbf{x}^* - \mathbf{y}_n^* ).
+\end{split}
+\end{equation}
+
+Where $Re=\frac{\rho_o L_o u_o}{\mu_o}$ is the Reynolds number, $Fr=\frac{u_o}{\sqrt{g_o L_o}}$ is the Froude number, $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$, $St=\frac{\tau_p}{\tau_f}$ is the Stokes number which for Stokeisian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$, the Prandtl number (which is assumed constant and equal to 0.72) $Pr=\frac{\mu_o c_p}{k_o}$, the Nusselt number $Nu=\frac{h D_p}{k_o}=2$ (for Stokeisian particles) and  the Mach number $M_o=\frac{u_o}{\sqrt{\gamma R T_o}}$. 
+
+
+\subsection*{Non-dimensional particle equations}
+
+The non dimensional set of equations for the particles reads:
+
+\begin{equation}
+\label{eq:part_motion}
+\frac{d y_i^*}{dt^*} = v_i^*, \quad \frac{d v_i^*}{dt^*} = \frac{\mu^*}{St}\left(u_i^* - v_i^*\right) + \frac{1}{Fr^2}g_i^*.
+\end{equation}
+
+\begin{equation}
+\label{eq:part_energy}
+\frac{d T_p^*}{dt^*} = \frac{\gamma}{3\Gamma St Pr} \left(I_o^* - Nu(T_p^*-T^*)\right),
+\end{equation}
+
+where $I_o^*=\frac{I_o D_p}{4k_oT_o}$ and $\Gamma=c_{v,p}/c_{v}$ is the ratio of the particle specific heat capacity to the fluid isochoric specific heat capacity. 
+
+
+
+
 
 
 \bibliography{../LaTeX/9_backmatter/library}
