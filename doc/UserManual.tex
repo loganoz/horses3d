@@ -706,7 +706,7 @@ Particles are solved in a box domain inside the flow domain. The box is defined 
     \hline
     \multicolumn{1}{|c|}{Keyword} & \multicolumn{1}{c|}{Description} & \multicolumn{1}{c|}{Default value} \\ \hline
     lagrangian particles                & \textit{LOGICAL}: If .true. activates particles & .false. \\ \hline
-    stokes number                       & \textit{REAL}: Stokes number which for Stokeisian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$  & -- \\ \hline
+    stokes number                       & \textit{REAL}: Stokes number which for Stokesian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$  & -- \\ \hline
     Gamma                               & \textit{REAL}: Ratio between specific heat of particles and fluid $\Gamma=c_{v,p}/c_{v}$ & -- \\ \hline
     phi\_m                               & \textit{REAL}: Ratio between total mass of particles and fluid $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$  & -- \\ \hline
     Radiation source                    & \textit{REAL}: Non dimensional radiation source intensity $I_o^*=\frac{I_o D_p}{4k_oT_o}$   & -- \\ \hline
@@ -1775,7 +1775,7 @@ where the subscript $o$ denotes a reference value. Under these scalings, the Nav
 \end{split}
 \end{equation}
 
-Where $Re=\frac{\rho_o L_o u_o}{\mu_o}$ is the Reynolds number, $Fr=\frac{u_o}{\sqrt{g_o L_o}}$ is the Froude number, $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$, $St=\frac{\tau_p}{\tau_f}$ is the Stokes number which for Stokeisian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$, the Prandtl number (which is assumed constant and equal to 0.72) $Pr=\frac{\mu_o c_p}{k_o}$, the Nusselt number $Nu=\frac{h D_p}{k_o}=2$ (for Stokeisian particles) and  the Mach number $M_o=\frac{u_o}{\sqrt{\gamma R T_o}}$. 
+Where $Re=\frac{\rho_o L_o u_o}{\mu_o}$ is the Reynolds number, $Fr=\frac{u_o}{\sqrt{g_o L_o}}$ is the Froude number, $\phi_m=\frac{m_p N_p}{\rho_o L_o^3}$, $St=\frac{\tau_p}{\tau_f}$ is the Stokes number which for Stokesian particles is $St=\frac{\rho_p D_p^2 u_o}{18 L_o \mu_o}$, the Prandtl number (which is assumed constant and equal to 0.72) $Pr=\frac{\mu_o c_p}{k_o}$, the Nusselt number $Nu=\frac{h D_p}{k_o}=2$ (for Stokesian particles) and  the Mach number $M_o=\frac{u_o}{\sqrt{\gamma R T_o}}$. 
 
 
 \subsection*{Non-dimensional particle equations}
