@@ -267,7 +267,7 @@ module Solution2VtkHdfModule
       associate(e => mesh % elements(eID))
          allocate(e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          call ComputeOutputVariables(e % Nout, e, e % outputVars, &
-             mesh % refs, mesh % hasGradients, mesh % isStatistics)
+             mesh % refs, mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
       end associate
       end do
 

@@ -359,8 +359,6 @@ Wall model					& \textit{CHARACTER}:  & linear \\ \hline
 
 \subsection{Shock-capturing}
 
-\boxed{\centering \textit{WARNING: The functionality explained in this section is still experimental and may change in future iterations.}}\vspace{1ex}
-
 The shock-capturing module helps stabilize cases with discontinuous solutions, and may also improve the results of under-resolved turbulent cases. It is built on top of a \textit{Sensors} module that detects problematic flow regions, classifying them according to the value of the sensor,~$s$, mapped into the interval $a \in [0,1]$,
 %
 \begin{equation*}
@@ -394,11 +392,13 @@ Shock sensor & \textit{CHARACTER}: Type of sensor to be used to detect discontin
     \begin{itemize}
         \item Zeros: always return 0
         \item Ones: always return 1
-        \item Grad rho: based on the norm of the density gradient
+        \item Integral: integral of the sensor variable inside each element
+        \item Integral with sqrt: square root of the Integral sensor
         \item Modal: based on the relative weight of the higher order modes
         \item Truncation error: estimate the truncation error of the approximation
         \item Aliasing error: estimate the aliasing error of the approximation
-    \end{itemize} & Grad rho \\ \hline
+        \item GMM: clustering sensor based on the divergence of the velocity and the gradient of the pressure
+    \end{itemize} & Integral \\ \hline
 Shock first method & \textit{CHARACTER}: Method to be used in the middle region of the sensor ($a\in[0,1]$). Options are:
     \begin{itemize}
         \item None: Do not apply any smoothing
@@ -455,9 +455,11 @@ Sensor variable & \textit{CHARACTER(*)}: Variable used by the sensor to detect s
         \item w
         \item p
         \item rhop
+        \item grad rho
+        \item div v
     \end{itemize} & rhop \\ \hline
-Sensor lower limit & \textit{REAL}: Lower threshold of the central sensor region,~$s_1$  & \textbf{Mandatory keyword} \\ \hline
-Sensor higher limit & \textit{REAL}: Upper threshold of the central sensor region,~$s_2$ & \textbf{Mandatory keyword} \\ \hline
+Sensor lower limit & \textit{REAL}: Lower threshold of the central sensor region,~$s_1$  & \textbf{Mandatory keyword} (except GMM) \\ \hline
+Sensor higher limit & \textit{REAL}: Upper threshold of the central sensor region,~$s_2$ & \textbf{Mandatory keyword} (except GMM) \\ \hline
 Sensor TE min N & \textit{INTEGER}: Minimum polynomial order of the coarse mesh used for the truncation error estimation & 1 \\ \hline
 Sensor TE delta N & Polynomial order difference between the solution mesh and its coarser representation & 1 \\ \hline
 Sensor TE derivative & \textit{CHARACTER*}: Whether the face terms must be considered in the estimation of the truncation error or not. Options are:
@@ -465,6 +467,8 @@ Sensor TE derivative & \textit{CHARACTER*}: Whether the face terms must be consi
         \item Non-isolated
         \item Isolated
     \end{itemize} & Isolated \\ \hline
+Sensor number of clusters & \textit{INTEGER}: Maximum number of clusters to use with the GMM sensor & 2 \\ \hline
+Sensor min. steps & \textit{INTEGER}: Minimum number of time steps that an element will remain detected. The last positive value will be used if the sensor ``undetects'' an element too early & 1 \\ \hline
 \end{longtable}
 
 \subsubsection{Spectral Vanishing Viscosity}
@@ -713,7 +717,7 @@ Particles are solved in a box domain inside the flow domain. The box is defined 
     Froude number                       & \textit{REAL}: Froude number $Fr=\frac{u_o}{\sqrt{g_o L_o}}$  & -- \\ \hline
     high order particles source term    & \textit{LOGICAL}: source term with high order dirac delta or averaged in the whole element  & .false. \\ \hline
     number of particles                 & \textit{INTEGER}: Total number of parcels in the simulation & -- \\ \hline
-    particles per parcel                & \textit{REAL}: $\Beta$ particles per parcel & -- \\ \hline
+    particles per parcel                & \textit{REAL}: $\beta$ particles per parcel & -- \\ \hline
 
     \end{tabular}
     \label{tab:PartKey1}

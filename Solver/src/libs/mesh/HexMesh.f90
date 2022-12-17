@@ -123,7 +123,7 @@ MODULE HexMeshClass
 
       integer, parameter :: NUM_OF_NEIGHBORS = 6 ! Hardcoded: Hexahedral conforming meshes
       integer            :: no_of_stats_variables
-      
+
       TYPE Neighbor_t         ! added to introduce colored computation of numerical Jacobian (is this the best place to define this type??) - only usable for conforming meshes
          INTEGER :: elmnt(NUM_OF_NEIGHBORS+1) ! "7" hardcoded for 3D hexahedrals in conforming meshes (the last one is itself)... This definition must change if the code is expected to be more general
       END TYPE Neighbor_t
@@ -2812,7 +2812,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2821,6 +2821,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP),       intent(in)        :: time
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
+         logical, optional,   intent(in)        :: saveSensor_
 !
 !        ---------------
 !        Local variables
@@ -2830,6 +2831,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
+         logical                          :: saveSensor
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -2856,13 +2858,29 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
-         if ( saveGradients .and. computeGradients) then
-            call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
-                                       self % nodeType, self % no_of_allElements, iter, time, refs)
+         if (present(saveSensor_)) then
+            saveSensor = saveSensor_
+         else
+            saveSensor = .false.
+         end if
+
+         if (saveGradients .and. computeGradients) then
+            if (saveSensor) then
+               call CreateNewSolutionFile(trim(name), SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE, &
+                                          self % nodeType, self % no_of_allElements, iter, time, refs)
+            else
+               call CreateNewSolutionFile(trim(name), SOLUTION_AND_GRADIENTS_FILE, &
+                                          self % nodeType, self % no_of_allElements, iter, time, refs)
+            end if
             padding = NCONS + 3*NGRAD
          else
-            call CreateNewSolutionFile(trim(name),SOLUTION_FILE, self % nodeType, &
-                                       self % no_of_allElements, iter, time, refs)
+            if (saveSensor) then
+               call CreateNewSolutionFile(trim(name), SOLUTION_AND_SENSOR_FILE, self % nodeType, &
+                                          self % no_of_allElements, iter, time, refs)
+            else
+               call CreateNewSolutionFile(trim(name), SOLUTION_FILE, self % nodeType, &
+                                          self % no_of_allElements, iter, time, refs)
+            end if
             padding = NCONS
          end if
 !
@@ -2884,6 +2902,7 @@ slavecoord:             DO l = 1, 4
 #endif
 
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
+            if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
             deallocate(Q)
@@ -2916,6 +2935,10 @@ slavecoord:             DO l = 1, 4
                write(fid) Q
 
                deallocate(Q)
+            end if
+
+            if (saveSensor) then
+               write(fid) e % storage % sensor
             end if
 
             end associate
@@ -3020,7 +3043,7 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------------
 !     Subroutine to load a solution for restart using the information in the control file
 !     -----------------------------------------------------------------------------------
-      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA ) 
+      subroutine HexMesh_LoadSolutionForRestart( self, controlVariables, initial_iteration, initial_time, loadFromNSSA )
          use mainKeywordsModule, only: restartFileNameKey
          use FileReaders       , only: ReadOrderFile
          implicit none
@@ -3073,7 +3096,7 @@ slavecoord:             DO l = 1, 4
                case("Gauss-Lobatto")
                   auxMesh % nodeType = 2
                end select
-            else 
+            else
                auxMesh % nodeType = self % nodeType
             end if
 !
@@ -3109,8 +3132,8 @@ slavecoord:             DO l = 1, 4
 
 !           Read the solution in the auxiliary mesh and interpolate to current mesh
 !           ----------------------------------------------------------------------
-            
-            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA)
+
+            call auxMesh % LoadSolution ( fileName, initial_iteration, initial_time , with_gradients, loadFromNSSA=loadFromNSSA )
             do eID=1, self % no_of_elements
                call auxMesh % storage % elements (eID) % InterpolateSolution (self % storage % elements(eID), auxMesh % nodeType , with_gradients)
             end do
@@ -3149,7 +3172,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP)     , intent(out) :: initial_time
          logical, optional , intent(out) :: with_gradients
          logical, optional , intent(in)  :: loadFromNSSA
-         
+
 !
 !        ---------------
 !        Local variables
@@ -3160,10 +3183,12 @@ slavecoord:             DO l = 1, 4
          integer                        :: Nxp1, Nyp1, Nzp1, no_of_eqs, array_rank, expectedNoEqs
          real(kind=RP), allocatable     :: Q(:,:,:,:)
          character(len=SOLFILE_STR_LEN) :: rstName
-         logical          :: gradients
+         logical                        :: gradients
          logical                        :: NS_from_NSSA
-         
+         logical                        :: has_sensor
+
          gradients = .FALSE.
+         has_sensor = .FALSE.
          if (present(loadFromNSSA)) then
              NS_from_NSSA = loadFromNSSA
          else
@@ -3188,15 +3213,19 @@ slavecoord:             DO l = 1, 4
          case(SOLUTION_FILE)
             padding = 1*NCONS
 
+         case(SOLUTION_AND_SENSOR_FILE)
+            padding = 1*NCONS
+            has_sensor = .TRUE.
+
          case(SOLUTION_AND_GRADIENTS_FILE)
-#ifdef SPALARTALMARAS
-            padding = NCONS + 3 * NGRAD
-            gradients = .TRUE.
-#else
             padding = NCONS + 3 * NGRAD
             gradients = .TRUE.
 
-#endif
+         case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            padding = NCONS + 3 * NGRAD
+            gradients = .TRUE.
+            has_sensor = .TRUE.
+
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
@@ -3224,7 +3253,7 @@ slavecoord:             DO l = 1, 4
             print*, "WARNING: Solution file uses a different discretization nodes than the mesh."
             print*, "Add restart polorder = (Pol order in your restart file) in the control file if you want interpolation routines to be used."
             print*, "If restart polorder is not specified the values in the original set of nodes are loaded into the new nodes without interpolation."
-            errorMessage(STD_OUT) 
+            errorMessage(STD_OUT)
          end if
 !
 !        Read the number of elements
@@ -3258,6 +3287,7 @@ slavecoord:             DO l = 1, 4
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+            if (has_sensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
@@ -3317,6 +3347,10 @@ slavecoord:             DO l = 1, 4
                e % storage % c_z(1,:,:,:) = Q(NGRAD,:,:,:)
 #endif
                deallocate(Q)
+            end if
+
+            if (has_sensor) then
+               read(fID) e % storage % sensor
             end if
 
            end associate

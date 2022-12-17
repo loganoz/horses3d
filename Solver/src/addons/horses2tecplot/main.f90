@@ -47,12 +47,12 @@ program horses2plt
       do iSol = 1, no_of_solutions
 
          select case (solutionTypes(iSol))
-         case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE )
+         case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE, SOLUTION_AND_SENSOR_FILE )
             write(STD_OUT,'(/,/)')
             call Section_Header("Solution conversion")
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
 
-         case ( SOLUTION_AND_GRADIENTS_FILE )
+         case ( SOLUTION_AND_GRADIENTS_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
             write(STD_OUT,'(/,/)')
             call Section_Header("Solution with gradients conversion")
             call Solution2Plt(meshName, solutionNames(iSol), fixedOrder, basis, Nout, mode)        
@@ -75,25 +75,25 @@ program horses2plt
       do iSol = 1, no_of_solutions
 
          select case (solutionTypes(iSol))
-            case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE )
-               write(STD_OUT,'(/,/)')
-               call Section_Header("Solution conversion")
-               call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+         case ( SOLUTION_FILE, ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE, SOLUTION_AND_SENSOR_FILE )
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Solution conversion")
+            call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
 
-            case ( SOLUTION_AND_GRADIENTS_FILE )
-               write(STD_OUT,'(/,/)')
-               call Section_Header("Solution with gradients conversion")
-               call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+         case ( SOLUTION_AND_GRADIENTS_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            write(STD_OUT,'(/,/)')
+            call Section_Header("Solution with gradients conversion")
+            call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
 
-            case ( STATS_FILE )
-               write(STD_OUT,'(/,/)')
-               if (oldStats) then
-                   write(STD_OUT,'(A)') "Statistics legacy file conversion not supported for VTKHDF"
-                   stop
-               else
-                  call Section_Header("Statistics file conversion")
-                  call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
-               end if
+         case ( STATS_FILE )
+            write(STD_OUT,'(/,/)')
+            if (oldStats) then
+                write(STD_OUT,'(A)') "Statistics legacy file conversion not supported for VTKHDF"
+                stop
+            else
+               call Section_Header("Statistics file conversion")
+               call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
+            end if
 
          end select
       end do

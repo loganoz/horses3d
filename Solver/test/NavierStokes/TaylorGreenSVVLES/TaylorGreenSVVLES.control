@@ -30,7 +30,7 @@
                      Shock first method = SVV
                     Shock second method = none
                    Shock viscous flux 1 = Physical
-                 Shock update viscosity = Smagorinsky
+                  Shock update strategy = Smagorinsky
                              Shock mu 1 = 0.2
                          Shock alpha/mu = 0.0
                      Sensor lower limit = 0.0
