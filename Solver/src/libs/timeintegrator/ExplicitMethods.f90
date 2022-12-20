@@ -18,7 +18,8 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
+   public   TakeRK3Step, TakeRK5Step, TakeSSPRK33Step, TakeSSPRK43Step
+   public   TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
    public   TakeRKOptStep
 
    integer, protected :: eBDF_order = 3
@@ -217,6 +218,367 @@ MODULE ExplicitMethods
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
    end subroutine TakeRK5Step
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  Routine for taking a SSP-RK 3-stage 3rd-order step.
+!  ------------------------------
+   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+      implicit none
+!
+!     ----------------
+!     Input parameters
+!     ----------------
+!
+      type(HexMesh)                               :: mesh
+#ifdef FLOW
+      type(Particles_t)                           :: particles
+#else
+      logical                                     :: particles
+#endif
+      real(RP)                                    :: t
+      real(RP)                                    :: deltaT
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
+      real(RP), allocatable, optional, intent(in) :: dt_vec(:)
+      logical,               optional, intent(in) :: dts
+      real(RP),              optional, intent(in) :: global_dt
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP), parameter :: a(3) = [1.0_RP, 3.0_RP/4.0_RP, 1.0_RP/3.0_RP]
+      real(RP), parameter :: b(3) = [0.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP]
+      real(RP), parameter :: c(3) = [1.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP]
+      real(RP), parameter :: d(3) = [0.0_RP, 1.0_RP,        0.5_RP]
+      real(RP) :: tk
+      integer  :: i, j, k, id
+
+
+      if (present(dt_vec)) then
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 3
+            tk = t + d(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+                  mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                    + b(k) * mesh % elements(id) % storage % Q    &
+                                                    + c(k) * dt_vec(id) * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+                  mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                    + b(k) * mesh % elements(id) % storage % c    &
+                                                    + c(k) * dt_vec(id) * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+      else
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+               if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 3
+            tk = t + d(k) * deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+                  mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                    + b(k) * mesh % elements(id) % storage % Q    &
+                                                    + c(k) * deltaT * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+                  mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                    + b(k) * mesh % elements(id) % storage % c    &
+                                                    + c(k) * deltaT * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, SIZE( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+      end if
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeSSPRK33Step
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  Routine for taking a SSP-RK 4-stage 3rd-order step.
+!  ------------------------------
+   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+      implicit none
+!
+!     ----------------
+!     Input parameters
+!     ----------------
+!
+      type(HexMesh)                               :: mesh
+#ifdef FLOW
+      type(Particles_t)                           :: particles
+#else
+      logical                                     :: particles
+#endif
+      real(RP)                                    :: t
+      real(RP)                                    :: deltaT
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
+      real(RP), allocatable, optional, intent(in) :: dt_vec(:)
+      logical,               optional, intent(in) :: dts
+      real(RP),              optional, intent(in) :: global_dt
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP), parameter :: a(4) = [1.0_RP, 0.0_RP, 2.0_RP/3.0_RP, 0.0_RP]
+      real(RP), parameter :: b(4) = [0.0_RP, 1.0_RP, 1.0_RP/3.0_RP, 1.0_RP]
+      real(RP), parameter :: c(4) = [0.5_RP, 0.5_RP, 1.0_RP/6.0_RP, 0.5_RP]
+      real(RP), parameter :: d(4) = [0.0_RP, 0.5_RP, 1.0_RP,        0.5_RP]
+      real(RP) :: tk
+      integer  :: i, j, k, id
+
+
+      if (present(dt_vec)) then
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 4
+            tk = t + d(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+                  mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                    + b(k) * mesh % elements(id) % storage % Q    &
+                                                    + c(k) * dt_vec(id) * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+                  mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                    + b(k) * mesh % elements(id) % storage % c    &
+                                                    + c(k) * dt_vec(id) * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+      else
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+               if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
+!$omp parallel do
+               do id = 1, size( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 4
+            tk = t + d(k) * deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#ifdef FLOW
+                  mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                    + b(k) * mesh % elements(id) % storage % Q    &
+                                                    + c(k) * deltaT * mesh % elements(id) % storage % Qdot
+#endif
+#if (defined(CAHNHILLIARD)) && (!defined(FLOW))
+                  mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                    + b(k) * mesh % elements(id) % storage % c    &
+                                                    + c(k) * deltaT * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+         end do ! k
+
+         if( mesh% IBM% active ) then
+            if( mesh% IBM% semiImplicit ) then
+!$omp parallel do
+               do id = 1, SIZE( mesh % elements )
+                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
+                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
+                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
+                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
+                        end associate
+                     end if
+                  end do; end do; end do
+               end do
+!$omp end parallel do
+            end if
+         end if
+      end if
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeSSPRK43Step
 
    SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
 !

@@ -142,15 +142,23 @@
             select case ((controlVariables % StringValueForKey("explicit method",LINE_LENGTH)))
             case("Euler")
                self % RKStep => TakeExplicitEulerStep
-print*, "Method selected: Euler"
+               print*, "Method selected: Euler"
 
             case("RK3")
                self % RKStep => TakeRK3Step
-print*, "Method selected: RK3"
+               print*, "Method selected: RK3"
 
             case("RK5")
                self % RKStep => TakeRK5Step
-print*, "Method selected: RK5"
+               print*, "Method selected: RK5"
+
+            case("SSPRK33")
+               self % RKStep => TakeSSPRK33Step
+               print*, "Method selected: SSPRK33"
+
+            case("SSPRK43")
+               self % RKStep => TakeSSPRK43Step
+               print*, "Method selected: SSPRK43"
 
             end select
          else
