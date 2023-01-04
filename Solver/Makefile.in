@@ -121,7 +121,7 @@ ifeq '$(FC)''gfortran'
 else #ifort
     ifeq '$(WITH_MKL)''y'
         MACROS+= -DHAS_LAPACK -DHAS_MKL
-        FFLAGS+= -mkl
+        FFLAGS+= -qmkl
     else ifeq '$(WITH_LAPACK)''y'
         MACROS+= -DHAS_LAPACK
         LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
