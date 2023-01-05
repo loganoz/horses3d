@@ -255,16 +255,28 @@ ifeq '$(WITH_PETSC)''y'
 endif
 
 ##########################
-## 	Link MKL 	##
+## 	Link LAPACK & MKL	##
 ##########################
-ifeq '$(WITH_MKL)''y'
-	ifeq '$(FC)''gfortran'
-		MACROS+= -DHAS_MKL -DHAS_LAPACK
-  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
-  else #ifort
-  	MACROS+= -DHAS_MKL
-  	FCFLAGS+= -mkl
-  endif
+ifeq '$(FC)''gfortran'
+    ifeq '$(WITH_MKL)''y'
+        $(warning MKL defaults to LAPACK when using gfortran)
+        MACROS+= -DHAS_LAPACK
+        LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
+        FFLAGS+= -lblas -llapack
+    else ifeq '$(WITH_LAPACK)''y'
+        MACROS+= -DHAS_LAPACK
+        LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
+        FFLAGS+= -lblas -llapack
+    endif
+else #ifort
+    ifeq '$(WITH_MKL)''y'
+        MACROS+= -DHAS_LAPACK -DHAS_MKL
+        FFLAGS+= -qmkl
+    else ifeq '$(WITH_LAPACK)''y'
+        MACROS+= -DHAS_LAPACK
+        LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
+        FFLAGS+= -lblas -llapack
+    endif
 endif
 
 ##########################################
