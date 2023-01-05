@@ -112,7 +112,10 @@ endif
 ##########################
 ifeq '$(FC)''gfortran'
     ifeq '$(WITH_MKL)''y'
-        $(error gfortran and MKL!)
+        $(warning MKL defaults to LAPACK when using gfortran)
+        MACROS+= -DHAS_LAPACK
+        LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
+        FFLAGS+= -lblas -llapack
     else ifeq '$(WITH_LAPACK)''y'
         MACROS+= -DHAS_LAPACK
         LIBS+= $(LIB_BLAS) $(LIB_LAPACK)
