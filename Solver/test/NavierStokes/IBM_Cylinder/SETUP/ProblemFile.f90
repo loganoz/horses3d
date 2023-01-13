@@ -557,7 +557,7 @@ end module ProblemFileFunctions
                                                          2.3913533165620092E+03_RP, &
                                                          2.2425364069959855E+02_RP, &
                                                          1.5208485717377530E+02_RP, &
-                                                         1.1626789593763660E+04_RP]
+                                                         1.1626789593763660E+04_RP  ]
 
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions

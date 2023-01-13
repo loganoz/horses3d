@@ -6,10 +6,10 @@ mesh file name        = "../../TestMeshes/IBMcylinder.msh"
 stl file name         = "cylinder"
 
 Polynomial order      = 3
-Number of time steps  = 20
+Number of time steps  = 50
 Output Interval       = 10
 autosave mode         = "iteration"
-autosave interval     = 50
+autosave interval     = 100
 
 mach number           = 0.2d0 
 Reynolds number       = 40.0d0
