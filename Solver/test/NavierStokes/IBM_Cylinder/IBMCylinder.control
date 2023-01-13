@@ -32,12 +32,10 @@ dcfl                  = 0.01d0
 #define IBM
   name = Cylinder
   active = .true.
-  semi implicit = .true.
   penalization = 10e-5
   number of objects = 3
   number of interpolation points = 15
   plot mask = .true.
-  band region = .true.
 #end
 
 #define boundary inlet
@@ -58,12 +56,4 @@ dcfl                  = 0.01d0
 
 #define boundary walls
   type = FreeSlipWall
-#end
-
-#define surface monitor 1
-   Name = forces
-   Marker = cylinder
-   Variable = force
-   Direction = [1.d0,0.d0,0.d0]
-   Reference surface = 3.d0
 #end
