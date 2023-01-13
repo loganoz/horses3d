@@ -94,9 +94,10 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
+      use IBMClass
       use SurfaceMesh, only: surfacesMesh
 
-      IMPLICIT NONE
+      IMPLICIT NONE   
 !
 !     --------------------------
 !     Constructor for the class.
@@ -229,6 +230,7 @@ Module DGSEMClass
 
 
       useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
+            
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -281,23 +283,19 @@ Module DGSEMClass
 !     
 !     Immersed boundary method parameter
 !     -----------------------------------
+
       call self% mesh% IBM% read_info( controlVariables )
-      
 !
 !     Compute wall distances
 !     ----------------------
 #if defined(NAVIERSTOKES)
-      if( .not. self% mesh% IBM% active ) then
-         call self % mesh % ComputeWallDistances
-      end if
+      call self % mesh % ComputeWallDistances
 #endif
       IF(.NOT. success) RETURN
-      
 !
 !     construct surfaces mesh
 !     -----------------------
       call surfacesMesh % construct(controlVariables, self % mesh)
-      
 !
 !     ----------------------------
 !     Get the final number of DOFS
@@ -326,20 +324,17 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
-
       if( self% mesh% IBM% active ) then
-
-         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
-
+         if( .not. self % mesh % child ) then
+            call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
+            call self% mesh% IBM% construct( controlVariables )
+         end if
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-#if defined(NAVIERSTOKES)
-         call self% mesh% IBM% ComputeIBMWallDistance( self% mesh% elements, self% mesh% faces )
-#endif
       end if
 
 !
@@ -348,6 +343,7 @@ Module DGSEMClass
 !     ------------------------
 !
       call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
+
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)
@@ -388,12 +384,14 @@ Module DGSEMClass
          END DO
       END IF
 #endif
+
 !
 !     ------------------
 !     Build the monitors
 !     ------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
+
 !
 !     ------------------
 !     Build the FWH general class

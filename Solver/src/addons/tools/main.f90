@@ -7,6 +7,7 @@ Program main
     use SharedBCModule
     use MPI_Process_Info
     use LocalRefinementTool
+    use LocalIBMRefinementTool
     use FWHTools
 #ifdef _HAS_MPI_
       use mpi
@@ -53,6 +54,9 @@ Program main
     case ("local p refinement")
         call Main_Header("HORSES additional proccesing tools: Local Refinement Pre-Proccesing",__DATE__,__TIME__)
         call LocalRef(controlVariables)
+    case("local IBM p refinement")
+        call Main_Header("HORSES additional proccesing tools: Local IBM Refinement Pre-Proccesing",__DATE__,__TIME__)
+        call LocalRef_IBM(controlVariables)
     case default
         call Main_Header("HORSES additional proccesing tools",__DATE__,__TIME__)
         write(STD_OUT,'(A)') "The requested tool type is not implemented"
@@ -60,6 +64,7 @@ Program main
         write(STD_OUT,'(A)') "  * fwh post"
         write(STD_OUT,'(A)') "  * fwh surface"
         write(STD_OUT,'(A)') "  * local p refinement"
+        write(STD_OUT,'(A)') "  * local IBM p refinement"
     end select
 !
 !   ---------

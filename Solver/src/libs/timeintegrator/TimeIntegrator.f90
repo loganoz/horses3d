@@ -357,6 +357,7 @@ print*, "Method selected: RK5"
 !     Read Control variables
 !     ----------------------
 !
+
       IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
          TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
       ELSE ! Default value
@@ -410,7 +411,6 @@ print*, "Method selected: RK5"
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
       end if
-
 !
 !     ------------------
 !     Configure restarts
@@ -423,10 +423,11 @@ print*, "Method selected: RK5"
 !     -----------------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
-      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
-      call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
+      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false. )
+      call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps) 
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
@@ -460,7 +461,7 @@ print*, "Method selected: RK5"
 !     Save surfaces sol before the first time step
 !     --------------------------------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps,.false.)
       call sem % fwh % writeToFile()
 #endif
       call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
@@ -469,7 +470,6 @@ print*, "Method selected: RK5"
 !     Integrate in time
 !     -----------------
 !
-
       select case (TimeIntegration)
       case(FAS_SOLVER)
          call FASSolver % construct(controlVariables,sem)
@@ -483,18 +483,14 @@ print*, "Method selected: RK5"
       case(ROSENBROCK_SOLVER)
          call RosenbrockSolver % construct(controlVariables,sem)
 
-      end select
+      end select      
 
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
-!~             if( sem% mesh% IBM% active ) then
-!~                call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
-!~             else
               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
-!~             end if
          END IF
 !
 !        Correct time step
@@ -513,11 +509,12 @@ print*, "Method selected: RK5"
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
             if( any(sem% mesh% IBM% stl(:)% move) ) then
-               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
-                                              sem% mesh% no_of_elements,             &
-                                              sem% mesh% NDOF, sem% mesh% child, dt, &
-                                              k+1,                                   &
-                                              self % autosave % Autosave(k+1)        )
+               call sem% mesh% IBM% MoveBody( sem% mesh% elements,          &
+                                              sem% mesh% no_of_elements,    &
+                                              sem% mesh% NDOF,              &
+                                              sem% mesh% child,             &
+                                              t, k+1,                       &
+                                              self% autosave% Autosave(k+1) )
             end if
          end if
  
@@ -541,10 +538,7 @@ print*, "Method selected: RK5"
          CASE (EXPLICIT_SOLVER)
             if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
-            if( sem% mesh% IBM% active ) then
-               call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
-!~                call sem% mesh% IBM% SourceTermTurbulence( sem% mesh% elements )
-            end if
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -558,8 +552,7 @@ print*, "Method selected: RK5"
             call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          case (IMEX_SOLVER)
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
-         END SELECT
-
+         END SELECT         
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
@@ -585,7 +578,8 @@ print*, "Method selected: RK5"
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
+         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual,  self% autosave% Autosave(k+1) )    
+          
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -654,7 +648,7 @@ print*, "Method selected: RK5"
 !        ----------------------
          if (surfacesMesh % autosave % Autosave(k+1)) then
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-             call sem % fwh % updateValues(sem % mesh, t, k+1)
+             call sem % fwh % updateValues(sem % mesh, t, k+1,self% autosave% Autosave(k+1))
              call sem % fwh % writeToFile()
 #endif
              call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)

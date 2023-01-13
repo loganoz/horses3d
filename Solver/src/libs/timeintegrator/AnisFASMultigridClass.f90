@@ -450,17 +450,17 @@ module AnisFASMultigridClass
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
          
-         Child_p% MGStorage(Dir)%  p_sem% mesh% IBM% active = Solver% MGStorage(Dir)% p_sem% mesh% IBM% active
-         if( Child_p% MGStorage(Dir)% p_sem% mesh% IBM% active ) then
-            Child_p% MGStorage(Dir)% p_sem% mesh% IBM% lvl = lvl 
-            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% copyKDtree( Solver% MGStorage(Dir)% p_sem% mesh% IBM% root )
+!~          Child_p% MGStorage(Dir)%  p_sem% mesh% IBM% active = Solver% MGStorage(Dir)% p_sem% mesh% IBM% active
+!~          if( Child_p% MGStorage(Dir)% p_sem% mesh% IBM% active ) then
+!~             Child_p% MGStorage(Dir)% p_sem% mesh% IBM% lvl = lvl 
+!~             call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% copyKDtree( Solver% MGStorage(Dir)% p_sem% mesh% IBM% root )
             
-            call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% build( Child_p% MGStorage(Dir)% p_sem% mesh% elements,       &
-                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% no_of_elements, &
-                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% NDOF,           &
-                                                                   Child_p% MGStorage(Dir)% p_sem% mesh% child           )
+!~             call Child_p% MGStorage(Dir)% p_sem% mesh% IBM% build( Child_p% MGStorage(Dir)% p_sem% mesh% elements,       &
+!~                                                                    Child_p% MGStorage(Dir)% p_sem% mesh% no_of_elements, &
+!~                                                                    Child_p% MGStorage(Dir)% p_sem% mesh% NDOF,           &
+!~                                                                    Child_p% MGStorage(Dir)% p_sem% mesh% child           )
             
-         end if
+!~          end if
          
          
 !New>

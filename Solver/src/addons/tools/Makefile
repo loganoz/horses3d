@@ -32,7 +32,9 @@ OBJS=	\
 	LocalRefinementClass \
 	readSpecM \
 	readHDF5 \
+	readGMSH \
 	LocalRefinementTool \
+	LocalIBMRefinementTool \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)

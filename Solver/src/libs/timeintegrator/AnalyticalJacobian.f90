@@ -905,10 +905,10 @@ contains
       use IBMClass
       implicit none
       !-------------------------------------------
-      type(Element)     , intent(inout) :: e
-      type(Face), target, intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
-      class(Matrix_t)   , intent(inout) :: Matrix
-      type(IBM_type),     intent(inout) :: IBM
+      type(Element),            intent(inout) :: e
+      type(Face),     target,   intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
+      class(Matrix_t),          intent(inout) :: Matrix
+      type(IBM_type), optional, intent(inout) :: IBM
       !-------------------------------------------
       real(kind=RP) :: MatEntries(NCONS,NCONS)
       real(kind=RP) :: dFdQ      (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
@@ -949,9 +949,7 @@ contains
       real(kind=RP) :: JacR( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for RIGHT  face
       real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
       real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
-      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-      
-      optional :: IBM      
+      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta      
       
       !-------------------------------------------
       spAxi   => NodalStorage(e % Nxyz(1))
@@ -1441,26 +1439,27 @@ contains
 !
 !     adding IBM contributes
 !     ---------------------- 
-      if( present(IBM) .and. IBM% active ) then
-         do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
-            if( e% isInsideBody(i12,j12,k12) ) then
-               associate( Q => e% storage% Q(:,i12,j12,k12) )
-               call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
+      if( present(IBM) ) then
+         if( IBM% active ) then
+            do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
+               if( e% isInsideBody(i12,j12,k12) ) then
+                  associate( Q => e% storage% Q(:,i12,j12,k12) )
+                  call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
 
-               baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
-               baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+                  baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+                  baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
  
-               ! IBM contributes affect only the diagonal of the block diag. matrix
-               !-------------------------------------
-               do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
-                  i = eq1 + baseRow  ! row index (1-based)
-                  j = eq2 + baseCol  ! column index (1-based)
-                  call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
-               end do; end do
-
-               end associate
-            end if
-         end do; end do; end do
+                  ! IBM contributes affect only the diagonal of the block diag. matrix
+                  !-------------------------------------
+                  do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
+                     i = eq1 + baseRow  ! row index (1-based)
+                     j = eq2 + baseCol  ! column index (1-based)
+                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+                  end do; end do
+                  end associate
+               end if
+            end do; end do; end do
+         end if
       end if
       
       nullify(dF_dgradQ)

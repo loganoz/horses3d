@@ -16,476 +16,179 @@ module MPI_IBMUtilities
    use mpi
 #endif
    
-! maximum 9 points after polygon's been split
-
-!~    ----> axis
-!~       |       |
-!~    plane1   plane2
-   
    implicit none
    
    private
-   public :: MPI_KDtree_type, KDtree_partition_type
-   public :: MPI_KDtree_buildPartition, MPI_KDtree_destroy, recvSTLPartition, SendSTLPartitions
-   public :: MPI_M_Points_type, MPI_Pointpartition
-   public :: RootSendPointMaskPartition, MaskCandidates, RootRecvrecvPointMaskPartition
-   public :: sendPointMaskPartition, RecvPointMaskPartition
-   public :: RootRecvPointMask, RootSendPointMask
-   public :: recvPointMask, SendPointMask
-   public :: RootrecvBandPoint, RootSendBandPoint, MPI_BandPointpartition
-   public :: recvBandPointPartition, sendBandPointPartition
-   
-   integer, parameter :: ON_PLANE = 0, IN_FRONT_PLANE = 1, BEHIND_PLANE = 2
-   
-   
-   type KDtree_partition_type
-   
-      real(kind=RP), dimension(2)      :: plane
-      real(kind=RP), dimension(NDIM,8) :: vertices
-      integer                          :: prev, axis, ID
-      type(STLfile)                    :: stl
+   public :: IBMpoints
+   public :: recvOBB, sendOBB 
+   public :: SendSTL2Partitions, receiveSTLpartitions
+   public :: GetBRvertices
+   public :: getmaskcandidates
+   public :: RecvPointsListRoot, SendPointsList2Root
+   public :: RecvPointsListPartitions, SendPointsList2partitions
+   public :: recvPointsMaskRoot, sendPointsMask2Root
+   public :: recvPointsMaskPartitions, sendPointsMask2Partitions
+   public :: recvNormalsRoot, sendNormals2Root
+   public :: recvDistancesANDNormalspartitions, sendDistanceANDNormals2partitions   
+   public :: recvScalarPlotRoot, sendScalarPlotRoot
+   public :: recvVectorPlotRoot, sendVectorPlotRoot
 
-      contains
-         
-         procedure :: build       => KDtree_partition_build
-         procedure :: SetVertices => KDtree_partition_SetVertices
-         procedure :: plot        => KDtree_partition_plot
-         procedure :: plotObjs    => KDtree_partition_plotObjs
+   type IBMpoints
 
-   end type KDtree_partition_type
+      type(point_type), allocatable :: x(:)
+      real(kind=RP),    allocatable :: Q(:,:), U_x(:,:), U_y(:,:), U_z(:,:)
+      integer                       :: LocNumOfObjs, NumOfObjs
+
+   end type
    
-   type MPI_KDtree_type
-   
-      type(KDtree_partition_type), dimension(:), allocatable :: partition
-      real(kind=RP)                                          :: axisLength
-      integer                                                :: axis
-   
-      contains
-      
-         procedure :: build           => MPI_KDtree_build
-         procedure :: SplittingPlanes => MPI_KDtree_SplittingPlanes
-         procedure :: checkObj        => MPI_KDtree_checkObj
-         procedure :: STL_partition   => MPI_KDtree_STL_partition
-   
-   end type MPI_KDtree_type
-   
-   
-   type MPI_M_Points_type
-   
-      type(point_type), dimension(:), allocatable :: x
-      integer,          dimension(:), allocatable :: buffer
-      integer                                     :: NumOfObjs,    &
-                                                     LocNumOfObjs
-   
-      contains
-      
-         procedure :: destroy => MPI_M_Points_type_destroy
-   
-   end type MPI_M_Points_type  
-   
-   type(MPI_KDtree_type),       public :: MPI_KDtree_all
-   type(KDtree_partition_type), public :: MPI_KDtreePartition
-   
-   type(MPI_M_Points_type), public :: MPI_M_Points_ALL
-   type(MPI_M_Points_type), public :: MPI_M_PointsPartition
-   
-   type(MPI_M_Points_type), public :: BandPoints_ALL
-   
+   type(IBMpoints), public :: Mask
+
 contains
 
-   subroutine MPI_BandPointpartition( BandRegion, NumOfObjs, BandPoints)
-   
+ subroutine recvOBB( STLNum )
+      use MPI_Process_Info
       implicit none
-      !-arguments-----------------------------------------
-      type(MPI_M_Points_type), intent(inout) :: BandRegion
-      integer,                 intent(in)    :: NumOfObjs
-      type(PointLinkedList),   intent(inout) :: BandPoints
-      !-local-variables-----------------------------------
-      type(point_type), pointer :: p
-      integer :: i 
-
-      allocate(BandRegion% buffer(MPI_Process% nProcs))
-      allocate(BandRegion% x(NumOfObjs))
-
-      BandRegion% buffer    = 0
-      BandRegion% NumOfObjs = NumOfObjs
-
-      BandRegion% buffer(1) = BandPoints% NumOfPoints
-      
-      if( MPI_Process% isRoot ) then
-         p => BandPoints% head
-         do i = 1, BandPoints% NumOfPoints
-            BandRegion% x(i)% index     = p% index
-            BandRegion% x(i)% coords(1) = p% coords(1)
-            BandRegion% x(i)% coords(2) = p% coords(2)
-            BandRegion% x(i)% coords(3) = p% coords(3)
-            BandRegion% x(i)% local_Position(1) = p% local_Position(1)
-            BandRegion% x(i)% local_Position(2) = p% local_Position(2)
-            BandRegion% x(i)% local_Position(3) = p% local_Position(3)
-            BandRegion% x(i)% element_index = p% element_index
-            BandRegion% x(i)% partition = p% partition
-            p => p% next
-         end do
-      end if
-
-   end subroutine MPI_BandPointpartition
-   
-   subroutine MPI_Pointpartition(NumOfObjs)
-   
-      implicit none
-      !-arguments-----------------------
-      integer, intent(in) :: NumOfObjs
- 
-      MPI_M_Points_ALL% NumOfObjs = NumOfObjs
-       
-      allocate(MPI_M_Points_ALL% buffer(MPI_Process% nProcs))
-      allocate(MPI_M_Points_ALL% x(NumOfObjs))
-
-      MPI_M_Points_ALL% buffer    = 0
-       
-      MPI_M_Points_ALL% buffer(1) = MPI_M_PointsPartition% LocNumOfObjs
-      MPI_M_Points_ALL% x(:)% isInsideBody = .false.
-
-      if( MPI_Process% isRoot ) then
-         MPI_M_Points_ALL% x(1:MPI_M_PointsPartition% LocNumOfObjs) = &
-         MPI_M_PointsPartition% x(1:MPI_M_PointsPartition% LocNumOfObjs) 
-      end if
-
-   end subroutine MPI_Pointpartition
-
-   subroutine MPI_KDtree_buildPartition( stl )
-   
-      implicit none
-      !-arguments---------------------------
-      type(STLfile), intent(inout) :: stl
-      !-local-variables---------------------
-      integer :: i
-
-      if( MPI_Process% doMPIRootAction ) then
+      !-arguments-----------------------------------------------------------------
+      integer, intent(in) :: STLNum
 #ifdef _HAS_MPI_
-         call MPI_KDtree_all% build( stl% body )
-         call MPI_KDtree_all% SplittingPlanes( stl% body )
-         call MPI_KDtree_all% STL_partition( stl% ObjectsList )
-#endif
-      elseif( MPI_Process% nProcs .eq. 1 ) then 
-         MPI_KDtreePartition% stl = stl 
-         MPI_KDtreePartition% vertices = OBB(stl% body)% LocVertices
-      end if
-
-      if( MPI_Process% doMPIRootAction ) then
-         do i = 1, MPI_Process% nProcs
-            call MPI_KDtree_ALL% partition(i)% stl% DescribePartitions()
-         end do
-      end if
-
-   end subroutine MPI_KDtree_buildPartition
-   
-   subroutine MPI_KDtree_build( this, STLNum )
-      use MPI_Process_Info
-      implicit none
-      !-arguments---------------------------------------
-      class(MPI_KDtree_type), intent(inout) :: this
-      integer,                intent(in)    :: STLNum
-      !-local-variables---------------------------------
-      real(kind=RP), dimension(NDIM) :: axis
-      integer,       dimension(1)    :: maxvec
-      integer                        :: i
-     
-      allocate(this% partition(MPI_Process% nProcs))
-       
-      axis = (/ OBB(STLNum)% MBR% Length,OBB(STLNum)% MBR% Width,abs(OBB(STLNum)% nMax) + abs(OBB(STLNum)% nMin) /)
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP) :: vertex_x(8), vertex_y(8), vertex_z(8), &
+                        angle, center(2), CloudCenter(NDIM),  &
+                        R1(NDIM), R2(NDIM), R3(NDIM), Length,  &
+                        Width, nMax, nMin
+      integer       :: ierr, recv_req(13), array_of_statuses(MPI_STATUS_SIZE,13)
       
-      maxvec = maxloc( axis )  
+      if( MPI_Process% isRoot ) return
       
-      this% axis       = maxvec(1)
-      this% axisLength = axis(this% axis)
+      call mpi_irecv( vertex_x, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr ) 
       
-      do i = 1, MPI_Process% nProcs
-         this% partition(i)% axis = this% axis
-      end do
-   
-   end subroutine MPI_KDtree_build 
-   
-   subroutine KDtree_partition_build( this, rank )
-   
-      implicit none
-      !-arguments-------------------------------------------
-      class(KDtree_partition_type), intent(inout) :: this
-      integer,                      intent(in)    :: rank
-   
-      this% plane    = 0.0_RP
-      this% vertices = 0.0_RP
-      this% prev     = 0
-      this% axis     = 0
-      this% ID       = rank
-   
-      safedeallocate(this% stl% ObjectsList)
-   
-   end subroutine KDtree_partition_build
-   
-   subroutine MPI_KDtree_destroy()
-      use MPI_Process_Info
-      implicit none
-      !-local-varaibles----------
-#ifdef _HAS_MPI_
-      integer :: i
-#endif
-
-      if( MPI_Process% doMPIRootAction ) then
-#ifdef _HAS_MPI_
-         do i = 1, size(MPI_KDtree_all% partition)
-            call MPI_KDtree_all% partition(i)% stl% destroy()
-         end do
-         deallocate(MPI_KDtree_all% partition)
-         MPI_KDtree_all% axis       = 0
-         MPI_KDtree_all% axisLength = 0.0_RP
-#endif
-      end if
+      call mpi_irecv( vertex_y, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr ) 
       
-      call MPI_KDtreePartition% stl% destroy()
-      MPI_KDtreePartition% plane    = 0.0_RP
-      MPI_KDtreePartition% prev     = 0
-      MPI_KDtreePartition% axis     = 0
-      MPI_KDtreePartition% ID       = 0
-  
-   end subroutine MPI_KDtree_destroy
-
-   
-  subroutine KDtree_partition_plot( this )
-      use MPI_Process_Info
-      implicit none
-      !-arguments-----------------------------------------
-      class(KDtree_partition_type), intent(inout) :: this
-      !-local-variables----------------------------------- 
-      real(kind=RP), dimension(NDIM) :: x_g
-      character(len=LINE_LENGTH)     :: filename, myString
-      integer                        :: i, funit
+      call mpi_irecv( vertex_z, 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr ) 
       
-      funit = UnusedUnit()
+      call mpi_irecv( angle, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr ) 
       
-      write(myString,'(i100)') MPI_Process% rank
+      call mpi_irecv( center, 2, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr ) 
       
-      filename = 'STL_partition'//trim(adjustl(myString))
-      filename = trim(filename)
+      call mpi_irecv( CloudCenter, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr ) 
       
-      open(funit,file='IBM/'//trim(filename)//'.tec', status='unknown')
- 
-      write(funit,"(a25)") 'TITLE = "Partition Block"'
-      write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
+      call mpi_irecv( R1, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr ) 
       
-      write(funit,"(a69)") 'ZONE NODES=8, ELEMENTS = 6, DATAPACKING=POINT, ZONETYPE=FETETRAHEDRON'
-      do i = 1, 8
-         call OBB(this% stl% body)% ChangeRefFrame( this% vertices(:,i), 'global', x_g )
-         write(funit,'(3E13.5)') x_g(1),x_g(2), x_g(3)
-      end do 
-
-      write(funit,'(4i2)') 1, 2, 3, 4
-      write(funit,'(4i2)') 1, 5, 8, 4
-      write(funit,'(4i2)') 5, 6, 7, 8
-      write(funit,'(4i2)') 2, 3, 7, 6
-      write(funit,'(4i2)') 4, 8, 7, 3
-      write(funit,'(4i2)') 1, 2, 6, 5
-
-      close(funit)
+      call mpi_irecv( R2, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr ) 
       
-   end subroutine KDtree_partition_plot
-   
-   
-   subroutine KDtree_partition_plotObjs( this, STLname )
-      use MPI_Process_Info
-      implicit none
-      !-arguments------------------------------------------ 
-      class(KDtree_partition_type), intent(inout) :: this
-      character(len=*),             intent(in)    :: STLname
-      !-local-variables------------------------------------ 
-      real(kind=RP), dimension(NDIM) :: x_g
-      character(len=LINE_LENGTH)     :: filename, myString
-      integer                        :: i, j, funit
+      call mpi_irecv( R3, NDIM, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr ) 
       
-      funit = UnusedUnit()
+      call mpi_irecv( Length, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(10), ierr ) 
       
-      write(myString,'(i100)') MPI_Process% rank
+      call mpi_irecv( Width, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(11), ierr ) 
       
-      if( MPI_Process% nProcs .gt. 1 ) then
-         filename = trim(STLname)//'_partition'//trim(adjustl(myString))
-         filename = trim(filename)
-      else
-         filename = trim(STLname)
-      end if
+      call mpi_irecv( nMax, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(12), ierr ) 
       
-      open(funit,file='IBM/'//trim(filename)//'.tec', status='unknown')
- 
-      write(funit,"(a28)") 'TITLE = "Partition objects"'
-      write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
-      
-      do i = 1, SIZE(this% stl% ObjectsList)
-         write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
-         do j = 1, this% stl% ObjectsList(i)% NumOfVertices
-            call OBB(this% stl% body)% ChangeRefFrame( this% stl% ObjectsList(i)% vertices(j)% coords, 'global', x_g )
-            write(funit,'(3E13.5)') x_g(1), x_g(2), x_g(3)
-         end do
-
-         write(funit,'(3i2)') 1, 2, 3 
-      end do
-
-      close(funit)
-      
-   end subroutine KDtree_partition_plotObjs
-   
-   subroutine MPI_KDtree_STL_partition( this, objs )
-      use MPI_Process_Info
-      implicit none
-      !-arguments--------------------------------------------------------------------
-      class(MPI_KDtree_type),          intent(inout) :: this
-      type(Object_type), dimension(:), intent(inout) :: objs
-      !-local-variables--------------------------------------------------------------
-      type(Object_type)                                 :: objTemp, ObjFront, &
-                                                           ObjBack
-      type(Object_type), dimension(:), allocatable      :: tria
-      integer,           dimension(MPI_Process% nProcs) :: index
-      integer,           dimension(2)                   :: PARTITION
-      real(kind=RP),     dimension(NDIM)                :: plane_normal, plane_point
-      integer                                           :: i, j, k
-
-      index = 0
-
-!$omp parallel shared(this,i,objs,index)
-!$omp do schedule(runtime) private(j,PARTITION)
-      do i = 1, SIZE(objs)
-         
-         call this% checkObj( maxval(objs(i)% vertices(:)% coords(this% axis)), &
-                              minval(objs(i)% vertices(:)% coords(this% axis)), &
-                              PARTITION                                         )
-          
-         objs(i)% partition(1) = PARTITION(1)
-         objs(i)% partition(2) = PARTITION(2)
-          
-         if( PARTITION(2) - PARTITION(1) .eq. 0 ) then
-!$omp critical
-            index(PARTITION(1)) = index(PARTITION(1)) + 1
-!$omp end critical
-         elseif( PARTITION(2) - PARTITION(1) .gt. 0 ) then
-!$omp critical
-            do j = 0, PARTITION(2) - PARTITION(1)
-               index(PARTITION(1)+j) = index(PARTITION(1)+j) + 3 !max number of triagnles is 3
-            end do
-!$omp end critical
-         end if
-         
-      end do
-!$omp end do
-!$omp end parallel
-
-      do i = 1, MPI_Process% nProcs
-         allocate(this% partition(i)% stl% ObjectsList(index(i)))
-      end do      
-         
-      associate( partitions => this% partition )
-           
-      index = 0
-      plane_normal = 0.0_RP
-      plane_normal(this% axis) = 1.0_RP 
-      
-      do i = 1, SIZE(objs)
-         if( objs(i)% partition(1) - objs(i)% partition(2) .eq. 0 ) then
-            index(objs(i)% partition(1)) = index(objs(i)% partition(1)) + 1
-            partitions(objs(i)% partition(1))% stl% ObjectsList(index(objs(i)% partition(1))) = objs(i)
-            partitions(objs(i)% partition(1))% stl% ObjectsList(index(objs(i)% partition(1)))% index = index(objs(i)% partition(1))
-         else
-            objTemp = objs(i)
-            plane_point = 0.0_RP
-            do j = 0, objs(i)% partition(2) - objs(i)% partition(1) - 1
-               plane_point(this% axis) = partitions(objs(i)% partition(1)+j)% plane(2)
-               call ClipPloy( objTemp, plane_normal, plane_point, ObjFront, ObjBack )
-               call Poly2Triangles( ObjBack, tria )
-               index(objs(i)% partition(1)+j) = index(objs(i)% partition(1)+j) + 1
-               partitions(objs(i)% partition(1)+j)% stl%  ObjectsList(index(objs(i)% partition(1)+j)) = ObjBack 
-               partitions(objs(i)% partition(1)+j)% stl%  ObjectsList(index(objs(i)% partition(1)+j))% index = index(objs(i)% partition(1)+j) 
-               if( allocated(tria) ) then
-                  do k = 1, size(tria)
-                     index(objs(i)% partition(1)+j) = index(objs(i)% partition(1)+j) + 1
-                     partitions(objs(i)% partition(1)+j)% stl% ObjectsList(index(objs(i)% partition(1)+j)) = tria(k)
-                     partitions(objs(i)% partition(1)+j)% stl% ObjectsList(index(objs(i)% partition(1)+j))% index = index(objs(i)% partition(1)+j)     
-                  end do
-                  deallocate(tria)
-               end if
-               objTemp = ObjFront
-            end do
-            call Poly2Triangles( ObjFront, tria )
-            index(objs(i)% partition(2)) = index(objs(i)% partition(2)) + 1
-            partitions(objs(i)% partition(2))% stl% ObjectsList(index(objs(i)% partition(2))) = ObjFront
-            partitions(objs(i)% partition(2))% stl% ObjectsList(index(objs(i)% partition(2)))% index = index(objs(i)% partition(2))
-            if( allocated(tria) ) then
-               do k = 1, size(tria)
-                  index(objs(i)% partition(2)) = index(objs(i)% partition(2)) + 1
-                  partitions(objs(i)% partition(2))% stl%  ObjectsList(index(objs(i)% partition(2))) = tria(k)
-                  partitions(objs(i)% partition(2))% stl%  ObjectsList(index(objs(i)% partition(2)))% index = index(objs(i)% partition(2))     
-               end do
-               deallocate(tria)
-            end if            
-         end if
-      end do
-      
-      end associate
-      
-      do i = 1, MPI_Process% nProcs
-         this% partition(i)% stl% NumOfObjs = index(i)
-         this% partition(i)% stl% partition = i
-      end do 
-   
-   end subroutine MPI_KDtree_STL_partition
-   
-   
-   subroutine MPI_KDtree_SplittingPlanes( this, STLNum )
-      use MPI_Process_Info
-      implicit none
-      !-arguments--------------------------------------------------
-      class(MPI_KDtree_type), intent(inout) :: this
-      integer,                intent(in)    :: STLNum
-      !-local-variables--------------------------------------------
-      real(kind=RP) :: partition, v_max, v_min
-      integer       :: i, j
+      call mpi_irecv( nMin, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(13), ierr ) 
     
-      do i = 1, MPI_Process% nProcs
-         do j = 1, 8
-            this% partition(i)% vertices(:,j) = OBB(STLNum)% LocVertices(:,j)
-         end do
-      end do
+      call mpi_waitall(13, recv_req, array_of_statuses, ierr)
+   
+      OBB(STLNum)% LocVertices(1,:) = vertex_x
+      OBB(STLNum)% LocVertices(2,:) = vertex_y
+      OBB(STLNum)% LocVertices(3,:) = vertex_z
+      OBB(STLNum)% MBR% angle       = angle 
+      OBB(STLNum)% MBR% center      = center 
+      OBB(STLNum)% CloudCenter      = CloudCenter
+      OBB(STLNum)% R(:,1)           = R1
+      OBB(STLNum)% R(:,2)           = R2
+      OBB(STLNum)% R(:,3)           = R3
+      OBB(STLNum)% MBR% Length      = Length
+      OBB(STLNum)% MBR% Width       = Width
+      OBB(STLNum)% nMax             = nMax
+      OBB(STLNum)% nMin             = nMin
 
-      partition = this% axisLength/MPI_Process% nProcs
+      OBB(STLNum)% invR(:,1) = OBB(STLNum)% R(1,:)
+      OBB(STLNum)% invR(:,2) = OBB(STLNum)% R(2,:)
+      OBB(STLNum)% invR(:,3) = OBB(STLNum)% R(3,:)
+      
+      OBB(STLNum)% MBR% t1     = OBB(STLNum)% R(1,:)
+      OBB(STLNum)% MBR% t2     = OBB(STLNum)% R(2,:)
+      OBB(STLNum)% MBR% normal = OBB(STLNum)% R(3,:)
+#endif
+   end subroutine recvOBB
+   
+   subroutine sendOBB( STLNum )
+      use MPI_Process_Info
+      implicit none
+      !-arguments----------------------------------------------------------
+      integer, intent(in) :: STLNum
+#ifdef _HAS_MPI_
+      !-local-variables----------------------------------------------------
+      real(kind=RP)        :: vertex_x(8), vertex_y(8), vertex_z(8), &
+                              angle, center(2), CloudCenter(NDIM),  &
+                              R1(NDIM), R2(NDIM), R3(NDIM), Length,  &
+                              Width, nMax, nMin
+      integer, allocatable :: send_req(:,:)
+      integer              :: array_of_statuses(MPI_STATUS_SIZE,13),  &
+                              nProcs, ierr
+                              
+      allocate(send_req(MPI_Process% nProcs-1,13))
+      
+      vertex_x    = OBB(STLNum)% LocVertices(1,:)
+      vertex_y    = OBB(STLNum)% LocVertices(2,:)
+      vertex_z    = OBB(STLNum)% LocVertices(3,:)
+      angle       = OBB(STLNum)% MBR% angle
+      center      = OBB(STLNum)% MBR% center
+      CloudCenter = OBB(STLNum)% CloudCenter
+      R1          = OBB(STLNum)% R(:,1)
+      R2          = OBB(STLNum)% R(:,2)
+      R3          = OBB(STLNum)% R(:,3)
+      Length      = OBB(STLNum)% MBR% Length
+      Width       = OBB(STLNum)% MBR% Width
+      nMax        = OBB(STLNum)% nMax
+      nMin        = OBB(STLNum)% nMin
+      
 
-      v_max = OBB(STLNum)% LocVertices(this% axis,7)
-      v_min = OBB(STLNum)% LocVertices(this% axis,1)
+      do nProcs = 2, MPI_Process% nProcs
+   
+         call mpi_isend(vertex_x, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+         
+         call mpi_isend(vertex_y, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+         
+         call mpi_isend(vertex_z, 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+         
+         call mpi_isend(angle, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+         
+         call mpi_isend(center, 2, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr )
+         
+         call mpi_isend(CloudCenter, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr )
+         
+         call mpi_isend(R1, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr )
+         
+         call mpi_isend(R2, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr )
+         
+         call mpi_isend(R3, NDIM, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr )
+         
+         call mpi_isend(Length, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,10), ierr )
+         
+         call mpi_isend(Width, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,11), ierr )
+         
+         call mpi_isend(nMax, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,12), ierr )
+         
+         call mpi_isend(nMin, 1, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,13), ierr )
 
-      this% partition(1)% plane(1) = v_min
-      this% partition(1)% plane(2) = this% partition(1)% plane(1) + partition 
-
-      call this% partition(1)% SetVertices( 1, this% axis, partition )
-
-      if( MPI_Process% nProcs .eq. 1 ) return
-
-      do i = 2, MPI_Process% nProcs-1
-         this% partition(i)% plane(1) = this% partition(i-1)% plane(2) 
-         this% partition(i)% plane(2) = this% partition(i)% plane(1) + partition 
-         call this% partition(i)% SetVertices( i, this% axis, partition )
+         call mpi_waitall(13, send_req(nProcs-1,:), array_of_statuses, ierr)
+      
       end do
       
-      this% partition(MPI_Process% nprocs)% plane(1) = this% partition(MPI_Process% nprocs-1)% plane(2)
-      this% partition(MPI_Process% nprocs)% plane(2) = v_max
-      call this% partition(MPI_Process% nprocs)% SetVertices( MPI_Process% nprocs, this% axis, partition )
- 
-   end subroutine MPI_KDtree_SplittingPlanes
-   
-   
-   subroutine KDtree_partition_SetVertices( this, nprocs, axis, Locpartition )
+      deallocate(send_req)
+#endif
+   end subroutine sendOBB
+
+   subroutine GetVertices( vertices, axis, SplittingPlanes )
    
       implicit none
       !-arguments-----------------------------------------------------------
-      class(KDtree_partition_type),   intent(inout) :: this
-      real(kind=RP),                  intent(in)    :: Locpartition
-      integer,                        intent(in)    :: axis, nprocs
+      real(kind=RP), intent(inout) :: vertices(:,:)
+      real(kind=RP), intent(in)    :: SplittingPlanes(2)
+      integer,       intent(in)    :: axis 
       !-local-variables-----------------------------------------------------
-      integer, dimension(4,2) :: v_indeces
+      integer :: v_indeces(4,2)
    
       if( axis .eq. 1 ) then
          v_indeces(:,1) = (/1,4,8,5/)
@@ -498,503 +201,331 @@ contains
          v_indeces(:,2) = (/5,6,7,8/)      
       end if
 
-      this% vertices(axis,v_indeces(:,2)) = this% vertices(axis,v_indeces(:,1)) + &
-                                            (nprocs)*Locpartition
-      this% vertices(axis,v_indeces(:,1)) = this% vertices(axis,v_indeces(:,1)) + &
-                                            (nprocs-1)*Locpartition
+      vertices(axis,v_indeces(:,1)) = SplittingPlanes(1)
+      vertices(axis,v_indeces(:,2)) = SplittingPlanes(2)
    
-   end subroutine KDtree_partition_SetVertices
-   
-   
-   subroutine MPI_KDtree_checkObj( this, coord_max, coord_min, PARTITION )
-      use MPI_Process_Info
+   end subroutine GetVertices
+
+   subroutine SendSTL2Partitions( rootSTL, STLNum, rootVertices, rootAxis )
       implicit none
-      !-arguments-----------------------------------------------------------
-      class(MPI_KDtree_type),       intent(inout) :: this
-      real(kind=RP),                intent(in)    :: coord_max, coord_min
-      integer,        dimension(2), intent(out)   :: PARTITION
-      !-local-variables------------------------------------------------------
-      integer :: i
-      
-      PARTITION = 0
-      
-      do i = 1, MPI_Process% nProcs
-         if( coord_min .gt. this% partition(i)% plane(1) .and. &
-             coord_max .lt. this% partition(i)% plane(2) ) then
-             PARTITION(1) = i; PARTITION(2) = i
-             exit
-         elseif( coord_min .lt. this% partition(i)% plane(1) .and. &
-                 coord_max .gt. this% partition(i)% plane(1) ) then
-!~       an obj can intersect more the one partition, in this case PARTITION(2)-PARTITION(1) =/ 1 and > 0
-            if( PARTITION(1) .eq. 0 ) then
-               PARTITION(1) = i-1
-            end if
-            PARTITION(2) = i
-         end if   
+      !-arguments---------------------------------------------------------------------
+      type(STLfile), intent(inout) :: rootSTL
+      integer,       intent(in)    :: STLNum
+      real(kind=RP), intent(inout) :: rootVertices(:,:)
+      integer,       intent(inout) :: rootAxis
+      !-local-variables---------------------------------------------------------------
+      integer                        :: maxvec(1)
+#ifdef _HAS_MPI_
+      real(kind=RP),     allocatable :: locVertices(:,:,:) , Bar(:), coord(:),    &
+                                        normals_x(:), normals_y(:), normals_z(:), &
+                                        vertices_x(:,:), vertices_y(:,:),         &
+                                        vertices_z(:,:)
+      real(kind=RP)                  :: SplittingPlanes(2), kdtreevertices(NDIM,8)
+      integer                        :: NumOfObjs, NumOfObjsPP, NumOfObjsPartion, &
+                                        start_index, final_index, i, j,           &
+                                        nProcs, ierr,                             &
+                                        array_of_statuses(MPI_STATUS_SIZE,17)
+      integer, allocatable           :: SortedIndex(:), send_req(:,:)
+#endif
+      maxvec   = maxloc((/ OBB(STLNum)% MBR% Length,OBB(STLNum)% MBR% Width,abs(OBB(STLNum)% nMax) + abs(OBB(STLNum)% nMin) /))  
+      rootAxis = maxvec(1)
+#ifdef _HAS_MPI_
+      rootSTL% partition = MPI_Process% rank
+
+      NumOfObjs   = size(rootSTL% ObjectsList)
+
+      allocate( Bar(NumOfObjs),                          &
+                coord(NumOfObjs),                        &
+                SortedIndex(NumOfObjs),                  &
+                normals_x(NumOfObjs),                    &
+                normals_y(NumOfObjs),                    &
+                normals_z(NumOfObjs),                    &
+                vertices_x(NumOfObjs,3),                 &
+                vertices_y(NumOfObjs,3),                 &
+                vertices_z(NumOfObjs,3),                 &
+                locVertices(8,NDIM,MPI_Process% nProcs), &
+                send_req(MPI_Process% nProcs-1,17)       )
+
+      do i = 1, NumOfObjs
+         Bar(i) = 0.0_RP
+         SortedIndex(i) = rootSTL% ObjectsList(i)% index
+         do j = 1, size(rootSTL% ObjectsList(i)% vertices)
+            Bar(i) = Bar(i) + rootSTL% ObjectsList(i)% vertices(j)% coords(rootAxis)
+         end do
+         Bar(i) = Bar(i)/size(rootSTL% ObjectsList(i)% vertices)
       end do
+!$omp parallel 
+!$omp single
+      call sort( Bar, SortedIndex, coord, coord, coord, 1, NumOfObjs )
+!$omp end single
+!$omp end parallel
+      deallocate(Bar,coord)
+
+      NumOfObjsPP = NumOfObjs/MPI_Process% nProcs
+
+      start_index = 0; final_index = 0
+
+      do nProcs = 1, MPI_Process% nProcs
+         start_index = final_index 
+         final_index = start_index + NumOfObjsPP
+
+         if( nProcs .eq. MPI_Process% nProcs ) final_index = NumOfObjs
+
+         SplittingPlanes(1) =  huge(1.0_RP)
+         SplittingPlanes(2) = -huge(1.0_RP)
+
+         do i = 1, (final_index-start_index) 
+            do j = 1, 3
+               SplittingPlanes(1) = min(SplittingPlanes(1),rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(rootAxis))
+               SplittingPlanes(2) = max(SplittingPlanes(2),rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(rootAxis))
+               vertices_x(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(1)
+               vertices_y(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(2)
+               vertices_z(start_index+i,j) = rootSTL% ObjectsList(SortedIndex(start_index+i))% vertices(j)% coords(3)
+            end do
+            normals_x(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(1)
+            normals_y(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(2)
+            normals_z(start_index+i) = rootSTL% ObjectsList(SortedIndex(start_index+i))% normal(3)
+         end do  
+
+         kdtreevertices = OBB(STLNum)% LocVertices
    
-   end subroutine MPI_KDtree_checkObj
-   
-   
-   subroutine Poly2Triangles( Poly, tria )
-   
-      implicit none
-      !-arguments-----------------------------------------------------------
-      type(object_type),                            intent(inout) :: Poly 
-      type(object_type), dimension(:), allocatable, intent(out)   :: tria
-      !-local-variables-----------------------------------------------------
-      real(kind=RP), dimension(NDIM,Poly% NumOfVertices) :: coords
-      integer                                            :: j, n_vert
-   
-      if( Poly% NumOfVertices .eq. 3 ) return
-   
-      n_vert = Poly% NumOfVertices
-      
-      do j = 1, n_vert
-         coords(:,j) = Poly% vertices(j)% coords
+         call GetVertices( kdtreevertices, rootAxis, SplittingPlanes )
+
+         do j = 1, 8
+            locVertices(j,:,nProcs) = kdtreevertices(:,j)
+         end do
+
+         if( rootSTL% show ) call DescribeSTLPartitions(nProcs-1,(final_index-start_index))
+
       end do
-   
-      if( Poly% NumOfVertices .eq. 4 ) then
-         allocate(tria(1))
-         tria(1) = Poly
-         Poly% NumOfVertices = 3
-         tria(1)% NumOfVertices = 3
-         deallocate(Poly% vertices, tria(1)% vertices)
-         allocate(Poly% vertices(3), tria(1)% vertices(3))
-      elseif( Poly% NumOfVertices .eq. 5 ) then
-         allocate(tria(2))
-         tria(1) = Poly
-         tria(2) = Poly
-         Poly% NumOfVertices = 3
-         tria(1)% NumOfVertices = 3
-         tria(2)% NumOfVertices = 3
-         deallocate(Poly% vertices,tria(1)% vertices,tria(2)% vertices)
-         allocate(Poly% vertices(3),tria(1)% vertices(3),tria(2)% vertices(3))
-      else
-         print *, 'error in MPI_KDtree, NumOfVertices not recognized', Poly% NumOfVertices
-      end if
+
+      start_index = NumOfObjsPP; final_index = NumOfObjsPP
+
+      do nProcs = 2, MPI_Process% nProcs
+
+         start_index  = final_index + 1
+         final_index  = (start_index-1) + NumOfObjsPP
+
+         if( nProcs .eq. MPI_Process% nProcs ) final_index = NumOfObjs
+            
+         NumOfObjsPartion = (final_index-start_index) + 1
+
+         call mpi_isend(NumOfObjsPartion, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+
+         call mpi_wait(send_req(nProcs-1,1),MPI_STATUS_IGNORE,ierr)
+
+         call mpi_isend(normals_x(start_index:final_index), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+
+         call mpi_isend(normals_y(start_index:final_index), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+
+         call mpi_isend(normals_z(start_index:final_index), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+
+         call mpi_isend(vertices_x(start_index:final_index,1), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr )
+
+         call mpi_isend(vertices_y(start_index:final_index,1), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr )
+
+         call mpi_isend(vertices_z(start_index:final_index,1), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr )
+
+         call mpi_isend(vertices_x(start_index:final_index,2), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr )
+
+         call mpi_isend(vertices_y(start_index:final_index,2), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr )
+
+         call mpi_isend(vertices_z(start_index:final_index,2), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,10), ierr )
+
+         call mpi_isend(vertices_x(start_index:final_index,3), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,11), ierr )
+
+         call mpi_isend(vertices_y(start_index:final_index,3), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,12), ierr )
+
+         call mpi_isend(vertices_z(start_index:final_index,3), NumOfObjsPartion, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,13), ierr )
  
-      do j = 1, 3
-         Poly% vertices(j)% coords = coords(:,j)
-         if( j .eq. 3 ) then
-            tria(1)% vertices(j)% coords = coords(:,1)
-         else
-            tria(1)% vertices(j)% coords = coords(:,j+2)
-         end if
-         if( size(tria) .eq. 2 ) then
-            if( j .eq. 3 ) then
-               tria(2)% vertices(j)% coords = coords(:,1)
-            else
-               tria(2)% vertices(j)% coords = coords(:,j+3)
-            end if         
-         end if
-      end do   
-      
-   end subroutine Poly2Triangles
-   
-   
-   
-   subroutine ClipPloy( obj, plane_normal, plane_point, objFront, objBack )
-   
-      implicit none
-      !-arguments-----------------------------------------------------------------
-      type(object_type),           intent(in)    :: obj
-      real(kind=rp), dimension(:), intent(in)    :: plane_normal, plane_point
-      type(object_type),           intent(out)   :: objFront, objBack
-      !-local-variables-----------------------------------------------------------
-      real(kind=RP), dimension(NDIM,9) :: PointFront, PointBack 
-      real(kind=RP), dimension(NDIM)   :: PointA, PointB, Point_inters
-      integer                          :: PointA_Is, PointB_Is, n_front, n_back, i
-      
-      n_front = 0; n_back = 0
-      
-      pointA = obj% vertices(obj% NumOfVertices)% coords
-      
-      PointA_Is = Point_wrt_Plane( plane_normal, plane_point, pointA )
-   
-      do i = 1, obj% NumOfVertices
-         PointB    = obj% vertices(i)% coords
-         
-         PointB_Is = Point_wrt_Plane( plane_normal, plane_point, pointB )
-         if( PointB_Is .eq. IN_FRONT_PLANE ) then
-            if( PointA_Is .eq. BEHIND_PLANE ) then
-               Point_inters = EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB )
-               n_front = n_front + 1
-               n_back  = n_back + 1
-               PointFront(:,n_front) = Point_Inters
-               PointBack(:,n_back) = Point_Inters
-            end if
-            n_front = n_front + 1
-            PointFront(:,n_front) = PointB
-         elseif( PointB_Is .eq. BEHIND_PLANE ) then
-            if( PointA_Is .eq. IN_FRONT_PLANE ) then
-               Point_inters = EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB )
-               n_front = n_front + 1
-               n_back  = n_back + 1
-               PointFront(:,n_front) = Point_Inters
-               PointBack(:,n_back) = Point_Inters
-            elseif( PointA_Is .eq. ON_PLANE ) then
-               n_back  = n_back + 1
-               PointBack(:,n_back) = PointA
-            end if
-            n_back  = n_back + 1
-            PointBack(:,n_back) = PointB 
-         else
-            n_front = n_front + 1
-            PointFront(:,n_front) = PointB
-            if( PointA_Is .eq. BEHIND_PLANE ) then
-               n_back  = n_back + 1
-               PointBack(:,n_back) = PointB 
-            end if
-         end if
-         PointA = PointB
-         PointA_Is = PointB_Is
-      end do
-      
-      call objFront% build( PointFront, obj% normal, n_front, obj% index, obj% computeIntegrals )
-      call objBack% build( PointBack, obj% normal, n_back, obj% index, obj% computeIntegrals )
-   
-   end subroutine ClipPloy
-   
-   
-   integer function Point_wrt_Plane( plane_normal, plane_point, point ) result( PointIs )
-      use MappedGeometryClass
-      implicit none
-      !-arguments-----------------------------------------------------------------
-      real(kind=RP), dimension(:), intent(in) :: plane_normal, plane_point, point
-      !-local-variables-----------------------------------------------------------
-      real(kind=RP) :: d
-   
-      d = vdot(plane_normal,point) - vdot(plane_normal,plane_point)
-      
-      if( AlmostEqual(d,0.0_RP) ) then
-         PointIs = ON_PLANE
-      elseif( d > 0.0d0 ) then
-         PointIs = IN_FRONT_PLANE
-      elseif( d < 0.0d0 ) then
-         PointIs = BEHIND_PLANE
-      end if
-   
-   end function Point_wrt_Plane
+         call mpi_isend(locVertices(:,1,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,14), ierr )
+ 
+         call mpi_isend(locVertices(:,2,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,15), ierr )
   
-   function EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB ) result( Point_inters )
-      use MappedGeometryClass
-      implicit none
-      !-arguments-----------------------------------------------------------------
-      real(kind=RP), dimension(:), intent(in) :: plane_normal, plane_point, &
-                                                 PointA, PointB
-      real(kind=RP), dimension(NDIM)          :: Point_inters
-      !-local-variables-----------------------------------------------------------
-      real(kind=RP), dimension(NDIM) :: n_AB
-      real(kind=RP)                  :: d, t
- 
-      n_AB = PointB - PointA
-      
-      d = vdot(plane_normal,plane_point)
-      
-      t = ( d - vdot(plane_normal,PointA) )/vdot(plane_normal,n_AB)
-      
-      if( almostEqual(t,0.0_RP) ) then
-         Point_inters = PointA
-      elseif( almostEqual(t,1.0_RP) ) then
-         Point_inters = PointB
-      elseif( t .gt. 0.0_RP .and. t .lt. 1.0_RP ) then  
-         Point_inters = PointA + t*n_AB
-      end if
- 
-   end function EdgePlaneIntersection
-   
-   
-   subroutine recvSTLPartition()
-   
-      implicit none
-      
-#ifdef _HAS_MPI_   
-      !-local-variables-------------------------------------------------------------------------------------------   
-      integer                                  :: ObjsSize, ierr, j, array_of_statuses(MPI_STATUS_SIZE,19), &
-                                                  i, recv_req(19)
-      real(kind=RP), dimension(:), allocatable :: normal_x, normal_y, normal_z, COORD
-      real(kind=RP), dimension(:), allocatable :: COORD_x1, COORD_x2, COORD_x3
-      real(kind=RP), dimension(:), allocatable :: COORD_y1, COORD_y2, COORD_y3
-      real(kind=RP), dimension(:), allocatable :: COORD_z1, COORD_z2, COORD_z3
-      real(kind=RP), dimension(:), allocatable :: vertex1, vertex2, vertex3, vertex4, &
-                                                  vertex5, vertex6, vertex7, vertex8
-      integer,       dimension(:), allocatable :: indeces
-      
-      if( MPI_Process% isRoot ) return 
-      
-      ! receive n of objects
-      call mpi_irecv( ObjsSize, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr ) 
-      
-      call mpi_wait(recv_req(1), MPI_STATUS_IGNORE, ierr)
-      
-      MPI_KDtreePartition% stl% NumOfObjs = ObjsSize
-      
-      allocate(MPI_KDtreePartition% stl% ObjectsList(ObjsSize))
-      
-      call mpi_irecv( MPI_KDtreePartition% plane, 2, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr  )
-   
-      call mpi_irecv( MPI_KDtreePartition% axis, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr  )
+         call mpi_isend(locVertices(:,3,nProcs), 8, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,16), ierr )
 
-      allocate( indeces(ObjsSize),  &
-                normal_x(ObjsSize), &
-                normal_y(ObjsSize), & 
-                normal_z(ObjsSize), &
-                COORD_x1(ObjsSize), &
-                COORD_x2(ObjsSize), &
-                COORD_x3(ObjsSize), &
-                COORD_y1(ObjsSize), &
-                COORD_y2(ObjsSize), &
-                COORD_y3(ObjsSize), &
-                COORD_z1(ObjsSize), &
-                COORD_z2(ObjsSize), &
-                COORD_z3(ObjsSize), &
-                vertex1(8),         &
-                vertex2(8),         &
-                vertex3(8)          )
+         call mpi_isend(rootAxis, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,17), ierr )  
 
-      call mpi_irecv( indeces, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr )
-                
-      call mpi_irecv( normal_x, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr )  
-                      
-      call mpi_irecv( normal_y, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr )  
-                      
-      call mpi_irecv( normal_z, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr )  
-                      
-      call mpi_irecv( COORD_x1, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr )  
-                      
-      call mpi_irecv( COORD_x2, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr )  
-                      
-      call mpi_irecv( COORD_x3, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(10), ierr )  
-                      
-      call mpi_irecv( COORD_y1, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(11), ierr )  
-                      
-      call mpi_irecv( COORD_y2, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(12), ierr )  
-                      
-      call mpi_irecv( COORD_y3, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(13), ierr )  
-                      
-      call mpi_irecv( COORD_z1, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(14), ierr )  
-                      
-      call mpi_irecv( COORD_z2, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(15), ierr )  
-                      
-      call mpi_irecv( COORD_z3, ObjsSize, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(16), ierr )  
-                      
-      call mpi_irecv( vertex1, 8, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(17), ierr )    
-                      
-      call mpi_irecv( vertex2, 8, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(18), ierr )  
-                      
-      call mpi_irecv( vertex3, 8, MPI_DOUBLE_PRECISION, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(19), ierr )    
+         call mpi_waitall(17, send_req(nProcs-1,:), array_of_statuses, ierr)
 
-      call mpi_waitall(19, recv_req, array_of_statuses, ierr)     
+      end do  
 
-      do i = 1, MPI_KDtreePartition% stl% NumOfObjs
-         MPI_KDtreePartition% stl% ObjectsList(i)% NumOfVertices = 3
-         allocate( MPI_KDtreePartition% stl% ObjectsList(i)% vertices(3) )
-         MPI_KDtreePartition% stl% ObjectsList(i)% index     = i
-         MPI_KDtreePartition% stl% ObjectsList(i)% normal(1) = normal_x(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% normal(2) = normal_y(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% normal(3) = normal_z(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(1)% coords(1) = COORD_x1(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(2)% coords(1) = COORD_x2(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(3)% coords(1) = COORD_x3(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(1)% coords(2) = COORD_y1(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(2)% coords(2) = COORD_y2(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(3)% coords(2) = COORD_y3(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(1)% coords(3) = COORD_z1(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(2)% coords(3) = COORD_z2(i)
-         MPI_KDtreePartition% stl% ObjectsList(i)% vertices(3)% coords(3) = COORD_z3(i)
+      call rootSTL% destroy()
+
+      allocate(rootSTL% ObjectsList(NumOfObjsPP))
+
+      do i = 1, NumOfObjsPP
+         allocate(rootSTL% ObjectsList(i)% vertices(NDIM))
+         rootSTL% ObjectsList(i)% normal(1) = normals_x(i)
+         rootSTL% ObjectsList(i)% normal(2) = normals_y(i)
+         rootSTL% ObjectsList(i)% normal(3) = normals_z(i)
+         do j = 1, NDIM
+            rootSTL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
+            rootSTL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
+            rootSTL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
+         end do 
+         rootSTL% ObjectsList(i)% index = i
+      end do 
+
+      rootSTL% NumOfObjs = NumOfObjsPP
+
+      do j = 1, 8
+         rootVertices(:,j) = locVertices(j,:,1)
       end do
-      
-      MPI_KDtreePartition% vertices(1,:) = vertex1
-      MPI_KDtreePartition% vertices(2,:) = vertex2
-      MPI_KDtreePartition% vertices(3,:) = vertex3
-    
-      deallocate( indeces,  &
-                  normal_x, &
-                  normal_y, &
-                  normal_z, &
-                  COORD_x1, &
-                  COORD_x2, &
-                  COORD_x3, & 
-                  COORD_y1, &
-                  COORD_y2, &
-                  COORD_y3, &
-                  COORD_z1, &
-                  COORD_z2, &
-                  COORD_z3, &
-                  vertex1,  &
-                  vertex2,  &
-                  vertex3   )
+
+      deallocate(send_req, locVertices, vertices_x, vertices_y, vertices_z, normals_x, normals_y, normals_z)
+#else
+      if( rootSTL% show ) call rootSTL% Describe()
 #endif
 
-   end subroutine recvSTLPartition
-   
-   subroutine SendSTLPartitions()
-   
+   end subroutine SendSTL2Partitions
+
+
+   subroutine receiveSTLpartitions( partitionSTL, STLNum, partitionVertex, partitionAxis )
       implicit none
-   
-#ifdef _HAS_MPI_  
-      !-local-variables-------------------------------------------------------------------------
-      integer                                    :: ObjsSize, PartSize, nProcs, i, j, ierr,    &
-                                                    msg, array_of_statuses(MPI_STATUS_SIZE,19)
-      real(kind=RP), dimension(:),   allocatable :: normal_x, normal_y, normal_z
-      real(kind=RP), dimension(:),   allocatable :: vertex1, vertex2, vertex3
-      real(kind=RP), dimension(:),   allocatable :: COORD_x1, COORD_x2, COORD_x3
-      real(kind=RP), dimension(:),   allocatable :: COORD_y1, COORD_y2, COORD_y3
-      real(kind=RP), dimension(:),   allocatable :: COORD_z1, COORD_z2, COORD_z3
-      integer,       dimension(:),   allocatable :: indeces
-      integer,       dimension(:,:), allocatable :: send_req
-
-      allocate(send_req(MPI_Process% nProcs-1,19))
-
-      do nProcs = 2, MPI_Process% nProcs
-      
-         ObjsSize = MPI_KDtree_all% partition(nProcs)% stl% NumOfObjs
-         call mpi_isend( ObjsSize, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         send_req(nProcs-1,1), ierr                                   )
-         
-      end do
-      
-      do nProcs = 2, MPI_Process% nProcs
-         
-         partSize = MPI_KDtree_all% partition(nProcs)% stl% NumOfObjs
-         
-         call mpi_isend( MPI_KDtree_all% partition(nProcs)% plane, 2, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         send_req(nProcs-1,2), ierr)
-
-         call mpi_isend( MPI_KDtree_all% partition(nProcs)% axis, 1, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         send_req(nProcs-1,3), ierr)
-           
-           
-         allocate( indeces(partSize),  &
-                   normal_x(partSize), &
-                   normal_y(partSize), & 
-                   normal_z(partSize), &
-                   COORD_x1(partSize), &
-                   COORD_x2(partSize), &
-                   COORD_x3(partSize), &
-                   COORD_y1(partSize), &
-                   COORD_y2(partSize), &
-                   COORD_y3(partSize), &
-                   COORD_z1(partSize), &
-                   COORD_z2(partSize), &
-                   COORD_z3(partSize), &
-                   vertex1(8),         &
-                   vertex2(8),         &                                           
-                   vertex3(8)          )
-
-         indeces  = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% index
-         normal_x = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(1)
-         normal_y = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(2)
-         normal_z = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(3)
-         COORD_x1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(1)
-         COORD_x2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(1)
-         COORD_x3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(1)
-         COORD_y1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(2)
-         COORD_y2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(2)
-         COORD_y3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(2)
-         COORD_z1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(3)
-         COORD_z2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(3)
-         COORD_z3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(3)
-
-         vertex1 = MPI_KDtree_all% partition(nProcs)% vertices(1,:)
-         vertex2 = MPI_KDtree_all% partition(nProcs)% vertices(2,:)
-         vertex3 = MPI_KDtree_all% partition(nProcs)% vertices(3,:)
-
-         call mpi_isend( indeces, partSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
-
-         call mpi_isend( normal_x, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr  )         
-
-         call mpi_isend( normal_y, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr  )         
-
-         call mpi_isend( normal_z, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr  )         
-
-         call mpi_isend( COORD_x1, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr  )            
-
-         call mpi_isend( COORD_x2, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr  )            
-
-         call mpi_isend( COORD_x3, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,10), ierr )            
-
-         call mpi_isend( COORD_y1, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,11), ierr )            
-
-         call mpi_isend( COORD_y2, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,12), ierr )            
-
-         call mpi_isend( COORD_y3, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,13), ierr )            
-
-         call mpi_isend( COORD_z1, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,14), ierr )            
-
-         call mpi_isend( COORD_z2, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,15), ierr )            
-
-         call mpi_isend( COORD_z3, partSize, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,16), ierr )            
-
-         call mpi_isend( vertex1, 8, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,17), ierr )
-
-         call mpi_isend( vertex2, 8, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,18), ierr )
-
-         call mpi_isend( vertex3, 8, MPI_DOUBLE_PRECISION, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,19), ierr )
-
-         call mpi_waitall(19, send_req(nProcs-1,:), array_of_statuses, ierr)
+      !-arguments-----------------------------------------------------
+      type(STLfile), intent(inout) :: partitionSTL
+      integer,       intent(in)    :: STLNum
+      real(kind=RP), intent(inout) :: partitionVertex(:,:)
+      integer,       intent(inout) :: partitionAxis
+#ifdef _HAS_MPI_
+      !-local-variables-----------------------------------------------
+      real(kind=RP), allocatable :: normals_x(:), normals_y(:), normals_z(:), &
+                                    vertices_x(:,:), vertices_y(:,:),         &
+                                    vertices_z(:,:), locVertices(:,:)
+      integer                    :: NumOfObjs, ierr, recv_req(17), i, j,      &
+                                    array_of_statuses(MPI_STATUS_SIZE,17)
  
-         deallocate( indeces,  &
-                     normal_x, &
-                     normal_y, &
-                     normal_z, &
-                     COORD_x1, &
-                     COORD_x2, &
-                     COORD_x3, &
-                     COORD_y1, &
-                     COORD_y2, &
-                     COORD_y3, &
-                     COORD_z1, &
-                     COORD_z2, &
-                     COORD_z3, &
-                     vertex1,  &
-                     vertex2,  &
-                     vertex3   )
-         
+      if( MPI_Process% isRoot ) return
+
+      partitionSTL% partition = MPI_Process% rank 
+
+      call mpi_irecv( partitionSTL% NumOfObjs, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
+
+      call mpi_wait(recv_req(1), MPI_STATUS_IGNORE, ierr)
+
+      NumOfObjs = partitionSTL% NumOfObjs
+
+      allocate( normals_x(NumOfObjs),       &
+                normals_y(NumOfObjs),       &
+                normals_z(NumOfObjs),       &
+                vertices_x(NumOfObjs,NDIM), &
+                vertices_y(NumOfObjs,NDIM), &
+                vertices_z(NumOfObjs,NDIM), &
+                locVertices(8,NDIM)         )
+
+      call mpi_irecv( normals_x, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )  
+
+      call mpi_irecv( normals_y, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr )  
+                      
+      call mpi_irecv( normals_z, NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr )  
+                      
+      call mpi_irecv( vertices_x(:,1), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr )  
+
+      call mpi_irecv( vertices_y(:,1), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr )
+                      
+      call mpi_irecv( vertices_z(:,1), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr )  
+
+      call mpi_irecv( vertices_x(:,2), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr )
+
+      call mpi_irecv( vertices_y(:,2), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr )
+
+      call mpi_irecv( vertices_z(:,2), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(10), ierr )
+
+      call mpi_irecv( vertices_x(:,3), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(11), ierr )
+      
+      call mpi_irecv( vertices_y(:,3), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(12), ierr )
+      
+      call mpi_irecv( vertices_z(:,3), NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(13), ierr )
+
+      call mpi_irecv( locVertices(:,1), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(14), ierr )    
+                   
+      call mpi_irecv( locVertices(:,2), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(15), ierr )  
+                      
+      call mpi_irecv( locVertices(:,3), 8, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(16), ierr ) 
+
+      call mpi_irecv( partitionAxis, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(17), ierr  )
+
+      call mpi_waitall(17, recv_req, array_of_statuses, ierr)
+
+      allocate(partitionSTL% ObjectsList(NumOfObjs))
+
+      do i = 1, NumOfObjs
+         partitionSTL% ObjectsList(i)% NumOfVertices = 3
+         allocate(partitionSTL% ObjectsList(i)% vertices(3))
+         do j = 1, partitionSTL% ObjectsList(i)% NumOfVertices
+            partitionSTL% ObjectsList(i)% vertices(j)% coords(1) = vertices_x(i,j)
+            partitionSTL% ObjectsList(i)% vertices(j)% coords(2) = vertices_y(i,j)
+            partitionSTL% ObjectsList(i)% vertices(j)% coords(3) = vertices_z(i,j)
+         end do
+         partitionSTL% ObjectsList(i)% normal(1) = normals_x(i)
+         partitionSTL% ObjectsList(i)% normal(2) = normals_y(i)
+         partitionSTL% ObjectsList(i)% normal(3) = normals_z(i)
+         partitionSTL% ObjectsList(i)% index = i
       end do
 
-      MPI_KDtreePartition = MPI_KDtree_all% partition(1)     
-   
-      deallocate(send_req)
-   
-#endif   
+      partitionVertex(1,:) = locVertices(:,1)
+      partitionVertex(2,:) = locVertices(:,2)
+      partitionVertex(3,:) = locVertices(:,3)
 
-   end subroutine SendSTLPartitions
+      deallocate( normals_x,  &
+                  normals_y,  &
+                  normals_z,  &
+                  vertices_x, &
+                  vertices_y, &
+                  vertices_z, &
+                  locVertices )
+#endif
+   end subroutine receiveSTLpartitions
+
+   subroutine GetBRvertices( vertices, BandRegionCoeff, axis, STLNum, BRvertices )
    
-
-! PARTION FOR MASK POINTS
-
-   subroutine MPI_M_Points_type_Destroy( this )
-      
       implicit none
-      !-arguments-------------------------------------
-      class(MPI_M_Points_type), intent(inout) :: this
-   
-      if( allocated(this% x) )      deallocate(this% x)
-      if( allocated(this% buffer) ) deallocate(this% buffer)
-      
-      this% NumOfObjs     = 0
-      this% LocNumOfObjs  = 0
-      
-   end subroutine MPI_M_Points_type_Destroy
+      !-arguments---------------------------------------------
+      real(kind=RP), intent(in)  :: vertices(:,:),      &
+                                    BandRegionCoeff 
+      integer,       intent(in)  :: axis, STLNum
+      real(kind=RP), intent(out) :: BRvertices(NDIM,8)
+      !-local-variables---------------------------------------
+      integer :: v_indeces(4,2)
 
-   subroutine MaskCandidates( elements, no_of_elements, no_of_DoFs, STLNum, NumOfSTL ) 
+      if( axis .eq. 1 ) then
+         v_indeces(:,1) = (/1,4,8,5/)
+         v_indeces(:,2) = (/2,3,7,6/)
+      elseif( axis .eq. 2 ) then
+         v_indeces(:,1) = (/1,5,6,2/)
+         v_indeces(:,2) = (/4,8,7,3/)
+      else
+         v_indeces(:,1) = (/1,2,3,4/)
+         v_indeces(:,2) = (/5,6,7,8/)      
+      end if
+
+      BRvertices = BandRegionCoeff*OBB(STLNum)% LocVertices
+
+      if( MPI_Process% rank .ne. 0 ) then
+         BRvertices(axis,v_indeces(:,1)) = vertices(axis,v_indeces(:,1))  
+      end if
+      if( MPI_Process% rank .ne. (MPI_Process% nProcs-1) ) then
+         BRvertices(axis,v_indeces(:,2)) = vertices(axis,v_indeces(:,2))
+      end if
+      
+   end subroutine GetBRvertices
+
+
+   subroutine GetMaskCandidates( elements, no_of_elements, no_of_DoFs, STLNum, NumOfSTL ) 
       use ElementClass
       implicit none
       !-arguments----------------------------------------------------------------
-      type(element),  dimension(:), intent(inout) :: elements
-      integer,                      intent(in)    :: no_of_elements, no_of_DoFs, &
-                                                     STLNum, NumOfSTL
+      type(element),  intent(inout) :: elements(:)
+      integer,        intent(in)    :: no_of_elements, no_of_DoFs, &
+                                       STLNum, NumOfSTL
       !-local-variables-----------------------------------------------------------
-      integer       :: n, eID, i, j, k
-      
-      allocate(MPI_M_PointsPartition% x(no_of_DoFs))
-      
-      n = 0
+      type(point_type), allocatable :: x(:)
+      integer                       :: eID, i, j, k, ierr
 
-!$omp parallel shared(n,eID,elements,no_of_elements,MPI_M_PointsPartition,STLNum,NumOfSTL)
-!$omp do schedule(runtime) private(i,j,k)
+      allocate(x(no_of_DoFs))
+      Mask% LocNumOfObjs = 0
+
       do eID = 1, no_of_elements
          if( .not. allocated(elements(eID)% isInsideBody) ) then
             call elements(eID)% ConstructIBM(elements(eID)% Nxyz(1), elements(eID)% Nxyz(2), elements(eID)% Nxyz(3), NumOfSTL )
@@ -1007,738 +538,859 @@ contains
             elements(eID)% isInsideBody(i,j,k) = OBB(STLNum)% isPointInside( coords = elements(eID)% geom% x(:,i,j,k) )
 
             if( elements(eID)% isInsideBody(i,j,k) ) then
-!$omp critical
-               n = n + 1
-               MPI_M_PointsPartition% x(n)% coords = elements(eID)% geom% x(:,i,j,k)
-               MPI_M_PointsPartition% x(n)% local_Position(1) = i
-               MPI_M_PointsPartition% x(n)% local_Position(2) = j
-               MPI_M_PointsPartition% x(n)% local_Position(3) = k
-               MPI_M_PointsPartition% x(n)% element_index = eID
-               MPI_M_PointsPartition% x(n)% partition = MPI_Process% rank
-               MPI_M_PointsPartition% LocNumOfObjs = n
-!$omp end critical
+               Mask% LocNumOfObjs                    = Mask% LocNumOfObjs + 1
+               x(Mask% LocNumOfObjs)% coords         = elements(eID)% geom% x(:,i,j,k)
+               x(Mask% LocNumOfObjs)% local_Position = (/i,j,k/)
+               x(Mask% LocNumOfObjs)% element_index  = eID
+               x(Mask% LocNumOfObjs)% partition      = MPI_Process% rank
             end if
          end do; end do; end do
           
       end do
-!$omp end do
-!$omp end parallel 
-
-   end subroutine MaskCandidates
-   
-   
-   subroutine RootRecvrecvPointMaskPartition()
-   
-      implicit none
-   
-#ifdef _HAS_MPI_     
-      !-local-variables---------------------------------------------------------------- 
-      integer                                    :: ObjsSize, nProcs, ierr, i, msg,      &
-                                                    array_of_statuses(MPI_STATUS_SIZE,9)
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:),   allocatable :: i_v, j_v, k_v, eID, partition, buffer
-      integer,       dimension(:,:), allocatable :: RootMaskrecv_req
-
-      if( MPI_Process% isRoot ) then
-
-         allocate( buffer(MPI_Process% nProcs-1),            &
-                   RootMaskrecv_req(MPI_Process% nProcs-1,9) )
-
-         do nProcs = 2, MPI_Process% nProcs
-            call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,1), ierr ) 
-            call mpi_wait(RootMaskrecv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr)
-            
-            MPI_M_Points_All% buffer(nProcs) = MPI_M_Points_All% buffer(nProcs-1) + ObjsSize
-            buffer(nProcs-1) = ObjsSize
-            
-         end do         
-            
-         do nProcs = 2, MPI_Process% nProcs
-      
-             allocate( COORD_x(buffer(nProcs-1)),  &
-                       COORD_y(buffer(nProcs-1)),  &
-                       COORD_z(buffer(nProcs-1)),  &
-                       i_v(buffer(nProcs-1)),      &
-                       j_v(buffer(nProcs-1)),      &
-                       k_v(buffer(nProcs-1)),      &
-                       eID(buffer(nProcs-1)),      &
-                       partition(buffer(nProcs-1)) )
-                                  
-             call mpi_irecv( COORD_x, buffer(nProcs-1), MPI_DOUBLE, nProcs-1, &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,2), ierr            )  
-          
-             call mpi_irecv( COORD_y, buffer(nProcs-1), MPI_DOUBLE, nProcs-1, &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,3), ierr             )  
-
-             call mpi_irecv( COORD_z, buffer(nProcs-1), MPI_DOUBLE, nProcs-1, &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,4), ierr             )   
-      
-             call mpi_irecv( i_v, buffer(nProcs-1), MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,5), ierr )  
-      
-             call mpi_irecv( j_v, buffer(nProcs-1), MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,6), ierr )  
-      
-             call mpi_irecv( k_v, buffer(nProcs-1), MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,7), ierr )  
-      
-             call mpi_irecv( eID, buffer(nProcs-1), MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,8), ierr )         
-      
-             call mpi_irecv( partition, buffer(nProcs-1), MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,9), ierr )         
-
-             call mpi_waitall(9, RootMaskrecv_req(nProcs-1,:), array_of_statuses, ierr)                        
-             
-             do i = 1, buffer(nProcs-1)             
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% coords(1) = COORD_x(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% coords(2) = COORD_y(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% coords(3) = COORD_z(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% local_Position(1) = i_v(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% local_Position(2) = j_v(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% local_Position(3) = k_v(i)
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% element_index = eID(i)  
-                MPI_M_Points_All% x(i+MPI_M_Points_All% buffer(nProcs-1))% partition = partition(i)  
-             end do
-                      
-             deallocate( COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
-
-          end do
-          
-          deallocate(buffer,RootMaskrecv_req)
-
-       end if
-#endif          
-   
-   end subroutine RootRecvrecvPointMaskPartition
-   
-   subroutine RootSendPointMaskPartition()
-   
-      implicit none
-   
-#ifdef _HAS_MPI_  
-      !-local-variables----------------------------------------------------------------
-      integer                                  :: ObjsSize, i, j, ierr, msg, &
-                                                  array_of_statuses(MPI_STATUS_SIZE,9), &
-                                                  RootMasksend_req(9)
-      real(kind=RP), dimension(:), allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:), allocatable :: i_v, j_v, k_v, eID, partition
-      
-      if( MPI_Process% isRoot ) return
-      
-      ObjsSize = MPI_M_PointsPartition% LocNumOfObjs 
-      
-      call mpi_isend( ObjsSize, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(1), ierr                                 )       
-       
-      allocate( COORD_x(ObjsSize),  &
-                COORD_y(ObjsSize),  &
-                COORD_z(ObjsSize),  &
-                i_v(ObjsSize),      &
-                j_v(ObjsSize),      &
-                k_v(ObjsSize),      &
-                eID(ObjsSize),      &
-                partition(ObjsSize) )
-
-      COORD_x = MPI_M_PointsPartition% x(1:ObjsSize)% coords(1)
-      COORD_y = MPI_M_PointsPartition% x(1:ObjsSize)% coords(2)
-      COORD_z = MPI_M_PointsPartition% x(1:ObjsSize)% coords(3)
-      
-      i_v = MPI_M_PointsPartition% x(1:ObjsSize)% local_Position(1)
-      j_v = MPI_M_PointsPartition% x(1:ObjsSize)% local_Position(2)
-      k_v = MPI_M_PointsPartition% x(1:ObjsSize)% local_Position(3)
-      eID = MPI_M_PointsPartition% x(1:ObjsSize)% element_index
-      partition = MPI_M_PointsPartition% x(1:ObjsSize)% partition
-
-      call mpi_isend( COORD_x, MPI_M_PointsPartition% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(2), ierr                                                                           )
-                         
-      call mpi_isend( COORD_y, MPI_M_PointsPartition% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(3), ierr                                                                           )
-                         
-      call mpi_isend( COORD_z, MPI_M_PointsPartition% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(4), ierr                                                                           )
-                         
-      call mpi_isend( i_v, MPI_M_PointsPartition% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(5), ierr                                                          )
-                         
-      call mpi_isend( j_v, MPI_M_PointsPartition% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(6), ierr                                                          )
-                         
-      call mpi_isend( k_v, MPI_M_PointsPartition% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(7), ierr                                                          )
-                         
-      call mpi_isend( eID, MPI_M_PointsPartition% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(8), ierr                                                          )
-                         
-      call mpi_isend( partition, MPI_M_PointsPartition% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, &
-                      RootMasksend_req(9), ierr                                                                )
-           
-      call mpi_waitall(9, RootMasksend_req, array_of_statuses, ierr)        
-
-      deallocate( COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )  
-#endif  
-
-   end subroutine RootSendPointMaskPartition
- 
- 
-   subroutine recvPointMaskPartition()
-    
-      implicit none
-      
-#ifdef _HAS_MPI_    
-      !-local-variables-----------------------------------------------------------------  
-      integer                                    :: ObjsSize, ierr, i, &
-                                                    array_of_statuses(MPI_STATUS_SIZE,8), &
-                                                    Maskrecv_req(8)
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:),   allocatable :: i_v, j_v, k_v, eID, partition
-      
-      if( MPI_Process% isRoot ) return 
-
-      ObjsSize = MPI_M_Points_ALL% NumOfObjs
-
-      allocate( COORD_x(ObjsSize),  &
-                COORD_y(ObjsSize),  &
-                COORD_z(ObjsSize),  &
-                i_v(ObjsSize),      &
-                j_v(ObjsSize),      &
-                k_v(ObjsSize),      &
-                eID(ObjsSize),      &
-                partition(ObjsSize) )      
-                            
-      call mpi_irecv( COORD_x, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(1), ierr )  
-
-      call mpi_irecv( COORD_y, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(2), ierr )  
-
-      call mpi_irecv( COORD_z, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(3), ierr )   
-
-      call mpi_irecv( i_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(4), ierr )  
-
-      call mpi_irecv( j_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(5), ierr )  
-
-      call mpi_irecv( k_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(6), ierr )  
-
-      call mpi_irecv( eID, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(7), ierr ) 
-
-      call mpi_irecv( partition, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(8), ierr ) 
-
-      call mpi_waitall(8, Maskrecv_req, array_of_statuses, ierr)     
-
-      do i = 1, ObjsSize
-         MPI_M_Points_All% x(i)% coords(1) = COORD_x(i)
-         MPI_M_Points_All% x(i)% coords(2) = COORD_y(i)
-         MPI_M_Points_All% x(i)% coords(3) = COORD_z(i)
-         MPI_M_Points_All% x(i)% local_Position(1) = i_v(i)
-         MPI_M_Points_All% x(i)% local_Position(2) = j_v(i)
-         MPI_M_Points_All% x(i)% local_Position(3) = k_v(i)
-         MPI_M_Points_All% x(i)% element_index = eID(i)  
-         MPI_M_Points_All% x(i)% partition = partition(i)  
-      end do 
- 
-      deallocate( COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
+#ifdef _HAS_MPI_
+      call mpi_allreduce(Mask% LocNumOfObjs, Mask% NumOfObjs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+      Mask% NumOfObjs = Mask% LocNumOfObjs
 #endif
-   
-   end subroutine recvPointMaskPartition
+      allocate(Mask% x(Mask% NumOfObjs))
 
-   subroutine sendPointMaskPartition()
-   
-      implicit none
-   
-#ifdef _HAS_MPI_  
-      !-local-variables----------------------------------------------------------------
-      integer                                    :: ObjsSize, nProcs, msg, ierr, &
-                                                    array_of_statuses(MPI_STATUS_SIZE,9)
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:),   allocatable :: i_v, j_v, k_v, eID, partition
-      integer,       dimension(:,:), allocatable :: Masksend_req
-   
-      ObjsSize = MPI_M_Points_ALL% NumOfObjs
-      
-      allocate( COORD_x(ObjsSize),                    &
-                COORD_y(ObjsSize),                    & 
-                COORD_z(ObjsSize),                    &
-                i_v(ObjsSize),                        &
-                j_v(ObjsSize),                        &
-                k_v(ObjsSize),                        &
-                eID(ObjsSize),                        &
-                partition(ObjsSize),                  &
-                Masksend_req(MPI_Process% nProcs-1,8) )
-      
-      COORD_x = MPI_M_Points_ALL% x(:)% coords(1)
-      COORD_y = MPI_M_Points_ALL% x(:)% coords(2)
-      COORD_z = MPI_M_Points_ALL% x(:)% coords(3)
-      i_v = MPI_M_Points_ALL% x(:)% local_Position(1)
-      j_v = MPI_M_Points_ALL% x(:)% local_Position(2)
-      k_v = MPI_M_Points_ALL% x(:)% local_Position(3)
-      eID = MPI_M_Points_ALL% x(:)% element_index 
-      partition = MPI_M_Points_ALL% x(:)% partition
-   
-      do nProcs = 2, MPI_Process% nProcs        
-      
-         call mpi_isend( COORD_x, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,1), ierr                                        )
-      
-         call mpi_isend( COORD_y, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,2), ierr                                        )
-      
-         call mpi_isend( COORD_z, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,3), ierr                                        )
-      
-         call mpi_isend( i_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,4), ierr                                 )
-      
-         call mpi_isend( j_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,5), ierr                                 )
-      
-         call mpi_isend( k_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,6), ierr                                 )
-      
-         call mpi_isend( eID, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,7), ierr                                  )
-      
-         call mpi_isend( partition, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,8), ierr                                        )
-                         
-         call mpi_waitall(8, Masksend_req(nProcs-1,:), array_of_statuses, ierr  )                
-         
+      do i = 1, Mask% LocNumOfObjs
+         Mask% x(i)% coords            = x(i)% coords
+         Mask% x(i)% local_Position    = x(i)% local_Position
+         Mask% x(i)% element_index     = x(i)% element_index
+         Mask% x(i)% partition         = x(i)% partition
+         Mask% x(i)% index             = i     
       end do
-                         
-      deallocate(COORD_x,COORD_y,COORD_z,i_v,j_v,k_v,eID,partition,Masksend_req)
-#endif   
-   
-   end subroutine sendPointMaskPartition
-   
+
+      deallocate(x)
+
+   end subroutine GetMaskCandidates
+
+
+   subroutine RecvPointsListpartitions( PointsList )
+      implicit none 
+      !-arguments-----------------------------------------------------------------
+      type(IBMpoints), intent(inout) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP), allocatable :: coords(:,:)
+      integer,       allocatable :: local_position(:,:), element_index(:),   &
+                                    partition(:), indeces(:)
+      integer                    :: i, nProcs, ierr, recv_req(9),            &
+                                    array_of_statuses(MPI_STATUS_SIZE,9) 
+
+      if( MPI_Process% isRoot ) return
+
+      allocate( coords(PointsList% NumOfObjs,NDIM),         &
+                local_position(PointsList% NumOfObjs,NDIM), &
+                element_index(PointsList% NumOfObjs),       &
+                partition(PointsList% NumOfObjs),           &
+                indeces(PointsList% NumOfObjs)              )
+
+      call mpi_irecv( coords(:,1), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr )
+
+      call mpi_irecv( coords(:,2), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr )
+
+      call mpi_irecv( coords(:,3), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr )
+
+      call mpi_irecv( local_position(:,1), PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr )
+
+      call mpi_irecv( local_position(:,2), PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr )
+
+      call mpi_irecv( local_position(:,3), PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr )
+
+      call mpi_irecv( element_index, PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr )
+
+      call mpi_irecv( partition, PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr )
+
+      call mpi_irecv( indeces, PointsList% NumOfObjs, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr )
+
+      call mpi_waitall(9, recv_req, array_of_statuses, ierr)
+
+      do i = 1, PointsList% NumOfObjs
+         PointsList% x(i)% coords         = coords(i,:)
+         PointsList% x(i)% local_position = local_position(i,:)
+         PointsList% x(i)% element_index  = element_index(i)
+         PointsList% x(i)% partition      = partition(i)
+         PointsList% x(i)% index          = indeces(i)
+      end do
+
+      deallocate( coords,         &
+                  local_position, &
+                  element_index,  &
+                  partition,      &
+                  indeces         )
+#endif
+   end subroutine RecvPointsListpartitions
+
+
+   subroutine SendPointsList2partitions( PointsList )
+      implicit none 
+      !-arguments----------------------------------------------------------------
+      type(IBMPoints), intent(inout) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables----------------------------------------------------------
+      real(kind=RP), allocatable :: coords(:,:), normals(:,:), Dist(:)
+      integer,       allocatable :: local_position(:,:), element_index(:),   &
+                                    partition(:), indeces(:), send_req(:,:)
+      integer                    :: i, nProcs, ierr,                         &
+                                    array_of_statuses(MPI_STATUS_SIZE,9)
+
+      allocate( coords(PointsList% NumOfObjs,NDIM),         &
+                local_position(PointsList% NumOfObjs,NDIM), &
+                element_index(PointsList% NumOfObjs),       &
+                partition(PointsList% NumOfObjs),           &
+                indeces(PointsList% NumOfObjs),             &
+                send_req(MPI_Process% nProcs-1,9)          )
+
+      do i = 1, PointsList% NumOfObjs
+         coords(i,:)         = PointsList% x(i)% coords
+         local_position(i,:) = PointsList% x(i)% local_position
+         element_index(i)    = PointsList% x(i)% element_index
+         partition(i)        = PointsList% x(i)% partition
+         indeces(i)          = PointsList% x(i)% index
+      end do 
+
+      do nProcs = 2, MPI_Process% nProcs
+
+         call mpi_isend( coords(:,1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+
+         call mpi_isend( coords(:,2), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+
+         call mpi_isend( coords(:,3), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+
+         call mpi_isend( local_position(:,1), PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+
+         call mpi_isend( local_position(:,2), PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,5), ierr )
+
+         call mpi_isend( local_position(:,3), PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,6), ierr )
+
+         call mpi_isend( element_index, PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,7), ierr )
       
-   subroutine RootRecvPointMask()
-   
+         call mpi_isend( partition, PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,8), ierr )
+
+         call mpi_isend( indeces, PointsList% NumOfObjs, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,9), ierr )
+
+         call mpi_waitall(9, send_req(nProcs-1,:), array_of_statuses, ierr)
+
+      end do
+
+      deallocate( coords,         &
+                  local_position, &
+                  element_index,  &
+                  partition,      &
+                  indeces,        &
+                  send_req        )
+#endif
+   end subroutine SendPointsList2partitions
+
+   subroutine RecvPointsListRoot( PointsList )
+      implicit none 
+      !-arguments-------------------------------------------------------------------------
+      type(IBMPoints),           intent(inout) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables-------------------------------------------------------------------
+      real(kind=RP), allocatable :: coords(:,:), normals_x(:,:), normals_y(:,:),        &
+                                    normals_z(:,:)
+      integer,       allocatable :: local_position(:,:),  element_index(:),             &
+                                    partition(:), recv_req(:,:)
+      integer                    :: i, LocNumOfObjs, start_index, final_index, ierr,    &
+                                    rank, nProcs, array_of_statuses(MPI_STATUS_SIZE,9)
+
+      allocate( coords(PointsList% NumOfObjs,NDIM),                     &
+                local_position(PointsList% NumOfObjs,NDIM),             &
+                element_index(PointsList% NumOfObjs),                   &
+                partition(PointsList% NumOfObjs),                       &
+                recv_req(MPI_Process% nProcs-1,9)                      ) 
+
+      start_index = PointsList% LocNumOfObjs; final_index = PointsList% LocNumOfObjs
+
+      do nProcs = 2, MPI_Process% nProcs 
+
+         call mpi_irecv( LocNumOfObjs, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+
+         call mpi_wait(recv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr) 
+
+         if( LocNumOfObjs .eq. 0 ) cycle
+
+         call mpi_irecv( coords(1:LocNumOfObjs,1), LocNumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+
+         call mpi_irecv( coords(1:LocNumOfObjs,2), LocNumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+
+         call mpi_irecv( coords(1:LocNumOfObjs,3), LocNumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+
+         call mpi_irecv( local_position(1:LocNumOfObjs,1), LocNumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )
+
+         call mpi_irecv( local_position(1:LocNumOfObjs,2), LocNumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )
+
+         call mpi_irecv( local_position(1:LocNumOfObjs,3), LocNumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,7), ierr )
+
+         call mpi_irecv( element_index(1:LocNumOfObjs), LocNumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,8), ierr )
+
+         call mpi_irecv( partition(1:LocNumOfObjs), LocNumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,9), ierr )
+
+         call mpi_waitall(9, recv_req(nProcs-1,:), array_of_statuses, ierr)
+
+         start_index = final_index
+         final_index = start_index + LocNumOfObjs
+
+         do i = 1, LocNumOfObjs
+            PointsList% x(start_index+i)% coords         = coords(i,:)
+            PointsList% x(start_index+i)% local_position = local_position(i,:)
+            PointsList% x(start_index+i)% element_index  = element_index(i)
+            PointsList% x(start_index+i)% partition      = partition(i)
+            PointsList% x(start_index+i)% index          = start_index + i 
+         end do
+
+      end do
+
+      deallocate( coords,         &
+                  local_position, &
+                  element_index,  &
+                  partition,      &
+                  recv_req        )
+#endif
+   end subroutine RecvPointsListRoot
+
+
+   subroutine sendPointsList2Root( PointsList )
+      implicit none 
+      !-arguments-----------------------------
+      type(IBMPoints), intent(inout) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables--------------
+      real(kind=RP), allocatable :: coords(:,:), normals_x(:), normals_y(:), &
+                                    normals_z(:)
+      integer,       allocatable :: local_position(:,:),  element_index(:),  &
+                                    partition(:)
+      integer                    :: i, send_req(9), ierr,                   &
+                                    array_of_statuses(MPI_STATUS_SIZE,9)
+
+      if( MPI_Process% isRoot ) return
+
+      call mpi_isend( PointsList% LocNumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+
+      call mpi_wait(send_req(1), MPI_STATUS_IGNORE, ierr)
+
+      if( PointsList% LocNumOfObjs .eq. 0 ) return
+
+      allocate( coords(PointsList% LocNumOfObjs,NDIM),         &
+                local_position(PointsList% LocNumOfObjs,NDIM), &
+                element_index(PointsList% LocNumOfObjs),       &
+                partition(PointsList% LocNumOfObjs)            )
+
+      do i = 1, PointsList% LocNumOfObjs
+         coords(i,:)         = PointsList% x(i)% coords
+         local_position(i,:) = PointsList% x(i)% local_position
+         element_index(i)    = PointsList% x(i)% element_index
+         partition(i)        = PointsList% x(i)% partition
+      end do 
+
+      call mpi_isend( coords(:,1), PointsList% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+
+      call mpi_isend( coords(:,2), PointsList% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+
+      call mpi_isend( coords(:,3), PointsList% LocNumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+
+      call mpi_isend( local_position(:,1), PointsList% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(5), ierr )
+
+      call mpi_isend( local_position(:,2), PointsList% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(6), ierr )
+
+      call mpi_isend( local_position(:,3), PointsList% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(7), ierr )
+
+      call mpi_isend( element_index, PointsList% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(8), ierr )
+      
+      call mpi_isend( partition, PointsList% LocNumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(9), ierr )
+
+      call mpi_waitall(9, send_req, array_of_statuses, ierr)
+
+      deallocate( coords,         &
+                  local_position, &
+                  element_index,  &
+                  partition       )
+#endif
+   end subroutine sendPointsList2Root
+
+
+
+   subroutine recvPointsMaskRoot()
       implicit none
-   
+      !-local-variables--------------------------------------------------
+      integer              :: i 
 #ifdef _HAS_MPI_      
-      !-local-variables---------------------------------------------------------------
-      integer                              :: ObjsSize, nProcs, ierr, i, msg,      &
-                                              array_of_statuses(MPI_STATUS_SIZE,1)
-      integer, dimension(:),   allocatable :: isInsideBody
-      integer, dimension(:,:), allocatable :: RootMaskrecv_req
-      
-      if( MPI_Process% isRoot ) then      
-      
-         allocate(RootMaskrecv_req(MPI_Process% nProcs-1,1))
+      integer              :: nProcs, ierr, recv_req,   &
+                              status(MPI_STATUS_SIZE) 
+      integer, allocatable :: NumOfIntersectionsLoc(:), &
+                              NumOfIntersections(:)  
+
+      allocate( NumOfIntersectionsLoc(Mask% NumOfObjs), &
+                NumOfIntersections(Mask% NumOfObjs)     )
             
-         do nProcs = 2, MPI_Process% nProcs
-      
-             allocate( isInsideBody(MPI_M_Points_All% NumOfObjs) )       
-      
-             call mpi_irecv( isInsideBody, MPI_M_Points_All% NumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,1), ierr )         
+      NumOfIntersections = 0
 
-             call mpi_waitall(1, RootMaskrecv_req(nProcs-1,1), array_of_statuses, ierr)            
-                        
-             do i = 1, MPI_M_Points_All% NumOfObjs
-                if( MPI_M_Points_All% x(i)% isInsideBody ) cycle            
-                MPI_M_Points_All% x(i)% isInsideBody = isInsideBody(i)  
-             end do
+      do nProcs = 2, MPI_Process% nProcs
+      
+         call mpi_irecv( NumOfIntersectionsLoc, Mask% NumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req, ierr )  
+            
+         call mpi_wait(recv_req, status, ierr)                      
                       
-             deallocate( isInsideBody )
+         NumOfIntersections = NumOfIntersections + NumOfIntersectionsLoc
 
-          end do
+      end do
 
-          deallocate(RootMaskrecv_req)
+      do i = 1, Mask% NumOfObjs
+         Mask% x(i)% NumOfIntersections = Mask% x(i)% NumOfIntersections + NumOfIntersections(i)
+         Mask% x(i)% isInsideBody = .false.
+         if(mod(Mask% x(i)% NumOfIntersections,2) .ne. 0 ) Mask% x(i)% isInsideBody = .true.
+      end do
 
-       end if
+      deallocate(NumOfIntersections,NumOfIntersectionsLoc)
+#else
+      do i = 1, Mask% NumOfObjs
+         Mask% x(i)% isInsideBody = .false.
+         if(mod(Mask% x(i)% NumOfIntersections,2) .ne. 0 ) Mask% x(i)% isInsideBody = .true.
+      end do
 #endif          
+   end subroutine recvPointsMaskRoot
    
-   end subroutine RootRecvPointMask
-   
-   subroutine RootSendPointMask()
-   
+   subroutine sendPointsMask2Root()
       implicit none
-   
 #ifdef _HAS_MPI_  
       !-local-variables-----------------------------------------------------------
-      integer                            :: ObjsSize, i, j, ierr, msg,            &
-                                            array_of_statuses(MPI_STATUS_SIZE,1), &
-                                            RootMasksend_req(1)
-      integer, dimension(:), allocatable :: isInsideBody
+      integer              :: ierr, send_req, i,      &
+                              status(MPI_STATUS_SIZE)
+      integer, allocatable :: NumOfIntersectionsLoc(:)
       
       if( MPI_Process% isRoot ) return
-      
-      ObjsSize = MPI_M_Points_ALL% NumOfObjs       
- 
-      allocate( isInsideBody(ObjsSize) )
+     
+      allocate( NumOfIntersectionsLoc(Mask% NumOfObjs) )
 
-      isInsideBody = MPI_M_Points_ALL% x(:)% isInsideBody
+      do i = 1, Mask% NumOfObjs
+         NumOfIntersectionsLoc(i) = Mask% x(i)% NumOfIntersections
+      end do
 
-      call mpi_isend( isInsideBody, MPI_M_Points_ALL% NumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootMasksend_req(1), ierr )
+      call mpi_isend( NumOfIntersectionsLoc, Mask% NumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req, ierr )
       
-      call mpi_waitall(1, RootMasksend_req(1), array_of_statuses, ierr)        
+      call mpi_wait(send_req, status, ierr)              
   
-      deallocate( isInsideBody )
+      deallocate( NumOfIntersectionsLoc )
 #endif  
-
-   end subroutine RootSendPointMask
+   end subroutine sendPointsMask2Root
    
  
-   subroutine recvPointMask()
-    
+   subroutine recvPointsMaskPartitions()
       implicit none
-      
 #ifdef _HAS_MPI_    
       !-local-variables-----------------------------------------------------------  
-      integer                            :: ObjsSize, ierr, i, &
-                                            array_of_statuses(MPI_STATUS_SIZE,1), &
-                                            Maskrecv_req(1)
-      logical, dimension(:), allocatable :: isInsideBody !5/2/22
+      integer              :: ierr, i, recv_req,      &
+                              status(MPI_STATUS_SIZE)
+      logical, allocatable :: isInsideBody(:)
       
       if( MPI_Process% isRoot ) return 
 
-      ObjsSize = MPI_M_Points_ALL% NumOfObjs
+      allocate( isInsideBody(Mask% NumOfObjs) )      
+ 
+      call mpi_irecv( isInsideBody, Mask% NumOfObjs, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req, ierr )  
 
-      allocate( isInsideBody(ObjsSize) )      
+      call mpi_wait(recv_req, status, ierr)     
 
-      call mpi_irecv( isInsideBody, ObjsSize, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(1), ierr )  !5/2/22
-
-      call mpi_waitall(1, Maskrecv_req(1), array_of_statuses, ierr)     
-
-      do i = 1, ObjsSize 
-         MPI_M_Points_All% x(i)% isInsideBody = isInsideBody(i)  
+      do i = 1, Mask% NumOfObjs
+         Mask% x(i)% isInsideBody = isInsideBody(i)  
       end do 
  
       deallocate( isInsideBody )
 #endif
-   
-   end subroutine recvPointMask
+   end subroutine recvPointsMaskPartitions
 
-   subroutine sendPointMask()
-   
+   subroutine sendPointsMask2Partitions()
       implicit none
-   
 #ifdef _HAS_MPI_  
       !-local-variables-----------------------------------------------------------------------------
-      integer                              :: ObjsSize, nProcs, msg, ierr, &
-                                              array_of_statuses(MPI_STATUS_SIZE,MPI_Process% nProcs)
-      logical, dimension(:),   allocatable :: isInsideBody !5/2/22
-      integer, dimension(:,:), allocatable :: Masksend_req
-   
-      ObjsSize = MPI_M_Points_ALL% NumOfObjs
+      integer              :: nProcs, ierr, i, &
+                              statuses(MPI_STATUS_SIZE)
+      integer              :: send_req
+      logical, allocatable :: isInsideBody(:)
       
-      allocate( isInsideBody(ObjsSize), Masksend_req(MPI_Process% nProcs-1,1) )
+      allocate( isInsideBody(Mask% NumOfObjs) )
         
-      isInsideBody = MPI_M_Points_ALL% x(:)% isInsideBody
-        
+      do i = 1, Mask% NumOfObjs
+         isInsideBody(i) = Mask% x(i)% isInsideBody
+      end do
+      
       do nProcs = 2, MPI_Process% nProcs          
       
-         call mpi_isend( isInsideBody, ObjsSize, MPI_LOGICAL, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,1), ierr                                              )
+         call mpi_isend( isInsideBody, Mask% NumOfObjs, MPI_LOGICAL, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req, ierr )
          
-      end do
+         call mpi_wait(send_req, statuses, ierr )
 
-      call mpi_waitall(MPI_Process% nProcs-1, Masksend_req(:,1), array_of_statuses, ierr  )
+      end do
       
-      deallocate(isInsideBody, Masksend_req)
+      deallocate( isInsideBody )
 #endif   
-   
-   end subroutine sendPointMask  
-   
-   
-   
-   
-! BAND REGION 
-   
-    subroutine RootrecvBandPoint( BandRegion )
-   
-      implicit none
-      !-arguments-----------------------------------------------------------------------
-      type(MPI_M_Points_type), intent(inout) :: BandRegion
-#ifdef _HAS_MPI_      
-      !-local-variables-----------------------------------------------------------------
-      integer                                    :: ObjsSize, nProcs, ierr, i, msg, &
-                                                    array_of_statuses(MPI_STATUS_SIZE,9)
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:),   allocatable :: buffer, i_v, j_v, k_v, eID, partition
-      integer,       dimension(:,:), allocatable :: RootBandrecv_req
-    
-      if( MPI_Process% isRoot ) then
+   end subroutine sendPointsMask2Partitions
 
-         allocate(buffer(MPI_Process% nProcs-1),RootBandrecv_req(MPI_Process% nProcs-1,9))
+   subroutine recvNormalsRoot( PointsList, ranks )
+      implicit none 
+      !-arguments-------------------------------------------------------------------------
+      type(IBMPoints), intent(inout) :: PointsList
+      real(kind=RP),   intent(in)    :: ranks(:)
+      !-local-variables-------------------------------------------------------------------
+#ifdef _HAS_MPI_
+      real(kind=RP), allocatable :: normals_x(:,:), normals_y(:,:), normals_z(:,:)
+      integer,       allocatable :: recv_req(:,:)
+      integer                    :: i, ierr, rank, nProcs,                          &
+                                    array_of_statuses(MPI_STATUS_SIZE,3)
 
-         do nProcs = 2, MPI_Process% nProcs
-         
-            call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,1), ierr ) 
-            call mpi_wait(RootBandrecv_req(nProcs-1,1), MPI_STATUS_IGNORE, ierr)
-            
-!~             BandPoints_All% buffer(nProcs) = BandPoints_All% buffer(nProcs-1) + ObjsSize
-            BandRegion% buffer(nProcs) = BandRegion% buffer(nProcs-1) + ObjsSize
-            buffer(nProcs-1) = ObjsSize
-            
-         end do         
-                   
-         do nProcs = 2, MPI_Process% nProcs
-      
-             allocate( COORD_x(buffer(nProcs-1)),  &
-                       COORD_y(buffer(nProcs-1)),  &
-                       COORD_z(buffer(nProcs-1)),  &
-                       i_v(buffer(nProcs-1)),      &    
-                       j_v(buffer(nProcs-1)),      &
-                       k_v(buffer(nProcs-1)),      &
-                       eID(buffer(nProcs-1)),      & 
-                       partition(buffer(nProcs-1)) ) 
-                                  
-             call mpi_irecv( COORD_x, buffer(nProcs-1), MPI_DOUBLE, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,2), ierr )  
-          
-             call mpi_irecv( COORD_y, buffer(nProcs-1), MPI_DOUBLE, nProcs-1,  &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,3), ierr ) 
-
-             call mpi_irecv( COORD_z, buffer(nProcs-1), MPI_DOUBLE, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,4), ierr )   
-
-             call mpi_irecv( i_v, buffer(nProcs-1), MPI_INT, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,5), ierr )   
-
-             call mpi_irecv( j_v, buffer(nProcs-1), MPI_INT, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,6), ierr )   
-
-             call mpi_irecv( k_v, buffer(nProcs-1), MPI_INT, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,7), ierr )   
-
-             call mpi_irecv( eID, buffer(nProcs-1), MPI_INT, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,8), ierr )   
-
-             call mpi_irecv( partition, buffer(nProcs-1), MPI_INT, nProcs-1,   &
-                             MPI_ANY_TAG, MPI_COMM_WORLD, RootBandrecv_req(nProcs-1,9), ierr )   
-                             
-             call mpi_waitall(9, RootBandrecv_req(nProcs-1,:), array_of_statuses, ierr)                                                
-             
-             do i = 1, buffer(nProcs-1)               
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% index     = i+BandPoints_All% buffer(nProcs-1)
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(1) = COORD_x(i)
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(2) = COORD_y(i)
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% coords(3) = COORD_z(i)  
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(1) = i_v(i)  
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(2) = j_v(i)  
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% local_Position(3) = k_v(i)  
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% element_index = eID(i)  
-                BandRegion% x(i+BandRegion% buffer(nProcs-1))% partition = partition(i)  
-             end do
-                      
-             deallocate( COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
-
-          end do
-          
-          deallocate(buffer,RootBandrecv_req)
-
-       end if
-#endif          
-   
-   end subroutine RootrecvBandPoint
-   
-   
-   subroutine RootSendBandPoint( BandPoints )
-   
-      implicit none
-      !-arguments----------------------------------------------------------------------
-      type(PointLinkedList), intent(inout) :: BandPoints
-#ifdef _HAS_MPI_  
-      !-local-variables----------------------------------------------------------------
-      integer                                    :: ObjsSize, i, ierr, &
-                                                    array_of_statuses(MPI_STATUS_SIZE,9), &
-                                                    RootBandsend_req(9)
-      type(point_type), pointer                  :: p
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z    
-      integer,       dimension(:),   allocatable :: i_v, j_v, k_v, eID, partition
+      allocate( normals_x(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
+                normals_y(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
+                normals_z(PointsList% NumOfObjs,MPI_Process% nProcs-1), &
+                recv_req(MPI_Process% nProcs-1,3)                       )
  
-      if( MPI_Process% isRoot ) return
-      
-      ObjsSize = BandPoints% NumOfPoints
-       
-      call mpi_isend( ObjsSize, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(1), ierr ) !
+      do nProcs = 2, MPI_Process% nProcs 
+ 
+         call mpi_irecv( normals_x(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
 
-      allocate( COORD_x(ObjsSize),  &
-                COORD_y(ObjsSize),  &
-                COORD_z(ObjsSize),  &
-                i_v(ObjsSize),      &    
-                j_v(ObjsSize),      &
-                k_v(ObjsSize),      &
-                eID(ObjsSize),      &
-                partition(ObjsSize) )
+         call mpi_irecv( normals_y(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
 
-      p => BandPoints% head
-      
-      do i = 1, ObjsSize 
-         COORD_x(i) = p% coords(1)
-         COORD_y(i) = p% coords(2)
-         COORD_z(i) = p% coords(3)
-         i_v(i) = p% local_Position(1)
-         j_v(i) = p% local_Position(2)
-         k_v(i) = p% local_Position(3)
-         eID(i) = p% element_index
-         partition(i) = p% partition
-         p => p% next
+         call mpi_irecv( normals_z(:,nProcs-1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+
+         call mpi_waitall(3, recv_req(nProcs-1,:), array_of_statuses, ierr ) 
+
       end do
 
-      call mpi_isend( COORD_x, ObjsSize, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(2), ierr )
-  
-      call mpi_isend( COORD_y, ObjsSize, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(3), ierr )
+      do i = 1, PointsList% NumOfObjs
+         rank = ranks(i)
+         if( rank .eq. 0 ) cycle
+         PointsList% x(i)% normal(1) = normals_x(i,rank)
+         PointsList% x(i)% normal(2) = normals_y(i,rank)
+         PointsList% x(i)% normal(3) = normals_z(i,rank)
+      end do 
 
-      call mpi_isend( COORD_z, ObjsSize, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(4), ierr )
-      
-      call mpi_isend( i_v, ObjsSize, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(5), ierr )
-                         
-      call mpi_isend( j_v, ObjsSize, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(6), ierr )
-                         
-      call mpi_isend( k_v, ObjsSize, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(7), ierr )
-                         
-      call mpi_isend( eID, ObjsSize, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(8), ierr  )
-      
-      call mpi_isend( partition, ObjsSize, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootBandsend_req(9), ierr  )
-           
-      call mpi_waitall(9, RootBandsend_req, array_of_statuses, ierr)                     
-        
-      deallocate( COORD_x,  &
-                  COORD_y,  &
-                  COORD_z,  &
-                  i_v,      &  
-                  j_v,      &
-                  k_v,      &
-                  eID,      &
-                  partition )  
-#endif  
+      deallocate( normals_x, &
+                  normals_y, &
+                  normals_z, &
+                  recv_req   )
+#endif 
+   end subroutine recvNormalsRoot
 
-   end subroutine RootSendBandPoint 
- 
-   subroutine recvBandPointPartition( BandRegion )
-    
+   subroutine sendNormals2Root( PointsList )
+      implicit none 
+      !-arguments-----------------------------------------------------------------
+      type(IBMPoints), intent(in) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables----------------------------------------------------------
+      real(kind=RP), allocatable :: normals(:,:)
+      integer                    :: send_req(3), ierr, i,                &
+                                    array_of_statuses(MPI_STATUS_SIZE,3)
+          
+      if( MPI_Process% isRoot ) return
+
+      allocate(normals(PointsList% NumOfObjs,NDIM))
+
+      do i = 1, PointsList% NumOfObjs
+         normals(i,:) = PointsList% x(i)% normal
+      end do
+
+      call mpi_isend( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+
+      call mpi_isend( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+
+      call mpi_isend( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+
+      call mpi_waitall(3, send_req, array_of_statuses, ierr)
+
+      deallocate(normals)
+#endif
+   end subroutine sendNormals2Root
+
+   subroutine recvDistancesANDNormalspartitions( PointsList )
       implicit none
+      !-arguments------------------------------------------------------------------------------
+      type(IBMPoints), intent(inout) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables------------------------------------------------------------------------
+      real(kind=RP), allocatable :: normals(:,:), Dist(:)
+      integer                    :: i, ierr, recv_req(4),                &
+                                    array_of_statuses(MPI_STATUS_SIZE,4)
+
+      if( MPI_Process% isRoot ) return
+
+      allocate( normals(PointsList% NumOfObjs,NDIM), &
+                Dist(PointsList% NumOfObjs)          )
+
+      call mpi_irecv( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr ) 
+
+      call mpi_irecv( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr ) 
+      
+      call mpi_irecv( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr ) 
+
+      call mpi_irecv( Dist, PointsList% NumOfObjs, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr ) 
+
+      call mpi_waitall(4, recv_req, array_of_statuses, ierr)
+
+      do i = 1, PointsList% NumOfObjs
+         PointsList% x(i)% normal = normals(i,:)
+         PointsList% x(i)% Dist   = Dist(i)
+      end do
+
+      deallocate( normals, &
+                  Dist     )
+#endif
+   end subroutine recvDistancesANDNormalspartitions
+
+   subroutine sendDistanceANDNormals2partitions( PointsList )
+      implicit none
+      !-arguments------------------------------------------------------------------------------
+      type(IBMPoints), intent(in) :: PointsList
+#ifdef _HAS_MPI_
+      !-local-variables------------------------------------------------------------------------
+      real(kind=RP), allocatable :: normals(:,:), Dist(:)
+      integer,       allocatable :: send_req(:,:)
+      integer                    :: i, ierr, nProcs, array_of_statuses(MPI_STATUS_SIZE,4)
+
+      allocate( normals(PointsList% NumOfObjs,NDIM), &
+                Dist(PointsList% NumOfObjs),         &
+                send_req(MPI_Process% nProcs-1,4)    )
+
+      do i = 1, PointsList% NumOfObjs
+         normals(i,:) = PointsList% x(i)% normal
+         Dist(i)      = PointsList% x(i)% Dist
+      end do
+
+      do nProcs = 2, MPI_Process% nProcs
+
+         call mpi_isend( normals(:,1), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,1), ierr )
+
+         call mpi_isend( normals(:,2), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,2), ierr )
+
+         call mpi_isend( normals(:,3), PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,3), ierr )
+         
+         call mpi_isend( Dist, PointsList% NumOfObjs, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, send_req(nProcs-1,4), ierr )
+
+         call mpi_waitall(4, send_req(nProcs-1,:), array_of_statuses, ierr)
+
+      end do
+
+      deallocate( normals, &
+                  Dist,    &
+                  send_req )
+#endif
+   end subroutine sendDistanceANDNormals2partitions
+
+
+   subroutine recvScalarPlotRoot( ObjectsList, STLNum, rootScalar, x, y, z, scalar )
+
+      implicit none
+      type(Object_type),          intent(in)    :: ObjectsList(:)
+      integer,                    intent(in)    :: STLNum
+      real(kind=RP),              intent(in)    :: rootScalar(:,:)
+      real(kind=RP), allocatable, intent(inout) :: x(:), y(:), z(:), scalar(:)
+      !-local-variables-------------------------------------------------------------------
+      real(kind=RP)              :: coords(NDIM)
+      integer                    :: i, j, k, rootNumOfObjs       
+#ifdef _HAS_MPI_      
+      integer                    :: ierr, nProcs, rank, ObjsSize, start_index,        &
+                                    final_index, array_of_statuses(MPI_STATUS_SIZE,4)
+      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjs(:)
+      real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state(:)
+#endif
+      if( .not. MPI_Process% isRoot ) return
+
+      rootNumOfObjs = 3*size(ObjectsList)
+#ifdef _HAS_MPI_ 
+
+      allocate( NumOfObjs(MPI_Process% nProcs-1),    &
+                recv_Firstreq(MPI_Process% nProcs-1) )
+
+      do nProcs = 2, MPI_Process% nProcs
+         
+         call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
+         call mpi_wait( recv_Firstreq(nProcs-1), MPI_STATUS_IGNORE, ierr )
+
+         NumOfObjs(nProcs-1) = ObjsSize
+
+      end do 
+
+      deallocate(recv_Firstreq)
+
+      allocate( x(rootNumOfObjs+sum(NumOfObjs)),      &
+                y(rootNumOfObjs+sum(NumOfObjs)),      &
+                z(rootNumOfObjs+sum(NumOfObjs)),      &
+                scalar(rootNumOfObjs+sum(NumOfObjs)), &
+                COORD_x(sum(NumOfObjs)),              &
+                COORD_y(sum(NumOfObjs)),              &
+                COORD_z(sum(NumOfObjs)),              &
+                state(sum(NumOfObjs)),                &
+                recv_req(MPI_Process% nProcs-1,4)     )
+ 
+      do nProcs = 2, MPI_Process% nProcs  
+
+         start_index = sum(NumOfObjs(1:nProcs-2)) + 1 
+         final_index = (start_index-1) + NumOfObjs(nProcs-1)
+
+         call mpi_irecv( COORD_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+
+         call mpi_irecv( COORD_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+        
+         call mpi_irecv( COORD_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+        
+         call mpi_irecv( state(start_index:final_index),   NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+
+         call mpi_waitall(4, recv_req(nProcs-1,:), array_of_statuses, ierr)  
+
+      end do
+      do i = 1, sum(NumOfObjs)
+         x(rootNumOfObjs+i)      = COORD_x(i)
+         y(rootNumOfObjs+i)      = COORD_y(i)
+         z(rootNumOfObjs+i)      = COORD_z(i)
+         scalar(rootNumOfObjs+i) = state(i)
+      end do  
+
+      deallocate( NumOfObjs, COORD_x, COORD_y, COORD_z, state, recv_req )
+#else
+      allocate( x(rootNumOfObjs),      &
+                y(rootNumOfObjs),      &
+                z(rootNumOfObjs),      &
+                scalar(rootNumOfObjs)  )
+#endif  
+      k = 0
+      do i = 1, size(ObjectsList)
+         do j = 1, size(ObjectsList(i)% vertices)
+            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+            k         = k + 1
+            x(k)      = coords(1)
+            y(k)      = coords(2)
+            z(k)      = coords(3)
+            scalar(k) = Rootscalar(i,j)
+         end do
+      end do
+
+   end subroutine recvScalarPlotRoot
+
+   subroutine sendScalarPlotRoot( ObjectsList, STLNum, partitionScalar )
+      implicit none 
+
       !-arguments-------------------------------------------------------------------------
-      type(MPI_M_Points_type), intent(inout) :: BandRegion
+      type(Object_type), intent(in) :: ObjectsList(:)
+      integer,           intent(in) :: STLNum
+      real(kind=RP),     intent(in) :: partitionScalar(:,:)      
 #ifdef _HAS_MPI_      
       !-local-variables-------------------------------------------------------------------
-      integer                                  :: ObjsSize, ierr, i,                    &
-                                                  array_of_statuses(MPI_STATUS_SIZE,9), &
-                                                  Bandrecv_req(9)
-      real(kind=RP), dimension(:), allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:), allocatable :: indeces, i_v, j_v, k_v, eID, partition
-      
-      if( MPI_Process% isRoot ) return 
+      integer                    :: ierr, i, j, k, NumOfObjs, status(MPI_STATUS_SIZE), &
+                                    array_of_statuses(MPI_STATUS_SIZE,4),              &
+                                    send_Firstreq, send_req(4)
+      real(kind=RP)              :: coords(NDIM)
+      real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state(:)
 
-      ObjsSize = BandRegion% NumOfObjs
+      if( MPI_Process% isRoot ) return
 
-      allocate( indeces(ObjsSize),  &
-                COORD_x(ObjsSize),  &
-                COORD_y(ObjsSize),  &
-                COORD_z(ObjsSize),  &
-                i_v(ObjsSize),      &
-                j_v(ObjsSize),      &
-                k_v(ObjsSize),      &
-                eID(ObjsSize),      &
-                partition(ObjsSize) )      
-                            
-      call mpi_irecv( indeces, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(1), ierr )  
-      
-      call mpi_irecv( COORD_x, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(2), ierr )  
+      NumOfObjs = 3*size(ObjectsList)
 
-      call mpi_irecv( COORD_y, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(3), ierr )  
+      call mpi_isend( NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_Firstreq, ierr )
 
-      call mpi_irecv( COORD_z, ObjsSize, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(4), ierr )    
+      call mpi_wait(send_Firstreq, status, ierr)
 
-      call mpi_irecv( i_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(5), ierr ) 
-         
-      call mpi_irecv( j_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(6), ierr )    
-      
-      call mpi_irecv( k_v, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(7), ierr )    
-      
-      call mpi_irecv( eID, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(8), ierr )    
-      
-      call mpi_irecv( partition, ObjsSize, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Bandrecv_req(9), ierr )    
-
-      call mpi_waitall(9, Bandrecv_req, array_of_statuses, ierr)     
-
-      do i = 1, ObjsSize  
-         BandRegion% x(i)% index     = indeces(i)
-         BandRegion% x(i)% coords(1) = COORD_x(i)
-         BandRegion% x(i)% coords(2) = COORD_y(i)
-         BandRegion% x(i)% coords(3) = COORD_z(i)  
-         BandRegion% x(i)% local_Position(1) = i_v(i)  
-         BandRegion% x(i)% local_Position(2) = j_v(i)  
-         BandRegion% x(i)% local_Position(3) = k_v(i)  
-         BandRegion% x(i)% element_index = eID(i)  
-         BandRegion% x(i)% partition = partition(i)  
-      end do 
- 
-      deallocate( indeces, COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition )
-#endif
-   
-   end subroutine recvBandPointPartition
-
-   subroutine sendBandPointPartition( BandRegion )
-   
-      implicit none
-      !-arguments-------------------------------------------------------------------------
-      type(MPI_M_Points_type), intent(inout) :: BandRegion
-#ifdef _HAS_MPI_  
-      !-local-variables--------------------------------------------------------------------------
-      integer                                    :: ObjsSize, nProcs, msg, ierr, &
-                                                    array_of_statuses(MPI_STATUS_SIZE,9)
-      real(kind=RP), dimension(:),   allocatable :: COORD_x, COORD_y, COORD_z
-      integer,       dimension(:),   allocatable :: indeces, i_v, j_v, k_v, eID, partition
-      integer,       dimension(:,:), allocatable :: Bandsend_req
-      integer                                    :: i
-
-      ObjsSize = BandRegion% NumOfObjs
-      
-      allocate( indeces(ObjsSize),                    &
-                COORD_x(ObjsSize),                    & 
-                COORD_y(ObjsSize),                    & 
-                COORD_z(ObjsSize),                    &
-                i_v(ObjsSize),                        &
-                j_v(ObjsSize),                        &
-                k_v(ObjsSize),                        &
-                eID(ObjsSize),                        &
-                partition(ObjsSize),                  &
-                Bandsend_req(MPI_Process% nProcs-1,9) )
-
-      indeces = BandRegion% x(:)% index
-      COORD_x = BandRegion% x(:)% coords(1)
-      COORD_y = BandRegion% x(:)% coords(2)
-      COORD_z = BandRegion% x(:)% coords(3)
-      i_v = BandRegion% x(:)% local_Position(1)
-      j_v = BandRegion% x(:)% local_Position(2)
-      k_v = BandRegion% x(:)% local_Position(3)
-      eID = BandRegion% x(:)% element_index
-      partition = BandRegion% x(:)% partition
-   
-      do nProcs = 2, MPI_Process% nProcs        
-      
-         call mpi_isend( indeces, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,1), ierr                                     )
-      
-         call mpi_isend( COORD_x, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,2), ierr                                        )
-      
-         call mpi_isend( COORD_y, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,3), ierr                                        )
-      
-         call mpi_isend( COORD_z, ObjsSize, MPI_DOUBLE, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,4), ierr                                        )
-      
-         call mpi_isend( i_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,5), ierr                                 )
-      
-         call mpi_isend( j_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,6), ierr                                 )
-      
-         call mpi_isend( k_v, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,7), ierr                                 )
-      
-         call mpi_isend( eID, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,8), ierr                                 )
-      
-         call mpi_isend( partition, ObjsSize, MPI_INT, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Bandsend_req(nProcs-1,9), ierr                                       )
-                         
-         call mpi_waitall( 9, Bandsend_req(nProcs-1,:), array_of_statuses, ierr )                
-         
+      allocate( COORD_x(NumOfObjs), &
+                COORD_y(NumOfObjs), &
+                COORD_z(NumOfObjs), &
+                state(NumOfObjs)    )
+                  
+      k = 0
+      do i = 1, size(ObjectsList)
+         do j = 1, size(ObjectsList(i)% vertices)
+            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+            k          = k + 1
+            COORD_x(k) = coords(1)
+            COORD_y(k) = coords(2)
+            COORD_z(k) = coords(3)
+            state(k)   = partitionScalar(i,j)
+         end do
       end do
-                         
-      deallocate( indeces, COORD_x, COORD_y, COORD_z, i_v, j_v, k_v, eID, partition, Bandsend_req )
-#endif   
-   
-   end subroutine sendBandPointPartition
 
-   
+      call mpi_isend( COORD_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+      
+      call mpi_isend( COORD_y, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+      
+      call mpi_isend( COORD_z, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+                         
+      call mpi_isend( state, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+
+      call mpi_waitall( 4, send_req, array_of_statuses, ierr )                            
+
+      deallocate( COORD_x, COORD_y, COORD_z, state )     
+#endif
+   end subroutine sendScalarPlotRoot
+
+
+   subroutine recvVectorPlotRoot( ObjectsList, STLNum, rootVector, x, y, z, vector_x, vector_y, vector_z )
+
+      implicit none
+      type(Object_type),          intent(in)    :: ObjectsList(:)
+      integer,                    intent(in)    :: STLNum
+      real(kind=RP),              intent(in)    :: rootVector(:,:,:)
+      real(kind=RP), allocatable, intent(inout) :: x(:), y(:), z(:), vector_x(:), &
+                                                   vector_y(:), vector_z(:)
+      !-local-variables-------------------------------------------------------------------
+      real(kind=RP)              :: coords(NDIM)
+      integer                    :: i, j, k, rootNumOfObjs       
+#ifdef _HAS_MPI_      
+      integer                    :: ierr, nProcs, rank, ObjsSize, start_index,        &
+                                    final_index, array_of_statuses(MPI_STATUS_SIZE,6)
+      integer,       allocatable :: recv_req(:,:), recv_Firstreq(:), NumOfObjs(:)
+      real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state_x(:),   &
+                                    state_y(:), state_z(:)
+#endif
+      if( .not. MPI_Process% isRoot ) return
+
+      rootNumOfObjs = 3*size(ObjectsList)
+#ifdef _HAS_MPI_ 
+
+      allocate( NumOfObjs(MPI_Process% nProcs-1),    &
+                recv_Firstreq(MPI_Process% nProcs-1) )
+
+      NumOfObjs = 0
+
+      do nProcs = 2, MPI_Process% nProcs
+         
+         call mpi_irecv( ObjsSize, 1, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_Firstreq(nProcs-1), ierr ) 
+         call mpi_wait( recv_Firstreq(nProcs-1), MPI_STATUS_IGNORE, ierr )
+
+         NumOfObjs(nProcs-1) = ObjsSize
+
+      end do 
+
+      deallocate(recv_Firstreq)
+
+      allocate( x(rootNumOfObjs+sum(NumOfObjs)),        &
+                y(rootNumOfObjs+sum(NumOfObjs)),        &
+                z(rootNumOfObjs+sum(NumOfObjs)),        &
+                vector_x(rootNumOfObjs+sum(NumOfObjs)), &
+                vector_y(rootNumOfObjs+sum(NumOfObjs)), &
+                vector_z(rootNumOfObjs+sum(NumOfObjs)), &
+                COORD_x(sum(NumOfObjs)),                &
+                COORD_y(sum(NumOfObjs)),                &
+                COORD_z(sum(NumOfObjs)),                &
+                state_x(sum(NumOfObjs)),                &
+                state_y(sum(NumOfObjs)),                &
+                state_z(sum(NumOfObjs)),                & 
+                recv_req(MPI_Process% nProcs-1,6)       )
+
+      do nProcs = 2, MPI_Process% nProcs  
+
+         start_index = sum(NumOfObjs(1:nProcs-2)) + 1 
+         final_index = (start_index-1) + NumOfObjs(nProcs-1)
+
+         call mpi_irecv( COORD_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,1), ierr )
+         
+         call mpi_irecv( COORD_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,2), ierr )
+        
+         call mpi_irecv( COORD_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,3), ierr )
+        
+         call mpi_irecv( state_x(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,4), ierr )
+        
+         call mpi_irecv( state_y(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,5), ierr )
+
+         call mpi_irecv( state_z(start_index:final_index), NumOfObjs(nProcs-1), MPI_DOUBLE, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(nProcs-1,6), ierr )
+
+         call mpi_waitall(6, recv_req(nProcs-1,:), array_of_statuses, ierr)    
+           
+      end do
+
+      do i = 1, sum(NumOfObjs)
+         x(rootNumOfObjs+i)        = COORD_x(i)
+         y(rootNumOfObjs+i)        = COORD_y(i)
+         z(rootNumOfObjs+i)        = COORD_z(i)
+         vector_x(rootNumOfObjs+i) = state_x(i)
+         vector_y(rootNumOfObjs+i) = state_y(i)
+         vector_z(rootNumOfObjs+i) = state_z(i)
+      end do
+
+      deallocate( NumOfObjs, COORD_x, COORD_y, COORD_z, state_x, state_y, state_z, recv_req )
+#else
+      allocate( x(rootNumOfObjs),        &
+                y(rootNumOfObjs),        &
+                z(rootNumOfObjs),        &
+                vector_x(rootNumOfObjs), &
+                vector_y(rootNumOfObjs), &
+                vector_z(rootNumOfObjs), )
+#endif  
+      k = 0
+      do i = 1, size(ObjectsList)
+         do j = 1, size(ObjectsList(i)% vertices)
+            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+            k           = k + 1
+            x(k)        = coords(1)
+            y(k)        = coords(2)
+            z(k)        = coords(3)
+            vector_x(k) = rootVector(1,i,j)
+            vector_y(k) = rootVector(2,i,j)
+            vector_z(k) = rootVector(3,i,j)
+         end do
+      end do
+
+   end subroutine recvVectorPlotRoot
+
+   subroutine sendVectorPlotRoot( ObjectsList, STLNum, partitionVector )
+      implicit none 
+
+       !-arguments-------------------------------------------------------------------------
+      type(Object_type), intent(in) :: ObjectsList(:)
+      integer,           intent(in) :: STLNum
+      real(kind=RP),     intent(in) :: partitionVector(:,:,:)      
+#ifdef _HAS_MPI_      
+      !-local-variables-------------------------------------------------------------------
+      integer                    :: ierr, i, j, k, NumOfObjs, status(MPI_STATUS_SIZE), &
+                                    array_of_statuses(MPI_STATUS_SIZE,6),              &
+                                    send_Firstreq, send_req(6)
+      real(kind=RP)              :: coords(NDIM)
+      real(kind=RP), allocatable :: COORD_x(:), COORD_y(:), COORD_z(:), state_x(:),    &
+                                    state_y(:), state_z(:)
+
+      if( MPI_Process% isRoot ) return
+
+      NumOfObjs = 3*size(ObjectsList)
+
+      call mpi_isend( NumOfObjs, 1, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_Firstreq, ierr )
+
+      call mpi_wait(send_Firstreq, status, ierr)
+
+      allocate( COORD_x(NumOfObjs), &
+                COORD_y(NumOfObjs), &
+                COORD_z(NumOfObjs), &
+                state_x(NumOfObjs), &
+                state_y(NumOfObjs), &
+                state_z(NumOfObjs)  )
+                  
+      k = 0
+      do i = 1, size(ObjectsList)
+         do j = 1, size(ObjectsList(i)% vertices)
+            call OBB(STLNum)% ChangeRefFrame(ObjectsList(i)% vertices(j)% coords,GLOBAL,coords)
+            k          = k + 1
+            COORD_x(k) = coords(1)
+            COORD_y(k) = coords(2)
+            COORD_z(k) = coords(3)
+            state_x(k) = partitionVector(1,i,j)
+            state_y(k) = partitionVector(2,i,j)
+            state_z(k) = partitionVector(3,i,j)
+         end do
+      end do
+
+      call mpi_isend( COORD_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(1), ierr )
+      
+      call mpi_isend( COORD_y, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(2), ierr )
+      
+      call mpi_isend( COORD_z, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(3), ierr )
+                         
+      call mpi_isend( state_x, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(4), ierr )
+                         
+      call mpi_isend( state_y, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(5), ierr )
+
+      call mpi_isend( state_z, NumOfObjs, MPI_DOUBLE, 0, DEFAULT_TAG, MPI_COMM_WORLD, send_req(6), ierr )
+
+      call mpi_waitall( 6, send_req, array_of_statuses, ierr )                            
+
+      deallocate( COORD_x, COORD_y, COORD_z, state_x, state_y, state_z )     
+#endif
+   end subroutine sendVectorPlotRoot
+
 end module MPI_IBMUtilities

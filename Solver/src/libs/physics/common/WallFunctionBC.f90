@@ -148,7 +148,7 @@ MODULE WallFunctionBC
 
       ! Initial seed for Newton method
       
-      u_tau = u_tau0          
+      u_tau = u_tau0               
       
       DO i = 1, newtonMaxIter
 
@@ -157,7 +157,7 @@ MODULE WallFunctionBC
 
          ! Compute numerical derivative of auxiliar function at u_tau
          eps     = ABS(u_tau) * 1.0E-8_RP
-         JAC     = ( Aux_f ( u_tau + eps, u_II, y, nu ) - Aux_x0 ) / eps
+         JAC     = ( Aux_f ( u_tau + eps, u_II, y, nu ) - Aux_x0 ) / eps         
 
          ! Default value for alpha (Newton method)
          alpha = newtonAlpha
@@ -180,12 +180,11 @@ MODULE WallFunctionBC
             RETURN
 
          END IF
-
          ! Set value for u_tau for next iteration
          u_tau = u_tau_next
 
-      END DO
-      
+      END DO   
+
       STOP "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 
@@ -213,6 +212,17 @@ MODULE WallFunctionBC
       Aux_f = u_II - u_plus_f ( y_plus_f ( y, u_tau, nu ) ) * u_tau 
 
    END FUNCTION
+
+   function Derivative( y_plus )
+      use WallFunctionDefinitions, ONLY: kappa, WallC
+      implicit none 
+      real(kind=RP), intent(in) :: y_plus
+      real(kind=RP)             :: Derivative 
+      
+      Derivative = 1.0_RP/(1.0_RP + kappa*y_plus)  + (WallC - 1.0_RP/kappa*log(kappa)) * &
+               (exp(-y_plus/11.0_RP)/11.0_RP - exp(-y_plus/3.0_RP)/11.0_RP + y_plus/11.0_RP*exp(-y_plus/3.0_RP)/3.0_RP)
+
+   end function Derivative
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
@@ -224,10 +234,10 @@ MODULE WallFunctionBC
       REAL(kind=RP), INTENT(IN)  :: y_plus
       
       REAL(kind=RP)              :: u_plus_f ! (OUT)
-      
+  
       u_plus_f = 1.0_RP / kappa * log( 1.0_RP + kappa * y_plus ) &
-                 + ( WallC - 1.0_RP / kappa * log(kappa) ) * & 
-                   ( 1.0_RP - exp( -y_plus / 11.0_RP )-( y_plus / 11.0_RP ) * exp( -y_plus / 3.0_RP ) )
+                  + ( WallC - 1.0_RP / kappa * log(kappa) ) * & 
+                    ( 1.0_RP - exp( -y_plus / 11.0_RP )-( y_plus / 11.0_RP ) * exp( -y_plus / 3.0_RP ) )
 
    END FUNCTION
 !   

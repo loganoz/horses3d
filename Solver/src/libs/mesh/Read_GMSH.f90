@@ -60,6 +60,7 @@ MODULE Read_GMSH
       private
       public ConstructMesh_FromGMSHFile_v4_, ConstructMesh_FromGMSHFile_v2_, CheckGMSHversion, NumOfElems_GMSH_v4, NumOfElems_GMSH_v2
 
+      public MSH_node_block_t, MSH_point_t, MSH_element_block_t, EL_MAX_ORDER, SUPPORTED_EL_TYPES, ReorderElement, MSH_LEN
 !
 !  ------------------------------------------------
 !  Local temporary element storage.
@@ -479,7 +480,7 @@ MODULE Read_GMSH
       ! find order of elements curvature
       check_eltype = 0
       do i=1, EL_MAX_ORDER
-         check_eltype(i) = count(msh_element_blocks(:) % el_type .eq.  SUPPORTED_EL_TYPES(i))
+         check_eltype(i) = count(msh_element_blocks(:) % el_type .eq. SUPPORTED_EL_TYPES(i))
       end do
       if (sum(check_eltype) .eq. 0) error stop "READ_GMSH :: No 3D elements detected in the mesh."
       if (sum(check_eltype) .ne. maxval(check_eltype)) error stop "READ_GMSH :: More than 1 type of hexahedral detected in the mesh."
