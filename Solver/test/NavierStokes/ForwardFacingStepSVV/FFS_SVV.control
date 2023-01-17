@@ -6,10 +6,10 @@
 !-------------------------- Configuration:-
                           Mesh file name = ../../TestMeshes/ForwardFacingStep.mesh
                       Solution file name = RESULTS/FFS.hsol
-              Save gradients to solution = .false.
+               Save sensor with solution = .true.
                 2D mesh offset direction = z
                                  Restart = .false.
-                       Restart file name = ../FFS.rst
+                       Restart file name = RESULTS/FFS.hsol
 
 !-------------------- Physical parameters:-
 !                        ** Navier-Stokes
@@ -32,19 +32,19 @@
 
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
-                           Shock sensor = grad rho
+                           Shock sensor = integral with sqrt
+                        Sensor variable = grad rho
+                     Sensor lower limit = 0.0
+                    Sensor higher limit = 1.0
                      Shock first method = SVV
                     Shock second method = non-filtered
                    Shock viscous flux 1 = Physical
                    Shock viscous flux 2 = Guermond-Popov
                  Shock update viscosity = constant
-                             Shock mu 1 = 0.5e-3
+                             Shock mu 1 = 20.0e-3
                           Shock alpha 1 = 0.0
-                             Shock mu 2 = 0.5e-3
-                          Shock alpha 2 = 0.5e-3
-                        Sensor variable = rho
-                     Sensor lower limit = -1.0
-                    Sensor higher limit = 1.0
+                             Shock mu 2 = 20.0e-3
+                          Shock alpha 2 = 20.0e-3
                       SVV filter cutoff = 4.0
                        SVV filter shape = power
                         SVV filter type = low-pass
@@ -52,8 +52,8 @@
 !----------------------- Time integration:-
                         Time integration = Explicit
                                       dt = 0.00002
-                    Number of time steps = 40
-                         Output interval = 10
+                    Number of time steps = 10
+                         Output interval = 50
                    Convergence tolerance = 1.0e-10
 
 !-------------------- Boundary conditions:-
