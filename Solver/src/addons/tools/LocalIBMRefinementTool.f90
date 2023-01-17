@@ -29,14 +29,15 @@ module LocalIBMRefinementTool
       !-arguemnts----------------------------------------------
       type( FTValueDictionary) :: controlVariables
       !-local-variables----------------------------------------
-      character(len=LINE_LENGTH) :: fileName, meshFileName
-      type(HexMesh)              :: mesh
-      logical                    :: success
-      character(len=LINE_LENGTH) :: msg, fname, MyString, &
-                                    STLfilename
-      integer, allocatable       :: Nx(:), Ny(:), Nz(:)
-      real(kind=RP)              :: Naverage
-      integer                    :: Nmax, STLnum
+      character(len=LINE_LENGTH)  :: fileName, meshFileName
+      type(HexMesh)               :: mesh
+      logical                     :: success
+      character(len=LINE_LENGTH)  :: msg, fname, MyString, &
+                                     STLfilename, limsName
+      integer,       allocatable  :: Nx(:), Ny(:), Nz(:)
+      real(kind=RP), allocatable  :: tempArray(:)
+      real(kind=RP)               :: Naverage, corners(NDIM,8)
+      integer                     :: Nmax, STLnum
 
       call CheckInputIntegrityIBM(controlVariables, success)
       if(.not. success) error stop "Control file reading error"
@@ -64,40 +65,67 @@ module LocalIBMRefinementTool
       call SubSection_Header(trim(msg))
       write(STD_OUT,'(30X,A,A30,I0)') "->", "Number of elements: ", mesh% no_of_elements
       write(STD_OUT,'(/)')
-               
+
+      limsName = trim(controlVariables%stringValueForKey("x regions limits",LINE_LENGTH))
+      tempArray = getRealArrayFromString(limsName)
+      
       call mesh% IBM% read_info( controlVariables )
 
-      allocate( mesh% IBM% stl(mesh% IBM% NumOfSTL),         &
-                mesh% IBM% STLfilename(mesh% IBM% NumOfSTL), &
-                OBB(mesh% IBM% NumOfSTL)                     )              
-        
-      do STLNum = 1,  mesh% IBM% NumOfSTL
-         write(MyString, '(i100)') STLNum
-         if( STLNum .eq. 1 ) then
-            fname = stlFileNameKey
-         else
-            fname = trim(stlFileNameKey)//trim(adjustl(MyString))
-         end if         
-         mesh% IBM% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(fname), requestedLength = LINE_LENGTH)
-         mesh% IBM% stl(STLNum)% body = STLNum             
-         OBB(STLNum)% filename        = mesh% IBM% STLfilename(STLNum)
-         call mesh% IBM% stl(STLNum)% ReadTesselation( mesh% IBM% STLfilename(STLNum) )
-         call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .true., mesh% IBM% AAB )
-      end do
+      if( allocated(tempArray) ) then  
 
-      call mesh% IBM% SetPolynomialOrder( mesh% elements )
+         corners(1,1)  = tempArray(1); corners(1,4) = tempArray(1); corners(1,5) = tempArray(1); corners(1,8) = tempArray(1)
+         corners(1,2)  = tempArray(2); corners(1,3) = tempArray(2); corners(1,6) = tempArray(2); corners(1,7) = tempArray(2)
+
+         limsName = trim(controlVariables%stringValueForKey("y regions limits",LINE_LENGTH))
+         tempArray = getRealArrayFromString(limsName)
+
+         corners(2,1)  = tempArray(1); corners(2,2) = tempArray(1); corners(2,5) = tempArray(1); corners(2,6) = tempArray(1)
+         corners(2,3)  = tempArray(2); corners(2,4) = tempArray(2); corners(2,7) = tempArray(2); corners(2,8) = tempArray(2)
+
+         limsName = trim(controlVariables%stringValueForKey("z regions limits",LINE_LENGTH))
+         tempArray = getRealArrayFromString(limsName)
+
+         corners(3,1)  = tempArray(1); corners(3,2) = tempArray(1); corners(3,3) = tempArray(1); corners(3,4) = tempArray(1)
+         corners(3,5)  = tempArray(2); corners(3,6) = tempArray(2); corners(3,7) = tempArray(2); corners(3,8) = tempArray(2) 
+
+         call mesh% IBM% SetPolynomialOrder( mesh% elements, corners )
+
+      else
+
+         allocate( mesh% IBM% stl(mesh% IBM% NumOfSTL),         &
+                   mesh% IBM% STLfilename(mesh% IBM% NumOfSTL), &
+                   OBB(mesh% IBM% NumOfSTL)                     )              
+        
+         do STLNum = 1,  mesh% IBM% NumOfSTL
+            write(MyString, '(i100)') STLNum
+            if( STLNum .eq. 1 ) then
+               fname = stlFileNameKey
+            else
+               fname = trim(stlFileNameKey)//trim(adjustl(MyString))
+            end if         
+            mesh% IBM% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(fname), requestedLength = LINE_LENGTH)
+            mesh% IBM% stl(STLNum)% body = STLNum             
+            OBB(STLNum)% filename        = mesh% IBM% STLfilename(STLNum)
+            call mesh% IBM% stl(STLNum)% ReadTesselation( mesh% IBM% STLfilename(STLNum) )
+            call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .true., mesh% IBM% AAB )
+         end do
+
+          call mesh% IBM% SetPolynomialOrder( mesh% elements )
+
+         do STLNum = 1,  mesh% IBM% NumOfSTL
+            call mesh% IBM% stl(STLNum)% destroy()
+         end do
+        
+         deallocate( mesh% IBM% stl, mesh% IBM% STLfilename, OBB )
+
+      end if 
+
 !
 !     ---------------------
 !     Create the final file
 !     ---------------------
 !
       call mesh% ExportOrders(meshFileName)
-        
-      do STLNum = 1,  mesh% IBM% NumOfSTL
-         call mesh% IBM% stl(STLNum)% destroy()
-      end do
-        
-      deallocate( mesh% IBM% stl, mesh% IBM% STLfilename, OBB )
 
       Naverage = sum( mesh% elements(1:size(mesh% elements))% Nxyz(1) + &
                       mesh% elements(1:size(mesh% elements))% Nxyz(2) + &

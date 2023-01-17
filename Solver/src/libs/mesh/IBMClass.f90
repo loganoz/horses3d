@@ -195,9 +195,9 @@ module IBMClass
       else
          this% semiImplicit = .FALSE.
       end if       
-      
+
       if( allocated(Nx_in) ) then
-         this% Nx = Nx_in
+         this% Nx = Nx_in 
       else
          this% Nx = 0
       end if   
@@ -763,9 +763,9 @@ module IBMClass
 
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of interpolation points: ", this% NumOfInterPoints
-      if( this% Wallfunction ) then
-         write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
-      end if
+      !if( this% Wallfunction ) then
+      !   write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
+      !end if
 
    end subroutine IBM_Describe
 !
@@ -819,31 +819,45 @@ module IBMClass
 !  ------------------------------------------------------------
 !  Creating the .omesh file for p-adaptation close to the STL  
 !  ------------------------------------------------------------
-   subroutine IBM_SetPolynomialOrder( this, elements )
+   subroutine IBM_SetPolynomialOrder( this, elements, corners )
       implicit none
       
-      !-arguments--------------------------------------
-      class(IBM_type),  intent(inout) :: this
-      type(element),    intent(inout) :: elements(:)
-      !-local-variables--------------------------------
+      !-arguments----------------------------------------------
+      class(IBM_type),         intent(inout) :: this
+      type(element),           intent(inout) :: elements(:)
+      real(kind=RP), optional, intent(in)    :: corners(:,:) 
+      !-local-variables----------------------------------------
       real(kind=RP) :: corner(NDIM)
       integer       :: STLNum, eID, k
 
-      do eID = 1, size(elements)
-         !loop over the stl files
-         do STLNum = 1, this% NumOfSTL
-            loop: do k = 1, 8 
-               call OBB(STLNum)% ChangeRefFrame( elements(eID)% SurfInfo% corners(:,k), LOCAL, corner )
-               if( isInsideBox( corner, this% BandRegionCoeff*OBB(STLNum)% LocVertices ) ) then
-                  if( this% Nx .ne. 0 ) elements(eID)% Nxyz(1) = this% Nx
-                  if( this% Ny .ne. 0 ) elements(eID)% Nxyz(2) = this% Ny
-                  if( this% Nz .ne. 0 ) elements(eID)% Nxyz(3) = this% Nz
-                  exit loop
-               end if
-            end do loop
-         end do
-      end do     
-   
+      if( present(corners) ) then 
+         do eID = 1, size(elements)
+            do k = 1, 8 
+               if( isInsideBox( elements(eID)% SurfInfo% corners(:,k), corners ) ) then
+                  elements(eID)% Nxyz(1) = this% Nx 
+                  elements(eID)% Nxyz(2) = this% Ny
+                  elements(eID)% Nxyz(3) = this% Nz 
+                  exit
+               end if 
+            end do 
+         end do  
+      else 
+         do eID = 1, size(elements)
+            !loop over the stl files
+            do STLNum = 1, this% NumOfSTL
+               loop: do k = 1, 8 
+                  call OBB(STLNum)% ChangeRefFrame( elements(eID)% SurfInfo% corners(:,k), LOCAL, corner )
+                  if( isInsideBox( corner, this% BandRegionCoeff*OBB(STLNum)% LocVertices ) ) then
+                     if( this% Nx .ne. 0 ) elements(eID)% Nxyz(1) = this% Nx
+                     if( this% Ny .ne. 0 ) elements(eID)% Nxyz(2) = this% Ny
+                     if( this% Nz .ne. 0 ) elements(eID)% Nxyz(3) = this% Nz
+                     exit loop
+                  end if
+               end do loop
+            end do
+         end do     
+      end if 
+
    end subroutine IBM_SetPolynomialOrder
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -2967,8 +2981,11 @@ module IBMClass
             do i = 1, size(x)
                d           = norm2(Point - x(i)% coords)
                invPhi(i,i) = 1.0_RP/d
-               b           = b + 1.0_RP/invPhi(i,i)
+               b           = b + invPhi(i,i)
             end do  
+            do i = 1, size(x)
+               b(i) = 1.0_RP/b(i)
+            end do 
       end select 
 
    end subroutine GetMatrixInterpolationSystem
