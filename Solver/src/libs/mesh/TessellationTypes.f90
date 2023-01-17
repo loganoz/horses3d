@@ -834,7 +834,7 @@ module TessellationTypes
        
       close(unit=funit)
 
-   end subroutine  ReadTesselation
+   end subroutine  ReadTessellation
 
   subroutine STLfile_plot( this, iter )
       use MPI_Process_Info
@@ -869,9 +869,8 @@ module TessellationTypes
       end do
 
       close(funit)
-=======
+
    end subroutine  ReadTessellation
->>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
    
    end subroutine STLfile_plot
   
