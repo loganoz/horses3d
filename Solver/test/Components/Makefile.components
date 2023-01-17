@@ -1,0 +1,70 @@
+#################################################################################
+##	Makefile to compile Components test cases. 
+##
+##	· Important! If the code changes, OBJS_HORSES list should be
+##	  updated accordingly. The dependencies are gathered automatically from
+##	  the make.deps file.
+#################################################################################
+
+#######################################
+## Invoke the HORSES makefile
+#######################################
+HOME_DIR=@HORSES_HOME_DIR
+PROG_TEST:=@PROG_NAME
+include $(HOME_DIR)/Makefile
+-include ./make.deps
+
+# Include the local include path
+INCLUDE:=-I./include $(INCLUDE)
+
+#######################################
+## Get the additional source files
+#######################################
+OBJS_CASE_F90=$(notdir $(wildcard ./src/*.f90))
+OBJS_CASE=$(patsubst %.f90,%,$(OBJS_CASE_F90))
+OBJS_CASE_EXEC=$(foreach obj,$(OBJS_CASE),./build/$(obj).o)
+OBJS_TO_REMOVE=$(OBJS_CASE) HORSES3DMain
+
+#######################################
+## Remove them from OBJS_HORSES
+#######################################
+OBJS_HORSES_CASE=$(filter-out $(OBJS_TO_REMOVE),$(OBJS_HORSES)) 
+OBJS_HORSES_CASE_EXEC=$(foreach obj,$(OBJS_HORSES_CASE),./build/$(obj).o)
+
+#################################################
+### General rules
+#################################################
+.DEFAULT_GOAL:=allComponents
+allComponents: ./bin/$(PROG_TEST)
+
+./bin/$(PROG_TEST): mkdirs mkdirsComponents horseslibs $(OBJS_HORSES_CASE) $(OBJS_CASE) ProblemFile1
+	$(FC) $(FFLAGS) -o ./bin/$(PROG_TEST) $(OBJS_HORSES_CASE_EXEC) $(OBJS_CASE_EXEC) $(HORSES_LIBS_NS) $(PROBLEM_LIB_NS) ./build/ProblemFile.o
+
+##################################################
+##################################################
+##		COMPILATION RULES		##
+##################################################
+##################################################
+$(OBJS_HORSES_CASE): %:
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include -c $(FILE_HORSES_CASE) -o ./build/$@.o
+
+FILE_HORSES_CASE=$(or $(wildcard $(HOME_DIR)/src/**/$@.f90),$(wildcard $(HOME_DIR)/src/$@.f90))
+
+$(OBJS_CASE): %: ./src/%.f90
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include -c $< -o ./build/$@.o
+
+ProblemFile1: %: $(HOME_DIR)/src/libs/problemfile/ProblemFile.f90
+	$(FC) $(FFLAGS) $(MACROS) $(INCLUDE) $(INCLUDE)_ns $(MOD_FLAG)./include -c $< -o ./build/ProblemFile.o
+
+####################################################
+## Extra rules 
+####################################################
+clean: FORCE horseslibclean
+	@rm -f ./build/*.o ./include/*.mod ./include/*__genmod.f90
+
+mkdirsComponents: FORCE
+	@mkdir -p ./build
+	@mkdir -p ./include
+	@mkdir -p ./bin
+
+FORCE:
