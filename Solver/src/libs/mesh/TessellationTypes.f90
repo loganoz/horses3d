@@ -1149,9 +1149,9 @@ module TessellationTypes
       type(ObjectLinkedList), intent(inout) :: ObjectsLinkedList
       !-local-variables--------------------------------------------------------------
       real(kind=RP)     :: PointFront(NDIM,4), PointBack(NDIM,4)
-      type(object_type) :: objBack, objback1
+      type(object_type) :: objBack
       real(kind=RP)     :: PointA(NDIM), PointB(NDIM), Point_inters(NDIM), v(NDIM),u(NDIM),W(NDIM)
-      integer           :: PointA_Is, PointB_Is, n_front, n_back, i, funit 
+      integer           :: PointA_Is, PointB_Is, n_front, n_back, i 
 
       n_front = 0; n_back = 0
       
@@ -1205,47 +1205,10 @@ module TessellationTypes
       elseif( n_back .eq. 4 ) then
          call objBack% build( PointBack(:,1:n_back-1), obj% normal, obj% NumOfVertices, obj% index )
          call ObjectsLinkedList% add(objBack)
-
-      !   objBAck1 = objBack
-
          call objBack% destruct()
          call objBack% build( PointBack(:,(/n_back-1,n_back,1/)), obj% normal, obj% NumOfVertices, obj% index )
          call ObjectsLinkedList% add(objBack)
- 
- !if( obj% index .eq. 281 ) then 
- !     open(funit,file='IBM/objs.tec', status='unknown')
- 
- !        write(funit,"(a28)") 'TITLE = "ObjsIndx"'
- !        write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
-      
- !        write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
- !           do n_back = 1, 3
- !              write(funit,'(3E13.5)') objBack1% vertices(n_back)% coords 
- !           end do
-  !          write(funit,'(3i2)') 1, 2, 3 
- !           write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
-  !          do n_back = 1, 3
- !              write(funit,'(3E13.5)') objBack% vertices(n_back)% coords 
-  !          end do
-  !           write(funit,'(3i2)') 1, 2, 3
-
-  !       close(funit)
-                  call objBack% destruct()
-
-!open(funit,file='IBM/ONEobj.tec', status='unknown')
- 
- !        write(funit,"(a28)") 'TITLE = "ObjsIndx"'
- !        write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
- !     
-
- !        write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
- !           do n_back = 1, 3
- !              write(funit,'(3E13.5)') obj% vertices(n_back)% coords 
- !           end do
- !           write(funit,'(3i2)') 1, 2, 3
- !   close(funit)
- !end if 
- !error stop 
+         call objBack% destruct()
       elseif( n_back .eq. 0 ) then 
       else
          print *, "ClipPloy:: wrong number of vertices: ", n_back
