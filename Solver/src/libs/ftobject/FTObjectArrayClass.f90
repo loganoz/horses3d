@@ -401,7 +401,7 @@
 !>
 !> Generic name: count
 !>
-!> Returns the acutal number of items in the array. 
+!> Returns the actual number of items in the array.
 !>
 !> *Usage
 !>

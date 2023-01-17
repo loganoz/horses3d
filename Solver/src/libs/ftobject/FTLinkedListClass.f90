@@ -970,7 +970,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!< The destuctor must not be called except at the end of destructors of
+!< The destructor must not be called except at the end of destructors of
 ! subclasses.
 !
       SUBROUTINE destructIterator(self)

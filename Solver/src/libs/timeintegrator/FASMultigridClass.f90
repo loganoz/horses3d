@@ -119,6 +119,7 @@ module FASMultigridClass
    logical        :: SaveFMGFile =.FALSE.
    character(len=LINE_LENGTH)              :: FMGSolutionFile
    logical                                 :: saveGradients
+   logical                                 :: saveSensor
    real(kind=RP)  :: SmoothFineFrac ! Fraction that must be smoothed in fine before going to coarser level
    real(kind=RP), target  :: cfl            ! Advective cfl number
    real(kind=RP), target  :: dcfl           ! Diffusive cfl number
@@ -422,6 +423,7 @@ module FASMultigridClass
       if (controlVariables % logicalValueForKey("fasfmg save solutions") ) then
          SaveFMGFile = .TRUE.
          saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+         saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
          FMGSolutionFile = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       end if
 
@@ -1149,7 +1151,7 @@ module FASMultigridClass
 
       if (SaveFMGFile) then
          write(FMGFile,'(A,A,I2.2,A)')  trim( FMGSolutionFile ), '_FMG_', lvl, '.hsol'
-         call this % p_sem % mesh % SaveSolution(0,0._RP,trim(FMGFile),saveGradients)
+         call this % p_sem % mesh % SaveSolution(0,0._RP,trim(FMGFile),saveGradients,saveSensor)
       end if
 
 !

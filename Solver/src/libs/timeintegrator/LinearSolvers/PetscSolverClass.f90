@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    PetscSolverClass.f90
-!   @Last revision commit: 3334a040b8cdf3201850a2deec9950c84f2dc21f
-!
 !//////////////////////////////////////////////////////
 !
 !   Class for solving linear systems using the Krylov Subspace Methods of PETSc library

@@ -1,9 +1,6 @@
 !
 ! /////////////////////////////////////////////////////////////////////
 !
-!
-!     TransfiniteMaps.F
-!!
 !!     This is a collection of transfinite maps and operations
 !!     on those maps.
 !
@@ -18,6 +15,7 @@
 !          SUBROUTINE ComputeHexTransfiniteMap( xi, x, face, edge, corners )
 !          SUBROUTINE ComputeGradHexTransfiniteMap( xi, grad_x, face, faceDer, &
 !          &                                       edge, edgeDer, corners )
+!
 !
 ! //////////////////////////////////////////////////////////////////////////////
 !

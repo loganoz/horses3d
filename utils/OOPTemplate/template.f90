@@ -1,15 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    template.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Wed Jun 27 11:29:03 2018
-!   @Last revision date:
-!   @Last revision author:
-!   @Last revision commit:
-!
-!//////////////////////////////////////////////////////
-!
 module ClassTemplate
 !  use ... statements
    use SMConstants, only: RP

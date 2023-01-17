@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MatrixFreeGMRESClass.f90
-!   @Last revision commit: 31cd87719c22f46b56d49e05c6f58c780266a82f
-!
 !//////////////////////////////////////////////////////
 !
 !      Class for solving linear systems using a matrix free GMRES
@@ -80,7 +74,7 @@ module MatrixFreeGMRESClass
       
       
       contains
-         ! Overriden procedures:
+         ! Overridden procedures:
          procedure                           :: Construct         => GMRES_Construct
          procedure                           :: Destroy           => GMRES_Destruct
          procedure                           :: SetRHSValue

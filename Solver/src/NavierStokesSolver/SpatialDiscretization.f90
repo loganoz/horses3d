@@ -64,16 +64,17 @@ module SpatialDiscretization
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
+            call hnRange(sem % mesh, hnmin, hnmax)
+
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
-            end if
 
-            call hnRange(sem % mesh, hnmin, hnmax)
-            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
-            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
-            write(STD_OUT,'(/)')
+               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+               write(STD_OUT,'(/)')
+            end if
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
@@ -887,8 +888,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarStrongIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -971,8 +972,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -1020,9 +1021,9 @@ module SpatialDiscretization
          real(kind=RP) :: mu_left(3), mu_right(3)
          integer       :: Sidearray(2)
 !
-!        --------------------------
-!        Artifical viscosity fluxes
-!        --------------------------
+!        ---------------------------
+!        Artificial viscosity fluxes
+!        ---------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)

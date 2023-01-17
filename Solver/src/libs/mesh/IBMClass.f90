@@ -2228,7 +2228,7 @@ module IBMClass
    end subroutine isPointInside
 !  
 ! This subroutine checks if a ray (RayDirection) starting from a point (Point) intersects
-! a traingle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
+! a triangle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
 ! If there is more than one intersections, the second one is not counted if it has the same t
 ! as the one previously found.
 ! See Fast, Minimum Storage Ray/Trinagle INtersection,  Moller TRumbore
@@ -2357,7 +2357,7 @@ module IBMClass
 ! This function computes the minimum distance from a point to a triangle in 3D. 
 ! for more ditails see https://www.geometrictools.com/Documentation/DistancePoint3Triangle3.pdf
 !  ------------------------------------------------   
-   subroutine MinumumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
+   subroutine MinimumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
                                        TriangleVertex3, dist, IntersectionPoint ) 
       use MappedGeometryClass
       implicit none
@@ -2665,7 +2665,7 @@ module IBMClass
             if( LeafIndex .ne. tree% index ) then 
                do i = 1, tree% NumOfObjs
                   index = tree% ObjsIndeces(i)
-                  call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+                  call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                                 root% ObjectsList(index)% vertices(2)% coords,        &
                                                 root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                                 IntersPoint                                           )

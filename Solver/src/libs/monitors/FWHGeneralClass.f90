@@ -1,7 +1,7 @@
-!
+
 !//////////////////////////////////////////////////////
 !
-!   This class represents the general behaviour of the Ffowcs Williams and Hawckings aero acoustic analogy
+!This class represents the general behaviour of the Ffowcs Williams and Hawckings aero acoustic analogy
 !
 !//////////////////////////////////////////////////////
 !
@@ -75,6 +75,7 @@ Module FWHGeneralClass  !
 
 !        look if the acoustic analogy calculations are set to be computed
 !        --------------------------------
+        !TODO read acoustic analogy type and return if is not defined, check for FWH if is defined and not FWH stop and send error
         if (.not. controlVariables % containsKey("acoustic analogy")) then
             self % isActive = .FALSE.
             ! print *, "FWH not activated"
@@ -101,7 +102,7 @@ Module FWHGeneralClass  !
 !       Get the general configuration of control file
 !       First get the surface as a zone
 !       -------------------------------
-        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permable")
+        self % isSolid   = .not. controlVariables % logicalValueForKey("acoustic analogy permeable")
 
 !       Get the solution file name
 !       --------------------------
@@ -120,7 +121,8 @@ Module FWHGeneralClass  !
            self % numberOfObservers = getNoOfObservers()
         end if
 
-!       Set interpolate atribute as TRUE by default
+!       Set interpolate attribute as TRUE by default
+        ! todo: read from constrol variables
         self % interpolate = .TRUE.
 
 !       Initialize observers
@@ -141,7 +143,7 @@ Module FWHGeneralClass  !
 !        Describe the zones
 !        ------------------
          if ( .not. MPI_Process % isRoot ) return
-         call Subsection_Header("Ficticious FWH zone")
+         call Subsection_Header("Fictitious FWH zone")
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of faces: ", no_of_faces
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of observers: ", self % numberOfObservers
          write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of integrals: ", self % numberOfObservers * no_of_faces
@@ -237,8 +239,8 @@ Module FWHGeneralClass  !
 
         if ( forceVal ) then
 !
-!           In this case the observers are exported to their files and the buffer is reseted
-!           -------------------------------------------------------------------------------
+!           In this case the observers are exported to their files and the buffer is reset
+!           ------------------------------------------------------------------------------
             if (.not. self % firstWrite .and. self % interpolate) then
                 do i =1, self % numberOfObservers
                     call self % observers(i) % interpolateSol(self % t, self % bufferLine)

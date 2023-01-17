@@ -1,7 +1,11 @@
-
-!This module contains the definitions for the FWH preprocessing of creating a permeable surface
+!
+!////////////////////////////////////////////////////////////////////////
+!
+! This module contains the definitions for the FWH preprocessing of creating a permeable surface
 ! and the postprocessing of calculating the FWH based on the surface results of the compressible NodalStorageClass
-! over a suface, which is stored in files .fwhs.hsol (one per time step)
+! over a surface, which is stored in files .fwhs.hsol (one per time step)
+!
+!////////////////////////////////////////////////////////////////////////
 !
 Module FWHTools  !
 

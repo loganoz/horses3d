@@ -940,7 +940,7 @@
       SUBROUTINE PolyDirectMatrixMultiplyDeriv( f, fDeriv, DT, N )
 !
 !     Compute the derivative approximation by simple matrix multiplication
-!     This routine assumes that the matrix has been trasposed for faster
+!     This routine assumes that the matrix has been transposed for faster
 !     inner loop access.
 !
 !     ----------
@@ -975,7 +975,7 @@
       SUBROUTINE MatrixMultiplyDeriv( f, fDeriv, D, N, transp )
 !
 !     Compute the derivative approximation by simple matrix multiplication
-!     This routine assumes that the matrix has been trasposed for faster
+!     This routine assumes that the matrix has been transposed for faster
 !     inner loop access.
 !
 !     ----------

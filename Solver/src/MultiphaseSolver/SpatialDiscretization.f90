@@ -392,7 +392,7 @@ module SpatialDiscretization
          end select
 !
 !///////////////////////////////////////////////
-!        3nd step: Navier-Stokes time derivative
+!        3rd step: Navier-Stokes time derivative
 !///////////////////////////////////////////////
 !
          select case (mode)

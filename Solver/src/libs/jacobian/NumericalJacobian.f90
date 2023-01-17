@@ -381,7 +381,7 @@ contains
             felm = ecolors%bounds(thiscolor+1)           ! Final element of the color!
 
 !           Iterate through the DOFs in thiscolor
-!              ( Computes one column for each dof within an elment )
+!              ( Computes one column for each dof within an element )
 !           ********************************************************
             do thisdof = 1, ndofcol(thiscolor)
 
@@ -476,7 +476,7 @@ contains
          felm = ecolors%bounds(thiscolor+1)           ! Final element of the color
 !
 !        Iterate through the DOFs in thiscolor
-!           ( Computes one column for each dof within an elment )
+!           ( Computes one column for each dof within an element )
 !        ********************************************************
          do thisdof = 1, ndofcol(thiscolor)
 
@@ -532,7 +532,7 @@ contains
             do thiselmidx = ielm, felm-1
                thiselm = ecolors%elmnts(thiselmidx)
                IF (this % ndofelm(thiselm)<thisdof) CYCLE
-               ! Redifine used array and counter
+               ! Redefine used array and counter
                used    = 0
                usedctr = 1
 

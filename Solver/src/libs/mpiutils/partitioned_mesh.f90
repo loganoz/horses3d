@@ -43,11 +43,6 @@ module PartitionedMeshClass
    integer, parameter, public :: METIS_PARTITIONING = 1
    integer, parameter, public :: SFC_PARTITIONING   = 2
 
-#ifdef _HAS_MPI_
-   integer :: recv_req(9)
-   integer, allocatable    :: send_req(:,:)
-#endif
-
    interface PartitionedMesh_t
       module procedure  ConstructPartitionedMesh
    end interface
@@ -66,9 +61,7 @@ module PartitionedMeshClass
          if ( MPI_Process % doMPIRootAction ) then
 #ifdef _HAS_MPI_
             allocate(mpi_allPartitions(MPI_Process % nProcs))
-            allocate(send_req(MPI_Process % nProcs-1,9))
 #endif
-
             do domain = 1, MPI_Process % nProcs
                mpi_allPartitions(domain) = PartitionedMesh_t(domain)
             end do
@@ -145,18 +138,14 @@ module PartitionedMeshClass
 !        Local variables
 !        ---------------
 !
-         integer  :: sizes(3), ierr, array_of_statuses(MPI_STATUS_SIZE, 9), status_HOPR(MPI_STATUS_SIZE)
-         integer  :: recv_reqHOPR
+         integer  :: sizes(3), ierr, i
+         integer  :: recv_req(8), recv_reqHOPR
 
          if ( MPI_Process % isRoot ) return
 !
 !        First receive number of nodes, elements, and mpifaces
 !        ------------------------------------------------------
-         call mpi_irecv(sizes, 3, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
-!
-!        Wait until the message is received
-!        ----------------------------------
-         call mpi_wait(recv_req(1), MPI_STATUS_IGNORE, ierr)
+         call mpi_recv(sizes, 3, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 !
 !        Get sizes and allocate
 !        ----------------------
@@ -178,38 +167,38 @@ module PartitionedMeshClass
 !        Receive the rest of the PartitionedMesh_t arrays
 !        ------------------------------------------------
          call mpi_irecv(mpi_partition % nodeIDs, mpi_partition % no_of_nodes, MPI_INT, 0, &
-                        MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
+                        MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(1), ierr)
 
          call mpi_irecv(mpi_partition % elementIDs, mpi_partition % no_of_elements, MPI_INT, 0, &
-                        MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
+                        MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(2), ierr)
 
          call mpi_irecv(mpi_partition % mpiface_elements, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(3), ierr)
 
          call mpi_irecv(mpi_partition % element_mpifaceSide, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(4), ierr)
 
          call mpi_irecv(mpi_partition % element_mpifaceSideOther, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(5), ierr)
 
          call mpi_irecv(mpi_partition % mpiface_rotation, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(6), ierr)
 
          call mpi_irecv(mpi_partition % mpiface_elementSide, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(7), ierr)
 
          call mpi_irecv(mpi_partition % mpiface_sharedDomain, mpi_partition % no_of_mpifaces, &
-                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(9), ierr)
+                        MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, recv_req(8), ierr)
 
          if (meshIsHOPR) then
             call mpi_irecv(mpi_partition % HOPRnodeIDs, mpi_partition % no_of_nodes, MPI_INT, 0, &
-                        MPI_ANY_TAG, MPI_COMM_WORLD, recv_reqHOPR, ierr)
+                           MPI_ANY_TAG, MPI_COMM_WORLD, recv_reqHOPR, ierr)
          end if
 !
 !        Wait until all messages have been received
 !        ------------------------------------------
-         call mpi_waitall(9, recv_req, array_of_statuses, ierr)
-         if (meshIsHOPR) call mpi_wait(recv_reqHOPR, status_HOPR, ierr)
+         call mpi_waitall(8, recv_req, MPI_STATUSES_IGNORE, ierr)
+         if (meshIsHOPR) call mpi_wait(recv_reqHOPR, MPI_STATUS_IGNORE, ierr)
 
          mpi_partition % Constructed = .true.
 #endif
@@ -231,8 +220,8 @@ module PartitionedMeshClass
 !
          integer          :: sizes(3)
          integer          :: domain, ierr, msg
-         integer          :: array_of_statuses(MPI_STATUS_SIZE,MPI_Process % nProcs)
-         integer          :: send_reqHOPR( MPI_Process % nProcs - 1)
+         integer          :: send_req(MPI_Process % nProcs - 1, 8)
+         integer          :: send_reqHOPR(MPI_Process % nProcs - 1)
 !
 !        Send the MPI mesh partition to all processes
 !        --------------------------------------------
@@ -243,49 +232,48 @@ module PartitionedMeshClass
             sizes(1) = mpi_allPartitions(domain) % no_of_nodes
             sizes(2) = mpi_allPartitions(domain) % no_of_elements
             sizes(3) = mpi_allPartitions(domain) % no_of_mpifaces
-
-            call mpi_isend(sizes, 3, MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,1), ierr)
+    
+            call mpi_send(sizes, 3, MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, ierr)
          end do
 
          do domain = 2, MPI_Process % nProcs
             call mpi_isend(mpi_allPartitions(domain) % nodeIDs, &
                            mpi_allPartitions(domain) % no_of_nodes, MPI_INT, domain-1, &
-                           DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,2), ierr)
+                           DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,1), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % elementIDs, &
                            mpi_allPartitions(domain) % no_of_elements, MPI_INT, domain-1, &
-                           DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,3), ierr)
+                           DEFAULT_TAG, MPI_COMM_WORLD, send_req(domain-1,2), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % mpiface_elements, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,4), ierr)
+                           send_req(domain-1,3), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % element_mpifaceSide, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,5), ierr)
+                           send_req(domain-1,4), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % element_mpifaceSideOther, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,6), ierr)
+                           send_req(domain-1,5), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % mpiface_rotation, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,7), ierr)
+                           send_req(domain-1,6), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % mpiface_elementSide, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,8), ierr)
+                           send_req(domain-1,7), ierr)
 
             call mpi_isend(mpi_allPartitions(domain) % mpiface_sharedDomain, &
                            mpi_allPartitions(domain) % no_of_mpifaces, &
                            MPI_INT, domain-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                           send_req(domain-1,9), ierr)
+                           send_req(domain-1,8), ierr)
 
             if (meshIsHOPR) then
                call mpi_isend(mpi_allPartitions(domain) % HOPRnodeIDs, &
@@ -301,11 +289,10 @@ module PartitionedMeshClass
 !
 !        Wait until all messages have been delivered
 !        -------------------------------------------
-         do msg = 1, 9
-            call mpi_waitall(MPI_Process % nProcs - 1, send_req(:,msg), array_of_statuses, ierr)
+         do msg = 1, 8
+            call mpi_waitall(MPI_Process % nProcs - 1, send_req(:,msg), MPI_STATUSES_IGNORE, ierr)
          end do
-         if (meshIsHOPR) call mpi_waitall(MPI_Process % nProcs - 1, send_reqHOPR(:), array_of_statuses, ierr)
-
+         if (meshIsHOPR) call mpi_waitall(MPI_Process % nProcs - 1, send_reqHOPR(:), MPI_STATUSES_IGNORE, ierr)
 !
 !        Destruct the array containing all partitions (only local copies remain)
 !        -----------------------------------------------------------------------

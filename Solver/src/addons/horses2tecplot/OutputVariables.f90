@@ -1,15 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    OutputVariables.f90
-!   @Author:  Juan Manzanero (juan.manzanero@upm.es)
-!   @Created: Sat Oct 14 20:44:38 2017
-!   @Last revision date: Tue Dec  3 18:47:37 2019
-!   @Last revision author: Andrés Rueda (am.rueda@upm.es)
-!   @Last revision commit: 74aa71e8675dba27cdc3e65b0539a36f31e86478
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module OutputVariables
 !
@@ -35,6 +23,7 @@ module OutputVariables
    private
    public   no_of_outputVariables, askedVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
+   public   getOutputVariablesList
    public   outScale, hasVariablesFlag, Lreference
 
    integer, parameter   :: STR_VAR_LEN = 16
@@ -59,8 +48,9 @@ module OutputVariables
       enumerator :: OMEGAABS_V, QCRIT_V, DIV_V
       enumerator :: Vvec_Vmean, U_Vmean, V_Vmean, W_Vmean, ReST 
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
-      enumerator :: Vvec_Vrms, U_Vrms, V_Vrms, W_Vrms
+      enumerator :: Vfvec_Vrms, Uf_Vrms, Vf_Vrms, Wf_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, UPLUS, Cf_V, MUTMINF
+      enumerator :: SENSOR_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -135,10 +125,10 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: ReSTyyKey     = "Syy"
    character(len=STR_VAR_LEN), parameter  :: ReSTyzKey     = "Syz"
    character(len=STR_VAR_LEN), parameter  :: ReSTzzKey     = "Szz"
-   character(len=STR_VAR_LEN), parameter  :: VvecRmsKey    = "Vrms"
-   character(len=STR_VAR_LEN), parameter  :: URmsKey       = "urms"
-   character(len=STR_VAR_LEN), parameter  :: VRmsKey       = "vrms"
-   character(len=STR_VAR_LEN), parameter  :: WRmsKey       = "wrms"
+   character(len=STR_VAR_LEN), parameter  :: VfvecRmsKey    = "Vfrms"
+   character(len=STR_VAR_LEN), parameter  :: UfRmsKey       = "ufrms"
+   character(len=STR_VAR_LEN), parameter  :: VfRmsKey       = "vfrms"
+   character(len=STR_VAR_LEN), parameter  :: WfRmsKey       = "wfrms"
    character(len=STR_VAR_LEN), parameter  :: UTAUKey       = "u_tau"
    character(len=STR_VAR_LEN), parameter  :: WallYKey      = "wall_distance"
    character(len=STR_VAR_LEN), parameter  :: TauwKey       = "wall_shear"
@@ -147,6 +137,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus"
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "Cf"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+   character(len=STR_VAR_LEN), parameter  :: sensorKey     = "sensor"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
@@ -162,9 +153,9 @@ module OutputVariables
                                                                             omegaAbsKey, QCriterionKey, divVKey, &
                                                                             VvecMeanKey, UMeanKey, VMeanKey, WMeanKey, ReSTKey, &
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
-                                                                            VvecRmsKey, URmsKey, VRmsKey, WRmsKey, &
+                                                                            VfvecRmsKey, UfRmsKey, VfRmsKey, WfRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
-                                                                            uplusKey, cfKey, mutminfKey /)
+                                                                            uplusKey, cfKey, mutminfKey, sensorKey /)
                                                                         
                                                                         
                                                                
@@ -280,7 +271,7 @@ module OutputVariables
 
       end subroutine getOutputVariables
 
-      subroutine ComputeOutputVariables(N, e, output, refs, hasGradients, hasStats)
+      subroutine ComputeOutputVariables(N, e, output, refs, hasGradients, hasStats, hasSensor)
          use SolutionFile
          use Storage
          use StatisticsMonitor
@@ -291,6 +282,7 @@ module OutputVariables
          real(kind=RP), intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,       intent(in)    :: hasGradients
          logical,       intent(in)    :: hasStats
+         logical,       intent(in)    :: hasSensor
 !
 !        ---------------
 !        Local variables
@@ -300,7 +292,7 @@ module OutputVariables
          real(kind=RP) :: Sym, Asym
          logical       :: hasAdditionalVariables
 
-         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients
+         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor
 
          do var = 1, no_of_outputVariables
             if ( hasAdditionalVariables .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
@@ -534,21 +526,21 @@ module OutputVariables
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = POW2(refs(V_REF)) * output(var,:,:,:)
 
-               case(U_Vrms)
+               case(Uf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(UU,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(UU,i,j,k) - POW2(stats(U,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
-               case(V_Vrms)
+               case(Vf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(VV,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(VV,i,j,k) - POW2(stats(V,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
-               case(W_Vrms)
+               case(Wf_Vrms)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = sqrt(stats(WW,i,j,k))
+                     output(var,i,j,k) = sqrt(stats(WW,i,j,k) - POW2(stats(W,i,j,k)))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
@@ -670,7 +662,7 @@ module OutputVariables
 
                case(U_TAU_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  u_tau(1,i,j,k)
+                     output(var,i,j,k) =  abs(u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * refs(V_REF)
 
@@ -682,25 +674,25 @@ module OutputVariables
 
                case(Tauw_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k))
+                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(YPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  wallY(1,i,j,k) * u_tau(1,i,j,k) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
+                     output(var,i,j,k) =  wallY(1,i,j,k) * abs(u_tau(1,i,j,k)) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * Lreference
 
                case(UPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * u_tau(1,i,j,k)
+                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * abs(u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
                
                case(Cf_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * 2.0_RP !here we are assuming that u_inf and rho_inf are 1.0 as is common in a free stream
+                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k)) * 2.0_RP !here we are assuming that u_inf and rho_inf are 1.0 as is common in a free stream
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) ! is non dimensional
 
@@ -746,6 +738,13 @@ module OutputVariables
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_z(size(U_z,1),i,j,k)
                   end do         ; end do         ; end do
+!
+!              **************
+!              Element sensor
+!              **************
+!
+               case(SENSOR_V)
+                  output(var,:,:,:) = e % sensor
 
                end select
                end associate
@@ -757,6 +756,23 @@ module OutputVariables
          end do
 
       end subroutine ComputeOutputVariables
+
+      subroutine getOutputVariablesList(list)
+         implicit none
+         character(len=STRING_CONSTANT_LENGTH), allocatable, intent(out) :: list(:)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer :: iVar
+
+         allocate(list(no_of_outputVariables))
+         do iVar = 1, no_of_outputVariables
+            list(iVar) = trim(variableNames(outputVariableNames(iVar)))
+         end do
+
+      end subroutine getOutputVariablesList
 
       character(len=1024) function getOutputVariablesLabel()
          implicit none
@@ -815,7 +831,7 @@ module OutputVariables
          case(ReST)
             outputVariablesForVariable = 6
 
-         case(Vvec_Vrms)
+         case(Vfvec_Vrms)
             outputVariablesForVariable = 3
 
          case default
@@ -878,8 +894,8 @@ module OutputVariables
          case(ReST)
             output = (/ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz/)
 
-         case(Vvec_Vrms)
-            output = (/U_Vrms, V_Vrms, W_Vrms/)
+         case(Vfvec_Vrms)
+            output = (/Uf_Vrms, Vf_Vrms, Wf_Vrms/)
 
          case default
             output = iVar

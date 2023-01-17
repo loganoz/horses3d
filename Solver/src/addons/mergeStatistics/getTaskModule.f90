@@ -1,3 +1,6 @@
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !     This module explores the command line flags introduced by the user. Software usage is:
 !
 !           $ horses.mergeStats *.stats.hsol --intitial-iteration=INTEGER

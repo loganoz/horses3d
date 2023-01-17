@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ReadHDF5Mesh.f90
-!   @Last revision commit: 3a3b3537f2ab57f789c42bdc46a6d882364587f6
-!
 !//////////////////////////////////////////////////////
 !
 !  Module for reading HDF5 meshes as written by HOPR
@@ -140,7 +134,7 @@ contains
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
       
-      ! Auxiliar variables
+      ! Auxiliary variables
       integer :: i,j,k,l  ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
@@ -507,7 +501,7 @@ contains
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
       
-      ! Auxiliar variables
+      ! Auxiliary variables
       integer, allocatable            :: gHOPR2pHORSESNodeMap(:)   ! Map from the global HOPR node index to the local partition index in HORSES3D
       integer, allocatable            :: globalToLocalElementID(:)
       integer :: i,j,k,l, eID, GlobeID  ! Counters

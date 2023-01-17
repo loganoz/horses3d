@@ -1,8 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      HexElementConnectivityDefinitions.f90
-!!
 !!     This module defines the connectivity in the master element.
 !
 !      PUBLIC DATA:
@@ -10,6 +8,7 @@
 !                              FACES_PER_ELEMENT, EDGES_PER_ELEMENT
 !        INTEGER, DIMENSION(4,6)  :: localFaceNode
 !        INTEGER, DIMENSION(2,12) :: localEdgeNode
+!
 !!
 ! /////////////////////////////////////////////////////////////////////
 !
@@ -224,7 +223,7 @@
 !
 !     -------------------------------------------------------------------------
 !     Side Map: Given two corner points, return the index in which an array 
-!     runs betweeen these two corners. This is shown in the figure below:
+!     runs between these two corners. This is shown in the figure below:
 !
 !               4 -----------3-------------3
 !               |                          |

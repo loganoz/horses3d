@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module BoundaryConditions
    use SMConstants
@@ -166,7 +165,7 @@ module BoundaryConditions
 !
 !////////////////////////////////////////////////////////////////////////////
 !
-!        Auxiliar subroutines
+!        Auxiliary subroutines
 !        --------------------         
 !
 !////////////////////////////////////////////////////////////////////////////

@@ -1,11 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    pAdaptationClass.f90
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
-!//////////////////////////////////////////////////////
-!
 !      Class cotaining routines for adapting polynomial orders.
 !        -> Currently, the adaptation procedure is only performed with  
 !           truncation error estimations (TruncationErrorClass.f90), but other
@@ -26,7 +21,7 @@ module pAdaptationClass
    use ElementClass
    use ElementConnectivityDefinitions  , only: axisMap
    use DGSEMClass                      , only: DGSem, ComputeTimeDerivative_f, MaxTimeStep, ComputeMaxResiduals
-   use TruncationErrorClass            , only: NMINest, TruncationError_t, ISOLATED_TE, NON_ISOLATED_TE, GenerateExactTEmap
+   use TruncationErrorClass            , only: NMINest, TruncationError_t, ISOLATED_TE, NON_ISOLATED_TE, GenerateExactTEmap, OLD_TE, NEW_TE
    use FTValueDictionaryClass          , only: FTValueDictionary
    use StorageClass
    use FileReadingUtilities            , only: RemovePath, getFileName, getIntArrayFromString, getRealArrayFromString, getCharArrayFromString, GetRealValue, GetIntValue
@@ -87,6 +82,7 @@ module pAdaptationClass
       real(kind=RP)                     :: reqTEc                          ! Requested truncation error for coarsening
       logical                           :: TEFiles = .FALSE.               ! Write truncation error files?
       logical                           :: saveGradients                   ! Save gradients in pre-adapt and p-adapted solution files?
+      logical                           :: saveSensor                      ! Save sensor in pre-adapt and p-adapted solution files?
       logical                           :: Adapt                           ! Is the adaptator going to be used??
       logical                           :: increasing      = .FALSE.       ! Performing an increasing adaptation procedure?
       logical                           :: Constructed      ! 
@@ -98,6 +94,7 @@ module pAdaptationClass
       type(MultiTauEstim_t)             :: MultiTauEstim
       integer                           :: NxyzMax(3)                      ! Maximum polynomial order in all the directions
       integer                           :: TruncErrorType                  ! Truncation error type (either ISOLATED_TE or NON_ISOLATED_TE)
+      integer                           :: TruncErrorForm                  ! Truncation error form (either OLD_TE or NEW_TE)
       integer                           :: adaptation_mode = NO_ADAPTATION ! Adaptation mode 
       integer, allocatable              :: maxNdecrease
       real(kind=RP)                     :: time_interval
@@ -471,7 +468,7 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_TruncErrorForm, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
       logical      , allocatable     :: R_increasing, R_TEFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError, R_pSmoothing, R_cTruncError
       ! Extra vars
@@ -510,6 +507,7 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "nmax"                   , R_Nmax             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "nmin"                   , R_Nmin             , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "truncation error type"  , R_TruncErrorType   , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "truncation error formulation"  , R_TruncErrorForm   , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "order across faces"     , R_OrderAcrossFaces , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "max n decrease"         , this % maxNdecrease, in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "mode"                   , R_mode             , in_label , "# end" )
@@ -593,6 +591,24 @@ readloop:do
       else
          this % TruncErrorType = ISOLATED_TE
       end if
+
+!     Truncation error formulation, the selecion is between old and new (Andre's Rueda Ramirez thesis for more details)
+!     ---------------------
+      if ( R_TruncErrorForm /= "" ) then
+         call toLower (R_TruncErrorForm)
+         select case ( trim(R_TruncErrorForm) )
+            case ('old')
+               this % TruncErrorForm = OLD_TE
+            case ('new')
+               this % TruncErrorForm = NEW_TE
+            case default
+               write(STD_OUT,*) "Not recognized 'truncation error formulation'. Defaulting to old."
+               this % TruncErrorForm = OLD_TE
+         end select
+      else
+         this % TruncErrorForm = OLD_TE
+      end if
+
       
 !     Polynomial order jump
 !     ---------------------
@@ -718,6 +734,7 @@ readloop:do
 !      
       this % solutionFileName = trim(getFileName(controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH)))
       this % saveGradients    = controlVariables % logicalValueForKey("save gradients with solution")
+      this % saveSensor       = controlVariables % logicalValueForKey("save sensor with solution")
       if ( trim( controlVariables % StringValueForKey("simulation type",LINE_LENGTH) ) == 'time-accurate' ) this % UnSteady = .TRUE.
       
       
@@ -884,7 +901,7 @@ readloop:do
       real(kind=RP)              :: t                 !< time!!
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
-      type(FTValueDictionary)    :: controlVariables  !<> Input vaiables (that can be modified depending on the user input)
+      type(FTValueDictionary)    :: controlVariables  !<> Input variables (that can be modified depending on the user input)
       !-local-variables----------------------
       integer                    :: eID               !   Element counter
       integer                    :: Dir               !   Direction
@@ -924,7 +941,7 @@ readloop:do
 !
       if ( controlVariables % containsKey("get exact temap elem") ) then
          eID = controlVariables % integerValueForKey("get exact temap elem")
-         call GenerateExactTEmap(sem, NMIN, this % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, eID, this % TruncErrorType)
+         call GenerateExactTEmap(sem, NMIN, this % NxyzMax, t, computeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables, eID, TruncErrorType=this % TruncErrorType, TruncErrorForm =this % TruncErrorForm)
       end if
       
 !
@@ -935,7 +952,7 @@ readloop:do
       if (this % restartFiles) then
          write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
          call sem % mesh % Export(AdaptedMeshFile)         
-         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
+         call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       end if
       
 !
@@ -948,7 +965,7 @@ readloop:do
       if (.not. this % ErrorEstimFromFiles) then
 
          CALL AnisFASpAdaptSolver % construct(controlVariables,sem,estimator=.TRUE.,NMINestim = NMINest)
-         CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,this % TE, this % TruncErrorType)
+         CALL AnisFASpAdaptSolver % solve(itera,t,computeTimeDerivative,ComputeTimeDerivativeIsolated,this % TE, TEType = this % TruncErrorType, TEForm = this % TruncErrorForm)
          CALL AnisFASpAdaptSolver % destruct
          
          ! Write truncation error files if specified
@@ -1089,7 +1106,7 @@ readloop:do
       call sem % mesh % Export(AdaptedMeshFile)
       call sem % mesh % ExportOrders(AdaptedMeshFile)
       
-      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients)
+      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
       
 !
 !     ------------------------------------------------
@@ -1157,7 +1174,7 @@ readloop:do
          if ( (P_1(dir) < NMIN(dir)) .and. (P_1(dir) < NMINest+1) ) P_1(dir) = NMIN(dir)
       end do
       
-!     Initialiation of TEmap and NNew
+!     Initialization of TEmap and NNew
 !     -------------------------------
       TEmap = 0._RP
       NNew = -1 ! Initialized to negative value
@@ -1515,8 +1532,8 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  -----------------------------------------------------------------------
-!  Subroutine for reorganizing the polynomial orders with neighbor contraints
-!  -> So far, this only works with shared memory ...and computes everything in serial!
+!  Subroutine for reorganizing the polynomial orders with neighbor constraints
+!  -> So far, this only works with shared memory ...and computes everything in serial! (TODO: Update to MPI!)
 !  -----------------------------------------------------------------------
    subroutine ReorganizePolOrders(faces,NNew,last)
       implicit none
@@ -1532,7 +1549,7 @@ readloop:do
       
       sweep = 0
       
-      ! perform succesive (serial) sweeps until no further elements have to be modified 
+      ! perform successive (serial) sweeps until no further elements have to be modified 
       do 
          sweep = sweep + 1
          finalsweep = .TRUE. ! let's first assume this is the final sweep
@@ -1646,7 +1663,7 @@ readloop:do
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  Subroutines to specify the maximum polynomial order jump across a face
-!  The element accross the face is of order a
+!  The element across the face is of order a
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

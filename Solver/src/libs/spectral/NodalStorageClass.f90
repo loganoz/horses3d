@@ -33,7 +33,7 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: vd                        ! Boundary derivative vector
       real(kind=RP), dimension(:,:), allocatable :: bd                        ! Boundary derivative vector scaled with weight
       real(kind=RP), dimension(:,:), allocatable :: D                         ! DG derivative matrix
-      real(kind=RP), dimension(:,:), allocatable :: DT                        ! Trasposed DG derivative matrix
+      real(kind=RP), dimension(:,:), allocatable :: DT                        ! Transposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatG                      ! Weak form Laplacian derivative matrix hatG := W⁻¹DᵀWD (where W is the diagonal matrix with the quadrature weights)
       real(kind=RP), dimension(:,:), allocatable :: Q                         ! SBP matrix Q = MD
@@ -324,7 +324,7 @@ MODULE NodalStorageClass
          end do
       end do
 !
-!     Get the transformation from Nodal to Modal and viceversa matrices
+!     Get the transformation from Nodal to Modal and vice-versa matrices
       do k = 0 , N   ; do i = 0 , N
          this % Fwd(k,i) = this % w(i) * Lkj(k,i) / this % Lw(k)
          this % Bwd(i,k) = Lkj(k,i)

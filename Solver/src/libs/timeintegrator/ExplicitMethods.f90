@@ -1,11 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!   @File:    ExplicitMethods.f90
-!   @Last revision commit: a699bf7e073bc5d10666b5a6a373dc4e8a629897
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !      RK integrators for DG approximation to conservation
 !      laws in 3D
 !

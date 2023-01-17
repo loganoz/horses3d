@@ -27,8 +27,8 @@ module PETScMatrixClass
       Mat         :: A        ! Matrix in PETSc context
       PetscScalar :: Ashift   ! Stores the current shift to the matrix
       PetscBool   :: withMPI
-      Vec         :: rowvec   ! Auxiliar vector with size = num_of_Rows
-      Vec         :: colvec   ! Auxiliar vector with size = num_of_Cols
+      Vec         :: rowvec   ! Auxiliary vector with size = num_of_Rows
+      Vec         :: colvec   ! Auxiliary vector with size = num_of_Cols
       PetscInt    :: num_of_totalRows
 #endif
 
@@ -126,8 +126,8 @@ module PETScMatrixClass
          CALL MatSetType(this%A,MATSEQAIJ, ierr)
          CALL CheckPetscErr(ierr,'error in MatSetType')
       end if
-
-!     Construct auxiliar vectors
+      
+!     Construct auxiliary vectors
 !     --------------------------
       call VecCreate(PETSC_COMM_WORLD,this % rowvec,ierr)                     ; call CheckPetscErr(ierr,'error creating Petsc vector')
       call VecSetSizes(this % rowvec,this % num_of_Rows,this % num_of_totalRows,ierr)    ; call CheckPetscErr(ierr,'error setting Petsc vector options')

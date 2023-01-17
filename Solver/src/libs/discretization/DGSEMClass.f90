@@ -1,3 +1,4 @@
+!
 !////////////////////////////////////////////////////////////////////////
 !
 !      Basic class for the discontinuous Galerkin spectral element
@@ -20,13 +21,14 @@ Module DGSEMClass
    use FWHGeneralClass
 #elif defined(SPALARTALMARAS)
    use ManufacturedSolutionsNSSA
-   use SpallartAlmarasTurbulence
+   use SpallartAlmarasTurbulence , only: Spalart_Almaras_t
 #endif
    use MonitorsClass
    use ParticlesClass
    use Physics
    use FluidData
    use ProblemFileFunctions, only: UserDefinedInitialCondition_f
+   use MPI_Utilities,        only: MPI_MinMax
 #ifdef _HAS_MPI_
    use mpi
 #endif
@@ -45,10 +47,13 @@ Module DGSEMClass
       INTEGER                                                 :: NDOF                        ! Number of degrees of freedom in this partition
       integer                                                 :: totalNDOF                   ! Number of degrees of freedom in the whole domain
       TYPE(HexMesh)                                           :: mesh
-      LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manifactured solutions? default .FALSE.
+      LOGICAL                                                 :: ManufacturedSol = .FALSE.   ! Use manufactured solutions? default .FALSE.
       type(Monitor_t)                                         :: monitors
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       type(FWHClass)                                          :: fwh
+#endif
+#if defined(SPALARTALMARAS)
+      type(Spalart_Almaras_t), private    :: SAModel
 #endif
 #ifdef FLOW
       type(Particles_t)                                       :: particles
@@ -351,24 +356,33 @@ Module DGSEMClass
 !
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       IF (self % ManufacturedSol) THEN
+      IF (flowIsNavierStokes) THEN
+         DO el = 1, SIZE(self % mesh % elements)
+            DO k=0, Nz(el)
+               DO j=0, Ny(el)
+                  DO i=0, Nx(el)                     
+                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                                                          0._RP, &
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
+                  END DO
+               END DO
+            END DO
+         END DO
+      ELSE
          DO el = 1, SIZE(self % mesh % elements)
             DO k=0, Nz(el)
                DO j=0, Ny(el)
                   DO i=0, Nx(el)
-                     IF (flowIsNavierStokes) THEN
-                        CALL ManufacturedSolutionSourceNS(self % mesh % elements(el) % geom % x(:,i,j,k), &
-                                                          0._RP, &
-                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
-                     ELSE
-                        CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
+                         CALL ManufacturedSolutionSourceEuler(self % mesh % elements(el) % geom % x(:,i,j,k), &
                                                              0._RP, &
-                                                             self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
-                     END IF
+                                                          self % mesh % elements(el) % storage % S_NS (:,i,j,k)  )
                   END DO
                END DO
             END DO
          END DO
       END IF
+      END IF
+
 #elif defined(SPALARTALMARAS)
       IF (self % ManufacturedSol) THEN
          DO el = 1, SIZE(self % mesh % elements)
@@ -472,14 +486,17 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA
+         logical                                :: saveGradients, loadFromNSSA, withSensor
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
          solutionName = trim(getFileName(solutionName))
 
+         withSensor = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
+
          IF ( controlVariables % logicalValueForKey(restartKey) )     THEN
-            loadFromNSSA = controlVariables % logicalValueForKey("NS load from NSSA")
+            loadFromNSSA = controlVariables % logicalValueForKey("ns from nssa")
+            if (loadFromNSSA .and. MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "NS restarting from RANS"
             CALL self % mesh % LoadSolutionForRestart(controlVariables, initial_iteration, initial_time, loadFromNSSA)
          ELSE
 
@@ -667,13 +684,12 @@ Module DGSEMClass
       logical :: flowIsNavierStokes = .true.
 #endif
 #if defined(SPALARTALMARAS)
-      type(Spalart_Almaras_t)       :: SAModel
-      external                      :: ComputeEigenvaluesForStateSA
+      external                            :: ComputeEigenvaluesForStateSA
 #endif
       !--------------------------------------------------------
 !     Initializations
-!     ---------------              
-              
+!     ---------------                            
+
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
@@ -762,17 +778,15 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
-              
+
               call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
           
               mu = mu + musa
-
 #endif
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
                lameta_v = mu * deta2 * abs(sum(self % mesh % elements(eID) % geom % jGradEta (:,i,j,k)))
                lamzet_v = mu * dzet2 * abs(sum(self % mesh % elements(eID) % geom % jGradZeta(:,i,j,k)))
-
                TimeStep_Visc = min( TimeStep_Visc, dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v) )
                if (present(MaxDtVec)) MaxDtVec(eID) = min( MaxDtVec(eID), &
                                                       dcfl*abs(jac)/(lamcsi_v+lameta_v+lamzet_v)  )
@@ -824,30 +838,18 @@ Module DGSEMClass
 !     ---------------
       integer  :: eID, ierr
       real(RP) :: hn
-      real(RP) :: l_hnmin, l_hnmax
 
 
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         l_hnmin = huge(1.0_RP)
-         l_hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            l_hnmin = min(hn, l_hnmin)
-            l_hnmax = max(hn, l_hnmax)
-         end do
-         call mpi_reduce(l_hnmin, hnmin, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD, ierr)
-         call mpi_reduce(l_hnmax, hnmax, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
-#endif
-      else
-         hnmin = huge(1.0_RP)
-         hnmax = -huge(1.0_RP)
-         do eID = 1, mesh % no_of_elements
-            hn = mesh % elements(eID) % hn
-            hnmin = min(hn, hnmin)
-            hnmax = max(hn, hnmax)
-         end do
-      end if
+      hnmin = huge(1.0_RP)
+      hnmax = -huge(1.0_RP)
+      do eID = 1, mesh % no_of_elements
+         hn = mesh % elements(eID) % hn
+         hnmin = min(hn, hnmin)
+         hnmax = max(hn, hnmax)
+      end do
+
+      call MPI_MinMax(hnmin, hnmax)
+
    end subroutine hnRange
 !
 end module DGSEMClass

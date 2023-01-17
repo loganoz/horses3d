@@ -15,7 +15,7 @@ case $i in
     -p=*|--patch=*)
     MACHINE="${i#*=}"
     if [ "$MACHINE" = "bender" ]; then
-        echo "Aplying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
+        echo "Applying patch for bender... ATTENTION: If you want MPI, do 'module load intel/OpenMPI_3.10'"
     fi
     git apply ../utils/patches/$MACHINE.patch
     shift

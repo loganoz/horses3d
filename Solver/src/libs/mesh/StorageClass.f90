@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    StorageClass.f90
-!   @Last revision commit: 56a7a56e9c570fb6b819052b7ea60b7318ea5f8e
-!
 !//////////////////////////////////////////////////////
 
 #include "Includes.h"
@@ -60,7 +54,9 @@ module StorageClass
       integer                                         :: NDOF              ! Number of degrees of freedom of element
       integer                                         :: Nxyz(NDIM)
       real(kind=RP)                                   :: min_lcl_dst       ! Minimum local distance between nodal points for CFL calculation (physical space)
-      real(kind=RP)                                   :: sensor            ! Value of the shock-capturing sensor
+      integer                                         :: first_sensed      ! Time-steps since the element was first sensed
+      real(kind=RP)                                   :: prev_sensor       ! Previous value of the sensor
+      real(kind=RP)                                   :: sensor            ! Value of the sensor
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: Q           ! Pointers to the appropriate storage (NS or CH)
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: QDot        !
       real(kind=RP), dimension(:,:,:,:),  pointer, contiguous     :: U_x         !
@@ -75,7 +71,7 @@ module StorageClass
       real(kind=RP), private,  allocatable :: U_xNS(:,:,:,:)       ! NSE x-gradients
       real(kind=RP), private,  allocatable :: U_yNS(:,:,:,:)       ! NSE y-gradients
       real(kind=RP), private,  allocatable :: U_zNS(:,:,:,:)       ! NSE z-gradients
-      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliar storage
+      real(kind=RP),           allocatable :: G_NS(:,:,:,:)        ! NSE auxiliary storage
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
@@ -98,7 +94,7 @@ module StorageClass
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_y  ! CHE chemical potential y-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: mu_z  ! CHE chemical potential z-gradient
       real(kind=RP), dimension(:,:,:,:),   allocatable :: v     ! CHE flow field velocity
-      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliar storage
+      real(kind=RP), dimension(:,:,:,:),   allocatable :: G_CH  ! CHE auxiliary storage
 #endif
       contains
          procedure   :: Assign              => ElementStorage_Assign
@@ -181,6 +177,7 @@ module StorageClass
       real(kind=RP), dimension(:,:),       allocatable :: rho
       real(kind=RP), dimension(:,:,:),     allocatable :: mu_NS
       real(kind=RP), dimension(:,:),       allocatable :: u_tau_NS
+      real(kind=RP), dimension(:,:),     allocatable :: wallNodeDistance ! for BC walls, distance to the first fluid node
 !
 !     Inviscid Jacobians
 !     ------------------
@@ -876,6 +873,8 @@ module StorageClass
          self % v     = 0.0_RP
 #endif
 
+         self % first_sensed = huge(1)
+         self % prev_sensor = 1.0_RP
          self % sensor = 1.0_RP  ! Activate the sensor by default (first time-step when SC is on)
 
       end subroutine ElementStorage_Construct
@@ -929,6 +928,12 @@ module StorageClass
          to % currentlyLoaded = from % currentlyLoaded
          to % NDOF            = from % NDOF
          to % Nxyz            = from % Nxyz
+!
+!        Copy the sensors
+!        ----------------
+         to % first_sensed = from % first_sensed
+         to % prev_sensor  = from % prev_sensor
+         to % sensor       = from % sensor
 
 #ifdef FLOW
          to % QNS    = from % QNS
@@ -1298,6 +1303,7 @@ module StorageClass
          allocate( self % rho       (0:Nf(1),0:Nf(2)) )
          allocate( self % mu_NS     (1:3,0:Nf(1),0:Nf(2)) )
          allocate( self % u_tau_NS  (0:Nf(1),0:Nf(2)) )
+         allocate( self % wallNodeDistance  (0:Nf(1),0:Nf(2)) )
          
          if (analyticalJac) call self % ConstructAnJac(NDIM) ! This is actually not specific for NS
 #endif
@@ -1348,6 +1354,7 @@ module StorageClass
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
          self % u_tau_NS = 0.0_RP
+         self % wallNodeDistance = 0.0_RP
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1427,6 +1434,7 @@ module StorageClass
          end if
          safedeallocate(self % mu_NS)
          safedeallocate(self % u_tau_NS)
+         safedeallocate(self % wallNodeDistance)
          safedeallocate(self % rho )
 
          self % anJacobian      = .FALSE.
@@ -1591,6 +1599,7 @@ module StorageClass
          to % rho = from % rho
          to % mu_NS  = from % mu_NS
          to % u_tau_NS  = from % u_tau_NS
+         to % wallNodeDistance  = from % wallNodeDistance
 
          if (to % anJacobian) then
             to % dFStar_dqF = from % dFStar_dqF

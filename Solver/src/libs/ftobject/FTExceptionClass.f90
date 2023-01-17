@@ -249,10 +249,10 @@
 ! 
       SUBROUTINE destructException(self)
 !
-! --------------------------------------------------------------
-!>The destructor for the class. Do not call this direectly. Call
+! -------------------------------------------------------------
+!>The destructor for the class. Do not call this directly. Call
 !>the release() procedure instead
-! --------------------------------------------------------------
+! -------------------------------------------------------------
 !
 
          IMPLICIT NONE  

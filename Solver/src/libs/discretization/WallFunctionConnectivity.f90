@@ -1,16 +1,12 @@
 !
-!   @File:    WallFunctionConnectivity.f90
-!   @Author:  Oscar Marino (oscar.marino@upm.es)
-!   @Created: Nov 23 2021
-!   @Last revision date: 
-!   @Last revision author: 
-!   @Last revision commit: 
+!//////////////////////////////////////////////////////
+!
+! This module stores the connection of each face of the wall that will be used in the 
+! Wall Function with the first normal neighbour
+! element and other needed variables
 !
 !//////////////////////////////////////////////////////
 !
-!This module stores the connection of each face of the wall that will be used in the Wall Function with the first normal neighbour
-!elelement and other needed variables
-
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 Module WallFunctionConnectivity  !
@@ -61,7 +57,7 @@ Module WallFunctionConnectivity  !
         use FileReadingUtilities, only: getCharArrayFromString
         use ElementConnectivityDefinitions, only: normalAxis, FACES_PER_ELEMENT
         use MPI_Process_Info
-        use WallFunctionDefinitions, only: Initialize_Wall_Fuction, wallFuncIndex, STD_WALL, ABL_WALL, u_tau0, useAverageV
+        use WallFunctionDefinitions, only: Initialize_Wall_Function, wallFuncIndex, STD_WALL, ABL_WALL, u_tau0, useAverageV
         use Headers
 #ifdef _HAS_MPI_
        use mpi
@@ -81,7 +77,7 @@ Module WallFunctionConnectivity  !
         integer                                :: actualElementID, linkedElementID, normalIndex, oppositeIndex, oppositeNormalIndex
         integer                                :: allFaces, ierr
 
-        call Initialize_Wall_Fuction(controlVariables, useWallFunc)
+        call Initialize_Wall_Function(controlVariables, useWallFunc)
         if (.not. useWallFunc) then
             return
         end if
@@ -143,7 +139,7 @@ Module WallFunctionConnectivity  !
                     oppositeIndex = maxloc(merge(1.0, 0.0, normalAxis == oppositeIndex),dim=1)
                     linkedElementID = e % Connection(oppositeIndex) % globID
                 end associate
-                linkedElementID = getElemntID(mesh, linkedElementID)
+                linkedElementID = getElementID(mesh, linkedElementID)
                 wallFaceID(k) = fID
                 wallElemIds(k) = linkedElementID
                 !get the normalIndex of the linked element instead of actual element, needed for rotated meshes
@@ -192,6 +188,7 @@ Module WallFunctionConnectivity  !
             case (ABL_WALL)
                 write(STD_OUT,'(30X,A,A28,A10)') "->", "Wall Function Law: ", "ABL"
         end select
+        if (useAverageV) write(STD_OUT,'(30X,A,A28)') "->", "Wall Function using time averaged values"
 
     End Subroutine Initialize_WallConnection
 
@@ -308,7 +305,7 @@ Module WallFunctionConnectivity  !
         integer                                                         :: eID, solIndex
         ! integer                                                         :: faceIndex, eID, solIndex
 
-        allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NCONS,0:f % Nf(1),0:f % Nf(2)) )
+        allocate( Q(NCONS,0:f % Nf(1),0:f % Nf(2)), x(NDIM,0:f % Nf(1),0:f % Nf(2)) )
 
         ! use the maxloc line if the compiler doesn't support findloc
         ! faceIndex = findloc(wallFaceID, f % ID, dim=1)
@@ -410,7 +407,7 @@ Module WallFunctionConnectivity  !
 
     End Subroutine WallStartMeanV
 
-    integer Function getElemntID(mesh, globeID)
+    integer Function getElementID(mesh, globeID)
 
 !     *******************************************************************
 !        This subroutine get the element ID based on the global element ID
@@ -430,17 +427,17 @@ Module WallFunctionConnectivity  !
 
         do eID = 1, mesh % no_of_elements
             if (mesh % elements(eID) % globID .eq. globeID) then
-                getElemntID = eID
+                getElementID = eID
                 return
             end if
         end do
 
-        ! if the code reach this point the elemt does not exists
+        ! if the code reach this point the element does not exists
         write(STD_OUT,'(A,I0)') "Error: The element of the wall function does not exists in the mesh or mesh partition, global ID: ", globeID
         errorMessage(STD_OUT)
         stop 
 
-    End Function getElemntID
+    End Function getElementID
 
 End Module WallFunctionConnectivity
 #endif

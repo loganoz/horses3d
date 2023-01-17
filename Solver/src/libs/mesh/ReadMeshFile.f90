@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ReadMeshFile.f90
-!   @Last revision commit: 381fa9c03f61f1d88787bd29c5e9bfe772c6ca1d
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ReadMeshFile
    use SMConstants

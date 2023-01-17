@@ -1,5 +1,10 @@
-!This module contains the pre-define local p-refinement of a mesh
-
+!
+!//////////////////////////////////////////////////////
+!
+! This module contains the pre-define local p-refinement of a mesh
+!
+!//////////////////////////////////////////////////////
+!
 Module LocalRefinementTool  !
 
     use SMConstants

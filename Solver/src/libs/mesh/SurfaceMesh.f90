@@ -1,9 +1,6 @@
-!
-!   @File:    SurfaceMesh.f90
-!
 !//////////////////////////////////////////////////////
 !
-!This module handle the ficticious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy
+!This module handle the fictitious surfaces that will be export to save solution of a set of faces, such as slices and FWH acoustic analogy
 ! The solution is saved before the first time step and at a fixed dt
 
 #include "Includes.h"
@@ -20,6 +17,9 @@ Module SurfaceMesh
 !
     public SURFACE_TYPE_FWH, SURFACE_TYPE_SLICE, FWH_POSITION
     public surfacesMesh
+#if defined(NAVIERSTOKES)
+    public getU_tauInSurfaces, getWallDistInSurfaces
+#endif
 !
     integer, parameter          :: SURFACE_TYPE_FWH   = 1
     integer, parameter          :: SURFACE_TYPE_SLICE = 2
@@ -31,8 +31,9 @@ Module SurfaceMesh
         integer                                                 :: numberOfSurfaces
         integer, dimension(:), allocatable                      :: totalFaces       ! number of faces in all partitions for each surface
         integer, dimension(:), allocatable                      :: surfaceTypes     ! type of each surface
-        type(Zone_t), dimension(:), allocatable                 :: zones            ! ficticious zones that contains the faces of each surface
+        type(Zone_t), dimension(:), allocatable                 :: zones            ! fictitious zones that contains the faces of each surface
         logical, dimension(:), allocatable                      :: surfaceActive    ! flag for each surface
+        logical, dimension(:), allocatable                      :: isNoSlip         ! flag use for calculate and save variables of noslip bc
         character(len=LINE_LENGTH), dimension(:), allocatable   :: file_names
         integer, dimension(:,:), allocatable                    :: globalFid        ! for I/O with mpi
         integer, dimension(:,:), allocatable                    :: faceOffset       ! for I/O with mpi
@@ -71,10 +72,12 @@ Module SurfaceMesh
 !        is allowed). Then it will be the BC, then each direction the slices.
 !     ************************************************************************
 !
-        use FileReadingUtilities, only: getFileName, getCharArrayFromString, getRealArrayFromString
+        use FileReadingUtilities, only: getFileName, getCharArrayFromString, getRealArrayFromString, getPath, removePath
         use mainKeywordsModule
         use Utilities,            only: toLower
         use Headers
+        use BoundaryConditions
+        use MPI_Process_Info
 #ifdef _HAS_MPI_
         use mpi
 #endif
@@ -91,12 +94,13 @@ Module SurfaceMesh
         integer                                                 :: i, j, ierr
         integer                                                 :: idSliceX, idSliceY, idSliceZ, idBC
         logical                                                 :: hasFWH, hasSliceX, hasSliceY, hasSliceZ, hasBC
-        character(len=LINE_LENGTH)                              :: solution_file, read_str, fileName, zoneName
+        character(len=LINE_LENGTH)                              :: solution_file, read_str, fileName, zoneName, fullExpression, path
         character(len=LINE_LENGTH), dimension(:), allocatable   :: bcs_names, bcs_namesFWH
         integer, dimension(:), allocatable                      :: FWHelementSide, facesIDs
         real(kind=RP), dimension(:), allocatable                :: posSliceX, posSliceY, posSliceZ
         real(kind=RP), dimension(:), allocatable                :: limSliceX, limSliceY, limSliceZ
         logical, dimension(:), allocatable                      :: surfaceActive
+        logical                                                 :: isNoSlip
 
         numberOfSurfaces = 0
         self % active = .false.
@@ -119,6 +123,9 @@ Module SurfaceMesh
 !       --------------------------
         solution_file = controlVariables % stringValueForKey( solutionFileNameKey, requestedLength = LINE_LENGTH )
         solution_file = trim(getFileName(solution_file))
+        path = trim(getPath(solution_file))
+        ! save in a separated folder
+        solution_file = trim(path) // "/surfaces/" // trim(removePath(solution_file))
 !
         sliceTolerance = controlVariables % getValueOrDefault("slice tolerance", 1.0e-4_RP)
         self % saveGradients = controlVariables % logicalValueForKey("surface save gradients") .or. controlVariables % logicalValueForKey("save gradients")
@@ -185,7 +192,8 @@ Module SurfaceMesh
         if (numberOfSurfaces .eq. 0) return
 !
         self % numberOfSurfaces = numberOfSurfaces
-        allocate( self % totalFaces(numberOfSurfaces), self % surfaceTypes(numberOfSurfaces), self % zones(numberOfSurfaces), self % surfaceActive(numberOfSurfaces), self % file_names(numberOfSurfaces) )
+        allocate( self % totalFaces(numberOfSurfaces), self % surfaceTypes(numberOfSurfaces), self % zones(numberOfSurfaces), &
+                  self % surfaceActive(numberOfSurfaces), self % file_names(numberOfSurfaces), self%isNoSlip(numberOfSurfaces) )
         self % totalFaces = 0
         self % surfaceActive = .false.
         self % surfaceTypes = 0
@@ -210,7 +218,7 @@ Module SurfaceMesh
                 call getSliceFaces(1, posSliceX(i), mesh, numberOfFaces, facesIDs, limSliceX)
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sx', idSliceX
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
             end do slicex_loop
         end if 
 !
@@ -222,7 +230,7 @@ Module SurfaceMesh
                 call getSliceFaces(2, posSliceY(i), mesh, numberOfFaces, facesIDs, limSliceY)
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sy', idSliceY
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
             end do slicey_loop
         end if 
 !
@@ -234,7 +242,7 @@ Module SurfaceMesh
                 call getSliceFaces(3, posSliceZ(i), mesh, numberOfFaces, facesIDs,limSliceZ)
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_sz', idSliceZ
                 zoneName = "sliceSurface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_SLICE, fileName, zoneName, numberOfFaces, facesIDs, .false.)
             end do slicez_loop
         end if 
 !
@@ -243,16 +251,19 @@ Module SurfaceMesh
                 surfaceCont = surfaceCont + 1
                 idBC = idBC + 1
                 safedeallocate(facesIDs)
+                ! isNoSlip = .false.
                 do j = 1, size(mesh % zones)
                     if (trim(bcs_names(i)) .eq. trim(mesh % zones(j) % Name)) exit
                 end do
                 if (j .gt. size(mesh % zones)) cycle bcs_loop
+                ! if ( BCs(j) % bc % BCType .eq. "noslipwall" ) isNoSlip = .true.
+                isNoSlip = ( BCs(j) % bc % BCType .eq. "noslipwall" ) 
                 numberOfFaces = mesh % zones(j) % no_of_faces
                 allocate( facesIDs(numberOfFaces) )
                 facesIDs = mesh % zones(j) % faces
                 write(fileName,'(A,A,I3.3)')  trim(solution_file), '_bc', idBC
                 zoneName = "BC_Surface"
-                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs)
+                call createSingleSurface(self, surfaceCont, SURFACE_TYPE_BC, fileName, zoneName, numberOfFaces, facesIDs, isNoSlip)
             end do bcs_loop
         end if 
         ! get whether at least one partition has faces of the surface
@@ -303,7 +314,7 @@ Module SurfaceMesh
 !       ------------------
         if ( .not. MPI_Process % isRoot ) return
         if (hasFWH .and. .not. (hasBC .or. hasSliceX .or. hasSliceY .or. hasSliceZ)) return
-        call Subsection_Header("Ficticious surfaces zone")
+        call Subsection_Header("Fictitious surfaces zone")
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of surfaces: ", self % numberOfSurfaces
         if (.not. all(self % surfaceActive)) write(STD_OUT,'(30X,A,A28,I0)') "->", "Inactive surfaces: ", count(.not. self % surfaceActive, dim=1)
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of slices: ", idSliceX + idSliceY + idSliceZ
@@ -312,6 +323,10 @@ Module SurfaceMesh
             write(STD_OUT,'(30X,A,A28,L1)') "->", "Save FWH and BC together: ", self % mergeFWHandBC
             write(STD_OUT ,'(/)')
         end if
+!
+        ! create the folder inside the expected RESULTS folder
+        write(fullExpression,'(A,A,A)') "mkdir -p ", trim(path), "/surfaces"
+        call system(trim(fullExpression))
 !
     End Subroutine SurfConstruct
 !
@@ -327,6 +342,7 @@ Module SurfaceMesh
         safedeallocate(self % surfaceTypes)
         safedeallocate(self % zones)
         safedeallocate(self % surfaceActive)
+        safedeallocate(self % isNoSlip)
         safedeallocate(self % file_names)
         safedeallocate(self % globalFid)
         safedeallocate(self % faceOffset)
@@ -436,11 +452,13 @@ Module SurfaceMesh
                 ! for slices and BC use always the first element of the face, this can be changed if needed
                 elemSide = 1
             end if
-            ! save ut or turb if requested only for BC or FWH meged with BC
+            ! save ut or turb if requested only for BC or FWH merged with BC
             if ( (self % surfaceTypes(i) .eq. SURFACE_TYPE_BC) .or. &
                  (self % surfaceTypes(i) .eq. SURFACE_TYPE_FWH .and. self % mergeFWHandBC) ) then
-                saveUt = self % saveUt
-                saveTurb = self % saveTurb
+                if (self%isNoSlip(i)) then
+                    saveUt = self % saveUt
+                    saveTurb = self % saveTurb
+                end if
             end if
             call SurfaceSaveSolution(self % zones(i), mesh, time, iter, FinalName, self % totalFaces(i), &
                                  self % globalFid(1:nf,i), self % faceOffset(1:nf,i), elemSide, &
@@ -498,6 +516,7 @@ Module SurfaceMesh
         integer, dimension(:), allocatable                  :: facesIDs, faces_per_zone, zonesIDs
         character(len=LINE_LENGTH)                          :: zones_str, zones_str2, surface_file, fileName, zoneName
         character(len=LINE_LENGTH), allocatable             :: zones_names(:), zones_temp(:), zones_temp2(:)
+        logical                                             :: isNoSlip
 
         if (controlVariables % containsKey("acoustic solid surface")) then
             zones_str = controlVariables % stringValueForKey("acoustic solid surface", LINE_LENGTH)
@@ -546,12 +565,14 @@ Module SurfaceMesh
             ! the side is always 1 since is at a face of a boundary
             ! eSides = 1
             elementSide = 1
+            isNoSlip = .true.
 
             deallocate(zonesIDs, zones_names) 
         elseif (controlVariables % containsKey("acoustic surface file")) then
             allocate( faces_per_zone(1) )
             surface_file = controlVariables % stringValueForKey("acoustic surface file", LINE_LENGTH)
             call SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), elementSide)
+            isNoSlip = .false.
         else
             stop "acoustic surface for integration is not defined"
         end if
@@ -560,24 +581,26 @@ Module SurfaceMesh
 !       --------------------------------------------------
         write(fileName,'(A,A)') trim(solution_file),'_fwh'
         zoneName = "FWH_Surface"
-        call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, sum(faces_per_zone), facesIDs)
+        call createSingleSurface(self, FWH_POSITION, SURFACE_TYPE_FWH, fileName, zoneName, sum(faces_per_zone), facesIDs, isNoSlip)
 !         
     End Subroutine createFWHSurface
 !         
-    Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs)
+    Subroutine createSingleSurface(self, surface_index, surface_type, file_name, zone_name, no_of_faces, facesIDs, isNoSlip)
         implicit none
 
         class(SurfaceMesh_t)                                :: self
         integer, intent(in)                                 :: surface_index, surface_type, no_of_faces
         character(len=LINE_LENGTH), intent(in)              :: file_name, zone_name
         integer, dimension(:), intent(in)                   :: facesIDs
+        logical, intent(in)                                 :: isNoSlip
 
         self % surfaceTypes(surface_index) = surface_type
         self % file_names(surface_index) = trim(file_name)
         ! not set active nor create zone if there are no faces
         if (no_of_faces .le. 0) return
-        call self % zones(surface_index) % CreateFicticious(-1, trim(zone_name), no_of_faces, facesIDs)
+        call self % zones(surface_index) % CreateFictitious(-1, trim(zone_name), no_of_faces, facesIDs)
         self % surfaceActive(surface_index) = .true.
+        self % isNoSlip(surface_index) = isNoSlip
 
     End Subroutine createSingleSurface
 !         
@@ -656,7 +679,7 @@ Module SurfaceMesh
               padding = NCONS*2
           end if 
       case (SURFACE_TYPE_BC)
-          ! more variables such as friction velocity, mu, and hight of first node will be saved in the future
+          ! more variables such as friction velocity, mu, and height of first node will be saved in the future
           solution_type = ZONE_SOLUTION_FILE
           if (saveGradients)  then
               padding = NCONS + NGRAD*3
@@ -736,6 +759,8 @@ Module SurfaceMesh
 #endif
                write(fid) Q
 
+          if (zoneFaceID .eq. 1) then
+          end if 
                deallocate(Q)
           end if
           if (saveUt) then
@@ -748,10 +773,12 @@ Module SurfaceMesh
           end if 
           if (saveTurb) then
 #if defined(NAVIERSTOKES)
-               ! allocate(Q(1,0:Nx,0:Ny))
-               ! Q(1,:,:)= f % storage % u_tau_NS(:,:)
-               ! write(fid) Q
-               ! deallocate(Q)
+               allocate(Q(1,0:Nx,0:Ny))
+               Q(1,:,:)= f % storage(1) % mu_NS(1,:,:)
+               write(fid) Q
+               Q(1,:,:)= f % storage(1) % wallNodeDistance(:,:)
+               write(fid) Q
+               deallocate(Q)
 #endif
           end if 
           safedeallocate(Q)
@@ -793,7 +820,7 @@ Module SurfaceMesh
       case (ZONE_SOLUTION_AND_DOT_FILE)
 
       case default
-          write(STD_OUT,'(A,I0,A,I0)') "Erro, hsol file expected is ", ZONE_SOLUTION_AND_DOT_FILE, ", got: ", fileType
+          write(STD_OUT,'(A,I0,A,I0)') "Error, hsol file expected is ", ZONE_SOLUTION_AND_DOT_FILE, ", got: ", fileType
           errorMessage(STD_OUT)
       end select
 
@@ -1061,7 +1088,7 @@ Module SurfaceMesh
 !       ------------------
         if ( (MPI_Process % doMPIAction) ) then
 
-!         Broadcast from root, since other process didnt read the file
+!         Broadcast from root, since other process didn't read the file
 !         ------------------
 #ifdef _HAS_MPI_
           call mpi_barrier(MPI_COMM_WORLD, ierr)
@@ -1075,7 +1102,7 @@ Module SurfaceMesh
 #endif
 
 !         First compare the globaleID read from the element in the partition and save the normal (not global) eID, and the
-!         correspondend read nodeIDs
+!         correspondent read nodeIDs
 !         ------------------
           allocate( nodeIDs(4,allNumberOfFaces), eIDs(allNumberOfFaces) )
           j = 0
@@ -1138,7 +1165,7 @@ Module SurfaceMesh
           deallocate(allGeIDs, allfIDs)
           eSides = 0
           do i = 1, numberOfFaces
-              ! if findloc is suport by the compiler use this line and comment the if
+              ! if findloc is supported by the compiler use this line and comment the if
               ! eSides(i) = findloc(mesh % faces(facesIDs(i)) % elementIDs, eIDs(i), dim=1)
               if ( mesh % faces(facesIDs(i)) % elementIDs(1) .eq. eIDs(i) ) then
                 eSides(i) = 1
@@ -1147,7 +1174,7 @@ Module SurfaceMesh
               end if
               if (eSides(i) .eq. 0) then
                 print *, "Error: the element ", eIDs(i), " does not correspond to the face ", mesh % faces(facesIDs(i)) % ID, &
-                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the elemet are: ", mesh % elements(eIDs(i)) % faceIDs
+                    ". The elements of the face are: " , mesh % faces(facesIDs(i)) % elementIDs, ". The faces of the element are: ", mesh % elements(eIDs(i)) % faceIDs
                 call exit(99)
               end if 
           end do
@@ -1255,8 +1282,8 @@ Module SurfaceMesh
         do i = 1, mesh % no_of_faces
             associate( x => mesh % faces(i) % geom % x(:,:,:) )
                 if ( all(abs(x(direction,:,:)-coordinate) .le. sliceTolerance) ) then
-                    ! not use the face if there is no element in mesh associated wiht it.
-                    ! wierd check, but necessary for strange bug when the coordinate is 0
+                    ! not use the face if there is no element in mesh associated with it.
+                    ! weird check, but necessary for strange bug when the coordinate is 0
                     if (mesh % faces(i) % elementIDs(1) .eq. 0) cycle
                     if (useLimits) then
                         dirLims(1) = direction + 1
@@ -1284,20 +1311,172 @@ Module SurfaceMesh
 !           ADDITIONAL VARIABLES PROCEDURES --------------------------
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !         
-    !Subroutine getU_tauInSurfaces(surfaces)
-    !    implicit none
-    !    class(SurfaceMesh_t)                                    :: surfaces
-    !    !local variables
-    !    integer                                                 :: surfID, faceID
+#if defined(NAVIERSTOKES)
+    Subroutine getU_tauInSurfaces(surfaces, mesh)
+        use BoundaryConditions
+        use Physics
+        implicit none
+        type(SurfaceMesh_t)                                     :: surfaces
+        type(HexMesh), intent(inout)                            :: mesh
 
-    !    if (.not. surfaces % saveUt) return
-    !    do surfID = 1, surfaces%numberOfSurfaces
-    !        if (.not. surfaces(surfID) % active) cycle
-    !        if ( (surfaces % surfaceTypes(surfID) .ne. SURFACE_TYPE_BC) .or. &
-    !             (surfaces % surfaceTypes(surfID) .eq. SURFACE_TYPE_FWH .and. .not. self % mergeFWHandBC) ) cycle
-    !         !check that surface is BC no slip
-    !    end do
+        !local variables
+        integer                                                 :: surfID, faceID, i, j, meshFaceID
 
-    !End Subroutine getU_tauInSurfaces
+        if (.not. surfaces % active) return
+        if (.not. surfaces % saveUt) return
+        do surfID = 1, surfaces % numberOfSurfaces
+            if (.not. surfaces % surfaceActive(surfID)) cycle
+            if ( (surfaces % surfaceTypes(surfID) .ne. SURFACE_TYPE_BC) .or. &
+                 (surfaces % surfaceTypes(surfID) .eq. SURFACE_TYPE_FWH .and. .not. surfaces % mergeFWHandBC) ) cycle
+             if (.not. surfaces % isNoSlip(surfID)) cycle
+             ! save u_tau_NS in each face of the no slip bc zones
+!!!$omp parallel do default(shared) private(faceID,meshFaceID,i,j)
+             do faceID = 1, surfaces % zones(surfID) % no_of_faces
+                meshFaceID = surfaces % zones(surfID) % faces(faceID)
+                associate( Q => mesh % faces(meshFaceID) % storage(1) % Q, &
+                           U_x => mesh % faces(meshFaceID) % storage(1) % U_x, &
+                           U_y => mesh % faces(meshFaceID) % storage(1) % U_y, &
+                           U_z => mesh % faces(meshFaceID) % storage(1) % U_z, &
+                           normal => mesh % faces(meshFaceID) % geom % normal, &
+                           tangent => mesh % faces(meshFaceID) % geom % t1, &
+                           u_tau => mesh % faces(meshFaceID) % storage(1) % u_tau_NS )
+                    do j=0,mesh % faces(meshFaceID) % Nf(1)   ; do i = 0, mesh % faces(meshFaceID) % Nf(2)
+                        call getFrictionVelocity(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),normal(:,i,j),tangent(:,i,j),u_tau(i,j))
+                    end do             ; end do
+                end associate
+             end do
+!!!$omp end parallel do
+
+        end do
+
+    End Subroutine getU_tauInSurfaces
+!
+    Subroutine getWallDistInSurfaces(surfaces, mesh)
+        use BoundaryConditions
+        use Physics
+        implicit none
+        type(SurfaceMesh_t)                                     :: surfaces
+        type(HexMesh), intent(inout)                            :: mesh
+
+        !local variables
+        integer                                                 :: surfID, faceID, i, j, meshFaceID
+
+        if (.not. surfaces % active) return
+        if (.not. surfaces % saveUt) return
+        do surfID = 1, surfaces % numberOfSurfaces
+            if (.not. surfaces % surfaceActive(surfID)) cycle
+            if ( (surfaces % surfaceTypes(surfID) .ne. SURFACE_TYPE_BC) .or. &
+                 (surfaces % surfaceTypes(surfID) .eq. SURFACE_TYPE_FWH .and. .not. surfaces % mergeFWHandBC) ) cycle
+             if (.not. surfaces % isNoSlip(surfID)) cycle
+             ! save dwall in each face of the no slip bc zones
+!!!$omp parallel
+             do faceID = 1, surfaces % zones(surfID) % no_of_faces
+                meshFaceID = surfaces % zones(surfID) % faces(faceID)
+                associate( f => mesh % faces(meshFaceID), &
+                           dw => mesh % faces(meshFaceID) % storage(1) % wallNodeDistance )
+                    do j=0, f % Nf(1)   ; do i = 0, f % Nf(2)
+                        call getFaceWallDistance(mesh, f, dw)
+                    end do             ; end do
+                end associate
+             end do
+!!!$omp end parallel do
+
+        end do
+
+    End Subroutine getWallDistInSurfaces
+!
+    Subroutine getFaceWallDistance(mesh,f,dWall)
+        use FaceClass
+        use NodalStorageClass, only: GAUSS, GAUSSLOBATTO
+        use ElementConnectivityDefinitions, only: normalAxis, FACES_PER_ELEMENT
+        implicit none
+        type(HexMesh), intent(in)                                   :: mesh
+        type(Face), intent(in)                                      :: f
+        real(kind=RP), dimension(0:f % Nf(1),0:f % Nf(2)), intent(out)  :: dWall
+
+        ! local variables
+        
+        integer                                                     :: eID, efID, i, j
+        integer                                                     :: normalDirection, indexArray(2), minIndex, elementIndex
+        integer                                                     :: nodeStart, nodeEnd, N
+        real(kind=RP), dimension(NDIM)                              :: x0, xN, xf, dWallVector
+        real(kind=RP), dimension(2)                                 :: dx
+        real(kind=RP), dimension(NDIM,0:f % Nf(1),0:f % Nf(2))      :: x
+
+        eID = f % ElementIDs(1)
+        ! get direction of the face respect to the element
+        associate ( e => mesh % elements(eID) )
+            elem_loop:do efID = 1, FACES_PER_ELEMENT
+                if (e % faceIDs(efID) .eq. f % ID) then
+                    normalDirection = abs(normalAxis(efID))
+                    exit elem_loop
+                end if
+            end do elem_loop
+            select case (normalDirection)
+                case (1)
+                    N = e % Nxyz(1)
+                case (2)
+                    N = e % Nxyz(2)
+                case (3)
+                    N = e % Nxyz(3)
+                case default
+                   write(STD_OUT,'(A)') "Error: normalDirection not found in axisMap"
+                   errorMessage(STD_OUT)
+                   stop 
+            end select
+        end associate
+
+        ! get nodeType
+        select case (mesh % nodeType)
+            case (GAUSS)
+                nodeStart = 0
+                nodeEnd = N
+            case (GAUSSLOBATTO)
+                nodeStart = 1
+                nodeEnd = N - 1
+        end select
+
+        ! get x of 1 (or 2) and N (or N-1) node of element
+        xf = f % geom % x(:,0,0)
+        associate ( e => mesh % elements(eID) )
+            select case (normalDirection)
+                case (1)
+                    x0 = e % geom % x(:,nodeStart,0,0)
+                    xN = e % geom % x(:,nodeEnd,0,0)
+                case (2)
+                    x0 = e % geom % x(:,0,nodeStart,0)
+                    xN = e % geom % x(:,0,nodeEnd,0)
+                case (3)
+                    x0 = e % geom % x(:,0,0,nodeStart)
+                    xN = e % geom % x(:,0,0,nodeEnd)
+            end select
+
+            !compare to x of wall
+            ! get index by min distance
+            indexArray = [0,N]
+            dx(1) = norm2(xf-x0)
+            dx(2) = norm2(xf-xN)
+            minIndex = minloc(dx,dim=1)
+
+            elementIndex = indexArray(minIndex)
+            ! get all min dist of the face
+            select case (normalDirection)
+                case (1)
+                    x(:,:,:) = e % geom % x(:,elementIndex,:,:)
+                case (2)
+                    x(:,:,:) = e % geom % x(:,:,elementIndex,:)
+                case (3)
+                    x(:,:,:) = e % geom % x(:,:,:,elementIndex)
+            end select
+        end associate
+        do j = 0, f % Nf(2)
+            do i = 0, f % Nf(1)
+                dWallVector(:) = x(:,i,j) - f % geom % x(:,i,j)
+                dWall(i,j) = norm2(dWallVector)
+            end do
+        end do
+
+    End Subroutine getFaceWallDistance
+#endif
 !
 End Module SurfaceMesh

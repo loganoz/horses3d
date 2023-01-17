@@ -1,3 +1,10 @@
+!
+! ////////////////////////////////////////////////////////////////////
+!
+! Defines constants for use by the spectral solver, including precision definitions. 
+!
+!////////////////////////////////////////////////////////////////////////////////////////
+!
       MODULE SMConstants
          INTEGER      , PARAMETER, PRIVATE:: DIGITS        = 14                       ! # of desired digits
          INTEGER      , PARAMETER, PRIVATE:: SINGLE_DIGITS = 6                        ! # of desired digits

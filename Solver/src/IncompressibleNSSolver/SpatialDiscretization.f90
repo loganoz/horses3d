@@ -186,7 +186,7 @@ module SpatialDiscretization
          INTEGER :: k, eID
 !
 !        *******************************************************************
-!        Construct the auxiliar state for the fluxes with density positivity
+!        Construct the auxiliary state for the fluxes with density positivity
 !        *******************************************************************
 !
 !$omp do schedule(runtime)
@@ -576,8 +576,8 @@ module SpatialDiscretization
 !~ !           ------------------------------------------------------
 !~             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !~ !
-!~ !           Peform the Weak volume green integral
-!~ !           -------------------------------------
+!~ !           Perform the Weak volume green integral
+!~ !           --------------------------------------
 !~             viscousContravariantFlux = viscousContravariantFlux + SVVContravariantFlux
 
 !~             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -641,8 +641,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Peform the Weak volume green integral
-!           -------------------------------------
+!           Perform the Weak volume green integral
+!           --------------------------------------
             viscousContravariantFlux = viscousContravariantFlux 
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)

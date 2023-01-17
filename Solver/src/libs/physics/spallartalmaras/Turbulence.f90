@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module SpallartAlmarasTurbulence
    use SMConstants
@@ -32,7 +31,7 @@ module SpallartAlmarasTurbulence
       real(kind=RP)              :: cw2 = 0.3_RP
       real(kind=RP)              :: cw3 = 2.0_RP
       real(kind=RP)              :: kappa = 0.41_RP
-      real(kind=RP)              :: sigma = 2.0_RP/3.0_RP
+      real(kind=RP)              :: sigma_sa = 2.0_RP/3.0_RP
       real(kind=RP)              :: rmax  = 2.0_RP
       real(kind=RP)              :: cw1
 
@@ -81,7 +80,7 @@ module SpallartAlmarasTurbulence
 
          if (.not. allocated(model)) allocate( Spalart_Almaras_t :: model)
 
-            call model % Initialize(controlVariables)
+         call model % Initialize(controlVariables)
             
       end subroutine InitializeTurbulenceModel
 
@@ -91,7 +90,7 @@ module SpallartAlmarasTurbulence
          class(Spalart_Almaras_t)              :: self
          class(FTValueDictionary),  intent(in) :: controlVariables
 
-         self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma
+         self % cw1  = self % cb1 / POW2(self % kappa)  + (1.0_RP + self % cb2)/ self % sigma_sa
 
       end subroutine SAmodel_Initialize
 !
@@ -125,10 +124,10 @@ module SpallartAlmarasTurbulence
 
          if (theta .GE. 0.0_RP ) then
             mu_t = rho * theta * fv1 
-            eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma
+            eta  = dimensionless % mu * mu * (1.0_RP + chi) / self % sigma_sa
         else
              mu_t = 0.0_RP       
-             eta  = dimensionless % mu * mu * (1.0_RP + chi + (POW2(chi))/2.0_RP) / self % sigma
+             eta  = dimensionless % mu * mu * (1.0_RP + chi + (POW2(chi))/2.0_RP) / self % sigma_sa
         endif 
 
       end subroutine SA_ComputeViscosity
@@ -158,7 +157,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)           :: vort, somega
          real(kind=RP)           :: fv1
          real(kind=RP)           :: production_G
-         real(kind=RP)           :: destruciton_Y
+         real(kind=RP)           :: destruction_Y
          real(kind=RP)           :: source_Kappa
          real(kind=RP)           :: U_x(NDIM)
          real(kind=RP)           :: U_y(NDIM)
@@ -174,16 +173,16 @@ module SpallartAlmarasTurbulence
 
          if (dwall .GT. 0.0_RP) then 
             call self % Compute_ProductionTerm(chi, fv1, vort, rho, theta, dwall,  production_G)
-            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruciton_Y)       
+            call self % Compute_DestructionTerm(chi, fv1, vort, rho, theta, dwall,  destruction_Y)       
          else
             production_G = 0.0_RP
-            destruciton_Y = 0.0_RP
+            destruction_Y = 0.0_RP
          endif
 
          call self % Compute_AdditionalSourceTermKappa(rho, Theta_x, Theta_y, Theta_z, source_Kappa)   
 
          S_SA(1:5) = 0.0_RP
-         S_SA(6)   = production_G - destruciton_Y + source_Kappa 
+         S_SA(6)   = production_G - destruction_Y + source_Kappa 
             
      end subroutine SA_Compute_SourceTerms
 
@@ -231,7 +230,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP)                        :: gn, PRODUCTION1, PRODUCTION2, PRODUCTION3
 
       if (theta .GE. 0.0_RP ) then
-            
+
             fv2    =  Compute_fv2(self, chi, fv1)
             sbar   =  Compute_sbar(self, theta, dwall, fv2)
             stilda =  Compute_modifiedvorticity(self, vort, sbar)
@@ -293,9 +292,9 @@ module SpallartAlmarasTurbulence
      end function Compute_gn
 
 !/////////////////////////////////////////////////////////
-! compute destruciton terms 
+! compute destruction terms 
       
-      subroutine Compute_DestructionTerm(self, chi, fv1, vort, rho, theta, dwall, destruciton_Y)
+      subroutine Compute_DestructionTerm(self, chi, fv1, vort, rho, theta, dwall, destruction_Y)
          implicit none
          class(Spalart_Almaras_t), intent(inout) :: self
          real(kind=RP), intent(in)            :: chi
@@ -304,7 +303,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: rho
          real(kind=RP), intent(in)            :: theta
          real(kind=RP), intent(in)            :: dwall
-         real(kind=RP), intent(inout)         :: destruciton_Y
+         real(kind=RP), intent(inout)         :: destruction_Y
          
          real(kind=RP)            :: g
          real(kind=RP)            :: fw
@@ -317,9 +316,9 @@ module SpallartAlmarasTurbulence
             stilda =  Compute_modifiedvorticity(self, vort, sbar)
             g  = Compute_g(self, theta, dwall, stilda)
             fw = Compute_fw(self, g)
-            destruciton_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall))          
+            destruction_Y =    dimensionless % mu * self % cw1 * fw * (rho*POW2(theta))/(POW2(dwall))          
          else
-            destruciton_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
+            destruction_Y =  - dimensionless % mu * self % cw1 * (rho*POW2(theta))/(POW2(dwall)) 
          end if 
 
       end subroutine Compute_DestructionTerm
@@ -332,8 +331,12 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: stilda
          real(kind=RP)                        :: g
          real(kind=RP)                        :: r
-
-         r = min(dimensionless % mu * theta/(stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
+         
+         if (stilda .EQ. 0.0_RP) then
+            r = self % rmax
+         else 
+            r = min(dimensionless % mu * theta/(stilda * POW2(self % kappa) * POW2(dwall)), self % rmax )
+         endif
 
          g = r + self % cw2 * ( (r**6.0_RP) - r)
 
@@ -361,7 +364,7 @@ module SpallartAlmarasTurbulence
          real(kind=RP), intent(in)            :: Theta_z
          real(kind=RP), intent(inout)           :: source_Kappa
 
-         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z)) / self % sigma
+         source_Kappa  = dimensionless % mu * self % cb2 * rho * (POW2(Theta_x) + POW2(Theta_y) + POW2(Theta_z)) / self % sigma_sa
                
       end subroutine Compute_AdditionalSourceTermKappa
 

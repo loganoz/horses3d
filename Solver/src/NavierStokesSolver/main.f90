@@ -33,7 +33,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients
+      LOGICAL                             :: success, saveGradients, saveSensor
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
@@ -166,7 +166,8 @@
       IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients)
+         saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor)
          if ( sem % particles % active ) then
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
          end if
@@ -227,6 +228,11 @@
          obj => controlVariables % objectForKey(saveGradientsToSolutionKey)
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey(".false.",saveGradientsToSolutionKey)
+         end if
+
+         obj => controlVariables % objectForKey(saveSensorToSolutionKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey(".false.",saveSensorToSolutionKey)
          end if
 
          obj => controlVariables % objectForKey(discretizationNodesKey)

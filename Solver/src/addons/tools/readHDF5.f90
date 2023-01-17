@@ -1,4 +1,4 @@
-Module  readHDF5  
+Module  readHDF5
 #ifdef HAS_HDF5
    use HDF5
 #endif
@@ -33,7 +33,7 @@ Implicit None
 
 contains
 
-! adpated from Horses core Read_HDF5Mesh_HOPR
+! adapted from Horses core Read_HDF5Mesh_HOPR
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ----------------------------------
@@ -97,7 +97,7 @@ contains
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
       
-      ! Auxiliar variables
+      ! Auxiliary variables
       integer :: i,j,k,l  ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
@@ -106,7 +106,7 @@ contains
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
-      integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actaul nodes are not computed
+      integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actual nodes are not computed
       !---------------------------------------------------------------
       
 !
