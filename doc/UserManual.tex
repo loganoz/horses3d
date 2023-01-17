@@ -955,14 +955,16 @@ The immersed boundary is activated during the simulation if the following lines 
    semi implicit                  = .false.
    number of objects              = 5 
    number of interpolation points = 15
+   band region                    = .true.
    band region coefficient        = 1.3
-   integration order              = 2
+   compute distance               = .true.
+   clip axis                      =  1
+   aab                            = .false.
    describe                       = .true.
    plot obb                       = .false.
    plot kdtree                    = .false.
    plot mask                      = .true.
    plot band points               = .false.
-   target y plus                   = 100.d0
 #end
 \end{lstlisting}
 
@@ -992,12 +994,17 @@ number of objects & \textit{INTEGER}: Specifies the maximum number of objects in
 
 number of interpolation points & \textit{INTEGER}: Number of points used for the interpolation of the variables' values on the surface. It's needed for the computation of the forces.  & 15 \\ \hline
 
-band region coefficient  & \textit{INTEGER}: A region $n$-times the oriented bounding box is created (where $n$ is the band region coefficient): all the points inside this region belong to the band region. The band region's points are used for the interpolation. It must be greater then 1 . & 1.5 \\ \hline
+band region & \textit{LOGICAL}: If it's true, the band region is computed, otherwise it is not. & .FALSE. \\ \hline
 
-integration order  & \textit{INTEGER}: Order of integration for the surface integrals .& 2 \\ \hline
+band region coefficient  & \textit{INTEGER}: A region $n$-times the oriented bounding box is created (where $n$ is the band region coefficient): all the points inside this region belong to the band region. The band region's points are used for the interpolation. It must be greater then 1 and '\textit{band region}' must be .true. . & 1.5 \\ \hline
+
+compute distance & \textit{LOGICAL}: If it's true, the distance between the points in the band region and the stl file is computed, otherwise it is not. If the distance is not required, turn it off since it is an expansive operation. & .FALSE. \\ \hline
+
+clip axis  & \textit{INTEGER}: It's the axis along which the stl is cut. It is only needed if the forces are computed so that the integration of the variables is performed only on the portion of the stl surface lying inside the mesh. 1 corresponds to \textit{x-axis}, 2 with \textit{y-axis} and 3 with \textit{z-axis}&  0 \\ \hline
+
+aab  & \textit{LOGICAL}: The Axis Aligned Box is computed instead of the Oriented Bounding box. It is recommended when '\textit{clip axis}' $\ne$ 0. & .FALSE. \\ \hline
 
 describe & \textit{LOGICAL}: The immersed boundary parameters are printed on the screen. & .FALSE. \\ \hline
-
 
 plot obb & \textit{LOGICAL}: The oriented-bounding box is plotted. & .FALSE. \\ \hline
 
@@ -1007,15 +1014,13 @@ plot mask & \textit{LOGICAL}: The degrees of freedom belonging to the mask are p
 
 plot band points & \textit{LOGICAL}: The band region's points are plotted. & .FALSE. \\ \hline
 
-target y plus & \textit{REAL}: Target distance at which the image poitns are located. It is not used unless wall function is active & 100.0 \\ \hline
-
 \end{longtable}
 
 
 \subsection{STL file}
 
 Immersed boundary requires, along with the mesh, a STL file. It must be put in the MESH folder with the mesh. The STL file name must be in lowercase character. In some programs, like AutoCAD, a STL file has always positive coordinates: the mesh should be built according to this consideration.\\
-In the case of 2D simulations, the STL can be automatically cut by horses3D through the addition of the line \textit{symmetry planes} so that only the STL's portions inside the mesh are considered.
+In the case of 2D simulations, the STL can be automatically cut by horses3D through the addition of the line \textit{clip axis} (described in the previous section) so that only the STL portions inside the mesh are considered.
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{Keywords for stl files.} \label{tab:IBMstl} \\
@@ -1033,8 +1038,7 @@ number of stl = & \textit{INTEGER}: Number of stl files. & 1 \\ \hline
 stl file name = & \textit{CHARACTER}: The name of the STL file, without extension; it has to be inside the folder "MESH" . & \textbf{Mandatory keyword} \\ \hline
 
 stl file nameN = & \textit{CHARACTER}: The name of the $\mathrm{N}^{th}$-STL file (where N starts from 2), without extension; for the first STL just use "stl file name". It has to be inside the folder "MESH" . & none \\ \hline
-
-symmetry planes = & \textit{INTEGER(2)}: Specifies the axis along which the STL is cut (2D simulation; only if some portions of the STL lie outside the mesh). 1 = x-axis, 2 = y-axis, 3 = z-axis. The minus sign specifies the opposite direction. [-3,3]: the STL is cut along the z-axis. & none \\ \hline 
+ 
 
 \end{longtable}
 
@@ -1050,6 +1054,7 @@ In order to compute the forces on a body, the monitor should be defined as usual
    .
 #end
 \end{lstlisting}
+The result of this operation is a \textit{.tec} file inside the RESULTS folder. This file contains a scalar or a vector data projected on the body surface. 
 
 \subsection{Moving bodies}
 
