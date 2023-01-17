@@ -342,7 +342,7 @@ module KDClass
 !  
 !  -------------------------------------------------
 ! This subroutine sets up the starting box of the tree which is called root. 
-! It coincides whit the OBB if PointList not present. 
+! It coincides with the OBB if PointList not present. 
 !  ------------------------------------------------   
    subroutine KDtree_SetUpRoot( this, stl, Vertices, PointList )
    

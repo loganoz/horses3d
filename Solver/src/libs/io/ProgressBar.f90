@@ -1,10 +1,10 @@
 !+++++++++++++++++++++++++++++++++++++++++
 !> \brief Module containing a set of classes that can be used as progress-bars
-!! and status counters. These counters only write to the standard ooutput.
+!! and status counters. These counters only write to the standard output.
 !!
 !! This class is part of the online Fortran 2003 Tutorial by
 !! Danny E.P. Vanpoucke (http://dannyvanpoucke.be)
-!! and comes without waranty.
+!! and comes without warranty.
 !!
 !! This module makes use of:
 !! - NOTHING
@@ -20,7 +20,7 @@ module progressbarsmodule
     !> \brief Displays a text progress bar in the command-line.
     !!
     !! By making use of the carriage return character it is possible to generate a
-    !! progress bar, by continuously overwritting the same line.\n
+    !! progress bar, by continuously overwriting the same line.\n
     !! The progress bar appear as:\n
     !! \par
     !! \b example \n

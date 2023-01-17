@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module NoSlipWallBCClass
    use SMConstants
@@ -285,6 +284,11 @@ module NoSlipWallBCClass
          Q(IRHOTHETA)   = -Q(IRHOTHETA)
 #endif
          Q(IRHOU:IRHOW) = -Q(IRHOU:IRHOW)
+
+
+         !Isothermal BC
+         Q(IRHOE) = Q(IRHOE) + self % wallType * (Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2 * thermodynamics % gammaMinus1) - Q(IRHOE))
+
 
       end subroutine NoSlipWallBC_FlowState
 

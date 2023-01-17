@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    IMEXMethods.f90
-!   @Last revision commit: 8958d076d5d206d1aa118cdd3b9adf6d8de60aa3
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 MODULE IMEXMethods
    USE SMConstants                  

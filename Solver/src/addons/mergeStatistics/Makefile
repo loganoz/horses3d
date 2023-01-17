@@ -65,7 +65,7 @@ install: $(PROG)
 	@echo
 
 ##########################################
-##	Extra auxiliar rules 		##
+##	Extra auxiliary rules 		##
 ##########################################
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o

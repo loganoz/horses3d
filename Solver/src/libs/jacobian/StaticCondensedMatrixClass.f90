@@ -223,7 +223,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
 
@@ -290,7 +290,7 @@ contains
       integer                       , intent(in)    :: i, j
       real(kind=RP)                 , intent(in)    :: value
       !-local-variables-----------------------------
-      integer :: dof_association(2) ! local DOF associtions
+      integer :: dof_association(2) ! local DOF associations
       integer :: perm_Indexes(2)    ! local permutation indexes
       !---------------------------------------------
 
@@ -511,7 +511,7 @@ contains
       end if
 
       if ( (count_i+count_b) /= this % num_of_Rows ) then
-         ERROR stop 'StaticCondensedMatrixClass :: Ivalid arguments in constructPermutationArrays'
+         ERROR stop 'StaticCondensedMatrixClass :: Invalid arguments in constructPermutationArrays'
       end if
 
       this % size_i        = count_i
@@ -665,9 +665,9 @@ contains
       class(Matrix_t), allocatable :: Mib_Mii_inv_Mbi
       integer :: BlockIdx(this % num_of_Blocks+1), BlockSizes(this % num_of_Blocks), bID
       !----------------------------------------------------------------
-
-
-!     Construct auxiliar matrices
+      
+      
+!     Construct auxiliary matrices
 !     ---------------------------
       select case (this % MatrixType)
          case (SC_MATRIX_CSR)

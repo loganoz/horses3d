@@ -142,7 +142,8 @@ module Solution2PltModule
 !
 !              Write the tecplot file
 !              ----------------------
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
+               call WriteElementToTecplot(fid, e, mesh % refs, &
+                                          mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
                end associate
             end do
          end if
@@ -301,7 +302,8 @@ module Solution2PltModule
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
 
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
+               call WriteElementToTecplot(fid, e, mesh % refs, &
+                                          mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
                end associate
             end do
          end if
@@ -514,7 +516,8 @@ module Solution2PltModule
             do eID = 1, mesh % no_of_elements
                associate ( e => mesh % elements(eID) )
 
-               call WriteElementToTecplot(fid, e, mesh % refs, mesh % hasGradients, mesh % isStatistics)
+               call WriteElementToTecplot(fid, e, mesh % refs, &
+                                          mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
                end associate
             end do
          end if
@@ -719,7 +722,8 @@ module Solution2PltModule
             associate ( e => mesh % elements(eID) )
             N = e % Nout
             allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, mesh % hasGradients, mesh % isStatistics)
+            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, &
+                                        mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
             
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                write(fid,trim(formatout)) e % xOut(:,i,j,k), e % outputVars(:,i,j,k)
@@ -826,7 +830,7 @@ module Solution2PltModule
             end associate
          end do
 
-         ! don't write if boundary doesn't have elements associated, happends for periodic conditions
+         ! don't write if boundary doesn't have elements associated, happens for periodic conditions
          if (numOfFElems .eq. 0) return
          
          write(fd,'(A,I0,A,I0,A,A,A)') "ZONE N=", numOfPoints,", E=", numOfFElems, &
@@ -909,7 +913,7 @@ module Solution2PltModule
 !
 !//////////////////////////////////////////////////////////////////////////////
 !
-      subroutine WriteElementToTecplot(fid,e,refs, hasGradients, hasStats)
+      subroutine WriteElementToTecplot(fid,e,refs, hasGradients, hasStats, hasSensor)
          use Storage
          use NodalStorageClass
          use prolongMeshAndSolution
@@ -921,6 +925,7 @@ module Solution2PltModule
          real(kind=RP),      intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,            intent(in)    :: hasGradients
          logical,            intent(in)    :: hasStats
+         logical,            intent(in)    :: hasSensor
 !
 !        ---------------
 !        Local variables
@@ -933,7 +938,7 @@ module Solution2PltModule
 !        --------------------
          
          allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients, hasStats)
+         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients, hasStats, hasSensor)
 !
 !        Write variables
 !        ---------------        

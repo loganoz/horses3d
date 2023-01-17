@@ -1,8 +1,6 @@
 !
 ! //////////////////////////////////////////////////////////////////////////////
 !
-!
-!     FacePatchClass.F
 !!
 !!     self class stores data needed to define a 2D interpolant. In
 !!     self context, self means an iterpolant that defines a surface.
@@ -16,6 +14,7 @@
 !         SUBROUTINE ComputeFaceDerivative      ( self, u, grad )
 !         SUBROUTINE PrintFacePatch             ( self )
 !         LOGICAL FUNCTION FaceIs4CorneredQuad  ( self )
+!
 !!    
 ! //////////////////////////////////////////////////////////////////////////////
 #include "Includes.h"

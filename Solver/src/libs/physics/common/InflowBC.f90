@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module InflowBCClass
    use SMConstants

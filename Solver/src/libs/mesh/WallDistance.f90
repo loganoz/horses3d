@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    WallDistance.f90
-!   @Last revision commit: ca7f00098495d6fca03f13af3e8a139f88ed41e0
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 
 module WallDistance

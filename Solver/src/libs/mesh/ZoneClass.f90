@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    ZoneClass.f90
-!   @Last revision commit: cfd6acc1abd01d482788e60c94d0bd440c1066b6
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module ZoneClass
    use SMConstants
@@ -31,7 +23,7 @@ module ZoneClass
          procedure   :: Initialize       => Zone_Initialize
          procedure   :: copy             => Zone_Assign
          generic     :: assignment(=)    => copy
-         procedure   :: CreateFicticious => Zone_CreateFicticious
+         procedure   :: CreateFictitious => Zone_CreateFictitious
    end type Zone_t
    
    contains
@@ -234,8 +226,8 @@ module ZoneClass
          to % faces = from % faces
       end subroutine Zone_Assign
 
-      ! create a ficticious zone, useful to represent ficticious surfaces such as slices or FWH analogy
-      Subroutine Zone_CreateFicticious(self, marker, zoneName, no_of_faces, facesID)
+      ! create a fictitious zone, useful to represent fictitious surfaces such as slices or FWH analogy
+      Subroutine Zone_CreateFictitious(self, marker, zoneName, no_of_faces, facesID)
 
          implicit none
          class(Zone_t)                                 :: self
@@ -249,6 +241,6 @@ module ZoneClass
          allocate(self % faces(no_of_faces))
          self % faces = facesID
 
-      End Subroutine Zone_CreateFicticious
+      End Subroutine Zone_CreateFictitious
 
 end module ZoneClass

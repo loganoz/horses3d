@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MPI_IBMUtilities.f90
-!
-!//////////////////////////////////////////////////////
 #include "Includes.h"
 module MPI_IBMUtilities
 
@@ -883,19 +877,21 @@ contains
                    vertex2(8),         &                                           
                    vertex3(8)          )
 
-         indeces  = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% index
-         normal_x = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(1)
-         normal_y = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(2)
-         normal_z = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% normal(3)
-         COORD_x1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(1)
-         COORD_x2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(1)
-         COORD_x3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(1)
-         COORD_y1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(2)
-         COORD_y2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(2)
-         COORD_y3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(2)
-         COORD_z1 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(1)% coords(3)
-         COORD_z2 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(2)% coords(3)
-         COORD_z3 = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(1:partSize)% vertices(3)% coords(3)
+      do i = 1, partSize
+         indeces(i)  = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% index
+         normal_x(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% normal(1)
+         normal_y(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% normal(2)
+         normal_z(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% normal(3)
+         COORD_x1(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(1)% coords(1)
+         COORD_x2(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(2)% coords(1)
+         COORD_x3(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(3)% coords(1)
+         COORD_y1(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(1)% coords(2)
+         COORD_y2(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(2)% coords(2)
+         COORD_y3(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(3)% coords(2)
+         COORD_z1(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(1)% coords(3)
+         COORD_z2(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(2)% coords(3)
+         COORD_z3(i) = MPI_KDtree_all% partition(nProcs)% stl% ObjectsList(i)% vertices(3)% coords(3)
+      end do
 
          vertex1 = MPI_KDtree_all% partition(nProcs)% vertices(1,:)
          vertex2 = MPI_KDtree_all% partition(nProcs)% vertices(2,:)
@@ -963,7 +959,7 @@ contains
    end subroutine SendSTLPartitions
    
 
-! PARTION FOR MASK POINTS
+! PARTITION FOR MASK POINTS
 
    subroutine MPI_M_Points_type_Destroy( this )
       
@@ -1311,33 +1307,30 @@ contains
    
 #ifdef _HAS_MPI_      
       !-local-variables---------------------------------------------------------------
-      integer                              :: ObjsSize, nProcs, ierr, i, msg,      &
-                                              array_of_statuses(MPI_STATUS_SIZE,1)
-      integer, dimension(:),   allocatable :: isInsideBody
-      integer, dimension(:,:), allocatable :: RootMaskrecv_req
+      integer                            :: ObjsSize, nProcs, ierr, i, msg,      &
+                                            status(MPI_STATUS_SIZE), RootMaskrecv_req
+      logical, dimension(:), allocatable :: isInsideBody
       
       if( MPI_Process% isRoot ) then      
       
-         allocate(RootMaskrecv_req(MPI_Process% nProcs-1,1))
+         allocate( isInsideBody(MPI_M_Points_All% NumOfObjs) )
             
          do nProcs = 2, MPI_Process% nProcs
       
-             allocate( isInsideBody(MPI_M_Points_All% NumOfObjs) )       
-      
-             call mpi_irecv( isInsideBody, MPI_M_Points_All% NumOfObjs, MPI_INT, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req(nProcs-1,1), ierr )         
 
-             call mpi_waitall(1, RootMaskrecv_req(nProcs-1,1), array_of_statuses, ierr)            
+             call mpi_irecv( isInsideBody, MPI_M_Points_All% NumOfObjs, MPI_LOGICAL, nProcs-1, MPI_ANY_TAG, MPI_COMM_WORLD, RootMaskrecv_req, ierr )
+
+             call mpi_wait(RootMaskrecv_req, status, ierr)
                         
              do i = 1, MPI_M_Points_All% NumOfObjs
                 if( MPI_M_Points_All% x(i)% isInsideBody ) cycle            
                 MPI_M_Points_All% x(i)% isInsideBody = isInsideBody(i)  
              end do
                       
-             deallocate( isInsideBody )
 
           end do
 
-          deallocate(RootMaskrecv_req)
+          deallocate( isInsideBody )
 
        end if
 #endif          
@@ -1350,10 +1343,9 @@ contains
    
 #ifdef _HAS_MPI_  
       !-local-variables-----------------------------------------------------------
-      integer                            :: ObjsSize, i, j, ierr, msg,            &
-                                            array_of_statuses(MPI_STATUS_SIZE,1), &
-                                            RootMasksend_req(1)
-      integer, dimension(:), allocatable :: isInsideBody
+      integer                            :: ObjsSize, i, j, ierr, msg,          &
+                                            status(MPI_STATUS_SIZE), RootMasksend_req
+      logical, dimension(:), allocatable :: isInsideBody
       
       if( MPI_Process% isRoot ) return
       
@@ -1363,9 +1355,9 @@ contains
 
       isInsideBody = MPI_M_Points_ALL% x(:)% isInsideBody
 
-      call mpi_isend( isInsideBody, MPI_M_Points_ALL% NumOfObjs, MPI_INT, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootMasksend_req(1), ierr )
+      call mpi_isend( isInsideBody, MPI_M_Points_ALL% NumOfObjs, MPI_LOGICAL, 0, DEFAULT_TAG, MPI_COMM_WORLD, RootMasksend_req, ierr )
       
-      call mpi_waitall(1, RootMasksend_req(1), array_of_statuses, ierr)        
+      call mpi_wait(RootMasksend_req, status, ierr)
   
       deallocate( isInsideBody )
 #endif  
@@ -1380,9 +1372,8 @@ contains
 #ifdef _HAS_MPI_    
       !-local-variables-----------------------------------------------------------  
       integer                            :: ObjsSize, ierr, i, &
-                                            array_of_statuses(MPI_STATUS_SIZE,1), &
-                                            Maskrecv_req(1)
-      logical, dimension(:), allocatable :: isInsideBody !5/2/22
+                                            status(MPI_STATUS_SIZE), Maskrecv_req
+      logical, dimension(:), allocatable :: isInsideBody
       
       if( MPI_Process% isRoot ) return 
 
@@ -1390,9 +1381,9 @@ contains
 
       allocate( isInsideBody(ObjsSize) )      
 
-      call mpi_irecv( isInsideBody, ObjsSize, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req(1), ierr )  !5/2/22
+      call mpi_irecv( isInsideBody, ObjsSize, MPI_LOGICAL, 0, MPI_ANY_TAG, MPI_COMM_WORLD, Maskrecv_req, ierr )
 
-      call mpi_waitall(1, Maskrecv_req(1), array_of_statuses, ierr)     
+      call mpi_wait(Maskrecv_req, status, ierr)
 
       do i = 1, ObjsSize 
          MPI_M_Points_All% x(i)% isInsideBody = isInsideBody(i)  
@@ -1410,24 +1401,24 @@ contains
 #ifdef _HAS_MPI_  
       !-local-variables-----------------------------------------------------------------------------
       integer                              :: ObjsSize, nProcs, msg, ierr, &
-                                              array_of_statuses(MPI_STATUS_SIZE,MPI_Process% nProcs)
-      logical, dimension(:),   allocatable :: isInsideBody !5/2/22
-      integer, dimension(:,:), allocatable :: Masksend_req
+                                              array_of_statuses(MPI_STATUS_SIZE,MPI_Process% nProcs-1)
+      logical, dimension(:), allocatable :: isInsideBody
+      integer, dimension(:), allocatable :: Masksend_req
    
       ObjsSize = MPI_M_Points_ALL% NumOfObjs
       
-      allocate( isInsideBody(ObjsSize), Masksend_req(MPI_Process% nProcs-1,1) )
+      allocate( isInsideBody(ObjsSize), Masksend_req(MPI_Process% nProcs-1) )
         
       isInsideBody = MPI_M_Points_ALL% x(:)% isInsideBody
         
       do nProcs = 2, MPI_Process% nProcs          
       
          call mpi_isend( isInsideBody, ObjsSize, MPI_LOGICAL, nProcs-1, DEFAULT_TAG, MPI_COMM_WORLD, &
-                         Masksend_req(nProcs-1,1), ierr                                              )
+                         Masksend_req(nProcs-1), ierr                                          )
          
       end do
 
-      call mpi_waitall(MPI_Process% nProcs-1, Masksend_req(:,1), array_of_statuses, ierr  )
+      call mpi_waitall(MPI_Process% nProcs-1, Masksend_req, array_of_statuses, ierr  )
       
       deallocate(isInsideBody, Masksend_req)
 #endif   

@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module RiemannSolvers_MU
    use SMConstants

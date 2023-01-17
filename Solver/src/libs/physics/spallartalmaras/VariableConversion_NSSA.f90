@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module VariableConversion_NSSA
    use SMConstants

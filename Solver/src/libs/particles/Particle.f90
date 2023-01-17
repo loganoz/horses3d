@@ -401,7 +401,7 @@ subroutine compute_bounce_parameters(p, mesh, minbox, maxbox, bcbox)
    inside = mesh%elements(eID)%FindPointWithCoords(pos, mesh % dir2D, xi)
    if (inside) return
 
-   ! Else check if the point resides iniside a neigbour
+   ! Else check if the point resides inside a neighbour
 
    do i = 1, 6
       if (neighbours(i) <= 0) cycle

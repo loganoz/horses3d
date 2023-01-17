@@ -196,7 +196,7 @@ module StatisticsMonitor
 !
 !        Dump the contents if requested
 !        ------------------------------
-         if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration) ) ) then
+         if ( dump .or. ( (mod(iter, self % dump_interval) == 0) .and. (iter > self % starting_iteration .or. t > self % starting_time) ) ) then
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
@@ -235,6 +235,8 @@ module StatisticsMonitor
 !
          integer  :: eID
          integer  :: i, j, k
+         real(RP) :: ratio, inv_nsamples_plus_1
+         real(RP) :: rfactor1, rfactor2
          integer, dimension(5) :: limits
 
 !        if gradients are not saved, limits(2) is equal to limits(5), the latter wont be used
@@ -244,31 +246,33 @@ module StatisticsMonitor
          limits(4) = NO_OF_VARIABLES_Sij + NCONS + 2*NGRAD
          limits(5) = NO_OF_VARIABLES
 
+         inv_nsamples_plus_1 = 1.0_RP / (self % no_of_samples + 1)
+         ratio = self % no_of_samples * inv_nsamples_plus_1
+
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
                       data => mesh % elements(eID) % storage % stats % data)
 
-            data           = data * self % no_of_samples
-
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
-               data(U,i,j,k)  = data(U,i,j,k)  + e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k)
-               data(V,i,j,k)  = data(V,i,j,k)  + e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k)
-               data(W,i,j,k)  = data(W,i,j,k)  + e % storage % Q(IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k)
-               data(UU,i,j,k) = data(UU,i,j,k) + POW2( e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k))
-               data(VV,i,j,k) = data(VV,i,j,k) + POW2( e % storage % Q(IRHOV,i,j,k) / e % storage % Q(IRHO,i,j,k))
-               data(WW,i,j,k) = data(WW,i,j,k) + POW2( e % storage % Q(IRHOW,i,j,k) / e % storage % Q(IRHO,i,j,k))
-               data(UV,i,j,k) = data(UV,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOV,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
-               data(UW,i,j,k) = data(UW,i,j,k) + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
-               data(VW,i,j,k) = data(VW,i,j,k) + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
-               data(limits(1):limits(2),i,j,k)  = data(limits(1):limits(2),i,j,k)  + e % storage % Q(:,i,j,k)
+               rfactor1 = inv_nsamples_plus_1 / e % storage % Q(IRHO,i,j,k)
+               rfactor2 = inv_nsamples_plus_1 / POW2( e % storage % Q(IRHO,i,j,k) )
+               data(U,i,j,k)  = data(U,i,j,k)  * ratio + e % storage % Q(IRHOU,i,j,k) * rfactor1
+               data(V,i,j,k)  = data(V,i,j,k)  * ratio + e % storage % Q(IRHOV,i,j,k) * rfactor1
+               data(W,i,j,k)  = data(W,i,j,k)  * ratio + e % storage % Q(IRHOW,i,j,k) * rfactor1
+               data(UU,i,j,k) = data(UU,i,j,k) * ratio + POW2( e % storage % Q(IRHOU,i,j,k) ) * rfactor2
+               data(VV,i,j,k) = data(VV,i,j,k) * ratio + POW2( e % storage % Q(IRHOV,i,j,k) ) * rfactor2
+               data(WW,i,j,k) = data(WW,i,j,k) * ratio + POW2( e % storage % Q(IRHOW,i,j,k) ) * rfactor2
+               data(UV,i,j,k) = data(UV,i,j,k) * ratio + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOV,i,j,k) * rfactor2
+               data(UW,i,j,k) = data(UW,i,j,k) * ratio + e % storage % Q(IRHOU,i,j,k) * e % storage % Q(IRHOW,i,j,k) * rfactor2
+               data(VW,i,j,k) = data(VW,i,j,k) * ratio + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) * rfactor2
+               data(limits(1):limits(2),i,j,k) = data(limits(1):limits(2),i,j,k) * ratio + e % storage % Q(:,i,j,k) * inv_nsamples_plus_1
                if (self % saveGradients) then
-                   data(limits(2):limits(3),i,j,k)  = data(limits(2):limits(3),i,j,k)  + e % storage % U_x(:,i,j,k)
-                   data(limits(3):limits(4),i,j,k)  = data(limits(3):limits(4),i,j,k)  + e % storage % U_y(:,i,j,k)
-                   data(limits(4):limits(5),i,j,k)  = data(limits(4):limits(5),i,j,k)  + e % storage % U_z(:,i,j,k)
+                   data(limits(2)+1:limits(3),i,j,k) = data(limits(2)+1:limits(3),i,j,k) * ratio + e % storage % U_x(:,i,j,k) * inv_nsamples_plus_1
+                   data(limits(3)+1:limits(4),i,j,k) = data(limits(3)+1:limits(4),i,j,k) * ratio + e % storage % U_y(:,i,j,k) * inv_nsamples_plus_1
+                   data(limits(4)+1:limits(5),i,j,k) = data(limits(4)+1:limits(5),i,j,k) * ratio + e % storage % U_z(:,i,j,k) * inv_nsamples_plus_1
                end if 
             end do                  ; end do                   ; end do
 
-            data = data / (self % no_of_samples + 1)
             end associate
          end do
 

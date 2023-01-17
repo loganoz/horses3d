@@ -146,6 +146,7 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       character(len=:), allocatable :: method
+      integer                       :: minSteps
 
 !
 !     Check if shock-capturing is requested
@@ -179,6 +180,7 @@ module ShockCapturing
          allocate(SC_SVV_t :: self % method1)
 
       case (SC_NO_VAL)
+         safedeallocate(self % method1)
 
       case default
          write(STD_OUT,*) 'ERROR. Unavailable first shock-capturing method. Options are:'
@@ -204,6 +206,7 @@ module ShockCapturing
          allocate(SC_SVV_t :: self % method2)
 
       case (SC_NO_VAL)
+         safedeallocate(self % method2)
 
       case default
          write(STD_OUT,*) 'ERROR. Unavailable second shock-capturing method. Options are:'
@@ -219,9 +222,21 @@ module ShockCapturing
       if (allocated(self % method1)) call self % method1 % Initialize(controlVariables, sem % mesh, 1)
       if (allocated(self % method2)) call self % method2 % Initialize(controlVariables, sem % mesh, 2)
 !
+!     Sensor 'inertia'
+!     ----------------
+      if (controlVariables % containsKey(SC_SENSOR_INERTIA_KEY)) then
+         minSteps = controlVariables % realValueForKey(SC_SENSOR_INERTIA_KEY)
+         if (minSteps < 1) then
+            write(STD_OUT,*) 'ERROR. Sensor inertia must be at least 1.'
+            stop
+         end if
+      else
+         minSteps = 1
+      end if
+!
 !     Construct sensor
 !     ----------------
-      call Set_SCsensor(self % sensor, controlVariables, sem, &
+      call Set_SCsensor(self % sensor, controlVariables, sem, minSteps, &
                         TimeDerivative, TimeDerivativeIsolated)
 
    end subroutine Initialize_ShockCapturing
@@ -270,14 +285,14 @@ module ShockCapturing
       real(RP) :: switch
 
 
-      switch = self % sensor % Rescale(e % storage % sensor)
+      switch = e % storage % sensor
 
       if (switch >= 1.0_RP) then
          if (allocated(self % method2)) then
             call self % method2 % Viscosity(mesh, e, switch, SCflux)
          end if
 
-      else if (switch > 0.0_RP) then
+      elseif (switch > 0.0_RP) then
          if (allocated(self % method1)) then
             call self % method1 % Viscosity(mesh, e, switch, SCflux)
          end if
@@ -571,7 +586,7 @@ module ShockCapturing
 !     -----------------
       if (region == 1 .and. controlVariables % containsKey(SC_VISC_FLUX1_KEY)) then
          flux = controlVariables % stringValueForKey(SC_VISC_FLUX1_KEY, LINE_LENGTH)
-      else if (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
+      elseif (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
          flux = controlVariables % stringValueForKey(SC_VISC_FLUX2_KEY, LINE_LENGTH)
       else
          flux = SC_PHYS_VAL
@@ -665,7 +680,6 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           mu(i,j,k))
-               mu(i,j,k) = mu(i,j,k) * e % hn
             end do                ; end do                ; end do
 #endif
 
@@ -745,18 +759,26 @@ module ShockCapturing
 
       if (self % updateMethod == SC_SMAG_ID) then
 #if !defined (SPALARTALMARAS)
-         write(STD_OUT,"(30X,A,A30,F4.2)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
 #endif
       else
-         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 1: ", self % mu1
-         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Mu viscosity 2: ", self % mu2
+         if (self % region == 1) then
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 1: ", self % mu1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 2: ", self % mu2
+         else ! self % region == 2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity: ", self % mu2
+         end if
       end if
 
       if (self % alphaIsPropToMu) then
-         write(STD_OUT,"(30X,A,A30,F7.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
+         write(STD_OUT,"(30X,A,A30,1pG10.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
       else
-         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 1: ", self % alpha1
-         write(STD_OUT,"(30X,A,A30,F10.6)") "->","Alpha viscosity 2: ", self % alpha2
+         if (self % region == 1) then
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 1: ", self % alpha1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 2: ", self % alpha2
+         else ! self % region == 2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity: ", self % alpha2
+         end if
       end if
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Dissipation type: "
@@ -888,7 +910,7 @@ module ShockCapturing
                                                           e % storage % U_y(:,i,j,k),     &
                                                           e % storage % U_z(:,i,j,k),     &
                                                           sqrt_mu(i,j,k))
-               sqrt_mu(i,j,k) = sqrt(e % hn * sqrt_mu(i,j,k))
+               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
             end do                ; end do                ; end do
 #endif
 
@@ -953,15 +975,23 @@ module ShockCapturing
          write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "LES intensity (CS): ", self % Smagorinsky % CS
 #endif
       else
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 1: ", self % mu1
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 2: ", self % mu2
+         if (self % region == 1) then
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 1: ", self % mu1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity 2: ", self % mu2
+         else ! self % region == 2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Mu viscosity: ", self % mu2
+         end if
       end if
 
       if (self % alphaIsPropToMu) then
          write(STD_OUT,"(30X,A,A30,1pG10.3,A)") "->", "Alpha viscosity: ", self % mu2alpha, "x mu"
       else
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 1: ", self % alpha1
-         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 2: ", self % alpha2
+         if (self % region == 1) then
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 1: ", self % alpha1
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity 2: ", self % alpha2
+         else ! self % region == 2
+            write(STD_OUT,"(30X,A,A30,1pG10.3)") "->","Alpha viscosity: ", self % alpha2
+         end if
       end if
 
       call SVV % Describe()

@@ -41,6 +41,7 @@ module Storage
       real(kind=RP), pointer     :: ut_NS(:,:,:,:)
       real(kind=RP), pointer     :: wallY(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
+      real(kind=RP)              :: sensor
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
       real(kind=RP), pointer     :: xOut(:,:,:,:)
@@ -73,9 +74,11 @@ module Storage
       character(len=LINE_LENGTH) :: solutionName
       real(kind=RP)              :: refs(NO_OF_SAVED_REFS)
       logical                    :: hasGradients
+      logical                    :: hasSensor
       logical                    :: isSurface
       logical                    :: hasTimeDeriv
       logical                    :: isStatistics
+      logical                    :: is2D
       contains
          procedure   :: ReadMesh     => Mesh_ReadMesh
          procedure   :: ReadSolution => Mesh_ReadSolution
@@ -127,6 +130,7 @@ module Storage
 !        ----------------
          fid = putSolutionFileInReadDataMode(meshName)
 
+         self % is2D = .false.
          do eID = 1, self % no_of_elements
             associate ( e => self % elements(eID) )
             e % eID = eID
@@ -138,7 +142,12 @@ module Storage
             ! e % Nmesh(1:3) = arrayDimensions(2:4) - 1
             e % Nmesh(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1
 !           Use a 0 index for the case of a surface mesh
-            if (dimensionsSize .eq. 3) e % Nmesh(3) = 0
+            if (dimensionsSize .eq. 3) then
+               e % Nmesh(3) = 0
+            end if
+            if (e % Nmesh(3) .eq. 0) then
+               self % is2D = .true.
+            end if
             allocate( e % x(NDIM,0:e % Nmesh(1),0:e % Nmesh(2),0:e % Nmesh(3)) )
 !
 !           Read data
@@ -216,24 +225,42 @@ module Storage
          case (SOLUTION_FILE)
             dimensionsSize = 4
             self % hasGradients = .false.
+            self % hasSensor    = .false.
 
          case (SOLUTION_AND_GRADIENTS_FILE)
             dimensionsSize = 4
             self % hasGradients = .true.
+            self % hasSensor    = .false.
 
          case (STATS_FILE)
             dimensionsSize = 4
             self % hasGradients = .false.
+            self % hasSensor    = .false.
             self % isStatistics = .true.
 
          case (ZONE_SOLUTION_FILE)
             dimensionsSize = 3
             self % hasGradients = .false.
+            self % hasSensor    = .false.
 
          case (ZONE_SOLUTION_AND_DOT_FILE)
             dimensionsSize = 3
             self % hasGradients = .false.
+            self % hasSensor    = .false.
             self % hasTimeDeriv = .true.
+
+         ! TODO?
+         case (IBM_MESH)
+
+         case (SOLUTION_AND_SENSOR_FILE)
+            dimensionsSize = 4
+            self % hasGradients = .false.
+            self % hasSensor    = .true.
+
+         case (SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
+            dimensionsSize = 4
+            self % hasGradients = .true.
+            self % hasSensor    = .true.
 
          case default
             print*, "File expected to be a solution file"
@@ -357,12 +384,16 @@ module Storage
                   end if
 
                end if
+               if (self % hasSensor) then
+                   read(fid) e % sensor
+               end if
+
                if (hasUt_NS) then
                    allocate( e % ut_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % ut_NS
                end if 
 
-               if (hasUt_NS) then
+               if (hasMu_NS) then
                    allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % mu_NS
                end if 

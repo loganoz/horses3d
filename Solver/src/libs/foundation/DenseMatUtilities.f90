@@ -1,8 +1,10 @@
+!
 !//////////////////////////////////////////////////////
 !
 !      Module containing useful routines for dense matrices
 !
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!//////////////////////////////////////////////////////
+!
 MODULE DenseMatUtilities
    USE SMConstants
    IMPLICIT NONE
@@ -365,7 +367,7 @@ MODULE DenseMatUtilities
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ------------------------------------------------------------------------------
-!  Solve a linear system wuth the LU factorized matrix (taken from the DSEM code)
+!  Solve a linear system with the LU factorized matrix (taken from the DSEM code)
 !  ------------------------------------------------------------------------------
    SUBROUTINE LUsolve(dim, A, pivots , b, info)
 !  ----------

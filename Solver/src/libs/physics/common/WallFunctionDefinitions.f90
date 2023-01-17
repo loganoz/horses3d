@@ -1,6 +1,7 @@
+!//////////////////////////////////////////////////////
 !
-!This module stores the definitions of the wall fuction and update the default values based on the controlVariables
-!
+!This module stores the definitions of the wall function and update the default values based on the controlVariables
+
 #include "Includes.h"
 #if defined(NAVIERSTOKES)
 Module WallFunctionDefinitions  !
@@ -29,7 +30,7 @@ Module WallFunctionDefinitions  !
 !  Public definitions
 !  ******************
 !
-    public Initialize_Wall_Fuction
+    public Initialize_Wall_Function
 !
     integer,       parameter                                  :: STD_WALL = 1
     integer,       parameter                                  :: ABL_WALL = 2
@@ -46,7 +47,6 @@ Module WallFunctionDefinitions  !
     integer                                                   :: newtonMaxIter                    ! for standrd wall func
     real(kind=RP)                                             :: kappa, WallC                     ! for either
 
-
     logical                                                   :: useAverageV = .false.
 
 
@@ -54,7 +54,7 @@ Module WallFunctionDefinitions  !
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !
-    Subroutine Initialize_Wall_Fuction(controlVariables, correct)
+    Subroutine Initialize_Wall_Function(controlVariables, correct)
         use FTValueDictionaryClass
         implicit none
         class(FTValueDictionary),  intent(in)  :: controlVariables
@@ -67,7 +67,7 @@ Module WallFunctionDefinitions  !
         character(len=STRING_CONSTANT_LENGTH)  :: wallFuncType
         real(kind=RP)                          :: Lref
 
-        ! is false by default so it returns false if stoped
+        ! is false by default so it returns false if stopped
         correct = .false.
 
         if (.not. controlVariables % containsKey("wall function")) then
@@ -112,11 +112,13 @@ Module WallFunctionDefinitions  !
 
 
         useAverageV = controlVariables%logicalValueForKey("wall function use average")
+        !todo: see if there are negative values and return if that's the case
+            ! write(STD_OUT,'(A)') "Wall function will not be activated"
 
         ! if it arrives here everything has gone well
         correct = .true.
 
-    End Subroutine Initialize_Wall_Fuction
+    End Subroutine Initialize_Wall_Function
 !   
 !------------------------------------------------------------------------------------------------------------------------
 !

@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    METISPartitioning.f90
-!   @Last revision commit: 5c9d074b2a59ed214841916a5c6ebf30e850eefc
-!
-!//////////////////////////////////////////////////////
-!
    subroutine GetMETISElementsPartition(mesh, no_of_domains, elementsDomain, nodesDomain)
 !
 !     *********************************************************************

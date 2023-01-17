@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    MeshPartitioning.f90
-!   @Last revision commit: 67e046253a62f0e80d1892308486ec5aa1160e53
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module MeshPartitioning
    use SMConstants

@@ -33,6 +33,7 @@ OBJS=	\
 	readSpecM \
 	readHDF5 \
 	LocalRefinementTool \
+	ConverStats \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
@@ -71,7 +72,7 @@ install: $(PROG)
 	@echo
 
 ##########################################
-##	Extra auxiliar rules 		##
+##	Extra auxiliary rules 		##
 ##########################################
 clean: FORCE
 	rm -f ./include/*.mod ./lib/*.a ./build/*.o

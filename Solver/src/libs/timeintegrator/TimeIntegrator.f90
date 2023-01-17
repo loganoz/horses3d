@@ -1,8 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!   @File:    TimeIntegrator.f90
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
 !
 !   Module for general time integration.
 !
@@ -33,7 +31,11 @@
       use TruncationErrorClass            , only: EstimateAndPlotTruncationError
       use MultiTauEstimationClass         , only: MultiTauEstim_t
       use JacobianComputerClass
+#if defined(NAVIERSTOKES)
+      use SurfaceMesh                     , only: surfacesMesh, getU_tauInSurfaces, getWallDistInSurfaces
+#else
       use SurfaceMesh                     , only: surfacesMesh
+#endif
       IMPLICIT NONE
 
       INTEGER, PARAMETER :: TIME_ACCURATE = 0, STEADY_STATE = 1
@@ -314,7 +316,7 @@ print*, "Method selected: RK5"
       use TripForceClass, only: randomTrip
       use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
-      use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV
+      use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
       IMPLICIT NONE
 !
@@ -350,7 +352,7 @@ print*, "Method selected: RK5"
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients, useTrip, ActuatorLineFlag
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -417,6 +419,7 @@ print*, "Method selected: RK5"
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
 !
 !     -----------------------
 !     Check initial residuals
@@ -455,6 +458,7 @@ print*, "Method selected: RK5"
       if (ShockCapturingDriver % isActive) then
          call ShockCapturingDriver % Detect(sem, t)
       end if
+      call getWallDistInSurfaces(surfacesMesh, sem % mesh)
 #endif
 !
 !     Save surfaces sol before the first time step
@@ -484,7 +488,11 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % construct(controlVariables,sem)
 
       end select
-
+!
+!     ----------------
+!     Start time loop
+!     ----------------
+!
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
 !
 !        CFL-bounded time step
@@ -642,7 +650,7 @@ print*, "Method selected: RK5"
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -656,6 +664,9 @@ print*, "Method selected: RK5"
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
              call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
+#endif
+#if defined(NAVIERSTOKES)
+      if (.not. useWallFunc) call getU_tauInSurfaces(surfacesMesh, sem % mesh)
 #endif
              call surfacesMesh % saveAllSolution(sem % mesh, k+1, t, controlVariables)
          end if
@@ -755,7 +766,7 @@ print*, "Method selected: RK5"
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -768,6 +779,7 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                :: t              !< Simu time
       CHARACTER(len=*)             :: RestFileName   !< Name of restart file
       logical,          intent(in) :: saveGradients
+      logical,          intent(in) :: saveSensor
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -775,7 +787,7 @@ print*, "Method selected: RK5"
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor)
 
    END SUBROUTINE SaveRestart
 !

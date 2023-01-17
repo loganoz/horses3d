@@ -62,9 +62,8 @@ MODULE ColorsClass
 !              -----------------------------------
                if ( colored(i) ) cycle
 
-!              Check if its neighbors(...depth times) were used in this color
-!              --------------------------------------------------------------
-               used(0) = .FALSE. !boundary neigbour is empty
+!              Check if its neighbors(...depth times) were used in this color  
+               used(0) = .FALSE. !boundary neighbour is empty
                if (neighbors_were_used(used,nbr,i,depth)) cycle
 
 !              Mark neighbors as used
@@ -85,9 +84,9 @@ MODULE ColorsClass
          this % num_of_colors = maxcolor
          ALLOCATE(this%elmnts(ntotal))
          ALLOCATE(this%bounds(this % num_of_colors + 1))
-
-!        Order elements acording to colors
-!        *********************************
+         
+!        Order elements according to colors
+!        **********************************
          idx = 1
          DO i = 1, this % num_of_colors
             this%bounds(i)= idx

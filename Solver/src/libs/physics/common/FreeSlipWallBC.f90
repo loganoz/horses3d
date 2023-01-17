@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module FreeSlipWallBCClass
    use SMConstants
@@ -273,11 +272,15 @@ module FreeSlipWallBCClass
 !        Local variables
 !        ---------------
 !
-         real(kind=RP) :: qNorm
+         real(kind=RP) :: qNorm, pressure_aux
 
          qNorm = nHat(IX) * Q(IRHOU) + nHat(IY) * Q(IRHOV) + nHat(IZ) * Q(IRHOW)
 
          Q(IRHOU:IRHOW) = Q(IRHOU:IRHOW) - 2.0_RP * qNorm * nHat
+
+         !Isothermal BC
+         pressure_aux = Q(IRHO) * self % Twall / (refValues % T * dimensionless % gammaM2)
+         Q(IRHOE) = Q(IRHOE) + self % wallType*(pressure_aux/thermodynamics % gammaMinus1 + 0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO) - Q(IRHOE))
 
 
       end subroutine FreeSlipWallBC_FlowState

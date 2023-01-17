@@ -1,3 +1,6 @@
+!
+!//////////////////////////////////////////////////////////////////////////////////////////////////
+!
 !     This module explores the command line flags introduced by the user. Software usage is:
 !
 !     horses2tecplot *.hmesh *.hsol --output-order=N --output-basis=Gauss/Homogeneous/Chebyshev
@@ -21,7 +24,7 @@ module getTask
    implicit none
    
    private
-   public   MESH_2_PLT, SOLUTION_2_PLT, UNKNOWN_JOB
+   public   MESH_2_PLT, SOLUTION_2_PLT, SOLUTION_2_VTKHDF, UNKNOWN_JOB
    public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG, MODE_MULTIZONE, MODE_FINITEELM
 
    public   getTaskType
@@ -29,6 +32,10 @@ module getTask
    integer, parameter   :: UNKNOWN_JOB = 0
    integer, parameter   :: MESH_2_PLT = 1
    integer, parameter   :: SOLUTION_2_PLT = 2
+   integer, parameter   :: SOLUTION_2_VTKHDF = 3
+
+   integer, parameter   :: OUTPUT_IS_TECPLOT = 1
+   integer, parameter   :: OUTPUT_IS_VTKHDF = 2
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
@@ -42,6 +49,7 @@ module getTask
    character(len=*), parameter   :: OUTPUT_VARIABLES_FLAG="--output-variables="
    character(len=*), parameter   :: BOUNDARY_FILE_FLAG="--boundary-file="
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
+   character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
 
    contains
 
@@ -115,11 +123,12 @@ module getTask
          logical                                                :: meshFilePresent, basisPresent, modePresent, solutionPresent, patternPresent
          character(len=LINE_LENGTH)                             :: basisName, modeName, auxiliarName
          character(len=LINE_LENGTH)                             :: solutionsPattern, fullExpression
-         real(kind=RP)                                           :: r
+         real(kind=RP)                                          :: r
          integer                                                :: pos, pos2
          character(len=LINE_LENGTH)                             :: additionalVariablesStr, addVar
          character(len=LINE_LENGTH), dimension(:), allocatable  :: additionalVariablesArr
          integer                                                :: i, fID, reason
+         integer                                                :: fileType
 !
          call controlVariables % initWithSize(16)
          call ReadControlFile( controlVariables )
@@ -170,13 +179,43 @@ module getTask
             end do 
          end if
 !
+!        Select the output file type
+!        ---------------------------
+         if (controlVariables % containsKey("output file type")) then
+            if (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "tecplot") then
+                fileType = OUTPUT_IS_TECPLOT
+            elseif (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "vtkhdf") then
+                fileType = OUTPUT_IS_VTKHDF
+            else
+               write(STD_OUT,'(A)') "Output file type not recognized"
+               errorMessage(STD_OUT)
+               taskType = UNKNOWN_JOB
+               return
+            end if
+         else
+             fileType = OUTPUT_IS_TECPLOT
+         end if
+!
 !        Select the job type: Mesh if no solutions files are present, solution otherwise.
 !        -------------------             
          if ( no_of_solutions .ne. 0 ) then
-            taskType = SOLUTION_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+                taskType = SOLUTION_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                taskType = SOLUTION_2_VTKHDF
+            end if
+
          else
-            taskType = MESH_2_PLT
-        end if
+            if (fileType == OUTPUT_IS_TECPLOT) then
+                taskType = MESH_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                write(STD_OUT,'(A)') "Mesh to VTKHDF conversion not implemented"
+                errorMessage(STD_OUT)
+                taskType = UNKNOWN_JOB
+                return
+            end if
+
+         end if
 !
 !        Get the order
 !        -------------
@@ -288,6 +327,8 @@ module getTask
          logical                                              :: meshFilePresent
          logical                                              :: basisPresent
          character(len=LINE_LENGTH)                           :: auxiliarName, basisName, modeName
+         character(len=LINE_LENGTH)                           :: fileTypeName
+         integer                                              :: fileType
 !
 !        Get number of command arguments         
 !        -------------------------------
@@ -364,13 +405,50 @@ module getTask
 
          end if
 !
+!        Select the output file type
+!        ---------------------------
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), OUTPUT_FILE_TYPE)
+            if ( pos .ne. 0 ) then
+                fileTypeName = auxiliarName(pos+len_trim(OUTPUT_FILE_TYPE):len_trim(auxiliarName))
+            else
+                fileTypeName = "tecplot"
+            end if
+         end do
+
+         if (fileTypeName == "tecplot") then
+             fileType = OUTPUT_IS_TECPLOT
+
+         elseif (fileTypeName == "vtkhdf") then
+             fileType = OUTPUT_IS_VTKHDF
+
+         else
+            write(STD_OUT,'(A)') "Output file type not recognized"
+            errorMessage(STD_OUT)
+            taskType = UNKNOWN_JOB
+            return
+
+         end if
+!
 !        Select the job type: Mesh if no solutions files are present, solution otherwise.
 !        -------------------             
          if ( no_of_solutions .ne. 0 ) then
-            taskType = SOLUTION_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+               taskType = SOLUTION_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+               taskType = SOLUTION_2_VTKHDF
+            end if
    
          else
-            taskType = MESH_2_PLT
+            if (fileType == OUTPUT_IS_TECPLOT) then
+               taskType = MESH_2_PLT
+            else ! fileType == OUTPUT_IS_VTKHDF
+                write(STD_OUT,'(A)') "Mesh file to VTKHDF conversion not implemented"
+                errorMessage(STD_OUT)
+                taskType = UNKNOWN_JOB
+                return
+            end if
 
          end if
 !
@@ -418,7 +496,7 @@ module getTask
             pos = index(trim(auxiliarName), OUTPUT_BASIS_FLAG)
             
             if ( pos .ne. 0 ) then
-               read(auxiliarName(pos+len_trim(OUTPUT_BASIS_FLAG):len_trim(auxiliarName)),*) basisName
+               basisName = auxiliarName(pos+len_trim(OUTPUT_BASIS_FLAG):len_trim(auxiliarName))
                basisPresent = .true.
                exit
             end if
@@ -433,7 +511,7 @@ module getTask
             pos = index(trim(auxiliarName), OUTPUT_MODE_FLAG)
             
             if ( pos .ne. 0 ) then
-               read(auxiliarName(pos+len_trim(OUTPUT_MODE_FLAG):len_trim(auxiliarName)),*) modeName
+               modeName = auxiliarName(pos+len_trim(OUTPUT_MODE_FLAG):len_trim(auxiliarName))
                select case(modeName)
                case ("multizone")
                   mode = MODE_MULTIZONE
@@ -456,13 +534,13 @@ module getTask
             pos = index(trim(auxiliarName),BOUNDARY_FILE_FLAG)
             if ( pos .ne. 0 ) then
                hasBoundaries = .TRUE.
-               write(boundaryFileName,'(A)') auxiliarName(pos+len_trim(BOUNDARY_FILE_FLAG):len_trim(auxiliarName))
+               boundaryFileName = auxiliarName(pos+len_trim(BOUNDARY_FILE_FLAG):len_trim(auxiliarName))
                cycle
             end if
             pos = index(trim(auxiliarName),PARTITION_FILE_FLAG)
             if ( pos .ne. 0 ) then
                hasMPIranks = .TRUE.
-               read(auxiliarName(pos+len_trim(PARTITION_FILE_FLAG):len_trim(auxiliarName)),*) partitionFileName
+               partitionFileName = auxiliarName(pos+len_trim(PARTITION_FILE_FLAG):len_trim(auxiliarName))
                cycle
             end if
             pos = index(trim(auxiliarName),"--dimensionless")
@@ -473,7 +551,7 @@ module getTask
             pos = index(trim(auxiliarName),OUTPUT_VARIABLES_FLAG)
             if ( pos .ne. 0 ) then
                hasVariablesFlag = .true.
-               write(askedVariables,'(A)') auxiliarName(pos+len_trim(OUTPUT_VARIABLES_FLAG):len_trim(auxiliarName))
+               askedVariables = auxiliarName(pos+len_trim(OUTPUT_VARIABLES_FLAG):len_trim(auxiliarName))
                cycle
             end if
          end do

@@ -44,7 +44,7 @@ public farm
     end type
 
     type turbine_t
-    integer                        :: num_blades=3  ! number of blades -> harcoded 3 blades
+    integer                        :: num_blades=3  ! number of blades -> hardcoded 3 blades
     real(KIND=RP)                  :: radius ! turb radius in mm
     real(KIND=RP)                  :: blade_pitch ! turb radius in rad
     real(KIND=RP)                  :: rot_speed ! rad/s
@@ -445,10 +445,10 @@ contains
 
     if (.not. self % active) return
 
-    ! 20% of the radius for max of the rotor thikness
+    ! 20% of the radius for max of the rotor thickness
     tolerance=0.2_RP*self%turbine_t(1)%radius
 
-        ! turbine is pointing backwards as x poistive
+        ! turbine is pointing backwards as x positive
 if( POW2(x(2)-self%turbine_t(1)%hub_cood_y)+POW2(x(3)-self%turbine_t(1)%hub_cood_z) <= POW2(self%turbine_t(1)%radius+tolerance) &
     .and. (x(1) < self%turbine_t(1)%hub_cood_x+tolerance .and. x(1)>self%turbine_t(1)%hub_cood_x-tolerance)) then
 
@@ -605,8 +605,18 @@ end subroutine WriteFarmForces
 !       get airfoil related variables
 !       -----------------------------
 !
+<<<<<<< HEAD
         ! proyect [v.w] in the rotational direction (theta in cilindrical coordenates)
         wind_speed_axial = (Q(IRHOU)/Q(IRHO)) * refValues % V ! our x is the z in cilindrical
+=======
+        ! option 1, not recommended, ignore LES velocity directions, just use U0 in x-direction
+        ! wind_speed_axial =  refValues % V ! wind goes in the x-direction
+        ! wind_speed_axial = sqrt( POW2(Q(IRHOU)) + POW2(Q(IRHOV)) ) / Q(IRHO) * refValues_%V ! wind goes in the x-direction
+        ! wind_speed_rot = 0.0_RP
+
+        ! option 2, project [v.w] in the rotational direction (theta in cylindrical coordinates)
+        wind_speed_axial = (Q(IRHOU)/Q(IRHO)) * refValues % V ! our x is the z in cylindrical
+>>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
         wind_speed_rot = ( -Q(IRHOV)*sin(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle) + Q(IRHOW)*cos(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle) ) / Q(IRHO) * refValues % V
 
         density = Q(IRHO) * refValues % rho

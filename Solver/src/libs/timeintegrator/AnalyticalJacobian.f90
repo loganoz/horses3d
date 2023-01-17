@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    AnalyticalJacobian.f90
-!   @Last revision commit: da1be2b6640be08de553e7a460c7c52f051b0812
-!
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
@@ -1120,7 +1114,7 @@ contains
          do k12 = 0, e % Nxyz(3) ; do j12 = 0, e % Nxyz(2) ; do i2 = 0, e % Nxyz(1) ; do i1 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Xi auxiliar terms
+!           Get Xi auxiliary terms
 !           ---------------------
             xiAux   = 0._RP
             
@@ -1166,7 +1160,7 @@ contains
          do k12 = 0, e % Nxyz(3) ; do j2 = 0, e % Nxyz(2) ; do j1 = 0, e % Nxyz(2) ; do i12 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Eta auxiliar terms
+!           Get Eta auxiliary terms
 !           ----------------------
             etaAux   = 0._RP
             
@@ -1211,7 +1205,7 @@ contains
          do k2 = 0, e % Nxyz(3)  ; do k1 = 0, e % Nxyz(3)   ; do j12 = 0, e % Nxyz(2)  ; do i12 = 0, e % Nxyz(1)
             MatEntries = 0._RP
             
-!           Get Zeta auxiliar terms
+!           Get Zeta auxiliary terms
 !           -----------------------
             zetaAux   = 0._RP
                   
@@ -1530,9 +1524,9 @@ contains
       real(kind=RP) :: dtan1_minus, dtan2_minus ! Kronecker deltas in the tangent directions in the reference frame of e⁻ (only needed for viscous fluxes)
       real(kind=RP) :: a_minus
       real(kind=RP) :: normAux(NCONS,NCONS)
-      real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the direction normal to the face
-      real(kind=RP), pointer :: Gvec_tan1(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the first tangent direction to the face
-      real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliar vector containing values of dFv_dgradQ in the second tangent direction to the face
+      real(kind=RP), pointer :: Gvec_norm(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the direction normal to the face
+      real(kind=RP), pointer :: Gvec_tan1(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the first tangent direction to the face
+      real(kind=RP), pointer :: Gvec_tan2(:,:,:)       ! Auxiliary vector containing values of dFv_dgradQ in the second tangent direction to the face
       real(kind=RP), allocatable :: nHat(:,:,:)
       !--------------------------------------------------------------------------------
 !
@@ -1711,7 +1705,7 @@ contains
 !              Computation of the matrix entry
 !              -------------------------------
                
-!              Get NORMAL auxiliar term
+!              Get NORMAL auxiliary term
 !              ------------------------
                normAux = 0._RP
                if (dtan1*dtan2 > 0.5_RP) then

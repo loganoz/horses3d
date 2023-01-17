@@ -1,14 +1,10 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM
-!      By: David Kopriva
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
-!      exact solutions (e.g. for tests), etc. and allow modifications
+!      exact solutions (e.g. for tests), etc. and allow modifications 
 !      without having to modify the main code.
 !
 !      The procedures, *even if empty* that must be defined are
@@ -19,8 +15,8 @@
 !      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #include "Includes.h"
 module ProblemFileFunctions
    implicit none
@@ -298,9 +294,6 @@ end module ProblemFileFunctions
             real(KIND=RP) :: rho , u , v , w , p
             real(KIND=RP) :: L, u_0, rho_0, p_0
             integer       :: Nx, Ny, Nz
-#if defined(NAVIERSTOKES)
-            real(kind=RP)  :: Q(NCONS), phi, theta
-#endif
 
 !
 !           ---------------------------------------
@@ -554,11 +547,11 @@ end module ProblemFileFunctions
             real(kind=RP), parameter           :: kinEn = 0.12499999968280391_RP
             real(kind=RP), parameter           :: kinEnRate = -7.6138351130710094e-8_RP
             real(kind=RP), parameter           :: SVVdiss = 7.7873340678919037e-8_RP
-            real(kind=RP), parameter           :: res(5) = [ 3.130362987229e-4_RP,   &
-                                                             0.13170539851078100_RP, &
-                                                             0.13161920616935607_RP, &
-                                                             0.25208799233970602_RP, &
-                                                             0.69076971370729190_RP  ]
+            real(kind=RP), parameter           :: res(5) = [ 9.768839029729e-5_RP,   &
+                                                             0.127069145556453_RP,   &
+                                                             0.127055963394165_RP,   &
+                                                             0.250048505485785_RP,   &
+                                                             0.628947793858187_RP    ]
 
 
             call initializeSharedAssertionsManager

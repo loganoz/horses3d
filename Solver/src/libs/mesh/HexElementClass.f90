@@ -1,11 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:
-!   @Last revision commit: ee67d2ff980858e35b5b1eaf0f8d8bdf4cb74456
-!
-!//////////////////////////////////////////////////////
-!
 !      Implements Algorithms:
 !         Algorithm: 124: ElementClass (QuadElementClass)
 !

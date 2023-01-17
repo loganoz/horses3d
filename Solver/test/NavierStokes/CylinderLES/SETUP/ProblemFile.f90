@@ -1,10 +1,6 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
-!      Created: June 26, 2015 at 8:47 AM 
-!      By: David Kopriva  
-!
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
@@ -536,14 +532,14 @@ end module ProblemFileFunctions
             TYPE(FTAssertionsManager), POINTER :: sharedManager
             LOGICAL                            :: success
             integer                            :: rank
-            real(kind=RP), parameter           :: cd =  34.751355293080636_RP
-            real(kind=RP), parameter           :: cl = -3.1233478556313976E-004_RP
-            real(kind=RP), parameter           :: wake_u = 8.3896828153379791E-009_RP
-            real(kind=RP), parameter           :: res(5) = [  5.6964871449001118_RP, &
-                                                              12.724771786115124_RP, &
-                                                             0.34560611106498174_RP, &
-                                                              14.708233552065705_RP, &   
-                                                              153.88834658372070_RP]
+            real(kind=RP), parameter           :: cd =  34.9438869828619_RP
+            real(kind=RP), parameter           :: cl = -1.582092121135137E-004_RP
+            real(kind=RP), parameter           :: wake_u = 9.867445291005896E-009_RP
+            real(kind=RP), parameter           :: res(5) = [  7.58705681758851_RP, &
+                                                              15.5542852761418_RP, &
+                                                             0.231394835496677_RP, &
+                                                              20.0848567943827_RP, &   
+                                                              207.594579145771_RP]
 #if defined(NAVIERSTOKES)
 
             CALL initializeSharedAssertionsManager

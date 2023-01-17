@@ -1,11 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    TimeIntegratorDefinitions.f90
-!   @Last revision commit: ac6d423ad6c1098131416ed127d97999a4468f12
-!
-!//////////////////////////////////////////////////////
-!
 #include "Includes.h"
 module TimeIntegratorDefinitions
    use SMConstants

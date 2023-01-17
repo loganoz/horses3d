@@ -1,4 +1,3 @@
-!
 #include "Includes.h"
 module RiemannSolvers_NSSA
    use SMConstants
@@ -959,7 +958,7 @@ module RiemannSolvers_NSSA
 
 !        Compute the flux: apply the lambda stabilization here.
 !        ----------------
-         flux = flux - lambdaStab * stab
+         flux(1:5) = flux(1:5) - lambdaStab * stab(1:5)
          flux(6) = flux(1)*(thetaL+thetaR)*0.5_RP - abs(flux(1))*(thetaR-thetaL)*0.5_RP
 
 !        

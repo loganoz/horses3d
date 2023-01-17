@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 !
 !//////////////////////////////////////////////////////
 !
@@ -5,6 +6,8 @@
 ! following JFM by Schlatter & Orlu 2012:
 ! Turbulent boundary layers at moderate Reynolds numbers: infow length and tripping effects
 !
+=======
+>>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
@@ -387,7 +390,7 @@ Module TripForceClass
   End Subroutine gtripDestruct
 !
   Subroutine randSignal(self, signal)
-  ! creates a random signal (array) with the first Ncutz modes random and .le. 1.0 and 0 for modes grater than Ncutz.
+  ! creates a random signal (array) with the first Ncutz modes random and .le. 1.0 and 0 for modes greater than Ncutz.
   ! The array is created in an evenly distributed z (spanwise direction), it needs to be interpolated at the mesh points later.
 
     use MPI_Process_Info
@@ -404,38 +407,44 @@ Module TripForceClass
     integer                                                   :: nh ! half of cuttoff number
     complex(kind=CP)                                          :: fourierArg
     real(kind=RP), dimension(self%Ncutz/2+1)                  :: ranNum
-    real(kind=RP), dimension(0:self%N+1)                      :: fourierCoeficients, preSignal
+    real(kind=RP), dimension(0:self%N+1)                      :: fourierCoefficients, preSignal
 
     if ( MPI_Process % isRoot ) then
         nh = self%Ncutz/2
-        ! the signal coefficients are initilialized at cero, it'll be changed for frequencies <= Ncutz
-        fourierCoeficients = 0_RP
+        ! the signal coefficients are initialized at zero, it'll be changed for frequencies <= Ncutz
+        fourierCoefficients = 0_RP
 
         ! the mean value, n=0 is random and ampliated by sqrt 2 for the real part and 0 for the img
         ! the coef array is packed in CCS format
         call random_number(ranNum)
         fourierArg = exp(ImgI*2.0_RP*PI*ranNum(1))
-        fourierCoeficients(0) = real(fourierArg)*sqrt(2.0_RP)
-        fourierCoeficients(1) = 0
+        fourierCoefficients(0) = real(fourierArg)*sqrt(2.0_RP)
+        fourierCoefficients(1) = 0
 
-        ! for the other values of n less than the cutt off, the random amplitud is ampliated by sqrt 2 for the real part and 0 for the
+        ! for the other values of n less than the cut off, the random amplitude is ampliated by sqrt 2 for the real part and 0 for the
         ! img for the symmetric case
-        ! for the non symmetric case, the amplitud is set to 1.0 and the phase is random (both real and part are saved)
+        ! for the non symmetric case, the amplitude is set to 1.0 and the phase is random (both real and part are saved)
         if (self%isSimetric) then
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
+<<<<<<< HEAD
             fourierCoeficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
             fourierCoeficients(2*i+1) = 0
           end do
+=======
+            fourierCoefficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
+            fourierCoefficients(2*i+1) = 0
+          end do  
+>>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
         else
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
-            fourierCoeficients(2*i) = real(fourierArg)
-            fourierCoeficients(2*i+1) = aimag(fourierArg)
+            fourierCoefficients(2*i) = real(fourierArg)
+            fourierCoefficients(2*i+1) = aimag(fourierArg)
           end do
         end if
 
-        call backfft(preSignal, self % N, fourierCoeficients)
+        call backfft(preSignal, self % N, fourierCoefficients)
         ! scale and give only the part of the array of interest
     end if
     if ( (MPI_Process % doMPIAction) ) then
@@ -540,7 +549,7 @@ Module TripForceClass
 !
   Function getgTripForceAtZ(self, specificZ) result(gz)
     ! returns the value of the g term at a given z position, using linear interpolation
-    ! it asumes that the array g correponds position by position to the array z
+    ! it assumes that the array g corresponds position by position to the array z
 
     implicit none
 

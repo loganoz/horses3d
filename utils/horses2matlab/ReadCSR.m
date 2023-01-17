@@ -61,7 +61,7 @@ for i = 1 : length(Rows) - 1
     Rows2(tmp) = i;
 end
 
-%% trasnfer to sparse matrix
+%% transfer to sparse matrix
 A = sparse(Rows2,Cols,Vals,max(Cols),max(Cols));
 
 return

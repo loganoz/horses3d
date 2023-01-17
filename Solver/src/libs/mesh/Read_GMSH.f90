@@ -2339,7 +2339,7 @@ MODULE Read_GMSH
                select case (el_types(i))
                case (5) ! 3D - 1st order
                   no_nodes_i = 8
-               case (12) ! 3D - 2st order
+               case (12) ! 3D - 2nd order
                   no_nodes_i = 27
                case (92) ! 3D - 3rd order
                   no_nodes_i = 64
@@ -2349,7 +2349,7 @@ MODULE Read_GMSH
                   no_nodes_i = 216
                case (3) ! 2D - 1st order
                   no_nodes_i = 4
-               case (10) ! 2D - 2st order
+               case (10) ! 2D - 2nd order
                   no_nodes_i = 9
                case (36) ! 2D - 3rd order
                   no_nodes_i = 16
@@ -2869,7 +2869,7 @@ MODULE Read_GMSH
                   select case (el_types(i))
                   case (5) ! 3D - 1st order
                      no_nodes_i = 8
-                  case (12) ! 3D - 2st order
+                  case (12) ! 3D - 2nd order
                      no_nodes_i = 27
                   case (92) ! 3D - 3rd order
                      no_nodes_i = 64
@@ -2879,7 +2879,7 @@ MODULE Read_GMSH
                      no_nodes_i = 216
                   case (3) ! 2D - 1st order
                      no_nodes_i = 4
-                  case (10) ! 2D - 2st order
+                  case (10) ! 2D - 2nd order
                      no_nodes_i = 9
                   case (36) ! 2D - 3rd order
                      no_nodes_i = 16
@@ -3484,7 +3484,7 @@ MODULE Read_GMSH
                   select case (el_types(i))
                   case (5) ! 3D - 1st order
                      no_nodes_i = 8
-                  case (12) ! 3D - 2st order
+                  case (12) ! 3D - 2nd order
                      no_nodes_i = 27
                   case (92) ! 3D - 3rd order
                      no_nodes_i = 64
@@ -3494,7 +3494,7 @@ MODULE Read_GMSH
                      no_nodes_i = 216
                   case (3) ! 2D - 1st order
                      no_nodes_i = 4
-                  case (10) ! 2D - 2st order
+                  case (10) ! 2D - 2nd order
                      no_nodes_i = 9
                   case (36) ! 2D - 3rd order
                      no_nodes_i = 16

@@ -1,9 +1,3 @@
-!
-!//////////////////////////////////////////////////////
-!
-!   @File:    TesselationTypes.f90
-!
-!//////////////////////////////////////////////////////
 #include "Includes.h"
 module TessellationTypes
 
@@ -104,7 +98,7 @@ module TessellationTypes
       character(len=LINE_LENGTH)                   :: filename, motionType
    
        contains
-          procedure :: ReadTesselation
+          procedure :: ReadTessellation
           procedure :: getRotationaMatrix => STLfile_getRotationaMatrix
           procedure :: getDisplacement    => STLfile_getDisplacement
           procedure :: destroy            => STLfile_destroy
@@ -784,7 +778,7 @@ module TessellationTypes
 !  -------------------------------------------------
 ! This subroutine reads the .stl file
 !  -----------------------------------------------
-   subroutine  ReadTesselation( this, filename )
+   subroutine  ReadTessellation( this, filename )
       use PhysicsStorage
       implicit none
       !-arguments--------------------------------
@@ -804,7 +798,7 @@ module TessellationTypes
       open(unit=funit,file='MESH/'//trim(filename)//'.stl',status='old',access='stream',form='unformatted', iostat=fileStat)
       
       if( fileStat .ne. 0 ) then
-         print *, "Read Tesselation: file '",trim(filename),"' not found"
+         print *, "Read Tessellation: file '",trim(filename),"' not found"
          error stop
       end if
       
@@ -878,6 +872,9 @@ module TessellationTypes
       end do
 
       close(funit)
+=======
+   end subroutine  ReadTessellation
+>>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
    
    end subroutine STLfile_plot 
   

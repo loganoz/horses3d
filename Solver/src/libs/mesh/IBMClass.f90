@@ -250,7 +250,7 @@ module IBMClass
          this% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(filename), requestedLength = LINE_LENGTH)
          call STLfile_GetMotionInfo( this% stl(STLNum), this% STLfilename(STLNum), this% NumOfSTL )
          this% stl(STLNum)% body = STLNum       
-         call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) ) 
+         call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) )   
          call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB )
          this% root(STLNum)% STLNum = STLNum
          call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList )
@@ -1826,10 +1826,10 @@ module IBMClass
 !  
 !  ---------------------------------------------------------------------
 ! This subroutine checks if a ray (RayDirection) starting from a point (Point) intersects
-! a traingle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
+! a triangle in 3D space. If present, the intersection point Q is Q = P + t*RayDirection.
 ! If there is more than one intersections, the second one is not counted if it has the same t
 ! as the one previously found.
-! See Fast, Minimum Storage Ray/Trinagle INtersection,  Moller TRumbore
+! See Fast, Minimum Storage Ray/Triangle Intersection,  Moller Trumbore
 !  ---------------------------------------------------------------------
    
    subroutine PointIntersectTriangle( Point, TriangleVertex1, TriangleVertex2, &
@@ -1952,7 +1952,7 @@ module IBMClass
 ! This function computes the minimum distance from a point to a triangle in 3D. 
 ! for more ditails see https://www.geometrictools.com/Documentation/DistancePoint3Triangle3.pdf
 !  ------------------------------------------------   
-   subroutine MinumumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
+   subroutine MinimumPointTriDistance( Point, TriangleVertex1, TriangleVertex2, &
                                        TriangleVertex3, dist, IntersectionPoint ) 
       use MappedGeometryClass
       implicit none
@@ -2094,9 +2094,7 @@ module IBMClass
 
       IntersectionPoint = TriangleVertex1 + s*E0 + t*E1    
         
-      dist = norm2(Point - IntersectionPoint)
-
-   end subroutine MinumumPointTriDistance
+   end subroutine MinimumPointTriDistance
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -2166,7 +2164,7 @@ module IBMClass
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  -------------------------------------------------
-! This subroutine computes the minumum distance from x (global ref. frame) to the body. First,
+! This subroutine computes the minimum distance from x (global ref. frame) to the body. First,
 ! the box (tree) where x lies is found, then the min distance between the objects inside the tree and
 ! the point is computed. If the sphere whose radius is minDist, is enclosed in the box, the subroutine stops.
 ! If the latter condition is not true, all the boxes that intersects the sphere are checked in the same way as
@@ -2200,7 +2198,7 @@ module IBMClass
 
       do i = 1, tree% NumOfObjs
          index = tree% ObjsIndeces(i)
-         call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+         call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                        root% ObjectsList(index)% vertices(2)% coords,        &
                                        root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                        IntersPoint                                           )
@@ -2273,7 +2271,7 @@ module IBMClass
             if( LeafIndex .ne. tree% index ) then 
                do i = 1, tree% NumOfObjs
                   index = tree% ObjsIndeces(i)
-                  call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+                  call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                                 root% ObjectsList(index)% vertices(2)% coords,        &
                                                 root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                                 IntersPoint                                           )
@@ -2298,7 +2296,7 @@ module IBMClass
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  ---------------------------------------------------------------------------------------------------
-! This subroutine checks if a the sphere whit radius minDist is inside the box or not. If it's not
+! This subroutine checks if a sphere with radius minDist is inside the box or not. If it's not
 ! a/ circle/s is/are computed. Each circle is the base of a cylinder used to find possible boxes that 
 ! can intersect the sphere. 
 !  ---------------------------------------------------------------------------------------------------
@@ -2643,13 +2641,13 @@ module IBMClass
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
-!                                          TURBULENCE 
+!                                          TURBULENCE
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  -------------------------------------------------
-!  This subroutine performes iterations so that the 
-!  forcing point lies inside the log region 
+!  This subroutine performs iterations so that the
+!  forcing point lies inside the log region
 !  ------------------------------------------------
 
    subroutine IBM_GetImagePoint_nearest( this, elements )

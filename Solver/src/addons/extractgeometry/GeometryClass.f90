@@ -231,9 +231,9 @@ module GeometryClass
          logical                    :: success
          character(len=LINE_LENGTH) :: solutionFile
 !
-!        ***********************
-!        Construct auxiliar mesh
-!        ***********************
+!        ************************
+!        Construct auxiliary mesh
+!        ************************
 !
          allocate(elems(0:self % Npoints,0:self % Npoints,0:self % Npoints))
          allocate(xi(NDIM,0:self % Npoints,0:self % Npoints,0:self % Npoints))

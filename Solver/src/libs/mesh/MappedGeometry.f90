@@ -1,14 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      MappedGeometry.f95
-!
-!      Contains:
-!         ALGORITHM 101: MappedGeometryClass
-!         ALGORITHM 102: ConstructMappedGeometry
-!
-!////////////////////////////////////////////////////////////////////////
-!
 #include "Includes.h"
 Module MappedGeometryClass
    USE SMConstants
