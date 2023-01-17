@@ -869,8 +869,6 @@ module TessellationTypes
       end do
 
       close(funit)
-
-   end subroutine  ReadTessellation
    
    end subroutine STLfile_plot
   
