@@ -369,7 +369,7 @@ contains
 
       deallocate(send_req, locVertices, vertices_x, vertices_y, vertices_z, normals_x, normals_y, normals_z)
 #else
-      if( rootSTL% show ) call rootSTL% Describe()
+      if( rootSTL% show ) call rootSTL% Describe( rootSTL% filename )
 #endif
 
    end subroutine SendSTL2Partitions
