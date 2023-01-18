@@ -812,7 +812,7 @@ Module DGSEMClass
          MaxDt  = TimeStep_Visc
       end if
 #endif
-   end subroutine MaxTimeSte
+   end subroutine MaxTimeStep
 !
 !////////////////////////////////////////////////////////////////////////
 !
