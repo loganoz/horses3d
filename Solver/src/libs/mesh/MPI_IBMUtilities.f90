@@ -1306,7 +1306,7 @@ contains
                 z(rootNumOfObjs),        &
                 vector_x(rootNumOfObjs), &
                 vector_y(rootNumOfObjs), &
-                vector_z(rootNumOfObjs), )
+                vector_z(rootNumOfObjs)  )
 #endif  
       k = 0
       do i = 1, size(ObjectsList)
