@@ -279,7 +279,7 @@ module IBMClass
      if( controlVariables% containsKey("wall function") ) then
         this% Wallfunction = .true.
 #if defined(NAVIERSTOKES)
-        call Initialize_Wall_Fuction(controlVariables, correct)   !TO BE REMOVED
+        call Initialize_Wall_Function(controlVariables, correct)   !TO BE REMOVED
 #endif
         if( allocated(y_plus_target_in) ) then
            this% y_plus_target = y_plus_target_in
