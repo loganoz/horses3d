@@ -1816,15 +1816,17 @@ module IBMClass
       end do
 
       Q_FP = Q
-
+#if defined(NAVIERSTOKES) 
       call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
-
+#endif
       eps = sqrt(EPSILON(eps))
 
       do i = 1, NCONS
          Q_FPnext = Q; Q_IPnext = Q_IP       
          Q_IPnext(i) = Q_IP(i) + eps 
+#if defined(NAVIERSTOKES)
          call ForcingPointState( Q_IPnext, this% IP_Distance, dWall, normal, Q_FPnext )
+#endif
          dS_dQ(:,i) = (Q_FPnext - Q_FP)/eps 
       end do 
 
