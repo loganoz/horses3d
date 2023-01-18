@@ -106,7 +106,7 @@ module LocalIBMRefinementTool
             mesh% IBM% STLfilename(STLNum) = controlVariables% stringValueForKey(trim(fname), requestedLength = LINE_LENGTH)
             mesh% IBM% stl(STLNum)% body = STLNum             
             OBB(STLNum)% filename        = mesh% IBM% STLfilename(STLNum)
-            call mesh% IBM% stl(STLNum)% ReadTesselation( mesh% IBM% STLfilename(STLNum) )
+            call mesh% IBM% stl(STLNum)% ReadTessellation( mesh% IBM% STLfilename(STLNum) )
             call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .true., mesh% IBM% AAB )
          end do
 
