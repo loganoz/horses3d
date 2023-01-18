@@ -2594,7 +2594,7 @@ module IBMClass
       do i = 1, tree% NumOfObjs
          index = tree% ObjsIndeces(i)
 
-         call MinumumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
+         call MinimumPointTriDistance( Point, root% ObjectsList(index)% vertices(1)% coords, &
                                        root% ObjectsList(index)% vertices(2)% coords,        &
                                        root% ObjectsList(index)% vertices(3)% coords, Dist,  &
                                        IntersPoint                                           )
