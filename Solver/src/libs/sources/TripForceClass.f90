@@ -424,8 +424,8 @@ Module TripForceClass
         if (self%isSimetric) then
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
-            fourierCoeficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
-            fourierCoeficients(2*i+1) = 0
+            fourierCoefficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
+            fourierCoefficients(2*i+1) = 0
           end do
         else
           do i = 1, nh
