@@ -84,9 +84,7 @@ module IBMClass
          procedure :: GetBandRegionStates                 => IBM_GetBandRegionStates
          procedure :: GetDomainExtreme                    => IBM_GetDomainExtreme
          procedure :: ImagePointsElement                  => IBM_ImagePointsElement
-#if defined(NAVIERSTOKES) 
          procedure :: SourceTermTurbulence                => IBM_SourceTermTurbulence
-#endif
          procedure :: semiImplicitShiftJacobian           => IBM_semiImplicitShiftJacobian
          procedure :: semiImplicitTurbulenceShiftJacobian => IBM_semiImplicitTurbulenceShiftJacobian
          procedure :: semiImplicitJacobian                => IBM_semiImplicitJacobian
@@ -2005,7 +2003,6 @@ module IBMClass
 !
 !   Turbulent source term when wall function is applied
 !   ---------------------------------------------------
-#if defined(NAVIERSTOKES)    
    subroutine IBM_SourceTermTurbulence( this, ImagePoint, Q, normal, dWall, STLNum, TurbulenceSource )
       use PhysicsStorage
       use NodalStorageClass, only: NodalStorage
@@ -2027,15 +2024,14 @@ module IBMClass
       end do
 
       Q_FP = Q
-
+#if defined(NAVIERSTOKES) 
       call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
-
+#endif
       call this% SourceTerm( ImagePoint% element_index, Q, Q_FP, TurbulenceSource )
 
       !TurbulenceSource = -1.0_RP/this% penalization(ImagePoint% element_index) * (Q - Q_FP)
 
-   end subroutine IBM_SourceTermTurbulence
-#endif     
+   end subroutine IBM_SourceTermTurbulence     
 !
 !   State to be imposed on the forcing points due to the wall model
 !   ---------------------------------------------------------------
