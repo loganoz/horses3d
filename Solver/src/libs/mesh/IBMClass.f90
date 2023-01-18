@@ -367,7 +367,7 @@ module IBMClass
          call STLfile_GetMotionInfo( this% stl(STLNum), this% STLfilename(STLNum), this% NumOfSTL ) 
          if( MPI_Process% isRoot ) then
             this% stl(STLNum)% show = .true. 
-            call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) ) 
+            call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) ) 
             if( this% ClipAxis .ne. 0 ) call this% stl(STLNum)% Clip( this% minCOORDS, this% maxCOORDS, this% ClipAxis ) 
             call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB )
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )  
@@ -1249,7 +1249,7 @@ module IBMClass
             if( this% ComputeDistance ) call this% rootDistance(STLNum)% destruct( isChild )
             call this% CleanMask( elements, no_of_elements, STLNum ) 
             if( MPI_Process% isRoot .and. .not. isChild ) then
-               call this% stl(STLNum)% ReadTesselation( this% STLfilename(STLNum) )
+               call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) )
                if( this% stl(STLNum)% motionType .eq. ROTATION ) then
                   call this% stl(STLNum)% getRotationaMatrix( t )
                   call OBB(STLNum)% STL_rotate(this% stl(STLNum))
@@ -2502,7 +2502,7 @@ module IBMClass
         
       dist = dot_product(Point - IntersectionPoint,Point - IntersectionPoint)
 
-   end subroutine MinumumPointTriDistance
+   end subroutine MiniumumPointTriDistance
 !  
 !  Identification of the section, see below.
 !  --------------------------------------------------------------------------
