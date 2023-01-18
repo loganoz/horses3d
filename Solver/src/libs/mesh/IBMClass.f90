@@ -132,9 +132,7 @@ module IBMClass
 
    subroutine IBM_GetInfo( this, controlVariables )
       use FileReadingUtilities
-#if defined(NAVIERSTOKES)
-      use WallFunctionDefinitions
-#endif    
+      use WallFunctionDefinitions  
       implicit none
       !-arguments----------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
@@ -1316,9 +1314,9 @@ module IBMClass
       type(element),   intent(inout) :: elements(:)
       !-local-variables----------------------------------
       real(kind=RP) :: dx, dy, dz, d, d_min, Dist
-      integer       :: eID, i, j, k, n
+      integer       :: eID, i, j, k, n, Total
 #ifdef _HAS_MPI_
-      integer       :: ierr, Total
+      integer       :: ierr
 #endif
       this% NumOfForcingPoints = 0
       d = huge(1.0_RP) 
