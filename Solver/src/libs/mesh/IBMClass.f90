@@ -132,7 +132,9 @@ module IBMClass
 
    subroutine IBM_GetInfo( this, controlVariables )
       use FileReadingUtilities
+#if defined(NAVIERSTOKES)
       use WallFunctionDefinitions  
+#endif
       implicit none
       !-arguments----------------------------------------------------------------
       class(IBM_type), intent(inout) :: this
@@ -273,10 +275,12 @@ module IBMClass
       else
          this% ClipAxis = 0
       endif
-#if defined(NAVIERSTOKES)
+
      if( controlVariables% containsKey("wall function") ) then
         this% Wallfunction = .true.
+#if defined(NAVIERSTOKES)
         call Initialize_Wall_Fuction(controlVariables, correct)   !TO BE REMOVED
+#endif
         if( allocated(y_plus_target_in) ) then
            this% y_plus_target = y_plus_target_in
         else
@@ -289,7 +293,7 @@ module IBMClass
      else
         this% Wallfunction = .false.
      end if
-#endif
+
       if( allocated(BandRegionCoeff_in) ) then
          this% BandRegionCoeff = BandRegionCoeff_in 
       else
