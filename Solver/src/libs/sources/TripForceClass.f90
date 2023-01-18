@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 !
 !//////////////////////////////////////////////////////
 !
@@ -6,8 +5,6 @@
 ! following JFM by Schlatter & Orlu 2012:
 ! Turbulent boundary layers at moderate Reynolds numbers: infow length and tripping effects
 !
-=======
->>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
 !//////////////////////////////////////////////////////
 !
 #include "Includes.h"
@@ -427,15 +424,9 @@ Module TripForceClass
         if (self%isSimetric) then
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
-<<<<<<< HEAD
             fourierCoeficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
             fourierCoeficients(2*i+1) = 0
           end do
-=======
-            fourierCoefficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
-            fourierCoefficients(2*i+1) = 0
-          end do  
->>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
         else
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
