@@ -605,10 +605,6 @@ end subroutine WriteFarmForces
 !       get airfoil related variables
 !       -----------------------------
 !
-<<<<<<< HEAD
-        ! proyect [v.w] in the rotational direction (theta in cilindrical coordenates)
-        wind_speed_axial = (Q(IRHOU)/Q(IRHO)) * refValues % V ! our x is the z in cilindrical
-=======
         ! option 1, not recommended, ignore LES velocity directions, just use U0 in x-direction
         ! wind_speed_axial =  refValues % V ! wind goes in the x-direction
         ! wind_speed_axial = sqrt( POW2(Q(IRHOU)) + POW2(Q(IRHOV)) ) / Q(IRHO) * refValues_%V ! wind goes in the x-direction
@@ -616,7 +612,6 @@ end subroutine WriteFarmForces
 
         ! option 2, project [v.w] in the rotational direction (theta in cylindrical coordinates)
         wind_speed_axial = (Q(IRHOU)/Q(IRHO)) * refValues % V ! our x is the z in cylindrical
->>>>>>> df431882d681279822d4afa0d3e5dc6208b24387
         wind_speed_rot = ( -Q(IRHOV)*sin(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle) + Q(IRHOW)*cos(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle) ) / Q(IRHO) * refValues % V
 
         density = Q(IRHO) * refValues % rho
