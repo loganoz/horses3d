@@ -2502,7 +2502,7 @@ module IBMClass
         
       dist = dot_product(Point - IntersectionPoint,Point - IntersectionPoint)
 
-   end subroutine MiniumumPointTriDistance
+   end subroutine MinimumPointTriDistance
 !  
 !  Identification of the section, see below.
 !  --------------------------------------------------------------------------
