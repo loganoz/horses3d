@@ -688,16 +688,11 @@ Module DGSEMClass
 #endif
       !--------------------------------------------------------
 !     Initializations
-!     ---------------                            
-
+!     ---------------
       TimeStep_Conv = huge(1._RP)
       TimeStep_Visc = huge(1._RP)
       if (present(MaxDtVec)) MaxDtVec = huge(1._RP)
-#if defined(SPALARTALMARAS)
-!$omp parallel shared(self,SAModel,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
-#else
 !$omp parallel shared(self,TimeStep_Conv,TimeStep_Visc,NodalStorage,cfl,dcfl,flowIsNavierStokes,MaxDtVec) default(private)
-#endif
 !$omp do reduction(min:TimeStep_Conv,TimeStep_Visc) schedule(runtime)
       do eID = 1, SIZE(self % mesh % elements)
          N = self % mesh % elements(eID) % Nxyz
@@ -745,7 +740,7 @@ Module DGSEMClass
             Q(1:NCONS) = self % mesh % elements(eID) % storage % Q(1:NCONS,i,j,k)
 
 #if defined(SPALARTALMARAS)
-            CALL ComputeEigenvaluesForStateSA( Q , eValues )            
+            CALL ComputeEigenvaluesForStateSA( Q , eValues )
 #else
             CALL ComputeEigenvaluesForState( Q , eValues )
 #endif
@@ -778,10 +773,8 @@ Module DGSEMClass
 #if defined(SPALARTALMARAS)
 
               call GetNSKinematicViscosity(mu, self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), kinematicviscocity )
-
-              call SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
+              call self % SAModel % ComputeViscosity( self % mesh % elements(eID) % storage % Q(IRHOTHETA,i,j,k), kinematicviscocity, &
                                                self % mesh % elements(eID) % storage % Q(IRHO,i,j,k), mu, musa, etasa)
-          
               mu = mu + musa
 #endif
                lamcsi_v = mu * dcsi2 * abs(sum(self % mesh % elements(eID) % geom % jGradXi  (:,i,j,k)))
@@ -819,7 +812,7 @@ Module DGSEMClass
          MaxDt  = TimeStep_Visc
       end if
 #endif
-   end subroutine MaxTimeStep
+   end subroutine MaxTimeSte
 !
 !////////////////////////////////////////////////////////////////////////
 !
