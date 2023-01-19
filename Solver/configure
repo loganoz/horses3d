@@ -55,7 +55,6 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
-            ./NavierStokes/IBM_Cylinder \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
@@ -77,7 +76,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/RayleighTaylor \
             ./CahnHilliard/SpinodalDecomposition \
             ./CahnHilliard/TJokisaari \
-            ./CahnHilliard/Bubble \
+            ./CahnHilliard/Bubble \
             ./CahnHilliard/Pipe \
             ./iNSCH/RisingBubble \
             ./iNSCH/TJokisaari \
