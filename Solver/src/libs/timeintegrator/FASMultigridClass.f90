@@ -880,7 +880,9 @@ module FASMultigridClass
          end if
       end do
 
-      if( any(this% p_sem% mesh% IBM%  stl(:)% move) .and. MGlevels-1 > 1 ) call FAS_movingIBM( this% child, dt, MGlevels-1 )
+      if( this% p_sem% mesh% IBM% active ) then
+          if( any(this% p_sem% mesh% IBM%  stl(:)% move) .and. MGlevels-1 > 1 ) call FAS_movingIBM( this% child, dt, MGlevels-1 )
+      end if 
 
       do i = 1, tau_maxit
 
@@ -1950,7 +1952,7 @@ module FASMultigridClass
  
       if( lvl > 1 ) call FAS_movingIBM( Solver% Child, dt, lvl-1  )
  
-   end subroutine FAS_movingIBM   
+   end subroutine FAS_movingIBM
    
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
