@@ -1,11 +1,6 @@
 !
 !//////////////////////////////////////////////////////
 !
-!   @File:    FASMultigridClass.f90
-!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
-!
-!//////////////////////////////////////////////////////
-!
 !      FAS Multigrid Class
 !        Provides the routines for solving a time step with nonlinear multigrid procedures.
 !        Available smoothers are:
