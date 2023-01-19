@@ -118,34 +118,6 @@ module RiemannSolvers_iNS
 !
          real(kind=RP) :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
 !
-!        Rotate the variables to the face local frame using normal and tangent vectors
-!        -----------------------------------------------------------------------------
-!         rhoL = QLeft(INSRHO)
-!         invRhoL = 1.0_RP / rhoL
-!         uL = invRhoL * (QLeft(INSRHOU) * nHat(1) + QLeft(INSRHOV) * nHat(2) + QLeft(INSRHOW) * nHat(3))
-!         vL = invRhoL * (QLeft(INSRHOU) * t1(1)   + QLeft(INSRHOV) * t1(2)   + QLeft(INSRHOW) * t1(3))
-!         wL = invRhoL * (QLeft(INSRHOU) * t2(1)   + QLeft(INSRHOV) * t2(2)   + QLeft(INSRHOW) * t2(3))
-!         pL = QLeft(INSP)
-!
-!         rhoR = QRight(INSRHO)
-!         invRhoR = 1.0_RP / rhoR
-!         uR = invRhoR * (QRight(INSRHOU) * nHat(1) + QRight(INSRHOV) * nHat(2) + QRight(INSRHOW) * nHat(3))
-!         vR = invRhoR * (QRight(INSRHOU) * t1(1)   + QRight(INSRHOV) * t1(2)   + QRight(INSRHOW) * t1(3))
-!         wR = invRhoR * (QRight(INSRHOU) * t2(1)   + QRight(INSRHOV) * t2(2)   + QRight(INSRHOW) * t2(3))
-!         pR = QRight(INSP)
-!!
-!!        Perform the average using the averaging function
-!!        ------------------------------------------------
-!         QLRot = (/ rhoL, uL, vL, wL, pL /)
-!         QRRot = (/ rhoR, uR, vR, wR, pR /)
-!         call AveragedStates(QLRot, QRRot, pL, pR, rhoL, rhoR, flux)
-!!
-!!        ************************************************
-!!        Return momentum equations to the cartesian frame
-!!        ************************************************
-!!
-!         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
-
           call AveragedStates(QLeft, QRight, f, g, h)
 
           flux = f * nHat(1) + g*nHat(2) + h*nHat(3)
@@ -167,43 +139,6 @@ module RiemannSolvers_iNS
          real(kind=RP)  :: rhoR, uR, vR, wR, pR, invRhoR
          real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: stab(NCONS), lambdaMax
-!!
-!!        Rotate the variables to the face local frame using normal and tangent vectors
-!!        -----------------------------------------------------------------------------
-!         rhoL = QLeft(INSRHO)
-!         invRhoL = 1.0_RP / rhoL
-!         uL = invRhoL * (QLeft(INSRHOU) * nHat(1) + QLeft(INSRHOV) * nHat(2) + QLeft(INSRHOW) * nHat(3))
-!         vL = invRhoL * (QLeft(INSRHOU) * t1(1)   + QLeft(INSRHOV) * t1(2)   + QLeft(INSRHOW) * t1(3))
-!         wL = invRhoL * (QLeft(INSRHOU) * t2(1)   + QLeft(INSRHOV) * t2(2)   + QLeft(INSRHOW) * t2(3))
-!         pL = QLeft(INSP)
-!
-!         rhoR = QRight(INSRHO)
-!         invRhoR = 1.0_RP / rhoR
-!         uR = invRhoR * (QRight(INSRHOU) * nHat(1) + QRight(INSRHOV) * nHat(2) + QRight(INSRHOW) * nHat(3))
-!         vR = invRhoR * (QRight(INSRHOU) * t1(1)   + QRight(INSRHOV) * t1(2)   + QRight(INSRHOW) * t1(3))
-!         wR = invRhoR * (QRight(INSRHOU) * t2(1)   + QRight(INSRHOV) * t2(2)   + QRight(INSRHOW) * t2(3))
-!         pR = QRight(INSP)
-!!
-!!        Perform the average using the averaging function
-!!        ------------------------------------------------
-!         QLRot = (/ rhoL, uL, vL, wL, pL /)
-!         QRRot = (/ rhoR, uR, vR, wR, pR /)
-!         call AveragedStates(QLRot, QRRot, pL, pR, rhoL, rhoR, flux)
-!!
-!!        Compute the Lax-Friedrichs stabilization
-!!        ----------------------------------------
-!         lambdaMax = max(uL + sqrt(uL**2+4.0_RP*thermodynamics % rho0c02/rhoL), &
-!                      uR + sqrt(uR**2+4.0_RP*thermodynamics % rho0c02/rhoR)    ) 
-!
-!         stab = 0.5_RP * lambdaMax * (QRRot - QLRot)
-!
-!         flux = flux - stab
-!!
-!!        ************************************************
-!!        Return momentum equations to the cartesian frame
-!!        ************************************************
-!!
-!         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
 
 print*, "LxF Riemann solver not implemented"
 stop
@@ -316,22 +251,6 @@ stop
 !        ---------------
 !
          real(kind=RP)  :: fL(NCONS), fR(NCONS)
-!
-!        Compute the flux
-!        ----------------
-!         fL(INSRHO)  = QLeft(INSRHO) * QLeft(INSRHOU)
-!         fL(INSRHOU) = fL(INSRHO) * QLeft(INSRHOU) + QLeft(INSP)
-!         fL(INSRHOV) = fL(INSRHO) * QLeft(INSRHOV)
-!         fL(INSRHOW) = fL(INSRHO) * QLeft(INSRHOW)
-!         fL(INSP)    = thermodynamics % rho0c02 * QLeft(INSP)
-!
-!         fR(INSRHO)  = QRight(INSRHO) * QRight(INSRHOU)
-!         fR(INSRHOU) = fR(INSRHO) * QRight(INSRHOU) + QRight(INSP)
-!         fR(INSRHOV) = fR(INSRHO) * QRight(INSRHOV)
-!         fR(INSRHOW) = fR(INSRHO) * QRight(INSRHOW)
-!         fR(INSP)    = thermodynamics % rho0c02 * QRight(INSP)
-!
-!         flux = 0.5_RP * (fL + fR)
 
          print*, "Standard average not implemented"
          stop
@@ -355,17 +274,6 @@ stop
 !
          real(kind=RP)  :: rhou, u
 
-!         rhou = 0.5_RP * (QLeft(INSRHO) * QLeft(INSRHOU) + QRight(INSRHO) * QRight(INSRHOU))
-!         u    = 0.5_RP * (QLeft(INSRHOU) + QRight(INSRHOU))
-!!
-!!        Compute the flux
-!!        ----------------
-!         flux(INSRHO) = rhou
-!         flux(INSRHOU) = rhou * u + 0.5_RP * (QLeft(INSP) + QRight(INSP))
-!         flux(INSRHOU) = rhou * 0.5_RP * (QLeft(INSRHOV) + QRight(INSRHOV))
-!         flux(INSRHOU) = rhou * 0.5_RP * (QLeft(INSRHOW) + QRight(INSRHOW))
-!         flux(INSP)    = thermodynamics % rho0c02 * u
-!
          print*, "SkewSymmetric 1 average not implemented"
          stop
       end subroutine SkewSymmetric1Average
@@ -413,19 +321,6 @@ stop
          h(INSRHOV) = h(INSRHO)*v
          h(INSRHOW) = h(INSRHO)*w + p
          h(INSP)    = thermodynamics % rho0c02 * w 
-
-
-         
-
-!         u    = 0.5_RP * (QLeft(INSRHOU) + QRight(INSRHOU))
-!!
-!!        Compute the flux
-!!        ----------------
-!         flux(INSRHO) = 0.5_RP * (QLeft(INSRHO) + QRight(INSRHO)) * u
-!         flux(INSRHOU) = flux(INSRHOU) * u + 0.5_RP * (QLeft(INSP) + QRight(INSP))
-!         flux(INSRHOU) = flux(INSRHOU) * 0.5_RP * (QLeft(INSRHOV) + QRight(INSRHOV))
-!         flux(INSRHOU) = flux(INSRHOU) * 0.5_RP * (QLeft(INSRHOW) + QRight(INSRHOW))
-!         flux(INSP)    = thermodynamics % rho0c02 * u
 
       end subroutine SkewSymmetric2Average
 

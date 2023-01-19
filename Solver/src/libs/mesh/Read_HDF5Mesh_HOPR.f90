@@ -1313,7 +1313,7 @@ contains
       HOPRnodeIDs = HOPRNodeMap (1:i)
       
       DO j = 1, i 
-         CALL ConstructNode( nodes(j), TempNodes(:,j), j ) ! TODO: Change for MPI
+         CALL ConstructNode( nodes(j), TempNodes(:,j), j )
       END DO
       
       deallocate (TempNodes)

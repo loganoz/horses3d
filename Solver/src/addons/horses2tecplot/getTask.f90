@@ -83,7 +83,6 @@ module getTask
 !        If the control file is used, there is only 1 argument
 !        -----------------------------------------------------
          if (no_of_arguments .eq. 1) then
-             !todo: check that it is actually a control file
              useCommandArgs = .false.
              call getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, oldStats)
          else

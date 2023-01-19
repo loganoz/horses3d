@@ -10,15 +10,6 @@
 !  define levels y ...
 !  define levels z ...
 !  ----------------
-!  TODO:
-!  ----------------
-!  1. Deallacotion: 
-!     a. DGSem on each level
-!     b. Jac on each level
-!     c. Prol/Rest operators 
-!  2. Generalize MG to operate on nonconforming p-mesh (elements with different pol. orders)
-!  3. Add more smoothers - so far only diag-jacobi implemented.
-!  ----------------
 !
 !//////////////////////////////////////////////////////
 module LinearMultigridSolverClass
@@ -266,7 +257,7 @@ contains
       integer                  , intent(in)            :: nEqn
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc    
       procedure(ComputeTimeDerivative_f)               :: ComputeTimeDerivative
 !-----Local-Variables-----------------------------------------------------
       character(len=LINE_LENGTH) :: pc
@@ -317,7 +308,7 @@ contains
               read(pc(i:i),'(i1)') MG_levels_z(i)
             end do
         else
-            ERROR stop ':: FIXME: Default multigrid levels NOT defined.' ! TODO
+            ERROR stop ':: FIXME: Default multigrid levels NOT defined.'
         end if
 !       ------------------------------------------------------------------
 
@@ -1130,7 +1121,6 @@ contains
 !
    subroutine MG_PrecVec(this)
 !  ---------------------------------------------------------
-!  TODO. 
 !  ---------------------------------------------------------
       implicit none
 !-----Arguments-----------------------------------------------------------

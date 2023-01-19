@@ -49,6 +49,7 @@ Module WallFunctionDefinitions  !
 
     logical                                                   :: useAverageV = .false.
 
+
     contains 
 !   
 !------------------------------------------------------------------------------------------------------------------------
@@ -106,10 +107,11 @@ Module WallFunctionDefinitions  !
         kappa           = controlVariables % getValueOrDefault("wall function kappa", DEFAULT_VON_KARMAN)
         WallC           = controlVariables % getValueOrDefault("wall function c", DEFAULT_WALL_C)
 
+
         d = d / Lref
 
-        useAverageV = controlVariables%logicalValueForKey("wall function use average")
 
+        useAverageV = controlVariables%logicalValueForKey("wall function use average")
         !todo: see if there are negative values and return if that's the case
             ! write(STD_OUT,'(A)') "Wall function will not be activated"
 
@@ -122,3 +124,4 @@ Module WallFunctionDefinitions  !
 !
 End Module WallFunctionDefinitions
 #endif
+

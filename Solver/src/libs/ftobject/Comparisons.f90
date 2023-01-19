@@ -1,12 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!      Assert.f90
-!      Created: February 21, 2013 10:02 AM 
-!      By: David Kopriva  
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !> Defines procedures that test equality of different kinds of arguments.
 !> Procedures defined here are USEd by the FTAssertions Module.
 !

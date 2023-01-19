@@ -1,15 +1,3 @@
-!
-!////////////////////////////////////////////////////////////////////////
-!
-!   @File:    TestSuiteModule.f90
-!   @Author:  David Kopriva
-!   @Created: February 21, 2013 11:21 AM
-!   @Last revision date: Tue Sep 28 11:34:35 2021
-!   @Last revision author: Wojciech Laskowski (wj.laskowski@upm.es)
-!   @Last revision commit: 0b8b49ef742bce3e02d3138ef5e95597b5d3a726
-!
-!////////////////////////////////////////////////////////////////////////
-!
 !> The TestSuiteManager class defines methods to easily
 !> put together and run a suite of unit tests. 
 !>

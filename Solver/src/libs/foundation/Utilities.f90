@@ -333,10 +333,6 @@ module Utilities
    end subroutine LeastSquaresLinRegression
 !
 !////////////////////////////////////////////////////////////////////////
-!
-!      Qsort.f90
-!      Created: 2016-08-25 14:30 (GMT+0)
-!      By: Juli Rew (juliana@ucar.edu)
 ! 		Recursive Fortran 95 quicksort rOUTINe
 ! 			sorts INTEGER numbers INto ascENDing numerical order
 !  		Based on algorithm from Cormen et al., Introduction to Algorithms,

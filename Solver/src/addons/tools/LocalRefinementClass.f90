@@ -20,7 +20,7 @@ Module  LocalRefinement  !
 
     type LocalRef_t
 
-        real(kind=RP), dimension(:,:), allocatable          :: xlim         ! limits for refinement in x direction
+        real(kind=RP), dimension(:,:), allocatable          :: xlim   ! limits for refinement in x direction
         real(kind=RP), dimension(:,:), allocatable          :: ylim
         real(kind=RP), dimension(:,:), allocatable          :: zlim
         integer, dimension(:), allocatable         :: Nx           ! polynomial order for each selection within the limits in x redirection

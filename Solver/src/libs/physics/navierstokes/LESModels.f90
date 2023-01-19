@@ -153,7 +153,6 @@ module LESModels
             end select
             
          else
-            !model % WallModel = LINEAR_WALLMODEL
             model % WallModel = NO_WALLMODEL
          end if
          
@@ -464,39 +463,35 @@ module LESModels
          !-local-variables---------------------------------------
          real(kind=RP)  :: G__ij(NDIM, NDIM)
          real(kind=RP)  :: gradV(NDIM, NDIM)
-         real(kind=RP)  :: delta2, alpha, Bbeta, LS
-         real(kind=RP)  :: U_x(NDIM)
-         real(kind=RP)  :: U_y(NDIM)
-         real(kind=RP)  :: U_z(NDIM)
+         real(kind=RP)  :: Gij, delta2, alpha, Bbeta, LS
          integer        :: i,j,k
          !-------------------------------------------------------
          
-         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,U_x,U_y,U_z)
+         call getVelocityGradients  (Q,Q_x,Q_y,Q_z,gradV(1,:),gradV(2,:),gradV(3,:))
 
-         delta2 = delta*delta 
-         gradV(1,:) = U_x(1:3)
-         gradV(2,:) = U_y(1:3)
-         gradV(3,:) = U_z(1:3)
-         G__ij(:,:) = 0.0_RP
-
-         do i = 1,3
-            do j = 1,3
-               do k = 1,3
-                  G__ij(i,j) = G__ij(i,j) &
-                     + (gradV(i,k)*gradV(j,k)*delta2)
-               end do
-            end do
+         alpha = 0.0_RP
+         do i=1,3
+            alpha = alpha+gradV(i,1)**2+gradV(i,2)**2+gradV(i,3)**2
          end do
 
-         alpha =  sum(gradV*gradV)
-         Bbeta = G__ij(1,1) * G__ij(2,2) &
-            &  + G__ij(2,2) * G__ij(3,3) &
-            &  + G__ij(3,3) * G__ij(1,1) &
-            &  - G__ij(1,2) * G__ij(1,2) &
-            &  - G__ij(2,3) * G__ij(2,3) &
-            &  - G__ij(1,3) * G__ij(1,3)
-
          if(alpha>1.0e-10_RP) then
+            delta2 = delta*delta 
+            do i = 1,3
+               do j = i,3
+                  Gij=0.0_RP
+                  do k = 1,3
+                     Gij = Gij + (gradV(k,i)*gradV(k,j)*delta2)
+                  end do
+                  G__ij(i,j) = Gij
+                 G__ij(j,i) = Gij
+               end do
+            end do
+            Bbeta = G__ij(1,1) * G__ij(2,2) &
+                  + G__ij(2,2) * G__ij(3,3) &
+                  + G__ij(3,3) * G__ij(1,1) &
+                  - G__ij(1,2) * G__ij(1,2) &
+                  - G__ij(2,3) * G__ij(2,3) &
+                  - G__ij(1,3) * G__ij(1,3)
             mu = Q(IRHO) * this % C * sqrt (abs(Bbeta)/alpha)
          else 
             mu = 0.0_RP

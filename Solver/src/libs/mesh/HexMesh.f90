@@ -1,3 +1,11 @@
+!
+!//////////////////////////////////////////////////////
+!
+!   @File:
+!   @Last revision commit: db0669408a09b12909b03856ec101a38d42f4e79
+!
+!//////////////////////////////////////////////////////
+!
 #include "Includes.h"
 MODULE HexMeshClass
       use Utilities                       , only: toLower, almostEqual, AlmostEqualRelax
@@ -198,7 +206,7 @@ MODULE HexMeshClass
                call self% IBM% destruct( .false. )
             end if
          end if
-
+         
       END SUBROUTINE HexMesh_Destruct
 !
 !     -------------
@@ -1575,7 +1583,6 @@ slavecoord:             DO l = 1, 4
 !
 !        ------------------------------------------------------------------------
 !        Determine the number of degrees of freedom
-!           TODO: Move this to another place if needed in other parts of the code
 !        ------------------------------------------------------------------------
 !
          ndof = 0
@@ -2052,7 +2059,6 @@ slavecoord:             DO l = 1, 4
 !
 !        --------------------------
 !        Allocate MPI Faces storage
-!           TODO: This can be optimized when facesList is present
 !        --------------------------
 !
          if ( MPI_Process % doMPIAction ) then
@@ -2178,7 +2184,6 @@ slavecoord:             DO l = 1, 4
 !     -----------------------------------------------------------------------------
 !     Construct geometry of faces and elements
 !     -> This routine guarantees that the mapping is subparametric or isoparametric
-!     -> TODO: Additional considerations are needed for p-nonconforming representations with inner curved faces
 !     -----------------------------------------------------------------------------
       subroutine HexMesh_ConstructGeometry(self, facesList, elementList)
          implicit none
@@ -2365,7 +2370,7 @@ slavecoord:             DO l = 1, 4
                   end if
                end select
 
-               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?
+               if ( any(CLN < NSurfR) ) then      
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
@@ -2410,16 +2415,16 @@ slavecoord:             DO l = 1, 4
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
                if (self % elements(eID) % faceSide(side) == LEFT) then
-                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has
-                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.
+                  CLN(1) = f % NfLeft(1)  
+                  CLN(2) = f % NfLeft(2)  
                else
-                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has
-                  CLN(2) = f % NfRight(2)  ! not been accounted yet.
+                  CLN(1) = f % NfRight(1)  
+                  CLN(2) = f % NfRight(2)  
                end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct?
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular 
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
@@ -3119,7 +3124,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
-               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)             
                end associate
             end do
 
@@ -3577,19 +3582,26 @@ slavecoord:             DO l = 1, 4
             end if
             associate(e => self % elements(eID))
             allocate(e % geom % dWall(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            if( self% IBM% active ) then
+               allocate(e % geom % normal(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               e % geom % dWall = huge(1.0_RP)
+            endif
 
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               xP = e % geom % x(:,i,j,k)
+            if( .not. self% IBM% active ) then
+               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                  xP = e % geom % x(:,i,j,k)
 
-               minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
-               end do
+                  minimumDistance = HUGE(1.0_RP)
+                  do fID = 1, no_of_wallDOFS
+                     currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                     minimumDistance = min(minimumDistance, currentDistance)
+                  end do
 
-               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+                  e % geom % dWall(i,j,k) = sqrt(minimumDistance)
 
-            end do                  ; end do                ; end do
+               end do                  ; end do                ; end do
+            end if
+            
             end associate
          end do
 !
@@ -3609,19 +3621,25 @@ slavecoord:             DO l = 1, 4
 
             associate(fe => self % faces(eID))
             allocate(fe % geom % dWall(0:fe % Nf(1), 0:fe % Nf(2)))
+            if( self% IBM% active ) then
+               fe % geom % dWall = huge(1.0_RP)
+            endif
+            
+            if( .not. self% IBM% active ) then
+               do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
+                  xP = fe % geom % x(:,i,j)
 
-            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
-               xP = fe % geom % x(:,i,j)
+                  minimumDistance = HUGE(1.0_RP)
+                  do fID = 1, no_of_wallDOFS
+                     currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                     minimumDistance = min(minimumDistance, currentDistance)
+                  end do
 
-               minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
-               end do
+                  fe % geom % dWall(i,j) = sqrt(minimumDistance)
 
-               fe % geom % dWall(i,j) = sqrt(minimumDistance)
-
-            end do                ; end do
+                end do                ; end do
+            end if
+            
             end associate
          end do
 

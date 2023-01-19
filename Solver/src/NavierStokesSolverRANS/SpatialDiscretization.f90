@@ -94,17 +94,16 @@ module SpatialDiscretization
 
          if (.not. sem % mesh % child) then ! If this is a child mesh, all these constructs were already initialized for the parent mesh
 
-            call hnRange(sem % mesh, hnmin, hnmax)
-
             if ( MPI_Process % isRoot ) then
                write(STD_OUT,'(/)')
                call Section_Header("Spatial discretization scheme")
                write(STD_OUT,'(/)')
-
-               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
-               write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
-               write(STD_OUT,'(/)')
             end if
+
+            call hnRange(sem % mesh, hnmin, hnmax)
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Minimum h/N: ", hnmin
+            write(STD_OUT,'(30X,A,A30,1pG10.3)') "->", "Maximum h/N: ", hnmax
+            write(STD_OUT,'(/)')
    !
    !        Initialize inviscid discretization
    !        ----------------------------------
@@ -227,7 +226,7 @@ module SpatialDiscretization
    !
    !        Initialize models
    !        -----------------
-            call InitializeTurbulenceModel(SAmodel,controlVariables)
+            call InitializeTurbulenceModel(SAmodel, controlVariables)
 
             call Initialize_ShockCapturing(ShockCapturingDriver, controlVariables, sem, &
                                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
@@ -386,8 +385,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl
-         real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, Source(NCONS)
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP
+         real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, Source(NCONS), &
+                           TurbulentSource(NCONS)
          logical     :: isfirst = .TRUE.
 !
 !        ***********************************************
@@ -431,7 +431,6 @@ module SpatialDiscretization
                end associate
             end do
 !$omp end do
-
 !        Compute viscosity at interior and boundary faces
 !        ------------------------------------------------
          call compute_viscosity_at_faces(size(mesh % faces_interior), 2, mesh % faces_interior, mesh)
@@ -447,6 +446,7 @@ module SpatialDiscretization
          end do
 !$omp end do
 !
+
 #if defined(_HAS_MPI_)
 !$omp single
          if (ShockCapturingDriver % isActive) then
@@ -511,7 +511,7 @@ module SpatialDiscretization
 !$omp single
             if ( flowIsNavierStokes ) then
                if ( ShockCapturingDriver % isActive ) then
-                  call mpi_barrier(MPI_COMM_WORLD, ierr)     ! TODO: This can't be the best way :(
+                  call mpi_barrier(MPI_COMM_WORLD, ierr)     
                   call mesh % GatherMPIFacesAviscflux(NCONS)
                end if
             end if
@@ -644,26 +644,45 @@ module SpatialDiscretization
          end do
 !$omp end do
 
-
 !
 !        *********************
 !        Add IBM source term
 !        *********************
-         if( mesh% IBM% active .and. .not. mesh% IBM% semiImplicit ) then
-!$omp do schedule(runtime) private(i,j,k)
-            do eID = 1, mesh % no_of_elements
-               associate ( e => mesh % elements(eID) )
-               do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  if( e% isInsideBody(i,j,k) ) then
-                     call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
-                     e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
-                  end if
-               end do                  ; end do                ; end do
-               end associate
-            end do
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+               do eID = 1, mesh % no_of_elements
+                  associate ( e => mesh % elements(eID) )
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     if( e% isInsideBody(i,j,k) ) then
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                     end if
+                  end do                  ; end do                ; end do
+                  end associate
+               end do
+!$omp end do      
+               if( mesh% IBM% Wallfunction ) then
+!$omp single
+                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+!$omp end single
+!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
+                  do iP = 1, mesh% IBM% NumOfForcingPoints
+                     associate( e => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index)  )
+                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
+                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
+                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
+                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
+                                                             e% STL(i,j,k), TurbulentSource                      )          
+                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                     end associate
+                  end do
 !$omp end do
-         end if
-
+               end if 
+            end if
+         end if 
+         
       end subroutine TimeDerivative_ComputeQDot
 
       subroutine compute_viscosity_at_faces(no_of_faces, no_of_sides, face_ids, mesh)
@@ -733,8 +752,12 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, fID
+         integer     :: eID , i, j, k, fID, iP 
+         real(kind=rp) :: Source(NCONS), TurbulentSource(NCONS)
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+#ifdef _HAS_MPI_
+         integer :: ierr
+#endif
 !
 !        ****************
 !        Volume integrals
@@ -784,6 +807,45 @@ module SpatialDiscretization
             end associate
          end do
 !$omp end do
+
+!
+!        *********************
+!        Add IBM source term
+!        *********************
+         if( mesh% IBM% active ) then
+            if( .not. mesh% IBM% semiImplicit ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+              do eID = 1, mesh % no_of_elements
+                 associate ( e => mesh % elements(eID) )
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     if( e% isInsideBody(i,j,k) ) then
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                     end if
+                  end do                  ; end do                ; end do
+                  end associate
+               end do
+!$omp end do      
+               if( mesh% IBM% Wallfunction ) then
+!$omp single
+                  call mesh% IBM% GetBandRegionStates( mesh% elements )
+!$omp end single 
+!$omp do schedule(runtime) private(i,j,k,TurbulentSource)
+                  do iP = 1, mesh% IBM% NumOfForcingPoints
+                     associate( e    => mesh% elements(mesh% IBM% ImagePoints(iP)% element_index) )
+                     i = mesh% IBM% ImagePoints(iP)% local_position(1)
+                     j = mesh% IBM% ImagePoints(iP)% local_position(2)
+                     k = mesh% IBM% ImagePoints(iP)% local_position(3)
+                     call mesh % IBM % SourceTermTurbulence( mesh% IBM% ImagePoints(iP), e% storage% Q(:,i,j,k), &
+                                                             e% geom% normal(:,i,j,k), e% geom% dWall(i,j,k),    &
+                                                             e% STL(i,j,k), TurbulentSource                      )             
+                     e% storage% QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + TurbulentSource  
+                     end associate
+                  end do
+!$omp end do
+               end if 
+            end if
+         end if
 
       end subroutine TimeDerivative_ComputeQDotIsolated
 !
@@ -862,8 +924,8 @@ module SpatialDiscretization
 !~ !           ------------------------------------------------------
 !~             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !~ !
-!~ !           Perform the Weak volume green integral
-!~ !           --------------------------------------
+!~ !           Peform the Weak volume green integral
+!~ !           -------------------------------------
 !~             viscousContravariantFlux = viscousContravariantFlux
 
 !~             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -948,8 +1010,8 @@ module SpatialDiscretization
 !           ------------------------------------------------------
             call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
 !
-!           Perform the Weak volume green integral
-!           --------------------------------------
+!           Peform the Weak volume green integral
+!           -------------------------------------
             viscousContravariantFlux = viscousContravariantFlux + AviscContravariantFlux
 
             e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
@@ -996,9 +1058,9 @@ module SpatialDiscretization
          real(kind=RP) :: mu_left(3), mu_right(3)
         integer        :: Sidearray(2)
 !
-!        ---------------------------
-!        Artificial viscosity fluxes
-!        ---------------------------
+!        --------------------------
+!        Artifical viscosity fluxes
+!        --------------------------
 !
          if ( ShockCapturingDriver % isActive ) then
             Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)

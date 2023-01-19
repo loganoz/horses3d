@@ -2,7 +2,7 @@
 !//////////////////////////////////////////////////////
 !
 ! Useful Fortran interfaces for SparseBLAS routines. Most of the them are copied
-! from Intel OneAPI v. 2021.3.0. 
+! from Intel OneAPI v. 2021.3.0.
 !
 !//////////////////////////////////////////////////////
 !
@@ -129,7 +129,7 @@ MODULE MKL_SPBLAS
         INTEGER(C_INT) :: DIAG
     END TYPE MATRIX_DESCR
 
-!   struct to store MKL parameters for HORSES3D 
+!   struct to store MKL parameters for HORSES3D
     TYPE MKL_Global
         type(SPARSE_MATRIX_T)   :: csrA
         type(MATRIX_DESCR)      :: descrA
@@ -1596,7 +1596,7 @@ MODULE MKL_SPBLAS
             IMPORT SPARSE_MATRIX_T
             IMPORT MATRIX_DESCR
             TYPE(SPARSE_MATRIX_T), INTENT(INOUT) :: A
-            INTEGER(C_INT)       , INTENT(IN) :: operation   
+            INTEGER(C_INT)       , INTENT(IN) :: operation
             TYPE(MATRIX_DESCR)   , INTENT(IN) :: descr          ! sparse_matrix_type_t + sparse_fill_mode_t + sparse_diag_type_t
             INTEGER              , INTENT(IN) :: expected_calls
             INTEGER(C_INT) MKL_SPARSE_SET_LU_SMOOTHER_HINT

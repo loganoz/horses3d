@@ -115,8 +115,6 @@ contains
 !
       if (.not. present(controlVariables)) ERROR stop 'StaticCondSolver_t needs controlVariables'
       if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
-      
-      ! TODO: Add conformity check?
 !
 !     Gauss-Lobatto check
 !     -------------------

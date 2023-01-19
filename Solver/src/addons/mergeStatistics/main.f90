@@ -10,12 +10,12 @@
 !  *  Only usable with statistics files that are obtained with the "reset interval" keyword
 !     and/or with individual consecutive simulations 
 !  *  Only constant time-stepping is supported
-!  *  Dynamic p-adaptation is currently not supported
+!  *  Dynamic p-adaptation is currently not supported (but static p-adaption works)
 !
 program MergeStatistics
    use SMConstants
    use getTaskModule       , only: getTask
-   use Headers  !           , only: Main_Header, Section_Header
+   use Headers 
    use StatsAveragingModule, only: Initialize_StatsAveragingModule, Finalize_StatsAveragingModule, PerformAveraging
    use MPI_Process_Info    , only: MPI_Process
    implicit none

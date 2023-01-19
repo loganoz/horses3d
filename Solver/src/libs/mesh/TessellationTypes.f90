@@ -1,4 +1,3 @@
-
 #include "Includes.h"
 module TessellationTypes
 
@@ -8,6 +7,11 @@ module TessellationTypes
    use ParamfileRegions                , only: readValueInRegion
 
    implicit none
+
+   public :: DescribeSTLPartitions
+
+   integer, parameter :: FORCING_POINT = 1, NOT_FORCING_POINT = 0
+   integer, parameter :: POINT_ON_PLANE = 0, POINT_IN_FRONT_PLANE = 1, POINT_BEHIND_PLANE = 2, NumOfVertices = 3
 
 !
 !  **************************************************
@@ -34,14 +38,17 @@ module TessellationTypes
    
       class(point_type), pointer :: next => null(), prev => null()
       
-      real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal
+      real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi 
       real(kind=rp)                  :: theta, dist, Rank
-      integer                        :: index, element_index, &
-                                        Translate = 0, partition, objIndex
+      integer                        :: index, element_index, NumOfIntersections, &
+                                        Translate = 0, partition, objIndex, isForcingPoint, &
+                                        STLNum, element_in 
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
-                                        forcingPoint = .false.
-    
+                                        forcingPoint = .false., isInsideBox = .false.
+      real(kind=RP), allocatable     :: invPhi(:,:), b(:) 
+      integer,       allocatable     :: nearestPoints(:) 
+
       contains
          procedure :: copy => point_type_copy
    
@@ -54,6 +61,7 @@ module TessellationTypes
    type ObjectLinkedList
    
       class(object_type), pointer :: head => null()
+      integer                     :: NumOfObjs
       
       contains
          procedure :: add        => ObjectLinkedList_add
@@ -73,7 +81,6 @@ module TessellationTypes
       real(kind=rp),    dimension(NDIM)             :: normal, tangent, coords
       integer                                       :: index, NumOfVertices
       integer,          dimension(2)                :: partition
-      logical                                       :: ComputeIntegrals = .true.
 
       contains
          procedure :: copy       => object_type_copy
@@ -90,23 +97,72 @@ module TessellationTypes
 
       type(Object_type), dimension(:), allocatable :: ObjectsList
       integer                                      :: NumOfObjs, partition, &
-                                                      motionAxis, body
+                                                      motionAxis, body,     &
+                                                      NumOfObjs_OLD
       real(kind=RP)                                :: angularVelocity, ds,  &
                                                       Velocity,             & 
                                                       rotationMatrix(NDIM,NDIM)
-      logical                                      :: move
+      logical                                      :: move, show 
       character(len=LINE_LENGTH)                   :: filename, motionType
    
        contains
           procedure :: ReadTessellation
           procedure :: getRotationaMatrix => STLfile_getRotationaMatrix
           procedure :: getDisplacement    => STLfile_getDisplacement
+          procedure :: Clip               => STL_Clip
+          procedure :: updateNormals      => STL_updateNormals
           procedure :: destroy            => STLfile_destroy
           procedure :: Describe           => Describe_STLfile
           procedure :: plot               => STLfile_plot
-          procedure :: DescribePartitions => DescribePartitions_STLfile
 
    end type
+   
+   
+   
+   type ObjsDataLinkedList_t
+      type(ObjData_t), pointer     :: head => null()
+      integer                      :: no_of_entries = 0
+      contains
+         procedure   :: Add      => ObjsDataLinkedList_Add
+         procedure   :: check    => CheckObj
+         procedure   :: Destruct => ObjsDataLinkedList_Destruct
+    end type ObjsDataLinkedList_t
+   
+    type ObjData_t
+      integer                   :: value 
+      type(ObjData_t), pointer  :: next 
+    end type ObjData_t
+
+
+    type ObjsRealDataLinkedList_t
+      class(ObjRealData_t), pointer :: head => NULL()
+      integer                       :: no_of_entries = 0
+      contains
+         procedure   :: Add      => ObjsRealDataLinkedList_Add
+         procedure   :: check    => CheckReal
+         procedure   :: Destruct => ObjsRealDataLinkedList_Destruct
+    end type ObjsRealDataLinkedList_t
+   
+   type ObjRealData_t
+      real(kind=RP)                 :: value
+      class(ObjRealData_t), pointer :: next 
+    end type ObjRealData_t
+
+
+
+    interface ObjsDataLinkedList_t
+      module procedure  ConstructObjsDataLinkedList
+    end interface 
+    
+    interface ObjsRealDataLinkedList_t
+      module procedure  ConstructObjsRealDataLinkedList
+    end interface 
+   
+   
+   
+   
+   
+   
    
    interface PointLinkedList
       module procedure :: PointLinkedList_Construct
@@ -120,6 +176,165 @@ module TessellationTypes
    character(len=6) :: LINEAR = "linear"
 
    contains   
+
+      function ConstructObjsDataLinkedList( )
+         implicit none
+         type(ObjsDataLinkedList_t) :: ConstructObjsDataLinkedList 
+
+         ConstructObjsDataLinkedList% head => null()
+         ConstructObjsDataLinkedList% no_of_entries = 0
+
+      end function ConstructObjsDataLinkedList
+      
+      function ConstructObjsRealDataLinkedList( )
+         implicit none
+         type(ObjsRealDataLinkedList_t) :: ConstructObjsRealDataLinkedList 
+
+         ConstructObjsRealDataLinkedList% head => null()
+         ConstructObjsRealDataLinkedList% no_of_entries = 0
+
+      end function ConstructObjsRealDataLinkedList
+
+      subroutine ObjsDataLinkedList_Add( this, value ) 
+         implicit none
+         !-arguments----------------------------------------------
+         class(ObjsDataLinkedList_t), intent(inout) :: this
+         integer,                     intent(in)    :: value
+         !-local-variables----------------------------------------
+         type(ObjData_t), pointer :: current
+         integer                  :: i
+
+         if ( this% no_of_entries .eq. 0 ) then
+            allocate( this% head ) 
+            this% head% value = value
+            this% no_of_entries = 1
+         else
+            current => this% head    
+            do i = 1, this% no_of_entries-1
+               current => current% next
+            end do
+            allocate(current% next)
+            current% next% value = value
+            this% no_of_entries = this% no_of_entries + 1 
+         end if
+
+      end subroutine ObjsDataLinkedList_Add
+      
+      subroutine ObjsRealDataLinkedList_Add( this, value ) 
+         implicit none
+         !-arguments---------------------------------------------
+         class(ObjsRealDataLinkedList_t), intent(inout) :: this
+         real(kind=RP),                   intent(in)    :: value
+         !-local-variables---------------------------------------
+         type(ObjRealData_t), pointer  :: current
+         integer                       :: i
+
+         if ( this% no_of_entries .eq. 0 ) then
+            allocate( this% head ) 
+            this% head% value = value
+            this% no_of_entries = 1
+         else
+            current => this% head    
+            do i = 1, this% no_of_entries-1
+               current => current% next
+            end do
+            allocate(current% next)
+            current% next% value = value
+            this% no_of_entries = this% no_of_entries + 1 
+         end if
+
+      end subroutine ObjsRealDataLinkedList_Add
+
+      logical function CheckObj( this, value ) result( found )
+         implicit none
+         !-arguments---------------------------------------------
+         class(ObjsDataLinkedList_t), intent(inout) :: this
+         integer,                     intent(in)    :: value
+         !-local-variables---------------------------------------
+         type(ObjData_t), pointer :: current
+         integer                  :: i
+        
+         found = .false.
+        
+         if( this% no_of_entries .eq.0 ) return
+        
+         current => this% head
+        
+         do i = 1, this% no_of_entries
+            if( current% value .eq. value ) then
+               found = .true.
+               exit
+            end if
+            current => current% next
+         end do
+     
+      end function CheckObj
+
+      logical function CheckReal( this, value ) result( found )
+         implicit none
+         !-arguments----------------------------------------------
+         class(ObjsRealDataLinkedList_t), intent(inout) :: this
+         real(kind=RP),                   intent(in)    :: value
+         !-local-variables----------------------------------------
+         type(ObjRealData_t), pointer :: current
+         integer                      :: i
+        
+         found = .false.
+        
+         if( this% no_of_entries .eq.0 ) return
+        
+         current => this% head
+        
+         do i = 1, this% no_of_entries
+            if( almostEqual(current% value,value) ) then
+               found = .true.
+               exit
+            end if
+            current => current% next
+         end do
+     
+      end function CheckReal
+
+      elemental subroutine ObjsDataLinkedList_Destruct(this)
+         implicit none
+         !-arguments---------------------------------------------
+         class(ObjsDataLinkedList_t), intent(inout) :: this
+         !-local-variables---------------------------------------
+         type(ObjData_t), pointer :: data, nextdata
+         integer                  :: i
+
+         data => this% head
+         do i = 1, this% no_of_entries
+            nextdata => data% next
+
+            deallocate(data)
+            data => nextdata
+         end do
+         
+         this% no_of_entries = 0
+
+      end subroutine ObjsDataLinkedList_Destruct
+      
+      elemental subroutine ObjsRealDataLinkedList_Destruct(this)
+         implicit none
+         !-arguments---------------------------------------------
+         class(ObjsRealDataLinkedList_t), intent(inout) :: this
+         !-local-variables---------------------------------------
+         type(ObjRealData_t), pointer :: data, nextdata
+         integer                      :: i
+
+         data => this% head
+         do i = 1, this% no_of_entries
+            nextdata => data% next
+
+            deallocate(data)
+            data => nextdata
+         end do
+         
+         this% no_of_entries = 0
+
+      end subroutine ObjsRealDataLinkedList_Destruct
+
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -142,20 +357,19 @@ module TessellationTypes
 !  This subroutine adds a point to a points list
 !  ------------------------------------------------ 
    subroutine PointLinkedList_Add( this, point )
-   
       implicit none
-   
+      !-arguments-----------------------------------
       class(PointLinkedList) :: this
       type(point_type)       :: point
-      
-      type(point_type), pointer :: current => null(), currentNext => null()
+      !-local-variables-----------------------------
+      type(point_type), pointer :: current,    &
+                                   currentNext 
    
       if( .not. associated(this% head) ) then 
          allocate(this% head)
          call this% head% copy(point)
          this% head% next => this% head
          this% head% prev => this% head
-         return
       else
          current => this% head% prev
          currentNext => current% next
@@ -179,7 +393,6 @@ module TessellationTypes
 !  This subroutine deletes the point p from a points list
 !  ------------------------------------------------  
    subroutine PointLinkedList_Remove( this, p )
-   
       implicit none
       !-arguments--------------------------------------------------------------
       class(PointLinkedList),   intent(inout) :: this
@@ -212,11 +425,10 @@ module TessellationTypes
 !  This subroutine deletes the last point from a points list
 !  ------------------------------------------------  
    subroutine PointLinkedList_RemoveLast( this )
-   
       implicit none
-      
+      !-arguments--------------------------------------------------------
       class(PointLinkedList), intent(inout) :: this
-      
+      !-local-variables--------------------------------------------------
       type(point_type), pointer :: data => null(), dataPrev => null()
       
       data => this% head% prev
@@ -245,20 +457,19 @@ module TessellationTypes
 !  This subroutine deletes a point from a points list
 !  ------------------------------------------------ 
    subroutine PointLinkedList_Destruct( this )
-    
       implicit none
-      
+      !-arguments--------------------------------------
       class(PointLinkedList), intent(inout) :: this
-      
+      !-local-variables--------------------------------
       class(point_type), pointer :: current, next 
-      integer :: i
+      integer                    :: i
       
       if( this% NumOfPoints .eq. 0 ) return
       
       current => this% head
       next    => current% next
-      
-      do i = 1, this% NumOfPoints 
+
+      do i = 2, this% NumOfPoints
          deallocate(current)
          current => next
          next    => current% next
@@ -275,9 +486,8 @@ module TessellationTypes
 !  ------------------------------------------------  
 
    subroutine point_type_copy( this, point )
-   
       implicit none
-   
+      !-arguments-------------------------------
       class(point_type), intent(inout) :: this
       type(point_type),  intent(in)    :: point
     
@@ -298,12 +508,12 @@ module TessellationTypes
 ! This subroutine initializes an objects list
 !  ------------------------------------------------  
    function ObjectLinkedList_Construct(  )
-   
       implicit none
-      
+      !-local-variables-------------------------------------
       type(ObjectLinkedList) :: ObjectLinkedList_Construct
       
       ObjectLinkedList_Construct% head => null()
+      ObjectLinkedList_Construct% NumOfObjs = 0
    
    end function ObjectLinkedList_Construct
 !
@@ -314,21 +524,19 @@ module TessellationTypes
 !  ------------------------------------------------  
 
    subroutine ObjectLinkedList_Add( this, object )
-   
       implicit none
-   
+      !arguemnts--------------------------------------------
       class(ObjectLinkedList) :: this
       type(Object_type)       :: object
-      
-      type(object_type), pointer :: current => null(), currentNext => null()
-   
+      !-local-variables-------------------------------------
+      type(object_type), pointer :: current => null(), &
+                                    currentNext => null()
    
       if( .not. associated(this% head) ) then 
          allocate(this% head)
          call this% head% copy(object)
          this% head% next => this% head
          this% head% prev => this% head
-         return
       else
          current => this% head% prev
          currentNext => current% next
@@ -340,11 +548,12 @@ module TessellationTypes
          current% next => currentNext
          nullify(this% head% prev)
          this% head% prev => currentNext
+         nullify(current, currentNext)
       end if
       
-      nullify(current, currentNext)
+      this% NumOfObjs = this% NumOfObjs + 1
    
-   end subroutine ObjectLinkedList_Add     
+   end subroutine ObjectLinkedList_Add
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -352,12 +561,12 @@ module TessellationTypes
 !  This subroutine destroys an objects list
 !  ------------------------------------------------ 
    subroutine ObjectLinkedList_Destruct( this )
-    
       implicit none
-      
+      !arguemnts----------------------------------------
       class(ObjectLinkedList), intent(inout) :: this
-      
-      type(object_type), pointer :: data => null(), dataPrev => null()
+      !-local-variables---------------------------------
+      type(object_type), pointer :: data => null(), &
+                                    dataPrev => null()
       
       if( .not. associated(this% head) ) return
       
@@ -375,6 +584,8 @@ module TessellationTypes
       
       deallocate(data)
       
+      this% NumOfObjs = this% NumOfObjs - 1
+      
       nullify(dataPrev)
       
    end subroutine ObjectLinkedList_Destruct
@@ -384,16 +595,14 @@ module TessellationTypes
 !  -------------------------------------------------
 ! This subroutine builds an object
 !  -----------------------------------------------
-   subroutine object_type_build( this, Points, normal, NumOfVertices, index, computeIntegrals )
-    
+   subroutine object_type_build( this, Points, normal, NumOfVertices, index )
       implicit none
       !-arguments---------------------------
-      class(Object_type),            intent(inout) :: this
-      real(kind=RP), dimension(:,:), intent(in)    :: Points
-      real(kind=RP), dimension(:),   intent(in)    :: normal
-      integer,                       intent(in)    :: NumOfVertices, index
-      logical,                       intent(in)    :: computeIntegrals
-      !-local-variables-----------------------
+      class(Object_type), intent(inout) :: this
+      real(kind=RP),      intent(in)    :: Points(:,:)
+      real(kind=RP),      intent(in)    :: normal(:)
+      integer,            intent(in)    :: NumOfVertices, index
+      !-local-variables--------------------------------------
       integer :: i
       
       if( allocated(this% vertices) ) deallocate(this% vertices)
@@ -405,7 +614,6 @@ module TessellationTypes
       
       this% index            = index 
       this% normal           = normal 
-      this% computeIntegrals = computeIntegrals 
       this% NumOfVertices    = NumOfVertices
       
    end subroutine object_type_build
@@ -419,8 +627,8 @@ module TessellationTypes
     
       implicit none
       !-arguments---------------------------
-      class(Object_type),  intent(inout) :: this
-      type(Object_type),   intent(in)    :: Object
+      class(Object_type), intent(inout) :: this
+      type(Object_type),  intent(in)    :: Object
       !-local-variables-----------------------
       integer :: i
       
@@ -432,7 +640,6 @@ module TessellationTypes
       
       this% index            = Object% index 
       this% normal           = Object% normal 
-      this% computeIntegrals = Object% computeIntegrals 
       this% NumOfVertices    = Object% NumOfVertices
       this% partition        = Object% partition
       
@@ -447,7 +654,7 @@ module TessellationTypes
     
       implicit none
       !-arguments---------------------------
-      class(Object_type),  intent(inout) :: this
+      class(Object_type), intent(inout) :: this
       
       deallocate(this% vertices)
       
@@ -503,7 +710,7 @@ module TessellationTypes
       
       nullify(Obj, Objprev)
       
-   end subroutine addObj   
+   end subroutine addObj
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -515,10 +722,9 @@ module TessellationTypes
       use MPI_Process_Info
       use PhysicsStorage
       implicit none
-      !-arguments--------------------------------
+      !-arguments-----------------------------------
       class(STLfile),   intent(inout) :: this
       character(len=*), intent(in)    :: filename
-      !-local-variables--------------------------
 
       if( MPI_Process% isRoot) then
        
@@ -527,16 +733,15 @@ module TessellationTypes
          write(STD_OUT,'(/)')
          call SubSection_Header('Stl file "' // trim(fileName) // '"')
       
-         write(STD_OUT,'(30X,A,A32,I10)') "->" , "Number of objects: " , this% NumOfObjs
-         write(STD_OUT,'(30X,A,A32,I10)') "->" , "Number of stored points: " , 3*this% NumOfObjs
+         write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of objects: " , this% NumOfObjs
          if( this% move ) then
-            write(STD_OUT,'(30X,A,A32,A10)') "->" , "Motion: " , this% motionType
+            write(STD_OUT,'(30X,A,A35,A10)') "->" , "Motion: " , this% motionType
             if( this% motionType .eq. ROTATION ) then 
-               write(STD_OUT,'(30X,A,A32,F10.3,A)') "->" , "Angular Velocity: " , this% angularVelocity/timeref, " rad/s."
+               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , abs(this% angularVelocity), " rad/s."
             elseif( this% motionType .eq. LINEAR ) then
-               write(STD_OUT,'(30X,A,A32,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity*(Lref/timeref), " m/s."
+               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity*(Lref/timeref), " m/s."
             end if
-            write(STD_OUT,'(30X,A,A32,I10)') "->" , "Axis of motion: " , this% motionAxis
+            write(STD_OUT,'(30X,A,A35,I10)') "->" , "Axis of motion: " , this% motionAxis
          end if
          
       end if
@@ -548,28 +753,27 @@ module TessellationTypes
 !  -------------------------------------------------
 ! This subroutine describes the .stl file
 !  -----------------------------------------------
-   subroutine DescribePartitions_STLfile( this )
+   subroutine DescribeSTLPartitions( partition, NumOfObjs )
       use Headers
       use MPI_Process_Info
       implicit none
       !-arguments--------------------------------
-      class(STLfile), intent(inout) :: this
+      integer, intent(in) :: partition, NumOfObjs
       !-local-variables--------------------------
       character(len=LINE_LENGTH) :: myString
       
-      write(myString,'(i100)') this% partition
+      write(myString,'(i100)') partition+1
       
-      if( this% partition .eq. 1 ) then
+      if( partition .eq. 0 ) then
          write(STD_OUT,'(/)')
          call Section_Header("stl partitions")
          write(STD_OUT,'(/)')
       end if
       
       call SubSection_Header('partition ' // trim(adjustl(myString)))
-      write(STD_OUT,'(30X,A,A32,I10)') "->" , "Number of objects: " , this% NumOfObjs
-      write(STD_OUT,'(30X,A,A32,I10)') "->" , "Number of stored points: " , 3*this% NumOfObjs
+      write(STD_OUT,'(30X,A,A32,I10)') "->" , "Number of objects: " , NumOfObjs
       
-   end subroutine DescribePartitions_STLfile
+   end subroutine DescribeSTLPartitions
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -579,11 +783,12 @@ module TessellationTypes
    subroutine  ReadTessellation( this, filename )
       use PhysicsStorage
       implicit none
-      !-arguments--------------------------------
+      !-arguments---------------------------------------
       class(STLfile),   intent(inout) :: this
       character(len=*), intent(in)    :: filename
-      !-local-variables---------------------------
-      integer              :: i, j, funit, NumOfTri, fileStat, NumOfVertices
+      !-local-variables---------------------------------
+      integer              :: i, j, funit, NumOfTri,  &
+                              fileStat, NumOfVertices
       integer*2            :: padding
       real*4, dimension(3) :: norm, vertex
       character(len=80)    :: header
@@ -617,7 +822,7 @@ module TessellationTypes
          allocate(Objs(i)% vertices(NumOfVertices))
          do j = 1, NumOfVertices
             read(funit) vertex(1), vertex(2), vertex(3)
-            Objs(i)% vertices(j)% coords = vertex/Lref
+            Objs(i)% vertices(j)% coords = vertex!/Lref -> always 1           
          end do
          read(funit) padding
          Objs(i)% index = i
@@ -628,21 +833,55 @@ module TessellationTypes
       end associate   
        
       close(unit=funit)
-      
-      call this% describe( filename )
-      
+
    end subroutine  ReadTessellation
+
+  subroutine STLfile_plot( this, iter )
+      use MPI_Process_Info
+      use PhysicsStorage
+      implicit none
+      !-arguments----------------------------------------------
+      class(STLfile), intent(inout) :: this
+      integer,        intent(in)    :: iter
+      !-local-variables----------------------------------------
+      character(len=LINE_LENGTH)     :: filename
+      integer                        :: i, j, funit
+      integer*2                      :: padding = 0
+      real*4, dimension(3)           :: norm, vertex
+      character(len=80)              :: header = repeat(' ',80)
+            
+      funit = UnusedUnit()
+      
+      write(filename,'(A,A,I10.10)') trim(this% filename),'_', iter
+      
+      open(funit,file='MESH/'//trim(filename)//'.stl', status='unknown',access='stream',form='unformatted')
+ 
+      write(funit) header, this% NumOfObjs 
+      
+      do i = 1, this% NumOfObjs
+         norm = this% ObjectsList(i)% normal
+         write(funit) norm(1), norm(2), norm(3)
+         do j = 1, size(this% ObjectsList(i)% vertices)         
+            vertex = this% ObjectsList(i)% vertices(j)% coords * Lref
+            write(funit) vertex(1), vertex(2), vertex(3)
+         end do
+         write(funit) padding      
+      end do
+
+      close(funit)
    
+   end subroutine STLfile_plot
+  
    subroutine STLfile_GetMotionInfo( this, STLfilename, NumOfSTL )
       use FileReadingUtilities
       use FTValueDictionaryClass
       use PhysicsStorage
       implicit none
-      !-arguments------------------------------------------
+      !-arguments-------------------------------------------------------
       type(STLfile),           intent(inout) :: this
       character(len=*),        intent(in)    :: STLfilename
       integer,                 intent(in)    :: NumOfSTL
-      !-local-arguments------------------------------------
+      !-local-arguments-------------------------------------------------
       integer                    :: i
       integer,       allocatable :: motionAxis_STL
       real(kind=RP), allocatable :: angularVelocity_STL, Velocity_STL
@@ -677,14 +916,14 @@ module TessellationTypes
          end select
          
          if( allocated(angularVelocity_STL) ) then
-            this% angularVelocity = angularVelocity_STL*timeref
+            this% angularVelocity = angularVelocity_STL
          elseif( this% motionType .eq. ROTATION ) then
             print *, "STLfile_GetMotionInfo: 'angular velocity' must be specified for ", ROTATION, " motion."
             error stop            
          end if
          
          if( allocated(Velocity_STL) ) then
-            this% Velocity = Velocity_STL/(Lref/timeref)
+            this% Velocity = Velocity_STL
          elseif( this% motionType .eq. LINEAR ) then
             print *, "STLfile_GetMotionInfo: 'velocity' must be specified for ", LINEAR, " motion."
             error stop            
@@ -708,16 +947,49 @@ module TessellationTypes
  
    end subroutine STLfile_GetMotionInfo
    
-   subroutine STLfile_getRotationaMatrix( this, dt )
-   
+   subroutine STLfile_getRotationaMatrix( this, dt, angle )
+      use PhysicsStorage
+      use FluidData
       implicit none
       !-arguments-----------------------------
-      class(STLfile), intent(inout):: this
-      real(kind=RP),  intent(in)   :: dt
+      class(STLfile),           intent(inout):: this
+      real(kind=RP),            intent(in)   :: dt
+      real(kind=RP),  optional, intent(in)   :: angle 
       !-local-variables-----------------------
-      real(kind=RP) :: theta
+      real(kind=RP) :: time, theta
+
+      if( present(angle) ) then 
+
+         this% rotationMatrix = 0.0_RP
+         theta = PI/180.0_RP*angle 
+
+         select case( this% motionAxis )
+            case( IX )
+               this% rotationMatrix(1,1) = 1.0_RP
+               this% rotationMatrix(2,2) = cos(theta)
+               this% rotationMatrix(2,3) = -sin(theta)
+               this% rotationMatrix(3,2) = sin(theta)
+               this% rotationMatrix(3,3) = cos(theta)
+            case( IY ) 
+               this% rotationMatrix(2,2) = 1.0_RP
+               this% rotationMatrix(1,1) = cos(theta)
+               this% rotationMatrix(1,3) = sin(theta)
+               this% rotationMatrix(3,1) = -sin(theta)
+               this% rotationMatrix(3,3) = cos(theta)
+            case( IZ )
+               this% rotationMatrix(3,3) = 1.0_RP
+               this% rotationMatrix(1,1) = cos(theta)
+               this% rotationMatrix(1,2) = -sin(theta)
+               this% rotationMatrix(2,1) = sin(theta)
+               this% rotationMatrix(2,2) = cos(theta)
+         end select
+         return
+      end if 
+         
+#if defined(NAVIERSTOKES)
+      time = dt * Lref/refValues%V
    
-      theta = this% angularVelocity * dt
+      theta = this% angularVelocity * time
    
       this% rotationMatrix = 0.0_RP
    
@@ -741,11 +1013,10 @@ module TessellationTypes
             this% rotationMatrix(2,1) = sin(theta)
             this% rotationMatrix(2,2) = cos(theta)
       end select
-        
+#endif       
    end subroutine STLfile_getRotationaMatrix
    
    subroutine STLfile_getDisplacement( this, dt )
-   
       implicit none
       !-arguments-----------------------------
       class(STLfile), intent(inout):: this
@@ -754,6 +1025,26 @@ module TessellationTypes
       this% ds = this% Velocity * dt
         
    end subroutine STLfile_getDisplacement
+
+   subroutine STL_updateNormals( this )
+      use MappedGeometryClass
+      implicit none
+      !-arguments------------------------------------
+      class(STLfile), intent(inout):: this
+      !-local-variables------------------------------
+      real(kind=rp) :: du(NDIM), dv(NDIM), dw(NDIM)
+      integer       :: i 
+!$omp parallel
+!$omp do schedule(runtime) private(du,dv,dw)
+      do i = 1, this% NumOfObjs
+         du = this% ObjectsList(i)% vertices(2)% coords - this% ObjectsList(i)% vertices(1)% coords
+         dw = this% ObjectsList(i)% vertices(3)% coords - this% ObjectsList(i)% vertices(1)% coords
+         call vcross(du,dw,dv)
+         this% ObjectsList(i)% normal = dv/norm2(dv)      
+      end do
+!$omp end do
+!$omp end parallel 
+   end subroutine STL_updateNormals
    
    subroutine STLfile_destroy( this )
    
@@ -770,55 +1061,207 @@ module TessellationTypes
       deallocate(this% ObjectsList)  
    
    end subroutine STLfile_destroy
-   
-   subroutine STLfile_plot( this, timestep )
-      use MPI_Process_Info
+!//////////////////////////////////////////////
+!
+!   Procedures form STL triangles splitting   
+!   
+!//////////////////////////////////////////////
+! SPLITTING TRIANGLES 
+   subroutine STL_Clip( this, minplane, maxplane, axis )
       implicit none
-      !-arguments----------------------------------------------
+      !-arguments--------------------------------------------------------------------
       class(STLfile), intent(inout) :: this
-      integer,        intent(in)    :: timestep
-      !-local-variables----------------------------------------
-      character(len=LINE_LENGTH)     :: filename, myString
-      integer                        :: i, j, funit
+      real(kind=RP),  intent(in)    :: minplane, maxplane
+      integer,        intent(in)    :: axis
+      !-local-variables--------------------------------------------------------------
+      type(ObjectLinkedList)     :: ObjectsLinkedList, ObjectsLinkedListFinal
+      type(object_type), pointer :: obj 
+      real(kind=RP)              :: minplane_point(NDIM), maxplane_point(NDIM),   & 
+                                    minplane_normal(NDIM), maxplane_normal(NDIM), &
+                                    Objmax, Objmin, vertices(NDIM,3)
+      integer                    :: i, j
+
+      minplane_point  = 0.0_RP
+      maxplane_point  = 0.0_RP
+      minplane_normal = 0.0_RP
+      maxplane_normal = 0.0_RP
       
-      if( .not.  MPI_Process% isRoot ) return
-      
-      funit = UnusedUnit()
-      
-      write(myString,'(i100)') timestep
-      
-      filename = trim(this% filename)//'_'//trim(adjustl(myString))
-      
-      open(funit,file='IBM/'//trim(filename)//'.tec', status='unknown')
+      minplane_point(axis)  = minplane
+      maxplane_point(axis)  = maxplane
+      minplane_normal(axis) = -1.0_RP
+      maxplane_normal(axis) =  1.0_RP
  
-      write(funit,"(a28)") 'TITLE = "Partition objects"'
-      write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
-      
-      do i = 1, SIZE(this% ObjectsList)
-         write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
-         do j = 1, this% ObjectsList(i)% NumOfVertices
-            write(funit,'(3E13.5)') this% ObjectsList(i)% vertices(j)% coords(1), &
-                                    this% ObjectsList(i)% vertices(j)% coords(2), &
-                                    this% ObjectsList(i)% vertices(j)% coords(3)
-         end do
-         write(funit,'(3i2)') 1, 2, 3 
+      ObjectsLinkedList      = ObjectLinkedList_Construct()
+      ObjectsLinkedListFinal = ObjectLinkedList_Construct()
+
+      do i = 1, this% NumOfObjs
+          call ClipPloy( this% ObjectsList(i), maxplane_normal, maxplane_point, ObjectsLinkedList )
       end do
 
-      close(funit)
+      obj => ObjectsLinkedList% head 
+
+      do i = 1, ObjectsLinkedList% NumOfObjs
+         call ClipPloy( obj, minplane_normal, minplane_point, ObjectsLinkedListFinal )
+         obj => obj% next 
+      end do  
+      
+      call ObjectsLinkedList% destruct()       
+
+      call this% destroy()
+
+      this% partition = 1
+      this% NumOfObjs = ObjectsLinkedListFinal% NumOfObjs
+  
+      allocate(this% ObjectsList(this% NumOfObjs))
+ 
+      obj => ObjectsLinkedListFinal% head 
+
+      do i = 1, this% NumOfObjs
+         allocate(this% ObjectsList(i)% vertices(obj% NumOfVertices))
+         do j = 1, obj% NumOfVertices
+            this% ObjectsList(i)% vertices(j)% coords = obj% vertices(j)% coords
+         end do
+         this% ObjectsList(i)% normal        = obj% normal
+         this% ObjectsList(i)% index         = i
+         this% ObjectsList(i)% NumOfVertices = obj% NumOfVertices
+         this% ObjectsList(i)% partition     = 1
+         obj => obj% next 
+      end do 
+
+      call ObjectsLinkedListFinal% destruct()
+
+      call this% describe(this% filename)
+
+      call this% plot(0)
+
+   end subroutine STL_Clip
+
+
+   subroutine ClipPloy( obj, plane_normal, plane_point, ObjectsLinkedList )
+      use MappedGeometryClass
+      implicit none
+      !-arguments--------------------------------------------------------------------
+      type(object_type),      intent(in)    :: obj
+      real(kind=rp),          intent(in)    :: plane_normal(:), plane_point(:)
+      type(ObjectLinkedList), intent(inout) :: ObjectsLinkedList
+      !-local-variables--------------------------------------------------------------
+      real(kind=RP)     :: PointFront(NDIM,4), PointBack(NDIM,4)
+      type(object_type) :: objBack
+      real(kind=RP)     :: PointA(NDIM), PointB(NDIM), Point_inters(NDIM), v(NDIM),u(NDIM),W(NDIM)
+      integer           :: PointA_Is, PointB_Is, n_front, n_back, i 
+
+      n_front = 0; n_back = 0
+      
+      pointA = obj% vertices(obj% NumOfVertices)% coords
+      
+      PointA_Is = Point_wrt_Plane( plane_normal, plane_point, pointA )
    
-   end subroutine STLfile_plot
+      do i = 1, obj% NumOfVertices
+         PointB    = obj% vertices(i)% coords
+         PointB_Is = Point_wrt_Plane( plane_normal, plane_point, pointB )
+         if( PointB_Is .eq. POINT_IN_FRONT_PLANE ) then
+            if( PointA_Is .eq. POINT_BEHIND_PLANE ) then
+               Point_inters = EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB )
+               n_front = n_front + 1
+               n_back  = n_back + 1
+               PointFront(:,n_front) = Point_Inters
+               PointBack(:,n_back) = Point_Inters
+            end if
+            n_front = n_front + 1
+            PointFront(:,n_front) = PointB
+         elseif( PointB_Is .eq. POINT_BEHIND_PLANE ) then
+            if( PointA_Is .eq. POINT_IN_FRONT_PLANE ) then
+               Point_inters = EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB )
+               n_front = n_front + 1
+               n_back  = n_back + 1
+               PointFront(:,n_front) = Point_Inters
+               PointBack(:,n_back) = Point_Inters
+            elseif( PointA_Is .eq. POINT_ON_PLANE ) then
+               n_back  = n_back + 1
+               PointBack(:,n_back) = PointA
+            end if
+            n_back  = n_back + 1
+            PointBack(:,n_back) = PointB 
+         else
+            n_front = n_front + 1
+            PointFront(:,n_front) = PointB
+            if( PointA_Is .eq. POINT_BEHIND_PLANE ) then
+               n_back  = n_back + 1
+               PointBack(:,n_back) = PointB 
+            end if
+         end if
+         PointA    = PointB
+         PointA_Is = PointB_Is 
+      end do
+      
+      ! take only back elements !! 
+      if( n_back .eq. 3 ) then
+         call objBack% build( PointBack(:,1:n_back), obj% normal, obj% NumOfVertices, obj% index )
+         call ObjectsLinkedList% add(objBack)
+         call objBack% destruct()
+      elseif( n_back .eq. 4 ) then
+         call objBack% build( PointBack(:,1:n_back-1), obj% normal, obj% NumOfVertices, obj% index )
+         call ObjectsLinkedList% add(objBack)
+         call objBack% destruct()
+         call objBack% build( PointBack(:,(/n_back-1,n_back,1/)), obj% normal, obj% NumOfVertices, obj% index )
+         call ObjectsLinkedList% add(objBack)
+         call objBack% destruct()
+      elseif( n_back .eq. 0 ) then 
+      else
+         print *, "ClipPloy:: wrong number of vertices: ", n_back
+         error stop
+      end if 
    
+   end subroutine ClipPloy
    
+   integer function Point_wrt_Plane( plane_normal, plane_point, point ) result( PointIs )
+      use MappedGeometryClass
+      implicit none
+      !-arguments-----------------------------------------------------------------
+      real(kind=RP), dimension(:), intent(in) :: plane_normal, plane_point, point
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP) :: d, eps
+   
+      d = dot_product(plane_normal,point) - dot_product(plane_normal,plane_point)
+      
+      if( d > EPSILON(eps) ) then
+         PointIs = POINT_IN_FRONT_PLANE
+      elseif( d < -EPSILON(eps) ) then
+         PointIs = POINT_BEHIND_PLANE
+      else 
+         PointIs = POINT_ON_PLANE
+      end if
+   
+   end function Point_wrt_Plane
+  
+   function EdgePlaneIntersection( plane_normal, plane_point, PointA, PointB ) result( Point_inters )
+      use MappedGeometryClass
+      implicit none
+      !-arguments-----------------------------------------------------------------
+      real(kind=RP), intent(in) :: plane_normal(:), plane_point(:), &
+                                   PointA(:), PointB(:)
+      real(kind=RP)             :: Point_inters(NDIM)
+      !-local-variables-----------------------------------------------------------
+      real(kind=RP) :: B_A(NDIM), d, t
+ 
+      B_A = PointB - PointA
+      
+      d = dot_product(plane_normal,plane_point)
+      
+      t = ( d - dot_product(plane_normal,PointA) )/dot_product(plane_normal,B_A)
+ 
+      Point_inters = PointA + t*B_A 
+ 
+   end function EdgePlaneIntersection
 !//////////////////////////////////////////////
    
-   subroutine TecFileHeader( FileName, Title, I, J, K, funit, DATAPACKING, ZONETYPE, NO )
+   subroutine TecFileHeader( FileName, Title, I, J, K, funit, DATAPACKING, ZONETYPE )
    
       implicit none
-      
+      !-arguments------------------------------------------------------
       character(len=*), intent(in)  :: FileName, Title, DATAPACKING
       integer,          intent(in)  :: I, J, K
       character(len=*), optional    :: ZONETYPE
-      logical,          optional    :: NO
       integer,          intent(out) :: funit
    
       funit = UnusedUnit()
@@ -834,5 +1277,5 @@ module TessellationTypes
       end if
       
    end subroutine TecFileHeader
-    
+
 end module TessellationTypes

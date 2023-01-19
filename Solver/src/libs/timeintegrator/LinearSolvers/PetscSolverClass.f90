@@ -508,7 +508,7 @@ module PetscSolverClass
       
       i = irow-1
       
-      call VecGetValues(this%x, 1, i, x, ierr)  ! TODO: Fix problem here?
+      call VecGetValues(this%x, 1, i, x, ierr)  
       call CheckPetscErr(ierr, 'error in VecGetValue')
       
       x_i = x(1)
@@ -554,7 +554,6 @@ module PetscSolverClass
 !~         call VecGetValues(this%x,this % DimPrb ,irow,x, ierr) ; call CheckPetscErr(ierr, 'error in VecGetValue')
 !~      end if
       
-      ! TODO: Check if this works for non-consecutive (in the numbering) elements in a single partition
       call VecGetArrayReadF90(this%x,xout,ierr)
       x = xout
       call VecRestoreArrayReadF90(this%x,xout,ierr)

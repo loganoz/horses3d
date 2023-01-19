@@ -502,13 +502,11 @@ contains
    end subroutine UpdateNewtonSol
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
-!  TODO: Move from here....
    subroutine WriteEigenFiles(Mat,sem,FileName)
       IMPLICIT NONE
 !
 !     -----------------------------------------------------------
 !     Writes files for performing eigenvalue analysis using TAUev
-!        This only works for isotropic order meshes.........................TODO: Change that
 !     -----------------------------------------------------------
 !
       type(csrMat_t)    :: Mat      !< Jacobian matrix

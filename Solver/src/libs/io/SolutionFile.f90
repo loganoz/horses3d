@@ -39,7 +39,8 @@ module SolutionFile
 #endif
    
    private
-   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_MESH_FILE, IBM_MESH
+
+   public      :: MESH_FILE, SOLUTION_FILE, SOLUTION_AND_GRADIENTS_FILE, STATS_FILE, ZONE_MESH_FILE
    public      :: ZONE_SOLUTION_FILE, ZONE_SOLUTION_AND_DOT_FILE
    public      :: SOLUTION_AND_SENSOR_FILE, SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE
    public      :: BEGINNING_DATA
@@ -178,7 +179,7 @@ module SolutionFile
             write(fID, POS=POS_REFS) refs
 !   
 !           Introduce the terminator indicator
-!           ----------------------------------                    ! TODO: Write which physics are being used
+!           ----------------------------------                    
             write(fID, POS=POS_TERMINATOR) BEGINNING_DATA
 !   
 !           Close the file

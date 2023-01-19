@@ -88,7 +88,7 @@ Module FWHGeneralClass  !
             self % isActive = .FALSE.
             print *, "FWH surface not found, the FWH routines will not deactivated"
             return
-        end if 
+        end if
 
 !       Setup the buffer
 !       ----------------
@@ -124,7 +124,6 @@ Module FWHGeneralClass  !
 !       Set interpolate attribute as TRUE by default
         ! todo: read from constrol variables
         self % interpolate = .TRUE.
-        ! self % interpolate = .FALSE.
 
 !       Initialize observers
 !       --------------------
@@ -134,11 +133,11 @@ Module FWHGeneralClass  !
         do i = 1, self % numberOfObservers
             call self % observers(i) % construct(surfacesMesh % zones(SURFACE_TYPE_FWH) , mesh, i, self % solution_file, FirstCall, &
                                                  self % interpolate, no_of_faces, surfacesMesh % elementSide(:,1))
-        end do 
+        end do
 
         self % bufferLine = 0
         self % firstWrite = .FALSE.
-        
+
         FirstCall = .FALSE.
 
 !        Describe the zones
@@ -166,7 +165,7 @@ Module FWHGeneralClass  !
 !       Local variables
 !       ---------------
 !
-        integer                                             :: i 
+        integer                                             :: i
         logical                                             :: prolong
 
 !       Check if is activated
@@ -179,7 +178,7 @@ Module FWHGeneralClass  !
             prolong = .not. isFromFile
         else
             prolong = .TRUE.
-        end if 
+        end if
 !
 !       Move to next buffer line
 !       ------------------------
@@ -199,11 +198,11 @@ Module FWHGeneralClass  !
         if (.not. self % firstWrite) then
             do i = 1, self % numberOfObservers
                 call self % observers(i) % update(mesh, self % isSolid, self % bufferLine, self % interpolate)
-            end do 
+            end do
         else
             do i = 1, self % numberOfObservers
                 call self % observers(i) % updateOneStep(mesh, self % bufferLine, self % isSolid, t)
-            end do 
+            end do
         end if
 
     End Subroutine FWHUpate
@@ -225,7 +224,7 @@ Module FWHGeneralClass  !
 !       ---------------
 !       Local variables
 !       ---------------
-        integer                                             :: i 
+        integer                                             :: i
         logical                                             :: forceVal
 
 !       Check if is activated
@@ -238,7 +237,7 @@ Module FWHGeneralClass  !
            forceVal = .false.
         end if
 
-        if ( forceVal ) then 
+        if ( forceVal ) then
 !
 !           In this case the observers are exported to their files and the buffer is reset
 !           ------------------------------------------------------------------------------
@@ -283,7 +282,7 @@ Module FWHGeneralClass  !
 !       ---------------
 !       Local variables
 !       ---------------
-        integer                                          :: i 
+        integer                                          :: i
 
 !       Check if is activated
 !       ------------------------
@@ -334,7 +333,7 @@ Module FWHGeneralClass  !
 !
 !     Read the whole file to find the observers
 !     ------------------------------------
-readloop:do 
+readloop:do
          read ( fID , '(A)' , iostat = io ) line
 
          if ( io .lt. 0 ) then
@@ -361,14 +360,14 @@ readloop:do
                no_of_observers = no_of_observers + 1
 
             end if
-            
+
          end if
 
       end do readloop
 !
 !     Close case file
 !     ---------------
-      close(fID)                             
+      close(fID)
 
     End Function getNoOfObservers
 
