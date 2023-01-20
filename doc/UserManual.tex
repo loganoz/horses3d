@@ -148,7 +148,7 @@ The control file is the main file for running a simulation. A list of all the ma
 
 solution file name   & \textit{CHARACTER}: Path and name of the output file. The name of this file is used for naming other output files. & \textbf{Mandatory\ keyword} \\ \hline
 
-simulation type        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+simulation type        & \textit{CHARACTER}: Specifies if HORSES3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
 
 time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers. & 'explicit' \\ \hline
 
@@ -1019,7 +1019,7 @@ plot band points & \textit{LOGICAL}: The band region's points are plotted. & .FA
 \subsection{STL file}
 
 Immersed boundary requires, along with the mesh, a STL file. It must be put in the MESH folder with the mesh. The STL file name must be in lowercase character. In some programs, like AutoCAD, a STL file has always positive coordinates: the mesh should be built according to this consideration.\\
-In the case of 2D simulations, the STL can be automatically cut by horses3D through the addition of the line \textit{clip axis} (described in the previous section) so that only the STL portions inside the mesh are considered.
+In the case of 2D simulations, the STL can be automatically cut by HORSES3D through the addition of the line \textit{clip axis} (described in the previous section) so that only the STL portions inside the mesh are considered.
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{Keywords for stl files.} \label{tab:IBMstl} \\
