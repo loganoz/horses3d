@@ -21,7 +21,7 @@
                     Discretization nodes = Gauss-Lobatto
                           Riemann solver = Central
                  Inviscid discretization = Split-form
-                              Split form = skew-symmetric-2split
+                               Averaging = skew-symmetric-2split
        Artificial compressibility factor = 1000.0
                   Viscous discretization = BR1   ! IP/BR2
 

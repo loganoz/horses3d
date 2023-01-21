@@ -30,7 +30,7 @@
                           Riemann solver = Exact  ! Standard Roe/Low dissipation Roe
                     Lambda stabilization = 1.0
                  Inviscid discretization = Split-form  ! Split-form
-                              Split form = Skew-Symmetric-1split   ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and energy conserving
+                               Averaging = Skew-Symmetric-1split   ! Pirozzoli/Morinishi/Kennedy-Gruber/Entropy conserving/Entropy and energy conserving
                   Viscous discretization = BR1   ! IP/BR2
                        Penalty parameter = 1.0
                 Interior penalty variant = SIPG   ! IIPG/NIPG

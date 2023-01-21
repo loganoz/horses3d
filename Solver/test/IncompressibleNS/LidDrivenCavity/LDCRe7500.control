@@ -22,7 +22,7 @@
                           Riemann solver = Exact
                     Lambda stabilization = 1.0
                  Inviscid discretization = Split-form
-                  Split form = skew-symmetric-2split
+                               Averaging = skew-symmetric-2split
                   Viscous discretization = BR1   ! IP/BR2
 
 !----------------------- Time integration:-

@@ -18,7 +18,7 @@ restart file name     = "RESULTS/Cylinder.hsol"
 Riemann Solver                         = Central
 Gradient Variables                     = Entropy
 Inviscid Discretization                = Split-form
-Split form                             = Chandrasekar
+Averaging                              = Chandrasekar
 Viscous Discretization                 = BR1
 compute time derivative after timestep = .true.
 
