@@ -373,14 +373,6 @@
          INTEGER                  :: i, nF
          real(kind=RP)            :: array(3)
          success = .TRUE.
-         
-!         DO i = 1, SIZE(physics_iNSKeywords)
-!            obj => controlVariables % objectForKey(physics_iNSKeywords(i))
-!            IF ( .NOT. ASSOCIATED(obj) )     THEN
-!               PRINT *, "Input file is missing entry for keyword: ",physics_iNSKeywords(i)
-!               success = .FALSE. 
-!            END IF  
-!         END DO  
 
          if ( .not. controlVariables % ContainsKey(REFERENCE_VELOCITY_KEY) ) then
             call controlVariables % AddValueForKey("1.0", REFERENCE_VELOCITY_KEY)

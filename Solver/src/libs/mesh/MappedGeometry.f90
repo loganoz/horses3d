@@ -29,14 +29,15 @@ Module MappedGeometryClass
             real(kind=RP)                                   :: volume
             real(kind=RP), dimension(:,:,:),    allocatable :: dWall                   ! Minimum distance to the nearest wall
             real(kind=RP), dimension(:,:,:,:),  allocatable :: normal                  ! Wall normal, needed for IB
-            real(kind=RP), dimension(:,:,:,:) , allocatable :: ncXi, ncEta, ncZeta     ! Normals at the complementary grid nodes
-            real(kind=RP), dimension(:,:,:,:) , allocatable :: t1cXi, t1cEta, t1cZeta  ! Tangent vector 1 at the complementary grid nodes
-            real(kind=RP), dimension(:,:,:,:) , allocatable :: t2cXi, t2cEta, t2cZeta  ! Tangent vector 2 at the complementary grid nodes
-            real(kind=RP), dimension(:,:,:)   , allocatable :: JfcXi, JfcEta, JfcZeta  ! Normalization term of the faces of the complementary grid
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: ncXi, ncEta, ncZeta     ! Normals at the subcell grid nodes
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: t1cXi, t1cEta, t1cZeta  ! Tangent vector 1 at the subcell grid nodes
+            real(kind=RP), dimension(:,:,:,:) , allocatable :: t2cXi, t2cEta, t2cZeta  ! Tangent vector 2 at the subcell grid nodes
+            real(kind=RP), dimension(:,:,:)   , allocatable :: JfcXi, JfcEta, JfcZeta  ! Normalization term of the faces of the subcell grid
             CONTAINS
 
-            PROCEDURE :: construct               => ConstructMappedGeometry
-            PROCEDURE :: destruct                => DestructMappedGeometry
+            PROCEDURE :: construct            => ConstructMappedGeometry
+            PROCEDURE :: constructSubcellGrid => ConstructSubcellMappedGeometry
+            PROCEDURE :: destruct             => DestructMappedGeometry
       END TYPE MappedGeometry
 
       type MappedGeometryFace
@@ -139,6 +140,132 @@ Module MappedGeometryClass
       end do         ; end do       ; end do
 
    END SUBROUTINE ConstructMappedGeometry
+!
+!////////////////////////////////////////////////////////////////////////
+!
+   subroutine ConstructSubcellMappedGeometry(self, spAxi, spAeta, spAzeta, mapper)
+      implicit none
+!
+!      ---------
+!      Arguments
+!      ---------
+!
+      class(MappedGeometry),   intent(inout) :: self
+      type(TransfiniteHexMap), intent(in)    :: mapper
+      type(NodalStorage_t),    intent(in)    :: spAxi
+      type(NodalStorage_t),    intent(in)    :: spAeta
+      type(NodalStorage_t),    intent(in)    :: spAzeta
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      integer :: i, j, k
+      integer :: r, s
+!
+!     -----------
+!     Allocations
+!     -----------
+!
+      associate(Nx => self % Nx, Ny => self % Ny, Nz => self % Nz)
+
+      safedeallocate(self % ncXi   ) ;  allocate( self % ncXi   (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % ncEta  ) ;  allocate( self % ncEta  (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % ncZeta ) ;  allocate( self % ncZeta (3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % t1cXi  ) ;  allocate( self % t1cXi  (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % t1cEta ) ;  allocate( self % t1cEta (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % t1cZeta) ;  allocate( self % t1cZeta(3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % t2cXi  ) ;  allocate( self % t2cXi  (3,0:Nx+1,0:Ny,0:Nz) )
+      safedeallocate(self % t2cEta ) ;  allocate( self % t2cEta (3,0:Nx,0:Ny+1,0:Nz) )
+      safedeallocate(self % t2cZeta) ;  allocate( self % t2cZeta(3,0:Nx,0:Ny,0:Nz+1) )
+      safedeallocate(self % JfcXi  ) ;  allocate( self % JfcXi  (0:Nx+1,0:Ny,0:Nz)   )
+      safedeallocate(self % JfcEta ) ;  allocate( self % JfcEta (0:Nx,0:Ny+1,0:Nz)   )
+      safedeallocate(self % JfcZeta) ;  allocate( self % JfcZeta(0:Nx,0:Ny,0:Nz+1)   )
+!
+!     ----------------------------
+!     Subcell grid in xi direction
+!     ----------------------------
+!
+      do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx+1
+      associate(n  => self % ncXi(:,i,j,k),  &
+                t1 => self % t1cXi(:,i,j,k), &
+                t2 => self % t2cXi(:,i,j,k), &
+                Jf => self % JfcXi(i,j,k))
+
+         n  = self % jGradXi(:,0,j,k)
+         t1 = self % jGradEta(:,0,j,k)
+
+         do s = 0, Nx ; do r = 0, i-1
+            n  = n  + spAxi % w(r) * spAxi % D(r,s) * self % jGradXi(:,s,j,k)
+            t1 = t1 + spAxi % w(r) * spAxi % D(r,s) * self % jGradEta(:,s,j,k)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
+      end do       ; end do       ; end do
+!
+!     -----------------------------
+!     Subcell grid in eta direction
+!     -----------------------------
+!
+      do k = 0, Nz ; do j = 0, Ny+1 ; do i = 0, Nx
+      associate(n  => self % ncEta(:,i,j,k),  &
+                t1 => self % t1cEta(:,i,j,k), &
+                t2 => self % t2cEta(:,i,j,k), &
+                Jf => self % JfcEta(i,j,k))
+
+         n  = self % jGradEta(:,i,0,k)
+         t1 = self % jGradZeta(:,i,0,k)
+
+         do s = 0, Ny ; do r = 0, j-1
+            n  = n  + spAeta % w(r) * spAeta % D(r,s) * self % jGradEta(:,i,s,k)
+            t1 = t1 + spAeta % w(r) * spAeta % D(r,s) * self % jGradZeta(:,i,s,k)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
+      end do       ; end do       ; end do
+!
+!     ------------------------------
+!     Subcell grid in zeta direction
+!     ------------------------------
+!
+      do k = 0, Nz+1 ; do j = 0, Ny ; do i = 0, Nx
+      associate(n  => self % ncZeta(:,i,j,k),  &
+                t1 => self % t1cZeta(:,i,j,k), &
+                t2 => self % t2cZeta(:,i,j,k), &
+                Jf => self % JfcZeta(i,j,k))
+
+         n  = self % jGradZeta(:,i,j,0)
+         t1 = self % jGradXi(:,i,j,0)
+
+         do s = 0, Nz ; do r = 0, k-1
+            n  = n  + spAzeta % w(r) * spAzeta % D(r,s) * self % jGradZeta(:,i,j,s)
+            t1 = t1 + spAzeta % w(r) * spAzeta % D(r,s) * self % jGradXi(:,i,j,s)
+         end do      ; end do
+
+         Jf = norm2(n)
+         n  = n / Jf
+         t1 = t1 - vDot(t1, n) * n
+         t1 = t1 / norm2(t1)
+         call vCross(n, t1, t2)
+
+      end associate
+      end do       ; end do       ; end do
+
+      end associate
+
+   end subroutine ConstructSubcellMappedGeometry
 !
 !////////////////////////////////////////////////////////////////////////
 !

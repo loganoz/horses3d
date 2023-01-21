@@ -14,6 +14,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/HyperbolicDiscretizationClass.o \
 		./build_ns/HyperbolicStandard.o \
 		./build_ns/HyperbolicSplitForm.o \
+		./build_ns/HyperbolicSubcell.o \
 		./build_ns/HyperbolicDiscretizations.o \
 		./build_ns/EllipticDiscretizationClass.o \
 		./build_ns/EllipticIP.o \
@@ -32,6 +33,7 @@ LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
 		./build_nssa/HyperbolicDiscretizationClass.o \
 		./build_nssa/HyperbolicStandard.o \
 		./build_nssa/HyperbolicSplitForm.o \
+		./build_nssa/HyperbolicSubcell.o \
 		./build_nssa/HyperbolicDiscretizations.o \
 		./build_nssa/EllipticDiscretizationClass.o \
 		./build_nssa/EllipticIP.o \
@@ -50,6 +52,7 @@ LIBOBJS_iNS =   ./build_ins/DGSEMClass.o \
 		./build_ins/HyperbolicDiscretizationClass.o \
 		./build_ins/HyperbolicStandard.o \
 		./build_ins/HyperbolicSplitForm.o \
+		./build_ins/HyperbolicSubcell.o \
 		./build_ins/HyperbolicDiscretizations.o \
 		./build_ins/EllipticDiscretizationClass.o \
 		./build_ins/EllipticIP.o \
@@ -62,7 +65,6 @@ LIBOBJS_CH =    ./build_ch/DGSEMClass.o \
 		./build_ch/GradientsStabilization.o \
 		./build_ch/HyperbolicDiscretizationClass.o \
 		./build_ch/HyperbolicStandard.o \
-		./build_ch/HyperbolicSplitForm.o \
 		./build_ch/HyperbolicDiscretizations.o \
 		./build_ch/EllipticDiscretizationClass.o \
 		./build_ch/EllipticIP.o \

@@ -36,7 +36,6 @@ MODULE NodalStorageClass
       real(kind=RP), dimension(:,:), allocatable :: DT                        ! Transposed DG derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatD                      ! Weak form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: hatG                      ! Weak form Laplacian derivative matrix hatG := W⁻¹DᵀWD (where W is the diagonal matrix with the quadrature weights)
-      real(kind=RP), dimension(:,:), allocatable :: Q                         ! SBP matrix Q = MD
       real(kind=RP), dimension(:,:), allocatable :: sharpD                    ! (Two times) the strong form derivative matrix
       real(kind=RP), dimension(:,:), allocatable :: Fwd                       ! Projection matrix from Lagrange to Legendre
       real(kind=RP), dimension(:,:), allocatable :: Bwd                       ! Projection matrix from Legendre to Lagrange
@@ -195,7 +194,6 @@ MODULE NodalStorageClass
       ALLOCATE( this % DT    (0:N,0:N) )
       ALLOCATE( this % hatD  (0:N,0:N) )
       ALLOCATE( this % hatG  (0:N,0:N) )
-      ALLOCATE( this % Q     (0:N,0:N) )
       ALLOCATE( this % Fwd   (0:N,0:N) )
       ALLOCATE( this % Bwd   (0:N,0:N) )
       ALLOCATE( this % Lw    (0:N) )
@@ -237,7 +235,6 @@ MODULE NodalStorageClass
          DO i = 0, N
             this % DT  (i,j) = this % D (j,i)
             this % hatD(i,j) = this % DT(i,j) * this % w(j) / this % w(i)
-            this % Q   (i,j) = this % D (i,j) * this % w(i)
          END DO
       END DO
 
@@ -357,7 +354,6 @@ MODULE NodalStorageClass
       DEALLOCATE( this % DT )
       DEALLOCATE( this % hatD)
       DEALLOCATE( this % hatG)
-      DEALLOCATE( this % Q )
       DEALLOCATE( this % xCGL )
       DEALLOCATE( this % wbCGL )
       DEALLOCATE( this % DCGL )

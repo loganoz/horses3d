@@ -97,10 +97,6 @@ module SpatialDiscretization
             case ( "standard" )
                if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
 
-            case ( "split-form")
-               print*, "There are no split-forms available for the Multiphase Solver"
-               errorMessage(STD_OUT)
-               stop
             case default
                write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretizationName),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"

@@ -32,29 +32,17 @@
 
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
-                           Shock sensor = grad rho
-                     Shock first method = SVV
-                    Shock second method = non-filtered
-                   Shock viscous flux 1 = Guermond-Popov
-                   Shock viscous flux 2 = Guermond-Popov
-!                       SSFV blending 1 = 1d-3
-!                       SSFV blending 2 = 1d-5
+                           Shock sensor = integral with sqrt
+                        Sensor variable = grad rho
                      Sensor lower limit = 0.0
                     Sensor higher limit = 0.5
-                             Shock mu 1 = 0.5d-3
-                          Shock alpha 1 = 0.0d-3
-                             Shock mu 2 = 1.0d-2
-                          Shock alpha 2 = 1.0d-2
-                        SVV filter type = low-pass
-                       SVV filter shape = power
 
 !----------------------- Time integration:-
                         Time integration = Explicit
                                       dt = 0.000002
-                    Number of time steps = 5000 !25000 ! 50
-                         Output interval = 100 ! 10
+                    Number of time steps = 50
+                         Output interval = 10
                    Convergence tolerance = 1.0e-10
-      Compute derivative after time step = .true.
                            Autosave mode = Iteration
                        Autosave interval = 500 !2500
 
