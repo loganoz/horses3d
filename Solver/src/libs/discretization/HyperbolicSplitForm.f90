@@ -12,6 +12,7 @@ module HyperbolicSplitForm
 #endif
    use HyperbolicDiscretizationClass
    use FluidData
+
    implicit none
 
    private
@@ -28,15 +29,20 @@ module HyperbolicSplitForm
 !  ========
 !
       subroutine SplitDG_Initialize(self, controlVariables)
+!
+!        -------
+!        Modules
+!        -------
          use FTValueDictionaryClass
-         use Utilities, only: toLower
-         use mainKeywordsModule
          use Headers
          use MPI_Process_Info
          use PhysicsStorage
-         implicit none
-         class(SplitDG_t) :: self
-         class(FTValueDictionary),  intent(in)   :: controlVariables
+!
+!        ---------
+!        Interface
+!        ---------
+         class(SplitDG_t)                     :: self
+         class(FTValueDictionary), intent(in) :: controlVariables
 
 !
 !        Setup the Riemann solver and two-point flux
@@ -62,9 +68,16 @@ module HyperbolicSplitForm
       end subroutine SplitDG_Initialize
 
       subroutine SplitDG_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
+!
+!        -------
+!        Modules
+!        -------
          use ElementClass
          use PhysicsStorage
-         implicit none
+!
+!        ---------
+!        Interface
+!        ---------
          class(SplitDG_t), intent(in)  :: self
          type(Element),    intent(in)  :: e
          real(kind=RP),    intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
@@ -75,7 +88,6 @@ module HyperbolicSplitForm
 !        ---------------
 !        Local variables
 !        ---------------
-!
          integer     :: i, j, k, l
 
          associate ( Q => e % storage % Q )

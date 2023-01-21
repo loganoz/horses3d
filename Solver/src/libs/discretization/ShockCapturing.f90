@@ -283,24 +283,27 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       real(RP) :: switch
+      logical  :: zeroflux
 
 
+      zeroflux = .true.
       switch = e % storage % sensor
 
       if (switch >= 1.0_RP) then
          if (allocated(self % method2)) then
             call self % method2 % Viscosity(mesh, e, switch, SCflux)
+            zeroflux = .false.
          end if
-
       elseif (switch > 0.0_RP) then
          if (allocated(self % method1)) then
             call self % method1 % Viscosity(mesh, e, switch, SCflux)
+            zeroflux = .false.
          end if
+      end if
 
-      else
+      if (zeroflux) then
          SCflux = 0.0_RP
          e % storage % artificialDiss = 0.0_RP
-
       end if
 
    end subroutine SC_viscosity

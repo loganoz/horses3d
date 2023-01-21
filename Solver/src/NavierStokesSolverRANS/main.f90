@@ -254,6 +254,11 @@
          if ( .not. associated(obj) ) then
             call controlVariables % addValueForKey("Ducros",splitFormKey)
          end if
+
+         obj => controlVariables % objectForKey(maxBlendKey)
+         if ( .not. associated(obj) ) then
+            call controlVariables % addValueForKey("0.5", maxBlendKey)
+         end if
 !
 !        Check for inconsistencies in the input variables
 !        ------------------------------------------------
@@ -263,13 +268,15 @@
          call toLower(inviscidDiscretization)
          call toLower(discretizationNodes)
 
-         if ( (trim(inviscidDiscretization) .eq. "split-form") .and. (trim(discretizationNodes) .eq. "gauss") ) then
-            if ( MPI_Process % isRoot ) then
-               write(STD_OUT,'(A)') "*** WARNING:    Only Gauss-Lobatto nodes are available for Split-Form discretizations"
-               write(STD_OUT,'(A)') "*** WARNING:    Automatically switched to Gauss-Lobatto points"
+         if ( (trim(inviscidDiscretization) .eq. "split-form") .or. (trim(inviscidDiscretization) .eq. "subcell") ) then
+            if ( trim(discretizationNodes) .eq. "gauss" ) then
+               if ( MPI_Process % isRoot ) then
+                  write(STD_OUT,'(A)') "*** WARNING: Only Gauss-Lobatto nodes are available for Split-Form discretizations"
+                  write(STD_OUT,'(A)') "*** WARNING: Automatically switched to Gauss-Lobatto points"
+               end if
+               call controlVariables % removeObjectForKey(discretizationNodesKey)
+               call controlVariables % addValueForKey("Gauss-Lobatto", discretizationNodesKey)
             end if
-            call controlVariables % removeObjectForKey(discretizationNodesKey)
-            call controlVariables % addValueForKey("Gauss-Lobatto",discretizationNodesKey)
          end if
 !
 !        Check the controlVariables created

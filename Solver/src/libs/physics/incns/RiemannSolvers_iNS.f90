@@ -556,19 +556,6 @@ stop
          h(INSRHOW) = h(INSRHO)*w + p
          h(INSP)    = thermodynamics % rho0c02 * w
 
-
-         
-
-!         u    = 0.5_RP * (QLeft(INSRHOU) + QRight(INSRHOU))
-!!
-!!        Compute the flux
-!!        ----------------
-!         flux(INSRHO) = 0.5_RP * (QLeft(INSRHO) + QRight(INSRHO)) * u
-!         flux(INSRHOU) = flux(INSRHOU) * u + 0.5_RP * (QLeft(INSP) + QRight(INSP))
-!         flux(INSRHOU) = flux(INSRHOU) * 0.5_RP * (QLeft(INSRHOV) + QRight(INSRHOV))
-!         flux(INSRHOU) = flux(INSRHOU) * 0.5_RP * (QLeft(INSRHOW) + QRight(INSRHOW))
-!         flux(INSP)    = thermodynamics % rho0c02 * u
-
       end subroutine SkewSymmetric2Average
 !
 !///////////////////////////////////////////////////////////////////////

@@ -90,16 +90,21 @@ module SpatialDiscretization
          
             select case ( trim(inviscidDiscretizationName) )
             case ( "standard" )
-               if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t  :: HyperbolicDiscretization )
+               if (.not. allocated(HyperbolicDiscretization)) allocate( StandardDG_t :: HyperbolicDiscretization )
 
             case ( "split-form")
-               if (.not. allocated(HyperbolicDiscretization)) allocate( SplitDG_t     :: HyperbolicDiscretization)
+               if (.not. allocated(HyperbolicDiscretization)) allocate( SplitDG_t :: HyperbolicDiscretization )
+
+            case ( "subcell")
+               if (.not. allocated(HyperbolicDiscretization)) allocate( SubcellDG_t :: HyperbolicDiscretization )
+               call mesh % ConstructSubcellGeometry
 
             case default
                write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretizationName),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
+               write(STD_OUT,'(A)') "  * Subcell"
                errorMessage(STD_OUT)
                stop 
 
@@ -633,7 +638,7 @@ module SpatialDiscretization
 !
 !           Perform the Weak Volume Green integral
 !           --------------------------------------
-            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen ( e, NCONS, contravariantFlux ) 
+            e % storage % QDot = ScalarWeakIntegrals % StdVolumeGreen (e, NCONS, contravariantFlux) 
 
          type is (SplitDG_t)
 !
@@ -643,9 +648,17 @@ module SpatialDiscretization
 !
 !           Perform the Weak volume green integral
 !           --------------------------------------
-            viscousContravariantFlux = viscousContravariantFlux 
+            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence(e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
-            e % storage % QDot = -ScalarWeakIntegrals % SplitVolumeDivergence( e, fSharp, gSharp, hSharp, viscousContravariantFlux)
+         type is (SubcellDG_t)
+!
+!           Compute sharp fluxes for skew-symmetric approximations
+!           ------------------------------------------------------
+            call HyperbolicDiscretization % ComputeSplitFormFluxes(e, inviscidContravariantFlux, fSharp, gSharp, hSharp)
+!
+!           Perform the volume integral
+!           ---------------------------
+            e % storage % QDot = HyperbolicDiscretization % ComputeSubcellDivergence(e, fSharp, gSharp, hSharp, viscousContravariantFlux)
 
          end select
 

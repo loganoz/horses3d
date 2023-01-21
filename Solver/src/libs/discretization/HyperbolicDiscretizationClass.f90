@@ -12,6 +12,7 @@ module HyperbolicDiscretizationClass
 #elif defined(MULTIPHASE)
    use RiemannSolvers_MU
 #endif
+
    implicit none
 
    private

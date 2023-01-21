@@ -74,6 +74,7 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl                    ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         logical                                   :: hasSubcell = .FALSE.
          contains
             procedure :: destruct                      => HexMesh_Destruct
             procedure :: Describe                      => HexMesh_Describe
@@ -86,6 +87,7 @@ MODULE HexMeshClass
             procedure :: SetConnectivitiesAndLinkFaces => HexMesh_SetConnectivitiesAndLinkFaces
             procedure :: UpdateFacesWithPartition      => HexMesh_UpdateFacesWithPartition
             procedure :: ConstructGeometry             => HexMesh_ConstructGeometry
+            procedure :: ConstructSubcellGeometry      => HexMesh_ConstructSubcellGeometry
             procedure :: ProlongSolutionToFaces        => HexMesh_ProlongSolutionToFaces
             procedure :: ProlongGradientsToFaces       => HexMesh_ProlongGradientsToFaces
             procedure :: PrepareForIO                  => HexMesh_PrepareForIO
@@ -2565,6 +2567,51 @@ slavecoord:             DO l = 1, 4
 
       end subroutine HexMesh_ConstructGeometry
 
+      subroutine HexMesh_ConstructSubcellGeometry(self)
+         implicit none
+         !--------------------------------
+         class(HexMesh), intent(inout) :: self
+         !--------------------------------
+         integer                          :: eID
+         type(TransfiniteHexMap), pointer :: hexMap    => null()
+         type(TransfiniteHexMap), pointer :: hex8Map   => null()
+         type(TransfiniteHexMap), pointer :: genHexMap => null()
+ 
+
+         allocate(hex8Map)
+         call hex8Map % constructWithCorners(self % elements(1) % SurfInfo % corners)
+         allocate(genHexMap)
+
+         do eID = 1, self % no_of_elements
+
+            associate(e => self % elements(eID))
+
+            if (e % SurfInfo % IsHex8) then
+               call hex8Map % setCorners(e % SurfInfo % corners)
+               hexMap => hex8Map
+            else
+               call genHexMap % destruct()
+               call genHexMap % constructWithFaces(e % SurfInfo % facePatches)
+               hexMap => genHexMap
+            end if
+
+            call e % geom % constructSubcellGrid(NodalStorage(e % Nxyz(IX)), &
+                                                 NodalStorage(e % Nxyz(IY)), &
+                                                 NodalStorage(e % Nxyz(IZ)), &
+                                                 hexMap)
+
+            end associate
+
+         end do
+
+         deallocate(hex8Map)
+         deallocate(genHexMap)
+         nullify(hexMap)
+
+         self % hasSubcell = .true.
+
+      end subroutine HexMesh_ConstructSubcellGeometry
+
       subroutine CommunicateMPIFaceMinimumDistance(self)
          implicit none
          class(HexMesh) :: self
@@ -4196,6 +4243,13 @@ slavecoord:             DO l = 1, 4
 #if defined(NAVIERSTOKES)
       call self % ComputeWallDistances(facesArray, elementArray)
 #endif
+
+!     ****************************
+!     Reconstruct subcell geometry
+!     ****************************
+      if (self % hasSubcell) then
+         call self % ConstructSubcellGeometry
+      end if
 
 !     *********
 !     Finish up
