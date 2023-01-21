@@ -66,32 +66,32 @@ module HyperbolicSplitForm
 #if defined(NAVIERSTOKES)
          case (STANDARD_AVG)
             self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-      
+
          case (DUCROS_AVG)
             self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
-      
+
          case (MORINISHI_AVG)
             self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
-      
+
          case (PIROZZOLI_AVG)
             self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
-      
+
          case (KENNEDYGRUBER_AVG)
             self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
-      
+
          case (ENTROPYCONS_AVG)
             self % ComputeVolumetricSharpFlux => EntropyConserving_VolumetricSharpFlux
-      
+
          case (CHANDRASEKAR_AVG)
             self % ComputeVolumetricSharpFlux => Chandrasekar_VolumetricSharpFlux
 
 #elif defined(INCNS)
          case (STANDARD_AVG)
             self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-      
+
          case (SKEWSYMMETRIC1_AVG)
             self % ComputeVolumetricSharpFlux => SkewSymmetric1DG_VolumetricSharpFlux
-      
+
          case (SKEWSYMMETRIC2_AVG)
             self % ComputeVolumetricSharpFlux => SkewSymmetric2DG_VolumetricSharpFlux
 #endif

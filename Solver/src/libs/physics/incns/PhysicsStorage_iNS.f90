@@ -1,6 +1,6 @@
 #include "Includes.h"
       Module Physics_iNSKeywordsModule
-         IMPLICIT NONE 
+         IMPLICIT NONE
          INTEGER, PARAMETER :: KEYWORD_LENGTH = 132
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: NUMBER_OF_FLUIDS_KEY           = "number of fluids (1/2)"
@@ -53,7 +53,7 @@
       END MODULE Physics_iNSKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
-!    
+!
 !    ******
      MODULE PhysicsStorage_iNS
 !    ******
@@ -61,7 +61,7 @@
      USE SMConstants
      use FluidData_iNS
      use FileReadingUtilities, only: getRealArrayFromString
-     
+
      IMPLICIT NONE
 
      private
@@ -69,7 +69,7 @@
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
      public    computeGradients
      public    enableGravity
-      
+
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
      public    CheckPhysics_iNSInputIntegrity
 !
@@ -89,10 +89,10 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-     enum, bind(C) 
+     enum, bind(C)
         enumerator :: INSRHO = 1, INSRHOU, INSRHOV, INSRHOW, INSP
      end enum
-   
+
      logical, protected       :: enableGravity         = .false.
 !
 !    ========
@@ -126,7 +126,7 @@
 !
       CHARACTER(LEN=KEYWORD_LENGTH)   :: keyword
       type(Thermodynamics_t)          :: thermodynamics_
- 
+
       type(RefValues_t)               :: refValues_
       type(Dimensionless_t)           :: dimensionless_
       real(kind=RP)                   :: array(3)
@@ -137,7 +137,7 @@
 !
       success = .TRUE.
       CALL CheckPhysics_iNSInputIntegrity(controlVariables,success)
-      IF(.NOT. success) RETURN 
+      IF(.NOT. success) RETURN
 !
 !     **************************************
 !     Check if state gradients are requested
@@ -150,7 +150,7 @@
 !     ******************
 !
       thermodynamics_ % number_of_fluids = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
-      
+
       allocate(thermodynamics_ % rho(thermodynamics_ % number_of_fluids))
       allocate(thermodynamics_ % mu (thermodynamics_ % number_of_fluids))
 
@@ -158,7 +158,7 @@
       case(1)
          thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(DENSITY_KEY)
          thermodynamics_ % mu (1) = controlVariables % DoublePrecisionValueForKey(VISCOSITY_KEY)
-         
+
       case(2)
          thermodynamics_ % rho(1) = controlVariables % DoublePrecisionValueForKey(FLUID1_DENSITY_KEY)
          thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
@@ -211,7 +211,7 @@
          else
             dimensionless_ % mu(2) = 0.0_RP
             dimensionless_ % Re    = 0.0_RP
-   
+
          end if
       else
          dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
@@ -228,7 +228,7 @@
 !     ***************
 !
       IF ( controlVariables % containsKey(AOA_PHI_KEY) )     THEN
-         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY) 
+         refValues_ % AOAPhi = controlVariables % doublePrecisionValueForKey(AOA_PHI_KEY)
 
       ELSE
 !
@@ -236,10 +236,10 @@
 !        --------------------------------------
          refValues_ % AOAPhi = 0.0_RP
 
-      END IF 
+      END IF
 
       IF ( controlVariables % containsKey(AOA_THETA_KEY) )     THEN
-         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY) 
+         refValues_ % AOATheta = controlVariables % doublePrecisionValueForKey(AOA_THETA_KEY)
 
       ELSE
 !
@@ -247,7 +247,7 @@
 !        ----------------------------------------
          refValues_ % AOATheta = 0.0_RP
 
-      END IF 
+      END IF
 !
 !     *************
 !     Gravity force
@@ -290,7 +290,7 @@
 !     -------------------------------------------------
 !
       SUBROUTINE DestructPhysicsStorage_iNS
-      
+
       END SUBROUTINE DestructPhysicsStorage_iNS
 !
 !     //////////////////////////////////////////////////////
@@ -305,7 +305,7 @@
          IMPLICIT NONE
          real(kind=RP)  :: pRef
 
-         if ( .not. MPI_Process % isRoot ) return 
+         if ( .not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/,/)')
          call Section_Header("Loading incompressible Navier-Stokes physics")
@@ -317,7 +317,7 @@
          case(1)
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid density: " , thermodynamics % rho(1), " kg/m^3"
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid viscosity: " , thermodynamics % mu(1), " Pa.s"
-            
+
          case(2)
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 1 density: " , thermodynamics % rho(1), " kg/m^3"
             write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Fluid 2 density: " , thermodynamics % rho(2), " kg/m^3"
@@ -326,7 +326,7 @@
          end select
 
          write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility " , thermodynamics % rho0c02, "-"
-      
+
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , refValues % p, " Pa."
@@ -345,9 +345,9 @@
 
       END SUBROUTINE DescribePhysicsStorage_iNS
 !
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE CheckPhysics_iNSInputIntegrity( controlVariables, success )  
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE CheckPhysics_iNSInputIntegrity( controlVariables, success )
 !
 !        *******************************************************************
 !           In this solver there are not compulsory keywords, but they
@@ -389,7 +389,7 @@
          if ( .not. controlVariables % ContainsKey(NUMBER_OF_FLUIDS_KEY) ) then
             call controlVariables % AddValueForKey("1", NUMBER_OF_FLUIDS_KEY)
          end if
-         
+
          if ( .not. controlVariables % ContainsKey(ARTIFICIAL_COMPRESSIBILITY_KEY) ) then
             call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
          end if
@@ -401,7 +401,7 @@
             if ( .not. controlVariables % ContainsKey(DENSITY_KEY)) then
                call controlVariables % AddValueForKey("1.0", DENSITY_KEY)
             end if
-      
+
             if ( .not. controlVariables % ContainsKey(VISCOSITY_KEY)) then
                call controlVariables % AddValueForKey("0.0", VISCOSITY_KEY)
             end if
@@ -410,20 +410,20 @@
                print*, "Specify density for fluid #1 using:"
                print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
                errorMessage(STD_OUT)
-               stop 
+               stop
             end if
-      
+
             if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
                print*, "Specify density for fluid #2 using:"
                print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
                errorMessage(STD_OUT)
-               stop 
+               stop
             end if
 
             if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
                call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
             end if
-      
+
             if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
                call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
             end if
@@ -438,7 +438,7 @@
             array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                                 KEYWORD_LENGTH))
             if ( norm2(array) < epsilon(1.0_RP)*10.0_RP ) then
-!   
+!
 !              Error
 !              -----
                print*, "Incorrect gravity direction vector"
@@ -457,20 +457,20 @@
                print*, "Gravity acceleration requires gravity direction."
                print*, "Specify gravity direction with:"
                print*, "     ", GRAVITY_DIRECTION_KEY, " = [x,y,z]"
-               errorMessage(STD_OUT)   
+               errorMessage(STD_OUT)
                stop
 
             else
                call controlVariables % AddValueForKey("0.0d0", GRAVITY_ACCELERATION_KEY)
 
             end if
-               
+
          end if
 
-         
+
       END SUBROUTINE CheckPhysics_iNSInputIntegrity
 !
-!    **********       
+!    **********
      END MODULE PhysicsStorage_iNS
 !    **********
 

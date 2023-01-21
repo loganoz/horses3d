@@ -27,7 +27,7 @@ module RiemannSolvers_MU
 
    implicit none
 
-   private 
+   private
    public whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
    public RiemannSolver, ExactRiemannSolver
@@ -75,7 +75,7 @@ module RiemannSolvers_MU
 !        Local variables
 !        ---------------
          character(len=KEYWORD_LENGTH) :: keyword
-         
+
 !
 !        --------------------------------------------
 !        Choose the Riemann solver (default is exact)
@@ -109,7 +109,7 @@ module RiemannSolvers_MU
             whichRiemannSolver = RIEMANN_EXACT
 
          end if
-      
+
       END SUBROUTINE SetRiemannSolver
 
       subroutine DescribeRiemannSolver
@@ -139,7 +139,7 @@ module RiemannSolvers_MU
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine CentralRiemannSolver(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: rhoL
@@ -194,7 +194,7 @@ module RiemannSolvers_MU
          fR = fL
 !
 !        Add the non-conservative term
-!        -----------------------------          
+!        -----------------------------
          fL(IMSQRHOU) = fL(IMSQRHOU) + 0.5_RP*cL*(muR-muL) + 0.25_RP*rhoL*uL*(uR-uL)
          fL(IMSQRHOV) = fL(IMSQRHOV) + 0.25_RP*rhoL*uL*(vR-vL)
          fL(IMSQRHOW) = fL(IMSQRHOW) + 0.25_RP*rhoL*uL*(wR-wL)
@@ -211,7 +211,7 @@ module RiemannSolvers_MU
       end subroutine CentralRiemannSolver
 
       subroutine ExactRiemannSolver(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL, fR)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: rhoL
@@ -229,7 +229,7 @@ module RiemannSolvers_MU
          real(kind=RP)  :: cL,uL, vL, wL, pL, invRhoL, invSqrtRhoL, lambdaMinusL, lambdaPlusL
          real(kind=RP)  :: cR,uR, vR, wR, pR, invRhoR, invSqrtRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar, cuStar, halfRhouStar
-         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: lambda_mu = 0.0_RP
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors

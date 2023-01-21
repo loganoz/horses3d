@@ -1,6 +1,6 @@
 #include "Includes.h"
       Module Physics_MUKeywordsModule
-         IMPLICIT NONE 
+         IMPLICIT NONE
          INTEGER, parameter :: KEYWORD_LENGTH = 132
          character(len=KEYWORD_LENGTH), parameter :: REFERENCE_VELOCITY_KEY         = "reference velocity (m/s)"
          character(len=KEYWORD_LENGTH), parameter :: MAXIMUM_DENSITY_KEY            = "maximum density (kg/m^3)"
@@ -39,7 +39,7 @@
       END MODULE Physics_MUKeywordsModule
 !
 !////////////////////////////////////////////////////////////////////////
-!    
+!
 !    ******
      MODULE PhysicsStorage_MU
 !    ******
@@ -48,7 +48,7 @@
      use FluidData_MU
      use FileReadingUtilities, only: getRealArrayFromString
      use Utilities,            only: toLower, almostEqual
-     
+
      IMPLICIT NONE
 
      private
@@ -57,7 +57,7 @@
      public    IGMU, IGU, IGV, IGW, IGP
      public    computeGradients
      public    enableGravity
-      
+
      public    ConstructPhysicsStorage_MU, DestructPhysicsStorage_MU, DescribePhysicsStorage_MU
      public    CheckPhysics_MUInputIntegrity
 !
@@ -77,7 +77,7 @@
 !!   The positions of the conservative variables
 !    -------------------------------------------
 !
-     enum, bind(C) 
+     enum, bind(C)
         enumerator :: IMC = 1, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
      end enum
 
@@ -117,7 +117,7 @@
 !
       character(len=KEYWORD_LENGTH)   :: keyword
       type(Thermodynamics_t)          :: thermodynamics_
- 
+
       type(RefValues_t)               :: refValues_
       type(Dimensionless_t)           :: dimensionless_
       real(kind=RP)                   :: array(3)
@@ -128,7 +128,7 @@
 !
       success = .TRUE.
       CALL CheckPhysics_MUInputIntegrity(controlVariables,success)
-      IF(.NOT. success) RETURN 
+      IF(.NOT. success) RETURN
 !
 !     **************************************
 !     Check if state gradients are requested
@@ -147,7 +147,7 @@
          thermodynamics_ % rho(1) = 1.0_RP
       end if
 
-      
+
       if ( controlVariables % ContainsKey(FLUID2_DENSITY_KEY) ) then
          thermodynamics_ % rho(2) = controlVariables % DoublePrecisionValueForKey(FLUID2_DENSITY_KEY)
       else
@@ -303,7 +303,7 @@
 !     -------------------------------------------------
 !
       SUBROUTINE DestructPhysicsStorage_MU
-      
+
       END SUBROUTINE DestructPhysicsStorage_MU
 !
 !     //////////////////////////////////////////////////////
@@ -318,7 +318,7 @@
          IMPLICIT NONE
          real(kind=RP)  :: pRef
 
-         if ( .not. MPI_Process % isRoot ) return 
+         if ( .not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/,/)')
          call Section_Header("Loading incompressible Navier-Stokes physics")
@@ -330,7 +330,7 @@
          write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 1 viscosity: " , thermodynamics % mu(1), " Pa.s"
          write(STD_OUT,'(30X,A,A22,1pG10.3,A)') "->" , "Fluid 2 viscosity: " , thermodynamics % mu(2), " Pa.s"
          write(STD_OUT,'(30X,A,A22,F10.3,A)') "->" , "Artificial compressibility c02: " , thermodynamics % c02, "(m/s)^2"
-      
+
          write(STD_OUT,'(/)')
          call SubSection_Header("Reference quantities")
          write(STD_OUT,'(30X,A,A30,F10.3,A)') "->" , "Reference pressure: " , refValues % p, " Pa."
@@ -357,9 +357,9 @@
 
       END SUBROUTINE DescribePhysicsStorage_MU
 !
-!//////////////////////////////////////////////////////////////////////// 
-! 
-      SUBROUTINE CheckPhysics_MUInputIntegrity( controlVariables, success )  
+!////////////////////////////////////////////////////////////////////////
+!
+      SUBROUTINE CheckPhysics_MUInputIntegrity( controlVariables, success )
 !
 !        *******************************************************************
 !           In this solver there are not compulsory keywords, but they
@@ -406,20 +406,20 @@
             print*, "Specify density for fluid #1 using:"
             print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
             errorMessage(STD_OUT)
-            stop 
+            stop
          end if
-   
+
          if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
             print*, "Specify density for fluid #2 using:"
             print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
             errorMessage(STD_OUT)
-            stop 
+            stop
          end if
 
          if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
             call controlVariables % AddValueForKey("0.0", FLUID1_VISCOSITY_KEY)
          end if
-   
+
          if ( .not. controlVariables % ContainsKey(FLUID2_VISCOSITY_KEY)) then
             call controlVariables % AddValueForKey("0.0", FLUID2_VISCOSITY_KEY)
          end if
@@ -433,7 +433,7 @@
             array = getRealArrayFromString( controlVariables % StringValueForKey(GRAVITY_DIRECTION_KEY,&
                                                                                 KEYWORD_LENGTH))
             if ( norm2(array) < epsilon(1.0_RP)*10.0_RP ) then
-!   
+!
 !              Error
 !              -----
                print*, "Incorrect gravity direction vector"
@@ -452,20 +452,20 @@
                print*, "Gravity acceleration requires gravity direction."
                print*, "Specify gravity direction with:"
                print*, "     ", GRAVITY_DIRECTION_KEY, " = [x,y,z]"
-               errorMessage(STD_OUT)   
+               errorMessage(STD_OUT)
                stop
 
             else
                call controlVariables % AddValueForKey("0.0d0", GRAVITY_ACCELERATION_KEY)
 
             end if
-               
+
          end if
 
-         
+
       END SUBROUTINE CheckPhysics_MUInputIntegrity
 !
-!    **********       
+!    **********
      END MODULE PhysicsStorage_MU
 !    **********
 

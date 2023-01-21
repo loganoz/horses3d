@@ -42,7 +42,7 @@ module RiemannSolvers_iNS
 
    implicit none
 
-   private 
+   private
    public whichAverage, whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
    public RiemannSolver, AveragedStates, ExactRiemannSolver
@@ -59,7 +59,7 @@ module RiemannSolvers_iNS
          real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine RiemannSolverFCN
 
-      subroutine AveragedStatesFCN(QLeft, QRight, f, g, h) 
+      subroutine AveragedStatesFCN(QLeft, QRight, f, g, h)
          use SMConstants
          use PhysicsStorage_iNS
          implicit none
@@ -98,7 +98,7 @@ module RiemannSolvers_iNS
 !        Local variables
 !        ---------------
          character(len=KEYWORD_LENGTH) :: keyword
-         
+
 !
 !        --------------------------------------------
 !        Choose the Riemann solver (default is exact)
@@ -189,7 +189,7 @@ module RiemannSolvers_iNS
             whichAverage = STANDARD_AVG
 
          end if
-      
+
       END SUBROUTINE SetRiemannSolver
 
       subroutine DescribeRiemannSolver
@@ -236,7 +236,7 @@ module RiemannSolvers_iNS
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -283,7 +283,7 @@ module RiemannSolvers_iNS
       end subroutine CentralRiemannSolver
 
       subroutine LxFRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -341,7 +341,7 @@ stop
       end subroutine LxFRiemannSolver
 
       subroutine ExactRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -354,7 +354,7 @@ stop
          real(kind=RP)  :: rhoL, uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
          real(kind=RP)  :: rhoR, uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar
-         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: stab(NCONS), lambdaMax
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
@@ -424,7 +424,7 @@ stop
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StandardAverage(QLeft, QRight, f, g, h) 
+      subroutine StandardAverage(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !           Computes the standard average of the two states:
@@ -466,7 +466,7 @@ stop
 
       end subroutine StandardAverage
 
-      subroutine SkewSymmetric1Average(QLeft, QRight, f, g, h) 
+      subroutine SkewSymmetric1Average(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !        *********************************************************************
@@ -498,7 +498,7 @@ stop
          stop
       end subroutine SkewSymmetric1Average
 
-      subroutine SkewSymmetric2Average(QLeft, QRight, f, g, h) 
+      subroutine SkewSymmetric2Average(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !        *********************************************************************
@@ -540,7 +540,7 @@ stop
          h(INSRHOU) = h(INSRHO)*u
          h(INSRHOV) = h(INSRHO)*v
          h(INSRHOW) = h(INSRHO)*w + p
-         h(INSP)    = thermodynamics % rho0c02 * w 
+         h(INSP)    = thermodynamics % rho0c02 * w
 
 
          
