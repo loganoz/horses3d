@@ -1,4 +1,23 @@
 #include "Includes.h"
+module RiemannSolvers_MUKeywordsModule
+
+     integer,                       parameter :: KEYWORD_LENGTH          = 132
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY = "riemann solver"
+!
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_CENTRAL_NAME = "central"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_EXACT_NAME   = "exact"
+
+     enum, bind(C)
+        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_EXACT
+     end enum
+
+end module RiemannSolvers_MUKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module RiemannSolvers_MU
    use SMConstants
    use Physics_MU
@@ -6,8 +25,12 @@ module RiemannSolvers_MU
    use VariableConversion_MU
    use FluidData_MU
 
+   implicit none
+
    private 
-   public RiemannSolver, SetRiemannSolver, ExactRiemannSolver
+   public whichRiemannSolver
+   public SetRiemannSolver, DescribeRiemannSolver
+   public RiemannSolver, ExactRiemannSolver
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, rhoL, rhoR, muL, muR, nHat, t1, t2, fL,fR)
@@ -27,46 +50,86 @@ module RiemannSolvers_MU
       end subroutine RiemannSolverFCN
    end interface
 
-   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
-
+   procedure(RiemannSolverFCN), protected, pointer :: RiemannSolver  => NULL()
+   integer,                     protected          :: whichRiemannSolver = -1
+!
+!  ========
    contains
-      SUBROUTINE SetRiemannSolver(which, splitType)
+!  ========
 !
-!        **************************************************************
-!              This subroutine is to set which Riemann solver is used.
-!           the user cannot decide amongst the averaging function.
-!           It is automatically selected depending on which split
-!           form is enabled.
-!           The user can choose the dissipation type:
-!              None (central), Roe, Lax-Friedrichs, Rusanov
+      subroutine SetRiemannSolver(controlVariables)
 !
-!           And the dissipation intensity, with the lambda stabilization
-!           parameter. By default it is set to 1 (whole dissipation),
-!           instead for central fluxes, which is 0 (no dissipation).
-!        **************************************************************
+!        -------
+!        Modules
+!        -------
+         use Utilities, only: toLower
+         use FTValueDictionaryClass
+         use RiemannSolvers_MUKeywordsModule
 !
-         IMPLICIT NONE
-         integer, intent(in) :: which
-         integer, intent(in) :: splitType
+!        ---------
+!        Interface
+!        ---------
+         type(FTValueDictionary), intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         character(len=KEYWORD_LENGTH) :: keyword
          
-         
-         select case ( which )
-         case(RIEMANN_CENTRAL)
+!
+!        --------------------------------------------
+!        Choose the Riemann solver (default is exact)
+!        --------------------------------------------
+         if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(RIEMANN_SOLVER_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case(RIEMANN_CENTRAL_NAME)
+               RiemannSolver => CentralRiemannSolver
+               whichRiemannSolver = RIEMANN_CENTRAL
+
+            case(RIEMANN_EXACT_NAME)
+               RiemannSolver => ExactRiemannSolver
+               whichRiemannSolver = RIEMANN_EXACT
+
+            case default
+               print*, "Riemann Solver not recognized."
+               errorMessage(STD_OUT)
+               stop
+
+            end select
+
+         else
+!
+!           Select exact by default
+!           -----------------------
             RiemannSolver => CentralRiemannSolver
+            whichRiemannSolver = RIEMANN_EXACT
 
-         case(RIEMANN_EXACT)
-            RiemannSolver => ExactRiemannSolver
-
-         case default
-            print*, "Undefined choice of Riemann Solver."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Exact"
-            errorMessage(STD_OUT)
-            STOP
-         end select
+         end if
       
       END SUBROUTINE SetRiemannSolver
+
+      subroutine DescribeRiemannSolver
+!
+!        -------
+!        Modules
+!        -------
+         use RiemannSolvers_MUKeywordsModule
+
+
+         select case (whichRiemannSolver)
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_EXACT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
+
+         end select
+
+      end subroutine DescribeRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -1,4 +1,38 @@
 #include "Includes.h"
+module RiemannSolvers_iNSKeywordsModule
+
+     integer,                       parameter :: KEYWORD_LENGTH           = 132
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY  = "riemann solver"
+     character(len=KEYWORD_LENGTH), parameter :: LAMBDA_STABILIZATION_KEY = "lambda stabilization"
+     character(len=KEYWORD_LENGTH), parameter :: AVG_NAME_KEY             = "averaging"
+!
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_CENTRAL_NAME = "central"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LXF_NAME     = "lax-friedrichs"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_EXACT_NAME   = "exact"
+
+     enum, bind(C)
+        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_LXF, RIEMANN_EXACT
+     end enum
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     character(len=KEYWORD_LENGTH), parameter :: STANDARD_AVG_NAME       = "standard"
+     character(len=KEYWORD_LENGTH), parameter :: SKEWSYMMETRIC1_AVG_NAME = "skew-symmetric 1"
+     character(len=KEYWORD_LENGTH), parameter :: SKEWSYMMETRIC2_AVG_NAME = "skew-symmetric 2"
+
+     enum, bind(C)
+        enumerator :: STANDARD_AVG = 1, SKEWSYMMETRIC1_AVG, SKEWSYMMETRIC2_AVG
+     end enum
+
+end module RiemannSolvers_iNSKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module RiemannSolvers_iNS
    use SMConstants
    use Physics_iNS
@@ -6,8 +40,12 @@ module RiemannSolvers_iNS
    use VariableConversion_iNS
    use FluidData_iNS
 
+   implicit none
+
    private 
-   public RiemannSolver, SetRiemannSolver, ExactRiemannSolver
+   public whichAverage, whichRiemannSolver
+   public SetRiemannSolver, DescribeRiemannSolver
+   public RiemannSolver, AveragedStates, ExactRiemannSolver
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -31,72 +69,164 @@ module RiemannSolvers_iNS
       end subroutine AveragedStatesFCN
    end interface
 
-   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
-   procedure(AveragedStatesFCN)    , pointer  :: AveragedStates     => NULL()
+   procedure(RiemannSolverFCN),  protected, pointer :: RiemannSolver  => NULL()
+   procedure(AveragedStatesFCN), protected, pointer :: AveragedStates => NULL()
 
+   integer, protected :: whichRiemannSolver = -1
+   integer, protected :: whichAverage = -1
+   real(RP)           :: lambdaStab = 1.0_RP
+!
+!  ========
    contains
-      SUBROUTINE SetRiemannSolver(which, splitType)
+!  ========
 !
-!        **************************************************************
-!              This subroutine is to set which Riemann solver is used.
-!           the user cannot decide amongst the averaging function.
-!           It is automatically selected depending on which split
-!           form is enabled.
-!           The user can choose the dissipation type:
-!              None (central), Roe, Lax-Friedrichs, Rusanov
+      subroutine SetRiemannSolver(controlVariables)
 !
-!           And the dissipation intensity, with the lambda stabilization
-!           parameter. By default it is set to 1 (whole dissipation),
-!           instead for central fluxes, which is 0 (no dissipation).
-!        **************************************************************
+!        -------
+!        Modules
+!        -------
+         use Utilities, only: toLower
+         use FTValueDictionaryClass
+         use RiemannSolvers_iNSKeywordsModule
 !
-         IMPLICIT NONE
-         integer, intent(in) :: which
-         integer, intent(in) :: splitType
+!        ---------
+!        Interface
+!        ---------
+         type(FTValueDictionary), intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         character(len=KEYWORD_LENGTH) :: keyword
          
-         
-         select case ( which )
-         case(RIEMANN_CENTRAL)
+!
+!        --------------------------------------------
+!        Choose the Riemann solver (default is exact)
+!        --------------------------------------------
+         if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(RIEMANN_SOLVER_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case(RIEMANN_CENTRAL_NAME)
+               RiemannSolver => CentralRiemannSolver
+               whichRiemannSolver = RIEMANN_CENTRAL
+
+            case(RIEMANN_LXF_NAME)
+               RiemannSolver => LxFRiemannSolver
+               whichRiemannSolver = RIEMANN_LXF
+
+            case(RIEMANN_EXACT_NAME)
+               RiemannSolver => ExactRiemannSolver
+               whichRiemannSolver = RIEMANN_EXACT
+
+            case default
+               print*, "Riemann Solver not recognized."
+               errorMessage(STD_OUT)
+               STOP
+            end select
+
+         else
+!
+!           Select exact by default
+!           -----------------------
             RiemannSolver => CentralRiemannSolver
+            whichRiemannSolver = RIEMANN_EXACT
 
-         case(RIEMANN_LXF)
-            RiemannSolver => LxFRiemannSolver
-
-         case(RIEMANN_EXACT)
-            RiemannSolver => ExactRiemannSolver
-
-         case default
-            print*, "Undefined choice of Riemann Solver."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * Exact"
-            errorMessage(STD_OUT)
-            STOP
-         end select
+         end if
 !
+!        --------------------
+!        Lambda stabilization
+!        --------------------
+         if (controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
+            lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
+
+         else
+!
+!           By default, lambda is 1 (full upwind stabilization)
+!           ---------------------------------------------------
+            lambdaStab = 1.0_RP
+
+         end if
+!
+!        If central fluxes are used, set lambdaStab to zero
+!        --------------------------------------------------
+         if (whichRiemannSolver .eq. RIEMANN_CENTRAL) lambdaStab = 0.0_RP
+!
+!        ----------------------------
 !        Set up an averaging function
 !        ----------------------------
-         select case ( splitType )
-         case (STANDARD_SPLIT)
+         if (controlVariables % containsKey(AVG_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(AVG_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (STANDARD_AVG_NAME)
+               AveragedStates => StandardAverage
+               whichAverage = STANDARD_AVG
+
+            case (SKEWSYMMETRIC1_AVG_NAME)
+               AveragedStates => SkewSymmetric1Average
+               whichAverage = SKEWSYMMETRIC1_AVG
+
+            case (SKEWSYMMETRIC2_AVG_NAME)
+               AveragedStates => SkewSymmetric2Average
+               whichAverage = SKEWSYMMETRIC2_AVG
+
+            case default
+               print*, "Averaging not recognized."
+               errorMessage(STD_OUT)
+               stop
+            end select
+
+         else
+!
+!           Select standard by default
+!           --------------------------
             AveragedStates => StandardAverage
-            whichAverage = STANDARD_SPLIT
+            whichAverage = STANDARD_AVG
 
-         case (SKEWSYMMETRIC1_SPLIT)
-            AveragedStates => SkewSymmetric1Average
-            whichAverage = SKEWSYMMETRIC1_SPLIT
-
-         case (SKEWSYMMETRIC2_SPLIT)
-            AveragedStates => SkewSymmetric2Average
-            whichAverage = SKEWSYMMETRIC2_SPLIT
-
-         case default
-            print*, "Split form not recognized"
-            errorMessage(STD_OUT)
-            stop
-         end select
+         end if
       
       END SUBROUTINE SetRiemannSolver
+
+      subroutine DescribeRiemannSolver
+!
+!        -------
+!        Modules
+!        -------
+         use RiemannSolvers_iNSKeywordsModule
+
+
+         select case (whichAverage)
+         case (STANDARD_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Standard"
+
+         case (SKEWSYMMETRIC1_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Skew-symmetric 1"
+
+         case (SKEWSYMMETRIC2_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Skew-symmetric 2"
+
+         end select
+
+         select case (whichRiemannSolver)
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
+
+         case (RIEMANN_EXACT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
+
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+
+      end subroutine DescribeRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -289,10 +419,8 @@ stop
 !
 !  Implemented two-point averages are:
 !     -> Standard: Central fluxes
-!     -> Ducros
-!     -> Morinishi
-!     -> Kennedy and Gruber
-!     -> Pirozzoli
+!     -> Skew-symmetric 1
+!     -> Skew-symmetric 2
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -1,4 +1,52 @@
 #include "Includes.h"
+module RiemannSolvers_NSSAKeywordsModule
+
+     integer,                       parameter :: KEYWORD_LENGTH           = 132
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY  = "riemann solver"
+     character(len=KEYWORD_LENGTH), parameter :: LAMBDA_STABILIZATION_KEY = "lambda stabilization"
+     character(len=KEYWORD_LENGTH), parameter :: AVG_NAME_KEY             = "averaging"
+!
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_CENTRAL_NAME    = "central"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_ROE_NAME        = "roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_RUSANOV_NAME    = "rusanov"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LXF_NAME        = "lax-friedrichs"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_STDROE_NAME     = "standard roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_ROEPIKE_NAME    = "roe-pike"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LOWDISSROE_NAME = "low dissipation roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_MATRIXDISS_NAME = "matrix dissipation"
+
+     enum, bind(C)
+        enumerator :: RIEMANN_ROE = 1, RIEMANN_LXF, RIEMANN_RUSANOV
+        enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
+        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_MATRIXDISS
+     end enum
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     character(len=KEYWORD_LENGTH), parameter :: STANDARD_AVG_NAME      = "standard"
+     character(len=KEYWORD_LENGTH), parameter :: MORINISHI_AVG_NAME     = "morinishi"
+     character(len=KEYWORD_LENGTH), parameter :: DUCROS_AVG_NAME        = "ducros"
+     character(len=KEYWORD_LENGTH), parameter :: KENNEDYGRUBER_AVG_NAME = "kennedy-gruber"
+     character(len=KEYWORD_LENGTH), parameter :: PIROZZOLI_AVG_NAME     = "pirozzoli"
+     character(len=KEYWORD_LENGTH), parameter :: ENTROPYCONS_AVG_NAME   = "entropy conserving"
+     character(len=KEYWORD_LENGTH), parameter :: CHANDRASEKAR_AVG_NAME  = "chandrasekar"
+
+     enum, bind(C)
+        enumerator :: STANDARD_AVG = 1, MORINISHI_AVG
+        enumerator :: DUCROS_AVG, KENNEDYGRUBER_AVG
+        enumerator :: PIROZZOLI_AVG, ENTROPYCONS_AVG
+        enumerator :: CHANDRASEKAR_AVG
+     end enum
+
+end module RiemannSolvers_NSSAKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module RiemannSolvers_NSSA
    use SMConstants
    use Physics_NSSA
@@ -6,8 +54,12 @@ module RiemannSolvers_NSSA
    use VariableConversion_NSSA
    use FluidData_NSSA
 
-   private 
-   public RiemannSolver, SetRiemannSolver, RiemannSolver_dFdQ
+   implicit none
+
+   private
+   public whichAverage, whichRiemannSolver
+   public SetRiemannSolver, DescribeRiemannSolver
+   public RiemannSolver, AveragedStates, RiemannSolver_dFdQ
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -37,118 +89,233 @@ module RiemannSolvers_NSSA
          real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
          real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
          real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
-         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian 
-         integer      , intent (in)  :: side   
+         real(kind=RP), intent(out)  :: dfdq_num(NCONS,NCONS)     !>  Numerical flux Jacobian
+         integer      , intent (in)  :: side
       end subroutine RiemannSolver_dFdQFCN
    end interface
 
-   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
-   procedure(AveragedStatesFCN)    , pointer  :: AveragedStates     => NULL()
-   procedure(RiemannSolver_dFdQFCN), pointer  :: RiemannSolver_dFdQ => NULL()
+   procedure(RiemannSolverFCN),      protected, pointer  :: RiemannSolver      => NULL()
+   procedure(AveragedStatesFCN),     protected, pointer  :: AveragedStates     => NULL()
+   procedure(RiemannSolver_dFdQFCN), protected, pointer  :: RiemannSolver_dFdQ => NULL()
+
+   integer, protected :: whichRiemannSolver = -1
+   integer, protected :: whichAverage = -1
+   real(RP)           :: lambdaStab = 1.0_RP
+!
+!  ========
    contains
-      SUBROUTINE SetRiemannSolver(which, splitType)
+!  ========
 !
-!        **************************************************************
-!              This subroutine is to set which Riemann solver is used.
-!           the user cannot decide amongst the averaging function.
-!           It is automatically selected depending on which split
-!           form is enabled.
-!           The user can choose the dissipation type:
-!              None (central), Roe, Lax-Friedrichs, Rusanov
+      subroutine SetRiemannSolver(controlVariables)
 !
-!           And the dissipation intensity, with the lambda stabilization
-!           parameter. By default it is set to 1 (whole dissipation),
-!           instead for central fluxes, which is 0 (no dissipation).
-!        **************************************************************
+!        -------
+!        Modules
+!        -------
+         use Utilities, only: toLower
+         use FTValueDictionaryClass
+         use RiemannSolvers_NSSAKeywordsModule
 !
-         IMPLICIT NONE
-         integer, intent(in) :: which
-         integer, intent(in) :: splitType
-         
+!        ---------
+!        Interface
+!        ---------
+         type(FTValueDictionary), intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         character(len=KEYWORD_LENGTH) :: keyword
+
+
          RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
-         
-         select case ( which )
-#if defined(SPALARTALMARAS)
+!
+!        ---------------------------------------------
+!        Choose the Riemann solver (by default is Roe)
+!        ---------------------------------------------
+         if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
 
-         case ( RIEMANN_ROE )
+            keyword = controlVariables % stringValueForKey(RIEMANN_SOLVER_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (RIEMANN_ROE_NAME)
+               RiemannSolver => RoeRiemannSolver
+               whichRiemannSolver = RIEMANN_ROE
+
+            case (RIEMANN_LXF_NAME)
+               RiemannSolver => LxFRiemannSolver
+               whichRiemannSolver = RIEMANN_LXF
+
+            case (RIEMANN_RUSANOV_NAME)
+              RiemannSolver => RusanovRiemannSolver
+               whichRiemannSolver = RIEMANN_RUSANOV
+
+            case (RIEMANN_STDROE_NAME)
+              RiemannSolver => StdRoeRiemannSolver
+               whichRiemannSolver = RIEMANN_STDROE
+
+            case (RIEMANN_CENTRAL_NAME)
+               RiemannSolver => CentralRiemannSolver
+               whichRiemannSolver = RIEMANN_CENTRAL
+
+            case (RIEMANN_ROEPIKE_NAME)
+               RiemannSolver => RoePikeRiemannSolver
+               whichRiemannSolver = RIEMANN_ROEPIKE
+
+            case (RIEMANN_LOWDISSROE_NAME)
+               RiemannSolver => LowDissipationRoeRiemannSolver
+               whichRiemannSolver = RIEMANN_LOWDISSROE
+
+            case (RIEMANN_MATRIXDISS_NAME)
+               RiemannSolver => MatrixDissipationRiemannSolver
+               whichRiemannSolver = RIEMANN_MATRIXDISS
+
+            case default
+               print*, "Riemann Solver not recognized."
+               errorMessage(STD_OUT)
+               STOP
+
+            end select
+
+         else
+!
+!           Select Roe by default
+!           ---------------------
             RiemannSolver => RoeRiemannSolver
+            whichRiemannSolver = RIEMANN_ROE
 
-         case ( RIEMANN_LXF )
-            RiemannSolver => LxFRiemannSolver
+         end if
+!
+!        --------------------
+!        Lambda stabilization
+!        --------------------
+         if (controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
+            lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
 
-         case ( RIEMANN_RUSANOV)
-            RiemannSolver => RusanovRiemannSolver
+         else
+!
+!           By default, lambda is 1 (full upwind stabilization)
+!           ---------------------------------------------------
+            lambdaStab = 1.0_RP
 
-         CASE ( RIEMANN_STDROE)
-            RiemannSolver => StdRoeRiemannSolver
-
-         case ( RIEMANN_CENTRAL )
-            RiemannSolver => CentralRiemannSolver
-
-         case ( RIEMANN_ROEPIKE )
-            RiemannSolver => RoePikeRiemannSolver
-
-         case ( RIEMANN_LOWDISSROE )
-            RiemannSolver => LowDissipationRoeRiemannSolver
-
-         case ( RIEMANN_MATRIXDISS )
-            RiemannSolver => MatrixDissipationRiemannSolver
-
-         case default
-            print*, "Undefined choice of Riemann Solver."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Roe"
-            print*, "   * Standard Roe"
-            print*, "   * Roe-Pike"
-            print*, "   * Low dissipation Roe"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * Rusanov"
-            print*, "   * Matrix dissipation"
-            errorMessage(STD_OUT)
-            STOP
-
-#endif
-         end select
-
+         end if
+!
+!        If central fluxes are used, set lambdaStab to zero
+!        --------------------------------------------------
+         if (whichRiemannSolver .eq. RIEMANN_CENTRAL) lambdaStab = 0.0_RP
+!
+!        ----------------------------
 !        Set up an averaging function
 !        ----------------------------
-         select case ( splitType )
-         case (STANDARD_SPLIT)
+         if (controlVariables % containsKey(AVG_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(AVG_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (STANDARD_AVG_NAME)
+               AveragedStates => StandardAverage
+               whichAverage = STANDARD_AVG
+
+            case (DUCROS_AVG_NAME)
+               AveragedStates => DucrosAverage
+               whichAverage = DUCROS_AVG
+
+            case (MORINISHI_AVG_NAME)
+               AveragedStates => MorinishiAverage
+               whichAverage = MORINISHI_AVG
+
+            case (PIROZZOLI_AVG_NAME)
+               AveragedStates => PirozzoliAverage
+               whichAverage = PIROZZOLI_AVG
+
+            case (KENNEDYGRUBER_AVG_NAME)
+               AveragedStates => KennedyGruberAverage
+               whichAverage = KENNEDYGRUBER_AVG
+
+            case (ENTROPYCONS_AVG_NAME)
+               AveragedStates => EntropyConservingAverage
+               whichAverage = ENTROPYCONS_AVG
+
+            case (CHANDRASEKAR_AVG_NAME)
+               AveragedStates => ChandrasekarAverage
+               whichAverage = CHANDRASEKAR_AVG
+
+            case default
+               print*, "Averaging not recognized."
+               errorMessage(STD_OUT)
+               stop
+
+            end select
+
+         else
+!
+!           Select standard by default
+!           --------------------------
             AveragedStates => StandardAverage
-            whichAverage = STANDARD_SPLIT
+            whichAverage = STANDARD_AVG
 
-         case (DUCROS_SPLIT)
-            AveragedStates => DucrosAverage
-            whichAverage = DUCROS_SPLIT
+         end if
 
-         case (MORINISHI_SPLIT)
-            AveragedStates => MorinishiAverage
-            whichAverage = MORINISHI_SPLIT
-   
-         case (PIROZZOLI_SPLIT)
-            AveragedStates => PirozzoliAverage
-            whichAverage = PIROZZOLI_SPLIT
+      end subroutine SetRiemannSolver
 
-         case (KENNEDYGRUBER_SPLIT)
-            AveragedStates => KennedyGruberAverage
-            whichAverage = KENNEDYGRUBER_SPLIT
+      subroutine DescribeRiemannSolver
+!
+!        -------
+!        Modules
+!        -------
+         use RiemannSolvers_NSSAKeywordsModule
 
-         case (ENTROPYCONS_SPLIT)
-            AveragedStates => EntropyConservingAverage
-            whichAverage = ENTROPYCONS_SPLIT
+         select case (whichAverage)
+         case (STANDARD_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Standard"
 
-         case (CHANDRASEKAR_SPLIT)
-            AveragedStates => ChandrasekarAverage
-            whichAverage = CHANDRASEKAR_SPLIT
+         case (MORINISHI_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Morinishi"
 
-         case default
-            print*, "Split form not recognized"
-            errorMessage(STD_OUT)
-            stop
+         case (DUCROS_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Ducros"
+
+         case (KENNEDYGRUBER_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Kennedy-Gruber"
+
+         case (PIROZZOLI_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Pirozzoli"
+
+         case (ENTROPYCONS_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Entropy conserving"
+
+         case (CHANDRASEKAR_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Chandrasekar"
+
          end select
-      
-      END SUBROUTINE SetRiemannSolver
+
+         select case (whichRiemannSolver)
+         case (RIEMANN_ROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
+
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
+
+         case (RIEMANN_RUSANOV)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
+
+         case (RIEMANN_STDROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
+
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_ROEPIKE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
+
+         case (RIEMANN_MATRIXDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
+
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+
+      end subroutine DescribeRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -231,6 +398,7 @@ module RiemannSolvers_NSSA
       end subroutine CentralRiemannSolver
 
       subroutine StdRoeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use RiemannSolvers_NSSAKeywordsModule
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -349,7 +517,7 @@ module RiemannSolvers_NSSA
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
@@ -383,6 +551,7 @@ module RiemannSolvers_NSSA
 
       subroutine MatrixDissipationRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
          use Utilities, only: logarithmicMean
+         use RiemannSolvers_NSSAKeywordsModule
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -495,7 +664,7 @@ module RiemannSolvers_NSSA
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
@@ -530,6 +699,7 @@ module RiemannSolvers_NSSA
       end subroutine MatrixDissipationRiemannSolver
 
       subroutine RoePikeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use RiemannSolvers_NSSAKeywordsModule
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -644,7 +814,7 @@ module RiemannSolvers_NSSA
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 
@@ -693,6 +863,7 @@ module RiemannSolvers_NSSA
 !              pproximate Riemann solver for low Mach numbers
 !        ***********************************************************************
 !
+         use RiemannSolvers_NSSAKeywordsModule
          implicit none 
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -845,7 +1016,7 @@ module RiemannSolvers_NSSA
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al. 

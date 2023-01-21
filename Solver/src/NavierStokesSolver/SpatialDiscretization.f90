@@ -194,9 +194,9 @@ module SpatialDiscretization
 
             end if
 
-   !
-   !        Initialize models
-   !        -----------------
+!
+!           Initialize models
+!           -----------------
             call InitializeLESModel(LESModel, controlVariables)
 !
 !           Initialize Shock-Capturing

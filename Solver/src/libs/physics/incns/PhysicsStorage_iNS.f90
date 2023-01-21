@@ -28,12 +28,7 @@
 
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY             = "aoa theta"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY               = "aoa phi"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY  = "lambda stabilization"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY     = "compute gradients"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME       = "central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME = "lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: EXACT_SOLVER_NAME       = "exact"
 
          ! !PARTICLES 
          ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
@@ -72,9 +67,7 @@
      private
      public    NCONS, NGRAD
      public    INSRHO, INSRHOU, INSRHOV, INSRHOW, INSP
-     public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
-     public    RIEMANN_CENTRAL, RIEMANN_LXF, RIEMANN_EXACT
-     public    STANDARD_SPLIT, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
+     public    computeGradients
      public    enableGravity
       
      public    ConstructPhysicsStorage_iNS, DestructPhysicsStorage_iNS, DescribePhysicsStorage_iNS
@@ -99,30 +92,7 @@
      enum, bind(C) 
         enumerator :: INSRHO = 1, INSRHOU, INSRHOV, INSRHOW, INSP
      end enum
-!
-!    --------------------------
-!    Riemann solver definitions
-!    --------------------------
-!
-     enum, bind(C)
-        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_LXF, RIEMANN_EXACT
-     end enum
-     integer, protected :: whichRiemannSolver = -1
-!
-!    -----------------------------
-!    Available averaging functions
-!    -----------------------------
-!
-     enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1, SKEWSYMMETRIC1_SPLIT, SKEWSYMMETRIC2_SPLIT
-     end enum
-     integer            :: whichAverage               = -1
-!
-!    -------------------------------------
-!    Lambda stabilization - 1.0 by default
-!    -------------------------------------
-!
-     real(kind=RP), protected :: lambdaStab            = 1.0_RP     
+   
      logical, protected       :: enableGravity         = .false.
 !
 !    ========
@@ -252,69 +222,6 @@
 !     **************************
 !
       thermodynamics_ % rho0c02 = maxval(dimensionless_ % rho) * controlVariables % DoublePrecisionValueForKey(ARTIFICIAL_COMPRESSIBILITY_KEY)
-      
-!
-!     *********************************************
-!     Choose the Riemann solver (by default is ERS)
-!     *********************************************
-!
-      IF ( controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY) )     THEN
-!
-!        Get keyword from control variables
-!        ----------------------------------
-         keyword = controlVariables % stringValueForKey(key             = RIEMANN_SOLVER_NAME_KEY,&
-                                                        requestedLength = KEYWORD_LENGTH)
-         CALL toLower(keyword)
-!
-!        Choose the appropriate Riemann Solver
-!        -------------------------------------
-         select case ( keyword )
-         case(CENTRAL_SOLVER_NAME) 
-            whichRiemannSolver = RIEMANN_CENTRAL
-
-         case(LAXFRIEDRICHS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_LXF 
-
-         case(EXACT_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_EXACT
-   
-         case default 
-            print*, "Riemann solver: ", trim(keyword), " is not implemented."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * Exact"
-            errorMessage(STD_OUT)
-            stop
-         end select 
-      else 
-!
-!        Select Roe by default
-!        ---------------------
-         whichRiemannSolver = RIEMANN_EXACT 
-
-      end if
-!
-!     --------------------
-!     Lambda stabilization
-!     --------------------
-!
-      if ( controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
-         lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
-
-      else
-!
-!        By default, lambda is 1 (full upwind stabilization)
-!        ---------------------------------------------------
-         lambdaStab = 1.0_RP
-
-      end if
-!
-!     --------------------------------------------------
-!     If central fluxes are used, set lambdaStab to zero
-!     --------------------------------------------------
-!
-      if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
 !
 !     ***************
 !     Angle of attack
@@ -487,10 +394,6 @@
             call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
          end if
 
-         if ( .not. controlVariables % ContainsKey(RIEMANN_SOLVER_NAME_KEY) ) then
-            call controlVariables % AddValueForKey(EXACT_SOLVER_NAME, RIEMANN_SOLVER_NAME_KEY)
-         end if
-            
          nF = controlVariables % IntegerValueForKey(NUMBER_OF_FLUIDS_KEY)
 
          select case (nF)

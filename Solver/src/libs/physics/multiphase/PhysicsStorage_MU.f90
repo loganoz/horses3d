@@ -15,10 +15,6 @@
          character(len=KEYWORD_LENGTH), parameter :: FLUID1_VISCOSITY_KEY  =  "fluid 1 viscosity (pa.s)"
          character(len=KEYWORD_LENGTH), parameter :: FLUID2_VISCOSITY_KEY  =  "fluid 2 viscosity (pa.s)"
 
-         character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY   = "riemann solver"
-         character(len=KEYWORD_LENGTH), parameter :: CENTRAL_SOLVER_NAME       = "central"
-         character(len=KEYWORD_LENGTH), parameter :: EXACT_SOLVER_NAME         = "exact"
-
          !PARTICLES 
          ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"         
          ! CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfParticlesKey     = "number of particles" 
@@ -59,8 +55,7 @@
      public    NCONS, NGRAD
      public    IMC, IMSQRHOU, IMSQRHOV, IMSQRHOW, IMP
      public    IGMU, IGU, IGV, IGW, IGP
-     public    computeGradients, whichRiemannSolver
-     public    RIEMANN_CENTRAL, RIEMANN_EXACT
+     public    computeGradients
      public    enableGravity
       
      public    ConstructPhysicsStorage_MU, DestructPhysicsStorage_MU, DescribePhysicsStorage_MU
@@ -89,15 +84,6 @@
      enum, bind(C)
         enumerator :: IGMU = 1, IGU, IGV, IGW, IGP
      end enum
-!
-!    --------------------------
-!    Riemann solver definitions
-!    --------------------------
-!
-     enum, bind(C)
-        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_EXACT
-     end enum
-     integer, protected :: whichRiemannSolver = -1
 
      logical, protected       :: enableGravity         = .false.
 !
@@ -300,43 +286,6 @@
 
       end if
 !
-!     *********************************************
-!     Choose the Riemann solver (by default is ERS)
-!     *********************************************
-!
-      IF ( controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY) )     THEN
-!
-!        Get keyword from control variables
-!        ----------------------------------
-         keyword = controlVariables % stringValueForKey(key             = RIEMANN_SOLVER_NAME_KEY,&
-                                                        requestedLength = KEYWORD_LENGTH)
-         CALL toLower(keyword)
-!
-!        Choose the appropriate Riemann Solver
-!        -------------------------------------
-         select case ( keyword )
-         case(CENTRAL_SOLVER_NAME) 
-            whichRiemannSolver = RIEMANN_CENTRAL
-
-         case(EXACT_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_EXACT
-   
-         case default 
-            print*, "Riemann solver: ", trim(keyword), " is not implemented."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Exact"
-            errorMessage(STD_OUT)
-            stop
-         end select 
-      else 
-!
-!        Select Roe by default
-!        ---------------------
-         whichRiemannSolver = RIEMANN_EXACT 
-
-      end if
-!
 !     **********************************************************************
 !     Set the global (proteted) thermodynamics, dimensionless, and refValues
 !     **********************************************************************
@@ -453,10 +402,6 @@
             call controlVariables % AddValueForKey("1000.0", ARTIFICIAL_COMPRESSIBILITY_KEY)
          end if
 
-         if ( .not. controlVariables % ContainsKey(RIEMANN_SOLVER_NAME_KEY) ) then
-            call controlVariables % AddValueForKey(EXACT_SOLVER_NAME, RIEMANN_SOLVER_NAME_KEY)
-         end if
-            
          if ( .not. controlVariables % ContainsKey(FLUID1_DENSITY_KEY)) then
             print*, "Specify density for fluid #1 using:"
             print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"

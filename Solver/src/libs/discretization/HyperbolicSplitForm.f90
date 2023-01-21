@@ -3,11 +3,14 @@
 #if defined(NAVIERSTOKES) || defined(INCNS)
 module HyperbolicSplitForm
    use SMConstants
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-   use RiemannSolvers_NS
-#elif defined(SPALARTALMARAS)
+#if defined(SPALARTALMARAS)
+   use RiemannSolvers_NSSAKeywordsModule
    use RiemannSolvers_NSSA
+#elif defined(NAVIERSTOKES)
+   use RiemannSolvers_NSKeywordsModule
+   use RiemannSolvers_NS
 #elif defined(INCNS)
+   use RiemannSolvers_iNSKeywordsModule
    use RiemannSolvers_iNS
 #endif
    use HyperbolicDiscretizationClass
@@ -15,13 +18,27 @@ module HyperbolicSplitForm
    implicit none
 
    private
-   public   SplitDG_t
+   public SplitDG_t
 
-   type, extends(HyperbolicDiscretization_t)  :: SplitDG_t
+   type, extends(HyperbolicDiscretization_t) :: SplitDG_t
+         procedure(VolumetricSharpFlux_FCN), nopass, pointer :: ComputeVolumetricSharpFlux => NULL()
       contains
          procedure   :: Initialize             => SplitDG_Initialize
          procedure   :: ComputeSplitFormFluxes => SplitDG_ComputeSplitFormFluxes
    end type SplitDG_t
+
+   abstract interface
+      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(1:NCONS)
+      end subroutine VolumetricSharpFlux_FCN
+   end interface
 !
 !  ========
    contains
@@ -37,173 +54,58 @@ module HyperbolicSplitForm
          implicit none
          class(SplitDG_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         character(len=LINE_LENGTH)    :: splitForm
-         integer                       :: splitType
-!
-!        Get the split form from control variables
-!        -----------------------------------------
-         splitForm = controlVariables % stringValueForKey(splitFormKey, requestedLength = LINE_LENGTH)
-         call toLower(splitForm)
 
-         select case ( trim(splitForm) )
+!
+!        Setup the Riemann solver
+!        ------------------------
+         call SetRiemannSolver(controlVariables)
+!
+!        Setup the two-point flux as the averaging of the Riemann solver
+!        ---------------------------------------------------------------
+         select case (whichAverage)
 #if defined(NAVIERSTOKES)
-         case ( "standard" )
-!
-!           Skew-symmetric version of the standard DG. Useful for testing
-!           -------------------------------------------------------------
+         case (STANDARD_AVG)
             self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-            splitType = STANDARD_SPLIT
-
-         case ( "morinishi" )
-            self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
-            splitType = MORINISHI_SPLIT
-
-         case ( "ducros" )
+      
+         case (DUCROS_AVG)
             self % ComputeVolumetricSharpFlux => Ducros_VolumetricSharpFlux
-            splitType = DUCROS_SPLIT
-
-         case ( "kennedy-gruber" )
-            self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
-            splitType = KENNEDYGRUBER_SPLIT
-
-         case ( "pirozzoli" )
+      
+         case (MORINISHI_AVG)
+            self % ComputeVolumetricSharpFlux => Morinishi_VolumetricSharpFlux
+      
+         case (PIROZZOLI_AVG)
             self % ComputeVolumetricSharpFlux => Pirozzoli_VolumetricSharpFlux
-            splitType = PIROZZOLI_SPLIT
-
-         case ( "entropy conserving")
+      
+         case (KENNEDYGRUBER_AVG)
+            self % ComputeVolumetricSharpFlux => KennedyGruber_VolumetricSharpFlux
+      
+         case (ENTROPYCONS_AVG)
             self % ComputeVolumetricSharpFlux => EntropyConserving_VolumetricSharpFlux
-            splitType = ENTROPYCONS_SPLIT
-
-         case ( "chandrasekar")
+      
+         case (CHANDRASEKAR_AVG)
             self % ComputeVolumetricSharpFlux => Chandrasekar_VolumetricSharpFlux
-            splitType = CHANDRASEKAR_SPLIT
 
-         case default
-            if ( MPI_Process % isRoot ) then
-            write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
-            write(STD_OUT,'(A)') "Implemented split forms are:"
-            write(STD_OUT,'(A)') "  * Standard"
-            write(STD_OUT,'(A)') "  * Morinishi"
-            write(STD_OUT,'(A)') "  * Ducros"
-            write(STD_OUT,'(A)') "  * Kennedy-Gruber"
-            write(STD_OUT,'(A)') "  * Pirozzoli"
-            write(STD_OUT,'(A)') "  * Entropy conserving"
-            write(STD_OUT,'(A)') "  * Chandrasekar"
-            errorMessage(STD_OUT)
-            stop
-            end if
 #elif defined(INCNS)
-         case("standard")
-!
-!           Skew-symmetric version of the standard DG. Useful for testing
-!           -------------------------------------------------------------
+         case (STANDARD_AVG)
             self % ComputeVolumetricSharpFlux => StandardDG_VolumetricSharpFlux
-            splitType = STANDARD_SPLIT
-
-         case("skew-symmetric-1split")
+      
+         case (SKEWSYMMETRIC1_AVG)
             self % ComputeVolumetricSharpFlux => SkewSymmetric1DG_VolumetricSharpFlux
-            splitType = SKEWSYMMETRIC1_SPLIT
-         case("skew-symmetric-2split")
+      
+         case (SKEWSYMMETRIC2_AVG)
             self % ComputeVolumetricSharpFlux => SkewSymmetric2DG_VolumetricSharpFlux
-            splitType = SKEWSYMMETRIC2_SPLIT
-         case default
-            if ( MPI_Process % isRoot ) then
-            write(STD_OUT,'(A,A,A)') 'Requested split form "',trim(splitForm),'" is not implemented.'
-            write(STD_OUT,'(A)') "Implemented split forms are:"
-            write(STD_OUT,'(A)') "  * Standard"
-            write(STD_OUT,'(A)') "  * Skew-symmetric-1split"
-            write(STD_OUT,'(A)') "  * Skew-symmetric-2split"
-            errorMessage(STD_OUT)
-            stop
-            end if
-
 #endif
          end select
-
-         call SetRiemannSolver( whichRiemannSolver, splitType )
 !
-!        ********
 !        Describe
-!        ********
-!
-         call Subsection_Header("Hyperbolic discretization")
-
+!        --------
          if (.not. MPI_Process % isRoot ) return
 
+         call Subsection_Header("Hyperbolic discretization")
+
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Split-Form"
-#if defined(NAVIERSTOKES)
-         select case ( splitType )
-         case (STANDARD_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
 
-         case (MORINISHI_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Morinishi"
-
-         case (DUCROS_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Ducros"
-
-         case (KENNEDYGRUBER_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Kennedy-Gruber"
-
-         case (PIROZZOLI_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Pirozzoli"
-
-         case (ENTROPYCONS_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Entropy conserving"
-
-         case (CHANDRASEKAR_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Chandrasekar"
-
-         end select
-
-         select case (whichRiemannSolver)
-         case (RIEMANN_ROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
-
-         case (RIEMANN_LXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
-
-         case (RIEMANN_RUSANOV)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
-
-         case (RIEMANN_STDROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
-
-         case (RIEMANN_CENTRAL)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
-
-         case (RIEMANN_ROEPIKE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
-
-         case (RIEMANN_LOWDISSROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
-
-         case (RIEMANN_MATRIXDISS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
-#if !defined(SPALARTALMARAS)
-         case (RIEMANN_VISCOUSNS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Viscous NS"
-#endif
-         end select
-#elif defined(INCNS)
-         select case ( splitType )
-         case (STANDARD_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Standard"
-
-         case (SKEWSYMMETRIC1_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Skew-Symmetric (1split)"
-
-         case (SKEWSYMMETRIC2_SPLIT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Split form scheme: ","Skew-Symmetric (2split)"
-         end select
-#endif
-
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+         call DescribeRiemannSolver
 
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
