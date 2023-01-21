@@ -45,7 +45,7 @@ module RiemannSolvers_iNS
    private
    public whichAverage, whichRiemannSolver
    public SetRiemannSolver, DescribeRiemannSolver
-   public RiemannSolver, AveragedStates, ExactRiemannSolver
+   public RiemannSolver, AveragedStates, TwoPointFlux, ExactRiemannSolver
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -62,15 +62,25 @@ module RiemannSolvers_iNS
       subroutine AveragedStatesFCN(QLeft, QRight, f, g, h)
          use SMConstants
          use PhysicsStorage_iNS
-         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
       end subroutine AveragedStatesFCN
+
+      subroutine TwoPointFluxFCN(QLeft, QRight, JaL, JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+      end subroutine TwoPointFluxFCN
    end interface
 
    procedure(RiemannSolverFCN),  protected, pointer :: RiemannSolver  => NULL()
    procedure(AveragedStatesFCN), protected, pointer :: AveragedStates => NULL()
+   procedure(TwoPointFluxFCN),   protected, pointer :: TwoPointFlux   => NULL()
 
    integer, protected :: whichRiemannSolver = -1
    integer, protected :: whichAverage = -1
@@ -165,14 +175,17 @@ module RiemannSolvers_iNS
             select case (keyword)
             case (STANDARD_AVG_NAME)
                AveragedStates => StandardAverage
+               TwoPointFlux => StandardDG_TwoPointFlux
                whichAverage = STANDARD_AVG
 
             case (SKEWSYMMETRIC1_AVG_NAME)
                AveragedStates => SkewSymmetric1Average
+               TwoPointFlux => SkewSymmetric1DG_TwoPointFlux
                whichAverage = SKEWSYMMETRIC1_AVG
 
             case (SKEWSYMMETRIC2_AVG_NAME)
                AveragedStates => SkewSymmetric2Average
+               TwoPointFlux => SkewSymmetric2DG_TwoPointFlux
                whichAverage = SKEWSYMMETRIC2_AVG
 
             case default
@@ -186,6 +199,7 @@ module RiemannSolvers_iNS
 !           Select standard by default
 !           --------------------------
             AveragedStates => StandardAverage
+            TwoPointFlux => StandardDG_TwoPointFlux
             whichAverage = STANDARD_AVG
 
          end if
@@ -556,5 +570,202 @@ stop
 !         flux(INSP)    = thermodynamics % rho0c02 * u
 
       end subroutine SkewSymmetric2Average
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!        Volumetric two-point fluxes
+!        ---------------------------
+!///////////////////////////////////////////////////////////////////////
+!
+      subroutine StandardDG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP)     :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+!
+!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        ---------------
+         Ja = (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rhoL*uL         + rhoR*uR
+         f(INSRHOU) = rhoL*uL*uL + pL + rhoR*uR*uR + pR
+         f(INSRHOV) = rhoL*uL*vL      + rhoR*uR*vR
+         f(INSRHOW) = rhoL*uL*wL      + rhoR*uR*wR
+         f(INSP)    = thermodynamics % rho0c02 * (uL + uR)
+
+         g(INSRHO)  = rhoL*vL         + rhoR*vR
+         g(INSRHOU) = rhoL*vL*uL      + rhoR*vR*uR
+         g(INSRHOV) = rhoL*vL*vL + pL + rhoR*vR*vR + pR
+         g(INSRHOW) = rhoL*vL*wL      + rhoR*vR*wR
+         g(INSP)    = thermodynamics % rho0c02 * (vL + vR)
+
+         h(INSRHO)  = rhoL*wL         + rhoR*wR
+         h(INSRHOU) = rhoL*wL*uL      + rhoR*wR*uR
+         h(INSRHOV) = rhoL*wL*vL      + rhoR*wR*vR
+         h(INSRHOW) = rhoL*wL*wL + pL + rhoR*wR*wR + pR
+         h(INSP)    = thermodynamics % rho0c02 * (wL + wR)
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
+
+      end subroutine StandardDG_TwoPointFlux
+
+      subroutine SkewSymmetric1DG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP) :: rho, u, v, w, p, rhou, rhov, rhow
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+
+         rhou = 0.5_RP * (QL(INSRHOU) + QR(INSRHOU))
+         rhov = 0.5_RP * (QL(INSRHOV) + QR(INSRHOV))
+         rhow = 0.5_RP * (QL(INSRHOW) + QR(INSRHOW))
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rhou
+         f(INSRHOU) = rhou*u + p
+         f(INSRHOV) = rhou*v
+         f(INSRHOW) = rhou*w
+         f(INSP)    = thermodynamics % rho0c02 * u
+
+         g(INSRHO)  = rhov
+         g(INSRHOU) = rhov*u
+         g(INSRHOV) = rhov*v + p
+         g(INSRHOW) = rhov*w
+         g(INSP)    = thermodynamics % rho0c02 * v
+
+         h(INSRHO)  = rhow
+         h(INSRHOU) = rhow*u
+         h(INSRHOV) = rhow*v
+         h(INSRHOW) = rhow*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine SkewSymmetric1DG_TwoPointFlux
+
+      subroutine SkewSymmetric2DG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP) :: rho, u, v, w, p
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rho*u
+         f(INSRHOU) = rho*u*u + p
+         f(INSRHOV) = rho*u*v
+         f(INSRHOW) = rho*u*w
+         f(INSP)    = thermodynamics % rho0c02 * u
+
+         g(INSRHO)  = rho*v
+         g(INSRHOU) = rho*v*u
+         g(INSRHOV) = rho*v*v + p
+         g(INSRHOW) = rho*v*w
+         g(INSP)    = thermodynamics % rho0c02 * v
+
+         h(INSRHO)  = rho*w
+         h(INSRHOU) = rho*w*u
+         h(INSRHOV) = rho*w*v
+         h(INSRHOW) = rho*w*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine SkewSymmetric2DG_TwoPointFlux
 
 end module RiemannSolvers_iNS
