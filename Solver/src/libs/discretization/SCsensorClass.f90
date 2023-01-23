@@ -418,8 +418,8 @@ module SCsensorClass
       if (sensor % sens_type == SC_GMM_ID) then
          write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
       else
-         write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Minimum value: ", sensor % low
-         write(STD_OUT,"(30X,A,A30,F5.1)") "->", "Maximum value: ", sensor % high
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Minimum value: ", sensor % low
+         write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Maximum value: ", sensor % high
       end if
 
 
