@@ -107,6 +107,7 @@
 
             elseif ( (index(inputLine,'#end') .ne. 0) .and. (isInsideHagstagZone) ) then
                isInsideHagstagZone = .false.
+               cycle
 
             end if
 
