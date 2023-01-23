@@ -591,6 +591,7 @@ module SCsensorClass
                       * contribution
          end do                ; end do                ; end do
 
+         val = val / e % geom % volume
          e % storage % sensor = SinRamp(sensor, sqrt(val))
 
       end do
@@ -641,6 +642,7 @@ module SCsensorClass
                       * e % geom % jacobian(i,j,k)       &
                       * contribution
          end do                ; end do                ; end do
+         val = val / e % geom % volume
          e % storage % sensor = SinRamp(sensor, val)
       end do
 !$omp end parallel do
