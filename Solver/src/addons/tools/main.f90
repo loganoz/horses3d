@@ -7,7 +7,6 @@ Program main
     use SharedBCModule
     use MPI_Process_Info
     use LocalRefinementTool
-    use LocalIBMRefinementTool
     use FWHTools
     use ConverStats
 #ifdef _HAS_MPI_
@@ -55,9 +54,6 @@ Program main
     case ("local p refinement")
         call Main_Header("HORSES additional proccesing tools: Local Refinement Pre-Proccesing",__DATE__,__TIME__)
         call LocalRef(controlVariables)
-    case("local IBM p refinement")
-        call Main_Header("HORSES additional proccesing tools: Local IBM Refinement Pre-Proccesing",__DATE__,__TIME__)
-        call LocalRef_IBM(controlVariables)
     case ("convert stats for restart")
         call Main_Header("HORSES additional proccesing tools: Convert stats file for restart",__DATE__,__TIME__)
         call ConvertStatsForRestart(controlVariables)
@@ -68,7 +64,6 @@ Program main
         write(STD_OUT,'(A)') "  * fwh post"
         write(STD_OUT,'(A)') "  * fwh surface"
         write(STD_OUT,'(A)') "  * local p refinement"
-        write(STD_OUT,'(A)') "  * local IBM p refinement"
     end select
 !
 !   ---------

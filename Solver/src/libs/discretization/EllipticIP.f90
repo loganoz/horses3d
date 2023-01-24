@@ -726,7 +726,7 @@ flux )
 !
 !        Initializations
 !        ---------------
-         mu    = dimensionless % mu             
+         mu    = dimensionless % mu             ! TODO: change for Cahn-Hilliard
          sigma = self % PenaltyParameter(f)
          sigma = sigma * mu
          

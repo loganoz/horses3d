@@ -99,10 +99,9 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
-      use IBMClass
       use SurfaceMesh, only: surfacesMesh
 
-      IMPLICIT NONE   
+      IMPLICIT NONE
 !
 !     --------------------------
 !     Constructor for the class.
@@ -235,7 +234,6 @@ Module DGSEMClass
 
 
       useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
-            
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -283,13 +281,6 @@ Module DGSEMClass
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
       if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
-      
-      
-!     
-!     Immersed boundary method parameter
-!     -----------------------------------
-
-      call self% mesh% IBM% read_info( controlVariables )
 !
 !     Compute wall distances
 !     ----------------------
@@ -329,17 +320,20 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
+!
+      call self% mesh% IBM% read_info( controlVariables )
+
       if( self% mesh% IBM% active ) then
-         if( .not. self % mesh % child ) then
-            call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
-            call self% mesh% IBM% construct( controlVariables )
-         end if
+
+         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
+
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
+
       end if
 
 !
@@ -348,7 +342,6 @@ Module DGSEMClass
 !     ------------------------
 !
       call self % mesh % AllocateStorage(self % NDOF, controlVariables,computeGradients)
-
 !
 !     ----------------------------------------------------
 !     Get manufactured solution source term (if requested)
@@ -398,14 +391,12 @@ Module DGSEMClass
          END DO
       END IF
 #endif
-
 !
 !     ------------------
 !     Build the monitors
 !     ------------------
 !
       call self % monitors % construct (self % mesh, controlVariables)
-
 !
 !     ------------------
 !     Build the FWH general class
@@ -509,7 +500,8 @@ Module DGSEMClass
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor)
+            !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF
 

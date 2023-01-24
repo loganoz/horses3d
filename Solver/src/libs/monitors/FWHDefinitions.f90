@@ -1,4 +1,4 @@
-Module FWHDefinitions
+Module FWHDefinitions  !
 
     use SMConstants
     Implicit None
@@ -28,6 +28,7 @@ Module FWHDefinitions
         phi   = refvalues % AOAphi*(pi/180.0_RP)
 
         ! set 1 by default
+        ! TODO use values of boundary conditions (inflow if exists or outflow, or set this defaults if not exists)
         U0Magnitud = 1.0_RP
         rho0 = 1.0_RP
 
@@ -40,7 +41,9 @@ Module FWHDefinitions
         fwGamma2 = 1.0_RP / (1.0_RP - dimensionless % Mach**2)
 
         ! default initial condition and outflow BC for energy without external pressure
+        ! TODO include external pressure
         P0 = 1.0_RP / (dimensionless % gammaM2)
+        ! rhoe0 = P0 / thermodynamics%gammaMinus1 + 0.5_RP*rho0*(U0Magnitud**2)
 
     End Subroutine getMeanStreamValues
 

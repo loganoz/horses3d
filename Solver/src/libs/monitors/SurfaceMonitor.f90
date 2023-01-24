@@ -22,7 +22,7 @@ module SurfaceMonitorClass
 !
    type SurfaceMonitor_t
       logical                         :: active
-      logical                         :: isDimensionless, IBM = .false.
+      logical                         :: isDimensionless
       integer                         :: ID
       real(kind=RP)                   :: direction(NDIM)
       integer                         :: marker
@@ -81,7 +81,7 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: directionName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
-         integer                          :: pos, i, STLNum
+         integer                          :: pos, i
          integer                          :: fID
          integer                          :: zoneID
          real(kind=RP)                    :: directionValue(NDIM)
@@ -105,7 +105,7 @@ module SurfaceMonitorClass
 !        ------------------
          self % active = .true.
          allocate ( self % values(BUFFER_SIZE) )
-! 
+!
 !        Get the surface marker
 !        ----------------------
          self % marker = -1
@@ -117,19 +117,9 @@ module SurfaceMonitorClass
          end do
 
          if( mesh% IBM% active ) then                 
-            do STLNum = 1, mesh% IBM% NumOfSTL
-               if( trim(mesh% IBM% STLfilename(STLNum)) .eq. trim(markerName) ) then
-                 if( .not. mesh% IBM% ComputeBandRegion ) then
-                     write(*,'(A)') "Warning: for surface monitors with IBM, 'band region' must be set '.true.'"
-                     error stop
-                  end if
-                  if( mesh% IBM% Integral(STLNum)% constructed ) exit
-                  call mesh% IBM% SetIntegration( STLNum )
-                  mesh% IBM% Integral(STLNum)% ListComputed = .false.
-                  mesh% IBM% Integral(STLNum)% compute      = .true.     
-                  self% marker = STLNum    
-                  self% IBM    = .true.         
-
+            do i = 1, size(mesh% IBM% STLfilename)
+               if( trim(mesh% IBM% STLfilename(i)) .eq. trim(markerName) ) then
+                  self% marker = i 
                   exit
                end if
             end do
@@ -262,10 +252,7 @@ module SurfaceMonitorClass
 
             case ("pressure-average")
                self % isDimensionless = .false.
-               
-            case("pressure")
-               self % isDimensionless = .false.
-               
+
             case default
 
                if ( len_trim (self % variable) .eq. 0 ) then
@@ -281,7 +268,6 @@ module SurfaceMonitorClass
                   print*, "   * lift"
                   print*, "   * drag"
                   print*, "   * pressure-average"
-                  print*, "   * pressure"
                   stop "Stopped."
 
                end if
@@ -289,8 +275,6 @@ module SurfaceMonitorClass
 !        **********
          end select
 !        **********
-
-         if( self% IBM ) return
 !
 !        Prepare the file in which the monitor is exported
 !        -------------------------------------------------
@@ -318,99 +302,60 @@ module SurfaceMonitorClass
          end if
       end subroutine SurfaceMonitor_Initialization
 
-      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition, iter, t )
+      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
-!           the mesh. It is stored in the "bufferPosition" position of the  
+!           the mesh. It is stored in the "bufferPosition" position of the 
 !           buffer.
 !        *******************************************************************
 !
          use SurfaceIntegrals
-         use IBMClass
          implicit none
          class   (  SurfaceMonitor_t )   :: self
          class   (  HexMesh       )      :: mesh
-         integer                         :: bufferPosition, iter
+         integer                         :: bufferPosition
          real(kind=RP)                   :: F(NDIM)
-         real(kind=RP), optional         :: t
-
-         if( self% IBM ) then
-            select case (trim(self% variable))
-               case ("mass-flow")
-                  call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, MASS_FLOW, iter ) 
-
-               case ("flow")
-                  call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, FLOW_RATE, iter)
-
-               case ("pressure-force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_FORCE, iter)
-
-               case ("viscous-force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, VISCOUS_FORCE, iter)
-
-               case ("force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-
-               case ("lift")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-
-               case ("drag")
-                  if (flowIsNavierStokes) then
-                     call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-                  else
-                     call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_FORCE, iter)
-                  end if
-
-             case("pressure","pressure-average")
-                 call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_DISTRIBUTION, iter)
-  
-            end select
-
-            if( present(t) ) call WriteTimeFile( t, self% marker )
-
-            return
-         end if
 
          select case ( trim ( self % variable ) )
 
          case ("mass-flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW, iter)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW)
 
          case ("flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE, iter)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE)
 
          case ("pressure-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
+            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
             if (flowIsNavierStokes) then
-               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
             else
-               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
             end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("pressure-average")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE, iter)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE)
   
          end select
          

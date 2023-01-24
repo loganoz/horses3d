@@ -103,7 +103,7 @@
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 
-         subroutine UserDefinedInitialCondition(mesh &  
+         subroutine UserDefinedInitialCondition(mesh &
 #if defined(NAVIERSTOKES)
                                         , thermodynamics_ &
                                         , dimensionless_  &
@@ -120,7 +120,7 @@
 !                 condition.
 !           ------------------------------------------------
 !
-            use smconstants 
+            use smconstants
             use physicsstorage
             use hexmeshclass
             use fluiddata

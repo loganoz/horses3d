@@ -11,16 +11,15 @@ Module readSpecM
 
     contains
 
-    Subroutine ConstructSimpleMesh_FromSpecFile_(self, fileName, locR, Nx, Ny, Nz)
+    Subroutine ConstructSimpleMesh_FromSpecFile_(self, fileName, locR)
 
 !        ---------------
 !        Input variables
 !        ---------------
 !
-         type(HexMesh)                          :: self
-         CHARACTER(LEN=*)                       :: fileName
-         type(LocalRef_t), optional, intent(in) :: locR
-         integer,          optional, intent(in) :: Nx(:), Ny(:), Nz(:)
+         type(HexMesh)                    :: self
+         CHARACTER(LEN=*)                 :: fileName
+         type(LocalRef_t), intent(in)                 :: locR
 !
 !        ---------------
 !        Local variables
@@ -40,8 +39,8 @@ Module readSpecM
          CHARACTER(LEN=BC_STRING_LENGTH) :: names(FACES_PER_ELEMENT)
          ! CHARACTER(LEN=BC_STRING_LENGTH), pointer :: zoneNames(:)
          real(kind=RP)                   :: corners(NDIM,NODES_PER_ELEMENT)
-         integer                         :: Nx_, Ny_, Nz_     !<  Polynomial orders for each element
-         integer, dimension(8)           :: falseNodeID          ! dummy variable needed to construct element, the actaul nodes are not computed
+         integer                         :: Nx, Ny, Nz     !<  Polynomial orders for each element
+         integer, dimension(8)      :: falseNodeID          ! dummy variable needed to construct element, the actual nodes are not computed
 !
 !        ------------------
 !        For curved patches
@@ -131,9 +130,6 @@ Module readSpecM
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-              
-               self % elements(l) % SurfInfo % IsHex8 = .TRUE.
-               self % elements(l) % SurfInfo % corners = corners
                
             ELSE
 
@@ -141,8 +137,6 @@ Module readSpecM
                DO k = 1, NODES_PER_ELEMENT
                   corners(:,k) = self % nodes(nodeIDs(k)) % x
                END DO
-               
-               self % elements(l) % SurfInfo % corners = corners
 !
 !              --------------------------------------------------------------
 !              Otherwise, we have to look at each of the faces of the element 
@@ -176,20 +170,16 @@ Module readSpecM
 !
             ! set dummy values
             falseNodeID = 0
-            
-            if( present(locR) ) then
-               call locR% getOrderOfPosition(corners, Nx_, Ny_, Nz_)
-               call self % elements(l) % Construct (Nx_, Ny_, Nz_, nodeIDs, l, l) 
-            else
-               call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), falseNodeID , l, l) 
-            end if
-            
+
+            call locR % getOrderOfPosition(corners, Nx, Ny, Nz)
+            ! call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
+            call self % elements(l) % Construct (Nx, Ny, Nz, nodeIDs, l, l) 
 
             READ( fUnit, * ) names
         END DO
 
          CLOSE( fUnit )
-         
+
     End Subroutine ConstructSimpleMesh_FromSpecFile_
 
 End Module readSpecM

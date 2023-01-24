@@ -13,7 +13,7 @@ Module LocalRefinementTool  !
     Implicit None
 
     private
-    public LocalRef, DisplaySimulationStatistics
+    public LocalRef
 
 !////////////////////////////////////////////////////////////////////////
     contains
@@ -56,7 +56,7 @@ Module LocalRefinementTool  !
         meshFileName = controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) 
         fileName = controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH) 
 
-        call ConstructSimpleMesh(mesh, meshFileName, locR_=locR)
+        call ConstructSimpleMesh(mesh, meshFileName, locR)
 !
 !       -----------------
 !       Describe the mesh
@@ -174,7 +174,7 @@ Module LocalRefinementTool  !
 !
     end subroutine DisplaySimulationStatistics
 !
-    Subroutine ConstructSimpleMesh(mesh, meshFileName, locR_)
+    Subroutine ConstructSimpleMesh(mesh, meshFileName, locR)
 
        use SMConstants
        use Headers
@@ -191,7 +191,7 @@ Module LocalRefinementTool  !
 !
            type(HexMesh)                    :: mesh
            CHARACTER(LEN=*)                 :: meshFileName
-           type(LocalRef_t), intent(in)     :: locR_
+           type(LocalRef_t), intent(in)       :: locR
 !
 !          ---------------
 !          Local variables
@@ -201,9 +201,11 @@ Module LocalRefinementTool  !
 
            ext = getFileExtension(trim(meshFileName))
            if (trim(ext)=='h5') then
-               call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR=locR_)
+               call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR)
            elseif (trim(ext)=='mesh') then
-               call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR=locR_)
+               call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR)
+           ! elseif (trim(ext)=='msh') then
+               ! call ConstructSimpleMesh_FromGmshFile_(mesh, meshFileName, locR)
            else
                ERROR STOP 'Mesh file extension not recognized.'
            end if

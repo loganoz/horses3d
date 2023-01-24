@@ -40,7 +40,7 @@ module SpallartAlmarasTurbulence
          procedure         :: Initialize        => SAmodel_Initialize
          
          procedure, private ::      Compute_chi
-         procedure, public  ::      Compute_fv1
+         procedure, private ::      Compute_fv1
          procedure, private ::      Compute_fv2
          procedure, private ::      Compute_sbar
          procedure, private ::      Compute_modifiedvorticity

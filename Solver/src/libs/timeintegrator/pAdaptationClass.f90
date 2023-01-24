@@ -6,7 +6,7 @@
 !           truncation error estimations (TruncationErrorClass.f90), but other
 !           strategies can be added.
 !        -> The current implementation is only valid for shared memory 
-!           parallelization (OpenMP).
+!           parallelization (OpenMP). TODO: Update to MPI.
 !
 !////////////////////////////////////////////////////////////////////////
 !
@@ -1269,7 +1269,7 @@ readloop:do
             end do
          end if
          
-         ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N.
+         ! If the truncation error behaves as expected, continue, otherwise skip steps 2-3-4 and select maximum N. TODO: Change? extrapolation can still be done in some directions...
          if (all(error < 1)) then
 !
 !           2. Generate outer map

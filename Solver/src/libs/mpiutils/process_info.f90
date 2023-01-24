@@ -33,7 +33,7 @@ module MPI_Process_Info
 !
          integer     :: ierr
 
-#ifdef _HAS_MPI_
+#ifdef _HAS_MPI_   
          call mpi_init(ierr)
          call mpi_comm_rank(MPI_COMM_WORLD, self % rank, ierr)
          call mpi_comm_size(MPI_COMM_WORLD, self % nProcs, ierr)
@@ -77,7 +77,7 @@ module MPI_Process_Info
 
 #ifdef _HAS_MPI_
          call mpi_finalize(ierr)
-#endif
-      end subroutine MPI_Process_Close
+#endif 
+      end subroutine MPI_Process_Close 
 
 end module MPI_Process_Info

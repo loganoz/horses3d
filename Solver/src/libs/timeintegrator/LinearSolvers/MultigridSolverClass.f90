@@ -180,7 +180,7 @@ CONTAINS
          N2xMAX = N1xMAX - deltaN
          N2yMAX = N1yMAX - deltaN
          N2zMAX = N1zMAX - deltaN
-         IF (N2xMAX < 0) N2xMAX = 0        
+         IF (N2xMAX < 0) N2xMAX = 0             ! TODO: Complete for Lobatto quadrature (max order = 1)
          IF (N2yMAX < 0) N2yMAX = 0
          IF (N2zMAX < 0) N2zMAX = 0
          
@@ -196,7 +196,7 @@ CONTAINS
          DO k=1, nelem
             CALL CreateInterpolationOperators(Solver % Restriction, Child_p % Prolongation, &
                                               N1x(k),N1y(k),N1z(k),                         &
-                                              N2x(k),N2y(k),N2z(k), DeltaN)   
+                                              N2x(k),N2y(k),N2z(k), DeltaN)    ! TODO: Add lobatto flag if required
             
             DimPrb = DimPrb + NCONS * (N2x(k) + 1) * (N2y(k) + 1) * (N2z(k) + 1)
          END DO

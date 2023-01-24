@@ -30,9 +30,9 @@ Module  FWHObseverClass  !
        real(kind=RP), dimension(:,:,:), allocatable        :: rVect
        real(kind=RP), dimension(:,:),   allocatable        :: r
        real(kind=RP), dimension(:,:),   allocatable        :: re
-       real(kind=RP), dimension(:,:,:), allocatable        :: reUnitVect
+       real(kind=RP), dimension(:,:,:), allocatable        :: reUnitVect 
        real(kind=RP), dimension(:,:),   allocatable        :: reStar
-       real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect
+       real(kind=RP), dimension(:,:,:), allocatable        :: reStarUnitVect 
        real(kind=RP)                                       :: tDelay
        integer                                             :: faceIDinMesh    ! ID of the source (face) at the Mesh array (linked list)
        integer                                             :: elementSide
@@ -57,7 +57,7 @@ Module  FWHObseverClass  !
 !  General observer class definition
 !   (similar to a monitor, mostly surface monitor in many behaviours)
 !  *****************************
-!
+!  
    type ObserverClass
 
        integer                                                         :: ID
@@ -129,7 +129,7 @@ Module  FWHObseverClass  !
        write(in_label , '(A,I0)') "#define acoustic observer " , self % ID
 
        call get_command_argument(1, paramFile)
-       call readValueInRegion(trim ( paramFile), "name",   self % observerName, in_label, "# end" )
+       call readValueInRegion(trim ( paramFile), "name",   self % observerName, in_label, "# end" ) 
        call readValueInRegion(trim(paramFile), "position", coordinates        , in_label, "# end" )
 
 !      Get the coordinates
@@ -153,7 +153,7 @@ Module  FWHObseverClass  !
 !         Face global ID
           MeshFaceID = sourceZone % faces(zoneFaceID)
           call self % sourcePair(zoneFaceID) % construct(self % x, mesh % faces(MeshFaceID), MeshFaceID, FirstCall, elementSide(zoneFaceID))
-      end do
+      end do  
 
 !     Allocate variables for interpolation
 !     -------------------------------------------------
@@ -161,7 +161,7 @@ Module  FWHObseverClass  !
           do zoneFaceID = 1, self % numberOfFaces
               call self % sourcePair(zoneFaceID) % allocPacc(OB_BUFFER_SIZE)
           end do
-      end if
+      end if 
 
 !     Set the average time delay of the observer
 !     -------------------------------------------------
@@ -174,7 +174,7 @@ Module  FWHObseverClass  !
 !     Create file
 !     -----------
       if (FirstCall) then
-         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" )
+         open ( newunit = fID , file = trim(self % fileName) , status = "unknown" , action = "write" ) 
 
 !        Write the file headers
 !        ----------------------
@@ -215,7 +215,7 @@ use VariableConversion, only: Pressure, PressureDot
       integer                                             :: storePosition
 
 !     Initialization
-!     --------------
+!     --------------            
       if (present(bufferPosition)) self % Pac(bufferPosition,:) = 0.0_RP
       Pacc = 0.0_RP
       valx = 0.0_RP
@@ -243,7 +243,7 @@ use VariableConversion, only: Pressure, PressureDot
                  storePosition = size(self % sourcePair(zoneFaceID) % Pacc, dim=1)
              end if
              self % sourcePair(zoneFaceID) % Pacc(storePosition,:) = localPacc
-         end do
+         end do  
 !$omp end do
 !$omp end parallel
      else interp_cond
@@ -263,7 +263,7 @@ use VariableConversion, only: Pressure, PressureDot
              valx = valx + localPacc(1)
              valy = valy + localPacc(2)
              valz = valz + localPacc(3)
-         end do
+         end do  
 !$omp end do
 !$omp end parallel
 
@@ -282,7 +282,7 @@ use VariableConversion, only: Pressure, PressureDot
    Subroutine ObserverUpdateTdelay(self, totalNumberOfFaces)
 
 !     *******************************************************************
-!        This subroutine updates the observer time delay. For static surfaces it
+!        This subroutine updates the observer time delay. For static surfaces it 
 !        doesn't need to be updated at every iteration.
 !        Minimum time is used, for interpolation procedures
 !     *******************************************************************
@@ -291,7 +291,7 @@ use VariableConversion, only: Pressure, PressureDot
       implicit none
       class   (ObserverClass)                              :: self
       integer, intent(in)                                  :: totalNumberOfFaces
-
+      
       ! local variables
       integer                                              :: i, ierr
       real(kind=RP)                                        :: t, tmax
@@ -309,7 +309,7 @@ use VariableConversion, only: Pressure, PressureDot
 
           if (MPI_Process % isRoot) then
               displs=0
-              do i = 2, MPI_Process % nProcs
+              do i = 2, MPI_Process % nProcs 
                   displs(i) = displs(i-1) + no_of_faces_p(i-1)
               end do
           end if
@@ -342,7 +342,7 @@ use VariableConversion, only: Pressure, PressureDot
 !           This subroutine writes the buffer to the file.
 !     *************************************************************
 !
-      implicit none
+      implicit none  
       class(ObserverClass)                                 :: self
       integer, dimension(:)                                :: iter
       real(kind=RP), dimension(:)                          :: tsource
@@ -358,16 +358,16 @@ use VariableConversion, only: Pressure, PressureDot
       if ( MPI_Process % isRoot ) then
 
          open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
-
+      
          do i = 1 , no_of_lines
             write( fID , '(I10,5(2X,ES24.16))' ) iter(i) , tsource(i), tsource(i) + self % tDelay, self % Pac(i,:)
          end do
-
+      
          close ( fID )
       end if
-
+      
       if ( no_of_lines .ne. 0 ) self % Pac(1,:) = self % Pac(no_of_lines,:)
-
+      
    End Subroutine ObserverWriteToFile
 
     Subroutine ObserverUpdateOneStep(self, mesh, BufferPosition, isSolid, tsource)
@@ -396,7 +396,7 @@ use VariableConversion, only: Pressure, PressureDot
       do i = 1, self % numberOfFaces
             if (self % sourcePair(i) % tDelay .eq. self % tDelay) cycle
             call self % sourcePair(i) % interpolateSolS(tobserver, tsource)
-      end do
+      end do 
 !$omp end do
 !$omp end parallel
 
@@ -409,7 +409,7 @@ use VariableConversion, only: Pressure, PressureDot
 !$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
             call self % sourcePair(i) % updateOneStep()
-      end do
+      end do 
 !$omp end do
 !$omp end parallel
 
@@ -418,7 +418,7 @@ use VariableConversion, only: Pressure, PressureDot
    !interpolate the solution of all the pairs to get it at the mean observer time
    Subroutine ObserverInterpolateSol(self, tsource, no_of_lines)
 
-      implicit none
+      implicit none  
 
       class(ObserverClass)                                 :: self
       real(kind=RP), dimension(:), intent(in)              :: tsource
@@ -447,6 +447,7 @@ use VariableConversion, only: Pressure, PressureDot
 !$omp do schedule(runtime)
       do i = 1, self % numberOfFaces
           ! call interp of each pair that are not the minimum
+          ! if (almostequal(self % sourcepair(i) % tdelay, self % tdelay)) then
           if (self % sourcepair(i) % tdelay .eq. self % tdelay) then
               nDiscard(i) = k-1
           else
@@ -465,6 +466,7 @@ use VariableConversion, only: Pressure, PressureDot
 
       ! update all the solution of the pair to save the future ones
       do i = 1, self % numberOfFaces
+          ! sameDelay = almostequal(self % sourcepair(i) % tdelay, self % tdelay)
           sameDelay = self % sourcepair(i) % tdelay .eq. self % tdelay
           call self % sourcePair(i) % newUpdate(n, nDiscard(i), no_of_lines, tsource(1:no_of_lines), sameDelay)
       end do
@@ -474,7 +476,7 @@ use VariableConversion, only: Pressure, PressureDot
    ! sum all the interpolated solution of all pairs and save it at the observer solution
    Subroutine ObserverSumIntegrals(self, nDiscard, N, startIndex, no_of_lines)
 
-      implicit none
+      implicit none  
 
       class(observerclass)                                 :: self
       integer, intent(in)                                  :: no_of_lines, startIndex, N
@@ -486,7 +488,7 @@ use VariableConversion, only: Pressure, PressureDot
       integer                                              :: i, ierr
 
 !     Initialization
-!     --------------
+!     --------------            
       ! 1:N must be equal to startIndex:no_of_lines
       allocate(Pacc(N,3), localPacc(N,3), valx(N), valy(N), valz(N))
       Pacc = 0.0_RP
@@ -505,7 +507,7 @@ use VariableConversion, only: Pressure, PressureDot
          valy = valy + localPacc(:,2)
          valz = valz + localPacc(:,3)
 
-      end do
+      end do  
 !$omp end do
 !$omp end parallel
 
@@ -591,12 +593,12 @@ use VariableConversion, only: Pressure, PressureDot
            end do; end do
        end associate
 
-   End Subroutine ObserverSourcePairConstruct
+   End Subroutine ObserverSourcePairConstruct 
 
   elemental Subroutine ObserverSourcePairDestruct(self)
 
       Class(ObserverSourcePairClass), intent(inout)       :: self
-
+ 
       safedeallocate(self % rVect)
       safedeallocate(self % r)
       safedeallocate(self % re)
@@ -604,7 +606,7 @@ use VariableConversion, only: Pressure, PressureDot
       safedeallocate(self % reStar)
       safedeallocate(self % reStarUnitVect)
 
-  End Subroutine ObserverSourcePairDestruct
+  End Subroutine ObserverSourcePairDestruct 
 
   ! allocate time history solution for a posterior interpolation
 
@@ -612,7 +614,7 @@ use VariableConversion, only: Pressure, PressureDot
 
        class(ObserverSourcePairClass)                      :: self
        integer, intent(in)                                 :: buffer_size
-
+       
        allocate(self % Pacc(buffer_size,3))
 
   End Subroutine ObserverSourcePairAllocSolution
@@ -643,10 +645,10 @@ use VariableConversion, only: Pressure, PressureDot
            if (tPair(i) .lt. tobserver(1)) then
                nd = nd +1
                cycle
-           end if
+           end if 
            PaccInterp(j,:) = linearInterpolation(tobserver(j), tPair(ii), self%Pacc(ii,:), tPair(i), self%Pacc(i,:), 3)
            j = j + 1
-       end do
+       end do 
 
            !update solution of the pair with the interpolated one
            self % Pacc(nd+1:nd+N,:) = PaccInterp
@@ -675,7 +677,7 @@ use VariableConversion, only: Pressure, PressureDot
        else
            !size = M - interpolated values +1 + 1(empty for next iter)
            Nfuture = M - N -NDiscard + 1
-       end if
+       end if 
 
        ! save old results and kept last position empty
        allocate(PaccFuture(Nfuture-1,3))
@@ -690,7 +692,7 @@ use VariableConversion, only: Pressure, PressureDot
            allocate(self % tInterp(1:Nfuture))
            ! save old results and kept last position empty
            self % tInterp(1:Nfuture-1) = tPair(NDiscard+N+1:M)
-       end if
+       end if 
 
   End Subroutine ObserverSourcePairNewUpdate
 
@@ -736,7 +738,10 @@ use VariableConversion, only: Pressure, PressureDot
    ! calculate the surface integrals of the FW-H analogy for stationary surfaces (permeable or impermeable) with a general flow
    ! direction of the medium
    ! the integrals are for a single face (pane in FWH terminology) for a single observer
+!         TODO: check if is more efficient to store FWHvariables for each face instead of calculating it always
+!               for many observers, its being recomputed as many as observers
 
+   ! Function FWHSurfaceIntegral(self, f, isSolid, interpolate, bufferPosition) result(Pacc)
    Function FWHSurfaceIntegral(self, f, isSolid) result(Pacc)
 
        use FWHDefinitions, only: rho0, P0, c0, U0, M0
@@ -791,6 +796,12 @@ use VariableConversion, only: Pressure, PressureDot
                              spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
                    Pl = Pl +  dot_product(matmul(Lij,n(:)),self%reStarUnitVect(:,i,j)) / (self%reStar(i,j)**2) * &
                              spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   ! Pl = Pl + LdotR / ( c0 * self % re(i,j) * (UmMr**2) ) * &
+                   !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   ! Pl = Pl + (LR - LM) / ( (self % re(i,j) * UmMr)**2 ) * &
+                   !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                   ! Pl = Pl + (LR * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
+                   !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
                    ! thickness term integrals, only for permeable surfaces
                    if (.not. isSolid) then
@@ -798,8 +809,12 @@ use VariableConversion, only: Pressure, PressureDot
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
                        Pt = Pt -  dot_product(U0(:),self%reStarUnitVect(:,i,j)) * dot_product(Qi(:),n(:)) / (self%reStar(i,j)**2) * &
                                  spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                       ! Pt = Pt + dot_product(QiDot(:),n(:)) / (self%reStar(i,j) * (UmMr**2)) * &
+                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
+                       ! Pt = Pt + (dot_product(Qi(:), n(:)) * c0 * (MR - (dimensionless % Mach**2))) / ( (self % re(i,j)**2) * (UmMr**3) ) * &
+                       !           spAxi % w(i) * spAeta % w(j) * f % geom % jacobian(i,j)
 
-                   end if
+                   end if  
                 end do          ;    end do
            end associate
        end associate
@@ -810,7 +825,7 @@ use VariableConversion, only: Pressure, PressureDot
       ! get total acoustic pressure as the sum of the two components (the quadrapol terms are being ignored)
        Pacc = (/Pt, Pl, Pt+Pl/)
 
-   End Function FWHSurfaceIntegral
+   End Function FWHSurfaceIntegral 
 
 !/////////////////////////////////////////////////////////////////////////
 !           ZONE PROCEDURES --------------------------
@@ -820,6 +835,8 @@ use VariableConversion, only: Pressure, PressureDot
 
 !     *******************************************************************
 !        This subroutine prolong the solution from the mesh storage to the faces (source).
+!         TODO: use openmp (commented)
+!         TODO: use mpi (see surface integral)
 !     *******************************************************************
 !
       use ElementClass
@@ -839,6 +856,7 @@ use VariableConversion, only: Pressure, PressureDot
 !
       elements => mesh % elements
 !$omp parallel private(meshFaceID,eID,meshFaceIDs) shared(elements,mesh,NodalStorage)
+!!$omp&                                        t)
 !$omp single
 
 !        Loop the zone to get faces and elements
@@ -859,6 +877,14 @@ use VariableConversion, only: Pressure, PressureDot
                                                             mesh % faces(meshFaceIDs(6)),&
                                                              computeQdot = .TRUE.)
 
+         ! if ( computeGradients ) then
+         !    call elements(eID) % ProlongGradientsToFaces(NGRAD, mesh % faces(meshFaceIDs(1)),&
+         !                                     mesh % faces(meshFaceIDs(2)),&
+         !                                     mesh % faces(meshFaceIDs(3)),&
+         !                                     mesh % faces(meshFaceIDs(4)),&
+         !                                     mesh % faces(meshFaceIDs(5)),&
+         !                                     mesh % faces(meshFaceIDs(6)) )
+         ! end if
 !$omp end task
       end do
 !$omp end single
@@ -901,6 +927,7 @@ use VariableConversion, only: Pressure, PressureDot
        !local variables
        real(kind=RP)                                       :: P, pDot
        real(kind=RP), dimension(NDIM,NDIM)                 :: Pij      ! fwh perturbation stress tensor
+       ! real(kind=RP), dimension(NDIM:NDIM)                 :: tau
        integer                                             :: i, j, ii, jj
 
        P = Pressure(Q)
@@ -914,11 +941,16 @@ use VariableConversion, only: Pressure, PressureDot
            LijDot(i,i) = pDot
        end do
 
+       !TODO use the stress tensor and the time derivative for Lij and LijDot respectively
+       ! call getStressTensor(Q, U_x, U_y, U_z, tau)
+       ! Pij = Pij - tau
+       ! LijDot = LijDot - tauDot
 
        ! set values for solid (impermeable) surface
        Qi(:) = -rho0*U0(:)
        Qidot = 0.0_RP
        Lij = Pij
+       ! Lij = 0.0_RP
 
        !calculate terms for permeable surface
        if (.not. isSolid) then
@@ -934,10 +966,10 @@ use VariableConversion, only: Pressure, PressureDot
                    Lij(i,j) = Lij(i,j) + (Q(ii) - Q(1)*U0(i))*(Q(jj)/Q(1))
                    LijDot(i,j) = LijDot(i,j) + ( Qdot(ii) - Q(ii)/Q(1)*Qdot(1) )/Q(1) * Q(jj) + &
                                                (Q(ii)/Q(1) - U0(i)) * Qdot(jj)
-               end do
-           end do
+               end do  
+           end do  
        end if
 
    End Subroutine calculateFWHVariables
 
-End Module  FWHObseverClass
+End Module  FWHObseverClass 

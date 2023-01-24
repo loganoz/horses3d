@@ -198,6 +198,7 @@ module StatsAveragingModule
          integer       :: fid, eID         
          !-------------------------------------------------------------
          
+!~         self % solutionName = trim(solutionName)
 !
 !        Read coordinates
 !        ----------------

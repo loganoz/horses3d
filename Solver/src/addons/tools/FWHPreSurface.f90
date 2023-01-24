@@ -581,6 +581,7 @@ Module FWHPreSurface  !
                     y => xx(2,:)
                     z => xx(3,:)
 
+                    ! todo: configure to call x,z or y,z too
                     if (isInGeometry(radii, ratio, centerPosition, x, y, NODES_PER_ELEMENT, lengthAspect, filter=useFilter)) then
                         allElements(k,1) = e % eID
                         allElements(k,2) = e % globID
@@ -753,6 +754,7 @@ Module FWHPreSurface  !
             e => mesh % elements(neID)
         end do
 
+        !todo check that new bc have been reached
 
         allocate(newEIDs(realNumberOfElements))
         newEIDs = nEs(1:realNumberOfElements)

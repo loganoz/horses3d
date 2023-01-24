@@ -65,19 +65,19 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   subroutine ConstructSimpleMesh_FromHDF5File_( self, fileName, Nx, Ny, Nz, locR)
+   subroutine ConstructSimpleMesh_FromHDF5File_( self, fileName, locR)
       implicit none
       !-arguments--------------------------------------------------------------
-      class(HexMesh)  ,           intent(inout) :: self
+      class(HexMesh)  , intent(inout) :: self
       ! class(SimpleHexMesh)  , intent(inout) :: self
-      character(LEN=*),           intent(in)    :: fileName
-      type(LocalRef_t), optional, intent(in)    :: locR
-      integer         , optional, intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      character(LEN=*), intent(in)    :: fileName
+      type(LocalRef_t), intent(in)                 :: locR
+      ! integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
       !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
       ! Variables as called by Kopriva
       integer  :: numberOfElements  ! ...
-      integer                         :: Nx_, Ny_, Nz_     !<  Polynomial orders for each element
+      integer                         :: Nx, Ny, Nz     !<  Polynomial orders for each element
       integer  :: bFaceOrder        ! Polynomial order for aproximating curved faces
       INTEGER                          :: nodeIDs(NODES_PER_ELEMENT), nodeMap(NODES_PER_FACE)
       REAL(KIND=RP)                    :: corners(NDIM,NODES_PER_ELEMENT) ! Corners of element
@@ -194,14 +194,12 @@ contains
             
          END DO
 
-         self % elements(l) % SurfInfo % corners = corners
+         
+         call locR%getOrderOfPosition(corners, Nx, Ny, Nz)
 
-         if( present(locR) ) then
-            call locR% getOrderOfPosition(corners, Nx_, Ny_, Nz_)
-            call self % elements(l) % Construct (Nx_, Ny_, Nz_, falseNodeID , l, l)
-         else
-            call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), corners , l, l) 
-         end if
+         ! call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), corners , l, l) 
+         ! call self % elements(l) % Construct (Nx, Ny, Nz, corners , l, l) 
+         call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
          
          
       end do      ! l = 1, numberOfElements

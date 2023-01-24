@@ -257,7 +257,7 @@ module GeometryClass
             neighs(1) = lastelement
             do n = 1, 6
                if ( mesh % elements(lastelement) % NumberOfConnections(n) .ne. 0 ) then
-                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % globID     
+                  neighs(n+1) = mesh % elements(lastelement) % Connection(n) % globID     ! TODO: Careful if you are using MPI
                else
                   neighs(n+1) = -1
                end if
