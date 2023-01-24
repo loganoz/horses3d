@@ -148,7 +148,7 @@ The control file is the main file for running a simulation. A list of all the ma
 
 solution file name   & \textit{CHARACTER}: Path and name of the output file. The name of this file is used for naming other output files. & \textbf{Mandatory\ keyword} \\ \hline
 
-simulation type        & \textit{CHARACTER}: Specifies if NSLITE3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
+simulation type        & \textit{CHARACTER}: Specifies if HORSES3D must perform a 'steady-state' or a 'time-accurate' simulation. &  'steady-state'\\ \hline
 
 time integration & \textit{CHARACTER}: Can be 'implicit', 'explicit', or 'FAS'. The latter uses the Full Algebraic Storage (FAS) multigrid scheme, which can have implicit or explicit smoothers. & 'explicit' \\ \hline
 
@@ -293,6 +293,81 @@ For periodic boundary conditions, the second boundary that must be used as a com
 %Creo que eso es todo, lamento si os supone mucho cambio en vuestros ficheros de control que estéis corriendo a día de hoy, y si rompo algo que no reflejen los test. Pero estos cambios eran necesarios para darle más versatilidad (por ejemplo en multifase el inflow necesita bastante customización, para definir caudales de cada fase y cosas así). Además, creo que el enfoque OOP va en la dirección del resto del código.
 %
 %
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter{Spatial Discretization}
+
+HORSES3D uses a high-order discontinuous Galerkin Spectral Element (DGSEM) method. As part of the numerical method, several options of volume and surface discretization options can be selected. Some options are only available in certain solvers.
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for spatial discretization.} \label{tab:spatialDisc} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for spatial discretization - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+Discretization nodes  	    & \textit{CHARACTER}: Node type to use in the solution. Options are:  
+    \begin{itemize}
+    \item Gauss
+    \item Gauss-Lobatto
+\end{itemize} 
+                    & 'Gauss' \\ \hline
+
+inviscid discretization	    & \textit{CHARACTER}: DG discretization of inviscid fluxes. Options are:
+    \begin{itemize}
+    \item Standard
+    \item Split-Form
+    \end{itemize} 
+                    & 'Standard' \\ \hline
+
+split form       & \textit{CHARACTER}: Type of split form flux. Mandatory for if inviscid discretization is Split-Form. Options are:
+    \begin{itemize}
+    \item Standard
+    \item Morinishi
+    \item Ducros
+    \item Kennedy-Gruber
+    \item Pirozzoli
+    \item Entropy conserving
+    \item Chandrasekar
+    \item Skew-symmetric-1split (only for Incompressible Navier–Stokes)
+    \item Skew-symmetric-2split (only for Incompressible Navier–Stokes)
+    \end{itemize} 
+                    & -- \\ \hline
+
+viscous discretization & \textit{CHARACTER}: Method for viscous fluxes. Options are:
+    \begin{itemize}
+    \item BR1
+    \item BR2
+    \item IP
+    \end{itemize} 
+                    & 'BR2' \\ \hline
+
+riemann solver      & \textit{CHARACTER}: Riemann solver for inviscid fluxes. Options are:
+    \begin{itemize}
+    \item Central
+    \item Roe (Only for compressible Navier–Stokes)
+    \item Standard Roe (Only for compressible Navier–Stokes)
+    \item Roe-Pike (Only for compressible Navier–Stokes)
+    \item Low dissipation Roe (Only for compressible Navier–Stokes)
+    \item Lax-Friedrichs (Only for compressible and Incompressible Navier–Stokes)
+    \item ES Lax-Friedrichs (Only for compressible Navier–Stokes, not including RANS)
+    \item u-diss (Only for compressible Navier–Stokes, not including RANS)
+    \item Rusanov (Only for compressible Navier–Stokes)
+    \item Matrix dissipation (Only for compressible Navier–Stokes)
+    \item Viscous NS (Only for compressible Navier–Stokes, not including RANS)
+    \item Exact (Only for Incompressible Navier-Stokes, and Multiphase)
+    \end{itemize} 
+                    & \textbf{Mandatory keyword} \\ \hline
+
+\end{longtable}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \chapter{Restarting a Case}
 
 \begin{table}[htbp]
@@ -1244,7 +1319,7 @@ target y plus & \textit{REAL}: Target distance at which the image points are loc
 \subsection{STL file}
 
 Immersed boundary requires, along with the mesh, a STL file. It must be put in the MESH folder with the mesh. The STL file name must be in lowercase character. In some programs, like AutoCAD, a STL file has always positive coordinates: the mesh should be built according to this consideration.\\
-In the case of 2D simulations, the STL can be automatically cut by horses3D through the addition of the line \textit{symmetry planes} so that only the STL's portions inside the mesh are considered.
+In the case of 2D simulations, the STL can be automatically cut by HORSES3D through the addition of the line \textit{symmetry planes} so that only the STL's portions inside the mesh are considered.
 
 \begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
 \caption{Keywords for stl files.} \label{tab:IBMstl} \\
@@ -1756,7 +1831,7 @@ To illustrate the roles of various terms in the governing equations, we present 
 x_i^*=x_i/L_o, \quad y_i^*=y_i/L_o, \quad t^*=tu_o/L_o, \quad \rho^*=\rho/\rho_o, \quad u_i^*=u_i/u_o	
 \end{equation}
 \begin{equation}
-v_i^*=v_i/u_o, \quad p^*=p/\rho_o u_o^2, \quad T^*=T/T_o, \quad T_p^* = T_p / T_o, 
+v_i^*=v_i/u_o, \quad p^*=p/\rho_o u_o^2, \quad e^*=e/u_o^2 \quad T^*=T/T_o, \quad T_p^* = T_p / T_o, 
 \end{equation}
 \begin{equation}
 \quad \mu^* = \mu / \mu_o, \quad \kappa^* = \kappa / \kappa_o \quad g^*_i = g_i / g_o	
