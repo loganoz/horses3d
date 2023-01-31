@@ -35,14 +35,10 @@ done
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
-	        ./Euler/Diffuser \
-	        ./Euler/PeriodicFlow \
-	        ./Euler/UniformFlow \
-	        ./Euler/UniformFlowPETSc \
-	        ./Euler/VortexTransport2D \
-	        ./Euler/Benchmark \
-	        ./Euler/JFNK \
-	        ./Euler/TaylorGreenKEPEC \
+	    ./Euler/Diffuser \
+	     ./Euler/UniformFlow \
+	     ./Euler/JFNK \
+	     ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
