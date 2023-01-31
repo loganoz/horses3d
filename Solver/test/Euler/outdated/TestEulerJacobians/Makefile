@@ -5,14 +5,14 @@
 ##   libproblemfile.so with user specific procedures, such as initial
 ##   and boundary conditions or solution checks.
 ##
-##	Usage:
-##		-> cd $(CASE_DIR)/SETUP
-##		-> make COMPILER=gfortran/ifort MODE=RELEASE/DEBUG COMM=SERIAL/PARALLEL
-##		-> cd $(CASE_DIR)
-##		-> ldd ./HORSES3D (to check whether the solver points
-##				to the default library (found in
-##				$HOME_DIR) or to the local library,
-##				./SETUP/libproblemfile.so)
+##  Usage:
+##    -> cd $(CASE_DIR)/SETUP
+##    -> make COMPILER=gfortran/ifort MODE=RELEASE/DEBUG COMM=SERIAL/PARALLEL
+##    -> cd $(CASE_DIR)
+##    -> ldd ./HORSES3D (to check whether the solver points
+##        to the default library (found in
+##        $HOME_DIR) or to the local library,
+##        ./SETUP/libproblemfile.so)
 ##
 #####################################################################
 HOME_DIR=../../..
@@ -85,5 +85,4 @@ endif
 
 
 all:
-	$(FC) -I$(HORSESINC) -I$(NSINC) -o TestJacobians src/main.f90 $(HORSESLIB)
-
+  $(FC) -I$(HORSESINC) -I$(NSINC) -o TestJacobians src/main.f90 $(HORSESLIB)
