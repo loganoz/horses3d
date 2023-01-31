@@ -44,8 +44,8 @@ module ConstructMeshAndSpectralBasis_MOD
          nodeType       = GetSolutionFileNodeType(trim(solutionFile))
          fileType       = GetSolutionFileType(trim(solutionFile))
 !
-!        Preliminar read to gather polynomial orders from solution file
-!        --------------------------------------------------------------          
+!        Preliminary read to gather polynomial orders from solution file
+!        ---------------------------------------------------------------
          allocate(Nx(no_of_elements), Ny(no_of_elements), Nz(no_of_elements))
 !
 !        Set the file padding
