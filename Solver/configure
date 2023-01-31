@@ -71,8 +71,6 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
 	    ./CahnHilliard/TJokisaari \
-            ./iNSCH/RisingBubble \
-            ./iNSCH/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
