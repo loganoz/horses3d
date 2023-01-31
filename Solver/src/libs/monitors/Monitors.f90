@@ -317,7 +317,7 @@ module MonitorsClass
 !        Print surface monitors
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
+            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
 
          call self % stats % WriteValue
@@ -337,7 +337,7 @@ module MonitorsClass
 
       end subroutine Monitor_WriteValues
 
-      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals )
+      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals, Autosave )
 !
 !        ***************************************************************
 !              This subroutine updates the values for the residuals,
@@ -352,6 +352,7 @@ module MonitorsClass
          real(kind=RP)       :: t
          integer             :: iter
          real(kind=RP)       :: maxResiduals(NCONS)
+         logical             :: Autosave
 !
 !        ---------------
 !        Local variables
@@ -394,7 +395,13 @@ module MonitorsClass
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
+            if( self% surfaceMonitors(i)% IBM ) then
+               if( Autosave ) then 
+                  call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, t )
+               end if 
+            else 
+               call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter )
+            endif
          end do
 !
 !        Update statistics
@@ -489,7 +496,7 @@ module MonitorsClass
 
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_surfaceMonitors
-                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 !

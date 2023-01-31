@@ -3580,7 +3580,7 @@ slavecoord:             DO l = 1, 4
             if( self% IBM% active ) then
                allocate(e % geom % normal(NDIM, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
                e % geom % dWall = huge(1.0_RP)
-           else
+            else
                do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   xP = e % geom % x(:,i,j,k)
 
@@ -3590,18 +3590,11 @@ slavecoord:             DO l = 1, 4
                      minimumDistance = min(minimumDistance, currentDistance)
                   end do
 
-            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               xP = e % geom % x(:,i,j,k)
+                  e % geom % dWall(i,j,k) = sqrt(minimumDistance)
 
-               minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
-               end do
-
-               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
-
-            end do                  ; end do                ; end do
+               end do                  ; end do                ; end do
+            end if
+            
             end associate
          end do
 !
@@ -3633,18 +3626,11 @@ slavecoord:             DO l = 1, 4
                      minimumDistance = min(minimumDistance, currentDistance)
                   end do
 
-            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
-               xP = fe % geom % x(:,i,j)
+                  fe % geom % dWall(i,j) = sqrt(minimumDistance)
 
-               minimumDistance = HUGE(1.0_RP)
-               do fID = 1, no_of_wallDOFS
-                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
-                  minimumDistance = min(minimumDistance, currentDistance)
-               end do
-
-               fe % geom % dWall(i,j) = sqrt(minimumDistance)
-
-            end do                ; end do
+                end do                ; end do
+            end if
+            
             end associate
          end do
 
