@@ -109,13 +109,6 @@ module SurfaceMonitorClass
 !        Get the surface marker
 !        ----------------------
          self % marker = -1
-         do zoneID = 1, size(mesh % zones)
-            if ( trim(mesh % zones(zoneID) % name) .eq. trim(markerName) ) then            
-               self % marker = zoneID
-               exit
-            end if
-         end do
-
          if( mesh% IBM% active ) then                 
             do STLNum = 1, mesh% IBM% NumOfSTL
                if( trim(mesh% IBM% STLfilename(STLNum)) .eq. trim(markerName) ) then
@@ -129,7 +122,13 @@ module SurfaceMonitorClass
                   mesh% IBM% Integral(STLNum)% compute      = .true.     
                   self% marker = STLNum    
                   self% IBM    = .true.         
-
+                  exit
+               end if
+            end do
+         else
+            do zoneID = 1, size(mesh % zones)
+               if ( trim(mesh % zones(zoneID) % name) .eq. trim(markerName) ) then            
+                  self % marker = zoneID
                   exit
                end if
             end do
@@ -140,6 +139,8 @@ module SurfaceMonitorClass
             write(*,'(A,I0)') "Warning: Marker not specified for surface monitor ", self % ID
             write(*,'(A,I0,A)') "     Surface monitor ", self % ID, " disabled."
          end if
+
+         if( self% IBM ) return
          
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
@@ -289,8 +290,6 @@ module SurfaceMonitorClass
 !        **********
          end select
 !        **********
-
-         if( self% IBM ) return
 !
 !        Prepare the file in which the monitor is exported
 !        -------------------------------------------------
@@ -351,16 +350,6 @@ module SurfaceMonitorClass
 
                case ("force")
                   call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-
-               case ("lift")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-
-               case ("drag")
-                  if (flowIsNavierStokes) then
-                     call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-                  else
-                     call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_FORCE, iter)
-                  end if
 
              case("pressure","pressure-average")
                  call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_DISTRIBUTION, iter)
@@ -525,4 +514,3 @@ module SurfaceMonitorClass
       end subroutine SurfaceMonitor_Assign
 #endif      
 end module SurfaceMonitorClass
-

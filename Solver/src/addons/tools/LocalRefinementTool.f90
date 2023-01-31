@@ -204,6 +204,8 @@ Module LocalRefinementTool  !
                call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR=locR_)
            elseif (trim(ext)=='mesh') then
                call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR=locR_)
+           ! elseif (trim(ext)=='msh') then
+               ! call ConstructSimpleMesh_FromGmshFile_(mesh, meshFileName, locR
            else
                ERROR STOP 'Mesh file extension not recognized.'
            end if

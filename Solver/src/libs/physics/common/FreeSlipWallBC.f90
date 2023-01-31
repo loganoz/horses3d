@@ -311,7 +311,7 @@ module FreeSlipWallBCClass
          Q_aux(IRHOU:IRHOW) = Q(IRHOU:IRHOW)
          Q_aux(IRHOE) = Q(IRHOE) + self % wallType*(Q(IRHO)*self % eWall+0.5_RP*(POW2(Q(IRHOU))+POW2(Q(IRHOV))+POW2(Q(IRHOW)))/Q(IRHO)-Q(IRHOE))
 #if defined(SPALARTALMARAS)
-		   Q_aux(IRHOTHETA)= Q(IRHOTHETA)
+         Q_aux(IRHOTHETA)= Q(IRHOTHETA)
 #endif
          call GetGradients(NCONS, NGRAD, Q_aux, U)
 

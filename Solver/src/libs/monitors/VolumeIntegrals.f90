@@ -567,7 +567,7 @@ module VolumeIntegrals
          real(kind=RP) :: valAux(num_of_vars)
          real(kind=RP) :: val1, val2, val3, val4, val5
 
-         if (num_of_vars == 5) then
+         if (num_of_vars == 5) then    ! Ugly hack.. But only way to make it work with ifort....
             fiveVars = .TRUE.
          else
             fiveVars = .FALSE.

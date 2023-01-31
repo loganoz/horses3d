@@ -65,7 +65,7 @@ module GenericLinSolverClass
       end function MatrixShift_FCN
    end interface
    
-   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift 
+   procedure(MatrixShift_FCN), pointer :: MatrixShift =>  Default_MatrixShift  ! TODO?: move to GenericLinSolver_t to allow different MatrixShifts for different solvers?
 
 contains
 !
@@ -94,7 +94,7 @@ contains
       integer                  , intent(in)            :: nEqn
       type(FTValueDictionary)  , intent(in), optional  :: controlVariables
       type(DGSem), target                  , optional  :: sem
-      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc   
+      procedure(MatrixShift_FCN)                       :: MatrixShiftFunc     ! TODO: Make this optional
       !---------------------------------------------------------------------
       
       if (globalDimPrb < DimPrb) then        ! This never makes sense

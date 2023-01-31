@@ -655,7 +655,7 @@ module SpatialDiscretization
                   associate ( e => mesh % elements(eID) )
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                      end if
                   end do                  ; end do                ; end do
@@ -819,7 +819,7 @@ module SpatialDiscretization
                  associate ( e => mesh % elements(eID) )
                   do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                      if( e% isInsideBody(i,j,k) ) then
-                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source )
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
                         e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
                      end if
                   end do                  ; end do                ; end do

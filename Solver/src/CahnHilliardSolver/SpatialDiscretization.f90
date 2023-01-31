@@ -941,7 +941,7 @@ stop
             shown = .true.
          end if
 !
-!        Compute the velocity   
+!        Compute the velocity    TODO: compute it in Chebyshev points first 
 !        --------------------
          do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
             call PoiseuilleFlow(f % geom % x(:,i,j), f % storage(1) % v(:,i,j))

@@ -423,7 +423,7 @@ contains
          REAL(KIND=RP)        , INTENT(IN)    :: dt
          !------------------------------------------------
          REAL(KIND=RP) :: shift
-         
+
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
@@ -442,13 +442,13 @@ contains
          CLASS(MatFreeGMRES_t), INTENT(INOUT)  :: this
          REAL(KIND=RP)        , INTENT(IN)     :: dt
          !------------------------------------------------
-         REAL(KIND=RP) :: Matrix_Shift
+         REAL(KIND=RP) :: shift
          
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
-            Matrix_Shift = MatrixShift(dt)
-            call this % BlockA % shift( Matrix_Shift )
+            shift = MatrixShift(dt)
+            call this % BlockA % shift( shift )
             call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
          end if
          
@@ -705,7 +705,7 @@ contains
           
          CALL this % PCSolver % SetRHS(v)
          CALL this % PCSolver % Solve(NCONS, NGRAD, ComputeTimeDerivative,time = this % timesolve, dt = this % dtsolve)
-         CALL this % PCSolver % Settol(1e-1_RP)          
+         CALL this % PCSolver % Settol(1e-1_RP)                 ! TODO: aquí habrá que poner algo más elaborado
          Pv = this % PCSolver % x
 !         n_preco_iter = n_preco_iter + PCSolver%niter     ! Not really needed
                         
@@ -787,7 +787,7 @@ contains
          F = this % p_sem % mesh % storage % Qdot
 
          ! Restore original Q
-         this % p_sem % mesh % storage % Q = u_p  
+         this % p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
          call this % p_sem % mesh % storage % global2LocalQ
       END FUNCTION p_F
 !

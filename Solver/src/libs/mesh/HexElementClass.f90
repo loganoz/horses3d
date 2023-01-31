@@ -12,6 +12,8 @@
 !       One will associate boundary conditions to boundaries in the routine
 !       "ExternalState".
 !
+!       Modified 2D Code to move solution into element class. 5/14/15, 5:36 PM
+!
 !////////////////////////////////////////////////////////////////////////
 !
       Module ElementClass
@@ -73,9 +75,8 @@
          type(ElementStorage_t), pointer :: storage
          type(SurfInfo_t)                :: SurfInfo          ! Information about the geometry of the neighboring faces, as in the mesh file
          type(TransfiniteHexMap)         :: hexMap            ! High-order mapper
-         logical, dimension(:,:,:), allocatable :: isInsideBody, isForcingPoint ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body (IB)	
-         integer, dimension(:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true. (IB)
-         integer                                :: IP_index 
+         logical, dimension(:,:,:),   allocatable :: isInsideBody != .false. ! Immersed boundaty term -> if InsideBody(i,j,k) = true, the point(i,j,k) is inside the body
+         integer, dimension(:,:,:,:), allocatable :: STL !STL file the DoFbelongs to if isInsideBody = .true.
          contains
             procedure   :: Construct               => HexElement_Construct
             procedure   :: Destruct                => HexElement_Destruct
@@ -167,10 +168,6 @@
          call self % hexMap % destruct
 
          call self % SurfInfo % destruct
-         
-         if( allocated(self% isInsideBody) )   deallocate(self% isInsideBody)
-         if( allocated(self% isForcingPoint) ) deallocate(self% isForcingPoint)
-         if( allocated(self% STL) )            deallocate(self% STL)
 
       END SUBROUTINE HexElement_Destruct
 !
@@ -771,6 +768,7 @@
 !
 !  --------------------------------------------------------
 !  Adapts an element to new polynomial orders NNew
+!  -> TODO: Previous solutions are not implemented
 !  --------------------------------------------------------
       subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
          implicit none
@@ -806,7 +804,7 @@
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
 
          if (prevSol_num > 0) then
-
+            ! TODO : call InterpolatePrevSol
          end if
          call tempStorage % destruct()
 
@@ -853,13 +851,10 @@
          integer,        intent(in)    :: Nx, Ny, Nz, NumOfSTL  !<  Polynomial orders, num of stl files
 
          allocate(self% isInsideBody(0:Nx,0:Ny,0:Nz))
-         allocate(self% isForcingPoint(0:Nx,0:Ny,0:Nz))
-         allocate(self% STL(0:Nx,0:Ny,0:Nz))
-         
-         self% isInsideBody   = .false.
-         self% isForcingPoint = .false.
-         self% STL            = 0
-         self% IP_index       = 0
+         allocate(self% STL(NumOfSTL,0:Nx,0:Ny,0:Nz))
+
+         self% isInsideBody = .false.
+         self% STL          = 0
 
       end subroutine HexElement_ConstructIBM
 

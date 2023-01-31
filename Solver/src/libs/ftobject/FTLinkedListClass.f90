@@ -1,3 +1,14 @@
+!
+!////////////////////////////////////////////////////////////////////////
+!
+!      FTLinkedListClass.f90
+!      Created: January 7, 2013 2:56 PM 
+!      By: David Kopriva  
+!
+!
+!
+!////////////////////////////////////////////////////////////////////////
+!
 !@mark -
 !
 !>FTLinkedListRecord is the record type (object and next) for the

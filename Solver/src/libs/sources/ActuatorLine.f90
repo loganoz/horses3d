@@ -11,10 +11,10 @@ public farm
 !  ******************************
 !  DEFINE TURBINE, BLADE, AIRFOIL
 !  ******************************
-!
+! 
 !
     type airfoil_t
-    integer                         :: num_aoa
+    integer                         :: num_aoa 
     real(KIND=RP), allocatable      :: aoa(:)  ! in rad
     real(KIND=RP), allocatable      :: cl(:)  ! in rad
     real(KIND=RP), allocatable      :: cd(:)  ! in rad
@@ -58,7 +58,7 @@ public farm
     real(KIND=RP)                  :: Cp ! turbine power coef.
     real(KIND=RP)                  :: Ct ! turbine thrust coef.
     end type
-
+                                   
     type Farm_t
     integer                        :: num_turbines
     type(turbine_t), allocatable   :: turbine_t(:)
@@ -71,7 +71,7 @@ public farm
         procedure   :: ConstructFarm
         procedure   :: DestructFarm
         procedure   :: UpdateFarm
-        procedure   :: ForcesFarm
+        procedure   :: ForcesFarm             
         procedure   :: WriteFarmForces
         procedure   :: GaussianInterpolation
         procedure   :: FarmUpdateLocalForces
@@ -121,6 +121,7 @@ contains
      do i = 1, self%num_turbines
         READ(fid,*) self%turbine_t(i)%hub_cood_x, self%turbine_t(i)%hub_cood_y, self%turbine_t(i)%hub_cood_z
      ENDDO
+     ! print *, "hub: ", self%turbine_t(1)%hub_cood_x, " ", self%turbine_t(1)%hub_cood_y, " ", self%turbine_t(1)%hub_cood_z
 
      READ(fid,'(A132)') char1
 
@@ -133,7 +134,8 @@ contains
      do i = 1, self%num_turbines
         READ(fid,*) self%turbine_t(i)%normal_x, self%turbine_t(i)%normal_y, self%turbine_t(i)%normal_z
      ENDDO
-
+    
+    ! write(*,*) normal_x(:), normal_y(:), normal_z(:)
      READ(fid,'(A132)') char1
 
      do i = 1, self%num_turbines
@@ -145,7 +147,7 @@ contains
      do i = 1, self%num_turbines
         READ(fid,*) self%turbine_t(i)%blade_pitch
      ENDDO
-
+    
 
      READ(fid,'(A132)') char1
      READ(fid,'(A132)') char1
@@ -169,7 +171,7 @@ contains
      self%turbine_t(i)%blade_t(j)%local_lift(num_blade_sections), self%turbine_t(i)%blade_t(j)%local_drag(num_blade_sections), &
      self%turbine_t(i)%blade_t(j)%point_xyz_loc(num_blade_sections,3),self%turbine_t(i)%blade_t(j)%local_torque(num_blade_sections), &
      self%turbine_t(i)%blade_t(j)%local_thrust(num_blade_sections),self%turbine_t(i)%blade_t(j)%local_root_bending(num_blade_sections), &
-     self%turbine_t(i)%blade_t(j)%local_rotor_force(num_blade_sections),self%turbine_t(i)%blade_t(j)%local_gaussian_sum(num_blade_sections))
+     self%turbine_t(i)%blade_t(j)%local_rotor_force(num_blade_sections),self%turbine_t(i)%blade_t(j)%local_gaussian_sum(num_blade_sections))  
      ! max 5 airfoils file names per section
 
          do k=1, num_blade_sections
@@ -184,11 +186,21 @@ contains
    do i = 1, self%turbine_t(1)%num_blade_sections
       READ(fid,*) self%turbine_t(1)%blade_t(1)%r_R(i), self%turbine_t(1)%blade_t(1)%chord(i), &
                   self%turbine_t(1)%blade_t(1)%twist(i), self%turbine_t(1)%blade_t(1)%num_airfoils(i)
-
-      do j = 1, self%turbine_t(1)%blade_t(1)%num_airfoils(i)
-            READ(fid,*) self%turbine_t(1)%blade_t(1)%airfoil_files(i,j)
+                    
+      do j = 1, self%turbine_t(1)%blade_t(1)%num_airfoils(i)   
+            READ(fid,*) self%turbine_t(1)%blade_t(1)%airfoil_files(i,j)  
       enddo
    ENDDO
+
+
+     ! all turbines have the same blades
+     !do i=1, self%num_turbines
+     !    do j=1, self%turbine_t(i)%num_blades
+     !       self%turbine_t(i)%blade_t(j)=self%turbine_t(1)%blade_t(1)
+     !    ENDDO
+     ! enddo
+     ! write(*,*) "All turbines have the same blades"
+   !  write(*,*) self%turbine_t(1)%blade_t(1)%airfoil_files(2,2)
 
 ! read numerical parameters
      READ(fid,'(A132)') char1
@@ -196,7 +208,7 @@ contains
      READ(fid,'(A132)') char1
      READ(fid,'(A132)') char1
 
-     READ(fid,*) self%turbine_t(1)%blade_t(1)%gauss_epsil
+     READ(fid,*) self%turbine_t(1)%blade_t(1)%gauss_epsil    
 
      READ(fid,'(A132)') char1
      READ(fid,*) self%turbine_t(1)%blade_t(1)%tip_c1,self%turbine_t(1)%blade_t(1)%tip_c2
@@ -221,17 +233,19 @@ contains
       print *,'-------------------------'
       print *,achar(27)//'[34m READING FARM AIRFOIL DATA (Cl-Cd)'
       print*, 'reading: ', trim(arg)
-      write(*,*) 'The number of AoA in the file is: ', self%turbine_t(1)%blade_t(1)%airfoil_t(i)%num_aoa,' '//achar(27)//'[0m '
-
+      write(*,*) 'The number of AoA in the file is: ', self%turbine_t(1)%blade_t(1)%airfoil_t(i)%num_aoa,' '//achar(27)//'[0m '    
+    
       READ(fid,'(A132)') char1
 
       associate (num_aoa => self%turbine_t(1)%blade_t(1)%airfoil_t(i)%num_aoa)
 
       do ii=1, self%num_turbines
         do j=1, self%turbine_t(ii)%num_blades
-          allocate( self%turbine_t(ii)%blade_t(j)%airfoil_t(i)%aoa(num_aoa), &
+           !do k=1, self%turbine_t(1)%blade_t(1)%num_airfoils(j) ! this needs changing if many airfoils per radial section
+              allocate( self%turbine_t(ii)%blade_t(j)%airfoil_t(i)%aoa(num_aoa), &
                     self%turbine_t(ii)%blade_t(j)%airfoil_t(i)%cl(num_aoa), &
                     self%turbine_t(ii)%blade_t(j)%airfoil_t(i)%cd(num_aoa))
+           !enddo
         ENDDO
      enddo
 
@@ -242,6 +256,15 @@ contains
                        self%turbine_t(1)%blade_t(1)%airfoil_t(i)%cd(ii)
       enddo
 
+    !all airfoils of all blades of all turbines are the same
+    !do ii=1, self%num_turbines
+    !  do j=1, self%turbine_t(i)%num_blades
+    !     do k=1, self%turbine_t(1)%blade_t(1)%num_airfoils(j) 
+    !     self%turbine_t(ii)%blade_t(j)%airfoil_t(k)=self%turbine_t(1)%blade_t(1)%airfoil_t(1)
+    !     enddo
+    !  ENDDO
+    !enddo
+      
     close(fid)
  enddo ! number of blade sections
 
@@ -253,7 +276,7 @@ contains
 
    !all airfoils of all blades of all turbines are the same
    do ii=1, self%num_turbines
-      do j=1, self%turbine_t(ii)%num_blades
+      do j=1, self%turbine_t(ii)%num_blades 
          self%turbine_t(ii)%blade_t(j)=self%turbine_t(1)%blade_t(1)
          enddo
    enddo
@@ -276,12 +299,12 @@ contains
 !   Create output files
 !   -------------------
     write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_Forces.dat"
-    open ( newunit = fID , file = trim(arg) , status = "unknown" ,    action = "write" )
+    open ( newunit = fID , file = trim(arg) , status = "unknown" ,    action = "write" ) 
     write(fid,*) 'time, thrust_1, blade_torque_1, blade_root_bending_1,thrust_2, blade_torque_12 blade_root_bending_2,thrust_3, blade_torque_3, blade_root_bending_3'
     close(fid)
 !
     write(arg , '(A,A)') trim(self%file_name) , "_Actuator_Line_CP_CT.dat"
-    open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" )
+    open ( newunit = fID , file = trim(arg) , status = "unknown" , action = "write" ) 
     write(fid,*) 'time, Cp (power coef.), Ct (thust coef.)'
     close(fid)
 !
@@ -344,12 +367,12 @@ contains
          self%turbine_t(1)%blade_t(jj)%local_torque(:) = 0.0_RP
          self%turbine_t(1)%blade_t(jj)%local_root_bending(:) = 0.0_RP
          self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(:)= 0.0_RP
-
+      
              do ii = 1, self%turbine_t(1)%num_blade_sections
                 ! y,z coordinate of every acutator line point
                 self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,2) = self%turbine_t(1)%hub_cood_y + self%turbine_t(1)%blade_t(jj)%r_R(ii) * cos(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle)
                 self%turbine_t(1)%blade_t(jj)%point_xyz_loc(ii,3) = self%turbine_t(1)%hub_cood_z + self%turbine_t(1)%blade_t(jj)%r_R(ii) * sin(theta+self%turbine_t(1)%blade_t(jj)%azimuth_angle)
-
+      
               end do
            enddo
 !$omp end do
@@ -387,6 +410,8 @@ contains
           end if
           ! averaged state values of the cell
           Q = element_averageQ(mesh,eID)
+          ! or use point in the middle of the element
+          !Q = e % Storage % Q(:,e%Nxyz(1)/2,e%Nxyz(2)/2,e%Nxyz(3)/2)
           call FarmUpdateLocalForces(self, ii, jj, Q, theta, interp)
         end do
      enddo
@@ -462,16 +487,17 @@ if( POW2(x(2)-self%turbine_t(1)%hub_cood_y)+POW2(x(3)-self%turbine_t(1)%hub_cood
 
  if (self%calculate_with_projection) then
 
-
+ 
    do jj = 1, self%turbine_t(1)%num_blades
       do ii = 1, self%turbine_t(1)%num_blade_sections
           interp = GaussianInterpolation(self, ii, jj, x)
+          ! call FarmUpdateLocalForces(self, ii, jj, e % storage % Q(:,i,j,k), theta, L, interp)
           call FarmUpdateLocalForces(self, ii, jj,  Q, theta, interp)
 
           ! minus account action-reaction effect, is the force on the fliud
-          actuator_source(1) = actuator_source(1) - self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
-          actuator_source(2) = actuator_source(2) - self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
-          actuator_source(3) = actuator_source(3) - self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle)
+          actuator_source(1) = actuator_source(1) - self%turbine_t(1)%blade_t(jj)%local_thrust(ii) 
+          actuator_source(2) = actuator_source(2) - self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle) 
+          actuator_source(3) = actuator_source(3) - self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*sin(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle) 
 
           self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)=self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)+self%turbine_t(1)%blade_t(jj)%local_thrust(ii)
 
@@ -480,14 +506,15 @@ if( POW2(x(2)-self%turbine_t(1)%hub_cood_y)+POW2(x(3)-self%turbine_t(1)%hub_cood
           self%turbine_t(1)%blade_t(jj)%local_root_bending(ii) = self%turbine_t(1)%blade_t(jj)%local_root_bending(ii)+(sqrt(POW2(self%turbine_t(1)%blade_t(jj)%local_thrust(ii)) + POW2(self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii))) * self%turbine_t(1)%blade_t(jj)%r_R(ii))
 
          self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)=self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)+interp
-
+     
          local_gaussian=local_gaussian+interp
 
       enddo
   enddo
-
+  
      actuator_source(:)=actuator_source(:)/local_gaussian
-
+    
+    !NS = 0.0_RP
     NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
 
 
@@ -497,11 +524,11 @@ else ! no projection
         ! LAST_SECTION=self%turbine_t(1)%num_blade_sections
 
        do jj = 1, self%turbine_t(1)%num_blades
-
+          
           do ii = 1, self%turbine_t(1)%num_blade_sections
 
             interp = GaussianInterpolation(self, ii, jj, x)
-
+    
             ! minus account action-reaction effect, is the force on the fliud
             actuator_source(1) = actuator_source(1) - self%turbine_t(1)%blade_t(jj)%local_thrust(ii) * interp
             actuator_source(2) = actuator_source(2) - self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii)*cos(self%turbine_t(1)%rot_speed*t + self%turbine_t(1)%blade_t(jj)%azimuth_angle) * interp
@@ -511,13 +538,14 @@ else ! no projection
 
          enddo
      enddo
-
+     
         !actuator_source(:)=actuator_source(:)/local_gaussian
 
+       !NS = 0.0_RP
        NS(IRHOU:IRHOW) = NS(IRHOU:IRHOW) + actuator_source(:) / Non_dimensional
 
     endif
-
+    
    endif
 
    end subroutine  ForcesFarm
@@ -531,6 +559,7 @@ else ! no projection
    class(Farm_t), intent(inout)     :: self
    real(kind=RP),intent(in)      ::  time
    integer                       ::   fid, io
+   ! CHARACTER(LEN=40)             :: arg
    CHARACTER(LEN=LINE_LENGTH)    :: arg
    real(kind=RP)                 ::  t
    integer                       :: ii, jj
@@ -539,27 +568,27 @@ else ! no projection
 
    t=time/refValues%V
 
-
+   
  if (self%calculate_with_projection) then
    ! this is necessary for Gaussian weighted sum
-
+   
    self%turbine_t(1)%blade_thrust(:) = 0.0_RP
    self%turbine_t(1)%blade_torque(:) = 0.0_RP
    self%turbine_t(1)%blade_root_bending(:) = 0.0_RP
 
    !$omp do schedule(runtime)private(ii,jj)
       do jj = 1, self%turbine_t(1)%num_blades
-
+     
            do ii = 1, self%turbine_t(1)%num_blade_sections
-
+   
                self%turbine_t(1)%blade_thrust(jj)=self%turbine_t(1)%blade_thrust(jj)+self%turbine_t(1)%blade_t(jj)%local_thrust_temp(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
                self%turbine_t(1)%blade_torque(jj)=self%turbine_t(1)%blade_torque(jj)+self%turbine_t(1)%blade_t(jj)%local_torque(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-               self%turbine_t(1)%blade_root_bending(jj)=self%turbine_t(1)%blade_root_bending(jj)+self%turbine_t(1)%blade_t(jj)%local_root_bending(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)
-
+               self%turbine_t(1)%blade_root_bending(jj)=self%turbine_t(1)%blade_root_bending(jj)+self%turbine_t(1)%blade_t(jj)%local_root_bending(ii)/self%turbine_t(1)%blade_t(jj)%local_gaussian_sum(ii)  
+   
            enddo
        enddo
    !$omp end do
-
+   
       self%turbine_t(1)%Cp = 2.0_RP * (self%turbine_t(1)%blade_torque(1)+self%turbine_t(1)%blade_torque(2)+self%turbine_t(1)%blade_torque(3)) * self%turbine_t(1)%rot_speed / (refValues%rho * POW3(refValues%V) * pi * POW2(self%turbine_t(1)%radius))
       self%turbine_t(1)%Ct = 2.0_RP * (self%turbine_t(1)%blade_thrust(1)+self%turbine_t(1)%blade_thrust(2)+self%turbine_t(1)%blade_thrust(3)) / (refValues%rho * POW2(refValues%V) * pi * POW2(self%turbine_t(1)%radius))
    end if
@@ -621,10 +650,10 @@ end subroutine WriteFarmForces
 
         self%turbine_t(1)%blade_t(jj)%local_velocity(ii) = sqrt( POW2(self%turbine_t(1)%rot_speed*self%turbine_t(1)%blade_t(jj)%r_R(ii) - wind_speed_rot) + &
                                                                  POW2(wind_speed_axial) )
-        self%turbine_t(1)%blade_t(jj)%local_angle(ii) = atan( wind_speed_axial / (self%turbine_t(1)%rot_speed*self%turbine_t(1)%blade_t(jj)%r_R(ii) - wind_speed_rot) )
+        self%turbine_t(1)%blade_t(jj)%local_angle(ii) = atan( wind_speed_axial / (self%turbine_t(1)%rot_speed*self%turbine_t(1)%blade_t(jj)%r_R(ii) - wind_speed_rot) ) 
 
         ! alpha = phi - gamma, gamma = blade pitch + airfoil local twist
-        aoa = self%turbine_t(1)%blade_t(jj)%local_angle(ii) - (self%turbine_t(1)%blade_t(jj)%twist(ii) + self%turbine_t(1)%blade_pitch)
+        aoa = self%turbine_t(1)%blade_t(jj)%local_angle(ii) - (self%turbine_t(1)%blade_t(jj)%twist(ii) + self%turbine_t(1)%blade_pitch) 
         call Get_Cl_Cl_from_airfoil_data(self%turbine_t(1)%blade_t(jj)%airfoil_t(ii), aoa, Cl, Cd)
 !
 !       ---------------
@@ -639,7 +668,11 @@ end subroutine WriteFarmForces
         ! only axial wind speed
         ! angle_temp = atan(wind_speed_axial/(self%turbine_t(1)%rot_speed*self%turbine_t(1)%radius))
 
-        ! use the local radius and angle
+        ! 1 possibility: use the global radius and angle (i.e. the tip values)
+        ! tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(1)%num_blades*(self%turbine_t(1)%radius-self%turbine_t(1)%blade_t(jj)%r_R(ii)) / &
+                      ! (2.0_RP*self%turbine_t(1)%radius*sin(angle_temp))) ))
+
+        ! 2 possibility: use the local radius and angle
         tip_correct = 2.0_RP/PI*(acos( exp(-g1_func*self%turbine_t(1)%num_blades*(self%turbine_t(1)%radius-self%turbine_t(1)%blade_t(jj)%r_R(ii)) / (2.0_RP*self%turbine_t(1)%blade_t(jj)%r_R(ii)*sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)))) ))
 !
 !       --------------------------------
@@ -660,8 +693,8 @@ end subroutine WriteFarmForces
 
         self%turbine_t(1)%blade_t(jj)%local_rotor_force(ii) = lift_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) &
                                                               - drag_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
-
-        self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) &
+                                  
+        self%turbine_t(1)%blade_t(jj)%local_thrust(ii) = lift_force * cos(self%turbine_t(1)%blade_t(jj)%local_angle(ii)) & 
                                                          + drag_force * sin(self%turbine_t(1)%blade_t(jj)%local_angle(ii))
 !
     End Subroutine FarmUpdateLocalForces
@@ -681,10 +714,10 @@ end subroutine WriteFarmForces
 
         select case (self%epsilon_type)
         case (0)
-! EPSILON - option 1 (from file)
+! EPSILON - opcion 1 (se lee del fichero)
             epsil = self%turbine_t(1)%blade_t(1)%gauss_epsil
         case (1)
-! EPSILON - option 2
+! EPSILON - opcion 2
             if (present(Cd)) then
                 epsil = max(self%turbine_t(1)%blade_t(jj)%chord(ii)/4.0_RP,self%turbine_t(1)%blade_t(jj)%chord(ii)*Cd/2.0_RP)
             else
@@ -703,12 +736,12 @@ end subroutine WriteFarmForces
 !
 subroutine Get_Cl_Cl_from_airfoil_data(airfoil, aoa, Cl_out, Cd_out)
          implicit none
-
+      
          type (airfoil_t), intent(in)    :: airfoil
          real(KIND=RP), intent(in)     :: aoa
          real(KIND=RP), intent(inout)  :: Cl_out, Cd_out
          integer                       :: i
-
+               
   do i=1, airfoil%num_aoa-1
       if (airfoil%aoa(i+1)>=aoa .and. airfoil%aoa(i)<=aoa ) then
          Cl_out=InterpolateAirfoilData(airfoil%aoa(i),airfoil%aoa(i+1),airfoil%cl(i),airfoil%cl(i+1),aoa)
@@ -724,11 +757,11 @@ end subroutine
 ! linear interpolation given two points; returns y for new_x following line coefs (a,b) with y=ax+b
 function InterpolateAirfoilData(x1,x2,y1,y2,new_x)
    implicit none
-
+    
    real(KIND=RP), intent(in)    :: x1, x2, y1, y2, new_x
    real(KIND=RP)                :: a, b, InterpolateAirfoilData
 
-    if(abs(x1-x2)<1.0e-6_RP) then
+    if(abs(x1-x2)<1.0e-6_RP) then 
       a=100.0_RP
    else
       a=(y1- y2)/(x1- x2)
@@ -743,13 +776,13 @@ function element_averageQ(mesh,eID)
    implicit none
 
    type(HexMesh), intent(in)    :: mesh
-   integer, intent(in)          :: eID
+   integer, intent(in)          :: eID 
    integer                      :: k, j, i
 
    integer                      :: total_points
    real(kind=RP), dimension(NCONS)   :: element_averageQ, Qsum
 
-
+ 
    Qsum(:) = 0.0_RP
    total_points = 0
    do k = 0, mesh%elements(eID) % Nxyz(3)   ; do j = 0, mesh%elements(eID) % Nxyz(2) ; do i = 0, mesh%elements(eID) % Nxyz(1)
@@ -762,4 +795,4 @@ function element_averageQ(mesh,eID)
 end function element_averageQ
 
 #endif
-end module
+end module 

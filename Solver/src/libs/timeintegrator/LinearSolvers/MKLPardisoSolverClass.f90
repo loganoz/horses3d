@@ -117,6 +117,7 @@ MODULE MKLPardisoSolverClass
       
       if (MPI_Process % doMPIRootAction) then
          ERROR stop 'MKLPardisoSolver_t cannot be used as a distributed solver'
+         !TODO: Implement cluster_sparse_solver (MKL) or use the actual pardiso solver (http://www.pardiso-project.org/)
       end if
       
       if ( present(sem) ) then

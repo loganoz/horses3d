@@ -106,6 +106,9 @@ MODULE IMEXMethods
       ENDIF
       
       time = t
+
+!     TODO do i need this?      
+      !CALL sem % GetQ(U_n)      !stores sem%mesh%elements(:)% storage % Q in Vector U_n
 !
 !     Compute the non linear time derivative
 !     -------------------------------------- 

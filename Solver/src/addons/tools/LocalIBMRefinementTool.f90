@@ -194,10 +194,9 @@ module LocalIBMRefinementTool
 
       write(in_label , '(A)') "#define ibm"
       call get_command_argument(1, paramFile)
-      call readValueInRegion( trim( paramFile ), "nx",                Nx_in,               in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "ny",                Ny_in,               in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "nz",                Nz_in,               in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "band region coeff", BandRegionCoeff_in,  in_label, "#end" ) 
+      call readValueInRegion( trim( paramFile ), "nx", Nx_in, in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "ny", Ny_in, in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "nz", Nz_in, in_label, "#end" )
 
       if( .not. allocated(Nx_in) ) then
          print*, "Missing keyword 'nx' in input file"
@@ -217,15 +216,8 @@ module LocalIBMRefinementTool
          return
       end if  
 
-      if( .not. allocated(BandRegionCoeff_in) ) then
-         print*, "Missing keyword 'band region coeff' in input file"
-         success = .false.
-         return
-      end if 
-
       success = .true.
 
    end subroutine CheckInputIntegrityIBM
-
 
 end module LocalIBMRefinementTool

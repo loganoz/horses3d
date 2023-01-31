@@ -1,7 +1,7 @@
 !//////////////////////////////////////////////////////
 !
 !  This module provides the routines for computing the analytical Jacobian matrix
-!  -> Only for p-conforming representations 
+!  -> Only for p-conforming representations (TODO: make general)
 !  -> The Jacobian of the BCs is temporarily computed numerically
 !
 !//////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ module AnalyticalJacobian
    
    
 #if defined(NAVIERSTOKES)
-   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix.
+   real(kind=RP) :: Identity(NCONS,NCONS) ! identity matrix. TODO: Define only once in the constructor (When this is a class!!)
 #endif
 contains
 !
@@ -108,7 +108,9 @@ contains
          call mesh % faces(fID) % storage % ConstructAnJac (NDIM)
       end do
 !$omp end parallel do
-            
+      
+      !TODO: Add conformity check
+      
    end subroutine AnJacobian_Construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,6 +151,8 @@ contains
       end if
       
       nelem = size(sem % mesh % elements)
+
+      !TODO: Check if there was p-adaptation and reconstruct if necessary
       
 !
 !     *************************************************
@@ -529,7 +533,7 @@ contains
       
 !
 !     ********************
-!     Viscous contribution - Temporarily done fully numerically.
+!     Viscous contribution - Temporarily done fully numerically. TODO: This can be improved
 !     ********************
 !
       if (flowIsNavierStokes) then
@@ -899,10 +903,10 @@ contains
       use IBMClass
       implicit none
       !-------------------------------------------
-      type(Element),            intent(inout) :: e
-      type(Face),     target,   intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
-      class(Matrix_t),          intent(inout) :: Matrix
-      type(IBM_type), optional, intent(inout) :: IBM
+      type(Element)     , intent(inout) :: e
+      type(Face), target, intent(in)    :: fF, fB, fO, fR, fT, fL !< The six faces of the element
+      class(Matrix_t)   , intent(inout) :: Matrix
+      type(IBM_type),     intent(inout) :: IBM
       !-------------------------------------------
       real(kind=RP) :: MatEntries(NCONS,NCONS)
       real(kind=RP) :: dFdQ      (NCONS,NCONS,NDIM,0:e%Nxyz(1),0:e%Nxyz(2),0:e%Nxyz(3))
@@ -943,7 +947,9 @@ contains
       real(kind=RP) :: JacR( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for RIGHT  face
       real(kind=RP) :: JacT( NCONS,NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2) )   ! Jacobian for TOP    face
       real(kind=RP) :: JacL( NCONS,NCONS, 0:e % Nxyz(2), 0:e % Nxyz(3) )   ! Jacobian for LEFT   face
-      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta      
+      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+      
+      optional :: IBM      
       
       !-------------------------------------------
       spAxi   => NodalStorage(e % Nxyz(1))
@@ -959,6 +965,7 @@ contains
       EtaSpa  = NCONS*nXi
       ZetaSpa = NCONS*nXi*nEta
       
+!     TODO: Fill this only once in class constructor
 !     ----------------------------------------------
       Identity = 0._RP
       do i=1, NCONS
@@ -992,6 +999,7 @@ contains
       call HyperbolicDiscretization % ComputeInnerFluxJacobian( e, dFdQ) 
       if (flowIsNavierStokes) then
          call ViscousDiscretization % ComputeInnerFluxJacobian( e, dF_dgradQ, dFdQ)
+         ! TODO: Read this from Viscous discretization
          dqHat_dqp = 0.5_RP
          dqHat_dqm = 0.5_RP
          
@@ -1034,7 +1042,7 @@ contains
             i = eq1 + baseRow  ! row index (1-based)
             j = eq2 + baseCol  ! column index (1-based)
             
-            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  
+            call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))  ! TODO: This can be improved by setting the whole matrix at once
             
          end do            ; end do
       end do                  ; end do                  ; end do                 ; end do
@@ -1433,27 +1441,26 @@ contains
 !
 !     adding IBM contributes
 !     ---------------------- 
-      if( present(IBM) ) then
-         if( IBM% active ) then
-            do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
-               if( e% isInsideBody(i12,j12,k12) ) then
-                  associate( Q => e% storage% Q(:,i12,j12,k12) )
-                  call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
+      if( present(IBM) .and. IBM% active ) then
+         do k12 = 0, e% Nxyz(3); do j12 = 0, e% Nxyz(2) ; do i12 = 0, e% Nxyz(1)
+            if( e% isInsideBody(i12,j12,k12) ) then
+               associate( Q => e% storage% Q(:,i12,j12,k12) )
+               call IBM% semiImplicitJacobian( e% GlobID, Q, MatEntries )
 
-                  baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
-                  baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+               baseRow = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
+               baseCol = i12*NCONS + j12*EtaSpa + k12*ZetaSpa
  
-                  ! IBM contributes affect only the diagonal of the block diag. matrix
-                  !-------------------------------------
-                  do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
-                     i = eq1 + baseRow  ! row index (1-based)
-                     j = eq2 + baseCol  ! column index (1-based)
-                     call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
-                  end do; end do
-                  end associate
-               end if
-            end do; end do; end do
-         end if
+               ! IBM contributes affect only the diagonal of the block diag. matrix
+               !-------------------------------------
+               do eq2 = 1, NCONS ; do eq1 = 1, NCONS 
+                  i = eq1 + baseRow  ! row index (1-based)
+                  j = eq2 + baseCol  ! column index (1-based)
+                  call Matrix % AddToBlockEntry (e % GlobID, e % GlobID, i, j, MatEntries(eq1,eq2))
+               end do; end do
+
+               end associate
+            end if
+         end do; end do; end do
       end if
       
       nullify(dF_dgradQ)
@@ -1468,6 +1475,7 @@ contains
 !     the equations that correspond to e_plus and inserting it in the Matrix
 !
 !     -> Currently, this routine only works for p-conforming representations
+!           TODO: Add routine for p-nonconforming representations (block computation is more expensive and delta cycling is ruled out)
 !  -----------------------------------------------------------------------------------------------
    subroutine Local_GetOffDiagonalBlock(f,e_plus,e_minus,side,Matrix)
       implicit none
@@ -1533,7 +1541,7 @@ contains
 !     Definitions
 !     ***********
 !
-      a_minus = 0.5_RP 
+      a_minus = 0.5_RP  ! Temp... TODO: read from ViscousDiscretization
       
       ! Entry spacing for element e⁺
       nXi1     = e_plus % Nxyz(1) + 1
@@ -1572,6 +1580,11 @@ contains
       normAx_minus = abs(normAx_minus)
       
       ! Nodal storage
+      ! --------------------------------------
+      ! TODO: Why this doesn't work since ifort ver. 19.1?
+      ! --------------------------------------
+      ! spA_plus  = NodalStorage(e_plus  % Nxyz)
+      ! spA_minus = NodalStorage(e_minus % Nxyz)
       
       spA_plus(1)  = NodalStorage(e_plus  % Nxyz(1))
       spA_plus(2)  = NodalStorage(e_plus  % Nxyz(2))
@@ -1749,7 +1762,10 @@ contains
                      * spAnorm_minus % v(elInd_minus( normAx_minus ),normAxSide_minus)                         &
                      * dot_product( Gvec_tan2, nHat(:,faceInd_minus(1),faceInd_minus(2)) )
 !
-!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART
+!              Faces contribution (surface integrals from the outer equation) - PENALTY TERM IS BEING CONSIDERED IN THE INVISCID PART - TODO: Reorganize storage to put it explicitly in another place (needed for purely viscous equations)
+!                 The tangent directions here are taken in the reference frame of e⁻
+!              *********************************************************************
+!
 !
                MatEntries = MatEntries &
                    +   df_dGradQ_f(:,:,tanAx_minus(1),faceInd_plus(1),faceInd_plus(2))                               &

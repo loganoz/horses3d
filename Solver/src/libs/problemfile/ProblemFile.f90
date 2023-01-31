@@ -1,12 +1,11 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-!      ProblemFile.f90
 !
 !      The Problem File contains user defined procedures
 !      that are used to "personalize" i.e. define a specific
 !      problem to be solved. These procedures include initial conditions,
-!      exact solutions (e.g. for tests), etc. and allow modifications
+!      exact solutions (e.g. for tests), etc. and allow modifications 
 !      without having to modify the main code.
 !
 !      The procedures, *even if empty* that must be defined are
@@ -17,8 +16,8 @@
 !      UserDefinedFinalize(mesh)
 !      UserDefinedTermination
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #include "Includes.h"
 module ProblemFileFunctions
    implicit none
@@ -26,12 +25,12 @@ module ProblemFileFunctions
    abstract interface
       subroutine UserDefinedStartup_f
       end subroutine UserDefinedStartup_f
-
+   
       SUBROUTINE UserDefinedFinalSetup_f(mesh &
 #ifdef FLOW
                                      , thermodynamics_ &
                                      , dimensionless_  &
-                                     , refValues_ &
+                                     , refValues_ & 
 #endif
 #ifdef CAHNHILLIARD
                                      , multiphase_ &
@@ -55,7 +54,7 @@ module ProblemFileFunctions
 #ifdef FLOW
                                      , thermodynamics_ &
                                      , dimensionless_  &
-                                     , refValues_ &
+                                     , refValues_ & 
 #endif
 #ifdef CAHNHILLIARD
                                      , multiphase_ &
@@ -129,8 +128,8 @@ module ProblemFileFunctions
 
 #endif
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
       SUBROUTINE UserDefinedPeriodicOperation_f(mesh, time, dt, Monitors)
          use SMConstants
          USE HexMeshClass
@@ -142,8 +141,8 @@ module ProblemFileFunctions
          type(Monitor_t), intent(in) :: monitors
       END SUBROUTINE UserDefinedPeriodicOperation_f
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #ifdef FLOW
       subroutine UserDefinedSourceTermNS_f(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
@@ -168,14 +167,14 @@ module ProblemFileFunctions
       end subroutine UserDefinedSourceTermNS_f
 #endif
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
       SUBROUTINE UserDefinedFinalize_f(mesh, time, iter, maxResidual &
 #ifdef FLOW
                                                  , thermodynamics_ &
                                                  , dimensionless_  &
-                                                 , refValues_ &
-#endif
+                                                 , refValues_ & 
+#endif   
 #ifdef CAHNHILLIARD
                                                  , multiphase_ &
 #endif
@@ -208,7 +207,7 @@ module ProblemFileFunctions
          implicit none
       END SUBROUTINE UserDefinedTermination_f
    end interface
-
+   
 end module ProblemFileFunctions
 
          SUBROUTINE UserDefinedStartup
@@ -217,16 +216,16 @@ end module ProblemFileFunctions
 !        Called before any other routines
 !        --------------------------------
 !
-            IMPLICIT NONE
+            IMPLICIT NONE  
          END SUBROUTINE UserDefinedStartup
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          SUBROUTINE UserDefinedFinalSetup(mesh &
 #ifdef FLOW
                                         , thermodynamics_ &
                                         , dimensionless_  &
-                                        , refValues_ &
+                                        , refValues_ & 
 #endif
 #ifdef CAHNHILLIARD
                                         , multiphase_ &
@@ -253,13 +252,13 @@ end module ProblemFileFunctions
 #endif
          END SUBROUTINE UserDefinedFinalSetup
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          subroutine UserDefinedInitialCondition(mesh &
 #ifdef FLOW
                                         , thermodynamics_ &
                                         , dimensionless_  &
-                                        , refValues_ &
+                                        , refValues_ & 
 #endif
 #ifdef CAHNHILLIARD
                                         , multiphase_ &
@@ -307,17 +306,17 @@ end module ProblemFileFunctions
                         gamma => thermodynamics_ % gamma )
             theta = refvalues_ % AOAtheta*(pi/180.0_RP)
             phi   = refvalues_ % AOAphi*(pi/180.0_RP)
-
+      
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
                   qq = 1.0_RP
                   u  = qq*cos(theta)*cos(phi)
                   v  = qq*sin(theta)*cos(phi)
                   w  = qq*sin(phi)
-
+      
                   q(1) = 1.0_RP
                   p    = 1.0_RP/(gammaM2)
                   q(2) = q(1)*u
@@ -325,7 +324,7 @@ end module ProblemFileFunctions
                   q(4) = q(1)*w
                   q(5) = p/(gamma - 1._RP) + 0.5_RP*q(1)*(u**2 + v**2 + w**2)
 
-                  mesh % elements(eID) % storage % q(:,i,j,k) = q
+                  mesh % elements(eID) % storage % q(:,i,j,k) = q 
                end do;        end do;        end do
                end associate
             end do
@@ -342,8 +341,8 @@ end module ProblemFileFunctions
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
                           ny => mesh % elemeNts(eID) % nxyz(2), &
                           Nz => mesh % elements(eID) % Nxyz(3) )
-               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx
-                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP]
+               do k = 0, Nz;  do j = 0, Ny;  do i = 0, Nx 
+                  mesh % elements(eID) % storage % q(:,i,j,k) = [1.0_RP, 1.0_RP,0.0_RP,0.0_RP,0.0_RP] 
                end do;        end do;        end do
                end associate
             end do
@@ -356,13 +355,13 @@ end module ProblemFileFunctions
 !
 #ifdef CAHNHILLIARD
             call random_seed()
-
+         
             do eid = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eid) % Nxyz(1), &
                           Ny => mesh % elements(eid) % Nxyz(2), &
                           Nz => mesh % elements(eid) % Nxyz(3) )
                associate(e => mesh % elements(eID) % storage)
-               call random_number(e % c)
+               call random_number(e % c) 
                e % c = 2.0_RP * (e % c - 0.5_RP)
                end associate
                end associate
@@ -421,8 +420,8 @@ end module ProblemFileFunctions
          end subroutine UserDefinedNeumann1
 #endif
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          SUBROUTINE UserDefinedPeriodicOperation(mesh, time, dt, Monitors)
 !
 !           ----------------------------------------------------------
@@ -438,11 +437,11 @@ end module ProblemFileFunctions
             REAL(KIND=RP)                :: time
             REAL(KIND=RP)                :: dt
             type(Monitor_t), intent(in) :: monitors
-
+            
          END SUBROUTINE UserDefinedPeriodicOperation
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
 #ifdef FLOW
          subroutine UserDefinedSourceTermNS(x, Q, time, S, thermodynamics_, dimensionless_, refValues_ &
 #ifdef CAHNHILLIARD
@@ -479,18 +478,18 @@ end module ProblemFileFunctions
 !           Usage example
 !           -------------
 !           S(:) = x(1) + x(2) + x(3) + time
-
+   
          end subroutine UserDefinedSourceTermNS
 #endif
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
          SUBROUTINE UserDefinedFinalize(mesh, time, iter, maxResidual &
 #ifdef FLOW
                                                     , thermodynamics_ &
                                                     , dimensionless_  &
-                                                    , refValues_ &
-#endif
+                                                    , refValues_ & 
+#endif   
 #ifdef CAHNHILLIARD
                                                     , multiphase_ &
 #endif
@@ -527,14 +526,15 @@ end module ProblemFileFunctions
 
          END SUBROUTINE UserDefinedFinalize
 !
-!////////////////////////////////////////////////////////////////////////
-!
+!//////////////////////////////////////////////////////////////////////// 
+! 
       SUBROUTINE UserDefinedTermination
 !
 !        -----------------------------------------------
-!        Called at the the end of the main driver after
+!        Called at the the end of the main driver after 
 !        everything else is done.
 !        -----------------------------------------------
 !
-         IMPLICIT NONE
+         IMPLICIT NONE  
       END SUBROUTINE UserDefinedTermination
+      

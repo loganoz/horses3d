@@ -182,25 +182,24 @@ contains
 !     Now we construct the elements
 !     ---------------------------------------
 
-      ! set dummy values
-      falseNodeID = 0
-
       do l = 1, numberOfElements
 
          DO k = 1, NODES_PER_ELEMENT
-            HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
-            
-            corners(:,k) = NodeCoords(:,HOPRNodeID) / Lref
+            HOPRNodeID     = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
+            falseNodeID(k) = HOPRNodeID
+            corners(:,k)   = NodeCoords(:,HOPRNodeID) / Lref
             
          END DO
 
          self % elements(l) % SurfInfo % corners = corners
 
          if( present(locR) ) then
+            ! set dummy values
+            falseNodeID = 0
             call locR% getOrderOfPosition(corners, Nx_, Ny_, Nz_)
             call self % elements(l) % Construct (Nx_, Ny_, Nz_, falseNodeID , l, l)
          else
-            call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), corners , l, l) 
+            call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), falseNodeID , l, l) 
          end if
          
          

@@ -333,10 +333,14 @@ module Utilities
    end subroutine LeastSquaresLinRegression
 !
 !////////////////////////////////////////////////////////////////////////
-! 		Recursive Fortran 95 quicksort rOUTINe
-! 			sorts INTEGER numbers INto ascENDing numerical order
-!  		Based on algorithm from Cormen et al., Introduction to Algorithms,
-! 			1997 prINting
+!
+!      Qsort.f90
+!      Created: 2016-08-25 14:30 (GMT+0)
+!      By: Juli Rew (juliana@ucar.edu)
+!     Recursive Fortran 95 quicksort rOUTINe
+!        sorts INTEGER numbers INto ascENDing numerical order
+!        Based on algorithm from Cormen et al., Introduction to Algorithms,
+!        1997 prINting
 !
 !////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -513,4 +517,3 @@ integer function my_findloc(arr, val, dim)
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 end module Utilities
-

@@ -249,6 +249,9 @@ module Storage
             self % hasSensor    = .false.
             self % hasTimeDeriv = .true.
 
+         ! TODO?
+         case (IBM_MESH)
+
          case (SOLUTION_AND_SENSOR_FILE)
             dimensionsSize = 4
             self % hasGradients = .false.
@@ -344,7 +347,7 @@ module Storage
 !
 !                 Allocate memory for the gradients
 !                 ---------------------------------
-                  allocate( e % Q_x(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) ) 
+                  allocate( e % Q_x(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) ) ! TODO: Allocate depending on physics
                   allocate( e % Q_y(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                   allocate( e % Q_z(1:NVARS,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
 
@@ -359,7 +362,7 @@ module Storage
                   read(fid) e % Q_z
 
 !                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
-!                 Set state as is the default option T
+!                 Set state as is the default option TODO point to the correct one if its possible (oscar note)
 !                 ---------------------------
                   call set_getVelocityGradients(GRADVARS_STATE)
 
@@ -522,6 +525,7 @@ module Storage
       NVARS = originalDim
 
       ! use simple hardcoded values taken from physics.
+      ! todo: link from horses3d code
       if (useFlowEq) then
           select case (trim(flowEq))
               case ("ns")

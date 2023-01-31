@@ -1,12 +1,9 @@
-!
 !//////////////////////////////////////////////////////
 !
-! This class represents the numerical force use to induce turbulence, or tripping
-! following JFM by Schlatter & Orlu 2012:
-! Turbulent boundary layers at moderate Reynolds numbers: infow length and tripping effects
-!
-!//////////////////////////////////////////////////////
-!
+!This class represents the numerical force use to induce turbulence, or tripping
+!following JFM by Schlatter & Orlu 2012: 
+!Turbulent boundary layers at moderate Reynolds numbers: infow length and tripping effects
+
 #include "Includes.h"
 Module TripForceClass
   use SMConstants
@@ -23,7 +20,7 @@ Module TripForceClass
   private
   public randomTrip
 
-  !definition of gtripClass
+  !definition of gtripClass 
   type gtripClass
     real(kind=RP), dimension(:), allocatable                 :: g, z
     real(kind=RP), dimension(:,:), allocatable               :: h ! the first two dimensions are the old and new values of the random signal respectively, the 3 one is the steady state
@@ -41,7 +38,7 @@ Module TripForceClass
 
   end type gtripClass
 
-  !definition of the complete tripClass
+  !definition of the complete tripClass 
   type ftripClass
       integer                                               :: numberOfTrips
       real(kind=RP), dimension(:,:), allocatable            :: centerPositions
@@ -93,31 +90,31 @@ Module TripForceClass
 
     if (controlVariables % containsKey("trip center")) then
         x1 = controlVariables % doublePrecisionValueForKey("trip center")
-    else
+    else 
         stop "Trip center must be defined"
     end if
 
     if (controlVariables % containsKey("trip attenuation")) then
         gaussAten_str = trim(controlVariables % stringValueForKey("trip attenuation", LINE_LENGTH))
         self % spatialGaussianAtenuation = getRealArrayFromString(gaussAten_str)
-    else
+    else 
         stop "Trip attenuation must be defined"
     end if
-
+    
     if (controlVariables % containsKey("trip zone")) then
         trip_zones_str = trim(controlVariables % stringValueForKey("trip zone", LINE_LENGTH))
         call toLower(trip_zones_str)
         call getCharArrayFromString(trip_zones_str, LINE_LENGTH, trip_zones)
-    else
+    else 
         stop "Trip zone must be defined"
     end if
-
+    
     N = 1
     if (controlVariables % containsKey("trip center 2")) then
         x2 = controlVariables % doublePrecisionValueForKey("trip center 2")
         N = 2
     end if
-
+    
     if (size(trip_zones) .ne. N) stop "The length of the trip zones is not the same as the trip center length"
 
     allocate(self % centerPositions(N,2), self % normals(N,NDIM), trip_zones_index(N))
@@ -146,7 +143,7 @@ Module TripForceClass
           call mpi_Bcast(temp_center, 2, MPI_DOUBLE, partitionRank, MPI_COMM_WORLD, ierr)
           call mpi_Bcast(temp_normals, NDIM, MPI_DOUBLE, partitionRank, MPI_COMM_WORLD, ierr)
 #endif
-    end if
+    end if 
     self % centerPositions(1,:) = temp_center
     self % normals(1,:) = temp_normals
 
@@ -164,7 +161,7 @@ Module TripForceClass
         call mpi_Bcast(temp_center, 2, MPI_DOUBLE, partitionRank, MPI_COMM_WORLD, ierr)
         call mpi_Bcast(temp_normals, NDIM, MPI_DOUBLE, partitionRank, MPI_COMM_WORLD, ierr)
 #endif
-      end if
+      end if 
       self % centerPositions(2,:) = temp_center
       self % normals(2,:) = temp_normals
     end if
@@ -176,6 +173,7 @@ Module TripForceClass
     if ( MPI_Process % isRoot ) then
         write(STD_OUT,'(/)')
         call Subsection_Header("Trip Source Term")
+        ! write(STD_OUT,'(30X,A,A28,A)') "->", "Trip Type: ", "Random"
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of trips: ", N
         if (N .eq. 2) write(STD_OUT,'(30X,A,A28,A,ES10.3,A,ES10.3,A)') "->", "Second Trip center: ", "[",self % centerPositions(2,1),",",self % centerPositions(2,2),"]"
         write(STD_OUT,'(30X,A,A28,A,ES10.3,A,ES10.3,A)') "->", "First Trip center: ", "[",self % centerPositions(1,1),",",self % centerPositions(1,2),"]"
@@ -324,6 +322,7 @@ Module TripForceClass
     end if
 
     !search for the maximum and minimum values of z in the whole mesh
+!!$omp parallel do private(eID,k) reduction(MIN:zMin) reduction(MAX:zMax) schedule(runtime)
     zMin = mesh % nodes(mesh % elements(1) % nodeIDs(1)) % x(3)
     zMax = mesh % nodes(mesh % elements(1) % nodeIDs(1)) % x(3)
     do eID = 1, mesh % no_of_elements
@@ -336,6 +335,7 @@ Module TripForceClass
          end do
        end associate
     end do
+!!$omp end parallel do
     if ( (MPI_Process % doMPIAction) ) then
 #ifdef _HAS_MPI_
       call mpi_allreduce(zMin, allzMin, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
@@ -347,6 +347,8 @@ Module TripForceClass
     end if
 
     allocate(self % g(0:N-1), self % h(0:N-1,3), self % z(0:N-1))
+    ! todo: check why this is used
+    ! self % Ncutz = int((xz(2) - xz(1))/ self % zs)
     self % zs = (allzMax - allzMin)/ real(self % Ncutz,RP)
 
     ! create evenly spaced z array
@@ -373,18 +375,18 @@ Module TripForceClass
       stop 'MKL not linked correctly'
 #endif
 
-  End Subroutine gtripConstruct
+  End Subroutine gtripConstruct 
 !
   Subroutine  gtripDestruct(self)
 
     class(gtripClass), intent(inout)                          :: self
-
+ 
     if (ALLOCATED(self%g)) DEALLOCATE (self%g)
     if (ALLOCATED(self%h)) DEALLOCATE (self%h)
     if (ALLOCATED(self%z)) DEALLOCATE (self%z)
     self % tsubstep = -1
 
-  End Subroutine gtripDestruct
+  End Subroutine gtripDestruct 
 !
   Subroutine randSignal(self, signal)
   ! creates a random signal (array) with the first Ncutz modes random and .le. 1.0 and 0 for modes greater than Ncutz.
@@ -426,7 +428,7 @@ Module TripForceClass
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
             fourierCoefficients(2*i) = real(fourierArg)*sqrt(2.0_RP)
             fourierCoefficients(2*i+1) = 0
-          end do
+          end do  
         else
           do i = 1, nh
             fourierArg = exp(ImgI*2.0_RP*PI*ranNum(i+1))
@@ -501,12 +503,16 @@ Module TripForceClass
     do i= 0,nh
       coef(i) = cmplx(y(2*i), y(2*i+1))
     end do
+    ! if (mod(N,2).ne.0) nh = nh +1
+    ! do i= 1,nh-1
+    !   coef(nh+i) = conjg(coef(nh-i))
+    ! end do
     coeffCCS = y
 #else
       stop 'MKL not linked correctly'
 #endif
 
-  End Subroutine forfft
+  End Subroutine forfft 
 !
   Subroutine backfft(x,N,coeffCCS)
 
@@ -536,7 +542,7 @@ Module TripForceClass
       stop 'MKL not linked correctly'
 #endif
 
-  End Subroutine backfft
+  End Subroutine backfft 
 !
   Function getgTripForceAtZ(self, specificZ) result(gz)
     ! returns the value of the g term at a given z position, using linear interpolation
@@ -554,11 +560,11 @@ Module TripForceClass
     !starts in 1 in case there is a value .eq. to the 0 position
     do i = 1, self % N - 1
       if (specificZ .ge. self % z(i)) exit
-    end do
+    end do  
 
     gz = self % g(i-1) + ( self % g(i) - self % g(i-1) ) / ( self % z(i) - self % z(i-1) ) * (specificZ - self%z(i-1))
 
-  End Function getgTripForceAtZ
+  End Function getgTripForceAtZ 
 !
 !/////////////////////////////////////////////////////////////////////////
 !           HELPER PROCEDURES --------------------------
@@ -592,7 +598,7 @@ Module TripForceClass
         onlyYNegative = yNegative
     else
         onlyYNegative = .false.
-    end if
+    end if 
 
     yIndex = x_dim + 1
     if (yIndex .gt. NDIM) yIndex = yIndex - NDIM
@@ -610,7 +616,7 @@ Module TripForceClass
             faceID = fID
             exit
           end if
-        end if
+        end if 
       end associate
     end do
 

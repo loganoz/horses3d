@@ -1103,4 +1103,3 @@ module WallDistance
       end function
 #endif
 end module WallDistance
-

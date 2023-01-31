@@ -46,7 +46,8 @@ module IBMClass
                                                  ComputeDistance      = .false., &
                                                  AAB                  = .false.                                                
       real(kind=rp)                           :: eta, BandRegionCoeff, IP_Distance = 0.0_RP, &
-                                                 y_plus_target, minCOORDS, maxCOORDS
+                                                 y_plus_target, minCOORDS, maxCOORDS,        &
+                                                 penalCoeff
       real(kind=rp),              allocatable :: penalization(:)
       integer                                 :: KDtree_Min_n_of_Objs, NumOfInterPoints,     &
                                                  n_of_INpoints,  rank, lvl = 0, NumOfSTL,    &
@@ -143,7 +144,8 @@ module IBMClass
                                     plotBandPoints_in, plotMask_in,     &
                                     BandRegion_in, Distance_in, AAB_in
       real(kind=rp), allocatable :: penalization_in, y_plus_target_in,  &
-                                    BandRegionCoeff_in
+                                    BandRegionCoeff_in,                 & 
+                                    penalization_coeff_in
       integer,       allocatable :: n_of_Objs_in, n_of_interpoints_in,  &
                                     Nx_in, Ny_in, Nz_in, Clipaxis_in
       character(len=LINE_LENGTH) :: in_label, paramFile, name_in, tmp,  &
@@ -157,26 +159,27 @@ module IBMClass
 !     **********
       write(in_label , '(A)') "#define ibm"
       call get_command_argument(1, paramFile) 
-      call readValueInRegion( trim( paramFile ), "name",                           name_in,              in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "active",                         active_in,            in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "penalization",                   penalization_in,      in_label, "#end" )   
-      call readValueInRegion( trim( paramFile ), "semi implicit",                  semiImplicit_in,      in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "nx",                             Nx_in,                in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "ny",                             Ny_in,                in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "nz",                             Nz_in,                in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "target y plus",                  y_plus_target_in,     in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "number of objects",              n_of_Objs_in,         in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "number of interpolation points", n_of_interpoints_in,  in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "clip axis",                      Clipaxis_in,          in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "band region",                    BandRegion_in,        in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "distance",                       Distance_in,          in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "band region coeff",              BandRegionCoeff_in,   in_label, "#end" )    
-      call readValueInRegion( trim( paramFile ), "aab",                            AAB_in,               in_label, "#end" )     
-      call readValueInRegion( trim( paramFile ), "intepolation",                   InterpolationType_in, in_label, "#end" )     
-      call readValueInRegion( trim( paramFile ), "plot obb",                       plotOBB_in,           in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "plot kdtree" ,                   plotKDtree_in,        in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "plot mask",                      plotMask_in,          in_label, "#end" )
-      call readValueInRegion( trim( paramFile ), "plot band points",               plotBandPoints_in,    in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "name",                           name_in,               in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "active",                         active_in,             in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "penalization",                   penalization_in,       in_label, "#end" )   
+      call readValueInRegion( trim( paramFile ), "penalization coeff",             penalization_coeff_in, in_label, "#end" )   
+      call readValueInRegion( trim( paramFile ), "semi implicit",                  semiImplicit_in,       in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "nx",                             Nx_in,                 in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "ny",                             Ny_in,                 in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "nz",                             Nz_in,                 in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "target y plus",                  y_plus_target_in,      in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "number of objects",              n_of_Objs_in,          in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "number of interpolation points", n_of_interpoints_in,   in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "clip axis",                      Clipaxis_in,           in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "band region",                    BandRegion_in,         in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "distance",                       Distance_in,           in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "band region coeff",              BandRegionCoeff_in,    in_label, "#end" )    
+      call readValueInRegion( trim( paramFile ), "aab",                            AAB_in,                in_label, "#end" )     
+      call readValueInRegion( trim( paramFile ), "intepolation",                   InterpolationType_in,  in_label, "#end" )     
+      call readValueInRegion( trim( paramFile ), "plot obb",                       plotOBB_in,            in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "plot kdtree" ,                   plotKDtree_in,         in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "plot mask",                      plotMask_in,           in_label, "#end" )
+      call readValueInRegion( trim( paramFile ), "plot band points",               plotBandPoints_in,     in_label, "#end" )
 
       this% filename = trim(name_in)
 
@@ -231,7 +234,13 @@ module IBMClass
          this% eta = 0.1_RP
          this% TimePenal = .true.
       end if
- 
+
+      if( allocated(penalization_coeff_in) ) then
+         this% penalCoeff = penalization_coeff_in
+      else
+         this% penalCoeff = 1.0_RP
+      end if
+
       if( allocated(n_of_Objs_in) ) then
          this% KDtree_Min_n_of_Objs = n_of_Objs_in
       else
@@ -352,7 +361,7 @@ module IBMClass
          allocate( this% rootPoints(this% NumOfSTL),   & 
                    this% BandRegion(this% NumOfSTL)    )
       end if
-      
+
       if( this% ComputeDistance ) allocate(this% rootDistance(this% NumOfSTL))
       
       do STLNum = 1, this% NumOfSTL 
@@ -662,6 +671,8 @@ module IBMClass
       integer,         intent(in)    :: STLNum
       !-local-variables------------------------
       integer :: i, j 
+
+      if( this% Integral(STLNum)% compute ) return
 
       do i = 1, this% root(STLNum)% NumOfObjs
          do j = 1, 3
@@ -1324,23 +1335,25 @@ module IBMClass
       d = huge(1.0_RP) 
 
       do eID = 1, size(elements) 
-            dx = maxval(elements(eID)% SurfInfo% corners(1,:)) - minval(elements(eID)% SurfInfo% corners(1,:))
-            dy = maxval(elements(eID)% SurfInfo% corners(2,:)) - minval(elements(eID)% SurfInfo% corners(2,:))
-            dz = maxval(elements(eID)% SurfInfo% corners(3,:)) - minval(elements(eID)% SurfInfo% corners(3,:))
-            d  = min(d,min(abs(dx),abs(dy),abs(dz)))   
+         dx = maxval(elements(eID)% SurfInfo% corners(1,:)) - minval(elements(eID)% SurfInfo% corners(1,:))
+         dy = maxval(elements(eID)% SurfInfo% corners(2,:)) - minval(elements(eID)% SurfInfo% corners(2,:))
+         dz = maxval(elements(eID)% SurfInfo% corners(3,:)) - minval(elements(eID)% SurfInfo% corners(3,:))
+         d  = min(d,min(abs(dx),abs(dy),abs(dz)))   
       end do    
       d_min = sqrt(3.0_RP)*d 
 #ifdef _HAS_MPI_
-      call mpi_allreduce(d_min, this% IP_Distance, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
-      call mpi_allreduce(d, Dist, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
+    call mpi_allreduce(d_min, this% IP_Distance, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
+      Dist = this% IP_Distance
       this% IP_Distance = 1.5_RP*this% IP_Distance
 #else
+      this% IP_Distance = d_min
+      Dist = this% IP_Distance
       this% IP_Distance = 1.5_RP*this% IP_Distance
-      Dist = d
 #endif        
+
       do eID = 1, size(elements) 
          do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)   
-            if( elements(eID)% geom% dWall(i,j,k) .gt. Dist ) cycle
+            if( elements(eID)% geom% dWall(i,j,k) .gt. this% IP_Distance ) cycle
             elements(eID)% isForcingPoint(i,j,k) = .true.
             this% NumOfForcingPoints = this% NumOfForcingPoints + 1
          end do; end do; end do     
@@ -1708,7 +1721,7 @@ module IBMClass
 !  -------------------------------------------------
 !  Source terms for the immersed boundary 
 !  ------------------------------------------------   
-   subroutine IBM_SourceTerm( this, eID, Q, Q_target, Source )
+   subroutine IBM_SourceTerm( this, eID, Q, Q_target, Source, Wallfunction )
       use PhysicsStorage
       implicit none
       !-arguments--------------------------------------------
@@ -1717,6 +1730,7 @@ module IBMClass
       real(kind=rp),             intent(in)    :: Q(:)
       real(kind=rp),   optional, intent(in)    :: Q_target(:)
       real(kind=rp),             intent(inout) :: Source(:)
+      logical,                   intent(in)    :: Wallfunction
       !-local-variables--------------------------------------
       real(kind=rp) :: rho, rho_s, u, u_s, v, v_s, w, w_s
 #if defined(SPALARTALMARAS)
@@ -1746,7 +1760,7 @@ module IBMClass
       u   = Q(IRHOU)/rho
       v   = Q(IRHOV)/rho
       w   = Q(IRHOW)/rho
-      
+
       Source(IRHOU) = rho*u-rho_s*u_s  
       Source(IRHOV) = rho*v-rho_s*v_s 
       Source(IRHOW) = rho*w-rho_s*w_s
@@ -1757,8 +1771,12 @@ module IBMClass
       Source(IRHOTHETA) = rho*theta - rho_s*theta_s
 #endif                     
 #endif   
-      Source = -1.0_RP/this% penalization(eID) * Source
-   
+      if( Wallfunction ) then 
+         Source = -1.0_RP/(this% penalCoeff * this% penalization(eID)) * Source 
+      else 
+         Source = -1.0_RP/this% penalization(eID) * Source
+      end if 
+
    end subroutine IBM_SourceTerm
 !
 !  Analytical jacobian: dS/dQ 
@@ -1830,7 +1848,7 @@ module IBMClass
          dS_dQ(:,i) = (Q_FPnext - Q_FP)/eps 
       end do 
 
-      dS_dQ = -1.0_RP/this% penalization(ImagePoint% element_index) * dS_dQ 
+      dS_dQ = -1.0_RP/(this% penalCoeff*this% penalization(ImagePoint% element_index)) * dS_dQ 
 
    end subroutine IBM_semiImplicitTurbulenceJacobian
 !
@@ -1894,7 +1912,7 @@ module IBMClass
 
    end subroutine IBM_SemiImplicitTurbulenceShiftJacobian
 !
-!  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
+!  Second order Strang splitting correction Q^*. (1 - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q)
 !  ------------------------------------------------------------------------------------------------
    subroutine IBM_GetSemiImplicitStep( this, eID, dt, Q )
       use PhysicsStorage
@@ -1911,13 +1929,13 @@ module IBMClass
       call this% semiImplicitJacobian( eID, Q, dS_dQ )
 
       call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ )
-      call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource)          
+      call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource, Wallfunction  =.false.)          
 
       Q = matmul(invdS_dQ, Q + dt*( IBMSource - matmul(dS_dQ,Q) ))
 
    end subroutine IBM_GetSemiImplicitStep
 !
-!  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
+!  Second order Strang splitting correction Q^*. (1 - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q)
 !  ------------------------------------------------------------------------------------------------
    subroutine IBM_GetSemiImplicitStepTurbulence( this, ImagePoint, dt, Q, normal, dWall, STLNum )
       use PhysicsStorage
@@ -2029,11 +2047,11 @@ module IBMClass
 #if defined(NAVIERSTOKES) 
       call ForcingPointState( Q_IP, this% IP_Distance, dWall, normal, Q_FP )
 #endif
-      call this% SourceTerm( ImagePoint% element_index, Q, Q_FP, TurbulenceSource )
+      call this% SourceTerm( ImagePoint% element_index, Q, Q_FP, TurbulenceSource, .true. )
 
-      !TurbulenceSource = -1.0_RP/this% penalization(ImagePoint% element_index) * (Q - Q_FP)
+      !TurbulenceSource = -1.0_RP/(1.0_RP*this% penalization(ImagePoint% element_index)) * (Q - Q_FP)
 
-   end subroutine IBM_SourceTermTurbulence     
+   end subroutine IBM_SourceTermTurbulence
 !
 !   State to be imposed on the forcing points due to the wall model
 !   ---------------------------------------------------------------

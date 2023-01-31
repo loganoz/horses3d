@@ -359,7 +359,6 @@ print*, "Method selected: RK5"
 !     Read Control variables
 !     ----------------------
 !
-
       IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
          TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
       ELSE ! Default value
@@ -398,7 +397,6 @@ print*, "Method selected: RK5"
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
-
       if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
@@ -413,6 +411,7 @@ print*, "Method selected: RK5"
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
       end if
+
 !
 !     ------------------
 !     Configure restarts
@@ -493,6 +492,7 @@ print*, "Method selected: RK5"
 !     ----------------
 !
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
+
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -503,6 +503,7 @@ print*, "Method selected: RK5"
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
+
 
 !
 !        Set penalization term for IBM
@@ -536,7 +537,6 @@ print*, "Method selected: RK5"
 !
 !        Perform time step
 !        -----------------
-
          SELECT CASE (TimeIntegration)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
@@ -560,10 +560,10 @@ print*, "Method selected: RK5"
          case (IMEX_SOLVER)
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
          END SELECT         
+
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
 #endif
-
 !
 !        Compute the new time
 !        --------------------
@@ -626,8 +626,8 @@ print*, "Method selected: RK5"
 
          endif
 
-#endif
 
+#endif
 !
 !        Print monitors
 !        --------------
