@@ -1,4 +1,38 @@
 #include "Includes.h"
+module RiemannSolvers_iNSKeywordsModule
+
+     integer,                       parameter :: KEYWORD_LENGTH           = 132
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY  = "riemann solver"
+     character(len=KEYWORD_LENGTH), parameter :: LAMBDA_STABILIZATION_KEY = "lambda stabilization"
+     character(len=KEYWORD_LENGTH), parameter :: AVG_NAME_KEY             = "averaging"
+!
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_CENTRAL_NAME = "central"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LXF_NAME     = "lax-friedrichs"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_EXACT_NAME   = "exact"
+
+     enum, bind(C)
+        enumerator :: RIEMANN_CENTRAL = 1, RIEMANN_LXF, RIEMANN_EXACT
+     end enum
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     character(len=KEYWORD_LENGTH), parameter :: STANDARD_AVG_NAME       = "standard"
+     character(len=KEYWORD_LENGTH), parameter :: SKEWSYMMETRIC1_AVG_NAME = "skew-symmetric 1"
+     character(len=KEYWORD_LENGTH), parameter :: SKEWSYMMETRIC2_AVG_NAME = "skew-symmetric 2"
+
+     enum, bind(C)
+        enumerator :: STANDARD_AVG = 1, SKEWSYMMETRIC1_AVG, SKEWSYMMETRIC2_AVG
+     end enum
+
+end module RiemannSolvers_iNSKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module RiemannSolvers_iNS
    use SMConstants
    use Physics_iNS
@@ -6,8 +40,12 @@ module RiemannSolvers_iNS
    use VariableConversion_iNS
    use FluidData_iNS
 
-   private 
-   public RiemannSolver, SetRiemannSolver, ExactRiemannSolver
+   implicit none
+
+   private
+   public whichAverage, whichRiemannSolver
+   public SetRiemannSolver, DescribeRiemannSolver
+   public RiemannSolver, AveragedStates, TwoPointFlux, ExactRiemannSolver
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -21,82 +59,188 @@ module RiemannSolvers_iNS
          real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine RiemannSolverFCN
 
-      subroutine AveragedStatesFCN(QLeft, QRight, f, g, h) 
+      subroutine AveragedStatesFCN(QLeft, QRight, f, g, h)
          use SMConstants
          use PhysicsStorage_iNS
-         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(out)      :: f(1:NCONS), g(1:NCONS), h(1:NCONS)
       end subroutine AveragedStatesFCN
+
+      subroutine TwoPointFluxFCN(QLeft, QRight, JaL, JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+      end subroutine TwoPointFluxFCN
    end interface
 
-   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
-   procedure(AveragedStatesFCN)    , pointer  :: AveragedStates     => NULL()
+   procedure(RiemannSolverFCN),  protected, pointer :: RiemannSolver  => NULL()
+   procedure(AveragedStatesFCN), protected, pointer :: AveragedStates => NULL()
+   procedure(TwoPointFluxFCN),   protected, pointer :: TwoPointFlux   => NULL()
 
+   integer, protected :: whichRiemannSolver = -1
+   integer, protected :: whichAverage = -1
+   real(RP)           :: lambdaStab = 1.0_RP
+!
+!  ========
    contains
-      SUBROUTINE SetRiemannSolver(which, splitType)
+!  ========
 !
-!        **************************************************************
-!              This subroutine is to set which Riemann solver is used.
-!           the user cannot decide amongst the averaging function.
-!           It is automatically selected depending on which split
-!           form is enabled.
-!           The user can choose the dissipation type:
-!              None (central), Roe, Lax-Friedrichs, Rusanov
+      subroutine SetRiemannSolver(controlVariables)
 !
-!           And the dissipation intensity, with the lambda stabilization
-!           parameter. By default it is set to 1 (whole dissipation),
-!           instead for central fluxes, which is 0 (no dissipation).
-!        **************************************************************
+!        -------
+!        Modules
+!        -------
+         use Utilities, only: toLower
+         use FTValueDictionaryClass
+         use RiemannSolvers_iNSKeywordsModule
 !
-         IMPLICIT NONE
-         integer, intent(in) :: which
-         integer, intent(in) :: splitType
-         
-         
-         select case ( which )
-         case(RIEMANN_CENTRAL)
+!        ---------
+!        Interface
+!        ---------
+         type(FTValueDictionary), intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         character(len=KEYWORD_LENGTH) :: keyword
+
+!
+!        --------------------------------------------
+!        Choose the Riemann solver (default is exact)
+!        --------------------------------------------
+         if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(RIEMANN_SOLVER_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case(RIEMANN_CENTRAL_NAME)
+               RiemannSolver => CentralRiemannSolver
+               whichRiemannSolver = RIEMANN_CENTRAL
+
+            case(RIEMANN_LXF_NAME)
+               RiemannSolver => LxFRiemannSolver
+               whichRiemannSolver = RIEMANN_LXF
+
+            case(RIEMANN_EXACT_NAME)
+               RiemannSolver => ExactRiemannSolver
+               whichRiemannSolver = RIEMANN_EXACT
+
+            case default
+               print*, "Riemann Solver not recognized."
+               errorMessage(STD_OUT)
+               STOP
+            end select
+
+         else
+!
+!           Select exact by default
+!           -----------------------
             RiemannSolver => CentralRiemannSolver
+            whichRiemannSolver = RIEMANN_EXACT
 
-         case(RIEMANN_LXF)
-            RiemannSolver => LxFRiemannSolver
-
-         case(RIEMANN_EXACT)
-            RiemannSolver => ExactRiemannSolver
-
-         case default
-            print*, "Undefined choice of Riemann Solver."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * Exact"
-            errorMessage(STD_OUT)
-            STOP
-         end select
+         end if
 !
+!        --------------------
+!        Lambda stabilization
+!        --------------------
+         if (controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
+            lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
+
+         else
+!
+!           By default, lambda is 1 (full upwind stabilization)
+!           ---------------------------------------------------
+            lambdaStab = 1.0_RP
+
+         end if
+!
+!        If central fluxes are used, set lambdaStab to zero
+!        --------------------------------------------------
+         if (whichRiemannSolver .eq. RIEMANN_CENTRAL) lambdaStab = 0.0_RP
+!
+!        ----------------------------
 !        Set up an averaging function
 !        ----------------------------
-         select case ( splitType )
-         case (STANDARD_SPLIT)
+         if (controlVariables % containsKey(AVG_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(AVG_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (STANDARD_AVG_NAME)
+               AveragedStates => StandardAverage
+               TwoPointFlux => StandardDG_TwoPointFlux
+               whichAverage = STANDARD_AVG
+
+            case (SKEWSYMMETRIC1_AVG_NAME)
+               AveragedStates => SkewSymmetric1Average
+               TwoPointFlux => SkewSymmetric1DG_TwoPointFlux
+               whichAverage = SKEWSYMMETRIC1_AVG
+
+            case (SKEWSYMMETRIC2_AVG_NAME)
+               AveragedStates => SkewSymmetric2Average
+               TwoPointFlux => SkewSymmetric2DG_TwoPointFlux
+               whichAverage = SKEWSYMMETRIC2_AVG
+
+            case default
+               print*, "Averaging not recognized."
+               errorMessage(STD_OUT)
+               stop
+            end select
+
+         else
+!
+!           Select standard by default
+!           --------------------------
             AveragedStates => StandardAverage
-            whichAverage = STANDARD_SPLIT
+            TwoPointFlux => StandardDG_TwoPointFlux
+            whichAverage = STANDARD_AVG
 
-         case (SKEWSYMMETRIC1_SPLIT)
-            AveragedStates => SkewSymmetric1Average
-            whichAverage = SKEWSYMMETRIC1_SPLIT
+         end if
 
-         case (SKEWSYMMETRIC2_SPLIT)
-            AveragedStates => SkewSymmetric2Average
-            whichAverage = SKEWSYMMETRIC2_SPLIT
-
-         case default
-            print*, "Split form not recognized"
-            errorMessage(STD_OUT)
-            stop
-         end select
-      
       END SUBROUTINE SetRiemannSolver
+
+      subroutine DescribeRiemannSolver
+!
+!        -------
+!        Modules
+!        -------
+         use RiemannSolvers_iNSKeywordsModule
+
+
+         select case (whichAverage)
+         case (STANDARD_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Standard"
+
+         case (SKEWSYMMETRIC1_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Skew-symmetric 1"
+
+         case (SKEWSYMMETRIC2_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Skew-symmetric 2"
+
+         end select
+
+         select case (whichRiemannSolver)
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
+
+         case (RIEMANN_EXACT)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
+
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+
+      end subroutine DescribeRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -106,7 +250,7 @@ module RiemannSolvers_iNS
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -153,7 +297,7 @@ module RiemannSolvers_iNS
       end subroutine CentralRiemannSolver
 
       subroutine LxFRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -211,7 +355,7 @@ stop
       end subroutine LxFRiemannSolver
 
       subroutine ExactRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
-         implicit none 
+         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: nHat(1:NDIM), t1(NDIM), t2(NDIM)
@@ -224,7 +368,7 @@ stop
          real(kind=RP)  :: rhoL, uL, vL, wL, pL, invRhoL, lambdaMinusL, lambdaPlusL
          real(kind=RP)  :: rhoR, uR, vR, wR, pR, invRhoR, lambdaMinusR, lambdaPlusR
          real(kind=RP)  :: rhoStarL, rhoStarR, uStar, pStar, rhoStar, vStar, wStar
-         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS) 
+         real(kind=RP)  :: QLRot(NCONS), QRRot(NCONS)
          real(kind=RP)  :: stab(NCONS), lambdaMax
 !
 !        Rotate the variables to the face local frame using normal and tangent vectors
@@ -289,14 +433,12 @@ stop
 !
 !  Implemented two-point averages are:
 !     -> Standard: Central fluxes
-!     -> Ducros
-!     -> Morinishi
-!     -> Kennedy and Gruber
-!     -> Pirozzoli
+!     -> Skew-symmetric 1
+!     -> Skew-symmetric 2
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StandardAverage(QLeft, QRight, f, g, h) 
+      subroutine StandardAverage(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !           Computes the standard average of the two states:
@@ -338,7 +480,7 @@ stop
 
       end subroutine StandardAverage
 
-      subroutine SkewSymmetric1Average(QLeft, QRight, f, g, h) 
+      subroutine SkewSymmetric1Average(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !        *********************************************************************
@@ -370,7 +512,7 @@ stop
          stop
       end subroutine SkewSymmetric1Average
 
-      subroutine SkewSymmetric2Average(QLeft, QRight, f, g, h) 
+      subroutine SkewSymmetric2Average(QLeft, QRight, f, g, h)
 !
 !        *********************************************************************
 !        *********************************************************************
@@ -412,7 +554,7 @@ stop
          h(INSRHOU) = h(INSRHO)*u
          h(INSRHOV) = h(INSRHO)*v
          h(INSRHOW) = h(INSRHO)*w + p
-         h(INSP)    = thermodynamics % rho0c02 * w 
+         h(INSP)    = thermodynamics % rho0c02 * w
 
 
          
@@ -428,5 +570,202 @@ stop
 !         flux(INSP)    = thermodynamics % rho0c02 * u
 
       end subroutine SkewSymmetric2Average
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!        Volumetric two-point fluxes
+!        ---------------------------
+!///////////////////////////////////////////////////////////////////////
+!
+      subroutine StandardDG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP)     :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+!
+!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        ---------------
+         Ja = (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rhoL*uL         + rhoR*uR
+         f(INSRHOU) = rhoL*uL*uL + pL + rhoR*uR*uR + pR
+         f(INSRHOV) = rhoL*uL*vL      + rhoR*uR*vR
+         f(INSRHOW) = rhoL*uL*wL      + rhoR*uR*wR
+         f(INSP)    = thermodynamics % rho0c02 * (uL + uR)
+
+         g(INSRHO)  = rhoL*vL         + rhoR*vR
+         g(INSRHOU) = rhoL*vL*uL      + rhoR*vR*uR
+         g(INSRHOV) = rhoL*vL*vL + pL + rhoR*vR*vR + pR
+         g(INSRHOW) = rhoL*vL*wL      + rhoR*vR*wR
+         g(INSP)    = thermodynamics % rho0c02 * (vL + vR)
+
+         h(INSRHO)  = rhoL*wL         + rhoR*wR
+         h(INSRHOU) = rhoL*wL*uL      + rhoR*wR*uR
+         h(INSRHOV) = rhoL*wL*vL      + rhoR*wR*vR
+         h(INSRHOW) = rhoL*wL*wL + pL + rhoR*wR*wR + pR
+         h(INSP)    = thermodynamics % rho0c02 * (wL + wR)
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
+
+      end subroutine StandardDG_TwoPointFlux
+
+      subroutine SkewSymmetric1DG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP) :: rho, u, v, w, p, rhou, rhov, rhow
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+
+         rhou = 0.5_RP * (QL(INSRHOU) + QR(INSRHOU))
+         rhov = 0.5_RP * (QL(INSRHOV) + QR(INSRHOV))
+         rhow = 0.5_RP * (QL(INSRHOW) + QR(INSRHOW))
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rhou
+         f(INSRHOU) = rhou*u + p
+         f(INSRHOV) = rhou*v
+         f(INSRHOW) = rhou*w
+         f(INSP)    = thermodynamics % rho0c02 * u
+
+         g(INSRHO)  = rhov
+         g(INSRHOU) = rhov*u
+         g(INSRHOV) = rhov*v + p
+         g(INSRHOW) = rhov*w
+         g(INSP)    = thermodynamics % rho0c02 * v
+
+         h(INSRHO)  = rhow
+         h(INSRHOU) = rhow*u
+         h(INSRHOV) = rhow*v
+         h(INSRHOW) = rhow*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine SkewSymmetric1DG_TwoPointFlux
+
+      subroutine SkewSymmetric2DG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_iNS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP) :: rhoL, uL, vL, wL, pL, invRhoL
+         real(kind=RP) :: rhoR, uR, vR, wR, pR, invRhoR
+         real(kind=RP) :: rho, u, v, w, p
+         real(kind=RP) :: Ja(1:NDIM)
+         real(kind=RP) :: f(NCONS), g(NCONS), h(NCONS)
+
+         rhoL    = QL(INSRHO)
+         rhoR    = QR(INSRHO)
+
+         invRhoL = 1.0_RP / rhoL         ; invRhoR = 1.0_RP / rhoR
+         uL      = QL(INSRHOU) * invRhoL ; uR      = QR(INSRHOU) * invRhoR
+         vL      = QL(INSRHOV) * invRhoL ; vR      = QR(INSRHOV) * invRhoR
+         wL      = QL(INSRHOW) * invRhoL ; wR      = QR(INSRHOW) * invRhoR
+         pL      = QL(INSP)              ; pR      = QR(INSP)
+
+         rho = 0.5_RP * (rhoL + rhoR)
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(INSRHO)  = rho*u
+         f(INSRHOU) = rho*u*u + p
+         f(INSRHOV) = rho*u*v
+         f(INSRHOW) = rho*u*w
+         f(INSP)    = thermodynamics % rho0c02 * u
+
+         g(INSRHO)  = rho*v
+         g(INSRHOU) = rho*v*u
+         g(INSRHOV) = rho*v*v + p
+         g(INSRHOW) = rho*v*w
+         g(INSP)    = thermodynamics % rho0c02 * v
+
+         h(INSRHO)  = rho*w
+         h(INSRHOU) = rho*w*u
+         h(INSRHOV) = rho*w*v
+         h(INSRHOW) = rho*w*w + p
+         h(INSP)    = thermodynamics % rho0c02 * w
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine SkewSymmetric2DG_TwoPointFlux
 
 end module RiemannSolvers_iNS

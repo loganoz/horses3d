@@ -19,7 +19,7 @@
                         Polynomial order = 8
                     Discretization nodes = Gauss-Lobatto
                  Inviscid discretization = Split-form
-                              Split form = Pirozzoli
+                               Averaging = Pirozzoli
                           Riemann solver = Low dissipation Roe
                       Gradient variables = Energy
                   Viscous discretization = BR1

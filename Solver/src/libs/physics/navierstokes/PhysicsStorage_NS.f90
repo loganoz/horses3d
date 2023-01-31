@@ -13,26 +13,12 @@
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_THETA_KEY                  = "aoa theta"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: AOA_PHI_KEY                    = "aoa phi"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: FLOW_EQUATIONS_KEY             = "flow equations"
-         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: RIEMANN_SOLVER_NAME_KEY        = "riemann solver"
-         CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: LAMBDA_STABILIZATION_KEY       = "lambda stabilization"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: LESMODEL_KEY                   = "les model"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: COMPUTE_GRADIENTS_KEY          = "compute gradients"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_TEMPERATURE_KEY     = "sutherland temperature"
          CHARACTER(LEN = KEYWORD_LENGTH), PARAMETER :: SUTHERLAND_REF_TEMPERATURE_KEY = "sutherland reference temperature"
 
          CHARACTER(LEN=KEYWORD_LENGTH), DIMENSION(2) :: physics_NSKeywords = [MACH_NUMBER_KEY, FLOW_EQUATIONS_KEY]
-
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: CENTRAL_SOLVER_NAME        ="central"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROE_SOLVER_NAME            ="roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: RUSANOV_SOLVER_NAME        ="rusanov"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LAXFRIEDRICHS_SOLVER_NAME  ="lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ESLAXFRIEDRICHS_SOLVER_NAME="es lax-friedrichs"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: STDROE_SOLVER_NAME         ="standard roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: ROEPIKE_SOLVER_NAME        ="roe-pike"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: LOWDISSROE_SOLVER_NAME     ="low dissipation roe"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: MATRIXDISS_SOLVER_NAME     ="matrix dissipation"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: VISCOUSNS_SOLVER_NAME      ="viscous ns"
-         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: UDISS_SOLVER_NAME          ="u-diss"
 
          !PARTICLES
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: particlesKey             = "lagrangian particles"
@@ -74,13 +60,7 @@
      public    IRHO, IRHOU, IRHOV, IRHOW, IRHOE
      public    NPRIM, IPIRHO, IPU, IPV, IPW, IPP, IPT, IPA2
      public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
-     public    lambdaStab, computeGradients, whichRiemannSolver, whichAverage
-     public    RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV, RIEMANN_STDROE
-     public    RIEMANN_CENTRAL, RIEMANN_ROEPIKE, RIEMANN_LOWDISSROE
-     public    RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS, RIEMANN_UDISS
-     public    STANDARD_SPLIT, DUCROS_SPLIT, MORINISHI_SPLIT
-     public    KENNEDYGRUBER_SPLIT, PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
-     public    CHANDRASEKAR_SPLIT
+     public    computeGradients
 
      public    ConstructPhysicsStorage_NS, DestructPhysicsStorage_NS, DescribePhysicsStorage_NS
      public    CheckPhysicsNSInputIntegrity
@@ -127,36 +107,6 @@
      end enum
      integer, protected :: grad_vars = GRADVARS_STATE
 
-!
-!    --------------------------
-!    Riemann solver definitions
-!    --------------------------
-!
-     enum, bind(C)
-        enumerator :: RIEMANN_ROE, RIEMANN_LXF, RIEMANN_RUSANOV
-        enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
-        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
-        enumerator :: RIEMANN_UDISS
-     end enum
-     integer, protected :: whichRiemannSolver = -1
-!
-!    -----------------------------
-!    Available averaging functions
-!    -----------------------------
-!
-     enum, bind(C)
-        enumerator :: STANDARD_SPLIT = 1, MORINISHI_SPLIT
-        enumerator :: DUCROS_SPLIT, KENNEDYGRUBER_SPLIT
-        enumerator :: PIROZZOLI_SPLIT, ENTROPYCONS_SPLIT
-        enumerator :: CHANDRASEKAR_SPLIT
-     end enum
-     integer            :: whichAverage               = -1
-!
-!    -------------------------------------
-!    Lambda stabilization - 1.0 by default
-!    -------------------------------------
-!
-     real(kind=RP), protected :: lambdaStab = 1.0_RP
 !
 !    ------------------------------
 !    Thermodynamic specs of the Air
@@ -408,97 +358,6 @@
 
          end if
       end if
-!
-!     *********************************************
-!     Choose the Riemann solver (by default is Roe)
-!     *********************************************
-!
-      IF ( controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY) )     THEN
-!
-!        Get keyword from control variables
-!        ----------------------------------
-         keyword = controlVariables % stringValueForKey(key             = RIEMANN_SOLVER_NAME_KEY,&
-                                                        requestedLength = KEYWORD_LENGTH)
-         CALL toLower(keyword)
-!
-!        Choose the appropriate Riemann Solver
-!        -------------------------------------
-         select case ( keyword )
-         case(ROE_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_ROE
-
-         case(LAXFRIEDRICHS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_LXF
-
-         case(RUSANOV_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_RUSANOV
-
-         case(STDROE_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_STDROE
-
-         case(CENTRAL_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_CENTRAL
-
-         case(ROEPIKE_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_ROEPIKE
-
-         case(LOWDISSROE_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_LOWDISSROE
-
-         case(MATRIXDISS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_MATRIXDISS
-
-         case(VISCOUSNS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_VISCOUSNS
-
-         case(UDISS_SOLVER_NAME)
-            whichRiemannSolver = RIEMANN_UDISS
-
-         case default
-            print*, "Riemann solver: ", trim(keyword), " is not implemented."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Roe"
-            print*, "   * Standard Roe"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * ES Lax-Friedrichs"
-            print*, "   * Rusanov"
-            print*, "   * Roe-Pike"
-            print*, "   * Low dissipation Roe"
-            print*, "   * Matrix dissipation"
-            print*, "   * Viscous NS"
-            print*, "   * u-diss"
-            errorMessage(STD_OUT)
-            stop
-         end select
-      else
-!
-!        Select Roe by default
-!        ---------------------
-         whichRiemannSolver = RIEMANN_ROE
-
-      end if
-!
-!     --------------------
-!     Lambda stabilization
-!     --------------------
-!
-      if ( controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
-         lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
-
-      else
-!
-!        By default, lambda is 1 (full upwind stabilization)
-!        ---------------------------------------------------
-         lambdaStab = 1.0_RP
-
-      end if
-!
-!     --------------------------------------------------
-!     If central fluxes are used, set lambdaStab to zero
-!     --------------------------------------------------
-!
-      if ( whichRiemannSolver .eq. RIEMANN_CENTRAL ) lambdaStab = 0.0_RP
 !
 !     **********
 !     LES Models

@@ -22,7 +22,7 @@
                     Discretization nodes = Gauss-Lobatto
                           Riemann solver = Roe
                  Inviscid discretization = split-form
-                              Split form = Pirozzoli
+                               Averaging = Pirozzoli
 Gradient variables = Energy
                   Viscous discretization = BR1  
 

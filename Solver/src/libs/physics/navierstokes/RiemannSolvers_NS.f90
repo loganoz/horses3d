@@ -1,4 +1,55 @@
 #include "Includes.h"
+module RiemannSolvers_NSKeywordsModule
+
+     integer,                       parameter :: KEYWORD_LENGTH           = 132
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_SOLVER_NAME_KEY  = "riemann solver"
+     character(len=KEYWORD_LENGTH), parameter :: LAMBDA_STABILIZATION_KEY = "lambda stabilization"
+     character(len=KEYWORD_LENGTH), parameter :: AVG_NAME_KEY             = "averaging"
+!
+!    --------------------------
+!    Riemann solver definitions
+!    --------------------------
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_CENTRAL_NAME    = "central"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_ROE_NAME        = "roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_RUSANOV_NAME    = "rusanov"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LXF_NAME        = "lax-friedrichs"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_STDROE_NAME     = "standard roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_ROEPIKE_NAME    = "roe-pike"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_LOWDISSROE_NAME = "low dissipation roe"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_MATRIXDISS_NAME = "matrix dissipation"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_VISCOUSNS_NAME  = "viscous ns"
+     character(len=KEYWORD_LENGTH), parameter :: RIEMANN_UDISS_NAME      = "u-diss"
+
+     enum, bind(C)
+        enumerator :: RIEMANN_ROE = 1, RIEMANN_LXF, RIEMANN_RUSANOV
+        enumerator :: RIEMANN_STDROE, RIEMANN_CENTRAL, RIEMANN_ROEPIKE
+        enumerator :: RIEMANN_LOWDISSROE, RIEMANN_VISCOUSNS, RIEMANN_MATRIXDISS
+        enumerator :: RIEMANN_UDISS
+     end enum
+!
+!    -----------------------------
+!    Available averaging functions
+!    -----------------------------
+!
+     character(len=KEYWORD_LENGTH), parameter :: STANDARD_AVG_NAME      = "standard"
+     character(len=KEYWORD_LENGTH), parameter :: MORINISHI_AVG_NAME     = "morinishi"
+     character(len=KEYWORD_LENGTH), parameter :: DUCROS_AVG_NAME        = "ducros"
+     character(len=KEYWORD_LENGTH), parameter :: KENNEDYGRUBER_AVG_NAME = "kennedy-gruber"
+     character(len=KEYWORD_LENGTH), parameter :: PIROZZOLI_AVG_NAME     = "pirozzoli"
+     character(len=KEYWORD_LENGTH), parameter :: ENTROPYCONS_AVG_NAME   = "entropy conserving"
+     character(len=KEYWORD_LENGTH), parameter :: CHANDRASEKAR_AVG_NAME  = "chandrasekar"
+
+     enum, bind(C)
+        enumerator :: STANDARD_AVG = 1, MORINISHI_AVG
+        enumerator :: DUCROS_AVG, KENNEDYGRUBER_AVG
+        enumerator :: PIROZZOLI_AVG, ENTROPYCONS_AVG
+        enumerator :: CHANDRASEKAR_AVG
+     end enum
+
+end module RiemannSolvers_NSKeywordsModule
+!
+!////////////////////////////////////////////////////////////////////////
+!
 module RiemannSolvers_NS
    use SMConstants
    use Physics_NS
@@ -6,8 +57,12 @@ module RiemannSolvers_NS
    use VariableConversion_NS
    use FluidData_NS
 
+   implicit none
+
    private
-   public RiemannSolver, AveragedStates, SetRiemannSolver, RiemannSolver_dFdQ
+   public whichAverage, whichRiemannSolver
+   public SetRiemannSolver, DescribeRiemannSolver
+   public RiemannSolver, AveragedStates, TwoPointFlux, RiemannSolver_dFdQ
 
    abstract interface
       subroutine RiemannSolverFCN(QLeft, QRight, nHat, t1, t2, flux)
@@ -23,17 +78,24 @@ module RiemannSolvers_NS
       subroutine AveragedStatesFCN(QLeft, QRight, pL, pR, invRhoL, invRhoR, flux)
          use SMConstants
          use PhysicsStorage_NS
-         implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
          real(kind=RP), intent(in)       :: pL, pR
          real(kind=RP), intent(in)       :: invRhoL, invRhoR
          real(kind=RP), intent(out)      :: flux(1:NCONS)
       end subroutine AveragedStatesFCN
-      subroutine RiemannSolver_dFdQFCN(ql,qr,nHat,dfdq_num,side)
+      subroutine TwoPointFluxFCN(QLeft, QRight, JaL, JaR, fSharp)
          use SMConstants
          use PhysicsStorage_NS
-         implicit none
+         real(kind=RP), intent(in)       :: QLeft(1:NCONS)
+         real(kind=RP), intent(in)       :: QRight(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+      end subroutine TwoPointFluxFCN
+      subroutine RiemannSolver_dFdQFCN(ql, qr, nHat, dfdq_num, side)
+         use SMConstants
+         use PhysicsStorage_NS
          real(kind=RP), intent (in)  :: ql(NCONS)                 !<  Current solution on the left
          real(kind=RP), intent (in)  :: qr(NCONS)                 !<  Current solution on the right
          real(kind=RP), intent (in)  :: nHat(NDIM)                !<  Normal vector
@@ -42,119 +104,253 @@ module RiemannSolvers_NS
       end subroutine RiemannSolver_dFdQFCN
    end interface
 
-   procedure(RiemannSolverFCN)     , pointer  :: RiemannSolver      => NULL()
-   procedure(AveragedStatesFCN)    , pointer  :: AveragedStates     => NULL()
-   procedure(RiemannSolver_dFdQFCN), pointer  :: RiemannSolver_dFdQ => NULL()
+   procedure(RiemannSolverFCN),      protected, pointer  :: RiemannSolver      => NULL()
+   procedure(AveragedStatesFCN),     protected, pointer  :: AveragedStates     => NULL()
+   procedure(TwoPointFluxFCN),       protected, pointer  :: TwoPointFlux       => NULL()
+   procedure(RiemannSolver_dFdQFCN), protected, pointer  :: RiemannSolver_dFdQ => NULL()
+
+   integer, protected :: whichRiemannSolver = -1
+   integer, protected :: whichAverage = -1
+   real(RP)           :: lambdaStab = 1.0_RP
+!
+!  ========
    contains
-      SUBROUTINE SetRiemannSolver(which, splitType)
+!  ========
 !
-!        **************************************************************
-!              This subroutine is to set which Riemann solver is used.
-!           the user cannot decide amongst the averaging function.
-!           It is automatically selected depending on which split
-!           form is enabled.
-!           The user can choose the dissipation type:
-!              None (central), Roe, (ES) Lax-Friedrichs, Rusanov
+      subroutine SetRiemannSolver(controlVariables)
 !
-!           And the dissipation intensity, with the lambda stabilization
-!           parameter. By default it is set to 1 (whole dissipation),
-!           instead for central fluxes, which is 0 (no dissipation).
-!        **************************************************************
+!        -------
+!        Modules
+!        -------
+         use Utilities, only: toLower
+         use FTValueDictionaryClass
+         use RiemannSolvers_NSKeywordsModule
 !
-         IMPLICIT NONE
-         integer, intent(in) :: which
-         integer, intent(in) :: splitType
+!        ---------
+!        Interface
+!        ---------
+         type(FTValueDictionary), intent(in) :: controlVariables
+!
+!        ---------------
+!        Local variables
+!        ---------------
+         character(len=KEYWORD_LENGTH) :: keyword
+
 
          RiemannSolver_dFdQ => BaseClass_RiemannSolver_dFdQ
-
-         select case ( which )
-         case ( RIEMANN_ROE )
-            RiemannSolver => RoeRiemannSolver
-
-         case ( RIEMANN_LXF )
-            RiemannSolver => LxFRiemannSolver
-            RiemannSolver_dFdQ => LxFRiemannSolver_dFdQ
-
-         case ( RIEMANN_RUSANOV)
-            RiemannSolver => RusanovRiemannSolver
-
-         CASE ( RIEMANN_STDROE)
-            RiemannSolver => StdRoeRiemannSolver
-
-         case ( RIEMANN_CENTRAL )
-            RiemannSolver => CentralRiemannSolver
-
-         case ( RIEMANN_ROEPIKE )
-            RiemannSolver => RoePikeRiemannSolver
-
-         case ( RIEMANN_LOWDISSROE )
-            RiemannSolver => LowDissipationRoeRiemannSolver
-
-         case ( RIEMANN_MATRIXDISS )
-            RiemannSolver => MatrixDissipationRiemannSolver
-
-         case ( RIEMANN_VISCOUSNS )
-            RiemannSolver => ViscousNSRiemannSolver
-
-         case ( RIEMANN_UDISS)
-            RiemannSolver => u_dissRiemannSolver
-
-         case default
-            print*, "Undefined choice of Riemann Solver."
-            print*, "Options available are:"
-            print*, "   * Central"
-            print*, "   * Roe"
-            print*, "   * Standard Roe"
-            print*, "   * Roe-Pike"
-            print*, "   * Low dissipation Roe"
-            print*, "   * Lax-Friedrichs"
-            print*, "   * ES Lax-Friedrichs"
-            print*, "   * u-diss"
-            print*, "   * Rusanov"
-            print*, "   * Matrix dissipation"
-            print*, "   * Viscous NS"
-            errorMessage(STD_OUT)
-            STOP
-         end select
 !
+!        ---------------------------------------------
+!        Choose the Riemann solver (by default is Roe)
+!        ---------------------------------------------
+         if (controlVariables % containsKey(RIEMANN_SOLVER_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(RIEMANN_SOLVER_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (RIEMANN_ROE_NAME)
+               RiemannSolver => RoeRiemannSolver
+               whichRiemannSolver = RIEMANN_ROE
+
+            case (RIEMANN_LXF_NAME)
+               RiemannSolver => LxFRiemannSolver
+               RiemannSolver_dFdQ => LxFRiemannSolver_dFdQ
+               whichRiemannSolver = RIEMANN_LXF
+
+            case (RIEMANN_RUSANOV_NAME)
+              RiemannSolver => RusanovRiemannSolver
+               whichRiemannSolver = RIEMANN_RUSANOV
+
+            case (RIEMANN_STDROE_NAME)
+              RiemannSolver => StdRoeRiemannSolver
+               whichRiemannSolver = RIEMANN_STDROE
+
+            case (RIEMANN_CENTRAL_NAME)
+               RiemannSolver => CentralRiemannSolver
+               whichRiemannSolver = RIEMANN_CENTRAL
+
+            case (RIEMANN_ROEPIKE_NAME)
+               RiemannSolver => RoePikeRiemannSolver
+               whichRiemannSolver = RIEMANN_ROEPIKE
+
+            case (RIEMANN_LOWDISSROE_NAME)
+               RiemannSolver => LowDissipationRoeRiemannSolver
+               whichRiemannSolver = RIEMANN_LOWDISSROE
+
+            case (RIEMANN_MATRIXDISS_NAME)
+               RiemannSolver => MatrixDissipationRiemannSolver
+               whichRiemannSolver = RIEMANN_MATRIXDISS
+
+            case (RIEMANN_VISCOUSNS_NAME)
+               RiemannSolver => ViscousNSRiemannSolver
+               whichRiemannSolver = RIEMANN_VISCOUSNS
+
+            case (RIEMANN_UDISS_NAME)
+              RiemannSolver => u_dissRiemannSolver
+               whichRiemannSolver = RIEMANN_UDISS
+
+            case default
+               print*, "Riemann Solver not recognized."
+               errorMessage(STD_OUT)
+               STOP
+
+            end select
+
+         else
+!
+!           Select Roe by default
+!           ---------------------
+            RiemannSolver => RoeRiemannSolver
+            whichRiemannSolver = RIEMANN_ROE
+
+         end if
+!
+!        --------------------
+!        Lambda stabilization
+!        --------------------
+         if (controlVariables % containsKey(LAMBDA_STABILIZATION_KEY)) then
+            lambdaStab = controlVariables % doublePrecisionValueForKey(LAMBDA_STABILIZATION_KEY)
+
+         else
+!
+!           By default, lambda is 1 (full upwind stabilization)
+!           ---------------------------------------------------
+            lambdaStab = 1.0_RP
+
+         end if
+!
+!        If central fluxes are used, set lambdaStab to zero
+!        --------------------------------------------------
+         if (whichRiemannSolver .eq. RIEMANN_CENTRAL) lambdaStab = 0.0_RP
+!
+!        ----------------------------
 !        Set up an averaging function
 !        ----------------------------
-         select case ( splitType )
-         case (STANDARD_SPLIT)
+         if (controlVariables % containsKey(AVG_NAME_KEY)) then
+
+            keyword = controlVariables % stringValueForKey(AVG_NAME_KEY, KEYWORD_LENGTH)
+            call toLower(keyword)
+
+            select case (keyword)
+            case (STANDARD_AVG_NAME)
+               AveragedStates => StandardAverage
+               TwoPointFlux => StandardDG_TwoPointFlux
+               whichAverage = STANDARD_AVG
+
+            case (DUCROS_AVG_NAME)
+               AveragedStates => DucrosAverage
+               TwoPointFlux => Ducros_TwoPointFlux
+               whichAverage = DUCROS_AVG
+
+            case (MORINISHI_AVG_NAME)
+               AveragedStates => MorinishiAverage
+               TwoPointFlux => Morinishi_TwoPointFlux
+               whichAverage = MORINISHI_AVG
+
+            case (PIROZZOLI_AVG_NAME)
+               AveragedStates => PirozzoliAverage
+               TwoPointFlux => Pirozzoli_TwoPointFlux
+               whichAverage = PIROZZOLI_AVG
+
+            case (KENNEDYGRUBER_AVG_NAME)
+               AveragedStates => KennedyGruberAverage
+               TwoPointFlux => KennedyGruber_TwoPointFlux
+               whichAverage = KENNEDYGRUBER_AVG
+
+            case (ENTROPYCONS_AVG_NAME)
+               AveragedStates => EntropyConservingAverage
+               TwoPointFlux => EntropyConserving_TwoPointFlux
+               whichAverage = ENTROPYCONS_AVG
+
+            case (CHANDRASEKAR_AVG_NAME)
+               AveragedStates => ChandrasekarAverage
+               TwoPointFlux => Chandrasekar_TwoPointFlux
+               whichAverage = CHANDRASEKAR_AVG
+
+            case default
+               print*, "Averaging not recognized."
+               errorMessage(STD_OUT)
+               stop
+
+            end select
+
+         else
+!
+!           Select standard by default
+!           --------------------------
             AveragedStates => StandardAverage
-            whichAverage = STANDARD_SPLIT
+            TwoPointFlux => StandardDG_TwoPointFlux
+            whichAverage = STANDARD_AVG
 
-         case (DUCROS_SPLIT)
-            AveragedStates => DucrosAverage
-            whichAverage = DUCROS_SPLIT
+         end if
 
-         case (MORINISHI_SPLIT)
-            AveragedStates => MorinishiAverage
-            whichAverage = MORINISHI_SPLIT
+      end subroutine SetRiemannSolver
 
-         case (PIROZZOLI_SPLIT)
-            AveragedStates => PirozzoliAverage
-            whichAverage = PIROZZOLI_SPLIT
+      subroutine DescribeRiemannSolver
+!
+!        -------
+!        Modules
+!        -------
+         use RiemannSolvers_NSKeywordsModule
 
-         case (KENNEDYGRUBER_SPLIT)
-            AveragedStates => KennedyGruberAverage
-            whichAverage = KENNEDYGRUBER_SPLIT
 
-         case (ENTROPYCONS_SPLIT)
-            AveragedStates => EntropyConservingAverage
-            whichAverage = ENTROPYCONS_SPLIT
+         select case (whichAverage)
+         case (STANDARD_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Standard"
 
-         case (CHANDRASEKAR_SPLIT)
-            AveragedStates => ChandrasekarAverage
-            whichAverage = CHANDRASEKAR_SPLIT
+         case (MORINISHI_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Morinishi"
 
-         case default
-            print*, "Split form not recognized"
-            errorMessage(STD_OUT)
-            stop
+         case (DUCROS_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Ducros"
+
+         case (KENNEDYGRUBER_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Kennedy-Gruber"
+
+         case (PIROZZOLI_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Pirozzoli"
+
+         case (ENTROPYCONS_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Entropy conserving"
+
+         case (CHANDRASEKAR_AVG)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Averaging function: ","Chandrasekar"
+
          end select
 
-      END SUBROUTINE SetRiemannSolver
+         select case (whichRiemannSolver)
+         case (RIEMANN_ROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
+
+         case (RIEMANN_LXF)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
+
+         case (RIEMANN_RUSANOV)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
+
+         case (RIEMANN_STDROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
+
+         case (RIEMANN_CENTRAL)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
+
+         case (RIEMANN_ROEPIKE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
+
+         case (RIEMANN_MATRIXDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
+
+         case (RIEMANN_LOWDISSROE)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
+
+         case (RIEMANN_UDISS)
+            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
+
+         end select
+
+         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
+
+      end subroutine DescribeRiemannSolver
 !
 !///////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -232,6 +428,7 @@ module RiemannSolvers_NS
       end subroutine CentralRiemannSolver
 
       subroutine StdRoeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use RiemannSolvers_NSKeywordsModule
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -348,7 +545,7 @@ module RiemannSolvers_NS
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al.
@@ -379,6 +576,7 @@ module RiemannSolvers_NS
       end subroutine StdRoeRiemannSolver
 
       subroutine MatrixDissipationRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use RiemannSolvers_NSKeywordsModule
          use Utilities, only: logarithmicMean
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
@@ -488,7 +686,7 @@ module RiemannSolvers_NS
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al.
@@ -521,6 +719,7 @@ module RiemannSolvers_NS
       end subroutine MatrixDissipationRiemannSolver
 
       subroutine RoePikeRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
+         use RiemannSolvers_NSKeywordsModule
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -632,7 +831,7 @@ module RiemannSolvers_NS
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al.
@@ -679,6 +878,7 @@ module RiemannSolvers_NS
 !              pproximate Riemann solver for low Mach numbers
 !        ***********************************************************************
 !
+         use RiemannSolvers_NSKeywordsModule
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -827,7 +1027,7 @@ module RiemannSolvers_NS
 !        Compute the Roe stabilization
 !        -----------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al.
@@ -864,6 +1064,7 @@ module RiemannSolvers_NS
 !           introduced by compressible Navier-Stokes terms
 !        ***********************************************************************
 !
+         use RiemannSolvers_NSKeywordsModule
          implicit none
          real(kind=RP), intent(in)       :: QLeft(1:NCONS)
          real(kind=RP), intent(in)       :: QRight(1:NCONS)
@@ -982,7 +1183,7 @@ module RiemannSolvers_NS
 !        Compute the stabilization
 !        -------------------------
          select case (whichAverage)
-         case(PIROZZOLI_SPLIT, KENNEDYGRUBER_SPLIT)
+         case(PIROZZOLI_AVG, KENNEDYGRUBER_AVG)
 !
 !           ***************************************************************************
 !           Eigenvalue matrix is corrected for PI and KG variants, see Winters et. al.
@@ -1575,6 +1776,8 @@ module RiemannSolvers_NS
 !     -> Morinishi
 !     -> Kennedy and Gruber
 !     -> Pirozzoli
+!     -> Entropy conserving
+!     -> Chandrasekar
 !
 !////////////////////////////////////////////////////////////////////////////////////////////
 !
@@ -1872,5 +2075,569 @@ module RiemannSolvers_NS
          end associate
 
       end subroutine ChandrasekarAverage
+!
+!///////////////////////////////////////////////////////////////////////
+!
+!        Volumetric two-point fluxes
+!        ---------------------------
+!///////////////////////////////////////////////////////////////////////
+!
+      subroutine StandardDG_TwoPointFlux(QL,QR,JaL,JaR, fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                                                      + QL(IRHOV) * vL &
+                                                                      + QL(IRHOW) * wL ))
+
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                                                      + QR(IRHOV) * vR &
+                                                                      + QR(IRHOW) * wR ))
+!
+!        Average metrics: (Note: Here all average (1/2)s are accounted later)
+!        ---------------
+         Ja = (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(IRHO)  = ( QL(IRHOU) + QR(IRHOU) )
+         f(IRHOU) = ( QL(IRHOU) * uL + QR(IRHOU) * uR + pL + pR )
+         f(IRHOV) = ( QL(IRHOU) * vL + QR(IRHOU) * vR )
+         f(IRHOW) = ( QL(IRHOU) * wL + QR(IRHOU) * wR )
+         f(IRHOE) = ( uL*(QL(IRHOE) + pL) + uR*(QR(IRHOE) + pR) )
+
+         g(IRHO)  = (QL(IRHOV) + QR(IRHOV))
+         g(IRHOU) = ( QL(IRHOV) * uL + QR(IRHOV) * uR )
+         g(IRHOV) = ( QL(IRHOV) * vL + QR(IRHOV) * vR + pL + pR )
+         g(IRHOW) = ( QL(IRHOV) * wL + QR(IRHOV) * wR )
+         g(IRHOE) = ( vL*(QL(IRHOE) + pL) + vR*(QR(IRHOE) + pR) )
+
+         h(IRHO)  = (QL(IRHOW) + QR(IRHOW))
+         h(IRHOU) = (QL(IRHOW)*uL + QR(IRHOW)*uR)
+         h(IRHOV) = (QL(IRHOW)*vL + QR(IRHOW)*vR)
+         h(IRHOW) = (QL(IRHOW)*wL + QR(IRHOW)*wR + pL + pR)
+         h(IRHOE) = ( wL*(QL(IRHOE) + pL) + wR*(QR(IRHOE) + pR) )
+!
+!        Compute the sharp flux: (And account for the (1/2)^2)
+!        ----------------------
+         fSharp = 0.25_RP * ( f*Ja(IX) + g*Ja(IY) + h*Ja(IZ) )
+
+      end subroutine StandardDG_TwoPointFlux
+
+      subroutine Morinishi_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL, hL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR, hR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         associate(gm1 => thermodynamics % GammaMinus1)
+
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
+
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
+!
+!        Here the enthalpy does not contain the kinetic energy
+!        -----------------------------------------------------
+         hL = dimensionless % cp * pL  ; hR = dimensionless % cp * pR
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(IRHO)  = 0.5_RP * ( QL(IRHOU) + QR(IRHOU) )
+         f(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( uL + uR ) + 0.5_RP * ( pL + pR )
+         f(IRHOV) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( vL + vR )
+         f(IRHOW) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * ( wL + wR )
+         f(IRHOE) = 0.5_RP * ( uL*hL + uR*hR) + 0.25_RP * ( QL(IRHOU)*uL + QR(IRHOU)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QL(IRHOU)*vL + QR(IRHOU)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QL(IRHOU)*wL + QR(IRHOU)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QL(IRHOU)*POW2(uL) + QR(IRHOU)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QL(IRHOU)*POW2(vL) + QR(IRHOU)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QL(IRHOU)*POW2(wL) + QR(IRHOU)*POW2(wR)   )
+
+         g(IRHO)  = 0.5_RP * ( QL(IRHOV) + QR(IRHOV) )
+         g(IRHOU) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( uL + uR )
+         g(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( vL + vR ) + 0.5_RP * ( pL + pR )
+         g(IRHOW) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * ( wL + wR )
+         g(IRHOE) = 0.5_RP * ( vL*hL + vR*hR) + 0.25_RP * ( QL(IRHOV)*uL + QR(IRHOV)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QL(IRHOV)*vL + QR(IRHOV)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QL(IRHOV)*wL + QR(IRHOV)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QL(IRHOV)*POW2(uL) + QR(IRHOV)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QL(IRHOV)*POW2(vL) + QR(IRHOV)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QL(IRHOV)*POW2(wL) + QR(IRHOV)*POW2(wR)   )
+
+         h(IRHO)  = 0.5_RP * ( QL(IRHOW) + QR(IRHOW) )
+         h(IRHOU) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( uL + uR )
+         h(IRHOV) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( vL + vR )
+         h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * ( wL + wR ) + 0.5_RP * ( pL + pR )
+         h(IRHOE) = 0.5_RP * ( wL*hL + wR*hR) + 0.25_RP * ( QL(IRHOW)*uL + QR(IRHOW)*uR ) * ( uL + uR ) &
+                                              + 0.25_RP * ( QL(IRHOW)*vL + QR(IRHOW)*vR ) * ( vL + vR ) &
+                                              + 0.25_RP * ( QL(IRHOW)*wL + QR(IRHOW)*wR ) * ( wL + wR ) &
+                                              - 0.25_RP * ( QL(IRHOW)*POW2(uL) + QR(IRHOW)*POW2(uR)   ) &
+                                              - 0.25_RP * ( QL(IRHOW)*POW2(vL) + QR(IRHOW)*POW2(vR)   ) &
+                                              - 0.25_RP * ( QL(IRHOW)*POW2(wL) + QR(IRHOW)*POW2(wR)   )
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine Morinishi_TwoPointFlux
+
+      subroutine Ducros_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         associate(gm1 => thermodynamics % GammaMinus1)
+
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
+
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (uL + uR)
+         f(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (uL + uR) + 0.5_RP * (pL + pR)
+         f(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (uL + uR)
+         f(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (uL + uR)
+         f(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (uL + uR)
+
+         g(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (vL + vR)
+         g(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (vL + vR)
+         g(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (vL + vR) + 0.5_RP * (pL + pR)
+         g(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (vL + vR)
+         g(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (vL + vR)
+
+         h(IRHO)  = 0.25_RP * ( QL(IRHO) + QR(IRHO) ) * (wL + wR)
+         h(IRHOU) = 0.25_RP * ( QL(IRHOU) + QR(IRHOU) ) * (wL + wR)
+         h(IRHOV) = 0.25_RP * ( QL(IRHOV) + QR(IRHOV) ) * (wL + wR)
+         h(IRHOW) = 0.25_RP * ( QL(IRHOW) + QR(IRHOW) ) * (wL + wR) + 0.5_RP * (pL + pR)
+         h(IRHOE) = 0.25_RP * ( QL(IRHOE) + pL + QR(IRHOE) + pR ) * (wL + wR)
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine Ducros_TwoPointFlux
+
+      subroutine KennedyGruber_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: rho, u, v, w, e, p
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: f(NCONS), g(NCONS), h(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         associate(gm1 => thermodynamics % GammaMinus1)
+
+         pL = gm1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                             + QL(IRHOV) * vL &
+                                             + QL(IRHOW) * wL ))
+
+         pR = gm1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                             + QR(IRHOV) * vR &
+                                             + QR(IRHOW) * wR ))
+         end associate
+
+         rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+         e   = 0.5_RP * (QL(IRHOE)*invRhoL + QR(IRHOE)*invRhoR)
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         f(IRHO)  = rho * u
+         f(IRHOU) = rho * u * u + p
+         f(IRHOV) = rho * u * v
+         f(IRHOW) = rho * u * w
+         f(IRHOE) = rho * u * e + p * u
+
+         g(IRHO)  = rho * v
+         g(IRHOU) = rho * v * u
+         g(IRHOV) = rho * v * v + p
+         g(IRHOW) = rho * v * w
+         g(IRHOE) = rho * v * e + p * v
+
+         h(IRHO)  = rho * w
+         h(IRHOU) = rho * w * u
+         h(IRHOV) = rho * w * v
+         h(IRHOW) = rho * w * w + p
+         h(IRHOE) = rho * w * e + p * w
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = f*Ja(IX) + g*Ja(IY) + h*Ja(IZ)
+
+      end subroutine KennedyGruber_TwoPointFlux
+
+      subroutine Pirozzoli_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, uR, vR, wR, pR
+         real(kind=RP)     :: rho, u, v, w, h, p
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                                                      + QL(IRHOV) * vL &
+                                                                      + QL(IRHOW) * wL ))
+
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                                                      + QR(IRHOV) * vR &
+                                                                      + QR(IRHOW) * wR ))
+
+         rho = 0.5_RP * (QL(IRHO) + QR(IRHO))
+         u   = 0.5_RP * (uL + uR)
+         v   = 0.5_RP * (vL + vR)
+         w   = 0.5_RP * (wL + wR)
+         p   = 0.5_RP * (pL + pR)
+         h   = 0.5_RP * ((QL(IRHOE)+pL)*invRhoL + (QR(IRHOE)+pR)*invRhoR)
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         ff(IRHO)  = rho * u
+         ff(IRHOU) = rho * u * u + p
+         ff(IRHOV) = rho * u * v
+         ff(IRHOW) = rho * u * w
+         ff(IRHOE) = rho * u * h
+
+         gg(IRHO)  = rho * v
+         gg(IRHOU) = rho * v * u
+         gg(IRHOV) = rho * v * v + p
+         gg(IRHOW) = rho * v * w
+         gg(IRHOE) = rho * v * h
+
+         hh(IRHO)  = rho * w
+         hh(IRHOU) = rho * w * u
+         hh(IRHOV) = rho * w * v
+         hh(IRHOW) = rho * w * w + p
+         hh(IRHOE) = rho * w * h
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
+
+      end subroutine Pirozzoli_TwoPointFlux
+
+      subroutine EntropyConserving_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+!
+!        *******************************************************************
+!           Entropy conserving split form by Ismail and Roe.
+!           Parameter vector definition:
+!
+!           z1 = sqrt(rho / p)
+!           z2 = z1 * u
+!           z3 = z1 * v
+!           z4 = z1 * w
+!           z5 = sqrt(p rho)
+!
+!           Averaged states:
+!
+!           rho = {{z1}} {{z5:ln}}
+!           u   = {{z2}} / {{z1}}
+!           v   = {{z3}} / {{z1}}
+!           w   = {{z4}} / {{z1}}
+!           p   = {{z5}} / {{z1}}
+!           h   = g*p2/(rho(g-1)) + 0.5*(u^2 + v^2 + w^2)
+!
+!           where
+!           p2   = (g+1)/(2g) {{z5:ln}}/{{z1:ln}} + (g-1)/(2g){{z5}}/{{z1}}
+!
+!        *******************************************************************
+!
+         use SMConstants
+         use PhysicsStorage_NS
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL
+         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR
+         real(kind=RP)     :: rho, u, v, w, h, p, p2
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: zL(NCONS), zR(NCONS), zAv(NCONS), invZ1Sum
+         real(kind=RP)     :: z5Log, z1Log, invZ1Av
+         real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
+
+         associate ( gammaPlus1Div2      => thermodynamics % gammaPlus1Div2, &
+                     gammaMinus1Div2     => thermodynamics % gammaMinus1Div2, &
+                     gammaDivGammaMinus1 => thermodynamics % gammaDivGammaMinus1, &
+                     invGamma            => thermodynamics % invGamma )
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                                                      + QL(IRHOV) * vL &
+                                                                      + QL(IRHOW) * wL ))
+
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                                                      + QR(IRHOV) * vR &
+                                                                      + QR(IRHOW) * wR ))
+!
+!        Compute Ismail and Roe parameter vector
+!        ---------------------------------------
+         zL(5) = sqrt(rhoL*pL)      ; zR(5) = sqrt(rhoR*pR)
+         zL(1) = rhoL / zL(5)       ; zR(1) = rhoR / zR(5)
+         zL(2) = zL(1) * uL         ; zR(2) = zR(1) * uR
+         zL(3) = zL(1) * vL         ; zR(3) = zR(1) * vR
+         zL(4) = zL(1) * wL         ; zR(4) = zR(1) * wR
+
+         zAv = 0.5_RP * (zL + zR)
+         invZ1Av = 1.0_RP / zAv(1)
+
+         call logarithmicMean(zL(1),zR(1), z1Log)
+         call logarithmicMean(zL(5),zR(5), z5Log)
+
+         rho = zAv(1) * z5Log
+         u   = zAv(2) * invZ1Av
+         v   = zAv(3) * invZ1Av
+         w   = zAv(4) * invZ1Av
+         p   = zAv(5) * invZ1Av
+         p2  = (gammaPlus1Div2 * z5Log / z1Log + gammaMinus1Div2 * p) * invGamma
+         h   = gammaDivGammaMinus1 * p2 / rho + 0.5_RP*(POW2(u) + POW2(v) + POW2(w))
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         ff(IRHO)  = rho * u
+         ff(IRHOU) = rho * u * u + p
+         ff(IRHOV) = rho * u * v
+         ff(IRHOW) = rho * u * w
+         ff(IRHOE) = rho * u * h
+
+         gg(IRHO)  = rho * v
+         gg(IRHOU) = rho * v * u
+         gg(IRHOV) = rho * v * v + p
+         gg(IRHOW) = rho * v * w
+         gg(IRHOE) = rho * v * h
+
+         hh(IRHO)  = rho * w
+         hh(IRHOU) = rho * w * u
+         hh(IRHOV) = rho * w * v
+         hh(IRHOW) = rho * w * w + p
+         hh(IRHOE) = rho * w * h
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
+
+         end associate
+
+      end subroutine EntropyConserving_TwoPointFlux
+
+      subroutine Chandrasekar_TwoPointFlux(QL,QR,JaL,JaR,fSharp)
+         use SMConstants
+         use PhysicsStorage_NS
+         use Utilities, only: logarithmicMean
+         implicit none
+         real(kind=RP), intent(in)       :: QL(1:NCONS)
+         real(kind=RP), intent(in)       :: QR(1:NCONS)
+         real(kind=RP), intent(in)       :: JaL(1:NDIM)
+         real(kind=RP), intent(in)       :: JaR(1:NDIM)
+         real(kind=RP), intent(out)      :: fSharp(NCONS)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         real(kind=RP)     :: invRhoL, rhoL, uL, vL, wL, pL, betaL
+         real(kind=RP)     :: invRhoR, rhoR, uR, vR, wR, pR, betaR
+         real(kind=RP)     :: rho, u, v, w, h, p, betaLog
+         real(kind=RP)     :: Ja(1:NDIM)
+         real(kind=RP)     :: ff(NCONS), gg(NCONS), hh(NCONS)
+
+         associate ( gammaMinus1 => thermodynamics % gammaMinus1 )
+
+         invRhoL = 1.0_RP / QL(IRHO)   ; invRhoR = 1.0_RP / QR(IRHO)
+         rhoL = QL(IRHO)               ; rhoR = QR(IRHO)
+         uL = invRhoL * QL(IRHOU)      ; uR = invRhoR * QR(IRHOU)
+         vL = invRhoL * QL(IRHOV)      ; vR = invRhoR * QR(IRHOV)
+         wL = invRhoL * QL(IRHOW)      ; wR = invRhoR * QR(IRHOW)
+
+         pL = thermodynamics % GammaMinus1 * ( QL(IRHOE) - 0.5_RP * (   QL(IRHOU) * uL &
+                                                                      + QL(IRHOV) * vL &
+                                                                      + QL(IRHOW) * wL ))
+
+         pR = thermodynamics % GammaMinus1 * ( QR(IRHOE) - 0.5_RP * (   QR(IRHOU) * uR &
+                                                                      + QR(IRHOV) * vR &
+                                                                      + QR(IRHOW) * wR ))
+!
+!        Compute Chandrasekar's variables
+!        --------------------------------
+         betaL = 0.5_RP * rhoL / pL    ; betaR = 0.5_RP * rhoR / pR
+         call logarithmicMean(betaL, betaR, betaLog)
+
+         call logarithmicMean(rhoL,rhoR,rho)
+         u   = AVERAGE(uL, uR)
+         v   = AVERAGE(vL, vR)
+         w   = AVERAGE(wL, wR)
+         p   = 0.5_RP * (rhoL + rhoR) / (betaL + betaR)
+         h   =   0.5_RP/(betaLog*(gammaMinus1)) &
+               - 0.5_RP*AVERAGE(POW2(uL)+POW2(vL)+POW2(wL), POW2(uR)+POW2(vR)+POW2(wR)) &
+               + p/rho + POW2(u) + POW2(v) + POW2(w)
+!
+!        Average metrics
+!        ---------------
+         Ja = 0.5_RP * (JaL + JaR)
+!
+!        Compute the flux
+!        ----------------
+         ff(IRHO)  = rho * u
+         ff(IRHOU) = rho * u * u + p
+         ff(IRHOV) = rho * u * v
+         ff(IRHOW) = rho * u * w
+         ff(IRHOE) = rho * u * h
+
+         gg(IRHO)  = rho * v
+         gg(IRHOU) = rho * v * u
+         gg(IRHOV) = rho * v * v + p
+         gg(IRHOW) = rho * v * w
+         gg(IRHOE) = rho * v * h
+
+         hh(IRHO)  = rho * w
+         hh(IRHOU) = rho * w * u
+         hh(IRHOV) = rho * w * v
+         hh(IRHOW) = rho * w * w + p
+         hh(IRHOE) = rho * w * h
+!
+!        Compute the sharp flux
+!        ----------------------
+         fSharp = ff*Ja(IX) + gg*Ja(IY) + hh*Ja(IZ)
+
+         end associate
+
+      end subroutine Chandrasekar_TwoPointFlux
 
 end module RiemannSolvers_NS

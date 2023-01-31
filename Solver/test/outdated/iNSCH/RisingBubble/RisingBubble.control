@@ -36,7 +36,7 @@
                           Riemann solver = Exact  ! Standard Roe/Low dissipation Roe
                     Lambda stabilization = 1.0
                  Inviscid discretization = Standard
-                              Split form = Skew-Symmetric
+                               Averaging = Skew-Symmetric
                   Viscous discretization = BR1   ! IP/BR2
             Cahn-Hilliard discretization = IP   ! BR1/BR2
                        Penalty parameter = 1.0

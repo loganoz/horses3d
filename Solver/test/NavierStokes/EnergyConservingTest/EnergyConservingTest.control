@@ -18,7 +18,7 @@ restart file name     = "RESULTS/Cylinder.hsol"
 Riemann Solver                         = Central ! Matrix dissipation
 Gradient Variables = Energy
 Inviscid Discretization                = Split-form
-Split form                             = Pirozzoli
+Averaging                              = Pirozzoli
 Viscous Discretization                 = BR1
 compute time derivative after timestep = .true.
 

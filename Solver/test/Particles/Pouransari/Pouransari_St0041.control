@@ -11,7 +11,7 @@ Reynolds number       = 252632.0 !5625.0
 AOA theta             = 0.0
 AOA phi               = 0.0
 inviscid discretization = Split-form
-Split form = Pirozzoli
+averaging = Pirozzoli
    !enable SVV = .false.
    !svv filter cutoff = 0.1
 #################

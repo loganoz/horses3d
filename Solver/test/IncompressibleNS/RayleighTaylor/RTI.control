@@ -28,7 +28,7 @@
                       !beta0 coefficient = 0.0025
                     Lambda stabilization = 1.0
                  Inviscid discretization = Split-form
-                              Split form = skew-symmetric-1split
+                               Averaging = skew-symmetric-1split
        Artificial compressibility factor = 5000.0
                   Viscous discretization = BR1   ! IP/BR2
 
