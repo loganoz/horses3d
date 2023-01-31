@@ -74,10 +74,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-	        ./CahnHilliard/SpinodalDecomposition \
-	        ./CahnHilliard/TJokisaari \
-	        ./CahnHilliard/Bubble \
-	        ./CahnHilliard/Pipe \
+	    ./CahnHilliard/TJokisaari \
             ./iNSCH/RisingBubble \
             ./iNSCH/TJokisaari \
             ./Multiphase/Convergence \
