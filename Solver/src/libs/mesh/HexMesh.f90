@@ -3590,11 +3590,18 @@ slavecoord:             DO l = 1, 4
                      minimumDistance = min(minimumDistance, currentDistance)
                   end do
 
-                  e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+            do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               xP = e % geom % x(:,i,j,k)
 
-               end do                  ; end do                ; end do
-            end if
-            
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do
+
+               e % geom % dWall(i,j,k) = sqrt(minimumDistance)
+
+            end do                  ; end do                ; end do
             end associate
          end do
 !
@@ -3626,11 +3633,18 @@ slavecoord:             DO l = 1, 4
                      minimumDistance = min(minimumDistance, currentDistance)
                   end do
 
-                  fe % geom % dWall(i,j) = sqrt(minimumDistance)
+            do j = 0, fe % Nf(2) ; do i = 0, fe % Nf(1)
+               xP = fe % geom % x(:,i,j)
 
-                end do                ; end do
-            end if
-            
+               minimumDistance = HUGE(1.0_RP)
+               do fID = 1, no_of_wallDOFS
+                  currentDistance = sum(POW2(xP - Xwall(:,fID)))
+                  minimumDistance = min(minimumDistance, currentDistance)
+               end do
+
+               fe % geom % dWall(i,j) = sqrt(minimumDistance)
+
+            end do                ; end do
             end associate
          end do
 

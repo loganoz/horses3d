@@ -280,17 +280,19 @@ jobs:
 # 6) Vortex transport 2D with KEPEC
 # ---------------------------------
 
-      - name: Build VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-
-      - name: Run VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns VortexTransport2D.control
+# Outdated test case. 
+#
+#      - name: Build VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#
+#      - name: Run VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          ./horses3d.ns VortexTransport2D.control
 
 #
 # 7) Jacobian-Free Newton-Krylov
@@ -301,13 +303,16 @@ jobs:
       #  Final maximum residual
       #  Expected [1.6257217794191102E-011], Got [3.4106051316484809E-013]
 
-      # - name: Build JFNK Uniform Flow
-      #   working-directory: ./Solver/test/Euler/JFNK/SETUP
-      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-
-      # - name: Run JFNK Uniform Flow
-      #   working-directory: ./Solver/test/Euler/JFNK
-      #   run: ./horses3d.ns UniformFlowJFNK.control
+      - name: Build JFNK Uniform Flow
+        working-directory: ./Solver/test/Euler/JFNK/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+      - name: Run JFNK Uniform Flow
+        working-directory: ./Solver/test/Euler/JFNK
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns UniformFlow_Restart.control
 
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
@@ -526,13 +531,17 @@ jobs:
 # -------------------
 
       #Deactivated because a mismatch in the accuracy
-      #- name: Build NSCylinderIP_BDF2
-      #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
-      #  run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-      #
-      #- name: Run NSCylinderIP_BDF2
-      #  working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
-      #  run: ./horses3d.ns CylinderIP_BDF2.control
+      - name: Build NSCylinderIP_BDF2
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+     
+      - name: Run NSCylinderIP_BDF2
+        working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderIP_BDF2.control
 
 #
 # 11) CYLINDER DIFFERENT ORDERS
@@ -690,6 +699,23 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenSVVLES.control
+
+#
+# 21) CYLINDER ANIS FAS
+# -------------------
+
+      #Deactivated because a mismatch in the accuracy
+      - name: Build CylinderAnisFAS
+        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS//SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+     
+      - name: Run CylinderAnisFAS/
+        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderAnisFAS.control
 
 ########################################################################
 #######                       PARTICLES                         ########

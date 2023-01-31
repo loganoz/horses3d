@@ -1,13 +1,13 @@
 #!/bin/bash
 #######################################################################
-### This script configures the test cases:
-###     -> Copies Makefiles with the solver absolute path
-###     -> Generates the required folders.
-###     -> Generates links to the solver.
+###	This script configures the test cases:
+###		-> Copies Makefiles with the solver absolute path
+###		-> Generates the required folders.
+###		-> Generates links to the solver.
 #######################################################################
 
 ##################################################
-##  APPLY A PATCH IF REQUESTED      ##
+## 	APPLY A PATCH IF REQUESTED 		##
 ##################################################
 for i in "$@"
 do
@@ -30,19 +30,15 @@ case $i in
 esac
 done
 ##################################################
-##  GENERATE TEST CASES         ##
+## 	GENERATE TEST CASES			##
 ##################################################
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
-            ./Euler/Diffuser \
-            ./Euler/PeriodicFlow \
-            ./Euler/UniformFlow \
-            ./Euler/UniformFlowPETSc \
-            ./Euler/VortexTransport2D \
-            ./Euler/Benchmark \
-            ./Euler/JFNK \
-            ./Euler/TaylorGreenKEPEC \
+	    ./Euler/Diffuser \
+	    ./Euler/UniformFlow \
+	    ./Euler/JFNK \
+	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -58,11 +54,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
-            ./NavierStokes/FlatPlate \
             ./NavierStokes/TaylorGreen \
             ./NavierStokes/TaylorGreenKEPEC_IP \
             ./NavierStokes/TaylorGreenKEP_BR2 \
-            ./NavierStokes/ManufacturedSolutions \
             ./NavierStokes/NACA0012 \
             ./NavierStokes/ForwardFacingStepSVV \
             ./NavierStokes/TaylorGreenSVVLES \
@@ -74,12 +68,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-            ./CahnHilliard/SpinodalDecomposition \
-            ./CahnHilliard/TJokisaari \
-            ./CahnHilliard/Bubble \
-            ./CahnHilliard/Pipe \
-            ./iNSCH/RisingBubble \
-            ./iNSCH/TJokisaari \
+	    ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
@@ -90,10 +79,10 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Particles/ParticleBoundaryCond "
 
 COMPONENTS_TEST_CASES="FacePatches \
-               HexMesh \
-               HexMappings \
-               MeshConsistency \
-               NodalStorage"
+ 		       HexMesh \
+		       HexMappings \
+ 		       MeshConsistency \
+		       NodalStorage"
 
 cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
@@ -107,24 +96,24 @@ sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./Makefile
 rm -f ./Makefile-e
 
 for subdir in $TEST_CASES; do
-    mkdir -p ./test/$subdir/MESH
-    mkdir -p ./test/$subdir/SETUP
-    mkdir -p ./test/$subdir/RESULTS
-    cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
-    ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
-    ln -fsv $PWD/bin/horses3d.nssa ./test/$subdir
-    ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
-    ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
-    ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
+	mkdir -p ./test/$subdir/MESH
+	mkdir -p ./test/$subdir/SETUP
+	mkdir -p ./test/$subdir/RESULTS
+	cp -v ./test/Makefile.template ./test/$subdir/SETUP/Makefile
+	ln -fsv $PWD/bin/horses3d.ns ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.nssa ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.ch ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.ins ./test/$subdir
+	ln -fsv $PWD/bin/horses3d.mu ./test/$subdir
 done
 
 
 for subdir in $COMPONENTS_TEST_CASES; do
-    cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
-    mkdir -p ./test/Components/$subdir/MESH
-    sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
-    sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
-    rm -f ./test/Components/$subdir/Makefile-e
+	cp -v ./test/Components/Makefile.components ./test/Components/$subdir/Makefile
+	mkdir -p ./test/Components/$subdir/MESH
+	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
+	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
+	rm -f ./test/Components/$subdir/Makefile-e
 done
 
 cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile

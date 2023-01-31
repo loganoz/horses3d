@@ -99,7 +99,6 @@ Module DGSEMClass
       use MPI_Process_Info
       use PartitionedMeshClass
       use MeshPartitioning
-      use IBMClass
       use SurfaceMesh, only: surfacesMesh
 
       IMPLICIT NONE
@@ -234,7 +233,7 @@ Module DGSEMClass
       end if
 
 
-      useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")           
+      useRelaxPeriodic = controlVariables % logicalValueForKey("periodic relative tolerance")
 !
 !     **********************************************************
 !     *                  MPI PREPROCESSING                     *
@@ -326,11 +325,13 @@ Module DGSEMClass
 !     **********************************************************
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
+!
+      call self% mesh% IBM% read_info( controlVariables )
+
       if( self% mesh% IBM% active ) then
-         if( .not. self % mesh % child ) then
-            call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
-            call self% mesh% IBM% construct( controlVariables )
-         end if
+
+         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
+
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
@@ -506,7 +507,7 @@ Module DGSEMClass
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
             call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor)
             !TDG: ADD PARTICLES WRITE WITH IFDEF
-            
+
          END IF
 
          write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration

@@ -354,11 +354,11 @@
 !
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [3, 0, 0, 0, 0]
-            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [20.114372045399346_RP, 0E-011_RP, &          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
+            REAL(KIND=RP), DIMENSION(3:7)      :: residuals = [1.9751010043567042E+01_RP, 0E-011_RP,&          ! Value with previous BC NoSlipAdiabaticWall: 240.37010000259491 Dirichlet: 279.22660120573744
                                                                0E-011_RP, 0E-011_RP, &
                                                                0E-011_RP]
-            real(kind=RP), parameter           :: cd =  2.1770421358010541_RP
-            real(kind=RP), parameter           :: cl =  -2.4818985710162167E-005_RP
+            real(kind=RP), parameter           :: cd =  2.1362036868608119E+00_RP
+            real(kind=RP), parameter           :: cl = -2.0475924112695054E-05_RP
 !
             N = mesh % elements(1) % Nxyz(1)
 

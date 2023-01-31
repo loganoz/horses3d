@@ -540,12 +540,12 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             INTEGER                            :: iterations(3:7) = [100, 0, 0, 0, 0]
   
-            real(kind=RP), parameter :: residuals(6) = [ 5.0724101233079466E-05_RP, &
-                                                         1.1608833962739595E-04_RP, &
-                                                         1.1327177039088809E-04_RP, &
-                                                         7.7967130643230576E-05_RP, &
-                                                         2.2710677547976843E-04_RP, &
-                                                         1.4186592862652780E-04_RP  ]
+            real(kind=RP), parameter :: residuals(6) = [ 4.5712136981429508E-05_RP, &
+                                                         1.0020064312366017E-04_RP, &
+                                                         1.1218907783128174E-04_RP, &
+                                                         6.2892670604719481E-05_RP, &
+                                                         2.2709606226456458E-04_RP, &
+                                                         9.1083597811625339E-05_RP  ]
 !
             N = mesh % elements(1) % Nxyz(1) ! This works here because all the elements have the same order in all directions
 

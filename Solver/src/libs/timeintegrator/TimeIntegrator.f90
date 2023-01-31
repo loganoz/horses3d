@@ -397,6 +397,8 @@ print*, "Method selected: RK5"
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
+
+
       if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
@@ -406,7 +408,7 @@ print*, "Method selected: RK5"
 !
 !        Correct time step
 !        -----------------
-#if defined(NAVIERSTOKES) 
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
          sem % mesh% IBM% eta = self% CorrectDt(t, dt)
          sem % mesh% IBM% penalization = sem % mesh% IBM% eta
 #endif
@@ -425,11 +427,10 @@ print*, "Method selected: RK5"
 !     -----------------------
 !
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
-      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false. )
-      call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps) 
+      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
+      call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
           self % pAdaptator % nextAdaptationTime == self % time) then
@@ -464,7 +465,7 @@ print*, "Method selected: RK5"
 !     Save surfaces sol before the first time step
 !     --------------------------------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps,.false.)
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
       call sem % fwh % writeToFile()
 #endif
       call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
@@ -485,6 +486,7 @@ print*, "Method selected: RK5"
 
       case(ROSENBROCK_SOLVER)
          call RosenbrockSolver % construct(controlVariables,sem)
+
       end select
 !
 !     ----------------
@@ -497,13 +499,16 @@ print*, "Method selected: RK5"
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
+            if( sem% mesh% IBM% active ) then
+               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
+            else
               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
+            end if
          END IF
 !
 !        Correct time step
 !        -----------------
          dt = self % CorrectDt(t,self % dt)
-
 
 !
 !        Set penalization term for IBM
@@ -517,12 +522,11 @@ print*, "Method selected: RK5"
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
             if( any(sem% mesh% IBM% stl(:)% move) ) then
-               call sem% mesh% IBM% MoveBody( sem% mesh% elements,          &
-                                              sem% mesh% no_of_elements,    &
-                                              sem% mesh% NDOF,              &
-                                              sem% mesh% child,             &
-                                              t, k+1,                       &
-                                              self% autosave% Autosave(k+1) )
+               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
+                                              sem% mesh% no_of_elements,             &
+                                              sem% mesh% NDOF, sem% mesh% child, dt, &
+                                              k+1,                                   &
+                                              self % autosave % Autosave(k+1)        )
             end if
          end if
  
@@ -543,9 +547,7 @@ print*, "Method selected: RK5"
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -559,7 +561,7 @@ print*, "Method selected: RK5"
             call AnisFASSolver % solve(k,t, ComputeTimeDerivative)
          case (IMEX_SOLVER)
             call TakeIMEXStep(sem, t, dt, controlVariables, computeTimeDerivative)
-         END SELECT         
+         END SELECT
 
 #if defined(NAVIERSTOKES)
          if(ActuatorLineFlag)  call farm % WriteFarmForces(t)
@@ -585,8 +587,7 @@ print*, "Method selected: RK5"
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual,  self% autosave% Autosave(k+1) )    
-          
+         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -655,7 +656,7 @@ print*, "Method selected: RK5"
 !        ----------------------
          if (surfacesMesh % autosave % Autosave(k+1)) then
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-             call sem % fwh % updateValues(sem % mesh, t, k+1,self% autosave% Autosave(k+1))
+             call sem % fwh % updateValues(sem % mesh, t, k+1)
              call sem % fwh % writeToFile()
 #endif
 #if defined(NAVIERSTOKES)
@@ -669,7 +670,6 @@ print*, "Method selected: RK5"
          call monitors % WriteToFile(sem % mesh)
 
          sem % numberOfTimeSteps = k + 1
-
       END DO
 
 !
@@ -705,6 +705,7 @@ print*, "Method selected: RK5"
          call RosenbrockSolver % destruct
 
       end select
+
 #if defined(NAVIERSTOKES)
          if (useTrip) call randomTrip % destruct
          if(ActuatorLineFlag) call farm % DestructFarm

@@ -7,10 +7,10 @@ module OrientedBoundingBox
 
    implicit none   
    
-   integer,       parameter :: TASK_THRESHOLD = 10000, LOCAL = 0, GLOBAL =1
+   integer,       parameter :: TASK_THRESHOLD = 10000
    real(kind=RP), parameter :: SAFETY_FACTOR = 0.001_RP
 
-   public :: OBB, sortReal, ElementOBBintersect, LOCAL, GLOBAL
+   public OBB
 
 !
 !  **************************************************
@@ -21,6 +21,9 @@ module OrientedBoundingBox
     
       type(point_type), dimension(:), allocatable :: Points 
       integer                                     :: NumOfPoints
+      
+      contains
+         procedure :: ComputeExtremePoint => Hull_ComputeExtremePoint
 
    end type
 !
@@ -66,6 +69,8 @@ module OrientedBoundingBox
          procedure :: ChangeRefFrame
          procedure :: ComputeRotationMatrix 
          procedure :: plot                  => OBB_plot
+         procedure :: isInsidePolygon       => OBB_isInsidePolygon
+
    end type
    
    type(OBB_type), allocatable :: OBB(:)
@@ -248,6 +253,8 @@ contains
 
       end associate
 
+      this% filename = stl% filename
+
    end subroutine OBB_ReadStorePoints
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -295,40 +302,34 @@ contains
       !-arguments----------------------------------------------------
       class(OBB_type),                 intent(inout) :: this
       real(kind=rp), dimension(:),     intent(in)    :: v
-      integer,                         intent(in)    :: FRAME
-      real(kind=rp), dimension(NDIM), intent(out)    :: vNew
+      character(len=*),                intent(in)    :: FRAME
+      real(kind=rp), dimension(NDIM), intent(out)   :: vNew
       !-local-variables----------------------------------------------
       real(kind=rp), dimension(NDIM)      :: b
-      real(kind=rp), dimension(NDIM,NDIM) :: T, invT
+      real(kind=rp), dimension(NDIM,NDIM) :: R, invR
 
-      T = 0.0_RP
-      T(NDIM,NDIM) = 1.0_RP
-      T(1,1) = cos(this% MBR% Angle); T(2,2)  = T(1,1)
-      T(1,2) = sin(this% MBR% Angle); T(2,1) = -T(1,2)
+      R = 0.0_RP
+      R(NDIM,NDIM) = 1.0_RP
+      R(1,1) = cos(this% MBR% Angle); R(2,2)  = R(1,1)
+      R(1,2) = -sin(this% MBR% Angle); R(2,1) = -R(1,2)
             
-      invT(:,1) = T(1,:)
-      invT(:,2) = T(2,:)
-      invT(:,3) = T(3,:)
+      invR(:,1) = R(1,:)
+      invR(:,2) = R(2,:)
+      invR(:,3) = R(3,:)
       
-      select case( FRAME )
+      select case( trim(FRAME) )
          
-         case(LOCAL)
+         case('local')
          
-!~             b = matmul( this% invR,(v - this% CloudCenter))
-!~             b(1:2) = b(1:2) - this% MBR% Center
-!~             vNew = matmul(invR,b)
-            b = matmul( this% R,(v - this% CloudCenter))
+            b = matmul( this% invR,(v - this% CloudCenter))
             b(1:2) = b(1:2) - this% MBR% Center
-            vNew = matmul(T,b)
+            vNew = matmul(invR,b)
 
-         case(GLOBAL)
+         case('global')
          
-!~             b = matmul(R,v)
-!~             b(1:2) = b(1:2) + this% MBR% center
-!~             vNew = this% CloudCenter + matmul(this% R,b)
-            b = matmul(invT,v)
+            b = matmul(R,v)
             b(1:2) = b(1:2) + this% MBR% center
-            vNew = this% CloudCenter + matmul(this% invR,b)
+            vNew = this% CloudCenter + matmul(this% R,b)
             
       end select
 
@@ -347,9 +348,9 @@ contains
       class(OBB_type),                 intent(inout) :: this
       real(kind=rp),  dimension(NDIM), intent(in)    :: u, v, w
       
-      this% R(1,:) = (/ u(1), u(2), u(3) /)
-      this% R(2,:) = (/ v(1), v(2), v(3) /)
-      this% R(3,:) = (/ w(1), w(2), w(3) /)
+      this% R(:,1) = (/ u(1), u(2), u(3) /)
+      this% R(:,2) = (/ v(1), v(2), v(3) /)
+      this% R(:,3) = (/ w(1), w(2), w(3) /)
       
       this% invR(:,1) = this% R(1,:)
       this% invR(:,2) = this% R(2,:)
@@ -362,14 +363,14 @@ contains
 !  -------------------------------------------------
 ! This subroutine computes the Oriented Bounding Box. 
 !  -------------------------------------------------
-   subroutine OBB_construct( this, stl, isPlot, AAB )
+   subroutine OBB_construct( this, stl, isPlot )
    
       implicit none
-      !-arguments-----------------------------------
+      !-arguments-------------------------------
       class(OBB_type), intent(inout) :: this
       type(STLfile),   intent(in)    :: stl
-      logical,         intent(in)    :: isPlot, AAB
-      !-local-variables-----------------------------
+      logical,         intent(in)    :: isPlot
+      !-local-variables-------------------------
       type(Hull_type) :: Hull
       real(kind=rp)   :: EigenVal
       integer         :: i
@@ -382,16 +383,11 @@ contains
 !     ---------------------------------
       this% CloudCenter = ComputeCentroid( this )
 
-      if( AAB ) then 
-         this% MBR% t1     = (/ 1.0_RP, 0.0_RP, 0.0_RP /)
-         this% MBR% t2     = (/ 0.0_RP, 1.0_RP, 0.0_RP /)
-         this% MBR% normal = (/ 0.0_RP, 0.0_RP, 1.0_RP /)
-      else
 !
-!        Diagonalization of the cloud
-!        -------------------------
-         call PointsCloudDiagonalization( this, EigenVal, this% MBR% t1, this% MBR% t2, this% MBR% normal ) 
-      end if
+!     Diagonalization of the cloud
+!     -------------------------
+      call PointsCloudDiagonalization( this, EigenVal, this% MBR% t1, this% MBR% t2, this% MBR% normal ) 
+
 !
 !     Computing rotation matrix
 !     ------------------------
@@ -410,7 +406,7 @@ contains
 !
 !     Minimum Bounding Rectangle
 !     ---------------------------
-      call RotatingCalipers( Hull, this% MBR% Width, this% MBR% Length, this% MBR% Angle, this% MBR% Center, AAB )
+      call RotatingCalipers( Hull, this% MBR% Width, this% MBR% Length, this% MBR% Angle, this% MBR% Center )
 
 !
 !     Setting vertices of the MBR
@@ -424,7 +420,6 @@ contains
 
       if( isPlot ) call this% plot()
 
-      if(allocated(this% HullPoints)) deallocate(this% HullPoints)
       allocate( this% HullPoints(Hull% NumOfPoints) )
 
       do i = 1, Hull% NumOfPoints
@@ -481,25 +476,25 @@ contains
       integer,         intent(in)    :: LowestIndex
       !-local-variables--------------------
       real(kind=rp), dimension(NDIM) :: v
-      integer                        :: i    
+      integer                        :: i
+!
+!      had point is always the first, thus it has the lower possible angle, i.e. theta < 0
+!     ----------------------------------------------------------------------     
 
-!$omp parallel shared(this, LowestIndex,i)
-!$omp do schedule(runtime) private(v)
+!$omp parallel shared(this, LowestIndex)
+!$omp do schedule(runtime) private(i,v)
       do i = 1, this% NumOfPoints
          if( i .eq. LowestIndex ) then
             this% Points(i)% theta = -2.0_RP
             cycle
          end if
          v = this% Points(i)% coords-this% Points(LowestIndex)% coords
-         if( almostEqual(norm2(v(1:2)),0.0_RP)  ) then 
-            this% Points(i)% theta = -1.0_RP 
-            cycle
-         end if
          this% Points(i)% theta = acos(v(1)/norm2(v(1:2)))
+         if( almostEqual(norm2(v(1:2)), 0.0_RP) ) this% Points(i)% theta = -1.0_RP 
       end do
 !$omp end do
 !$omp end parallel
-
+         
    end  subroutine OBB_ComputeAngle
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -508,10 +503,11 @@ contains
 ! This function returns the index of the left most point of a cloud. 
 !  ------------------------------------------------------------------
 
-   subroutine ComputeHullExtremePoint( OBB, LowestIndex ) 
+   subroutine Hull_ComputeExtremePoint( this, OBB, LowestIndex ) 
 
       implicit none
       !-arguments------------------------
+      class(Hull_type), intent(inout) :: this
       class(OBB_type),  intent(inout) :: OBB
       integer,          intent(out)   :: LowestIndex
       !-local-variables--------------------
@@ -532,7 +528,7 @@ contains
        
       LowestIndex = LowestPoint% index
       
-   end subroutine ComputeHullExtremePoint
+   end subroutine Hull_ComputeExtremePoint
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -605,65 +601,21 @@ contains
       end do
       
       left_cycle = (i-1)-left
-      right_cycle = right-(j+1)  
+      right_cycle = right-(j+1)
+      
+!~       if( left .lt. i-1 )  then
 !$omp task shared(a,b,coordx,coordy,coordz,left,i) if(left_cycle > TASK_THRESHOLD)
-      call sort( a, b, coordx, coordy, coordz, left, i-1 )
+         call sort( a, b, coordx, coordy, coordz, left, i-1 )
 !$omp end task
-
+!~ !$omp taskwait
+!~       end if
+!~       if( j+1 .lt. right ) then
 !$omp task shared(a,b,coordx,coordy,coordz,j,right) if(right_cycle > TASK_THRESHOLD)
       call sort( a, b, coordx, coordy, coordz, j+1, right )
 !$omp end task
 !$omp taskwait
+!~       end if
    end subroutine sort
-!
-!/////////////////////////////////////////////////////////////////////////////////////////////
-!  
-!  -------------------------------------------------
-! This subroutine sort the elements of a from the lowest to the grates. b saves the old indeces. 
-!  ------------------------------------------------     
-   recursive subroutine sortReal(a, left, right)
-   
-      implicit none
-      !-arguments-------------------------------------------------
-      real(kind=rp), dimension(:),   intent(inout) :: a
-      integer,                       intent(in)    :: left, right
-      !-local-variables-------------------------------------------
-      real(kind=rp) :: x, t
-      integer       :: i, j, left_cycle, right_cycle
-                       
-      if( left .ge. right ) return
-   
-      x = a( (left + right)/2 )
-    
-      i = left; j = right
-
-      do
-         do while( a(i) .lt. x ) 
-            i = i+1
-         end do
-         do while( x .lt. a(j) )
-            j = j-1
-         end do
-         if( i .ge. j ) exit
-         t = a(i); a(i) = a(j); a(j) = t         
-         i = i+1
-         j = j-1
-      end do
-      
-      left_cycle = (i-1)-left
-      right_cycle = right-(j+1)
-      
-!$omp task shared(a,left,i) if(left_cycle > TASK_THRESHOLD)
-         call sortReal( a, left, i-1 )
-!$omp end task
-
-!$omp task shared(a,j,right) if(right_cycle > TASK_THRESHOLD)
-      call sortReal( a, j+1, right )
-!$omp end task
-!$omp taskwait   
-   
-   end subroutine sortReal
-   
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -792,10 +744,11 @@ contains
       type(point_type) ,pointer :: p, p1
       integer                   :: i, LowestIndex, start
       type(PointLinkedList)     :: convPoints
+      
 !     
 !     Compute Left most point & set Hull's head
 !     -----------------------------------------
-      call ComputeHullExtremePoint( OBB, LowestIndex )
+      call Hull% ComputeExtremePoint( OBB, LowestIndex )
 
 !     
 !     Compute the angles
@@ -813,7 +766,7 @@ contains
       !Check duplicate
       if( almostEqual(OBB% Points(1)% coords(1), OBB% Points(2)% coords(1)) .and. &
           almostEqual(OBB% Points(1)% coords(2), OBB% Points(2)% coords(2)) ) OBB% Points(2)% delete = .true.
-
+          
       do i = 2, OBB% NumOfPoints     
          if( .not. OBB% Points(i)% delete ) then
             call convPoints% add( OBB% Points(i) )
@@ -842,14 +795,14 @@ contains
       allocate(Hull% Points(Hull% NumOfPoints))
       
       p => convPoints% head
-
+      
       do i = 1, Hull% NumOfPoints
          Hull% Points(i) = p
          p => p% next
       end do
-         
+            
       call convPoints% destruct()
-
+ 
    end subroutine ConvexHull
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -948,84 +901,81 @@ contains
 !     ---------------------
        width = norm2( p3% coords(1:2) - vec(1:2) )
  
-   end function ComputeWidth
+   end function ComputeWidth 
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
 !  -------------------------------------------------
 ! This subroutine computes the rotating calipers method. 
 !  -------------------------------------------------
-   subroutine RotatingCalipers( Hull, rectWidth, rectLength, rectAngle, rectCenter, AAB )
+   subroutine RotatingCalipers( Hull, rectWidth, rectLength, rectAngle, rectCenter )
 
       implicit none
       !-arguments-----------------------------------------------------------------
       type(Hull_type),             intent(inout) :: Hull
       real(kind=rp), dimension(:), intent(out)   :: rectCenter
       real(kind=rp),               intent(out)   :: rectWidth, rectLength, rectAngle
-      logical,                     intent(in)    :: AAB
       !-local-variables-------------------------------------------------------------
       real(kind=rp), dimension(NDIM-1)            :: Caliper1, Caliper2, v1, v2,  PointMin, PointMax
       integer,       dimension(1)                 :: loc, MinIndex, MaxIndex
       real(kind=rp)                               :: RotAngle, width, minwidth, theta1, theta2, dtheta
       real(kind=rp), dimension(Hull% NumOfPoints) :: x, y
       integer                                     :: indexMin1, indexMin2, indexMax1, indexMax2
-
-      if( AAB ) then 
-         rectAngle = 0.0_RP 
-      else
-
-         minwidth = huge(1.0_RP); rectAngle = 0.0_RP; RotAngle = 0.0_RP
-
-         Caliper1 = (/ 1.0_RP, 0.0_RP/)
-         Caliper2 = (/ -1.0_RP, 0.0_RP/)
+!
+!     Initialization
+!     ------------
+      minwidth = huge(1.0_RP); rectAngle = 0.0_RP; RotAngle = 0.0_RP
+! 
+!     Initializing caliper
+!     ----------------
+      Caliper1 = (/ 1.0_RP, 0.0_RP/)
+      Caliper2 = (/ -1.0_RP, 0.0_RP/)
       
-         MinIndex = minloc(Hull% Points(:)% coords(2))
-         MaxIndex = maxloc(Hull% Points(:)% coords(2))
+      MinIndex = minloc(Hull% Points(:)% coords(2))
+      MaxIndex = maxloc(Hull% Points(:)% coords(2))
       
-         indexMin1 = MinIndex(1); indexMax1 = MaxIndex(1)   
+      indexMin1 = MinIndex(1); indexMax1 = MaxIndex(1)   
       
-         do while( RotAngle .lt. PI )
+      do while( RotAngle .lt. PI )
       
-            indexMin2 = mod(indexMin1, Hull% NumOfPoints) + 1
-            indexMax2 = mod(indexMax1, Hull% NumOfPoints) + 1
+         indexMin2 = mod(indexMin1, Hull% NumOfPoints) + 1
+         indexMax2 = mod(indexMax1, Hull% NumOfPoints) + 1
       
 !
-!           Looping Counterclockwise from y-min point (p1) 
-!           and from y-max point (p2). 
-!           -------------------------------------------
-            v1 = Hull% Points(indexMin2)% coords(1:2) - Hull% Points(indexMin1)% coords(1:2) 
-            v2 = Hull% Points(indexMax2)% coords(1:2) - Hull% Points(indexMax1)% coords(1:2)
+!        Looping Counterclockwise from y-min point (p1) 
+!        and from y-max point (p2). 
+!        -------------------------------------------
+         v1 = Hull% Points(indexMin2)% coords(1:2) - Hull% Points(indexMin1)% coords(1:2) 
+         v2 = Hull% Points(indexMax2)% coords(1:2) - Hull% Points(indexMax1)% coords(1:2)
          
 !
-!           Computing the angles between calipers and vectors v1,v2
-!           ---------------------------------------------------    
-            theta1 = ComputingAngle( Caliper1, v1 ) 
-            theta2 = ComputingAngle( Caliper2, v2 )
+!       Computing the angles between calipers and vectors v1,v2
+!       ---------------------------------------------------    
+         theta1 = ComputingAngle( Caliper1, v1 ) 
+         theta2 = ComputingAngle( Caliper2, v2 )
       
-            dtheta = min(theta1,theta2)
-            loc    = minloc((/ theta1,theta2 /))
-            call RotateVector(Caliper1, dtheta)
-            call RotateVector(Caliper2, dtheta)
-            
-            RotAngle = RotAngle + dtheta
+         dtheta = min(theta1,theta2)
+         loc    = minloc((/ theta1,theta2 /))
+         call RotateVector(Caliper1, dtheta)
+         call RotateVector(Caliper2, dtheta)
          
-            if( loc(1) .eq. 1 ) then 
-               width = ComputeWidth( Hull% Points(indexMin1), Hull% Points(indexMin2), Hull% Points(indexMax1) )
-               indexMin1 = mod(indexMin1, Hull% NumOfPoints) + 1
-            else
-               width = ComputeWidth( Hull% Points(indexMax1), Hull% Points(indexMax2), Hull% Points(indexMin1) )
-               indexMax1 = mod(indexMax1, Hull% NumOfPoints) + 1
-            end if
-      
-            if( width .lt. minwidth ) then
-               minwidth  = width
-               rectAngle = RotAngle
-            end if
+         RotAngle = RotAngle + dtheta
          
-         end do 
+         if( loc(1) .eq. 1 ) then 
+            width = ComputeWidth( Hull% Points(indexMin1), Hull% Points(indexMin2), Hull% Points(indexMax1) )
+            indexMin1 = mod(indexMin1, Hull% NumOfPoints) + 1
+         else
+            width = ComputeWidth( Hull% Points(indexMax1), Hull% Points(indexMax2), Hull% Points(indexMin1) )
+            indexMax1 = mod(indexMax1, Hull% NumOfPoints) + 1
+         end if
       
-      end if 
-
+         if( width .lt. minwidth ) then
+            minwidth  = width
+            rectAngle = RotAngle
+         end if
+         
+      end do 
+      
       rectCenter(1) = sum(Hull% Points(:)% coords(1))/Hull% NumOfPoints
       rectCenter(2) = sum(Hull% Points(:)% coords(2))/Hull% NumOfPoints
       
@@ -1085,15 +1035,15 @@ contains
 !     ---------
 
       do i = 1, 4 
-         call OBB% ChangeRefFrame((/ OBB% MBR% vertices(1,i), OBB% MBR% vertices(2,i), OBB% nMin /), GLOBAL, OBB% vertices(:,i) )
-         call OBB% ChangeRefFrame((/ OBB% MBR% vertices(1,i), OBB% MBR% vertices(2,i), OBB% nMax /), GLOBAL, OBB% vertices(:,i+4) )
+         call OBB% ChangeRefFrame((/ OBB% MBR% vertices(1,i), OBB% MBR% vertices(2,i), OBB% nMin /), 'global', OBB% vertices(:,i) )
+         call OBB% ChangeRefFrame((/ OBB% MBR% vertices(1,i), OBB% MBR% vertices(2,i), OBB% nMax /), 'global', OBB% vertices(:,i+4) )
          OBB% LocVertices(:,i)   = (/ OBB% MBR% vertices(:,i), OBB% nMin /)
          OBB% LocVertices(:,i+4) = (/ OBB% MBR% vertices(:,i), OBB% nMax /)
       end do
 
       OBB% LocFrameCenter = OBB% CloudCenter + matmul(OBB% R, (/ OBB% MBR% Center,0.0_RP/))
       
-   end subroutine ExtrudeMBR
+   end subroutine ExtrudeMBR   
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1120,37 +1070,36 @@ contains
          Multcoeff = 1.0_RP
       end if
       
-      call this% ChangeRefFrame(coords, LOCAL, Point)
+      call this% ChangeRefFrame(coords, 'local', Point)
       
       isInsideOBB = .false.
       
-      !check x y z     
-       if( isInsideBox(Point, Multcoeff*this% LocVertices) ) isInsideOBB = .true.
-
+      !check x y z
+      if( isInsideBox(Point, Multcoeff*this% LocVertices) ) isInsideOBB = .true.
+      
    end function OBB_isPointInside
    
    
-   subroutine OBB_ChangeObjsRefFrame( this, objs, FRAME )
+   subroutine OBB_ChangeObjsRefFrame( this, objs )
    
       implicit none
       !-arguments---------------------------------------------
-      class(OBB_type),   intent(inout) :: this
-      type(Object_type), intent(inout) :: objs(:)
-      integer,           intent(in)    :: FRAME
+      class(OBB_type),                 intent(inout) :: this
+      type(Object_type), dimension(:), intent(inout) :: objs
       !-local-variables---------------------------------------
       integer :: i, j
-      
-!$omp parallel 
+!$omp parallel shared(this,objs,i)
 !$omp do schedule(runtime) private(j)
       do i = 1, size(objs)
          do j = 1, size(objs(i)% vertices)
-            call this% ChangeRefFrame( objs(i)% vertices(j)% coords, FRAME, objs(i)% vertices(j)% coords ) 
+            call this% ChangeRefFrame( objs(i)% vertices(j)% coords, 'local', objs(i)% vertices(j)% coords ) 
          end do
       end do
 !$omp end do
 !$omp end parallel
 
-   end subroutine OBB_ChangeObjsRefFrame   
+   end subroutine OBB_ChangeObjsRefFrame
+   
       
    subroutine OBB_STL_rotate( this, stl )
    
@@ -1161,14 +1110,18 @@ contains
       !-local-variables-----------------------
       real(kind=RP) :: meanCoords(NDIM), meanCoordsNew(NDIM), shiftVec(NDIM)
       integer :: i, j, NumOfPoints
-
-      NumOfPoints = 3*stl% NumOfObjs; meanCoordsNew = 0.0_RP; meanCoords = 0.0_RP
-!$omp parallel 
+      
+      meanCoords = 0.0_RP; meanCoordsNew = 0.0_RP; NumOfPoints = 0
+      
+!$omp parallel shared(this,stl,meanCoords,meanCoordsNew,NumOfPoints,i)
 !$omp do schedule(runtime) private(j)
       do i = 1, stl% NumOfObjs
-         do j = 1, stl% ObjectsList(i)% NumOfVertices
+         do j = 1, size(stl% ObjectsList(i)% vertices)
+            call this% ChangeRefFrame( stl% ObjectsList(i)% vertices(j)% coords, 'global', &
+                                       stl% ObjectsList(i)% vertices(j)% coords             ) 
 !$omp critical
             meanCoords = meanCoords + stl% ObjectsList(i)% vertices(j)% coords 
+            NumOfPoints = NumOfPoints + 1
 !$omp end critical
             stl% ObjectsList(i)% vertices(j)% coords = matmul( stl% rotationMatrix, stl% ObjectsList(i)% vertices(j)% coords )   
 !$omp critical
@@ -1182,15 +1135,15 @@ contains
       meanCoords = meanCoords/NumOfPoints; meanCoordsNew = meanCoordsNew/NumOfPoints
       
       shiftVec = meanCoordsNew - meanCoords
-!!$omp parallel 
-!!$omp do schedule(runtime) private(j)
-      do i = 1, stl%  NumOfObjs
-         do j = 1, stl% ObjectsList(i)% NumOfVertices
+!$omp parallel shared(i,shiftVec)
+!$omp do schedule(runtime) private(j)
+      do i = 1, stl% NumOfObjs
+         do j = 1, size(stl% ObjectsList(j)% vertices)
             stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords - shiftVec
          end do
       end do
-!!$omp end do
-!!$omp end parallel
+!$omp end do
+!$omp end parallel
    end subroutine OBB_STL_rotate
    
    subroutine OBB_STL_translate( this, stl )
@@ -1209,6 +1162,8 @@ contains
 !$omp do schedule(runtime) private(j)
       do i = 1, stl% NumOfObjs
          do j = 1, size(stl% ObjectsList(i)% vertices)
+            call this% ChangeRefFrame( stl% ObjectsList(i)% vertices(j)% coords, 'global', &
+                                       stl% ObjectsList(i)% vertices(j)% coords             ) 
             stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) = stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) + stl% ds
 !$omp critical
             meanCoords = meanCoords + stl% ObjectsList(i)% vertices(j)% coords 
@@ -1239,48 +1194,113 @@ contains
       optional :: equal
 
       isInside = .false.
-
-      if( present(equal) ) then
-         if( .not. equal ) then
-            if( (Point(1) > vertices(1,1) .and. Point(1) < vertices(1,7)) .and. &
-                (Point(2) > vertices(2,1) .and. Point(2) < vertices(2,7)) .and. &
-                (Point(3) > vertices(3,1) .and. Point(3) < vertices(3,7)) ) then
-                isInside = .true.
-            end if
-            return
-         end if
+     
+      if( present(equal) .and. .not. equal ) then
+         if( (Point(1) > vertices(1,1) .and. Point(1) < vertices(1,7)) .and. &
+             (Point(2) > vertices(2,1) .and. Point(2) < vertices(2,7)) .and. &
+             (Point(3) > vertices(3,1) .and. Point(3) < vertices(3,7)) ) then
+             isInside = .true.
+          end if
+          return
       end if
-
+     
       if( (Point(1) >= vertices(1,1) .and. Point(1) <= vertices(1,7)) .and. &
           (Point(2) >= vertices(2,1) .and. Point(2) <= vertices(2,7)) .and. &
           (Point(3) >= vertices(3,1) .and. Point(3) <= vertices(3,7)) ) isInside = .true.
 
    end function isInsideBox
    
-   logical function ElementOBBintersect( corners, coeff, STLNum ) result( intersect )
+   
+   
+   logical function OBB_isInsidePolygon( OBB, Point ) result( isInside )
+      use MappedGeometryClass
+      implicit none
+      
+      class(OBB_type),               intent(inout) :: OBB
+      real(kind=rp),   dimension(:), intent(in)    :: Point
+      !-local-variables------------------------------------------
+      real(kind=rp) :: d(NDIM), coords(NDIM), v1(NDIM-1), v2(NDIM-1), &
+                       v3(NDIM-1), v4(NDIM-1), length, N_Point
+      logical :: Intersection
+      integer :: NumOfIntersections, i
+      real(kind=rp), parameter :: coeff = 1.15_RP
+      
+      d       = Point - OBB% CloudCenter
+      N_Point = vdot( d, OBB% MBR% normal ) 
+      coords  = (/ vdot(d, OBB% MBR% t1), vdot(d, OBB% MBR% t2), 0.0_RP /) 
+ 
+      length = maxval(abs(OBB% HullPoints(:)% coords(1))) 
+      
+      v1 = coords(1:2)
+      v2 = coords(1:2); v2(1) = v2(1) + 1000_RP*length
+      
+      NumOfIntersections = 0
+
+      do i = 1, size(OBB% HullPoints)-1
+         
+         v3 = OBB% HullPoints(i+1)% coords(1:NDIM-1)
+         v4 = OBB% HullPoints(i)% coords(1:NDIM-1)
+      
+         Intersection = TwoD_RayTracing( v1, v2, coeff*v3, coeff*v4 ) 
+      
+         if( Intersection ) NumOfIntersections = NumOfIntersections + 1 
+      
+      end do      
+ 
+      if( mod(NumOfIntersections,2) .eq. 0 ) then
+         isInside = .false.
+      else
+         isInside = .true.
+      end if
+      
+      if( N_Point .gt. coeff*OBB% nMax .or. N_Point .lt. coeff*OBB% nMin ) then
+         isInside = .false.
+      end if 
+      
+   end function OBB_isInsidePolygon
+   
+   
+   logical function TwoD_RayTracing( v1, v2, v3, v4 ) result( Intersection )
    
       implicit none
-      !-arguments----------------------------------------------
-      real(kind=RP), intent(in) :: corners(NDIM,8), coeff 
-      integer,       intent(in) :: STLNum 
-      !-local-variables----------------------------------
-      real(kind=RP) :: Loccorners(NDIM,8), LocVertices(NDIM,8)
-      integer       :: i 
-
-      intersect = .false.
-
-      do i = 1, 8
-         call OBB(STLNum)% ChangeRefFrame(corners(:,i),LOCAL,Loccorners(:,i))
-      end do 
-
-      LocVertices = coeff*OBB(STLNum)% LocVertices
-
-      if( (maxval(Loccorners(1,:)) >= minval(LocVertices(1,:)) .and. maxval(LocVertices(1,:)) >= minval(Loccorners(1,:)) ) .and. &
-          (maxval(Loccorners(2,:)) >= minval(LocVertices(2,:)) .and. maxval(LocVertices(2,:)) >= minval(Loccorners(2,:)) ) .and. &
-          (maxval(Loccorners(3,:)) >= minval(LocVertices(3,:)) .and. maxval(LocVertices(3,:)) >= minval(Loccorners(3,:)) ) ) then 
-         intersect = .true.
+      !-arguments--------------------------------------------------------
+      real(kind=rp), dimension(NDIM-1), intent(in) :: v1, v2, v3, v4
+      !-local-varirables------------------------------------------------
+      real(kind=rp) :: a1, a2, b1, b2, c1, c2, d1, d2
+      
+      Intersection = .false.
+      
+      a1 = v2(2) - v1(2)
+      b1 = v1(1) - v2(1)
+      c1 = (v2(1)*v1(2)) - (v1(1)*v2(2))
+      
+      d1 = a1*v3(1) + b1*v3(2) + c1
+      d2 = a1*v4(1) + b1*v4(2) + c1
+   
+      if( d1 * d2 > 0.0_RP ) then
+         Intersection = .false.
+         return
       end if
 
-   end function ElementOBBintersect
+      a2 = v4(2) - v3(2)
+      b2 = v3(1) - v4(1)
+      c2 = (v4(1)*v3(2)) - (v3(1)*v4(2))
+
+      d1 = a2*v1(1) + b2*v1(2) + c2
+      d2 = a2*v2(1) + b2*v2(2) + c2
+      
+      if( d1 * d2 > 0.0_RP ) then
+         Intersection = .false.
+         return
+      end if
+      
+      if( AlmostEqual( ((a1*b2) - (a2*b1)) ,0.0_RP) )then
+         Intersection = .false.
+         return
+      end if
+      
+      Intersection = .true.
+      
+   end function TwoD_RayTracing
 
 end module OrientedBoundingBox

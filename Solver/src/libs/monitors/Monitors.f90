@@ -191,7 +191,7 @@ module MonitorsClass
 !        -----------------------------
          do i = 1 , self % no_of_surfaceMonitors
             if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteLabel
-          end do
+         end do
 
          call self % stats % WriteLabel
 #endif
@@ -317,7 +317,7 @@ module MonitorsClass
 !        Print surface monitors
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
+            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
 
          call self % stats % WriteValue
@@ -333,17 +333,17 @@ module MonitorsClass
             end select
          end if
 
-         write(STD_OUT , *)
- 
+         write(STD_OUT , *) 
+
       end subroutine Monitor_WriteValues
 
-      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals, Autosave )
+      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals )
 !
 !        ***************************************************************
 !              This subroutine updates the values for the residuals,
 !           for the probes, surface and volume monitors.
 !        ***************************************************************
-!
+!        
          use PhysicsStorage
          use StopwatchClass
          implicit none
@@ -352,13 +352,12 @@ module MonitorsClass
          real(kind=RP)       :: t
          integer             :: iter
          real(kind=RP)       :: maxResiduals(NCONS)
-         logical             :: Autosave 
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
-         integer                       :: i
+         integer                       :: i 
 !
 !        Move to next buffer line
 !        ------------------------
@@ -395,13 +394,7 @@ module MonitorsClass
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            if( self% surfaceMonitors(i)% IBM ) then
-               if( Autosave ) then 
-                  call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, t )
-               end if 
-            else 
-               call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter )
-            endif
+            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine )
          end do
 !
 !        Update statistics
@@ -412,11 +405,11 @@ module MonitorsClass
 !
 !        Update dt restriction
 !        ---------------------
-         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction
-
+         if (self % write_dt_restriction) self % dt_restriction = mesh % dt_restriction 
+         
       end subroutine Monitor_UpdateValues
 
-      subroutine Monitor_WriteToFile ( self , mesh, force)
+      subroutine Monitor_WriteToFile ( self , mesh, force) 
 !
 !        ******************************************************************
 !              This routine has a double behaviour:
@@ -430,7 +423,7 @@ module MonitorsClass
          class(HexMesh)          :: mesh
          logical, optional       :: force
 !        ------------------------------------------------
-         integer                 :: i
+         integer                 :: i 
          logical                 :: forceVal
 
          if ( present ( force ) ) then
@@ -441,12 +434,12 @@ module MonitorsClass
 
          end if
 
-         if ( forceVal ) then
+         if ( forceVal ) then 
 !
 !           In this case the monitors are exported to their files and the buffer is reset
 !           -----------------------------------------------------------------------------
             call self % residuals % WriteToFile ( self % iter , self % t, self % TotalSimuTime, self % SolverSimuTime , self % bufferLine )
-
+   
             do i = 1 , self % no_of_volumeMonitors
                call self % volumeMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
@@ -456,10 +449,10 @@ module MonitorsClass
                call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 #endif
-
-#if defined(NAVIERSTOKES)
+   
+#if defined(NAVIERSTOKES)   
             do i = 1 , self % no_of_surfaceMonitors
-               if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+               call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
             end do
 !
 !              Write statistics
@@ -490,13 +483,13 @@ module MonitorsClass
 
 #ifdef FLOW
                do i = 1 , self % no_of_probes
-                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  call self % probes(i) % WriteToFile ( self % iter , self % t , self % bufferLine ) 
                end do
 #endif
 
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_surfaceMonitors
-                  if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 !
@@ -508,33 +501,34 @@ module MonitorsClass
          end if
 
       end subroutine Monitor_WriteToFile
-
+      
       subroutine Monitor_Destruct (self)
          implicit none
          class(Monitor_t)        :: self
-
+         
          deallocate (self % iter)
          deallocate (self % t)
          deallocate (self % TotalSimuTime)
          deallocate (self % SolverSimuTime)
-
+         
          call self % residuals % destruct
-
+         
          call self % volumeMonitors % destruct
          safedeallocate(self % volumeMonitors)
-
+         
 #ifdef FLOW
          call self % probes % destruct
          safedeallocate (self % probes)
 #endif
-
+         
 #if defined(NAVIERSTOKES)
          call self % surfaceMonitors % destruct
          safedeallocate (self % surfaceMonitors)
-
-#endif
+         
+         !call self % stats % destruct
+#endif         
       end subroutine
-
+      
       elemental subroutine Monitor_Assign ( to, from )
          implicit none
          !-arguments--------------------------------------
