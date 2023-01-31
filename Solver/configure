@@ -36,9 +36,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
 	    ./Euler/Diffuser \
-	     ./Euler/UniformFlow \
-	     ./Euler/JFNK \
-	     ./Euler/TaylorGreenKEPEC \
+	    ./Euler/UniformFlow \
+	    ./Euler/JFNK \
+	    ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
