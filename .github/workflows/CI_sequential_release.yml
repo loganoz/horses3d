@@ -280,17 +280,19 @@ jobs:
 # 6) Vortex transport 2D with KEPEC
 # ---------------------------------
 
-      - name: Build VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-
-      - name: Run VortexTransport2DKEPEC
-        working-directory: ./Solver/test/Euler/VortexTransport2D
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns VortexTransport2D.control
+# Outdated test case. 
+#
+#      - name: Build VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#
+#      - name: Run VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          ./horses3d.ns VortexTransport2D.control
 
 #
 # 7) Jacobian-Free Newton-Krylov
