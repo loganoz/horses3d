@@ -163,6 +163,7 @@ module HyperbolicSubcell
 !        ---------------
 !        Local variables
 !        ---------------
+         integer  :: Nx, Ny, Nz
          integer  :: i, j, k, l
          real(RP) :: blending
          real(RP) :: Fcx(NCONS, 0:e % Nxyz(1)+1)
@@ -174,9 +175,9 @@ module HyperbolicSubcell
 !        ---------------------------------
          blending = min(e % storage % sensor, self % max_blend)
 
-         associate(Nx => e % Nxyz(1), &
-                   Ny => e % Nxyz(2), &
-                   Nz => e % Nxyz(3)  )
+         Nx = e % Nxyz(1)
+         Ny = e % Nxyz(2)
+         Nz = e % Nxyz(3)
          associate(spAxi   => NodalStorage(Nx), &
                    spAeta  => NodalStorage(Ny), &
                    spAzeta => NodalStorage(Nz)  )
@@ -192,16 +193,16 @@ module HyperbolicSubcell
                                          spAxi % w, spAxi % D, e % geom % ncXi(:,:,j,k),       &
                                          e % geom % t1cXi(:,:,j,k), e % geom % t2cXi(:,:,j,k), &
                                          e % geom % JfcXi(:,j,k), fSharp(:,:,:,j,k), Fcx)
+!
+!           Update divergence with hyperbolic and viscous terms
+!           ---------------------------------------------------
             do i = 0, Nx
                ! Note that we initialize div here
                div(:,i,j,k) = (Fcx(:,i) - Fcx(:,i+1)) / spAxi % w(i)
+               do l = 0, Nx
+                  div(:,i,j,k) = div(:,i,j,k) + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
+               end do
             end do
-!
-!           Viscous term
-!           ------------
-            do l = 0, Nx ; do i = 0, Nx
-               div(:,i,j,k) = div(:,i,j,k) + spAxi % hatD(i,l) * Fv(:,l,j,k,IX)
-            end do       ; end do
          end do       ; end do
 !
 !        -------------
@@ -215,15 +216,15 @@ module HyperbolicSubcell
                                          spAeta % w, spAeta % D, e % geom % ncEta(:,i,:,k),      &
                                          e % geom % t1cEta(:,i,:,k), e % geom % t2cEta(:,i,:,k), &
                                          e % geom % JfcEta(i,:,k), gSharp(:,:,i,:,k), Fcy)
+!
+!           Update divergence with hyperbolic and viscous terms
+!           ---------------------------------------------------
             do j = 0, Ny
                div(:,i,j,k) = div(:,i,j,k) + (Fcy(:,j) - Fcy(:,j+1)) / spAeta % w(j)
+               do l = 0, Ny
+                  div(:,i,j,k) = div(:,i,j,k) + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
+               end do
             end do
-!
-!           Viscous term
-!           ------------
-            do l = 0, Ny ; do j = 0, Ny
-               div(:,i,j,k) = div(:,i,j,k) + spAeta % hatD(j,l) * Fv(:,i,l,k,IY)
-            end do       ; end do
          end do       ; end do
 !
 !        --------------
@@ -237,18 +238,17 @@ module HyperbolicSubcell
                                          spAzeta % w, spAzeta % D, e % geom % ncZeta(:,i,j,:),     &
                                          e % geom % t1cZeta(:,i,j,:), e % geom % t2cZeta(:,i,j,:), &
                                          e % geom % JfcZeta(i,j,:), hSharp(:,:,i,j,:), Fcz)
+!
+!           Update divergence with hyperbolic and viscous terms
+!           ---------------------------------------------------
             do k = 0, Nz
                div(:,i,j,k) = div(:,i,j,k) + (Fcz(:,k) - Fcz(:,k+1)) / spAzeta % w(k)
+               do l = 0, Nz
+                  div(:,i,j,k) = div(:,i,j,k) + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
+               end do
             end do
-!
-!           Viscous term
-!           ------------
-            do l = 0, Nz ; do k = 0, Nz
-               div(:,i,j,k) = div(:,i,j,k) + spAzeta % hatD(k,l) * Fv(:,i,j,l,IZ)
-            end do       ; end do
          end do       ; end do
 
-         end associate
          end associate
 
       end function SubcellDG_ComputeSubcellDivergence
@@ -285,8 +285,8 @@ module HyperbolicSubcell
          real(RP) :: Fv(1:size(Fc, 1))
 
 
-         nx = size(Fs, 2) - 1
-         nc = size(Fc, 2) - 1  ! n + 1
+         nx = ubound(Fs, 2)
+         nc = ubound(Fc, 2)  ! nx + 1
 !
 !        Boundary fluxes are zero here, its value is set in the surface subroutine
 !        -------------------------------------------------------------------------
