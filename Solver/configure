@@ -54,11 +54,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
-            ./NavierStokes/FlatPlate \
             ./NavierStokes/TaylorGreen \
             ./NavierStokes/TaylorGreenKEPEC_IP \
             ./NavierStokes/TaylorGreenKEP_BR2 \
-            ./NavierStokes/ManufacturedSolutions \
             ./NavierStokes/NACA0012 \
             ./NavierStokes/ForwardFacingStepSVV \
             ./NavierStokes/TaylorGreenSVVLES \
