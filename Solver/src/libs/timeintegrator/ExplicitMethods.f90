@@ -18,12 +18,35 @@ MODULE ExplicitMethods
    IMPLICIT NONE
 
    private
-   public   TakeRK3Step, TakeRK5Step, TakeSSPRK33Step, TakeSSPRK43Step
-   public   TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
-   public   TakeRKOptStep
+   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME
+   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY
+   public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
+   public   TakeSSPRK33Step, TakeSSPRK43Step
+   public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
-   integer, protected :: eBDF_order = 3
-   logical, protected :: CTD_AFTER_STEPS = .false.
+   integer,  protected :: eBDF_order = 3
+   logical,  protected :: CTD_AFTER_STEPS = .false.
+   logical,  protected :: LIMITED = .false.
+   real(RP), protected :: LIMITER_MIN = 1e-13_RP
+!
+!  Implemented integration methods
+!  -------------------------------
+!  Remember to add them to `Enable_limiter` if they support limiting (or any kind of stage
+!  callbacks if that is ever implemented)
+!  ---------------------------------------------------------------------------------------
+   character(len=*), parameter :: EULER_NAME   = "euler"
+   character(len=*), parameter :: RK3_NAME     = "rk3"
+   character(len=*), parameter :: RK5_NAME     = "rk5"
+   character(len=*), parameter :: OPTRK_NAME   = "optimal rk"
+   character(len=*), parameter :: SSPRK33_NAME = "ssprk33"
+   character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
+
+   integer, parameter :: EULER_KEY   = 1
+   integer, parameter :: RK3_KEY     = 2
+   integer, parameter :: RK5_KEY     = 3
+   integer, parameter :: OPTRK_KEY   = 4
+   integer, parameter :: SSPRK33_KEY = 5
+   integer, parameter :: SSPRK43_KEY = 6
 !========
  CONTAINS
 !========
@@ -305,7 +328,9 @@ MODULE ExplicitMethods
             end do ! id
 !$omp end parallel do
 
-            call stage_limiter(mesh)
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
 
          end do ! k
 
@@ -375,7 +400,9 @@ MODULE ExplicitMethods
             end do ! id
 !$omp end parallel do
 
-            call stage_limiter(mesh)
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
 
          end do ! k
 
@@ -489,7 +516,9 @@ MODULE ExplicitMethods
             end do ! id
 !$omp end parallel do
 
-            call stage_limiter(mesh)
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
 
          end do ! k
 
@@ -560,7 +589,9 @@ MODULE ExplicitMethods
             end do ! id
 !$omp end parallel do
 
-            call stage_limiter(mesh)
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
 
          end do ! k
 
@@ -902,6 +933,25 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine Enable_limiter(limiter, minimum)
+!
+!     ---------
+!     Interface
+!     ---------
+      integer,            intent(in) :: limiter
+      real(RP), optional, intent(in) :: minimum
+
+
+      LIMITED = (limiter == SSPRK33_KEY) .or. (limiter == SSPRK43_KEY)
+
+      if (present(minimum)) then
+         LIMITER_MIN = minimum
+      else
+         LIMITER_MIN = 1e-13_RP
+      end if
+
+   end subroutine Enable_limiter
+
 #if defined(NAVIERSTOKES) || defined(SPALARTALMARAS)
    subroutine stage_limiter(mesh)
 !
@@ -923,12 +973,10 @@ MODULE ExplicitMethods
 !     Local variables
 !     ---------------
 !
-      real(RP), parameter    :: minimum = 1.0e-13
       real(RP)               :: m
       real(RP)               :: Q(5), Qavg(5)
       real(RP)               :: rho, minrho
       real(RP)               :: p, pavg, minp
-      real(RP)               :: invvol
       real(RP)               :: theta
       real(RP)               :: gm1
       integer                :: eID
@@ -938,10 +986,8 @@ MODULE ExplicitMethods
 
 
       gm1 = thermodynamics % gammaMinus1
-      invvol = 1.0_RP / 8.0_RP
 
-      ! Try limiting the solution first
-!$omp parallel do default(private) shared(mesh, NodalStorage) firstprivate(invvol, gm1)
+!$omp parallel do default(private) shared(mesh, NodalStorage) firstprivate(gm1, LIMITER_MIN)
       do eID = 1, mesh % no_of_elements
          e  => mesh % elements(eID)
          wx => NodalStorage(e % Nxyz(1)) % w
@@ -951,9 +997,9 @@ MODULE ExplicitMethods
          ! Compute averages
          Qavg = 0.0_RP
          do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
-            Qavg = Qavg + e % storage % Q(:,i,j,k) * wx(i) * wy(j) * wz(k)
+            Qavg = Qavg + e % storage % Q(:,i,j,k) * wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
          end do               ; end do               ; end do
-         Qavg = Qavg * invvol
+         Qavg = Qavg / e % geom % volume
 
          ! Density first
          minrho = huge(1.0_RP)
@@ -962,7 +1008,7 @@ MODULE ExplicitMethods
             if (rho < minrho) minrho = rho
          end do               ; end do               ; end do
 
-         m = min(minimum, Qavg(1))
+         m = min(LIMITER_MIN, Qavg(1))
          theta = abs((Qavg(1) - m) / (Qavg(1) - minrho))
          if (theta <= 1.0_RP) then
             e % storage % Q(1,:,:,:) = theta * (e % storage % Q(1,:,:,:) - Qavg(1)) + Qavg(1)
@@ -974,13 +1020,12 @@ MODULE ExplicitMethods
          do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
             Q = e % storage % Q(:,i,j,k)
             p = gm1 * (Q(5) - 0.5_RP * (Q(2)**2 + Q(3)**2 + Q(4)**2) / Q(1))
-            pavg = pavg + p * wx(i) * wy(j) * wz(k)
+            pavg = pavg + p * wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
             if (p < minp) minp = p
          end do               ; end do               ; end do
-         pavg = pavg * invvol
+         pavg = pavg / e % geom % volume
 
-         ! pavg = gm1 * (Qavg(5) - 0.5_RP * (Qavg(2)**2 + Qavg(3)**2 + Qavg(4)**2) / Qavg(1))
-         m = min(minimum, pavg)
+         m = min(LIMITER_MIN, pavg)
          theta = abs((pavg - m) / (pavg - minp))
          if (theta <= 1.0_RP) then
             do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)

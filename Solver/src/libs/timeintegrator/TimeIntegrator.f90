@@ -49,6 +49,7 @@
          type(Autosave_t)                       :: autosave
          type(pAdaptation_t)                    :: pAdaptator
          type(MultiTauEstim_t)                  :: TauEstimator
+         integer                                :: RKStep_key
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========
@@ -94,6 +95,10 @@
          type(DGSem)                 :: sem
          integer                     :: initial_iter
          real(kind=RP)               :: initial_time
+
+         character(len=STRING_CONSTANT_LENGTH) :: keyword
+         logical                               :: limit
+         real(RP)                              :: limiter_minimum
 !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
@@ -139,30 +144,37 @@
          self % RKStep         => TakeRK3Step
 
          if ( controlVariables % ContainsKey("explicit method") ) then
-            select case ((controlVariables % StringValueForKey("explicit method",LINE_LENGTH)))
-            case("Euler")
+            keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
+            call toLower(keyword)
+            select case (keyword)
+            case(EULER_NAME)
                self % RKStep => TakeExplicitEulerStep
-               print*, "Method selected: Euler"
+               self % RKStep_key = EULER_KEY
 
-            case("RK3")
+            case(RK3_NAME)
                self % RKStep => TakeRK3Step
-               print*, "Method selected: RK3"
+               self % RKStep_key = RK3_KEY
 
-            case("RK5")
+            case(RK5_NAME)
                self % RKStep => TakeRK5Step
-               print*, "Method selected: RK5"
+               self % RKStep_key = RK5_KEY
 
-            case("SSPRK33")
+            case(SSPRK33_NAME)
                self % RKStep => TakeSSPRK33Step
-               print*, "Method selected: SSPRK33"
+               self % RKStep_key = SSPRK33_KEY
 
-            case("SSPRK43")
+            case(SSPRK43_NAME)
                self % RKStep => TakeSSPRK43Step
-               print*, "Method selected: SSPRK43"
+               self % RKStep_key = SSPRK43_KEY
+
+            case default
+               print*, "Explicit time integration method not implemented"
+               stop
 
             end select
          else
             self % RKStep => TakeRK3Step
+            self % RKStep_key = RK3_KEY
 
          end if
 
@@ -173,6 +185,16 @@
             end if
          end if
 
+         if ( controlVariables % ContainsKey("limit timestep") ) then
+            if ( controlVariables % LogicalValueForKey("limit timestep") ) then
+               if ( controlVariables % ContainsKey("limiter minimum") ) then
+                  limiter_minimum = controlVariables % RealValueForKey("limiter minimum")
+                  call Enable_limiter(self % RKStep_key, limiter_minimum)
+               else
+                  call Enable_limiter(self % RKStep_key)
+               end if
+            end if
+         end if
 !
 !        ------------------------------------
 !        Integrator-dependent initializarions
@@ -200,6 +222,43 @@
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
+
+         if (.not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(/)')
+         call Section_Header("Explicit time integrator")
+         write(STD_OUT,'(/)')
+
+         write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Simulation type: "
+         select case (self % integratorType)
+            case (TIME_ACCURATE)
+               write(STD_OUT,'(A)') "Time accurate"
+            case (STEADY_STATE)
+               write(STD_OUT,'(A)') "Steady state"
+         end select
+
+         write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Method: "
+         select case (self % RKStep_key)
+         case (EULER_KEY)
+            write(STD_OUT,'(A)') "Euler"
+         case (RK3_KEY)
+            write(STD_OUT,'(A)') "RK3"
+         case (RK5_KEY)
+            write(STD_OUT,'(A)') "RK5"
+         case (SSPRK33_KEY)
+            write(STD_OUT,'(A)') "SSPRK33"
+         case (SSPRK43_KEY)
+            write(STD_OUT,'(A)') "SSPRK43"
+         end select
+
+         write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
+         if (LIMITED) then
+            write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
+         else
+            write(STD_OUT,'(L)') LIMITED
+         end if
+
+         write(STD_OUT,'(30X,A,A28,L)') "->" , "Derivative after timestep: ", CTD_AFTER_STEPS
 
       END SUBROUTINE constructTimeIntegrator
 !
