@@ -1,6 +1,6 @@
 /* Control file for the implicit Navier-Stokes solver */
 Flow equations        = "NS"
-mesh file name        = "../TestMeshes/IBMCylinder.msh"
+mesh file name        = "../../TestMeshes/IBMCylinder.msh"
 
 !--STL
 stl file name         = "cylinder"
@@ -26,8 +26,9 @@ viscous discretization = "BR1"
 autosave mode      = "iteration"
 autosave interval  = 10000
 
-cfl                   = 0.15d0
-dcfl                  = 0.15d0
+convergence tolerance = 1.0d-12
+cfl                   = 0.1d0
+dcfl                  = 0.1d0
 
 
 #define IBM

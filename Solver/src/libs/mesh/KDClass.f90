@@ -589,12 +589,6 @@ module KDClass
       if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct( isChild )     
       if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct( isChild )      
       
-      if( .not. isChild ) then
-         if( associated(this% child_L) ) deallocate(this% child_L)
-         if( associated(this% child_R) ) deallocate(this% child_R)
-         if( associated(this% parent) )  nullify(this% parent)
-      end if
-      
    end subroutine KD_treeDestruct
    
    subroutine KD_treeGetArea( tree )
