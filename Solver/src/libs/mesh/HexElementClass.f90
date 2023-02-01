@@ -12,6 +12,8 @@
 !       One will associate boundary conditions to boundaries in the routine
 !       "ExternalState".
 !
+!       Modified 2D Code to move solution into element class. 5/14/15, 5:36 PM
+!
 !////////////////////////////////////////////////////////////////////////
 !
       Module ElementClass
@@ -771,6 +773,7 @@
 !
 !  --------------------------------------------------------
 !  Adapts an element to new polynomial orders NNew
+!  -> TODO: Previous solutions are not implemented
 !  --------------------------------------------------------
       subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
          implicit none
@@ -806,7 +809,7 @@
          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
 
          if (prevSol_num > 0) then
-
+            ! TODO : call InterpolatePrevSol
          end if
          call tempStorage % destruct()
 

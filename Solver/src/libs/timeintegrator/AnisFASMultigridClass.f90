@@ -444,13 +444,13 @@ module AnisFASMultigridClass
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
          
-         if( Solver% MGStorage(Dir) % p_sem% mesh% IBM% active ) &
-         call Child_p% MGStorage(Dir) % p_sem% mesh% IBM% copy( Solver% MGStorage(Dir)  % p_sem% mesh% IBM, lvl )
+!         if( Solver% MGStorage(Dir) % p_sem% mesh% IBM% active ) &
+!         call Child_p% MGStorage(Dir) % p_sem% mesh% IBM% copy( Solver% MGStorage(Dir)  % p_sem% mesh% IBM, lvl )
 
-         call Child_p % MGStorage(Dir) % p_sem % construct (controlVariables = controlVariables,                         &
-                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
-                                           success = success,                                                            &
-                                           ChildSem = .TRUE.  )
+!         call Child_p % MGStorage(Dir) % p_sem % construct (controlVariables = controlVariables,                         &
+!                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
+!                                           success = success,                                                            &
+!                                           ChildSem = .TRUE.  )
          
          
 !New>
