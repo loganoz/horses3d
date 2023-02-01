@@ -22,7 +22,7 @@ module SurfaceMonitorClass
 !
    type SurfaceMonitor_t
       logical                         :: active
-      logical                         :: isDimensionless
+      logical                         :: isDimensionless, IBM = .false.
       integer                         :: ID
       real(kind=RP)                   :: direction(NDIM)
       integer                         :: marker
@@ -81,7 +81,7 @@ module SurfaceMonitorClass
          character(len=STR_LEN_MONITORS)  :: directionName
          integer, allocatable             :: marker
          character(len=STR_LEN_MONITORS)  :: markerName
-         integer                          :: pos, i
+         integer                          :: pos, i, STLNum
          integer                          :: fID
          integer                          :: zoneID
          real(kind=RP)                    :: directionValue(NDIM)
@@ -322,6 +322,7 @@ module SurfaceMonitorClass
 !        *******************************************************************
 !
          use SurfaceIntegrals
+         use IBMClass
          implicit none
          class   (  SurfaceMonitor_t )   :: self
          class   (  HexMesh       )      :: mesh
@@ -359,42 +360,42 @@ module SurfaceMonitorClass
          select case ( trim ( self % variable ) )
 
          case ("mass-flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW, iter)
 
          case ("flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE, iter)
 
          case ("pressure-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
+            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
             if (flowIsNavierStokes) then
-               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE)
+               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
             else
-               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE)
+               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
             end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("pressure-average")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE)
+            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter) / ScalarSurfaceIntegral(mesh, self % marker, SURFACE, iter)
   
          end select
          

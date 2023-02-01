@@ -357,8 +357,8 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS)
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -634,6 +634,8 @@ module SpatialDiscretization
                      end associate
                   end do
 !$omp end do
+               end if 
+            end if 
          end if
 
       end subroutine TimeDerivative_ComputeQDot
@@ -710,8 +712,9 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, fID
+         integer     :: eID , i, j, k, fID, iP
          procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
+         real(kind=rp) :: Source(NCONS), TurbulentSource(NCONS)
 !
 !        ****************
 !        Volume integrals

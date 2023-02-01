@@ -201,9 +201,9 @@ Module LocalRefinementTool  !
 
            ext = getFileExtension(trim(meshFileName))
            if (trim(ext)=='h5') then
-               call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR)
+               call ConstructSimpleMesh_FromHDF5File_(mesh, meshFileName, locR=locR)
            elseif (trim(ext)=='mesh') then
-               call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR=locR_)
+               call ConstructSimpleMesh_FromSpecFile_(mesh, meshFileName, locR=locR)
            ! elseif (trim(ext)=='msh') then
                ! call ConstructSimpleMesh_FromGmshFile_(mesh, meshFileName, locR
            else

@@ -1340,9 +1340,12 @@ module IBMClass
          dz = maxval(elements(eID)% SurfInfo% corners(3,:)) - minval(elements(eID)% SurfInfo% corners(3,:))
          d  = min(d,min(abs(dx),abs(dy),abs(dz)))   
       end do    
-      d_min = sqrt(3.0_RP)*d 
+      d_min = sqrt(3.0_RP)*d
+
+     write(*,*) 'd_min =', d_min
+ 
 #ifdef _HAS_MPI_
-    call mpi_allreduce(d_min, this% IP_Distance, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
+      call mpi_allreduce(d_min, this% IP_Distance, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
       Dist = this% IP_Distance
       this% IP_Distance = 1.5_RP*this% IP_Distance
 #else
@@ -1351,9 +1354,11 @@ module IBMClass
       this% IP_Distance = 1.5_RP*this% IP_Distance
 #endif        
 
+    write(*,*) 'ip dist=', Dist
+
       do eID = 1, size(elements) 
          do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)   
-            if( elements(eID)% geom% dWall(i,j,k) .gt. this% IP_Distance ) cycle
+            if( elements(eID)% geom% dWall(i,j,k) .gt. Dist ) cycle
             elements(eID)% isForcingPoint(i,j,k) = .true.
             this% NumOfForcingPoints = this% NumOfForcingPoints + 1
          end do; end do; end do     
@@ -1760,7 +1765,7 @@ module IBMClass
       u   = Q(IRHOU)/rho
       v   = Q(IRHOV)/rho
       w   = Q(IRHOW)/rho
-
+      
       Source(IRHOU) = rho*u-rho_s*u_s  
       Source(IRHOV) = rho*v-rho_s*v_s 
       Source(IRHOW) = rho*w-rho_s*w_s
@@ -1776,7 +1781,6 @@ module IBMClass
       else 
          Source = -1.0_RP/this% penalization(eID) * Source
       end if 
-
    end subroutine IBM_SourceTerm
 !
 !  Analytical jacobian: dS/dQ 
@@ -1912,7 +1916,7 @@ module IBMClass
 
    end subroutine IBM_SemiImplicitTurbulenceShiftJacobian
 !
-!  Second order Strang splitting correction Q^*. (1 - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q)
+!  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
 !  ------------------------------------------------------------------------------------------------
    subroutine IBM_GetSemiImplicitStep( this, eID, dt, Q )
       use PhysicsStorage
@@ -1935,7 +1939,7 @@ module IBMClass
 
    end subroutine IBM_GetSemiImplicitStep
 !
-!  Second order Strang splitting correction Q^*. (1 - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q)
+!  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
 !  ------------------------------------------------------------------------------------------------
    subroutine IBM_GetSemiImplicitStepTurbulence( this, ImagePoint, dt, Q, normal, dWall, STLNum )
       use PhysicsStorage

@@ -627,7 +627,8 @@ module FASMultigridClass
             END DO
          END DO
       END IF
-#endif!
+#endif
+!
 !     -------------------------------------------
 !     Assemble Jacobian for implicit smoothing
 !     -------------------------------------------
@@ -1934,13 +1935,13 @@ module FASMultigridClass
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
    
-   recursive subroutine FAS_MovingIBM( this, dt, lvl )
+   recursive subroutine FAS_MovingIBM( Solver, dt, lvl )
    
       implicit none
       !-arguments------------------------------------------
-      class(FASMultigrid_t), intent(inout) :: this
-      real(kind=RP),         intent(in)    :: dt
-      integer,               intent(in)    :: lvl
+      type(FASMultigrid_t), intent(inout) :: Solver
+      real(kind=RP),        intent(in)    :: dt
+      integer,              intent(in)    :: lvl
 
       call  Solver% p_sem% mesh% IBM% MoveBody( Solver% p_sem% mesh% elements,       &
                                                 Solver% p_sem% mesh% no_of_elements, &

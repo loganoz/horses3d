@@ -54,6 +54,8 @@ MODULE Read_GMSH
       private
       public ConstructMesh_FromGMSHFile_v4_, ConstructMesh_FromGMSHFile_v2_, CheckGMSHversion, NumOfElems_GMSH_v4, NumOfElems_GMSH_v2
 
+      public MSH_node_block_t, MSH_point_t, MSH_element_block_t, EL_MAX_ORDER, SUPPORTED_EL_TYPES, ReorderElement, MSH_LEN
+
 !
 !  ------------------------------------------------
 !  Local temporary element storage.
