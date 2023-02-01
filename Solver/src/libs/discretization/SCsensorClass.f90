@@ -895,7 +895,7 @@ module SCsensorClass
 !     -------
 !     Modules
 !     -------
-      use HyperbolicDiscretizations, only: HyperbolicDiscretization
+      use HyperbolicDiscretizations, only: HyperbolicDiscretization, SplitDG_t
       use Physics,                   only: EulerFlux
       use Utilities,                 only: AlmostEqual
 !
@@ -925,6 +925,9 @@ module SCsensorClass
 
 !$omp parallel do default(private) shared(sem, sensor, NodalStorage, HyperbolicDiscretization)
       do eID = 1, sem % mesh % no_of_elements
+         ! TODO: this should go outside, but it does not seem possible :(
+         select type (HyperbolicDiscretization)
+         type is (SplitDG_t)
 
          e       => sem % mesh % elements(eID)
          spAxi   => NodalStorage(e % Nxyz(1))
@@ -978,6 +981,7 @@ module SCsensorClass
             e % storage % sensor = SinRamp(sensor, log10(e % storage % sensor))
          end if
 
+         end select
       end do
 !$omp end parallel do
 

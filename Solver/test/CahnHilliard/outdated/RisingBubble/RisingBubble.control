@@ -36,7 +36,7 @@
                           Riemann solver = Roe  
                     Lambda stabilization = 1.0
                  Inviscid discretization = Split-form
-                              Split form = Pirozzoli
+                               Averaging = Pirozzoli
                   Viscous discretization = IP
             Cahn-Hilliard discretization = IP
                        Penalty parameter = 1.0

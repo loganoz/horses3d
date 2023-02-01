@@ -22,7 +22,7 @@
                     Discretization nodes = Gauss-Lobatto
                           Riemann solver = Matrix dissipation
                  Inviscid discretization = split-form
-                              Split form = Chandrasekar
+                               Averaging = Chandrasekar
 Gradient variables = Entropy
                   Viscous discretization = BR1  
 

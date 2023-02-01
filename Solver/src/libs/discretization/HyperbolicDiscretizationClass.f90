@@ -1,15 +1,12 @@
 #include "Includes.h"
-#if defined(NAVIERSTOKES) || defined(INCNS)
-#define HAS_SPLIT_FORM
-#endif
 
 #if defined(NAVIERSTOKES) || defined(INCNS) || defined(MULTIPHASE)
 module HyperbolicDiscretizationClass
    use SMConstants
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-   use RiemannSolvers_NS
-#elif defined(SPALARTALMARAS)
+#if defined(SPALARTALMARAS)
    use RiemannSolvers_NSSA
+#elif defined(NAVIERSTOKES)
+   use RiemannSolvers_NS
 #elif defined(INCNS)
    use RiemannSolvers_iNS
 #elif defined(MULTIPHASE)
@@ -18,20 +15,13 @@ module HyperbolicDiscretizationClass
    implicit none
 
    private
-   public   HyperbolicDiscretization_t, volumetricSharpFlux_FCN
-
-   integer,    parameter   :: STANDARD_DG = 1
-#ifdef HAS_SPLIT_FORM
-   integer,    parameter   :: SPLIT_DG = 2
-#endif
+   public HyperbolicDiscretization_t
 
    type HyperbolicDiscretization_t
-      procedure(VolumetricSharpFlux_FCN), nopass, pointer  :: ComputeVolumetricSharpFlux => NULL()
       contains
          procedure   :: Initialize               => BaseClass_Initialize
          procedure   :: ComputeInnerFluxes       => BaseClass_ComputeInnerFluxes
-         procedure   :: ComputeSplitFormFluxes   => BaseClass_ComputeSplitFormFluxes
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) && !defined(SPALARTALMARAS)
          procedure   :: ComputeInnerFluxJacobian => BaseClass_ComputeInnerFluxJacobian
 #endif
    end type HyperbolicDiscretization_t
@@ -41,41 +31,10 @@ module HyperbolicDiscretizationClass
          use SMConstants
          use PhysicsStorage
          implicit none
-         real(kind=RP), intent(in)           :: Q   (1:NCONS     )
+         real(kind=RP), intent(in)           :: Q(1:NCONS     )
          real(kind=RP), intent(out)          :: F(1:NCONS, 1:NDIM)
          real(kind=RP), intent(in), optional :: rho_
       end subroutine HyperbolicFlux0D_f
-
-      pure subroutine HyperbolicFlux2D_f( N, Q, F, rho_)
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         integer         , intent(in)  :: N(2)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 1:NDIM, 0:N(1), 0:N(2))
-         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2))
-      end subroutine HyperbolicFlux2D_f
-
-      pure subroutine HyperbolicFlux3D_f( N, Q, F, rho_)
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         integer         , intent(in)  :: N(3)
-         real(kind=RP),    intent(in)  :: Q  (1:NCONS, 0:N(1), 0:N(2), 0:N(3))
-         real(kind=RP),    intent(out) :: F   (1:NCONS, 0:N(1), 0:N(2), 0:N(3), 1:NDIM )
-         real(kind=RP),    intent(in), optional :: rho_(0:N(1), 0:N(2), 0:N(3))
-      end subroutine HyperbolicFlux3D_f
-
-      subroutine VolumetricSharpFlux_FCN(QL,QR,JaL,JaR,fSharp)
-         use SMConstants
-         use PhysicsStorage
-         implicit none
-         real(kind=RP), intent(in)       :: QL(1:NCONS)
-         real(kind=RP), intent(in)       :: QR(1:NCONS)
-         real(kind=RP), intent(in)       :: JaL(1:NDIM)
-         real(kind=RP), intent(in)       :: JaR(1:NDIM)
-         real(kind=RP), intent(out)      :: fSharp(1:NCONS)
-      end subroutine VolumetricSharpFlux_FCN
    end interface
 !
 !  ========
@@ -86,99 +45,25 @@ module HyperbolicDiscretizationClass
          use FTValueDictionaryClass
          use mainKeywordsModule
          use Headers
-         use MPI_Process_Info
          use PhysicsStorage
          implicit none
          class(HyperbolicDiscretization_t) :: self
          class(FTValueDictionary),  intent(in)   :: controlVariables
-!
-!        ---------------
-!        Local variables
-!        ---------------
-!
-         character(len=LINE_LENGTH)    :: splitForm
-         integer                       :: splitType
-         interface
-            subroutine toLower(str)
-               character(*), intent(in out) :: str
-            end subroutine toLower
-         end interface
 
-#ifdef HAS_SPLIT_FORM
 !
-!        Set up the Hyperbolic Discretization
-!        ----------------------------------
-         splitType = STANDARD_SPLIT
-#endif
-
-         call SetRiemannSolver( whichRiemannSolver, splitType )
+!        Setup the Riemann solver
+!        ------------------------
+         call SetRiemannSolver(controlVariables)
 !
-!        ********
 !        Describe
-!        ********
-!
-         call Subsection_Header("Hyperbolic discretization")
-
+!        --------
          if (.not. MPI_Process % isRoot ) return
+
+         call Subsection_Header("Hyperbolic discretization")
 
          write(STD_OUT,'(30X,A,A30,A)') "->","Numerical scheme: ","Standard"
 
-         select case (whichRiemannSolver)
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         case (RIEMANN_ROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe"
-
-         case (RIEMANN_LXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
-
-         case (RIEMANN_RUSANOV)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Rusanov"
-
-         case (RIEMANN_STDROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Standard Roe"
-
-         case (RIEMANN_CENTRAL)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
-
-         case (RIEMANN_ROEPIKE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Roe-Pike"
-
-         case (RIEMANN_MATRIXDISS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Matrix dissipation"
-
-         case (RIEMANN_LOWDISSROE)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Low dissipation Roe"
-
-         case (RIEMANN_UDISS)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","u-diss"
-#elif defined(SPALARTALMARAS)
-
-         case (RIEMANN_LXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
-
-#elif defined(INCNS)
-         case (RIEMANN_CENTRAL)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
-
-         case (RIEMANN_LXF)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Lax-Friedrichs"
-
-         case (RIEMANN_EXACT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
-
-#elif defined(MULTIPHASE)
-         case (RIEMANN_CENTRAL)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Central"
-
-         case (RIEMANN_EXACT)
-            write(STD_OUT,'(30X,A,A30,A)') "->","Riemann solver: ","Exact"
-
-#endif
-         end select
-
-#if defined(NAVIERSTOKES) || defined(INCNS)
-         write(STD_OUT,'(30X,A,A30,F10.3)') "->","Lambda stabilization: ", lambdaStab
-#endif
+         call DescribeRiemannSolver
 
          if ( computeGradients ) then
             write(STD_OUT,'(30X,A,A30,A)') "->","Gradients computation: ", "Enabled."
@@ -270,20 +155,5 @@ module HyperbolicDiscretizationClass
 
       end subroutine BaseClass_ComputeInnerFluxJacobian
 #endif
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-      subroutine BaseClass_ComputeSplitFormFluxes(self, e, contravariantFlux, fSharp, gSharp, hSharp)
-         use ElementClass
-         use PhysicsStorage
-         implicit none
-         class(HyperbolicDiscretization_t), intent(in)  :: self
-         type(Element),           intent(in)  :: e
-         real(kind=RP),           intent(in)  :: contravariantFlux(1:NCONS, 0:e%Nxyz(1) , 0:e%Nxyz(2) , 0:e%Nxyz(3), 1:NDIM)
-         real(kind=RP),           intent(out) :: fSharp(1:NCONS, 0:e%Nxyz(1), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: gSharp(1:NCONS, 0:e%Nxyz(2), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-         real(kind=RP),           intent(out) :: hSharp(1:NCONS, 0:e%Nxyz(3), 0:e%Nxyz(1), 0:e%Nxyz(2), 0: e%Nxyz(3) )
-
-      end subroutine BaseClass_ComputeSplitFormFluxes
 end module HyperbolicDiscretizationClass
 #endif
