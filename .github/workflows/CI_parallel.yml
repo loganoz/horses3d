@@ -562,7 +562,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/BIRK5NumJac
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns Cylinder.control
+          mpiexec -n 8 ./horses3d.ns Cylinder.control
 #
 # 19) Forward facing step with SVV
 # --------------------------------
@@ -577,7 +577,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns FFS_SVV.control
+          mpiexec -n 8 ./horses3d.ns FFS_SVV.control
 #
 # 20) Taylor-Green vortex with SVV-LES
 # ------------------------------------
@@ -592,7 +592,24 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns TaylorGreenSVVLES.control
+          mpiexec -n 8 ./horses3d.ns TaylorGreenSVVLES.control
+
+#
+# 22) IBM CYLINDER 
+# -------------------
+
+      - name: Build IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+     
+      - name: Run IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns IBMCylinder.control
+          
 
 ########################################################################
 #######                       PARTICLES                         ########
