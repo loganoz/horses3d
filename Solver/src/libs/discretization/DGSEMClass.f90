@@ -280,7 +280,12 @@ Module DGSEMClass
 !
       if (MPI_Process % isRoot) write(STD_OUT,'(/,5X,A)') "Reading mesh..."
       CALL constructMeshFromFile( self % mesh, self % mesh % meshFileName, CurrentNodes, Nx, Ny, Nz, MeshInnerCurves , dir2D, useRelaxPeriodic, success )
-      if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)
+      if (.not. self % mesh % child) call mpi_partition % ConstructGeneralInfo (self % mesh % no_of_allElements)   
+!     
+!     Immersed boundary method parameter
+!     -----------------------------------
+
+      call self% mesh% IBM% read_info( controlVariables )
 !
 !     Compute wall distances
 !     ----------------------
@@ -321,19 +326,17 @@ Module DGSEMClass
 !     *              IMMERSED BOUNDARY CONSTRUCTION            *
 !     **********************************************************
 !
-      call self% mesh% IBM% read_info( controlVariables )
-
       if( self% mesh% IBM% active ) then
-
-         if( .not. self % mesh % child ) call self% mesh% IBM% construct( controlVariables )
-
+         if( .not. self % mesh % child ) then
+            call self% mesh% IBM% GetDomainExtreme( self% mesh% elements )
+            call self% mesh% IBM% construct( controlVariables )
+         end if
 !
 !        ------------------------------------------------
 !        building the IBM mask and the IBM band region
 !        ------------------------------------------------
 !
          call self% mesh% IBM% build( self% mesh% elements, self% mesh% no_of_elements, self% mesh% NDOF, self% mesh% child )
-
       end if
 
 !

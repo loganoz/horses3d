@@ -1,0 +1,65 @@
+/* Control file for the implicit Navier-Stokes solver */
+Flow equations        = "NS"
+mesh file name        = "../../TestMeshes/IBMCylinder.msh"
+
+!--STL
+stl file name         = "cylinder"
+
+Polynomial order      = 3
+Number of time steps  = 20
+Output Interval       = 5 
+autosave mode         = "iteration"
+autosave interval     = 50
+
+mach number           = 0.2d0
+Reynolds number       = 40.0d0
+
+
+solution file name    = "RESULTS/IBMCylinder.hsol"
+save gradients with soluton = .false.
+restart               = .false.
+restart file name     = "RESULTS/IBMCylinder_0001140000.hsol"
+riemann solver         = "lax-friedrichs"
+
+viscous discretization = "BR1"
+
+autosave mode      = "iteration"
+autosave interval  = 10000
+
+convergence tolerance = 1.0d-12
+cfl                   = 0.1d0
+dcfl                  = 0.1d0
+
+
+#define IBM
+  name = Cylinder
+  active = .true.
+  describe = .true.
+  number of objects = 3
+  number of interpolation points = 15
+  plot mask = .true.
+#end
+
+#define boundary inlet
+   type = InFlow
+#end 
+
+#define boundary outlet
+   type = OutFlow
+#end
+
+#define boundary up
+   type = FreeSlipWall
+#end
+
+#define boundary down
+   type = FreeSlipWall
+#end
+
+#define boundary walls
+  type = FreeSlipWall
+#end
+
+#define boundary cylinder
+  type = NoSlipWall
+#end

@@ -65,14 +65,14 @@ contains
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   subroutine ConstructSimpleMesh_FromHDF5File_( self, fileName, locR)
+   subroutine ConstructSimpleMesh_FromHDF5File_( self, fileName, locR, AllNx, AllNy, AllNz )
       implicit none
       !-arguments--------------------------------------------------------------
-      class(HexMesh)  , intent(inout) :: self
+      class(HexMesh)  ,           intent(inout) :: self
       ! class(SimpleHexMesh)  , intent(inout) :: self
-      character(LEN=*), intent(in)    :: fileName
-      type(LocalRef_t), intent(in)                 :: locR
-      ! integer         , intent(in)    :: Nx(:), Ny(:), Nz(:)     !<  Polynomial orders for all the elements
+      character(LEN=*), optional, intent(in)    :: fileName
+      type(LocalRef_t), optional, intent(in)    :: locR
+      integer         , optional, intent(in)    :: AllNx(:), AllNy(:), AllNz(:)     !<  Polynomial orders for all the elements
       !-local-variables---------------------------------------------------------
 #ifdef HAS_HDF5
       ! Variables as called by Kopriva
@@ -182,24 +182,23 @@ contains
 !     Now we construct the elements
 !     ---------------------------------------
 
-      ! set dummy values
-      falseNodeID = 0
-
       do l = 1, numberOfElements
 
          DO k = 1, NODES_PER_ELEMENT
-            HOPRNodeID = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
-            
-            corners(:,k) = NodeCoords(:,HOPRNodeID) / Lref
-            
+            HOPRNodeID     = ElemInfo(ELEM_FirstNodeInd,l) + HCornerMap(k)
+            falseNodeID(k) = HOPRNodeID
+            corners(:,k)   = NodeCoords(:,HOPRNodeID) / Lref
          END DO
 
-         
-         call locR%getOrderOfPosition(corners, Nx, Ny, Nz)
-
-         ! call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), corners , l, l) 
-         ! call self % elements(l) % Construct (Nx, Ny, Nz, corners , l, l) 
-         call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
+         if( present(locR) ) then
+            ! set dummy values
+            falseNodeID = 0
+            self % elements(l) % SurfInfo % corners = corners
+            call locR% getOrderOfPosition(corners, Nx, Ny, Nz)
+            call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l)
+         else
+            call self % elements(l) % Construct (AllNx(l), AllNy(l), AllNz(l), falseNodeID , l, l) 
+         end if
          
          
       end do      ! l = 1, numberOfElements

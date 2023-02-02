@@ -422,11 +422,13 @@ contains
          CLASS(MatFreeGMRES_t), INTENT(INOUT) :: this
          REAL(KIND=RP)        , INTENT(IN)    :: dt
          !------------------------------------------------
-         
+         REAL(KIND=RP) :: shift
+
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
-            call this % BlockA % shift( MatrixShift(dt) )
+            shift = MatrixShift(dt)
+            call this % BlockA % shift( shift )
             call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
          end if
          
@@ -440,11 +442,13 @@ contains
          CLASS(MatFreeGMRES_t), INTENT(INOUT)  :: this
          REAL(KIND=RP)        , INTENT(IN)     :: dt
          !------------------------------------------------
+         REAL(KIND=RP) :: shift
          
          this % dtsolve = dt
          
          if (this % Preconditioner == PC_BlockJacobi) then
-            call this % BlockA % shift( MatrixShift(dt) )
+            shift = MatrixShift(dt)
+            call this % BlockA % shift( shift )
             call this % BlockA % FactorizeBlocks_LU(this % BlockPreco)
          end if
          

@@ -2,7 +2,7 @@ module Physics
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
    use Physics_NS
 #elif defined(NAVIERSTOKES) && (SPALARTALMARAS)
-	use Physics_NSSA
+   use Physics_NSSA
 #elif defined(INCNS)
    use Physics_iNS
 #elif defined(MULTIPHASE)

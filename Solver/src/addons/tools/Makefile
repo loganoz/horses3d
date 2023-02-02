@@ -32,7 +32,9 @@ OBJS=	\
 	LocalRefinementClass \
 	readSpecM \
 	readHDF5 \
+	readGMSH \
 	LocalRefinementTool \
+	LocalIBMRefinementTool \
 	ConverStats \
 	main \
 

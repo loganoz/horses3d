@@ -51,6 +51,7 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
             ./NavierStokes/CylinderLES \
+            ./NavierStokes/IBM_Cylinder \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
             ./NavierStokes/EnergyConservingTest \
