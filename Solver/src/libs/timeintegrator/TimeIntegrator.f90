@@ -397,8 +397,6 @@ print*, "Method selected: RK5"
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
-
-
       if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
@@ -429,7 +427,7 @@ print*, "Method selected: RK5"
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
-      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual )
+      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false. )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -547,7 +545,9 @@ print*, "Method selected: RK5"
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -587,7 +587,7 @@ print*, "Method selected: RK5"
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual )
+         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual, self% autosave% Autosave(k+1) )
 !
 !        Exit if the target is reached
 !        -----------------------------

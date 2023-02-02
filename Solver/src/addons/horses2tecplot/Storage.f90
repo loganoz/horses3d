@@ -249,9 +249,6 @@ module Storage
             self % hasSensor    = .false.
             self % hasTimeDeriv = .true.
 
-         ! TODO?
-         case (IBM_MESH)
-
          case (SOLUTION_AND_SENSOR_FILE)
             dimensionsSize = 4
             self % hasGradients = .false.

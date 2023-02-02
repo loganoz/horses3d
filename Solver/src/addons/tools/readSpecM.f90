@@ -11,7 +11,7 @@ Module readSpecM
 
     contains
 
-    Subroutine ConstructSimpleMesh_FromSpecFile_(self, fileName, locR)
+    Subroutine ConstructSimpleMesh_FromSpecFile_(self, fileName, locR, AllNx, AllNy, AllNz)
 
 !        ---------------
 !        Input variables
@@ -19,7 +19,8 @@ Module readSpecM
 !
          type(HexMesh)                    :: self
          CHARACTER(LEN=*)                 :: fileName
-         type(LocalRef_t), intent(in)                 :: locR
+         type(LocalRef_t), optional, intent(in)  :: locR
+         integer         , optional, intent(in)  :: AllNx(:), AllNy(:), AllNz(:)     !<  Polynomial orders for all the elements
 !
 !        ---------------
 !        Local variables
@@ -171,9 +172,13 @@ Module readSpecM
             ! set dummy values
             falseNodeID = 0
 
-            call locR % getOrderOfPosition(corners, Nx, Ny, Nz)
-            ! call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
-            call self % elements(l) % Construct (Nx, Ny, Nz, nodeIDs, l, l) 
+            if( present(locR) ) then 
+               call locR % getOrderOfPosition(corners, Nx, Ny, Nz)
+               ! call self % elements(l) % Construct (Nx, Ny, Nz, falseNodeID , l, l) 
+               call self % elements(l) % Construct (Nx, Ny, Nz, nodeIDs, l, l) 
+            else
+               call self% elements(l)% Construct(AllNx(l), AllNy(l), AllNz(l), nodeIDs, l, l) 
+            end if
 
             READ( fUnit, * ) names
         END DO

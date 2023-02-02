@@ -560,13 +560,13 @@
 !                                   d f_i(2)   |
 !              df_dgradq(2,4,j,i) = ---------- |
 !                                   d(∇q)_j(4) |q=cons,
-!			where (∇q)_j = dq/dx_j
+!        where (∇q)_j = dq/dx_j
 !        
-!			Following Hartmann's notation, G_{ij} = df_dgradq(:,:,j,i). --> R. Hartmann. "Discontinuous Galerkin methods for compressible flows: higher order accuracy, error estimation and adaptivity". 2005.
+!        Following Hartmann's notation, G_{ij} = df_dgradq(:,:,j,i). --> R. Hartmann. "Discontinuous Galerkin methods for compressible flows: higher order accuracy, error estimation and adaptivity". 2005.
 !
 !     2. Jacobian with respect to the conserved variables: df/dq
 !
-!				 	df_dq       := df/d(∇q)
+!              df_dq       := df/d(∇q)
 !                             d f_i(2) |
 !              df_dq(2,4,i) = -------- |
 !                             dq(4)    |∇q=cons
