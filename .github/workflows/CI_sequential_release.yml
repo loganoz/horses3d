@@ -706,16 +706,32 @@ jobs:
 
       #Deactivated because a mismatch in the accuracy
       - name: Build CylinderAnisFAS
-        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS//SETUP
+        working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
      
-      - name: Run CylinderAnisFAS/
+      - name: Run CylinderAnisFAS
         working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderAnisFAS.control
+
+#
+# 22) IBM CYLINDER 
+# -------------------
+
+      - name: Build IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+     
+      - name: Run IBM_Cylinder
+        working-directory: ./Solver/test/NavierStokes/IBM_Cylinder
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns IBMCylinder.control
 
 ########################################################################
 #######                       PARTICLES                         ########
