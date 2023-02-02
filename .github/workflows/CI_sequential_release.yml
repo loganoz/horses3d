@@ -47,7 +47,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       # sudo apt-get install -qq pkg-config libhdf5-serial-dev
 #      - name: Install Linux packages
@@ -60,7 +60,7 @@ jobs:
       - name: cache-intel-compilers
         # if: (matrix.compiler == 'ifort')
         id: cache-intel-compilers
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: /opt/intel
           key: intel-${{ runner.os }}-compilers-b
