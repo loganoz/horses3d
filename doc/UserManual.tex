@@ -325,7 +325,7 @@ inviscid discretization	    & \textit{CHARACTER}: DG discretization of inviscid 
     \end{itemize} 
                     & 'Standard' \\ \hline
 
-split form       & \textit{CHARACTER}: Type of split form flux. Mandatory for if inviscid discretization is Split-Form. Options are:
+averaging & \textit{CHARACTER}: Type of averaging function to use in numerical fluxes and split-forms (if in use). Options are:
     \begin{itemize}
     \item Standard
     \item Morinishi
@@ -1289,7 +1289,7 @@ name & \textit{CHARACTER}: name assigned to immersed boundary method job &  \\ \
 
 active & \textit{LOGICAL}: When .TRUE. the immersed boundary method is active. & .FALSE. \\ \hline
 
-penalization & \textit{REAL}: Specifies the value of the penalization term, \textit{i.e.} \eta. & \Delta t \\ \hline
+penalization & \textit{REAL}: Specifies the value of the penalization term, \textit{i.e.} $\eta$. & $\Delta t$ \\ \hline
 
 semi implicit & \textit{LOGICAL}: The source term is treated in a semi-implicit manner. & .FALSE. \\ \hline
 
