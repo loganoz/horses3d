@@ -32,6 +32,9 @@ OBJS=	Storage\
 	Mesh2Plt\
 	Solution2Plt\
 	Solution2VtkHdf\
+	foamMeshStorage\
+	foamCreateMeshFile\
+	Solution2Foam\
 	Stats2Plt\
 	main \
 
