@@ -722,7 +722,7 @@ module Solution2PltModule
             associate ( e => mesh % elements(eID) )
             N = e % Nout
             allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, &
+            call ComputeOutputVariables(no_of_outputVariables, outputVariableNames, e % Nout, e, e % outputVars, mesh % refs, &
                                         mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
             
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
@@ -938,7 +938,7 @@ module Solution2PltModule
 !        --------------------
          
          allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients, hasStats, hasSensor)
+         call ComputeOutputVariables(no_of_outputVariables, outputVariableNames, e % Nout, e, e % outputVars, refs, hasGradients, hasStats, hasSensor)
 !
 !        Write variables
 !        ---------------        
