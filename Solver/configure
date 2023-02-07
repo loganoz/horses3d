@@ -50,7 +50,9 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/CylinderIP_BDF2 \
             ./NavierStokes/CylinderDucros \
             ./NavierStokes/CylinderDifferentOrders \
-            ./NavierStokes/CylinderLES \
+            ./NavierStokes/CylinderSmagorinsky \
+            ./NavierStokes/CylinderWALE \
+            ./NavierStokes/CylinderVreman \
             ./NavierStokes/IBM_Cylinder \
             ./NavierStokes/DualTimeStepping \
             ./NavierStokes/EntropyConservingTest \
