@@ -345,23 +345,56 @@ jobs:
           mpiexec -n 8 ./horses3d.ns CylinderDucros.control
 
 #
-# 5) CYLINDER LES
+# 5) CYLINDER Smagorinsky
 # ------------------
 
-      - name: Build NSCylinderLES
-        working-directory: ./Solver/test/NavierStokes/CylinderLES/SETUP
+      - name: Build NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
 
-      - name: Run NSCylinderLES
-        working-directory: ./Solver/test/NavierStokes/CylinderLES
+      - name: Run NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          mpiexec -n 8 ./horses3d.ns CylinderLES.control
+          mpiexec -n 8 ./horses3d.ns CylinderSmagorinsky.control
 
 #
-# 6) TAYLOR GREEN VORTEX
+# 6) CYLINDER WALE
+# ------------------
+
+      - name: Build NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns CylinderWALE.control
+
+#
+# 7) CYLINDER Vreman
+# ------------------
+
+      - name: Build NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns CylinderVreman.control
+
+
+#
+# 8) TAYLOR GREEN VORTEX
 # ----------------------
 
       - name: Build TaylorGreen
@@ -377,7 +410,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns TaylorGreen.control
 
 #
-# 7) TAYLOR GREEN VORTEX KEP BR2
+# 9) TAYLOR GREEN VORTEX KEP BR2
 # -----------------------------
 
       - name: Build TaylorGreenKEP_BR2
@@ -393,7 +426,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns TaylorGreenKEP_BR2.control
 
 #
-# 8) TAYLOR GREEN VORTEX KEPEC IP
+# 10) TAYLOR GREEN VORTEX KEPEC IP
 # -------------------------------
 
       - name: Build TaylorGreenKEPEC_IP
@@ -409,7 +442,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns TaylorGreenKEPEC_IP.control
 
 #
-# 9) CYLINDER FAS
+# 11) CYLINDER FAS
 # ---------------
 
       # - name: Build NSCylinderFAS
@@ -425,7 +458,7 @@ jobs:
       #     mpiexec -n 8 ./horses3d.ns CylinderFAS.control
 
 #
-# 10) CYLINDER IP+BDF2
+# 12) CYLINDER IP+BDF2
 # -------------------
 
       #Deactivated because a mismatch in the accuracy
@@ -438,7 +471,7 @@ jobs:
       #  run: mpiexec -n 8 ./horses3d.ns CylinderIP_BDF2.control
 
 #
-# 11) CYLINDER DIFFERENT ORDERS
+# 13) CYLINDER DIFFERENT ORDERS
 # ----------------------------
 #?
       - name: Build NSCylinderDifferentOrders
@@ -454,7 +487,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns CylinderDifferentOrders.control
 
 #
-# 12) ENTROPY CONSERVING TEST
+# 14) ENTROPY CONSERVING TEST
 # ----------------------------
 
       - name: Build EntropyConservingTest
@@ -470,7 +503,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns EntropyConservingTest.control
 
 #
-# 13) ENERGY CONSERVING TEST
+# 15) ENERGY CONSERVING TEST
 # ----------------------------
 
       - name: Build EnergyConservingTest
@@ -486,7 +519,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns EnergyConservingTest.control
 
 #
-# 14) NACA0012 Steady
+# 16) NACA0012 Steady
 # ----------------------------
 
       - name: Build NACA0012
@@ -502,7 +535,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns NACA0012.control
 
 #
-# 15) NACA0012 Unsteady Dual Time Stepping
+# 17) NACA0012 Unsteady Dual Time Stepping
 # ----------------------------
 
       - name: Build DualTimeStepping
@@ -518,7 +551,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns DualTimeStepping.control
 
 #
-# 16) Manufactured Solution for Spalart-Almaras
+# 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
 
 #      - name: Build ManufacturedSolutionsSA
@@ -534,7 +567,7 @@ jobs:
 #          mpiexec -n 8 ./horses3d.nssa MSSA.control
 
 #
-# 17) Flat-Plate test case for Spalart-Almaras
+# 19) Flat-Plate test case for Spalart-Almaras
 # ----------------------------
 
 #      - name: Build FlatPlateSA
@@ -550,7 +583,7 @@ jobs:
 #          mpiexec -n 8 ./horses3d.nssa FlatPlate.control
 
 #
-# 18) Numerical Jacobian for BIRK5
+# 20) Numerical Jacobian for BIRK5
 # --------------------------------
 
 # Does not work with this setup 02/01/2023
@@ -565,7 +598,7 @@ jobs:
 #          source /opt/intel/oneapi/setvars.sh || true
 #          mpiexec -n 8 ./horses3d.ns Cylinder.control
 #
-# 19) Forward facing step with SVV
+# 21) Forward facing step with SVV
 # --------------------------------
 
       - name: Build ForwardFacingStepSVV
@@ -580,7 +613,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns FFS_SVV.control
 #
-# 20) Taylor-Green vortex with SVV-LES
+# 22) Taylor-Green vortex with SVV-LES
 # ------------------------------------
 
       - name: Build TaylorGreenSVVLES
@@ -596,7 +629,7 @@ jobs:
           mpiexec -n 8 ./horses3d.ns TaylorGreenSVVLES.control
 
 #
-# 22) IBM CYLINDER 
+# 23) IBM CYLINDER 
 # -------------------
 
       - name: Build IBM_Cylinder
