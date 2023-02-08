@@ -44,8 +44,8 @@ jobs:
           mkl: 'n'
     # Steps represent a sequence of tasks that will be executed as part of the job
 
-  env:
-    HDF5_ROOT : /usr/lib/x86_64-linux-gnu/hdf5/serial/
+    env:
+      HDF5_ROOT : /usr/lib/x86_64-linux-gnu/hdf5/serial/
 
 
     steps:
