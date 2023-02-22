@@ -312,7 +312,7 @@ jobs:
         working-directory: ./Solver/test/Euler/JFNK
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns UniformFlow_Restart.control
+          ./horses3d.ns UniformFlowJFNK.control
 
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
@@ -935,7 +935,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins LidDrivenCavity.control
+          ./horses3d.ins LDCRe7500.control
 
 #
 # 4) Taylor Green Vortex
@@ -951,7 +951,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins TaylorGreen.control
+          ./horses3d.ins TGV_Central.control
 
 #
 # 5) Rayleigh-Taylor instability
@@ -967,4 +967,4 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins RayleighTaylor.control
+          ./horses3d.ins RTI.control
