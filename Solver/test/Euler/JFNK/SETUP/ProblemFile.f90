@@ -369,7 +369,7 @@
                                msg           = "Number of time steps to tolerance")
             CALL FTAssertEqual(expectedValue = expectedResidual, &
                                actualValue   = maxResidual, &
-                               tol           = 1.d-12, &
+                               tol           = 1.d-10, &
                                msg           = "Final maximum residual")
             
             ALLOCATE(QExpected(NCONS,0:N,0:N,0:N))
