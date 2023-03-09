@@ -14,7 +14,6 @@ MODULE ExplicitMethods
    use DGSEMClass, only: ComputeTimeDerivative_f
    use ParticlesClass
    use PhysicsStorage, only: CTD_IGNORE_MODE
-   use IBMClass
    IMPLICIT NONE
 
    private
@@ -280,22 +279,6 @@ MODULE ExplicitMethods
 
 
       if (present(dt_vec)) then
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
 
 !$omp parallel do
          do id = 1, size(mesh % elements)
@@ -334,40 +317,7 @@ MODULE ExplicitMethods
 
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
-
       else
-
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-               if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
 
 !$omp parallel do
          do id = 1, size(mesh % elements)
@@ -406,21 +356,6 @@ MODULE ExplicitMethods
 
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, SIZE( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
       end if
 !
 !     To obtain the updated residuals
@@ -468,22 +403,6 @@ MODULE ExplicitMethods
 
 
       if (present(dt_vec)) then
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  if( mesh% IBM% TimePenal ) mesh% IBM% penalization(id) = 0.5_RP*dt_vec(id)
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
 
 !$omp parallel do
          do id = 1, size(mesh % elements)
@@ -522,40 +441,7 @@ MODULE ExplicitMethods
 
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
-
       else
-
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-               if( mesh% IBM% TimePenal ) mesh% IBM% penalization = 0.5_RP*deltaT
-!$omp parallel do
-               do id = 1, size( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
 
 !$omp parallel do
          do id = 1, size(mesh % elements)
@@ -595,21 +481,6 @@ MODULE ExplicitMethods
 
          end do ! k
 
-         if( mesh% IBM% active ) then
-            if( mesh% IBM% semiImplicit ) then
-!$omp parallel do
-               do id = 1, SIZE( mesh % elements )
-                  do i = 0, mesh% elements(id)% Nxyz(1); do j = 0, mesh% elements(id)% Nxyz(2); do k = 0, mesh% elements(id)% Nxyz(3)
-                     if( mesh% elements(id)% isInsideBody(i,j,k) ) then
-                        associate( Q => mesh% elements(id)% storage% Q(:,i,j,k) )
-                        call mesh% IBM% GetSemiImplicitStep( id, 0.5_RP*deltaT, Q )
-                        end associate
-                     end if
-                  end do; end do; end do
-               end do
-!$omp end parallel do
-            end if
-         end if
       end if
 !
 !     To obtain the updated residuals
@@ -933,21 +804,19 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Enable_limiter(limiter, minimum)
+   subroutine Enable_limiter(integrator, minimum)
 !
 !     ---------
 !     Interface
 !     ---------
-      integer,            intent(in) :: limiter
+      integer,            intent(in) :: integrator
       real(RP), optional, intent(in) :: minimum
 
 
-      LIMITED = (limiter == SSPRK33_KEY) .or. (limiter == SSPRK43_KEY)
+      LIMITED = (integrator == SSPRK33_KEY) .or. (integrator == SSPRK43_KEY)
 
       if (present(minimum)) then
          LIMITER_MIN = minimum
-      else
-         LIMITER_MIN = 1e-13_RP
       end if
 
    end subroutine Enable_limiter
