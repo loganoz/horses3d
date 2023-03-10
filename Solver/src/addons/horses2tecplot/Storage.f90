@@ -10,7 +10,7 @@ module Storage
    public Mesh_t, Element_t, Boundary_t
    public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
    public partitionFileName, boundaryFileName, flowEq
-   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT
+   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs
 
    integer                          :: NVARS, NGRADVARS
    logical                          :: hasMPIranks, hasBoundaries, isOldStats
@@ -18,6 +18,7 @@ module Storage
    logical                          :: hasUt_NS = .false.
    logical                          :: hasMu_NS = .false.
    logical                          :: hasWallY     = .false.
+   logical                          :: hasMu_sgs = .false.
    character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
    integer, parameter               :: NSTAT = 9
 
@@ -40,6 +41,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NS(:,:,:,:)
       real(kind=RP), pointer     :: ut_NS(:,:,:,:)
       real(kind=RP), pointer     :: wallY(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgs(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
       real(kind=RP)              :: sensor
 !                                /* Output quantities */
@@ -53,6 +55,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NSout(:,:,:,:)
       real(kind=RP), pointer     :: ut_NSout(:,:,:,:)
       real(kind=RP), pointer     :: wallYout(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgsout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
 
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -399,6 +402,11 @@ module Storage
                    allocate( e % wallY(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % wallY
                end if 
+
+               if (hasMu_sgs) then
+                   allocate( e % mu_sgs(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_sgs
+               end if
 
                end associate
             end do

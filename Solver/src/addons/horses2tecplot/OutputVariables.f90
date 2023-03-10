@@ -49,8 +49,8 @@ module OutputVariables
       enumerator :: Vvec_Vmean, U_Vmean, V_Vmean, W_Vmean, ReST 
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
       enumerator :: Vfvec_Vrms, Uf_Vrms, Vf_Vrms, Wf_Vrms
-      enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, UPLUS, Cf_V, MUTMINF
-      enumerator :: SENSOR_V
+      enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, Cf_V, MUTMINF
+      enumerator :: MU_sgs_V, SENSOR_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -134,9 +134,9 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: TauwKey       = "wall_shear"
    character(len=STR_VAR_LEN), parameter  :: muKey         = "mu_ns"
    character(len=STR_VAR_LEN), parameter  :: yplusKey      = "yplus"
-   character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus"
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "Cf"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+   character(len=STR_VAR_LEN), parameter  :: muSGSKey      = "mu_sgs"
    character(len=STR_VAR_LEN), parameter  :: sensorKey     = "sensor"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
@@ -155,7 +155,7 @@ module OutputVariables
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
                                                                             VfvecRmsKey, UfRmsKey, VfRmsKey, WfRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
-                                                                            uplusKey, cfKey, mutminfKey, sensorKey /)
+                                                                            cfKey, mutminfKey, muSGSKey, sensorKey /)
                                                                         
                                                                         
                                                                
@@ -292,7 +292,7 @@ module OutputVariables
          real(kind=RP) :: Sym, Asym
          logical       :: hasAdditionalVariables
 
-         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor
+         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor .or. hasMu_sgs
 
          do var = 1, no_of_outputVariables
             if ( hasAdditionalVariables .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
@@ -304,6 +304,7 @@ module OutputVariables
                            mu_NS => e % mu_NSout, &
                            wallY => e % wallY, &
                            u_tau=> e % ut_NS, &
+                           mu_sgs => e % mu_sgsout, &
                            stats => e % statsout)
 
                select case (outputVariableNames(var))
@@ -684,12 +685,12 @@ module OutputVariables
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * Lreference
 
-               case(UPLUS)
+               case(MU_sgs_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  (Q(IRHOU,i,j,k) / Q(IRHO,i,j,k)) * abs(u_tau(1,i,j,k))
+                     output(var,i,j,k) = mu_sgs(1,i,j,k) !* refs(RE_REF)
                   end do         ; end do         ; end do
-                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:)
-               
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:) ! there is not reference state for the mu, it could be calculated if we have the Re reference
+
                case(Cf_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k)) * 2.0_RP !here we are assuming that u_inf and rho_inf are 1.0 as is common in a free stream
