@@ -24,18 +24,21 @@ module getTask
    implicit none
    
    private
-   public   MESH_2_PLT, SOLUTION_2_PLT, SOLUTION_2_VTKHDF, UNKNOWN_JOB
+   public   MESH_2_PLT, MESH_2_FOAM, SOLUTION_2_PLT, SOLUTION_2_FOAM, SOLUTION_2_VTKHDF, UNKNOWN_JOB
    public   EXPORT_GAUSS, EXPORT_HOMOGENEOUS, OUTPUT_VARIABLES_FLAG, MODE_MULTIZONE, MODE_FINITEELM
 
    public   getTaskType
 
    integer, parameter   :: UNKNOWN_JOB = 0
    integer, parameter   :: MESH_2_PLT = 1
-   integer, parameter   :: SOLUTION_2_PLT = 2
-   integer, parameter   :: SOLUTION_2_VTKHDF = 3
+   integer, parameter   :: MESH_2_FOAM = 2
+   integer, parameter   :: SOLUTION_2_PLT = 3
+   integer, parameter   :: SOLUTION_2_VTKHDF = 4
+   integer, parameter   :: SOLUTION_2_FOAM = 5
 
    integer, parameter   :: OUTPUT_IS_TECPLOT = 1
    integer, parameter   :: OUTPUT_IS_VTKHDF = 2
+   integer, parameter   :: OUTPUT_IS_FOAM = 3
    
    integer, parameter   :: EXPORT_GAUSS = 0
    integer, parameter   :: EXPORT_HOMOGENEOUS = 1
@@ -50,10 +53,11 @@ module getTask
    character(len=*), parameter   :: BOUNDARY_FILE_FLAG="--boundary-file="
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
    character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
+   character(len=*), parameter   :: WRITE_MESH_TYPE="--write-mesh="
 
    contains
 
-      subroutine getTaskType(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, useCommandArgs,oldStats)
+      subroutine getTaskType(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, useCommandArgs,oldStats, writeMesh)
          use Storage               , only: isOldStats
          implicit none
          integer,                                 intent(out) :: taskType
@@ -67,14 +71,14 @@ module getTask
          integer,                                 intent(out) :: mode
          logical,                                 intent(out) :: useCommandArgs
          logical,                                 intent(out) :: oldStats
+		 logical,								  intent(out) :: writeMesh
 !
 !        ---------------
 !        Local variables
 !        ---------------
 !
          integer     :: no_of_arguments
-         integer     :: i, sol, pos, pos2
-
+         integer     :: i, sol, pos, pos2, fID
 !
 !        Get number of command arguments         
 !        -------------------------------
@@ -85,17 +89,35 @@ module getTask
          if (no_of_arguments .eq. 1) then
              !todo: check that it is actually a control file
              useCommandArgs = .false.
-             call getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, oldStats)
-         else
+             call getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, oldStats, writeMesh)
+         elseif (no_of_arguments .gt. 1) then
              useCommandArgs = .true.
-             call getTaskTypeCommand(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, oldStats)
+             call getTaskTypeCommand(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, oldStats, writeMesh)
+		 else 
+			write(STD_OUT,'(10X,A,A)') "ERROR::Neither Control File Input nor command argument was found. Generating control file template"
+			OPEN(newunit=fID,file="horses2Others.convert",status="new",action="write")
+			WRITE(fid,'(A)')'!//////////////////////////////////////////////////////////////////////////////////////////////////////////!'
+			WRITE(fid,'(A)')'!//////////////////////////////// HORSES3D POST for PARAVIEW (plt,HDF,foam) ///////////////////////////////!'
+			WRITE(fid,'(A)')'!////////////////////////////////// ---------Control Input File--------- //////////////////////////////////!'
+			WRITE(fid,'(A)')'!//////////////////////////////////////////////////////////////////////////////////////////////////////////!'
+			WRITE(fid,'(A)')'hmesh file= ../MESH/Mesh.hmesh'
+			WRITE(fid,'(A)')'boundary file= ../MESH/Mesh.bmesh'
+			WRITE(fid,'(A)')'hsol file= File_1.hsol, File_2.hsol'
+			WRITE(fid,'(A)')'output order= 5'
+			WRITE(fid,'(A)')'output variables= V, Qcrit, p, pt, T, rho, Mach, gradV, omega'
+			WRITE(fid,'(A)')'output basis= Homogeneous'
+			WRITE(fid,'(A)')'output mode= FE'
+			WRITE(fid,'(A)')'write mesh= .true.'
+			WRITE(fid,'(A)')'output file type= tecplot/vtkhdf/foam'
+			CLOSE(fID)
+		    call EXIT(0)			 
          end if 
 
          isOldStats = oldStats
 
       End Subroutine getTaskType
 
-      subroutine getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, oldStats)
+      subroutine getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, oldStats, writeMesh)
          use FTValueDictionaryClass, only: FTValueDictionary
          use FileReaders           , only: ReadControlFile 
          use FileReadingUtilities, only: getCharArrayFromString
@@ -114,7 +136,7 @@ module getTask
          integer,                                 intent(out) :: basis
          integer,                                 intent(out) :: mode
          logical,                                 intent(out) :: oldStats
-
+		 logical,								  intent(out) :: writeMesh
 !
 !        ---------------
 !        Local variables
@@ -124,6 +146,7 @@ module getTask
          logical                                                :: meshFilePresent, basisPresent, modePresent, solutionPresent, patternPresent
          character(len=LINE_LENGTH)                             :: basisName, modeName, auxiliarName
          character(len=LINE_LENGTH)                             :: solutionsPattern, fullExpression
+		 character(len=LINE_LENGTH)								:: inputResultName
          real(kind=RP)                                          :: r
          integer                                                :: pos, pos2
          character(len=LINE_LENGTH)                             :: additionalVariablesStr, addVar
@@ -151,10 +174,30 @@ module getTask
          solutionPresent = controlVariables % containsKey("hsol file")
          patternPresent = controlVariables % containsKey("hsol files pattern")
          if (solutionPresent) then
-             no_of_solutions = 1
-             allocate(solutionNames(no_of_solutions), solutionTypes(no_of_solutions))
-             solutionNames(1) = controlVariables % stringValueForKey("hsol file", LINE_LENGTH)
-             solutionTypes(1) = getSolutionFileType(solutionNames(1))
+			 inputResultName = controlVariables % stringValueForKey("hsol file", LINE_LENGTH)
+			 inputResultName = trim(inputResultName)
+			 no_of_solutions = getNoOfCommas(trim(inputResultName)) + 1
+			 
+             allocate(solutionNames(1:no_of_solutions))
+			 allocate(solutionTypes(1:no_of_solutions))
+			 
+			 if ( no_of_solutions .eq. 1 ) then
+			   solutionNames(1) = ADJUSTL(TRIM(inputResultName))
+			   solutionTypes(1) = getSolutionFileType(solutionNames(1))
+             else
+
+               pos=0
+               do i = 1, no_of_solutions-1
+                  pos2 = index(trim(inputResultName(pos+1:)),",") + pos
+				  solutionNames(i) = TRIM(ADJUSTL(inputResultName(pos+1:pos2-1)))
+				  solutionTypes(i) = getSolutionFileType(solutionNames(i))
+                  pos = pos2
+               end do
+
+               pos = index(trim(inputResultName),",",BACK=.true.)
+			   solutionNames(no_of_solutions) = ADJUSTL(TRIM(inputResultName(pos+1:)))
+			   solutionTypes(no_of_solutions) = getSolutionFileType(solutionNames(no_of_solutions))
+             end if
 
          ! use pattern match to get an array of soultions
          elseif (patternPresent) then
@@ -183,10 +226,12 @@ module getTask
 !        Select the output file type
 !        ---------------------------
          if (controlVariables % containsKey("output file type")) then
-            if (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "tecplot") then
+            if (controlVariables % stringValueForKey("output file type", LINE_LENGTH) == "tecplot") then
                 fileType = OUTPUT_IS_TECPLOT
-            elseif (controlVariables % stringValueForKey(OUTPUT_FILE_TYPE, LINE_LENGTH) == "vtkhdf") then
+            elseif (controlVariables % stringValueForKey("output file type", LINE_LENGTH) == "vtkhdf") then
                 fileType = OUTPUT_IS_VTKHDF
+		    elseif (controlVariables % stringValueForKey("output file type", LINE_LENGTH) == "foam") then
+                fileType = OUTPUT_IS_FOAM
             else
                write(STD_OUT,'(A)') "Output file type not recognized"
                errorMessage(STD_OUT)
@@ -202,13 +247,17 @@ module getTask
          if ( no_of_solutions .ne. 0 ) then
             if (fileType == OUTPUT_IS_TECPLOT) then
                 taskType = SOLUTION_2_PLT
-            else ! fileType == OUTPUT_IS_VTKHDF
+            elseif ( fileType == OUTPUT_IS_VTKHDF) then
                 taskType = SOLUTION_2_VTKHDF
+			elseif ( fileType == OUTPUT_IS_FOAM) then
+                taskType = SOLUTION_2_FOAM
             end if
 
          else
             if (fileType == OUTPUT_IS_TECPLOT) then
                 taskType = MESH_2_PLT
+			elseif (fileType == OUTPUT_IS_FOAM) then
+                taskType = MESH_2_FOAM
             else ! fileType == OUTPUT_IS_VTKHDF
                 write(STD_OUT,'(A)') "Mesh to VTKHDF conversion not implemented"
                 errorMessage(STD_OUT)
@@ -262,6 +311,11 @@ module getTask
 !        Get the boundary and partition file
 !        ------------------------------------
          hasBoundaries = controlVariables % containsKey("boundary file")
+		 if ((fileType == OUTPUT_IS_FOAM).and. .not.(hasBoundaries)) then
+			write(STD_OUT,'(A)') "foam Output files need boundary file"
+                errorMessage(STD_OUT)
+				return
+		 end if 
          if (hasBoundaries) boundaryFileName = controlVariables % stringValueForKey("boundary file", LINE_LENGTH)
          hasMPIranks = controlVariables % containsKey("partition file")
          if (hasMPIranks) partitionFileName = controlVariables % stringValueForKey("partition file", LINE_LENGTH)
@@ -302,10 +356,17 @@ module getTask
                 end select
              end do
          end if
+!
+!        Write Mesh File first (for foam output)
+!        --------------------------------------
+		 writeMesh = .true.
+		 if ((fileType == OUTPUT_IS_FOAM) .and. (controlVariables % containsKey("write mesh"))) then
+				writeMesh = controlVariables % logicalValueForKey("write mesh")
+		 end if 		
 
       End Subroutine getTaskTypeControl
 
-      subroutine getTaskTypeCommand(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode,oldStats)
+      subroutine getTaskTypeCommand(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, oldStats, writeMesh)
          use SolutionFile
          use Storage               , only: hasMPIranks, hasBoundaries, partitionFileName, boundaryFileName, flowEq
          use OutputVariables       , only: outScale, hasVariablesFlag, askedVariables, Lreference
@@ -320,6 +381,7 @@ module getTask
          integer,                                 intent(out) :: basis
          integer,                                 intent(out) :: mode
          logical,                                 intent(out) :: oldStats
+		 logical,								  intent(out) :: writeMesh
 !
 !        ---------------
 !        Local variables
@@ -426,6 +488,9 @@ module getTask
 
          elseif (fileTypeName == "vtkhdf") then
              fileType = OUTPUT_IS_VTKHDF
+	     
+		 elseif (fileTypeName == "foam") then
+             fileType = OUTPUT_IS_FOAM
 
          else
             write(STD_OUT,'(A)') "Output file type not recognized"
@@ -440,13 +505,16 @@ module getTask
          if ( no_of_solutions .ne. 0 ) then
             if (fileType == OUTPUT_IS_TECPLOT) then
                taskType = SOLUTION_2_PLT
-            else ! fileType == OUTPUT_IS_VTKHDF
+            elseif (fileType == OUTPUT_IS_VTKHDF) then
                taskType = SOLUTION_2_VTKHDF
+			elseif (fileType == OUTPUT_IS_FOAM) then
+               taskType = SOLUTION_2_FOAM
             end if
-   
          else
             if (fileType == OUTPUT_IS_TECPLOT) then
                taskType = MESH_2_PLT
+			elseif (fileType == OUTPUT_IS_FOAM) then
+               taskType = MESH_2_FOAM
             else ! fileType == OUTPUT_IS_VTKHDF
                 write(STD_OUT,'(A)') "Mesh file to VTKHDF conversion not implemented"
                 errorMessage(STD_OUT)
@@ -533,6 +601,7 @@ module getTask
          hasMPIranks      = .false.
          outScale         = .true.
          hasVariablesFlag = .false.
+		 writeMesh        = .true. 
          do i = 1, no_of_arguments
             call get_command_argument(i, auxiliarName)
             pos = index(trim(auxiliarName),BOUNDARY_FILE_FLAG)
@@ -558,7 +627,17 @@ module getTask
                askedVariables = auxiliarName(pos+len_trim(OUTPUT_VARIABLES_FLAG):len_trim(auxiliarName))
                cycle
             end if
+			pos = index(trim(auxiliarName),"--resultonly")
+            if ( pos .ne. 0 ) then
+               writeMesh = .false.
+               cycle
+            end if
          end do
+		 if ((fileType == OUTPUT_IS_FOAM).and. .not.(hasBoundaries)) then
+			write(STD_OUT,'(A)') "foam Output files need boundary file"
+                errorMessage(STD_OUT)
+				return
+		 end if 
          oldStats = .false.
          Lreference = 1.0_RP
 

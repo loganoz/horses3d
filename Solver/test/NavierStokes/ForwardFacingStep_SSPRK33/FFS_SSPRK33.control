@@ -1,0 +1,68 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/ForwardFacingStep.mesh
+                      Solution file name = RESULTS/FFS.hsol
+               Save sensor with solution = .true.
+                2D mesh offset direction = z
+                                 Restart = .false.
+                       Restart file name = RESULTS/FFS.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 3.0
+                         Reynolds number = 0.0
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 0.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 7
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Matrix dissipation
+                 Inviscid discretization = Split-form
+                              Split form = Chandrasekar
+                      Gradient variables = Entropy
+                  Viscous discretization = BR1
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                         Explicit method = SSPRK33
+                          Limit timestep = .true.
+                         Limiter minimum = 1e-5
+                                      dt = 0.00002
+                    Number of time steps = 10
+                         Output interval = 50
+                   Convergence tolerance = 1.0e-10
+
+!-------------------- Boundary conditions:-
+#define boundary inlet
+   type = Inflow
+#end
+
+#define boundary step
+   type = FreeSlipWall
+#end
+
+#define boundary periodic+
+   type = periodic
+   coupled boundary = periodic-
+#end
+
+#define boundary periodic-
+   type = periodic
+   coupled boundary = periodic+
+#end
+
+#define boundary outlet
+   type = Outflow
+#end
+
+#define boundary top
+   type = FreeSlipWall
+#end

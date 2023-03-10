@@ -71,6 +71,7 @@ module Storage
    type Mesh_t
       integer  :: no_of_elements
       integer  :: nodeType
+	  real (kind=RP) 	:: time
       type(Element_t),   allocatable    :: elements(:)
       type(Boundary_t),  allocatable    :: boundaries(:)
       character(len=LINE_LENGTH) :: meshName
@@ -172,8 +173,10 @@ module Storage
 !
 !        Describe the mesh
 !        -----------------
+		 write(STD_OUT,'(/)')
+         write(STD_OUT,'(10X,A,A)') "Loading Mesh File:"
+         write(STD_OUT,'(10X,A,A)') "-----------------"
          write(msg,'(A,A,A)') 'Mesh file "',trim(meshName),'":'
-         write(STD_OUT,'(/)')
          call SubSection_Header(trim(msg))
 
          write(STD_OUT,'(30X,A,A30,I0)') "->", "Number of elements: ", self % no_of_elements
@@ -218,6 +221,9 @@ module Storage
          character(len=1024)  :: msg
 
          self % solutionName = trim(solutionName)
+		 write(STD_OUT,'(10X,A,A)') "Loading Solution File:"
+         write(STD_OUT,'(10X,A,A)') "---------------------"
+		 write(STD_OUT,'(30X,A,A30,A)') "->","Solution File: ", trim(solutionName)													  
 !
 !        Get the solution file type
 !        --------------------------
@@ -293,7 +299,7 @@ module Storage
 !
 !        Get time and iteration
 !        ----------------------
-         call getSolutionFileTimeAndIteration(trim(solutionName),iter,time)
+         call getSolutionFileTimeAndIteration(trim(solutionName),iter,self % time)
 !
 !        Read reference values
 !        ---------------------
@@ -458,7 +464,7 @@ module Storage
          end if
 
          write(STD_OUT,'(30X,A,A30,I0)') "->","Iteration: ", iter
-         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", time
+         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", self % time
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference velocity: ", self % refs(V_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)

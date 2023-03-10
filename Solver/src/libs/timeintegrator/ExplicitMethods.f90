@@ -14,15 +14,38 @@ MODULE ExplicitMethods
    use DGSEMClass, only: ComputeTimeDerivative_f
    use ParticlesClass
    use PhysicsStorage, only: CTD_IGNORE_MODE
-   use IBMClass
    IMPLICIT NONE
 
    private
-   public   TakeRK3Step, TakeRK5Step, TakeExplicitEulerStep, Enable_CTD_AFTER_STEPS
-   public   TakeRKOptStep
+   public   EULER_NAME, RK3_NAME, RK5_NAME, OPTRK_NAME, SSPRK33_NAME, SSPRK43_NAME
+   public   EULER_KEY, RK3_KEY, RK5_KEY, OPTRK_KEY, SSPRK33_KEY, SSPRK43_KEY
+   public   TakeExplicitEulerStep, TakeRK3Step, TakeRK5Step, TakeRKOptStep
+   public   TakeSSPRK33Step, TakeSSPRK43Step
+   public   Enable_CTD_AFTER_STEPS, Enable_limiter, CTD_AFTER_STEPS, LIMITED, LIMITER_MIN
 
-   integer, protected :: eBDF_order = 3
-   logical, protected :: CTD_AFTER_STEPS = .false.
+   integer,  protected :: eBDF_order = 3
+   logical,  protected :: CTD_AFTER_STEPS = .false.
+   logical,  protected :: LIMITED = .false.
+   real(RP), protected :: LIMITER_MIN = 1e-13_RP
+!
+!  Implemented integration methods
+!  -------------------------------
+!  Remember to add them to `Enable_limiter` if they support limiting (or any kind of stage
+!  callbacks if that is ever implemented)
+!  ---------------------------------------------------------------------------------------
+   character(len=*), parameter :: EULER_NAME   = "euler"
+   character(len=*), parameter :: RK3_NAME     = "rk3"
+   character(len=*), parameter :: RK5_NAME     = "rk5"
+   character(len=*), parameter :: OPTRK_NAME   = "optimal rk"
+   character(len=*), parameter :: SSPRK33_NAME = "ssprk33"
+   character(len=*), parameter :: SSPRK43_NAME = "ssprk43"
+
+   integer, parameter :: EULER_KEY   = 1
+   integer, parameter :: RK3_KEY     = 2
+   integer, parameter :: RK5_KEY     = 3
+   integer, parameter :: OPTRK_KEY   = 4
+   integer, parameter :: SSPRK33_KEY = 5
+   integer, parameter :: SSPRK43_KEY = 6
 !========
  CONTAINS
 !========
@@ -64,7 +87,7 @@ MODULE ExplicitMethods
       REAL(KIND=RP), DIMENSION(3) :: b = (/0.0_RP       ,  1.0_RP /3.0_RP ,    3.0_RP/4.0_RP  /)
       REAL(KIND=RP), DIMENSION(3) :: c = (/1.0_RP/3.0_RP,  15.0_RP/16.0_RP,    8.0_RP/15.0_RP /)
 
-      
+
       INTEGER :: i, j, k, id
 
       if (present(dt_vec)) then   
@@ -89,7 +112,7 @@ MODULE ExplicitMethods
 #endif
             end do ! id
 !$omp end parallel do
-   
+
          end do ! k
 
       else
@@ -114,7 +137,7 @@ MODULE ExplicitMethods
 #endif
             end do ! id
 !$omp end parallel do
-       
+
          end do ! k
 
       end if
@@ -217,6 +240,255 @@ MODULE ExplicitMethods
       if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
 
    end subroutine TakeRK5Step
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  Routine for taking a SSP-RK 3-stage 3rd-order step.
+!  ------------------------------
+   subroutine TakeSSPRK33Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+      implicit none
+!
+!     ----------------
+!     Input parameters
+!     ----------------
+!
+      type(HexMesh)                               :: mesh
+#if defined(FLOW)
+      type(Particles_t)                           :: particles
+#else
+      logical                                     :: particles
+#endif
+      real(RP)                                    :: t
+      real(RP)                                    :: deltaT
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
+      real(RP), allocatable, optional, intent(in) :: dt_vec(:)
+      logical,               optional, intent(in) :: dts
+      real(RP),              optional, intent(in) :: global_dt
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP), parameter :: a(3) = [1.0_RP, 3.0_RP/4.0_RP, 1.0_RP/3.0_RP]
+      real(RP), parameter :: b(3) = [0.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP]
+      real(RP), parameter :: c(3) = [1.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP]
+      real(RP), parameter :: d(3) = [0.0_RP, 1.0_RP,        0.5_RP]
+      real(RP) :: tk
+      integer  :: i, j, k, id
+
+
+      if (present(dt_vec)) then
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 3
+            tk = t + d(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+               mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                 + b(k) * mesh % elements(id) % storage % Q    &
+                                                 + c(k) * dt_vec(id) * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+               mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                 + b(k) * mesh % elements(id) % storage % c    &
+                                                 + c(k) * dt_vec(id) * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
+
+         end do ! k
+
+      else
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 3
+            tk = t + d(k) * deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+               mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                 + b(k) * mesh % elements(id) % storage % Q    &
+                                                 + c(k) * deltaT * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+               mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                 + b(k) * mesh % elements(id) % storage % c    &
+                                                 + c(k) * deltaT * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
+
+         end do ! k
+
+      end if
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeSSPRK33Step
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  ------------------------------
+!  Routine for taking a SSP-RK 4-stage 3rd-order step.
+!  ------------------------------
+   subroutine TakeSSPRK43Step( mesh, particles, t, deltaT, ComputeTimeDerivative, dt_vec, dts, global_dt )
+      implicit none
+!
+!     ----------------
+!     Input parameters
+!     ----------------
+!
+      type(HexMesh)                               :: mesh
+#if defined(FLOW)
+      type(Particles_t)                           :: particles
+#else
+      logical                                     :: particles
+#endif
+      real(RP)                                    :: t
+      real(RP)                                    :: deltaT
+      procedure(ComputeTimeDerivative_f)          :: ComputeTimeDerivative
+      real(RP), allocatable, optional, intent(in) :: dt_vec(:)
+      logical,               optional, intent(in) :: dts
+      real(RP),              optional, intent(in) :: global_dt
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP), parameter :: a(4) = [1.0_RP, 0.0_RP, 2.0_RP/3.0_RP, 0.0_RP]
+      real(RP), parameter :: b(4) = [0.0_RP, 1.0_RP, 1.0_RP/3.0_RP, 1.0_RP]
+      real(RP), parameter :: c(4) = [0.5_RP, 0.5_RP, 1.0_RP/6.0_RP, 0.5_RP]
+      real(RP), parameter :: d(4) = [0.0_RP, 0.5_RP, 1.0_RP,        0.5_RP]
+      real(RP) :: tk
+      integer  :: i, j, k, id
+
+
+      if (present(dt_vec)) then
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 4
+            tk = t + d(k)*deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+               mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                 + b(k) * mesh % elements(id) % storage % Q    &
+                                                 + c(k) * dt_vec(id) * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+               mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                 + b(k) * mesh % elements(id) % storage % c    &
+                                                 + c(k) * dt_vec(id) * mesh % elements(id) % storage % cDot
+#endif
+            end do ! id
+!$omp end parallel do
+
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
+
+         end do ! k
+
+      else
+
+!$omp parallel do
+         do id = 1, size(mesh % elements)
+#if defined(FLOW)
+            mesh % elements(id) % storage % G_NS = mesh % elements(id) % storage % Q
+#elif defined(CAHNHILLIARD)
+            mesh % elements(id) % storage % G_CH = mesh % elements(id) % storage % c
+#endif
+         end do
+!$omp end parallel do
+
+         do k = 1, 4
+            tk = t + d(k) * deltaT
+            call ComputeTimeDerivative( mesh, particles, tk, CTD_IGNORE_MODE)
+            if ( present(dts) ) then
+               if (dts) call ComputePseudoTimeDerivative(mesh, tk, global_dt)
+            end if
+
+!$omp parallel do
+            do id = 1, size( mesh % elements )
+#if defined(FLOW)
+               mesh % elements(id) % storage % Q = a(k) * mesh % elements(id) % storage % G_NS &
+                                                 + b(k) * mesh % elements(id) % storage % Q    &
+                                                 + c(k) * deltaT * mesh % elements(id) % storage % Qdot
+#elif defined(CAHNHILLIARD)
+               mesh % elements(id) % storage % c = a(k) * mesh % elements(id) % storage % G_CH &
+                                                 + b(k) * mesh % elements(id) % storage % c    &
+                                                 + c(k) * deltaT * mesh % elements(id) % storage % cDot
+#endif
+
+            end do ! id
+!$omp end parallel do
+
+            if (LIMITED) then
+               call stage_limiter(mesh)
+            end if
+
+         end do ! k
+
+      end if
+!
+!     To obtain the updated residuals
+      if ( CTD_AFTER_STEPS ) CALL ComputeTimeDerivative( mesh, particles, t+deltaT, CTD_IGNORE_MODE)
+
+      call checkForNan(mesh, t)
+
+   END SUBROUTINE TakeSSPRK43Step
 
    SUBROUTINE TakeExplicitEulerStep( mesh, particles, t, deltaT, ComputeTimeDerivative , dt_vec, dts, global_dt )
 !
@@ -532,6 +804,121 @@ MODULE ExplicitMethods
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
+   subroutine Enable_limiter(integrator, minimum)
+!
+!     ---------
+!     Interface
+!     ---------
+      integer,            intent(in) :: integrator
+      real(RP), optional, intent(in) :: minimum
+
+
+      LIMITED = (integrator == SSPRK33_KEY) .or. (integrator == SSPRK43_KEY)
+
+      if (present(minimum)) then
+         LIMITER_MIN = minimum
+      end if
+
+   end subroutine Enable_limiter
+
+#if defined(NAVIERSTOKES) || defined(SPALARTALMARAS)
+   subroutine stage_limiter(mesh)
+!
+!     -------
+!     Modules
+!     -------
+!
+      use ElementClass,      only: Element
+      use NodalStorageClass, only: NodalStorage
+      use FluidData,         only: thermodynamics
+!
+!     ---------
+!     Interface
+!     ---------
+!
+      type(HexMesh), target, intent(inout) :: mesh
+!
+!     ---------------
+!     Local variables
+!     ---------------
+!
+      real(RP)               :: m
+      real(RP)               :: Q(5), Qavg(5)
+      real(RP)               :: rho, minrho
+      real(RP)               :: p, pavg, minp
+      real(RP)               :: theta
+      real(RP)               :: gm1
+      integer                :: eID
+      integer                :: i, j, k
+      type(Element), pointer :: e
+      real(RP),      pointer :: wx(:), wy(:), wz(:)
+
+
+      gm1 = thermodynamics % gammaMinus1
+
+!$omp parallel do default(private) shared(mesh, NodalStorage) firstprivate(gm1, LIMITER_MIN)
+      do eID = 1, mesh % no_of_elements
+         e  => mesh % elements(eID)
+         wx => NodalStorage(e % Nxyz(1)) % w
+         wy => NodalStorage(e % Nxyz(2)) % w
+         wz => NodalStorage(e % Nxyz(3)) % w
+
+         ! Compute averages
+         Qavg = 0.0_RP
+         do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+            Qavg = Qavg + e % storage % Q(:,i,j,k) * wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
+         end do               ; end do               ; end do
+         Qavg = Qavg / e % geom % volume
+
+         ! Density first
+         minrho = huge(1.0_RP)
+         do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+            rho = e % storage % Q(1,i,j,k)
+            if (rho < minrho) minrho = rho
+         end do               ; end do               ; end do
+
+         m = min(LIMITER_MIN, Qavg(1))
+         theta = abs((Qavg(1) - m) / (Qavg(1) - minrho))
+         if (theta <= 1.0_RP) then
+            e % storage % Q(1,:,:,:) = theta * (e % storage % Q(1,:,:,:) - Qavg(1)) + Qavg(1)
+         end if
+
+         ! Pressure now (Jensen's inequality is NOT conservative for the pressure)
+         minp = huge(1.0_RP)
+         pavg = 0.0_RP
+         do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+            Q = e % storage % Q(:,i,j,k)
+            p = gm1 * (Q(5) - 0.5_RP * (Q(2)**2 + Q(3)**2 + Q(4)**2) / Q(1))
+            pavg = pavg + p * wx(i) * wy(j) * wz(k) * e % geom % jacobian(i,j,k)
+            if (p < minp) minp = p
+         end do               ; end do               ; end do
+         pavg = pavg / e % geom % volume
+
+         m = min(LIMITER_MIN, pavg)
+         theta = abs((pavg - m) / (pavg - minp))
+         if (theta <= 1.0_RP) then
+            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+               e % storage % Q(:,i,j,k) = theta * (e % storage % Q(:,i,j,k) - Qavg) + Qavg
+            end do               ; end do               ; end do
+         end if
+
+      end do
+!$omp end parallel do
+
+      nullify(e)
+      nullify(wx)
+      nullify(wy)
+      nullify(wz)
+
+   end subroutine stage_limiter
+#else
+   subroutine stage_limiter(mesh)
+      type(HexMesh), intent(in) :: mesh
+   end subroutine stage_limiter
+#endif
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
    Subroutine checkForNan(mesh, t)
 !
 !        **************************************************************************************************************
@@ -548,10 +935,10 @@ MODULE ExplicitMethods
       real(kind=RP), intent(in)     :: t
 
       !local variables
-      integer                       :: eID, i, j, k
-      CHARACTER(len=LINE_LENGTH)    :: FinalName      !  Final name for particular restart file
-      logical                       :: NanNotFound, allNan
-      integer                       :: ierr
+      integer                    :: eID
+      CHARACTER(len=LINE_LENGTH) :: FinalName      !  Final name for particular restart file
+      logical                    :: NanNotFound, allNan
+      integer                    :: ierr
 
       ! use not found instead of found as OMP reduction initialized the private value as true
       ! this is redundant for the OMP but left for non parallel compilations

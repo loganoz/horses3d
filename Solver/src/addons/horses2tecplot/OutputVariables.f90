@@ -21,11 +21,12 @@ module OutputVariables
    use Storage, only: NVARS, hasMPIranks
 
    private
-   public   no_of_outputVariables, askedVariables
+   public   no_of_outputVariables, preliminarNoOfVariables, askedVariables, getNoOfCommas
+   public   outputVariableNames, preliminarVariables, variableNames
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
-   public   getOutputVariablesList
+   public   getOutputVariablesList, outputVariablesForVariable, OutputVariablesForPreliminarVariable
    public   outScale, hasVariablesFlag, Lreference
-
+				 
    integer, parameter   :: STR_VAR_LEN = 16
 !
 !  ***************************
@@ -34,7 +35,7 @@ module OutputVariables
 !
    enum, bind(C)
       enumerator :: Q_V = 1, QDot_V, RHO_V, U_V, V_V, W_V
-      enumerator :: P_V , RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V
+      enumerator :: P_V, P0_V , RHODOT_V, RHOUDOT_V, RHOVDOT_V, RHOWDOT_V
       enumerator :: RHOEDOT_V, CDOT_V, T_V, Mach_V, S_V, Vabs_V
       enumerator :: Vvec_V, Ht_V, RHOU_V, RHOV_V
       enumerator :: RHOW_V, RHOE_V, C_V, Cp_V, Nxi_V, Neta_V
@@ -64,6 +65,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: VKey          = "v"
    character(len=STR_VAR_LEN), parameter  :: WKey          = "w"
    character(len=STR_VAR_LEN), parameter  :: PKey          = "p"
+   character(len=STR_VAR_LEN), parameter  :: P0Key         = "pt"
    character(len=STR_VAR_LEN), parameter  :: RHODOTKey     = "rhoDot"
    character(len=STR_VAR_LEN), parameter  :: RHOUDOTKey    = "rhouDot"
    character(len=STR_VAR_LEN), parameter  :: RHOVDOTKey    = "rhovDot"
@@ -140,7 +142,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: sensorKey     = "sensor"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
-                                                                            PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
+                                                                            PKey, P0Key, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
                                                                             CDOTKey, TKey, MachKey, SKey, VabsKey, &
                                                                             VvecKey, HtKey, RHOUKey, RHOVKey, RHOWKey, &
                                                                             RHOEKey, cKey, CpKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
@@ -159,8 +161,8 @@ module OutputVariables
                                                                         
                                                                         
                                                                
-   integer                          :: no_of_outputVariables
-   integer, allocatable             :: outputVariableNames(:)
+   integer                          :: no_of_outputVariables, preliminarNoOfVariables
+   integer, allocatable             :: outputVariableNames(:), preliminarVariables(:)
    logical                          :: outScale
    logical                          :: hasVariablesFlag
    character(len=LINE_LENGTH)       :: askedVariables   
@@ -177,8 +179,7 @@ module OutputVariables
 !        Local variables
 !        ---------------
 !
-         integer                       :: pos, pos2, i, preliminarNoOfVariables
-         integer, allocatable          :: preliminarVariables(:)
+         integer                       :: pos, pos2, i
          character(len=STR_VAR_LEN)   :: inputVar
 !
 !        ***********************************************************
@@ -194,7 +195,7 @@ module OutputVariables
 !           Default: export Q
 !           -------
             preliminarNoOfVariables = 1
-            allocate( preliminarVariables(preliminarNoOfVariables) )
+			if (.not. allocated(preliminarVariables)) allocate( preliminarVariables(preliminarNoOfVariables) )
             preliminarVariables(1) = Q_V
 
          else
@@ -203,21 +204,21 @@ module OutputVariables
 !           Prepare to read the variable names
 !           ----------------------------------
             preliminarNoOfVariables = getNoOfCommas(trim(askedVariables)) + 1
-            allocate( preliminarVariables(preliminarNoOfVariables) )
+            if (.not. allocated(preliminarVariables)) allocate( preliminarVariables(preliminarNoOfVariables) )
 
             if ( preliminarNoOfVariables .eq. 1 ) then
                read(askedVariables(pos+1:len_trim(askedVariables)),*) inputVar
-               preliminarVariables(1) = outputVariableForName(trim(inputVar))
+               preliminarVariables(1) = outputVariableForName(adjustl(trim(inputVar)))
             else
                do i = 1, preliminarNoOfVariables-1
                   pos2 = index(trim(askedVariables(pos+1:)),",") + pos
                   read(askedVariables(pos+1:pos2),*) inputVar
-                  preliminarVariables(i) = outputVariableForName(trim(inputVar))
+                  preliminarVariables(i) = outputVariableForName(adjustl(trim(inputVar)))
                   pos = pos2
                end do
             
                pos = index(trim(askedVariables),",",BACK=.true.)
-               preliminarVariables(preliminarNoOfVariables) = outputVariableForName(askedVariables(pos+1:))
+               preliminarVariables(preliminarNoOfVariables) = outputVariableForName(TRIM(ADJUSTL(askedVariables(pos+1:))))
                
             end if
          end if
@@ -271,14 +272,16 @@ module OutputVariables
 
       end subroutine getOutputVariables
 
-      subroutine ComputeOutputVariables(N, e, output, refs, hasGradients, hasStats, hasSensor)
+      subroutine ComputeOutputVariables(noOutput, outputVarNames, N, e, output, refs, hasGradients, hasStats, hasSensor)
          use SolutionFile
          use Storage
          use StatisticsMonitor
          implicit none
+         integer, intent(in)          :: noOutput
+		 integer, intent(in)		  :: outputVarNames(1:noOutput)
          integer, intent(in)          :: N(3)
          class(Element_t), intent(in) :: e
-         real(kind=RP), intent(out)   :: output(1:no_of_outputVariables,0:N(1),0:N(2),0:N(3))
+         real(kind=RP), intent(out)   :: output(1:noOutput,0:N(1),0:N(2),0:N(3))
          real(kind=RP), intent(in)    :: refs(NO_OF_SAVED_REFS)
          logical,       intent(in)    :: hasGradients
          logical,       intent(in)    :: hasStats
@@ -294,8 +297,8 @@ module OutputVariables
 
          hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor .or. hasMu_sgs
 
-         do var = 1, no_of_outputVariables
-            if ( hasAdditionalVariables .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
+         do var = 1, noOutput
+            if ( hasAdditionalVariables .or. (outputVarNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
                associate ( Q   => e % Qout, &
                            QDot=> e % QDot_out, &
                            U_x => e % U_xout, &
@@ -307,7 +310,7 @@ module OutputVariables
                            mu_sgs => e % mu_sgsout, &
                            stats => e % statsout)
 
-               select case (outputVariableNames(var))
+               select case (outputVarNames(var))
 
                case(RHO_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -339,7 +342,24 @@ module OutputVariables
                                        ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
-
+				  
+			   case(P0_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = ( (Q(IRHOU,i,j,k)**2) + (Q(IRHOV,i,j,k)**2) + (Q(IRHOW,i,j,k)**2)) &
+                                                             /(Q(IRHO,i,j,k)**2)     ! Vabs**2
+                     output(var,i,j,k) =  output(var,i,j,k) / ( refs(GAMMA_REF)*  &
+                                        (refs(GAMMA_REF)-1.0_RP)*(Q(IRHOE,i,j,k) /Q(IRHO,i,j,k)-0.5_RP * &
+                                            output(var,i,j,k)) )  ! Mach Number**2
+					 output(var,i,j,k) = (1+((refs(GAMMA_REF)-1.0_RP)*0.5_RP)*output(var,i,j,k))** &
+										(refs(GAMMA_REF)/(refs(GAMMA_REF)-1.0_RP))
+											
+                     output(var,i,j,k) = (refs(GAMMA_REF) - 1.0_RP)*(Q(IRHOE,i,j,k) - 0.5_RP*&
+                                       ( (Q(IRHOU,i,j,k)**2) + (Q(IRHOV,i,j,k)**2) + (Q(IRHOW,i,j,k)**2)) /Q(IRHO,i,j,k)) &
+									    * output(var,i,j,k)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,i,j,k) = refs(RHO_REF) * (refs(V_REF)**2) &
+                                    * output(var,i,j,k)
+									
                case(RHODOT_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = QDot(IRHO,i,j,k)

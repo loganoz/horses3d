@@ -312,7 +312,7 @@ jobs:
         working-directory: ./Solver/test/Euler/JFNK
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns UniformFlow_Restart.control
+          ./horses3d.ns UniformFlowJFNK.control
 
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
@@ -447,23 +447,53 @@ jobs:
           ./horses3d.ns CylinderDucros.control
 
 #
-# 5) CYLINDER LES
+# 5) CYLINDER Smagorinsky
 # ------------------
 
-      - name: Build NSCylinderLES
-        working-directory: ./Solver/test/NavierStokes/CylinderLES/SETUP
+      - name: Build NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 
-      - name: Run NSCylinderLES
-        working-directory: ./Solver/test/NavierStokes/CylinderLES
+      - name: Run NSCylinderSmagorinsky
+        working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns CylinderLES.control
+          ./horses3d.ns CylinderSmagorinsky.control
+#
+# 6) CYLINDER WALE
+# ------------------
+
+      - name: Build NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run NSCylinderWALE
+        working-directory: ./Solver/test/NavierStokes/CylinderWALE
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderWALE.control
+#
+# 7) CYLINDER Vreman
+# ------------------
+
+      - name: Build NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run NSCylinderVreman
+        working-directory: ./Solver/test/NavierStokes/CylinderVreman
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderVreman.control
 
 #
-# 6) TAYLOR GREEN VORTEX
+# 8) TAYLOR GREEN VORTEX
 # ----------------------
 
       - name: Build TaylorGreen
@@ -479,7 +509,7 @@ jobs:
           ./horses3d.ns TaylorGreen.control
 
 #
-# 7) TAYLOR GREEN VORTEX KEP BR2
+# 9) TAYLOR GREEN VORTEX KEP BR2
 # -----------------------------
 
       - name: Build TaylorGreenKEP_BR2
@@ -495,7 +525,7 @@ jobs:
           ./horses3d.ns TaylorGreenKEP_BR2.control
 
 #
-# 8) TAYLOR GREEN VORTEX KEPEC IP
+# 10) TAYLOR GREEN VORTEX KEPEC IP
 # -------------------------------
 
       - name: Build TaylorGreenKEPEC_IP
@@ -511,7 +541,7 @@ jobs:
           ./horses3d.ns TaylorGreenKEPEC_IP.control
 
 #
-# 9) CYLINDER FAS
+# 11) CYLINDER FAS
 # ---------------
 
       - name: Build NSCylinderFAS
@@ -527,7 +557,7 @@ jobs:
           ./horses3d.ns CylinderFAS.control
 
 #
-# 10) CYLINDER IP+BDF2
+# 12) CYLINDER IP+BDF2
 # -------------------
 
       #Deactivated because a mismatch in the accuracy
@@ -544,7 +574,7 @@ jobs:
           ./horses3d.ns CylinderIP_BDF2.control
 
 #
-# 11) CYLINDER DIFFERENT ORDERS
+# 13) CYLINDER DIFFERENT ORDERS
 # ----------------------------
 
       - name: Build NSCylinderDifferentOrders
@@ -560,7 +590,7 @@ jobs:
           ./horses3d.ns CylinderDifferentOrders.control
 
 #
-# 12) ENTROPY CONSERVING TEST
+# 14) ENTROPY CONSERVING TEST
 # ----------------------------
 
       - name: Build EntropyConservingTest
@@ -576,7 +606,7 @@ jobs:
           ./horses3d.ns EntropyConservingTest.control
 
 #
-# 13) ENERGY CONSERVING TEST
+# 15) ENERGY CONSERVING TEST
 # ----------------------------
 
       - name: Build EnergyConservingTest
@@ -592,7 +622,7 @@ jobs:
           ./horses3d.ns EnergyConservingTest.control
 
 #
-# 14) NACA0012 Steady
+# 16) NACA0012 Steady
 # ----------------------------
 
       - name: Build NACA0012
@@ -608,7 +638,7 @@ jobs:
           ./horses3d.ns NACA0012.control
 
 #
-# 15) NACA0012 Unsteady Dual Time Stepping
+# 17) NACA0012 Unsteady Dual Time Stepping
 # ----------------------------
 
       - name: Build DualTimeStepping
@@ -624,7 +654,7 @@ jobs:
           ./horses3d.ns DualTimeStepping.control
 
 #
-# 16) Manufactured Solution for Spalart-Almaras
+# 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
 
       - name: Build ManufacturedSolutionsSA
@@ -640,7 +670,7 @@ jobs:
           ./horses3d.nssa MSSA.control
 
 #
-# 17) Flat-Plate test case for Spalart-Almaras
+# 19) Flat-Plate test case for Spalart-Almaras
 # ----------------------------
 
       - name: Build FlatPlateSA
@@ -656,7 +686,7 @@ jobs:
           ./horses3d.nssa FlatPlate.control
 
 #
-# 18) Numerical Jacobian for BIRK5
+# 20) Numerical Jacobian for BIRK5
 # --------------------------------
 
       - name: Build BIRK5NumJac
@@ -670,7 +700,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder.control
 #
-# 19) Forward facing step with SVV
+# 21) Forward facing step with SVV
 # --------------------------------
 
       - name: Build ForwardFacingStepSVV
@@ -685,7 +715,37 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SVV.control
 #
-# 20) Taylor-Green vortex with SVV-LES
+# 20) Forward facing step with SSPRK33 and limiter
+# ------------------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK33.control
+#
+# 21) Forward facing step with SSPRK43
+# ------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK43.control
+#
+# 22) Taylor-Green vortex with SVV-LES
 # ------------------------------------
 
       - name: Build TaylorGreenSVVLES
@@ -701,10 +761,9 @@ jobs:
           ./horses3d.ns TaylorGreenSVVLES.control
 
 #
-# 21) CYLINDER ANIS FAS
+# 23) CYLINDER ANIS FAS
 # -------------------
 
-      #Deactivated because a mismatch in the accuracy
       - name: Build CylinderAnisFAS
         working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS/SETUP
         run: |
@@ -718,7 +777,7 @@ jobs:
           ./horses3d.ns CylinderAnisFAS.control
 
 #
-# 22) IBM CYLINDER 
+# 24) IBM CYLINDER 
 # -------------------
 
       - name: Build IBM_Cylinder
@@ -906,7 +965,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins LidDrivenCavity.control
+          ./horses3d.ins LDCRe7500.control
 
 #
 # 4) Taylor Green Vortex
@@ -922,7 +981,7 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins TaylorGreen.control
+          ./horses3d.ins TGV_Central.control
 
 #
 # 5) Rayleigh-Taylor instability
@@ -938,4 +997,4 @@ jobs:
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins RayleighTaylor.control
+          ./horses3d.ins RTI.control
