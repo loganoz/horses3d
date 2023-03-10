@@ -1050,9 +1050,13 @@ The main keywords to use it are shown in Table \ref{tab:explicitKey}.
 
 \textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
 
-explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5' and 'RKOpt'. & RK3 \\ \hline
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33' and 'SSPRK43'. & RK3 \\ \hline
 
 rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver ('RKOpt'). Possible orders are from 2 to 7. & 2 \\ \hline
+
+limit timestep & \textit{LOGICAL}: Activate the possitivity limiter of Zhang and Shu (only for SSPRK methods). & .false. \\ \hline
+
+limiter minimum & \textit{REAL}: Minimum value of density and pressure allowed by the limiter. & 1e-13 \\ \hline
 
 \end{longtable}
 

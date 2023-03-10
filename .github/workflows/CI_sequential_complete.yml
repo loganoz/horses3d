@@ -653,7 +653,37 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SVV.control
 #
-# 20) Taylor-Green vortex with SVV-LES
+# 20) Forward facing step with SSPRK33 and limiter
+# ------------------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK33.control
+#
+# 21) Forward facing step with SSPRK43
+# ------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK43.control
+#
+# 22) Taylor-Green vortex with SVV-LES
 # ------------------------------------
 
       - name: Build TaylorGreenSVVLES
