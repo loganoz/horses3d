@@ -389,6 +389,9 @@ restart polorder file &
 
 get discretization error of & \textit{CHARACTER}: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution. & -- \\ \hline
 
+NS load from NSSA &
+            \textit{LOGICAL}: Used only for NS simulations that are restarted from RANS SA. & .FALSE. \\ \hline
+
 \end{tabular}
 \label{tab:restartkey}
 \end{table}
@@ -854,6 +857,7 @@ Wall Function Tolerance			& \textit{REAL}: Tolerance for the newton method  & $1
 Wall Function max iter			& \textit{INTEGER}: Maximum number of iterations for the newton method  & 100 \\ \hline
 Wall Roughness	        		& \textit{REAL}: Aerodynamic roughness for the ABL wall function. Mandatory value for the ABL law.  & -- \\ \hline
 Wall Plane Displacement			& \textit{REAL}: Plane displacement due to roughness for the ABL wall function  & 0.0 \\ \hline
+Wall Function Use Average       & \textit{LOGICAL}: Use the time average of the velocity in the wall function, each time step the time average is recalculated. & .FALSE. \\ \hline
 
 
 \end{tabular}
@@ -1289,7 +1293,7 @@ name & \textit{CHARACTER}: name assigned to immersed boundary method job &  \\ \
 
 active & \textit{LOGICAL}: When .TRUE. the immersed boundary method is active. & .FALSE. \\ \hline
 
-penalization & \textit{REAL}: Specifies the value of the penalization term, \textit{i.e.} \eta. & \Delta t \\ \hline
+penalization & \textit{REAL}: Specifies the value of the penalization term, \textit{i.e.} $\eta$. & $\Delta t$ \\ \hline
 
 semi implicit & \textit{LOGICAL}: The source term is treated in a semi-implicit manner. & .FALSE. \\ \hline
 

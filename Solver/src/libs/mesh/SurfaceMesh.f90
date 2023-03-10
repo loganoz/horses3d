@@ -310,9 +310,14 @@ Module SurfaceMesh
         ! change to look if there is at least one true in the array of flags
         self % active = .true.
 !
+        if ( .not. MPI_Process % isRoot ) return
+!
+!       create the folder inside the expected RESULTS folder
+        write(fullExpression,'(A,A,A)') "mkdir -p ", trim(path), "/surfaces"
+        call system(trim(fullExpression))
+!
 !       Describe the zones
 !       ------------------
-        if ( .not. MPI_Process % isRoot ) return
         if (hasFWH .and. .not. (hasBC .or. hasSliceX .or. hasSliceY .or. hasSliceZ)) return
         call Subsection_Header("Fictitious surfaces zone")
         write(STD_OUT,'(30X,A,A28,I0)') "->", "Number of surfaces: ", self % numberOfSurfaces
@@ -323,10 +328,6 @@ Module SurfaceMesh
             write(STD_OUT,'(30X,A,A28,L1)') "->", "Save FWH and BC together: ", self % mergeFWHandBC
             write(STD_OUT ,'(/)')
         end if
-!
-        ! create the folder inside the expected RESULTS folder
-        write(fullExpression,'(A,A,A)') "mkdir -p ", trim(path), "/surfaces"
-        call system(trim(fullExpression))
 !
     End Subroutine SurfConstruct
 !
@@ -1374,9 +1375,7 @@ Module SurfaceMesh
                 meshFaceID = surfaces % zones(surfID) % faces(faceID)
                 associate( f => mesh % faces(meshFaceID), &
                            dw => mesh % faces(meshFaceID) % storage(1) % wallNodeDistance )
-                    do j=0, f % Nf(1)   ; do i = 0, f % Nf(2)
-                        call getFaceWallDistance(mesh, f, dw)
-                    end do             ; end do
+                    call getFaceWallDistance(mesh, f, dw)
                 end associate
              end do
 !!!$omp end parallel do
@@ -1453,7 +1452,7 @@ Module SurfaceMesh
 
             !compare to x of wall
             ! get index by min distance
-            indexArray = [0,N]
+            indexArray = [nodeStart,nodeEnd]
             dx(1) = norm2(xf-x0)
             dx(2) = norm2(xf-xN)
             minIndex = minloc(dx,dim=1)
