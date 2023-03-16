@@ -2,8 +2,7 @@
 MODULE WallFunctionBC
 
    USE SMConstants
-   ! use PhysicsStorage
-   USE PhysicsStorage_NS
+   USE PhysicsStorage
    IMPLICIT NONE
 
 !   

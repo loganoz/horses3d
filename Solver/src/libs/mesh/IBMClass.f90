@@ -2065,8 +2065,10 @@ module IBMClass
       use WallFunctionDefinitions
       use WallFunctionBC
       use VariableConversion
-      use SpallartAlmarasTurbulence
       use FluidData   
+#if defined(SPALARTALMARAS)
+      use SpallartAlmarasTurbulence
+#endif
       implicit none
       !-arguments--------------------------------------------------------------
       real(kind=rp), intent(in)    :: Q_IP(:), normal(:)

@@ -110,7 +110,8 @@ module VariableConversion_NSSA
                  -Q(IRHOU) * sRho, &
                  -Q(IRHOV) * sRho, &
                  -Q(IRHOW) * sRho, &
-                 1._RP]
+                 1._RP,            &
+                 0._RP]
          
          dTdQ = dTdQ * thermodynamics % gammaMinus1 * dimensionless % gammaM2 * sRho
          

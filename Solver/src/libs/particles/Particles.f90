@@ -76,7 +76,9 @@ end type Particles_t
 subroutine ConstructParticles( self, mesh, controlVariables, solution_file )
     use FTValueDictionaryClass
     use FluidData, only : dimensionless, thermodynamics 
-#if defined(NAVIERSTOKES)
+#if defined(SPALARTALMARAS)
+    use Physics_NSSAKeywordsModule
+#elif defined(NAVIERSTOKES)
     use Physics_NSKeywordsModule
 #endif
     use headers

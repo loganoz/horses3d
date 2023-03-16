@@ -5,8 +5,8 @@ module TruncationErrorClass
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NCONS, CTD_IGNORE_MODE
    use HexMeshClass              , only: HexMesh
-#if defined(NAVIERSTOKES)   || defined(INCNS)
-   use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
+#if defined(NAVIERSTOKES) || defined(INCNS)
+   use FluidData                 , only: Thermodynamics, RefValues, Dimensionless
    use ProblemFileFunctions      , only: UserDefinedState_f, UserDefinedFinalSetup_f, UserDefinedSourceTermNS_f
 #endif
    use NodalStorageClass         , only: NodalStorage
