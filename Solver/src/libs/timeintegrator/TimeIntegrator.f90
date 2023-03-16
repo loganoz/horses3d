@@ -454,7 +454,7 @@
       call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables)
+          call farm % ConstructFarm(controlVariables, t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
 #endif
