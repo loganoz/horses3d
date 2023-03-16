@@ -46,7 +46,6 @@ module SCsensorClass
 
          type(GMM_t)           :: gmm          !< Gaussian mixture model
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
-         integer,  allocatable :: clusters(:)  !< Cluster ID for each point
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
@@ -154,14 +153,13 @@ module SCsensorClass
          sensor % Compute_Raw => Sensor_GMM
 
          allocate(sensor % x(2, sem % NDOF))
-         allocate(sensor % clusters(sem % NDOF))
 
          if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
-            nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
+            nclusters = controlVariables % integerValueForKey(SC_NUM_CLUSTERS_KEY)
          else
             nclusters = 2
          end if
-         call sensor % gmm % init(2, nclusters)
+         call sensor % gmm % init(2, nclusters, zero_tol=1e-10_RP)
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -277,11 +275,11 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable    :: derivType
-      real(RP)                         :: Nmin
-      real(RP)                         :: deltaN
-      integer                          :: eID
-      integer,          allocatable    :: N(:,:)
+      character(len=:), allocatable :: derivType
+      integer                       :: Nmin
+      integer                       :: deltaN
+      integer                       :: eID
+      integer,          allocatable :: N(:,:)
 
 !
 !     Read the control file
@@ -439,7 +437,6 @@ module SCsensorClass
 
       if (allocated(sensor % TEestim))      deallocate(sensor % TEestim)
       if (allocated(sensor % x))            deallocate(sensor % x)
-      if (allocated(sensor % clusters))     deallocate(sensor % clusters)
       if (associated(sensor % Compute_Raw)) nullify(sensor % Compute_Raw)
 
    end subroutine Destruct_SCsensor
@@ -1019,7 +1016,8 @@ module SCsensorClass
       integer                :: i, j, k
       integer                :: cnt
       integer                :: n
-      integer                :: higherCluster
+      integer                :: cluster
+      integer                :: nclusters
       real(RP)               :: u2, p
       real(RP)               :: ux(3), uy(3), uz(3)
       real(RP)               :: dp(3)
@@ -1123,19 +1121,21 @@ module SCsensorClass
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call sensor % gmm % fit(sensor % x, sensor % clusters)
+      call sensor % gmm % fit(sensor % x, adapt=.true.)
+      call sensor % gmm % predict(sensor % x)
 !
 !     Compute the sensor values
 !     -------------------------
+      nclusters = sensor % gmm % nclusters
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
          e => sem % mesh % elements(eID)
-         if (sensor % gmm % nclusters <= 1) then
+         if (nclusters <= 1) then
             e % storage % sensor = 0.0_RP
          else
             n = product(e % Nxyz + 1)
-            higherCluster = maxval(sensor % clusters(cnt+1:cnt+n))
-            e % storage % sensor = real(higherCluster - 1, RP) / (sensor % gmm % nclusters - 1)
+            cluster = maxval(maxloc(sensor % gmm % prob(cnt+1:cnt+n,1:nclusters), dim=2))
+            e % storage % sensor = real(cluster - 1, RP) / (nclusters - 1)
          end if
          cnt = cnt + n
       end do
