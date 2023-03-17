@@ -406,11 +406,21 @@ module Solution2VtkHdfModule
       end if
 
       if (hasWallY) then
-         allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % wallYout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % wallYout = 0.0_RP
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                e % wallYout(:,i,j,k) = e % wallYout(:,i,j,k) + e % WallY(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+      end if
+
+      if (hasMu_sgs) then
+         allocate( e % mu_sgsout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % mu_sgsout = 0.0_RP
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % mu_sgsout(:,i,j,k) = e % mu_sgsout(:,i,j,k) + e % mu_sgs(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
             end do            ; end do            ; end do
          end do            ; end do            ; end do
       end if

@@ -11,6 +11,7 @@
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: solutionFileNameKey        = "solution file name"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveGradientsToSolutionKey = "save gradients with solution"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveSensorToSolutionKey    = "save sensor with solution"
+         CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: saveLESToSolutionKey       = "save les with solution"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: numberOfTimeStepsKey       = "number of time steps"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: outputIntervalKey          = "output interval"
          CHARACTER(LEN=KEYWORD_LENGTH), PARAMETER :: convergenceToleranceKey    = "convergence tolerance"

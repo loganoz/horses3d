@@ -904,7 +904,7 @@
          real(kind=RP)                  :: tau_w
 
          call getStressTensor(Q, Q_x, Q_y, Q_z, tau)
-         tau_w_vec = matmul(tau, normal)
+         tau_w_vec = -1.0_RP * matmul(tau, normal)
          tau_w = dot_product(tau_w_vec, tangent)
 
          ! get the value of the friction velocity with the sign of the wall shear stress, so that the shear stress can be fully

@@ -78,6 +78,7 @@ module StorageClass
       real(kind=RP),           allocatable :: S_NS(:,:,:,:)        ! NSE source term
       real(kind=RP),           allocatable :: S_NSP(:,:,:,:)       ! NSE Particles source term
       real(kind=RP),           allocatable :: mu_NS(:,:,:,:)       ! (mu, beta, kappa) artificial
+      real(kind=RP),           allocatable :: mu_turb_NS(:,:,:)    ! mu of LES
       real(kind=RP),           allocatable :: dF_dgradQ(:,:,:,:,:,:,:) ! NSE Jacobian with respect to gradQ
       type(Statistics_t)                   :: stats                ! NSE statistics
       real(kind=RP)                        :: artificialDiss
@@ -797,6 +798,7 @@ module StorageClass
          end if
 
          allocate( self % mu_NS(1:3,0:Nx,0:Ny,0:Nz) )
+         allocate( self % mu_turb_NS(0:Nx,0:Ny,0:Nz) )
 
          if (analyticalJac) call self % constructAnJac      ! TODO: This is actually not specific for NS
 
@@ -853,6 +855,7 @@ module StorageClass
          self % QDotNS = 0.0_RP
          self % rho    = 0.0_RP
          self % mu_NS  = 0.0_RP
+         self % mu_turb_NS  = 0.0_RP
 #if defined (SPALARTALMARAS)
          self % S_SA   = 0.0_RP
 #endif
@@ -958,6 +961,7 @@ module StorageClass
 #endif
 
          to % mu_NS     = from % mu_NS
+         to % mu_turb_NS     = from % mu_turb_NS
          to % stats     = from % stats
 
          if (to % anJacobian) then
@@ -1050,6 +1054,7 @@ module StorageClass
             safedeallocate(self % U_zNS)
          end if
          safedeallocate(self % mu_NS)
+         safedeallocate(self % mu_turb_NS)
          safedeallocate(self % rho)
 
          !if (self % anJacobian) then ! Not needed since there's only one variable (= one if)
