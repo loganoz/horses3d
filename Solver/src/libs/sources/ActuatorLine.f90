@@ -717,7 +717,7 @@ end subroutine WriteFarmForces
     Subroutine FarmUpdateLocalForces(self, ii, jj, Q, theta, interp)
         use PhysicsStorage
         use fluiddata
-        use VariableConversion_NS, only: Temperature, SutherlandsLaw
+        use VariableConversion, only: Temperature, SutherlandsLaw
         implicit none
         class(Farm_t)                                 :: self
         integer, intent(in)                           :: ii, jj
