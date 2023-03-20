@@ -159,7 +159,7 @@ module SCsensorClass
          else
             nclusters = 2
          end if
-         call sensor % gmm % init(2, nclusters, zero_tol=1e-10_RP)
+         call sensor % gmm % init(2, nclusters)
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"

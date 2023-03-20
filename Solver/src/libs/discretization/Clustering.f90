@@ -931,6 +931,7 @@ module Clustering
       real(RP) :: inv_nptsAll
       real(RP) :: xmu(ndims)
       real(RP) :: Rij
+      real(RP) :: det
 
 !
 !     Total number of points
@@ -953,7 +954,7 @@ module Clustering
          g % mu(:,j) = matmul(x, R(:,j)) * inv_nsAll(j)
       end do
 
-      ! The covariance matrix needs the new centroids
+      ! Compute the global centroids
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIRootAction) then
          call MPI_Reduce(MPI_IN_PLACE, g % taumu_st, size(g % taumu_st), MPI_DOUBLE, &
@@ -964,6 +965,7 @@ module Clustering
       end if
 #endif
 
+      ! Compute the local covariance matrices
       do j = 1, nclusters
          g % cov(:,:,j) = 0.0_RP
          do i = 1, npts
@@ -978,6 +980,7 @@ module Clustering
          g % cov(:,:,j) = g % cov(:,:,j) * inv_nsAll(j)
       end do
 
+      ! Compute the global covariance matrices
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIRootAction) then
          call MPI_Reduce(MPI_IN_PLACE, g % cov, size(g % cov), MPI_DOUBLE, &
@@ -989,22 +992,18 @@ module Clustering
 #endif
 
       do j = 1, nclusters
-         ! Compute the inverse of the covariance matrix
-         call matinv(ndims, g % cov(:,:,j), g % covinv(:,:,j), tol=covtol, info=info)
+         ! Regularize the covariance matrices
+         do l = 1, ndims
+            g % cov(l,l,j) = g % cov(l,l,j) + covtol
+         end do
 
-         ! Make sure the clusters do not collapse
-         if (info < 0) then
-            do l = 1, ndims
-               g % cov(:,l,j) = 0.0_RP
-               g % cov(l,l,j) = covtol**(1.0_RP/ndims)
-               g % covinv(:,l,j) = 0.0_RP
-               g % covinv(l,l,j) = 1.0_RP / g % cov(l,l,j)
-            end do
-         end if
+         ! Compute their inverse
+         det = matdet(ndims, g % cov(:,:,j))
+         call matinv(ndims, det, g % cov(:,:,j), g % covinv(:,:,j))
 
          ! Update the "log" values
+         g % logdet(j) = log(det)
          g % logtau(j) = log(g % logtau(j))
-         g % logdet(j) = log(matdet(ndims, g % cov(:,:,j)))
       end do
 
    end subroutine GMM_Mstep
@@ -1191,69 +1190,48 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure subroutine matinv(n, A, Ainv, tol, info)
+   pure subroutine matinv(n, det, A, Ainv)
 !
 !     ---------
 !     Interface
 !     ---------
-      integer,            intent(in)  :: n
-      real(RP),           intent(in)  :: A(n,n)
-      real(RP),           intent(out) :: Ainv(n,n)
-      real(RP), optional, intent(in)  :: tol
-      integer,  optional, intent(out) :: info
+      integer,  intent(in)  :: n
+      real(RP), intent(in)  :: det
+      real(RP), intent(in)  :: A(n,n)
+      real(RP), intent(out) :: Ainv(n,n)
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: d, invd
-      logical  :: iszero
-      integer  :: info_
+      real(RP) :: invd
 
 
-      d = matdet(n, A)
-      if (present(tol)) then
-         iszero = AlmostEqual(d, 0.0_RP, tol)
-      else
-         iszero = AlmostEqual(d, 0.0_RP)
-      end if
+      if (n == 1) then
+         Ainv(1,1) = 1.0_RP / A(1,1)
 
-      if (.not. iszero) then
-         if (n == 1) then
-            info_ = 1
-            Ainv(1,1) = 1.0_RP / A(1,1)
+      elseif (n == 2) then
+         invd = 1.0_RP / det
+         Ainv(1,1) =  A(2,2) * invd
+         Ainv(2,1) = -A(2,1) * invd
+         Ainv(1,2) = -A(1,2) * invd
+         Ainv(2,2) =  A(1,1) * invd
 
-         elseif (n == 2) then
-            info_ = 1
-            invd = 1.0_RP / d
-            Ainv(1,1) =  A(2,2) * invd
-            Ainv(2,1) = -A(2,1) * invd
-            Ainv(1,2) = -A(1,2) * invd
-            Ainv(2,2) =  A(1,1) * invd
-
-         elseif (n == 3) then
-            info_ = 1
-            invd = 1.0_RP / d
-            Ainv(1,1) = (A(2,2) * A(3,3) - A(2,3) * A(3,2)) * invd
-            Ainv(2,1) = (A(2,3) * A(3,1) - A(2,1) * A(3,3)) * invd
-            Ainv(3,1) = (A(2,1) * A(3,2) - A(2,2) * A(3,1)) * invd
-            Ainv(1,2) = (A(1,3) * A(3,2) - A(1,2) * A(3,3)) * invd
-            Ainv(2,2) = (A(1,1) * A(3,3) - A(1,3) * A(3,1)) * invd
-            Ainv(3,2) = (A(1,2) * A(3,1) - A(1,1) * A(3,2)) * invd
-            Ainv(1,3) = (A(1,2) * A(2,3) - A(1,3) * A(2,2)) * invd
-            Ainv(2,3) = (A(1,3) * A(2,1) - A(1,1) * A(2,3)) * invd
-            Ainv(3,3) = (A(1,1) * A(2,2) - A(1,2) * A(2,1)) * invd
-
-         else
-            info_ = -2
-
-         end if
+      elseif (n == 3) then
+         invd = 1.0_RP / det
+         Ainv(1,1) = (A(2,2) * A(3,3) - A(2,3) * A(3,2)) * invd
+         Ainv(2,1) = (A(2,3) * A(3,1) - A(2,1) * A(3,3)) * invd
+         Ainv(3,1) = (A(2,1) * A(3,2) - A(2,2) * A(3,1)) * invd
+         Ainv(1,2) = (A(1,3) * A(3,2) - A(1,2) * A(3,3)) * invd
+         Ainv(2,2) = (A(1,1) * A(3,3) - A(1,3) * A(3,1)) * invd
+         Ainv(3,2) = (A(1,2) * A(3,1) - A(1,1) * A(3,2)) * invd
+         Ainv(1,3) = (A(1,2) * A(2,3) - A(1,3) * A(2,2)) * invd
+         Ainv(2,3) = (A(1,3) * A(2,1) - A(1,1) * A(2,3)) * invd
+         Ainv(3,3) = (A(1,1) * A(2,2) - A(1,2) * A(2,1)) * invd
 
       else
-          info_ = -1
+         ! TODO: Add generic method for symmetric matrices
 
       end if
-
-      if (present(info)) info = info_
 
    end subroutine matinv
 
