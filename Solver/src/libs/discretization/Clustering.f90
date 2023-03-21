@@ -524,13 +524,15 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_reset(self, centroids)
+   subroutine GMM_reset(self, centroids, init_kmeans, x)
 !
 !     ---------
 !     Interface
 !     ---------
       type(GMM_t),        intent(inout) :: self
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
+      logical,  optional, intent(in)    :: init_kmeans ! starting from kmeans
+      real(RP), optional, intent(in)    :: x(:,:)
 !
 !     ---------------
 !     Local variables
@@ -566,6 +568,15 @@ module Clustering
 !     -----------------
       if (present(centroids)) then
          self % centroids(:,i1:i2) = centroids(:,i1:i2)
+      else if (present(init_kmeans)) then
+         if (init_kmeans) then
+         associate(ndims => self % ndims, nclusters => self % max_nclusters)
+               call self % kmeans % init(ndims, nclusters, 10)
+               call self % kmeans % fit(x,centroids = self % centroids(:,1:nclusters))
+               self % centroids(:,1:nclusters) = self % kmeans % centroids
+               self % g % mu(:,1:nclusters) = self % centroids(:,1:nclusters)
+         end associate
+         end if
       else
          call random_number(self % g % mu(:,i1:i2))
       end if
@@ -605,7 +616,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_fit(self, x, info, centroids, reset, adapt)
+   subroutine GMM_fit(self, x, info, centroids, reset, adapt, init_kmeans)
 !
 !     ---------
 !     Interface
@@ -616,6 +627,7 @@ module Clustering
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
       logical,  optional, intent(in)    :: reset
       logical,  optional, intent(in)    :: adapt
+      logical,  optional, intent(in)    :: init_kmeans
 !
 !     ---------------
 !     Local variables
@@ -653,6 +665,8 @@ module Clustering
 
       if (present(centroids)) then
          call GMM_reset(self, centroids)
+      else if (present(init_kmeans)) then
+         if (init_kmeans) call GMM_reset(self, init_kmeans=init_kmeans, x=x)
       else
          call GMM_reset(self)
       end if
