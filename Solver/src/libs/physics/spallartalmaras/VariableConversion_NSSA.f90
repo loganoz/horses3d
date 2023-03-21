@@ -14,12 +14,7 @@ module VariableConversion_NSSA
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
    public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
-
-#if defined SPALARTALMARAS
    public   geteddyviscositygradients
-#else
-   public  TemperatureDeriv
-#endif
   
 
    interface getTemperatureGradient
@@ -93,30 +88,6 @@ module VariableConversion_NSSA
       T = dimensionless % gammaM2*Pressure(Q)/Q(1)
 
       end function Temperature
-
-#ifndef SPALARTALMARAS
-      pure function TemperatureDeriv (Q) result (dTdQ)
-         implicit none
-         !-arguments--------------------------------
-         real(kind=RP), intent(in) :: Q(NCONS)
-         real(kind=RP)             :: dTdQ(NCONS)
-         !-local-variables--------------------------
-         real(kind=RP) :: sRho
-         !------------------------------------------
-         
-         sRho = 1._RP / Q(IRHO)
-         
-         dTdQ = [sRho * (-Q(IRHOE) + sRho * ( Q(IRHOU)**2 + Q(IRHOV)**2 + Q(IRHOW)**2) ), &
-                 -Q(IRHOU) * sRho, &
-                 -Q(IRHOV) * sRho, &
-                 -Q(IRHOW) * sRho, &
-                 1._RP,            &
-                 0._RP]
-         
-         dTdQ = dTdQ * thermodynamics % gammaMinus1 * dimensionless % gammaM2 * sRho
-         
-      end function TemperatureDeriv
-#endif
 
       pure subroutine GetNSViscosity(phi, mu)
          implicit none
@@ -600,7 +571,6 @@ module VariableConversion_NSSA
 
       end subroutine set_getVelocityGradients
 
-#if defined (SPALARTALMARAS)
       subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
          implicit none
          real(kind=RP), intent(in)  :: Q   (1:NCONS)
@@ -623,6 +593,5 @@ module VariableConversion_NSSA
          theta_z = invRho * Q_z(IRHOTHETA) - thetaDivRho * Q_z(IRHO) 
 
       end subroutine geteddyviscositygradients
-#endif
 
 end module VariableConversion_NSSA
