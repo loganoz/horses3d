@@ -60,7 +60,6 @@
    !
    !     ************************************************************************************
    !
-
          type Face
          integer, allocatable            :: Mortar(:)                !fID of the slave mortar slve
          integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
@@ -424,7 +423,6 @@
                end select
                end associate
          case(2)
-
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
@@ -1137,7 +1135,6 @@
          integer                :: i, j, ii, jj, l, m, side, lm, a, b
          real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
          real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-
          fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
    
          select case ( whichElement )
@@ -1313,7 +1310,6 @@
          real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
          integer,       intent(in)  :: whichElements(2)
          integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
-
    !
    !     ---------------
    !     Local variables
