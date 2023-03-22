@@ -424,7 +424,6 @@
                end select
                end associate
          case(2)
-
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
@@ -741,7 +740,6 @@
    !
          integer       :: i, j, k, l, m, ii, jj, lm, a, b 
          real(kind=RP) :: AVn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
