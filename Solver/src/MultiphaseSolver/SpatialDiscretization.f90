@@ -813,100 +813,6 @@ module SpatialDiscretization
          IMPLICIT NONE
          TYPE(Face)   , INTENT(inout) :: f   
          integer       :: i, j
-         real(kind=RP) :: inv_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: inv_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: muL, muR
-         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
-         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
-
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-
-               call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), muL)
-               call GetmTwoFluidsViscosity(f % storage(2) % Q(IMC,i,j), muR)
-
-!
-!            - Premultiply velocity gradients by the viscosity
-!              -----------------------------------------------
-               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
-               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
-               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
-
-               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
-               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
-               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
-!      
-!              --------------
-!              Viscous fluxes
-!              --------------
-!      
-               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
-                                                  EllipticFlux = mViscousFlux, &
-                                                  f = f, &
-                                                  QLeft = f % storage(1) % Q(:,i,j), &
-                                                  QRight = f % storage(2) % Q(:,i,j), &
-                                                  U_xLeft = UxL, &
-                                                  U_yLeft = UyL, &
-                                                  U_zLeft = UzL, &
-                                                  U_xRight = UxR, &
-                                                  U_yRight = UyR, &
-                                                  U_zRight = UzR, &
-                                                  mu_left  = [1.0_RP, multiphase % M0_star, 0.0_RP], &
-                                                  mu_right = [1.0_RP, multiphase % M0_star, 0.0_RP], &
-                                                  nHat = f % geom % normal(:,i,j) , &
-                                                  dWall = f % geom % dWall(i,j), &
-                                                  sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
-                                                  flux  = visc_flux(:,i,j) )
-
-            end do
-         end do
-
-         DO j = 0, f % Nf(2)
-            DO i = 0, f % Nf(1)
-!      
-!              --------------
-!              Invscid fluxes
-!              --------------
-!      
-               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                                  QRight = f % storage(2) % Q(:,i,j), &
-                                  rhoL   = f % storage(1) % rho(i,j), &
-                                  rhoR   = f % storage(2) % rho(i,j), &
-                                  muL    = f % storage(1) % mu(1,i,j), &
-                                  muR    = f % storage(2) % mu(1,i,j), &
-                                  nHat   = f % geom % normal(:,i,j), &
-                                  t1     = f % geom % t1(:,i,j), &
-                                  t2     = f % geom % t2(:,i,j), &
-                                  fL     = inv_fluxL(:,i,j), &
-                                  fR     = inv_fluxR(:,i,j) )
-
-               
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
-               
-            END DO   
-         END DO  
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
-         call f % ProjectFluxToElements(NCONS, fluxL, (/1, HMESH_NONE/))
-         call f % ProjectFluxToElements(NCONS, fluxR, (/2, HMESH_NONE/))
-
-      END SUBROUTINE computeElementInterfaceFlux_MU
-
-      SUBROUTINE computeMPIFaceFlux_MU(f)
-         use FaceClass
-         use RiemannSolvers_MU
-         TYPE(Face)   , INTENT(inout) :: f   
-         integer       :: i, j
          integer       :: thisSide
          real(kind=RP) :: inv_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: inv_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -1002,8 +908,106 @@ module SpatialDiscretization
          call f % ProjectFluxToElements(NCONS, flux(:,:,:,thisSide), (/thisSide, HMESH_NONE/))
       end if 
 
-      if (f % Ismortar==1) call ComputeMPIFaceFluxM_MU(f)
+      if (f % Ismortar==1) call computeElementInterfaceFluxM_MU(f)
 
+      END SUBROUTINE computeElementInterfaceFlux_MU
+
+      SUBROUTINE computeMPIFaceFlux_MU(f)
+         use FaceClass
+         use RiemannSolvers_MU
+         TYPE(Face)   , INTENT(inout) :: f   
+         integer       :: i, j
+         integer       :: thisSide
+         real(kind=RP) :: inv_fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: inv_fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxL(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: fluxR(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2),2)
+         real(kind=RP) :: muL, muR
+         real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
+         real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
+
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+
+               call GetmTwoFluidsViscosity(f % storage(1) % Q(IMC,i,j), muL)
+               call GetmTwoFluidsViscosity(f % storage(2) % Q(IMC,i,j), muR)
+
+!
+!            - Premultiply velocity gradients by the viscosity
+!              -----------------------------------------------
+               UxL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_x(:,i,j) 
+               UyL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_y(:,i,j) 
+               UzL = [1.0_RP,muL,muL,muL,1.0_RP]*f % storage(1) % U_z(:,i,j) 
+
+               UxR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_x(:,i,j) 
+               UyR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_y(:,i,j) 
+               UzR = [1.0_RP,muR,muR,muR,1.0_RP]*f % storage(2) % U_z(:,i,j) 
+!      
+!              --------------
+!              Viscous fluxes
+!              --------------
+!      
+               CALL ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NCONS, &
+                                                  EllipticFlux = mViscousFlux, &
+                                                  f = f, &
+                                                  QLeft = f % storage(1) % Q(:,i,j), &
+                                                  QRight = f % storage(2) % Q(:,i,j), &
+                                                  U_xLeft = UxL, &
+                                                  U_yLeft = UyL, &
+                                                  U_zLeft = UzL, &
+                                                  U_xRight = UxR, &
+                                                  U_yRight = UyR, &
+                                                  U_zRight = UzR, &
+                                                  mu_left  = [1.0_RP, multiphase % M0_star, 0.0_RP], &
+                                                  mu_right = [1.0_RP, multiphase % M0_star, 0.0_RP], &
+                                                  nHat = f % geom % normal(:,i,j) , &
+                                                  dWall = f % geom % dWall(i,j), &
+                                                  sigma = [multiphase % M0_star, 0.0_RP, 0.0_RP, 0.0_RP, 0.0_RP], &
+                                                  flux  = visc_flux(:,i,j) )
+
+            end do
+         end do
+
+         DO j = 0, f % Nf(2)
+            DO i = 0, f % Nf(1)
+!      
+!              --------------
+!              Invscid fluxes
+!              --------------
+!      
+               CALL RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                  QRight = f % storage(2) % Q(:,i,j), &
+                                  rhoL   = f % storage(1) % rho(i,j), &
+                                  rhoR   = f % storage(2) % rho(i,j), &
+                                  muL    = f % storage(1) % mu(1,i,j), &
+                                  muR    = f % storage(2) % mu(1,i,j), &
+                                  nHat   = f % geom % normal(:,i,j), &
+                                  t1     = f % geom % t1(:,i,j), &
+                                  t2     = f % geom % t2(:,i,j), &
+                                  fL     = inv_fluxL(:,i,j), &
+                                  fR     = inv_fluxR(:,i,j) )
+
+               
+!
+!              Multiply by the Jacobian
+!              ------------------------
+               fluxL(:,i,j) = ( inv_fluxL(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               fluxR(:,i,j) = ( inv_fluxR(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j)
+               
+            END DO   
+         END DO  
+!
+!        ---------------------------
+!        Return the flux to elements
+!        ---------------------------
+!
+         thisSide = maxloc(f % elementIDs, dim = 1)
+         flux(:,:,:,1) = fluxL
+         flux(:,:,:,2) = fluxR
+
+         call f % ProjectFluxToElements(NCONS, flux(:,:,:,thisSide), (/thisSide, HMESH_NONE/))
       end subroutine ComputeMPIFaceFlux_MU
 
       SUBROUTINE computeBoundaryFlux_MU(f, time)
