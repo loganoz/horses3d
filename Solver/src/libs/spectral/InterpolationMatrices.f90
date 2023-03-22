@@ -7,7 +7,7 @@ module InterpolationMatrices
 
    private
    public InterpolationMatrix_t
-   public Tset
+   public Tset, TsetM
    public Interp3DArrays, Interp3DArraysOneDir
    public Initialize_InterpolationMatrices, Finalize_InterpolationMatrices
 !
@@ -31,6 +31,7 @@ module InterpolationMatrices
 !        * Tset(N,M) with N>M is a backwards matrix.
 !  **************************************************
    type(InterpolationMatrix_t),   allocatable, target :: Tset(:,:)
+   type(InterpolationMatrix_t),   allocatable, target :: TsetM(:,:,:)
 
    interface Interp3DArrays
       module procedure Interp3DArrays_Tset, Interp3DArrays_interp
@@ -39,7 +40,7 @@ module InterpolationMatrices
  contains
 !========
 
-   subroutine InterpolationMatrix_Construct(this, Norigin, Ndest)
+   subroutine InterpolationMatrix_Construct(this, Norigin, Ndest, offset)
 !
 !     ****************************************************************
 !        This subroutine computes the interpolation matrix
@@ -50,6 +51,7 @@ module InterpolationMatrices
       class(InterpolationMatrix_t), intent(inout) :: this
       integer                     , intent(in)    :: Norigin !<  Origin polynomial order
       integer                     , intent(in)    :: Ndest   !<  Destination polynomial order
+      real(kind=RP)      ,optional, intent(in)    :: offset 
 !
 !     ---------------
 !     Local variables
@@ -80,23 +82,32 @@ module InterpolationMatrices
 !
 !     Construct the forward interpolation matrix
 !     ------------------------------------------
-      if (Norigin < Ndest) then
-!
-!        Prolongation matrix
-!        -------------------
-         call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % T)
-      else
-!
-!        Restriction (backwards) matrix
-!        ------------------------------
-         allocate( Ttemp(0:Norigin, 0:Ndest) )
-         call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Ttemp)
+         if (Norigin < Ndest) then
+   !
+   !        Prolongation matrix
+   !        -------------------
+            if (.not.present(offset)) then 
+               call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % T)
+            else 
+               call PolynomialInterpolationMatrix(Norigin, Ndest, offset + 0.5_RP * spAo % x, spAo % wb, spAd % x, this % T)
+            end if 
+         else
+   !
+   !        Restriction (backwards) matrix
+   !        ------------------------------
+            allocate( Ttemp(0:Norigin, 0:Ndest) )
+            
+            if (.not.present(offset)) then 
+               call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Ttemp)
+            else 
+               call PolynomialInterpolationMatrix(Ndest, Norigin, offset + 0.5_RP * spAd % x, spAd % wb, spAo % x, Ttemp)
+            end if 
+            this % T = transpose(Ttemp)
 
-         this % T = transpose(Ttemp)
-         do j = 0, Norigin ; do i = 0, Ndest
-            this % T(i,j) = this % T(i,j) * spAo % w(j) / spAd % w(i)
-         end do            ; end do
-      end if
+            do j = 0, Norigin ; do i = 0, Ndest
+               this % T(i,j) = this % T(i,j) * spAo % w(j) / spAd % w(i)
+            end do            ; end do
+         end if
 !
 !     Set constructed flag
 !     ********************
