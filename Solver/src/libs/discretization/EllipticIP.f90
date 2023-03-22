@@ -426,9 +426,14 @@ module EllipticIP
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: Uhat(nGradEqn)
          real(kind=RP) :: Hflux(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), allocatable  :: HfluxM1(:,:,:,:)
+         real(kind=RP), allocatable  :: HfluxM2(:,:,:,:)
+         real(kind=RP), allocatable  :: HfluxM3(:,:,:,:)
+         real(kind=RP), allocatable  :: HfluxM4(:,:,:,:)
+         integer       :: i,j, lm
+         type(Face), pointer         :: fm 
 
-         integer       :: i,j
-         
+         if (f % IsMortar ==0 .OR. f %IsMortar ==2) then 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
@@ -453,6 +458,56 @@ module EllipticIP
          end do               ; end do
 
          call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
+         end  if 
+         if (f % IsMortar == 1) then 
+            do lm=1,4
+               fm=>f%Mortar(lm)
+               if (lm==1) allocate(HfluxM1(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==2) allocate(HfluxM2(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==3) allocate(HfluxM3(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==4) allocate(HfluxM4(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+
+               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
+#ifdef MULTIPHASE
+               call GetGradients(nEqn, nGradEqn, Q = fm % storage(1) % Q(:,i,j), U = UL, rho_ = fm % storage(1) % rho(i,j))
+               call GetGradients(nEqn, nGradEqn, Q = fm % storage(2) % Q(:,i,j), U = UR, rho_ = fm % storage(2) % rho(i,j))
+#else
+               call GetGradients(nEqn, nGradEqn, Q = fm % storage(1) % Q(:,i,j), U = UL)
+               call GetGradients(nEqn, nGradEqn, Q = fm % storage(2) % Q(:,i,j), U = UR)
+#endif
+
+#ifdef MULTIPHASE
+!           The multiphase solver needs the Chemical potential as first entropy variable
+!           ----------------------------------------------------------------------------
+               UL(IGMU) = fm % storage(1) % mu(1,i,j)
+               UR(IGMU) = fm % storage(2) % mu(1,i,j)
+#endif
+
+
+               Uhat = 0.5_RP * (UL - UR) * fm % geom % jacobian(i,j)
+               select case (lm)
+               case (1)
+               HfluxM1(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+               HfluxM1(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+               HfluxM1(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case(2)
+               HfluxM2(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+               HfluxM2(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+               HfluxM2(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case(3)
+               HfluxM3(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+               HfluxM3(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+               HfluxM3(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case(4)
+               HfluxM4(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+               HfluxM4(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+               HfluxM4(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               end select 
+               end do               ; end do
+
+            end do 
+            call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1, HFluxM1, HFluxM2, HFluxM3, HFluxM4)
+         end if 
          
       end subroutine IP_GradientInterfaceSolution   
 

@@ -120,7 +120,7 @@ contains
       REAL(KIND=RP)  , DIMENSION(3,2,2) :: valuesFlat
       
       ! Variables as called in HOPR: For a description, see HOPR documentation
-      integer                          :: nUniqueNodes
+      integer                          :: nUniqueNodes, nUniqueSides
       integer                          :: nSides, nNodes
       integer         , allocatable    :: GlobalNodeIDs(:)
       double precision, allocatable    :: TempArray(:,:) !(kind=RP)
@@ -133,16 +133,22 @@ contains
       integer                          :: nBCs
       integer                          :: nDims
       CHARACTER(LEN=255), ALLOCATABLE  :: BCNames(:)
-      
+
+      integer                          :: iSide 
       ! Auxiliary variables
-      integer :: i,j,k,l  ! Counters
+      integer                    :: i,j,k,l,ll           ! Counters
       integer                    :: HOPRNodeID           ! Node ID in HOPR
       integer                    :: HCornerMap(8)        ! Map from the corner node index of an element to the local high-order node index used in HOPR
       integer                    :: HSideMap(6)          ! Map from the side index of an element in HORSES3D to the side index used in HOPR
+      integer                    :: HSideMap2(6)         ! Map from the side index of an element in HOPR to the side index used in HORSES3D
       integer, allocatable       :: HNodeSideMap(:,:,:)  ! Map from the face-node-index of an element to the global node index of HOPR (for surface curvature)
       integer, allocatable       :: HOPRNodeMap(:)       ! Map from the global node index of HORSES3D to the global node index of HOPR
       real(kind=RP), allocatable :: TempNodes(:,:)       ! Nodes read from file to be exported to self % nodes
       logical                    :: CurveCondition
+
+      integer, allocatable       :: HorsesMortars(:,:)
+      integer :: n, inter 
+      logical                    :: ConformingMesh
       !---------------------------------------------------------------
       
 !
@@ -179,7 +185,8 @@ contains
       CALL GetHDF5Attribute(File_ID,'nSides',1,IntegerScalar=nSides)
       CALL GetHDF5Attribute(File_ID,'nNodes',1,IntegerScalar=nNodes)
       CALL GetHDF5Attribute(File_ID,'nUniqueNodes',1,IntegerScalar=nUniqueNodes)
-      
+      CALL GetHDF5Attribute(File_ID,'nUniqueSides',1,IntegerScalar=nUniqueSides)
+
       allocate(ElemInfo(6,1:numberOfElements))
       call ReadArrayFromHDF5(File_ID,'ElemInfo',2,(/6,numberOfElements/),0,IntegerArray=ElemInfo)
       
@@ -234,6 +241,7 @@ contains
       corners               = 0.0_RP
       
       HSideMap = HOPR2HORSESSideMap()
+      HSideMap2 = HOPR2HORSESSideMap2()
       HCornerMap = HOPR2HORSESCornerMap(bFaceOrder)
       call HOPR2HORSESNodeSideMap(bFaceOrder,HNodeSideMap)
       
@@ -243,8 +251,21 @@ contains
       self % Nx = Nx
       self % Ny = Ny
       self % Nz = Nz
-     
+      
       call InitNodeMap (TempNodes , HOPRNodeMap, nUniqueNodes)
+
+      ConformingMesh=.TRUE. 
+      do l=1,nSides
+         if (SideInfo(3,l)==-1 .OR. SideInfo(3,l)==-2 .OR. SideInfo(3,l)==-3) then 
+            ConformingMesh=.FALSE. 
+            exit 
+         end if 
+      end do 
+
+      if (.NOT.ConformingMesh) then  
+         allocate(HorsesMortars(6,6*numberOfElements))
+         HorsesMortars=0
+      end if 
       
 !      
 !     Now we construct the elements
@@ -260,15 +281,20 @@ contains
             
             call AddToNodeMap (TempNodes , HOPRNodeMap, corners(:,k), GlobalNodeIDs(HOPRNodeID), nodeIDs(k))
          END DO
-         
-         do k = 1, FACES_PER_ELEMENT
-            j = SideInfo(5,ElemInfo(3,l) + HSideMap(k))
-            if (j == 0) then
-               names(k) = emptyBCName
-            else
-               names(k) = trim(BCNames(j))
-            end if
-         end do
+
+         k=1
+         inter=0
+         do while (k .LE. FACES_PER_ELEMENT)
+            j=SideInfo(5, ElemInfo(3,l) + k + inter)
+            if (j==0) then 
+               names(HsideMap2(k)) = emptyBCName 
+            else 
+               names(HsideMap2(k)) = trim(BCNames(j))
+            end if 
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1)  inter=inter+4
+            if (SideInfo(3,ElemInfo(3,l) + k + inter)==-2 .OR. SideInfo(3,ElemInfo(3,l) + k + inter)==-3)  inter=inter+2
+            k=k+1
+         end do 
          
          if ( .not. MPI_Process % doMPIRootAction ) then ! Only read surface information if this is not an MPI simulation
             if (MeshInnerCurves) then
@@ -333,7 +359,31 @@ contains
 !        -------------------------
 !
          call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
-         
+
+         if (.not.ConformingMesh) then 
+            k=1
+            inter=0
+            do while (k .LE. FACES_PER_ELEMENT)
+               HorsesMortars(1,l + HsideMap2(k) -1 )=l
+               HorsesMortars(2,l + HsideMap2(k) -1 )=0
+               self % elements(l) % MortarFaces(HsideMap2(k))=0
+               if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1) then 
+                  HorsesMortars(2,l+k-1)=1
+                  do ll=1,4
+                     HorsesMortars(2+ll, l + HsideMap2(k) - 1 )=SideInfo(3,ElemInfo(3,l) + k + inter + ll)
+                  end do 
+                  inter=inter+4
+                  self % elements(l) % MortarFaces(HsideMap2(k))=1    ! Big Mortar 
+               end if 
+               if (SideInfo(1,ElemInfo(3,l) + k + inter)==-4) then 
+                  HorsesMortars(2,l + HsideMap2(k) -1 )=2
+                  HorsesMortars(3,l + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l) + k + inter)
+                  self % elements(l) % MortarFaces(HsideMap2(k))=2    !slave Mortar 
+               end if 
+               k=k+1
+            end do 
+         end if 
+
          CALL SetElementBoundaryNames( self % elements(l), names )
             
          DO k = 1, 6
@@ -355,11 +405,20 @@ contains
 !     Construct the element faces
 !     ---------------------------
 !
-      numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
-      self % numberOfFaces = numberOfFaces
-      
-      ALLOCATE( self % faces(self % numberOfFaces) )
-      CALL ConstructFaces( self, success )
+      if (ConformingMesh) then 
+         numberOfFaces        = (6*numberOfElements + numberOfBoundaryFaces)/2
+         self % numberOfFaces = numberOfFaces
+         
+         ALLOCATE( self % faces(self % numberOfFaces) )
+         CALL ConstructFaces( self, success )
+       else 
+         numberOfFaces        = nUniqueSides
+         self % numberOfFaces = numberOfFaces
+         
+         ALLOCATE( self % faces(self % numberOfFaces) )
+
+         CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
+       end if 
 !
 !
 !     -------------------------
@@ -384,7 +443,7 @@ contains
 !     Assign faces ID to elements
 !     ---------------------------
 !
-      CALL getElementsFaceIDs(self)
+      CALL getElementsFaceIDs(self)   
 !        --------------------- 
 !        Define boundary faces 
 !        --------------------- 
@@ -412,7 +471,7 @@ contains
 !     ------------------------------
 !     Set the element connectivities
 !     ------------------------------
-      call self % SetConnectivitiesAndLinkFaces(nodes)
+      call self % SetConnectivitiesAndLinkFaces(nodes)   
 !
 !     ---------------------------------------
 !     Construct elements' and faces' geometry
@@ -431,6 +490,10 @@ contains
       deallocate (HNodeSideMap)
       deallocate (NodeCoords)
       deallocate (GlobalNodeIDs)
+
+      if (.not.ConformingMesh) then 
+         deallocate (HorsesMortars)
+      end if 
       
       if ( .not. MPI_Process % doMPIAction ) then
          deallocate (uNodes, vNodes, values)
@@ -1320,6 +1383,26 @@ contains
       deallocate (HOPRNodeMap)
       
    end subroutine FinishNodeMap
+
+   !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!  -----------------------------------------------------------------------------------------------------------------------
+!  Mapping between the side index used by HOPR and the ones used by HORSES 3D
+!  The mapping is the same as the one for the CNGS standard.
+!  -----------------------------------------------------------------------------------------------------------------------
+   pure function HOPR2HORSESSideMap2() result(HSideMap2)
+      implicit none
+      integer :: HSideMap2(6)
+      
+      HSideMap2(1) = 3
+      HSideMap2(2) = 1
+      HSideMap2(3) = 4
+      HSideMap2(4) = 2
+      HSideMap2(5) = 6
+      HSideMap2(6) = 5
+   end function HOPR2HORSESSideMap2
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #endif
 end module Read_HDF5Mesh_HOPR
