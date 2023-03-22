@@ -84,7 +84,7 @@
          type(FaceStorage_t)             :: storage(2)
          integer                         :: n_mpi_mortar
          real(kind=RP)                   :: offset(2)                   
-         real(kind=RP)                   :: scale(2)
+         real(kind=RP)                   :: s(2)
 
             contains
                procedure   :: Construct                     => ConstructFace
@@ -1486,7 +1486,7 @@ subroutine Face_Interpolatebig2small(self, nEqn, fma, grad)
        MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 1, 1) % T)
    case (2)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)  
-       MInt(:,:,2)=(TsetM(fma % NfLeft(), fma % Nf(2), 1, 1) % T)
+       MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 1, 1) % T)
    case (3)
        MInt(:,:,1)=(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
        MInt(:,:,2)=(TsetM(fma % NfLeft(2), fma % Nf(2), 2, 1) % T)
