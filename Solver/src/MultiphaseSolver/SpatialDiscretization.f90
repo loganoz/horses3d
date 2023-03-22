@@ -1433,7 +1433,7 @@ module SpatialDiscretization
          real(kind=RP) :: flux(1:NCOMP,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: mu
 
-         if (f % IsMortar ==0 .OR. f % IsMortar==2) then 
+         !if (f % IsMortar ==0 .OR. f % IsMortar==2) then 
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
