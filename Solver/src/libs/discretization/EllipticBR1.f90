@@ -450,6 +450,10 @@ module EllipticBR1
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: uStar(nGradEqn)
          real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), allocatable :: uStar_nM1(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM2(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM3(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM4(:,:,:,:)
 
 
          integer       :: i,j, lm
