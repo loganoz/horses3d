@@ -95,7 +95,7 @@ module SpatialDiscretization
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
                errorMessage(STD_OUT)
-               error stop
+               stop
 
             end select
 
@@ -134,7 +134,7 @@ module SpatialDiscretization
                      write(STD_OUT,'(A)') "  * Entropy"
                      write(STD_OUT,'(A)') "  * Energy"
                      errorMessage(STD_OUT)
-                     error stop
+                     stop
                   end select
 
                else
@@ -151,7 +151,7 @@ module SpatialDiscretization
                if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
                   print*, "Input file is missing entry for keyword: viscous discretization"
                   errorMessage(STD_OUT)
-                  error stop
+                  stop
                end if
 
                viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
@@ -174,7 +174,7 @@ module SpatialDiscretization
                   write(STD_OUT,'(A)') "  * BR2"
                   write(STD_OUT,'(A)') "  * IP"
                   errorMessage(STD_OUT)
-                  error stop
+                  stop
 
                end select
 
@@ -373,10 +373,8 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP, STLNum, n 
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS), Q_target(NCONS)
-         real(kind=RP), allocatable :: Source_HO(:,:,:,:)
-         integer,       allocatable :: i_(:), j_(:), k_(:)
+         integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
+         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -626,24 +624,19 @@ module SpatialDiscretization
 !        Add IBM source term
 !        *********************
          if( mesh% IBM% active ) then
-            if( .not. mesh% IBM% semiImplicit ) then 
-!$omp do schedule(runtime) private(i,j,k,Source,Q_target)
-                  do eID = 1, mesh % no_of_elements  
-                     associate ( e => mesh % elements(eID) ) 
-                     do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                        if( e% isInsideBody(i,j,k) ) then
-                           if( mesh% IBM% stl(e% STL(i,j,k))% move ) then 
-                              Q_target = mesh% IBM% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
-                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Q_target = Q_target, Source = Source, wallfunction = .false. )
-                           else 
-                              call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
-                           end if 
-                           e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
-                        end if
-                     end do                  ; end do                ; end do
-                     end associate
-                  end do
-!$omp end do       
+            if( .not. mesh% IBM% semiImplicit .and. t .gt. 0.0_RP ) then 
+!$omp do schedule(runtime) private(i,j,k,Source)
+               do eID = 1, mesh % no_of_elements  
+                  associate ( e => mesh % elements(eID) ) 
+                  do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     if( e% isInsideBody(i,j,k) ) then
+                        call mesh% IBM% SourceTerm( eID = eID, Q = e % storage % Q(:,i,j,k), Source = Source, wallfunction = .false. )
+                        e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) + Source
+                     end if
+                  end do                  ; end do                ; end do
+                  end associate
+               end do
+!$omp end do      
                if( mesh% IBM% Wallfunction ) then
 !$omp single
                   call mesh% IBM% GetBandRegionStates( mesh% elements )
@@ -1351,45 +1344,47 @@ module SpatialDiscretization
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
       subroutine computeElementInterfaceFlux(f)
-         use FaceClass
-         use RiemannSolvers_NS
-         implicit none
-         type(Face)   , intent(inout) :: f
-         integer       :: i, j
-         real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
-         real(kind=RP) :: mu_left(3), mu_right(3)
-         integer       :: Sidearray(2)
+        use FaceClass
+        use RiemannSolvers_NS
+        implicit none
+        type(Face)   , intent(inout) :: f
+        integer       :: i, j
+        real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+        real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+        real(kind=RP) :: Avisc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+        real(kind=RP) :: flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
+        real(kind=RP) :: mu_left(3), mu_right(3)
+        integer       :: Sidearray(2)
+
+        if (f % IsMortar == 0 .OR. f % IsMortar==2) then 
 !
 !        ---------------------------
 !        Artificial viscosity fluxes
 !        ---------------------------
 !
-         if ( ShockCapturingDriver % isActive ) then
-            Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
-         else
-            Avisc_flux = 0.0_RP
-         end if
-!
-!        --------------
-!        Viscous fluxes
-!        --------------
-!
-         if (flowIsNavierStokes) then
-            do j = 0, f % Nf(2)
-               do i = 0, f % Nf(1)
+           if ( ShockCapturingDriver % isActive ) then
+              Avisc_flux = 0.5_RP * (f % storage(1) % AviscFlux + f % storage(2) % AviscFlux)
+           else
+              Avisc_flux = 0.0_RP
+           end if
+  !
+  !        --------------
+  !        Viscous fluxes
+  !        --------------
+  !
+           if (flowIsNavierStokes) then
+              do j = 0, f % Nf(2)
+                 do i = 0, f % Nf(1)
 
-                  mu_left(1) = f % storage(1) % mu_NS(1,i,j)
-                  mu_left(2) = 0.0_RP
-                  mu_left(3) = f % storage(1) % mu_NS(2,i,j)
+                    mu_left(1) = f % storage(1) % mu_NS(1,i,j)
+                    mu_left(2) = 0.0_RP
+                    mu_left(3) = f % storage(1) % mu_NS(2,i,j)
 
-                  mu_right(1) = f % storage(2) % mu_NS(1,i,j)
-                  mu_right(2) = 0.0_RP
-                  mu_right(3) = f % storage(2) % mu_NS(2,i,j)
+                    mu_right(1) = f % storage(2) % mu_NS(1,i,j)
+                    mu_right(2) = 0.0_RP
+                    mu_right(3) = f % storage(2) % mu_NS(2,i,j)
 
-                  call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                    call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
                                                      EllipticFlux = ViscousFlux, &
                                                      f = f, &
                                                      QLeft = f % storage(1) % Q(:,i,j), &
@@ -1405,41 +1400,44 @@ module SpatialDiscretization
                                                      dWall = f % geom % dWall(i,j), &
                                                      flux  = visc_flux(:,i,j) )
 
-               end do
-            end do
-         else
-            visc_flux = 0.0_RP
-         end if
+                 end do
+              end do
+           else
+              visc_flux = 0.0_RP
+           end if
 
-         do j = 0, f % Nf(2)
-            do i = 0, f % Nf(1)
-!
-!              --------------
-!              Invscid fluxes
-!              --------------
-!
-               call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
-                                  QRight = f % storage(2) % Q(:,i,j), &
-                                  nHat   = f % geom % normal(:,i,j), &
-                                  t1     = f % geom % t1(:,i,j), &
-                                  t2     = f % geom % t2(:,i,j), &
-                                  flux   = inv_flux(:,i,j) )
-!
-!              Multiply by the Jacobian
-!              ------------------------
-               flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
+           do j = 0, f % Nf(2)
+              do i = 0, f % Nf(1)
+  !
+  !              --------------
+  !              Invscid fluxes
+  !              --------------
+  !
+                 call RiemannSolver(QLeft  = f % storage(1) % Q(:,i,j), &
+                                   QRight = f % storage(2) % Q(:,i,j), &
+                                   nHat   = f % geom % normal(:,i,j), &
+                                   t1     = f % geom % t1(:,i,j), &
+                                   t2     = f % geom % t2(:,i,j), &
+                                   flux   = inv_flux(:,i,j) )
+  !
+  !              Multiply by the Jacobian
+  !              ------------------------
+                 flux(:,i,j) = ( inv_flux(:,i,j) - visc_flux(:,i,j)) * f % geom % jacobian(i,j) - Avisc_flux(:,i,j)
 
-            end do
-         end do
-!
-!        ---------------------------
-!        Return the flux to elements
-!        ---------------------------
-!
-         Sidearray = (/1,2/)
-         call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+              end do
+           end do
+  !
+  !        ---------------------------
+  !        Return the flux to elements
+  !        ---------------------------
+  !
+           Sidearray = (/1,2/)
+           call f % ProjectFluxToElements(NCONS, flux, Sidearray)
+     end if 
 
-      end subroutine computeElementInterfaceFlux
+     if (f % IsMortar==1) call computeElementInterfaceFluxM(f)
+
+     end subroutine computeElementInterfaceFlux
 
       subroutine computeMPIFaceFlux(f)
          use FaceClass

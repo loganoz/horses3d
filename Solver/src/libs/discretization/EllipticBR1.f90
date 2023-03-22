@@ -397,10 +397,16 @@ module EllipticBR1
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: uStar(nGradEqn)
          real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
+         real(kind=RP), allocatable :: uStar_nM1(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM2(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM3(:,:,:,:)
+         real(kind=RP), allocatable :: uStar_nM4(:,:,:,:)
 
-         integer       :: i,j
+         integer       :: i,j, lm
          integer       :: Sidearray(2)
-         
+         type(Face), pointer :: fm 
+
+         if (f % IsMortar==0 .OR. f % IsMortar==2) then
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
@@ -430,6 +436,64 @@ module EllipticBR1
          
          Sidearray = (/1,2/)
          call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+          end if 
+
+         if (f % Ismortar ==1) then 
+            do lm=1,4
+               fm=>f % Mortar(lm)
+               if (lm==1) allocate(uStar_nM1(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==2) allocate(uStar_nM2(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==3) allocate(uStar_nM3(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+               if (lm==4) allocate(uStar_nM4(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+
+               do j = 0, fm % Nf(2)  ; do i = 0, fm % Nf(1)
+#ifdef MULTIPHASE
+                              call GetGradients(nEqn, nGradEqn, Q = fm % storage(1) % Q(:,i,j), U = UL, rho_ = fm % storage(1) % rho(i,j))
+                              call GetGradients(nEqn, nGradEqn, Q = fm % storage(2) % Q(:,i,j), U = UR, rho_ = fm % storage(2) % rho(i,j))
+#else
+                              call GetGradients(nEqn, nGradEqn, Q = fm % storage(1) % Q(:,i,j), U = UL)
+                              call GetGradients(nEqn, nGradEqn, Q = fm % storage(2) % Q(:,i,j), U = UR)
+#endif
+                  
+#ifdef MULTIPHASE
+                              select case (self % eqName)
+                              case (ELLIPTIC_MU)
+!
+!              The multiphase solver needs the Chemical potential as first entropy variable
+!              ----------------------------------------------------------------------------
+                  UL(IGMU) = fm % storage(1) % mu(1,i,j)
+                 UR(IGMU) = fm % storage(2) % mu(1,i,j)
+                              end select
+#endif
+                     select case (lm)
+                        case (1)
+                        uStar = 0.5_RP * (UR - UL) * fm % geom % jacobian(i,j)
+                        uStar_nM1(:,IX,i,j) = uStar * fm % geom % normal(IX,i,j)
+                        uStar_nM1(:,IY,i,j) = uStar * fm % geom % normal(IY,i,j)
+                        uStar_nM1(:,IZ,i,j) = uStar * fm % geom % normal(IZ,i,j)
+                        case (2)
+                        uStar = 0.5_RP * (UR - UL) * fm % geom % jacobian(i,j)                           
+                        uStar_nM2(:,IX,i,j) = uStar * fm % geom % normal(IX,i,j)
+                        uStar_nM2(:,IY,i,j) = uStar * fm % geom % normal(IY,i,j)
+                        uStar_nM2(:,IZ,i,j) = uStar * fm % geom % normal(IZ,i,j)
+                        case (3)
+                        uStar = 0.5_RP * (UR - UL) * fm % geom % jacobian(i,j)
+                        uStar_nM3(:,IX,i,j) = uStar * fm % geom % normal(IX,i,j)
+                        uStar_nM3(:,IY,i,j) = uStar * fm % geom % normal(IY,i,j)
+                        uStar_nM3(:,IZ,i,j) = uStar * fm % geom % normal(IZ,i,j)
+                        case (4)
+                        uStar = 0.5_RP * (UR - UL) * fm % geom % jacobian(i,j)
+                        uStar_nM4(:,IX,i,j) = uStar * fm % geom % normal(IX,i,j)
+                        uStar_nM4(:,IY,i,j) = uStar * fm % geom % normal(IY,i,j)
+                        uStar_nM4(:,IZ,i,j) = uStar * fm % geom % normal(IZ,i,j)
+                        end select 
+                     end do               ; end do 
+            end do 
+            Sidearray = (/1,2/)
+            call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1, uStar_nM1, uStar_nM2, uStar_nM3, uStar_nM4)
+
+         end if 
+
          
       end subroutine BR1_ComputeElementInterfaceAverage   
 
