@@ -1002,6 +1002,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j)
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
+                  if (f % IsMortar==1) cycle  
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
@@ -1018,6 +1019,7 @@ module SpatialDiscretization
                associate(f => mesh % faces(face_ids(iFace)))
 
                delta = sqrt(f % geom % surface / product(f % Nf + 1))
+               if (f % IsMortar==1) cycle 
                do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                   do side = 1, no_of_sides
                      call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
