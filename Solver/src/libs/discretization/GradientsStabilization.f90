@@ -164,11 +164,18 @@ module GradientsStabilization
 !        Local variables
 !        ---------------
 !
-         integer       :: i,j
+         integer       :: i,j, lm
          real(kind=RP) :: cL(NCOMP), cR(NCOMP), uHat(NCOMP)
          real(kind=RP) :: Hflux(NCOMP,NDIM,0:f % Nf(1), 0:f % Nf(2))
          real(kind=RP) :: vAver(NDIM)
-         
+
+         real(kind=RP), allocatable :: HfluxM1(:,:,:,:)
+         real(kind=RP), allocatable :: HfluxM2(:,:,:,:)
+         real(kind=RP), allocatable :: HfluxM3(:,:,:,:)
+         real(kind=RP), allocatable :: HfluxM4(:,:,:,:)
+         type(Face), pointer :: fm
+
+         if (f % IsMortar ==0 .OR. f %IsMortar ==2) then 
          do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
             cL = f % storage(1) % c(:,i,j)
             cR = f % storage(2) % c(:,i,j)
@@ -182,6 +189,48 @@ module GradientsStabilization
          end do               ; end do
 
          call f % ProjectGradientFluxToElements(NCOMP, HFlux,(/1,2/),-1)
+      end if 
+      if (f % IsMortar ==1) then 
+         do lm=1,4
+            fm=>f % Mortar(lm)
+            if (lm==1) allocate(HfluxM1(NCOMP,NDIM,0:fm% Nf(1), 0:fm % Nf(2)))
+            if (lm==2) allocate(HfluxM2(NCOMP,NDIM,0:fm% Nf(1), 0:fm % Nf(2)))
+            if (lm==3) allocate(HfluxM2(NCOMP,NDIM,0:fm% Nf(1), 0:fm % Nf(2)))
+            if (lm==4) allocate(HfluxM2(NCOMP,NDIM,0:fm% Nf(1), 0:fm % Nf(2)))
+
+            do j = 0, fm % Nf(2)  ; do i = 0, fm % Nf(1)
+               cL = fm % storage(1) % c(:,i,j)
+               cR = fm % storage(2) % c(:,i,j)
+   
+               vAver = AVERAGE( fm % storage(1) % v(:,i,j) , fm % storage(2) % v(:,i,j))
+               Uhat = 0.5_RP * sign2(dot_product(vAver, fm % geom % normal(:,i,j)))*(cL - cR) * fm % geom % jacobian(i,j) 
+               select case (lm)
+               case (1)
+                  HfluxM1(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+                  HfluxM1(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+                  HfluxM1(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case (2)
+                  HfluxM2(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+                  HfluxM2(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+                  HfluxM2(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case(3)
+                  HfluxM3(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+                  HfluxM3(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+                  HfluxM3(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               case(4)
+                  HfluxM4(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
+                  HfluxM4(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
+                  HfluxM4(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+               end select 
+            end do               ; end do
+         end do 
+         call f % ProjectGradientFluxToElements(NCOMP, HFlux,(/1,2/),-1, HfluxM1, HfluxM2, HfluxM3, HfluxM4)
+
+         deallocate(HfluxM1)
+         deallocate(HfluxM2)
+         deallocate(HfluxM2)
+         deallocate(HfluxM2)
+      end if 
          
       end subroutine GradientsStabilization_InteriorFace   
 
