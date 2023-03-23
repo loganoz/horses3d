@@ -41,10 +41,10 @@
                    Shock viscous flux 1 = Physical
                    Shock viscous flux 2 = Guermond-Popov
                  Shock update viscosity = constant
-                             Shock mu 1 = 20.0e-3
+                             Shock mu 1 = 2.0e-2
                           Shock alpha 1 = 0.0
-                             Shock mu 2 = 20.0e-3
-                          Shock alpha 2 = 20.0e-3
+                             Shock mu 2 = 2.0e-1
+                          Shock alpha 2 = 2.0e-1
                       SVV filter cutoff = 4.0
                        SVV filter shape = power
                         SVV filter type = low-pass
@@ -84,6 +84,6 @@
 #end
 
 #define volume monitor 1
-   name = SVV
+   name = Adiss
    variable = Artificial dissipation
 #end
