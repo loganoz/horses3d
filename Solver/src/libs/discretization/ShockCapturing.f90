@@ -622,8 +622,8 @@ module ShockCapturing
          case (GRADVARS_ENTROPY); self % ViscousFlux => GuermondPopovFlux_ENTROPY
          case default
             write(STD_OUT,*) "ERROR. Guermond-Popov (2014) artificial ",  &
-                              "viscosity is only configured for Entropy ", &
-                              "gradient variables"
+                             "viscosity is only configured for Entropy ", &
+                             "gradient variables"
             stop
          end select
 
@@ -639,6 +639,11 @@ module ShockCapturing
 !     TODO: Introduce alpha viscosity, which probably means reimplementing here
 !           all the viscous fluxes of `Physics_NS`...
 !     --------------------------------------------------------------------------
+!
+!     -------
+!     Modules
+!     -------
+      use NodalStorageClass, only: NodalStorage
 !
 !     ---------
 !     Interface
@@ -665,6 +670,7 @@ module ShockCapturing
       real(RP) :: kappa
       real(RP) :: mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: covariantFlux(1:NCONS, 1:NDIM)
+      real(RP) :: SVVdiss
 
 
       if (switch > 0.0_RP) then
@@ -696,6 +702,7 @@ module ShockCapturing
 !
 !        Compute the viscous flux
 !        ------------------------
+         SVVdiss = 0.0_RP
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
             kappa = dimensionless % mu_to_kappa * mu(i,j,k)
@@ -705,6 +712,18 @@ module ShockCapturing
                                     e % storage % U_z(:,i,j,k),             &
                                     mu(i,j,k), 0.0_RP, kappa,               &
                                     covariantflux)
+
+            ! Artificial viscosity
+            associate(wxi   => NodalStorage(e % Nxyz(1)) % w, &
+                      weta  => NodalStorage(e % Nxyz(2)) % w, &
+                      wzeta => NodalStorage(e % Nxyz(3)) % w)
+
+               SVVdiss = SVVdiss + e % geom % jacobian(i,j,k) * wxi(i) * weta(j) * wzeta(k) * &
+                         sum(e % storage % U_x(:,i,j,k) * covariantflux(:,IX) +               &
+                             e % storage % U_y(:,i,j,k) * covariantflux(:,IY) +               &
+                             e % storage % U_z(:,i,j,k) * covariantflux(:,IZ))
+
+            end associate
 
             SCflux(:,i,j,k,IX) = covariantFlux(:,IX) * e % geom % jGradXi(IX,i,j,k) &
                                + covariantFlux(:,IY) * e % geom % jGradXi(IY,i,j,k) &
@@ -721,6 +740,8 @@ module ShockCapturing
                                + covariantFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
          end do                ; end do                ; end do
+
+         e % storage % artificialDiss = SVVdiss
 
       else
 
