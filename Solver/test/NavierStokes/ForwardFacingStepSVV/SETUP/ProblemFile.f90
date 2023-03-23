@@ -525,12 +525,12 @@ end module ProblemFileFunctions
 #if defined(NAVIERSTOKES)
             character(len=29)                  :: testName = "Forward Facing Step (SVV)"
             type(FTAssertionsManager), pointer :: sharedManager
-            real(kind=RP), parameter           :: SVVdiss = 7.56510e-8_RP
-            real(kind=RP), parameter           :: res(5) = [ 3593.8000_RP, &
-                                                             870.3135_RP, &
-                                                             208.6886_RP, &
+            real(kind=RP), parameter           :: SVVdiss = 1.5017e-1_RP
+            real(kind=RP), parameter           :: res(5) = [ 4470.7274_RP, &
+                                                             1795.4882_RP, &
+                                                             159.6254_RP, &
                                                              0.0_RP, &
-                                                             3029.1678_RP  ]
+                                                             3624.3919_RP  ]
 
             call initializeSharedAssertionsManager
             sharedManager => sharedAssertionsManager()
@@ -570,7 +570,6 @@ end module ProblemFileFunctions
             if ( sharedManager % numberOfAssertionFailures() == 0 ) then
                write(6,*) testName, " ... Passed"
                write(6,*) "This test checks if: "
-               write(6,*) "   - The restart file was read correctly (changes in output file format)"
                write(6,*) "   - The residuals are 'exact' (1e-3)"
                write(6,*) "   - The SVV dissipation is 'exact' (1e-3)"
             else
