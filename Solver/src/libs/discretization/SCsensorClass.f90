@@ -1018,6 +1018,7 @@ module SCsensorClass
       integer                :: n
       integer                :: cluster
       integer                :: nclusters
+      logical                :: with_kmeans
       real(RP)               :: u2, p
       real(RP)               :: ux(3), uy(3), uz(3)
       real(RP)               :: dp(3)
@@ -1121,7 +1122,8 @@ module SCsensorClass
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call sensor % gmm % fit(sensor % x, adapt=.true.)
+      with_kmeans = sensor % gmm % nclusters == 0
+      call sensor % gmm % fit(sensor % x, adapt=.true., from_kmeans=with_kmeans)
       call sensor % gmm % predict(sensor % x)
 !
 !     Compute the sensor values

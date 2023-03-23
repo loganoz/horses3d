@@ -1,3 +1,4 @@
+#include "Includes.h"
 module Clustering
 
    use SMConstants,       only: RP, PI
@@ -33,7 +34,6 @@ module Clustering
 
    type :: GaussianList_t
       real(RP), pointer, contiguous :: storage(:)    => null()  ! contiguous storage for MPI communication
-      real(RP), pointer, contiguous :: taumu_st(:)   => null()  ! contiguous storage for MPI communication
       real(RP), pointer, contiguous :: logtau(:)     => null()  ! [n]: log of weights
       real(RP), pointer, contiguous :: mu(:,:)       => null()  ! [d,n]: centroids
       real(RP), pointer, contiguous :: cov(:,:,:)    => null()  ! [d,d,n]: covariance matrices
@@ -139,8 +139,12 @@ module Clustering
       type(kMeans_t), intent(inout) :: self
 
 
-      if (allocated(self % prevClusters)) deallocate(self % prevClusters)
-      if (allocated(self % centroids))    deallocate(self % centroids)
+      ! Required for gfortran?
+      if (self % initialized) then
+         if (allocated(self % prevClusters)) deallocate(self % prevClusters)
+         if (allocated(self % clusters))     deallocate(self % clusters)
+         if (allocated(self % centroids))    deallocate(self % centroids)
+      end if
 
       self % initialized   = .false.
       self % centroids_set = .false.
@@ -397,7 +401,7 @@ module Clustering
 !
 !     Sort the clusters
 !     -----------------
-      call sort_clusters(ndims, nclusters, xavg, clustermap)
+      call sort_clusters(ndims, nclusters, xavg, clustermap=clustermap)
 !
 !     Reorder clusters
 !     ----------------
@@ -459,7 +463,6 @@ module Clustering
 !     Reset all pointers
 !     ------------------
       nullify(self % centroids)
-      nullify(self % g % taumu_st)
       nullify(self % g % logtau)
       nullify(self % g % mu)
       nullify(self % g % cov)
@@ -488,8 +491,6 @@ module Clustering
       if (needs_allocation) then
          allocate(self % g % storage(ssize))
       end if
-
-      self % g % taumu_st(1:tsize + msize) => self % g % storage(1:tsize + msize)
 
       ind1 = 1
       ind2 = tsize
@@ -524,14 +525,14 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_reset(self, centroids, init_kmeans, x)
+   subroutine GMM_reset(self, centroids, use_kmeans, x)
 !
 !     ---------
 !     Interface
 !     ---------
       type(GMM_t),        intent(inout) :: self
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
-      logical,  optional, intent(in)    :: init_kmeans ! starting from kmeans
+      logical,  optional, intent(in)    :: use_kmeans ! reset from kmeans
       real(RP), optional, intent(in)    :: x(:,:)
 !
 !     ---------------
@@ -568,17 +569,16 @@ module Clustering
 !     -----------------
       if (present(centroids)) then
          self % centroids(:,i1:i2) = centroids(:,i1:i2)
-      else if (present(init_kmeans)) then
-         if (init_kmeans) then
-         associate(ndims => self % ndims, nclusters => self % max_nclusters)
-               call self % kmeans % init(ndims, nclusters, 10)
-               call self % kmeans % fit(x,centroids = self % centroids(:,1:nclusters))
-               self % centroids(:,1:nclusters) = self % kmeans % centroids
-               self % g % mu(:,1:nclusters) = self % centroids(:,1:nclusters)
-         end associate
-         end if
       else
-         call random_number(self % g % mu(:,i1:i2))
+         call random_number(self % centroids(:,i1:i2))
+      end if
+
+      if (present(use_kmeans)) then
+         if (use_kmeans) then
+            call self % kmeans % init(self % ndims, self % max_nclusters, 10)
+            call self % kmeans % fit(x, centroids=self % centroids)
+            self % centroids = self % kmeans % centroids
+         end if
       end if
 
       self % nclusters = self % max_nclusters
@@ -596,7 +596,6 @@ module Clustering
 
 
       nullify(self % centroids)
-      nullify(self % g % taumu_st)
       nullify(self % g % logtau)
       nullify(self % g % mu)
       nullify(self % g % cov)
@@ -606,9 +605,10 @@ module Clustering
       ! Required for gfortran?
       if (self % initialized) then
          if (associated(self % g % storage)) deallocate(self % g % storage)
+         if (allocated(self % prob))         deallocate(self % prob)
       end if
 
-      if (allocated(self % prob)) deallocate(self % prob)
+      call kMeans_final(self % kmeans)
 
       self % initialized = .false.
 
@@ -616,7 +616,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_fit(self, x, info, centroids, reset, adapt, init_kmeans)
+   subroutine GMM_fit(self, x, info, centroids, reset, adapt, from_kmeans)
 !
 !     ---------
 !     Interface
@@ -627,11 +627,12 @@ module Clustering
       real(RP), optional, intent(in)    :: centroids(self % ndims, self % max_nclusters)
       logical,  optional, intent(in)    :: reset
       logical,  optional, intent(in)    :: adapt
-      logical,  optional, intent(in)    :: init_kmeans
+      logical,  optional, intent(in)    :: from_kmeans
 !
 !     ---------------
 !     Local variables
 !     ---------------
+      logical               :: kmeans_
       integer               :: info_
       integer               :: npts
       integer               :: iter
@@ -663,12 +664,16 @@ module Clustering
          if (reset) self % nclusters = 0
       end if
 
-      if (present(centroids)) then
-         call GMM_reset(self, centroids)
-      else if (present(init_kmeans)) then
-         if (init_kmeans) call GMM_reset(self, init_kmeans=init_kmeans, x=x)
+      if (present(from_kmeans)) then
+         kmeans_ = from_kmeans
       else
-         call GMM_reset(self)
+         kmeans_ = .false.
+      end if
+
+      if (present(centroids)) then
+         call GMM_reset(self, centroids=centroids, use_kmeans=kmeans_, x=x)
+      else
+         call GMM_reset(self, use_kmeans=kmeans_, x=x)
       end if
 !
 !     Minimum distance between cluster centroids
@@ -709,7 +714,7 @@ module Clustering
                 prob      => self % prob       )
 
          llprev = ll
-         call GMM_Estep(ndims, npts, nclusters, self % g, x, prob(:,1:nclusters), self % zerotol, ll)
+         call GMM_Estep(ndims, npts, nclusters, self % g, x, prob(:,1:nclusters), ll)
          call GMM_Mstep(ndims, npts, nclusters, self % g, x, prob(:,1:nclusters), self % zerotol)
 
          if (present(adapt)) then
@@ -733,24 +738,23 @@ module Clustering
 !     -----------------
       if (iter > self % maxiters) then
          associate(ndims => self % ndims, nclusters => self % nclusters)
-            call self % kmeans % init(ndims, nclusters)
-            call self % kmeans % fit(x, info_, self % centroids(:,1:nclusters))
-
-            self % with_kmeans = .true.
+            call self % kmeans % init(ndims, nclusters, self % maxiters)
+            call self % kmeans % fit(x, info=info_, centroids=self % centroids(:,1:nclusters))
             self % centroids(:,1:nclusters) = self % kmeans % centroids
-            self % g % mu(:,1:nclusters) = self % centroids(:,1:nclusters)
+            self % with_kmeans = .true.
          end associate
 
          if (info_ == -1) then
             info_ = -2
+         else
+            info_ = info_ + self % maxiters
          end if
 
       else
 !
 !        Sort clusters
 !        -------------
-         call GMM_sort_clusters(self % ndims, self % nclusters, self % g, &
-                                self % centroids(:,1:self % nclusters))
+         call sort_clusters(self % ndims, self % nclusters, self % centroids(:,1:self % nclusters))
          info_ = iter
 
       end if
@@ -777,7 +781,11 @@ module Clustering
       integer  :: ndims
       integer  :: npts
       integer  :: nclusters
-      real(RP) :: den
+      real(RP) :: logtau
+      real(RP) :: mu(size(x, dim=1))
+      real(RP) :: covinv(size(x, dim=1), size(x, dim=1))
+      real(RP) :: logdet
+      real(RP) :: lognorm
 
 !
 !     Checks
@@ -799,27 +807,22 @@ module Clustering
          prob = 0.0_RP
          do i = 1, npts
             j = self % kmeans % clusters(i)
-            prob(i, j) = 1.0_RP
+            prob(i,j) = 1.0_RP
          end do
 
       else
-         do i = 1, npts
-            den = 0.0_RP
-            do j = 1, nclusters
-               prob(i,j) = exp(GMM_logpdf(ndims, x(:,i),                   &
-                                                 self % g % logtau(j),     &
-                                                 self % g % mu(:,j),       &
-                                                 self % g % covinv(:,:,j), &
-                                                 self % g % logdet(j))     )
-               den = den + prob(i,j)
+         do j = 1, nclusters
+            logtau = self % g % logtau(j)
+            mu = self% g % mu(:,j)
+            covinv = self % g % covinv(:,:,j)
+            logdet = self % g % logdet(j)
+            do i = 1, npts
+               prob(i,j) = GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet)
             end do
-
-            if (AlmostEqual(den, 0.0_RP)) then  ! The point is far from all clusters
-                prob(i,:) = 1.0_RP / nclusters
-            else
-                prob(i,:) = prob(i,:) / den
-            end if
-
+         end do
+         do i = 1, npts
+            lognorm = logsumexp(prob(i,:))
+            prob(i,:) = exp(prob(i,:) - lognorm)
          end do
 
       end if
@@ -858,7 +861,7 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_Estep(ndims, npts, nclusters, g, x, R, small, logL)
+   subroutine GMM_Estep(ndims, npts, nclusters, g, x, R, logL)
 !
 !     ---------
 !     Interface
@@ -869,7 +872,6 @@ module Clustering
       type(GaussianList_t), intent(in)    :: g
       real(RP),             intent(in)    :: x(ndims, npts)
       real(RP),             intent(inout) :: R(npts, nclusters)
-      real(RP),             intent(in)    :: small
       real(RP),             intent(out)   :: logL
 !
 !     ---------------
@@ -881,31 +883,26 @@ module Clustering
       real(RP) :: mu(ndims)
       real(RP) :: covinv(ndims, ndims)
       real(RP) :: logdet
-      real(RP) :: den
+      real(RP) :: lognorm
 
 !
 !     E-step loop
 !     -----------
-      logL = 0.0_RP
       do j = 1, nclusters
          logtau = g % logtau(j)
          mu = g % mu(:,j)
          covinv = g % covinv(:,:,j)
          logdet = g % logdet(j)
          do i = 1, npts
-            R(i,j) = exp(GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet))
+            R(i,j) = GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet)
          end do
       end do
 
+      logL = 0.0_RP
       do i = 1, npts
-         den = sum(R(i,:))
-         if (AlmostEqual(den, 0.0_RP)) then  ! The point is far from all clusters
-             R(i,:) = 1.0_RP / nclusters
-             den = small
-         else
-             R(i,:) = R(i,:) / den
-         end if
-         logL = logL + log(den)
+         lognorm = logsumexp(R(i,:))
+         R(i,:) = exp(R(i,:) - lognorm)
+         logL = logL + lognorm
       end do
 !
 !     Global log-likelihood (only in root)
@@ -941,40 +938,34 @@ module Clustering
       integer  :: i, j, l, m
       integer  :: info
       real(RP) :: ns(nclusters)
-      real(RP) :: inv_nsAll(nclusters)
-      real(RP) :: inv_nptsAll
+      real(RP) :: inv_ns(nclusters)
       real(RP) :: xmu(ndims)
       real(RP) :: Rij
+      real(RP) :: inv_sumtau
       real(RP) :: det
 
 !
-!     Total number of points
-!     ----------------------
-      inv_nptsAll = real(npts, kind=RP)
-      call MPI_SumAll(inv_nptsAll)
-      inv_nptsAll = 1.0_RP / inv_nptsAll
-!
-!     "Number of points" in the cluster
-!     ---------------------------------
+!     "Number of points" in each cluster
+!     ----------------------------------
       ns = sum(R, dim=1)
-      inv_nsAll = ns
-      call MPI_SumAll(inv_nsAll)
-      inv_nsAll = 1.0_RP / inv_nsAll
+      call MPI_SumAll(ns)
+      ns = ns + 10.0_RP * epsilon(1.0_RP)  ! Avoid div by 0. Factor taken from scikit
+      inv_ns = 1.0_RP / ns
 !
 !     M-step loop
 !     -----------
       do j = 1, nclusters
-         g % logtau(j) = ns(j) * inv_nptsAll
-         g % mu(:,j) = matmul(x, R(:,j)) * inv_nsAll(j)
+         g % logtau(j) = ns(j)   ! No scaling yet
+         g % mu(:,j) = matmul(x, R(:,j)) * inv_ns(j)
       end do
 
       ! Compute the global centroids
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIRootAction) then
-         call MPI_Reduce(MPI_IN_PLACE, g % taumu_st, size(g % taumu_st), MPI_DOUBLE, &
+         call MPI_Reduce(MPI_IN_PLACE, g % mu, size(g % mu), MPI_DOUBLE, &
                          MPI_SUM, 0, MPI_COMM_WORLD, info)
       elseif (MPI_Process % doMPIAction) then
-         call MPI_Reduce(g % taumu_st, g % taumu_st, size(g % taumu_st), MPI_DOUBLE, &
+         call MPI_Reduce(g % mu, g % mu, size(g % mu), MPI_DOUBLE, &
                          MPI_SUM, 0, MPI_COMM_WORLD, info)
       end if
 #endif
@@ -991,7 +982,7 @@ module Clustering
                end do
             end do
          end do
-         g % cov(:,:,j) = g % cov(:,:,j) * inv_nsAll(j)
+         g % cov(:,:,j) = g % cov(:,:,j) * inv_ns(j)
       end do
 
       ! Compute the global covariance matrices
@@ -1005,6 +996,7 @@ module Clustering
       end if
 #endif
 
+      inv_sumtau = 1.0_RP / sum(g % logtau)
       do j = 1, nclusters
          ! Regularize the covariance matrices
          do l = 1, ndims
@@ -1017,7 +1009,7 @@ module Clustering
 
          ! Update the "log" values
          g % logdet(j) = log(det)
-         g % logtau(j) = log(g % logtau(j))
+         g % logtau(j) = log(g % logtau(j) * inv_sumtau)
       end do
 
    end subroutine GMM_Mstep
@@ -1095,33 +1087,6 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine GMM_sort_clusters(ndims, nclusters, g, xavg)
-!
-!     ---------
-!     Interface
-!     ---------
-      integer,              intent(in)    :: ndims
-      integer,              intent(in)    :: nclusters
-      type(GaussianList_t), intent(in)    :: g
-      real(RP),             intent(out)   :: xavg(ndims, nclusters)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer  :: i, j, ierr
-      real(RP) :: normvec(nclusters)
-      integer  :: indices(nclusters)
-
-!
-!     Sort the clusters by their distance to the origin
-!     -------------------------------------------------
-      call sort_clusters(ndims, nclusters, g % mu(:,1:nclusters))
-      xavg = g % mu(:,1:nclusters)
-
-   end subroutine GMM_sort_clusters
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
    subroutine sort_clusters(ndims, nclusters, xavg, clustermap)
 !
 !     ---------
@@ -1169,6 +1134,32 @@ module Clustering
       end if
 
    end subroutine sort_clusters
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure function logsumexp(x) result(lse)
+!
+!     ---------
+!     Interface
+!     ---------
+      real(RP), intent(in) :: x(:)
+      real(RP)             :: lse
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i
+      real(RP) :: m
+
+
+      m = maxval(x)
+      lse = 0.0_RP
+      do i = 1, size(x, dim=1)
+         lse = lse + exp(x(i) - m)
+      end do
+      lse = m + log(lse)
+
+   end function logsumexp
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
