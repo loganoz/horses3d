@@ -1344,5 +1344,32 @@ module Clustering
 #endif
 
    end function get_thread_id
+   subroutine Standardization(x)
+      real(RP), intent(inout) :: x(:,:)
+      integer                 :: ndims,npts
+      ndims = size(x,dim=1)
+      npts  = size(x,dim=2)
+      call Standarization_(ndims,npts,x)
+   end subroutine Standardization
+
+   subroutine Standardization_(ndims,npts,x)
+      integer,  intent(in)    :: ndims
+      integer,  intent(in)    :: npts
+      real(RP), intent(inout) :: x(:,:)
+       !
+       !     ---------------
+       !     Local variables
+       !     ---------------
+             integer  :: i
+             real(RP) :: mean(ndims)
+             real(RP) :: std(ndims)
+             do i=1, ndims
+             mean(i)=sum(x(:,i),dim=1)/npts
+             std(i)= sqrt(sum((x(:,i)-mean(i))**2, dim=1)/npts)
+             x(:,i)=(x(:,i)-mean(i))/std(i)
+             end do 
+   end subroutine Standardization_ 
+
+
 
 end module Clustering
