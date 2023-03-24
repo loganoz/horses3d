@@ -39,6 +39,7 @@ module Clustering
       real(RP), pointer, contiguous :: cov(:,:,:)    => null()  ! [d,d,n]: covariance matrices
       real(RP), pointer, contiguous :: covinv(:,:,:) => null()  ! [d,d,n]: inverse covariance matrices
       real(RP), pointer, contiguous :: logdet(:)     => null()  ! [n]: log-determinant of covariance matrices
+      real(RP), allocatable         :: tcov(:,:,:)              ! [d,d,t]: thread-local covariance matrix
    end type GaussianList_t
 
    type :: GMM_t
@@ -319,6 +320,7 @@ module Clustering
       real(RP) :: dist, minDist
 
 
+!$omp parallel do default(private) firstprivate(npts, nclusters) shared(x, xavg, clusters)
       do i = 1, npts
          xi = x(:,i)
          minDist = huge(1.0_RP)
@@ -330,6 +332,7 @@ module Clustering
             end if
          end do
       end do
+!$omp end parallel do
 
    end subroutine kMeans_compute_clusters
 !
@@ -431,6 +434,7 @@ module Clustering
 !     ---------------
       integer :: tsize, msize, csize, dsize, ssize
       integer :: ind1, ind2
+      integer :: nthreads
       logical :: needs_allocation
 
 !
@@ -490,6 +494,22 @@ module Clustering
 
       if (needs_allocation) then
          allocate(self % g % storage(ssize))
+      end if
+
+      nthreads = get_num_threads()
+      needs_allocation = .true.
+      if (self % initialized) then  ! Required for gfortran?
+         if (allocated(self % g % tcov)) then
+            if (all(size(self % g % tcov) == [ndims, ndims, nthreads])) then
+               needs_allocation = .false.
+            else
+               deallocate(self % g % tcov)
+            end if
+         end if
+      end if
+
+      if (needs_allocation) then
+         allocate(self % g % tcov(ndims, ndims, nthreads))
       end if
 
       ind1 = 1
@@ -605,6 +625,7 @@ module Clustering
       ! Required for gfortran?
       if (self % initialized) then
          if (associated(self % g % storage)) deallocate(self % g % storage)
+         if (allocated(self % g % tcov))     deallocate(self % g % tcov)
          if (allocated(self % prob))         deallocate(self % prob)
       end if
 
@@ -802,31 +823,39 @@ module Clustering
       nclusters = self % nclusters
 
       ! The probabilities collapse when using k-means
-      associate(prob => self % prob)
       if (self % with_kmeans) then
-         prob = 0.0_RP
+!$omp parallel do private(i, j) firstprivate(npts) shared(self)
          do i = 1, npts
             j = self % kmeans % clusters(i)
-            prob(i,j) = 1.0_RP
+            self % prob(i,:) = 0.0_RP
+            self % prob(i,j) = 1.0_RP
          end do
+!$omp end parallel do
 
       else
+
+!$omp parallel default(private) firstprivate(ndims, npts, nclusters) shared(self, x)
+!$omp do collapse(2)
          do j = 1, nclusters
-            logtau = self % g % logtau(j)
-            mu = self% g % mu(:,j)
-            covinv = self % g % covinv(:,:,j)
-            logdet = self % g % logdet(j)
             do i = 1, npts
-               prob(i,j) = GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet)
+               logtau = self % g % logtau(j)
+               mu = self % g % mu(:,j)
+               covinv = self % g % covinv(:,:,j)
+               logdet = self % g % logdet(j)
+               self % prob(i,j) = GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet)
             end do
          end do
+!$omp end do
+
+!$omp do
          do i = 1, npts
-            lognorm = logsumexp(prob(i,:))
-            prob(i,:) = exp(prob(i,:) - lognorm)
+            lognorm = logsumexp(self % prob(i,:))
+            self % prob(i,:) = exp(self % prob(i,:) - lognorm)
          end do
+!$omp end do
+!$omp end parallel
 
       end if
-      end associate
 
       if (present(info)) info = 1
 
@@ -888,22 +917,28 @@ module Clustering
 !
 !     E-step loop
 !     -----------
+      logL = 0.0_RP
+!$omp parallel default(private) firstprivate(ndims, npts, nclusters) shared(R, g, x) reduction(+:logL)
+!$omp do collapse(2)
       do j = 1, nclusters
-         logtau = g % logtau(j)
-         mu = g % mu(:,j)
-         covinv = g % covinv(:,:,j)
-         logdet = g % logdet(j)
          do i = 1, npts
+            logtau = g % logtau(j)
+            mu = g % mu(:,j)
+            covinv = g % covinv(:,:,j)
+            logdet = g % logdet(j)
             R(i,j) = GMM_logpdf(ndims, x(:,i), logtau, mu, covinv, logdet)
          end do
       end do
+!$omp end do
 
-      logL = 0.0_RP
+!$omp do
       do i = 1, npts
          lognorm = logsumexp(R(i,:))
          R(i,:) = exp(R(i,:) - lognorm)
          logL = logL + lognorm
       end do
+!$omp end do
+!$omp end parallel
 !
 !     Global log-likelihood (only in root)
 !     ------------------------------------
@@ -936,6 +971,7 @@ module Clustering
 !     Local variables
 !     ---------------
       integer  :: i, j, l, m
+      integer  :: tid
       integer  :: info
       real(RP) :: ns(nclusters)
       real(RP) :: inv_ns(nclusters)
@@ -971,19 +1007,36 @@ module Clustering
 #endif
 
       ! Compute the local covariance matrices
+!$omp parallel default(private) firstprivate(ndims, npts, nclusters) shared(R, g, x, inv_ns)
+      tid = get_thread_id()
       do j = 1, nclusters
-         g % cov(:,:,j) = 0.0_RP
+
+         g % tcov(:,:,tid) = 0.0_RP
+!$omp do
          do i = 1, npts
             xmu = x(:,i) - g % mu(:,j)
             Rij = R(i,j)
             do m = 1, ndims
                do l = 1, ndims
-                  g % cov(l,m,j) = g % cov(l,m,j) + Rij * xmu(l) * xmu(m)
+                  g % tcov(l,m,tid) = g % tcov(l,m,tid) + Rij * xmu(l) * xmu(m)
                end do
             end do
          end do
+!$omp end do
+
+!$omp single
+         ! Reduction over threads
+         g % cov(:,:,j) = g % tcov(:,:,1)
+         do i = 2, size(g % tcov, dim=3)
+            g % cov(:,:,j) = g % cov(:,:,j) + g % tcov(:,:,i)
+         end do
+
+         ! Scaling
          g % cov(:,:,j) = g % cov(:,:,j) * inv_ns(j)
+!$omp end single
+
       end do
+!$omp end parallel
 
       ! Compute the global covariance matrices
 #if defined(_HAS_MPI_)
@@ -1239,5 +1292,57 @@ module Clustering
       end if
 
    end subroutine matinv
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   ! TODO: move to OpenMP module
+   function get_num_threads() result(n)
+!
+!     -------
+!     Modules
+!     -------
+      use omp_lib
+!
+!     ---------
+!     Interface
+!     ---------
+      integer :: n
+
+
+#if defined(_OPENMP)
+!$omp parallel
+!$omp single
+      n = omp_get_num_threads()
+!$omp end single
+!$omp end parallel
+#else
+      n = 1
+#endif
+
+   end function get_num_threads
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   ! TODO: move to OpenMP module
+   function get_thread_id() result(id)
+!
+!     -------
+!     Modules
+!     -------
+      use omp_lib
+!
+!     ---------
+!     Interface
+!     ---------
+      integer :: id
+
+
+#if defined(_OPENMP)
+      id = omp_get_thread_num() + 1
+#else
+      id = 1
+#endif
+
+   end function get_thread_id
 
 end module Clustering
