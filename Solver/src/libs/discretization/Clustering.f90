@@ -15,6 +15,7 @@ module Clustering
 
    public :: kMeans_t
    public :: GMM_t
+   public :: standardize
 
    type :: kMeans_t
       logical               :: initialized = .false.
@@ -1344,32 +1345,88 @@ module Clustering
 #endif
 
    end function get_thread_id
-   subroutine Standardization(x)
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine standardize(x)
+!
+!     ---------
+!     Interface
+!     ---------
       real(RP), intent(inout) :: x(:,:)
-      integer                 :: ndims,npts
-      ndims = size(x,dim=1)
-      npts  = size(x,dim=2)
-      call Standarization_(ndims,npts,x)
-   end subroutine Standardization
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: ndims
+      integer  :: npts
 
-   subroutine Standardization_(ndims,npts,x)
+
+      ndims = size(x, dim=1)
+      npts  = size(x, dim=2)
+
+      call standardize_(ndims, npts, x)
+
+   end subroutine standardize
+
+   subroutine standardize_(ndims, npts, x)
+!
+!     ---------
+!     Interface
+!     ---------
       integer,  intent(in)    :: ndims
       integer,  intent(in)    :: npts
       real(RP), intent(inout) :: x(:,:)
-       !
-       !     ---------------
-       !     Local variables
-       !     ---------------
-             integer  :: i
-             real(RP) :: mean(ndims)
-             real(RP) :: std(ndims)
-             do i=1, ndims
-             mean(i)=sum(x(:,i),dim=1)/npts
-             std(i)= sqrt(sum((x(:,i)-mean(i))**2, dim=1)/npts)
-             x(:,i)=(x(:,i)-mean(i))/std(i)
-             end do 
-   end subroutine Standardization_ 
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i
+      integer  :: npts_total
+      real(RP) :: inv_npts
+      real(RP) :: mean(ndims)
+      real(RP) :: var(ndims)
 
+#if defined(_HAS_MPI_)
+      integer  :: ierr
+      integer  :: bcast_req(3)
+#endif
 
+!
+!     Total number of points
+!     ----------------------
+#if defined(_HAS_MPI_)
+      call MPI_IAllReduce(npts, npts_total, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, bcast_req(1), ierr)
+#else
+      npts_total = npts
+#endif
+!
+!     Compute the average
+!     -------------------
+      mean = sum(x, dim=2)
+
+#if defined(_HAS_MPI_)
+      call MPI_IAllReduce(MPI_IN_PLACE, mean, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, bcast_req(2), ierr)
+#endif
+!
+!     Compute the variance
+!     --------------------
+      do i = 1, ndims
+         var(i) = sum((x(i, :) - mean(i))**2)
+      end do
+
+#if defined(_HAS_MPI_)
+      call MPI_IAllReduce(MPI_IN_PLACE, var, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, bcast_req(3), ierr)
+      call MPI_Waitall(size(bcast_req), bcast_req, MPI_STATUSES_IGNORE, ierr)
+#endif
+!
+!     Standardize data
+!     ----------------
+      inv_npts = 1.0_RP / npts_total
+      do i = 1, ndims
+         x(i,:) = (x(i,:) - mean(i) * inv_npts) / sqrt(var(i) * inv_npts)
+      end do
+
+   end subroutine standardize_
 
 end module Clustering
