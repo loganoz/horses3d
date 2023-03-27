@@ -7,7 +7,7 @@ module SCsensorClass
    use NodalStorageClass, only: NodalStorage, NodalStorage_t
    use ElementClass,      only: Element
    use Utilities,         only: toLower
-   use Clustering,        only: GMM_t
+   use Clustering,        only: GMM_t, rescale
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_MinMax
 #ifdef _HAS_MPI_
@@ -1118,7 +1118,7 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % x)
+      call rescale(sensor % x)
 !
 !     Compute the GMM clusters
 !     ------------------------
@@ -1263,52 +1263,5 @@ module SCsensorClass
       end select
 
    end function GetSensedVariable
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine RescaleClusterVariables(ndims, x)
-!
-!     -------
-!     Modules
-!     -------
-      use Utilities, only: AlmostEqual
-!
-!     ---------
-!     Interface
-!     ---------
-      integer,  intent(in)    :: ndims
-      real(RP), intent(inout) :: x(:,:)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer  :: i
-      real(RP) :: minimum(ndims)
-      real(RP) :: maximum(ndims)
-
-
-      x = abs(x)
-      minimum = minval(x, dim=2)
-      maximum = maxval(x, dim=2)
-
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         call MPI_MinMax(minimum, maximum)
-#endif
-      end if
-
-      do i = 1, ndims
-         if (AlmostEqual(maximum(i), minimum(i))) then
-            if (maximum(i) > 0.0_RP) then
-               x(i,:) = 1.0_RP
-            else
-               x(i,:) = 0.0_RP
-            end if
-         else
-            x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i))
-         end if
-      end do
-
-   end subroutine RescaleClusterVariables
 
 end module SCsensorClass

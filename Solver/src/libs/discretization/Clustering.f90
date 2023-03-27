@@ -16,6 +16,7 @@ module Clustering
    public :: kMeans_t
    public :: GMM_t
    public :: standardize
+   public :: rescale
 
    type :: kMeans_t
       logical               :: initialized = .false.
@@ -1389,14 +1390,14 @@ module Clustering
 
 #if defined(_HAS_MPI_)
       integer  :: ierr
-      integer  :: bcast_req(3)
+      integer  :: req(3)
 #endif
 
 !
 !     Total number of points
 !     ----------------------
 #if defined(_HAS_MPI_)
-      call MPI_IAllReduce(npts, npts_total, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, bcast_req(1), ierr)
+      call MPI_IAllReduce(npts, npts_total, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, req(1), ierr)
 #else
       npts_total = npts
 #endif
@@ -1406,7 +1407,7 @@ module Clustering
       mean = sum(x, dim=2)
 
 #if defined(_HAS_MPI_)
-      call MPI_IAllReduce(MPI_IN_PLACE, mean, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, bcast_req(2), ierr)
+      call MPI_IAllReduce(MPI_IN_PLACE, mean, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, req(2), ierr)
 #endif
 !
 !     Compute the variance
@@ -1416,8 +1417,8 @@ module Clustering
       end do
 
 #if defined(_HAS_MPI_)
-      call MPI_IAllReduce(MPI_IN_PLACE, var, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, bcast_req(3), ierr)
-      call MPI_Waitall(size(bcast_req), bcast_req, MPI_STATUSES_IGNORE, ierr)
+      call MPI_IAllReduce(MPI_IN_PLACE, var, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, req(3), ierr)
+      call MPI_Waitall(size(req), req, MPI_STATUSES_IGNORE, ierr)
 #endif
 !
 !     Standardize data
@@ -1428,5 +1429,84 @@ module Clustering
       end do
 
    end subroutine standardize_
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine rescale(x, s, o)
+!
+!     ---------
+!     Interface
+!     ---------
+      real(RP),           intent(inout) :: x(:,:)
+      real(RP), optional, intent(in)    :: s
+      real(RP), optional, intent(in)    :: o
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: ndims
+      real(RP) :: factor
+      real(RP) :: offset
+
+
+      ndims = size(x, dim=1)
+
+      if (present(s)) then
+         factor = s
+      else
+         factor = 1.0_RP
+      end if
+
+      if (present(o)) then
+         offset = o
+      else
+         offset = 0.0_RP
+      end if
+
+      call rescale_(ndims, x, factor, offset)
+
+   end subroutine rescale
+
+   subroutine rescale_(ndims, x, scale, offset)
+!
+!     -------
+!     Modules
+!     -------
+      use Utilities, only: AlmostEqual
+!
+!     ---------
+!     Interface
+!     ---------
+      integer,  intent(in)    :: ndims
+      real(RP), intent(inout) :: x(:,:)
+      real(RP), intent(in)    :: scale
+      real(RP), intent(in)    :: offset
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i
+      real(RP) :: minimum(ndims)
+      real(RP) :: maximum(ndims)
+
+
+      minimum = minval(x, dim=2)
+      maximum = maxval(x, dim=2)
+
+      call MPI_MinMax(minimum, maximum)
+
+      do i = 1, ndims
+         if (AlmostEqual(maximum(i), minimum(i))) then
+            if (maximum(i) > 0.0_RP) then
+               x(i,:) = scale + offset
+            else
+               x(i,:) = offset
+            end if
+         else
+            x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i)) * scale + offset
+         end if
+      end do
+
+   end subroutine rescale_
 
 end module Clustering
