@@ -1059,8 +1059,7 @@ module Clustering
          end do
 
          ! Compute their inverse
-         det = matdet(ndims, g % cov(:,:,j))
-         call matinv(ndims, det, g % cov(:,:,j), g % covinv(:,:,j))
+         call matinv(ndims, g % cov(:,:,j), g % covinv(:,:,j), det)
 
          ! Update the "log" values
          g % logdet(j) = log(det)
@@ -1218,82 +1217,164 @@ module Clustering
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   pure function matdet(n, A)
-!
-!     ---------
-!     Interface
-!     ---------
-      integer,  intent(in) :: n
-      real(RP), intent(in) :: A(:,:)
-      real(RP)             :: matdet
-
-      if (n == 1) then
-          matdet = A(1,1)
-
-      elseif (n == 2) then
-          matdet = A(1,1) * A(2,2) - A(1,2) * A(2,1)
-
-      elseif (n == 3) then
-          matdet = A(1,1) * A(2,2) * A(3,3) + &
-                   A(1,2) * A(2,3) * A(3,1) + &
-                   A(1,3) * A(2,1) * A(3,2) - &
-                   A(1,3) * A(2,2) * A(3,1) - &
-                   A(1,2) * A(2,1) * A(3,3) - &
-                   A(1,1) * A(2,3) * A(3,2)
-
-      else
-          matdet = 0.0_RP
-
-      end if
-
-   end function matdet
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   pure subroutine matinv(n, det, A, Ainv)
+   pure subroutine matinv(n, A, Ainv, det)
 !
 !     ---------
 !     Interface
 !     ---------
       integer,  intent(in)  :: n
-      real(RP), intent(in)  :: det
       real(RP), intent(in)  :: A(n,n)
       real(RP), intent(out) :: Ainv(n,n)
+      real(RP), intent(out) :: det
 !
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: invd
+      real(RP) :: invdet
 
 
       if (n == 1) then
+         ! Determinant
+         det = A(1,1)
+
+         ! Inverse
          Ainv(1,1) = 1.0_RP / A(1,1)
 
       elseif (n == 2) then
-         invd = 1.0_RP / det
-         Ainv(1,1) =  A(2,2) * invd
-         Ainv(2,1) = -A(2,1) * invd
-         Ainv(1,2) = -A(1,2) * invd
-         Ainv(2,2) =  A(1,1) * invd
+         ! Determinant
+         det = A(1,1) * A(2,2) - A(1,2) * A(2,1)
+         invdet = 1.0_RP / det
+
+         ! Inverse
+         Ainv(1,1) =  A(2,2) * invdet
+         Ainv(2,1) = -A(2,1) * invdet
+         Ainv(1,2) = -A(1,2) * invdet
+         Ainv(2,2) =  A(1,1) * invdet
 
       elseif (n == 3) then
-         invd = 1.0_RP / det
-         Ainv(1,1) = (A(2,2) * A(3,3) - A(2,3) * A(3,2)) * invd
-         Ainv(2,1) = (A(2,3) * A(3,1) - A(2,1) * A(3,3)) * invd
-         Ainv(3,1) = (A(2,1) * A(3,2) - A(2,2) * A(3,1)) * invd
-         Ainv(1,2) = (A(1,3) * A(3,2) - A(1,2) * A(3,3)) * invd
-         Ainv(2,2) = (A(1,1) * A(3,3) - A(1,3) * A(3,1)) * invd
-         Ainv(3,2) = (A(1,2) * A(3,1) - A(1,1) * A(3,2)) * invd
-         Ainv(1,3) = (A(1,2) * A(2,3) - A(1,3) * A(2,2)) * invd
-         Ainv(2,3) = (A(1,3) * A(2,1) - A(1,1) * A(2,3)) * invd
-         Ainv(3,3) = (A(1,1) * A(2,2) - A(1,2) * A(2,1)) * invd
+         ! Determinant
+         det = A(1,1) * A(2,2) * A(3,3) + &
+               A(1,2) * A(2,3) * A(3,1) + &
+               A(1,3) * A(2,1) * A(3,2) - &
+               A(1,3) * A(2,2) * A(3,1) - &
+               A(1,2) * A(2,1) * A(3,3) - &
+               A(1,1) * A(2,3) * A(3,2)
+         invdet = 1.0_RP / det
+
+         ! Inverse
+         Ainv(1,1) = (A(2,2) * A(3,3) - A(2,3) * A(3,2)) * invdet
+         Ainv(2,1) = (A(2,3) * A(3,1) - A(2,1) * A(3,3)) * invdet
+         Ainv(3,1) = (A(2,1) * A(3,2) - A(2,2) * A(3,1)) * invdet
+         Ainv(1,2) = (A(1,3) * A(3,2) - A(1,2) * A(3,3)) * invdet
+         Ainv(2,2) = (A(1,1) * A(3,3) - A(1,3) * A(3,1)) * invdet
+         Ainv(3,2) = (A(1,2) * A(3,1) - A(1,1) * A(3,2)) * invdet
+         Ainv(1,3) = (A(1,2) * A(2,3) - A(1,3) * A(2,2)) * invdet
+         Ainv(2,3) = (A(1,3) * A(2,1) - A(1,1) * A(2,3)) * invdet
+         Ainv(3,3) = (A(1,1) * A(2,2) - A(1,2) * A(2,1)) * invdet
 
       else
-         ! TODO: Add generic method for symmetric matrices
+         call LDL_factor(n, A, Ainv, det)
+         call LDL_inverse(n, Ainv)
 
       end if
 
    end subroutine matinv
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   pure subroutine LDL_factor(n, A, LD, det)
+!
+!     ---------
+!     Interface
+!     ---------
+      integer,  intent(in)  :: n
+      real(RP), intent(in)  :: A(n,n)
+      real(RP), intent(out) :: LD(n,n)
+      real(RP), intent(out) :: det
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer  :: i, j, k
+      real(RP) :: s
+
+
+      do j = 1, n
+!
+!        Diagonal at `j`
+!        ---------------
+         LD(j,j) = A(j,j)
+         do k = 1, j - 1
+            LD(j,j) = LD(j,j) - LD(j,k)**2 * LD(k,k)
+         end do
+!
+!        Column `j` with `i > j`
+!        -----------------------
+         do i = j + 1, n
+            LD(i,j) = A(i,j)
+            do k = 1, j - 1
+               LD(i,j) = LD(i,j) - LD(i,k) * LD(j,k) * LD(k,k)
+            end do
+            LD(i,j) = LD(i,j) / LD(j,j)
+         end do
+
+      end do
+!
+!     Determinant
+!     -----------
+      det = LD(1,1)
+      do i = 2, n
+         det = det * LD(i,i)
+      end do
+
+   end subroutine LDL_factor
+
+   pure subroutine LDL_inverse(n, A)
+!
+!     ---------
+!     Interface
+!     ---------
+      integer,  intent(in)    :: n
+      real(RP), intent(inout) :: A(n,n)
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: i
+      integer :: j
+      integer :: k
+
+!
+!     Inverse following: https://arxiv.org/pdf/1111.4144.pdf
+!     ------------------------------------------------------
+      do j = n, 1, -1
+
+         ! Diagonal term
+         A(j,j) = 1.0_RP / A(j,j)
+         do k = j + 1, n
+            A(j,j) = A(j,j) - A(k,j) * A(j,k)
+         end do
+
+         ! Upper triangular terms
+         do i = j - 1, 1, -1
+            A(i,j) = 0.0_RP
+            do k = i + 1, j
+               A(i,j) = A(i,j) - A(k,i) * A(k,j)
+            end do
+            do k = j + 1, n
+               A(i,j) = A(i,j) - A(k,i) * A(j,k)
+            end do
+         end do
+
+      end do
+!
+!     Fill the lower triangle
+!     -----------------------
+      do i = 1, n - 1
+         A(i + 1:,i) = A(i,i + 1:)
+      end do
+
+   end subroutine LDL_inverse
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
