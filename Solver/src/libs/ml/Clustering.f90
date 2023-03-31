@@ -1,11 +1,10 @@
-#include "Includes.h"
 module Clustering
 
    use SMConstants,       only: RP, PI
    use Utilities,         only: AlmostEqual, BubblesortWithFriend
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_SumAll, MPI_MinMax
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
    use mpi
 #endif
 
