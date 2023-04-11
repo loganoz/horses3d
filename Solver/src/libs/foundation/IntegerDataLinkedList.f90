@@ -5,19 +5,19 @@ module IntegerDataLinkedList
    public   IntegerDataLinkedList_t
 
     type IntegerDataLinkedList_t
-      logical                       :: allowRepetitions
-      class(IntegerData_t), pointer :: head => NULL()
-      integer                       :: no_of_entries = 0
+      logical                      :: allowRepetitions
+      type(IntegerData_t), pointer :: head => NULL()
+      integer                      :: no_of_entries = 0
       contains
-         procedure   :: Add        => IntegerDataLinkedList_Add
+         procedure   :: Add           => IntegerDataLinkedList_Add
          procedure   :: ExportToArray => IntegerDataLinkedList_ExportToArray
          procedure   :: check         => CheckInteger
          procedure   :: Destruct      => IntegerDataLinkedList_Destruct
     end type IntegerDataLinkedList_t
    
     type IntegerData_t
-      integer                          :: value
-      class(IntegerData_t), pointer    :: next => NULL()
+      integer                      :: value
+      type(IntegerData_t), pointer :: next => NULL()
     end type IntegerData_t
 
     interface IntegerDataLinkedList_t
@@ -30,7 +30,7 @@ module IntegerDataLinkedList
 !
       function ConstructIntegerDataLinkedList(allowRepetitions)
          implicit none
-         logical, intent(in), optional     :: allowRepetitions
+         logical, intent(in), optional :: allowRepetitions
          type(IntegerDataLinkedList_t) :: ConstructIntegerDataLinkedList 
 
          ConstructIntegerDataLinkedList % head => NULL()
@@ -48,9 +48,9 @@ module IntegerDataLinkedList
          implicit none
          class(IntegerDataLinkedList_t) :: self
          integer                        :: value
-         class(IntegerData_t), pointer  :: current
-         class(IntegerData_t), pointer  :: previous
-         class(IntegerData_t), pointer  :: newdata
+         type(IntegerData_t), pointer   :: current
+         type(IntegerData_t), pointer   :: previous
+         type(IntegerData_t), pointer   :: newdata
          logical                        :: insert
 
 
@@ -76,6 +76,10 @@ module IntegerDataLinkedList
             self % no_of_entries = self % no_of_entries + 1 
          end if
 
+         nullify(current)
+         nullify(previous)
+         nullify(newdata)
+
       end subroutine IntegerDataLinkedList_Add
 
       subroutine IntegerDataLinkedList_ExportToArray( self , array, sorted ) 
@@ -84,8 +88,8 @@ module IntegerDataLinkedList
          class(IntegerDataLinkedList_t) :: self
          integer, allocatable           :: array(:)
          logical, optional              :: sorted
-         class(IntegerData_t), pointer       :: current
-         integer                          :: i
+         type(IntegerData_t), pointer   :: current
+         integer                        :: i
 
          allocate( array( self % no_of_entries ) ) 
 
@@ -99,6 +103,8 @@ module IntegerDataLinkedList
          if ( present(sorted) ) then
             if ( sorted ) call QSort(array)
          end if
+
+         nullify(current)
 
       end subroutine IntegerDataLinkedList_ExportToArray
       
@@ -139,9 +145,9 @@ module IntegerDataLinkedList
 
       elemental subroutine IntegerDataLinkedList_Destruct(self)
          implicit none
-         class(IntegerDataLinkedList_t), intent(inout)   :: self
-         class(IntegerData_t), pointer    :: data, nextdata
-         integer     :: i
+         class(IntegerDataLinkedList_t), intent(inout) :: self
+         type(IntegerData_t), pointer                  :: data, nextdata
+         integer                                       :: i
 
          data => self % head
          do i = 1, self % no_of_entries
@@ -152,6 +158,9 @@ module IntegerDataLinkedList
          end do
          
          self % no_of_entries = 0
+
+         nullify(data)
+         nullify(nextdata)
 
       end subroutine IntegerDataLinkedList_Destruct
 
