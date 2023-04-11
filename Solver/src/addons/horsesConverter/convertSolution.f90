@@ -17,6 +17,8 @@ MODULE convertSolution
 	use PhysicsStorage
 	use TransfiniteMapClass
 	use ElementConnectivityDefinitions, only : NODES_PER_ELEMENT
+	
+	public ProjectStoragePoints
    
 !
 !     ========
@@ -347,6 +349,35 @@ MODULE convertSolution
          end if
 
       end function FindPointWithCoords
+!
+!////////////////////////////////////////////////////////////////////////
+!
+         subroutine ProjectStoragePoints(e, TxMesh, TyMesh, TzMesh)
+         use NodalStorageClass
+         implicit none
+         type(Element_t)     :: e
+         real(kind=RP),       intent(in)  :: TxMesh(0:e % Nout(1), 0:e % Nmesh(1))
+         real(kind=RP),       intent(in)  :: TyMesh(0:e % Nout(2), 0:e % Nmesh(2))
+         real(kind=RP),       intent(in)  :: TzMesh(0:e % Nout(3), 0:e % Nmesh(3))
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer     :: i, j, k, l, m, n
+!
+!        Project mesh
+!        ------------
+         allocate( e % xOut(1:3,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % xOut = 0.0_RP
+
+         do n = 0, e % Nmesh(3) ; do m = 0, e % Nmesh(2) ; do l = 0, e % Nmesh(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % xOut(:,i,j,k) = e % xOut(:,i,j,k) + e % x(:,l,m,n) * TxMesh(i,l) * TyMesh(j,m) * TzMesh(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+
+      end subroutine ProjectStoragePoints
 !
 !////////////////////////////////////////////////////////////////////////
 !

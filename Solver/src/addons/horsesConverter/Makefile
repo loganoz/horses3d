@@ -25,13 +25,11 @@ RANLIB=ranlib
 PROG=./bin/horsesConverter
 
 OBJS=getTaskConverter\
-	Storage\
-	sharedSpectralBasis\
 	foamMeshStorageConverter\
 	foamCreateMeshFileConverter\
 	foamResultVTKStorageConverter\
-	convertMesh2OF\
 	convertSolution\
+	convertMesh2OF\
 	convertVTK2Horses \
 	horsesConverter 
 
@@ -55,13 +53,13 @@ OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
 	@echo $<
 	$(FC) $(FFLAGS) $(MACROS) $(EXTLIB_INC) -I./include $(INCLUDE) $(INCLUDE)_ns $(MACROS) -c $< -o $@ $(MOD_FLAG) ./include
 
-$(PROG): header mkdirs $(OBJS_BUILD)
+$(PROG): header mkdirs  $(OBJS_BUILD)
 	@echo
 	@echo
 	@echo "---------------------------------"
 	@echo "| Linking " $@ "|"
 	@echo "---------------------------------"
-	$(FC) $(FFLAGS) $(EXTLIB_INC) -o $(PROG) $(OBJS_BUILD) $(HORSES_LIBS_EXEC) $(LIBS)
+	$(FC) $(FFLAGS) $(EXTLIB_INC) -o $(PROG) $(OBJS_BUILD)  ../horses2tecplot/build/Storage.o ../horses2tecplot/build/sharedSpectralBasis.o $(HORSES_LIBS_EXEC) $(LIBS) 
 
 
 install: $(PROG)
