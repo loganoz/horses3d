@@ -1,3 +1,134 @@
+!**************************************************************************************************!
+!
+! Clustering algorithms implemented:
+!
+!   * k-means (kMeans_t)
+!   * Gaussian Mixture Model (GMM_t)
+!
+! The algorithms are abstracted as classes with similar APIs. An instance of any of these types
+! always has the attributes:
+!
+!   * ndims: dimension of the feature space
+!   * nclusters: number of clusters
+!
+! It also has the following methods:
+!
+!   * init: initialize algorithm
+!   * fit: fit clusters to data
+!   * predict: cluster nodes
+!
+!**************************************************************************************************!
+!   k-means
+!**************************************************************************************************!
+!
+! Attributes holding the results of fit and predict methods:
+!
+!   * centroids(ndims, nclusters)
+!   * clusters(npts)
+!
+! Methods:
+!
+!   * init(ndims, nclusters, maxiters)
+!
+!      [IN]
+!      + ndims
+!         dimension of the feature space
+!      + nclusters
+!         number of clusters
+!      + maxiters [optional] = 100
+!         maximum number of iterations
+!
+!   * fit(x, info, centroids, reset)
+!
+!      [IN]
+!      + x(ndims, npts)
+!         points to cluster
+!      + centroids(ndims, nclusters) [optional]
+!         starting centroids of the clusters
+!      + reset [optional] = .false.
+!         only used when no centroids are given. Restart centroids with random values when .true.
+!         and use centroids from the previous step otherwise
+!
+!      [OUT]
+!      + info [optional]
+!         status of the algorithm: number of iterations or -1 if no convergence
+!
+!   * predict(x, info)
+!
+!      [IN]
+!      + x(ndims, npts)
+!         points to cluster
+!      + info [optional]
+!         status of the algorithm: <0 if the computation failed
+!
+! Note that calling fit also updates the clusters, so predict must be called only when the points x
+! are different from the ones used for fitting.
+!
+!**************************************************************************************************!
+!   GMM
+!**************************************************************************************************!
+!
+! This adapted version of the GMM implements an optional adaptation step to remove overlapping
+! clusters. When using this, the number of clusters will be <= nclusters, and the allowed maximum
+! number of clusters is stored in max_nclusters.
+!
+! Attributes holding the results of fit and predict methods:
+!
+!   * centroids(ndims, max_nclusters)
+!   * prob(npts, max_nclusters)
+!
+! Methods:
+!
+!   * init(ndims, nclusters, maxiters, collapse_tol, logl_tol, zero_tol)
+!
+!      [IN]
+!      + ndims
+!         dimension of the feature space
+!      + nclusters
+!         number of clusters
+!      + maxiters [optional] = 100
+!         maximum number of iterations
+!      + collapse_tol [optional] = 2e-5
+!         maximum distance (non-dimensional) between the centroids of overlapping clusters
+!      + logl_tol [optional] = 1e-3
+!         relative tolerance between succesive computations of log L to assume convergence
+!      + zero_tol [optional] = 1e-6
+!         regularization value added to the diagonal of the covariance matrices
+!
+!   * fit(x, info, centroids, reset, adapt, from_kmeans)
+!
+!      [IN]
+!      + x(ndims, npts)
+!         points to cluster
+!      + centroids(ndims, nclusters) [optional]
+!         starting centroids of deleted clusters (all if restart = .true.)
+!      + reset [optional] = .false.
+!         restart all centroids if .true.
+!      + adapt [optional] = .false.
+!         remove overlapping clusters when .true. Deleted clusters are filled with centroids or
+!         random values
+!      + from_kmeans [optional] = .false.
+!         if .true. update the centroids with 10 iterations of k-means after setting their values
+!         according to the other options
+!
+!      [OUT]
+!      + info [optional]
+!         status of the algorithm: number of iterations, or -1 if dimensions do not match,
+!         or -2 if no convergence after maxiters of GMM and maxiters of k-means
+!
+!   * predict(x, info)
+!
+!      [IN]
+!      + x(ndims, npts)
+!         points to cluster
+!      + info [optional]
+!         status of the algorithm: <0 if the computation failed
+!
+! Note that fit does not compute the probabilities, so predict must always be called before using
+! them. Also note that the GMM only provide probabilities, not clusters. These can be computed by,
+! for example, taking the cluster with the maximum probability for each point.
+!
+!**************************************************************************************************!
 module Clustering
 
    use SMConstants,       only: RP, PI
