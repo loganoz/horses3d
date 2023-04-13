@@ -149,6 +149,7 @@ contains
       integer, allocatable       :: HorsesMortars(:,:)
       integer :: n, inter 
       logical                    :: ConformingMesh
+      integer :: nbface, nintface, nmaster, nslave , nslc 
       !---------------------------------------------------------------
       
 !
@@ -263,6 +264,11 @@ contains
       end do 
 
       if (.NOT.ConformingMesh) then  
+         nbface=0
+          nintface=0
+           nmaster=0
+           nslave=0
+           nslc=0
          allocate(HorsesMortars(6,6*numberOfElements))
          HorsesMortars=0
       end if 
@@ -360,30 +366,6 @@ contains
 !
          call self % elements(l) % Construct (Nx(l), Ny(l), Nz(l), nodeIDs , l, l) 
 
-         if (.not.ConformingMesh) then 
-            k=1
-            inter=0
-            do while (k .LE. FACES_PER_ELEMENT)
-               HorsesMortars(1,l + HsideMap2(k) -1 )=l
-               HorsesMortars(2,l + HsideMap2(k) -1 )=0
-               self % elements(l) % MortarFaces(HsideMap2(k))=0
-               if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1) then 
-                  HorsesMortars(2,l+k-1)=1
-                  do ll=1,4
-                     HorsesMortars(2+ll, l + HsideMap2(k) - 1 )=SideInfo(3,ElemInfo(3,l) + k + inter + ll)
-                  end do 
-                  inter=inter+4
-                  self % elements(l) % MortarFaces(HsideMap2(k))=1    ! Big Mortar 
-               end if 
-               if (SideInfo(1,ElemInfo(3,l) + k + inter)==-4) then 
-                  HorsesMortars(2,l + HsideMap2(k) -1 )=2
-                  HorsesMortars(3,l + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l) + k + inter)
-                  self % elements(l) % MortarFaces(HsideMap2(k))=2    !slave Mortar 
-               end if 
-               k=k+1
-            end do 
-         end if 
-
          CALL SetElementBoundaryNames( self % elements(l), names )
             
          DO k = 1, 6
@@ -398,7 +380,52 @@ contains
          END DO  
          
       end do      ! l = 1, numberOfElements
-      
+
+      if (.not.ConformingMesh) then 
+         do l=1, numberOfElements
+            k=1
+            inter=0
+            do while (k .LE. FACES_PER_ELEMENT)
+               HorsesMortars(1,(l*6)-5 + HsideMap2(k) -1 )=l
+               HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=0
+               !interioir
+               if ((SideInfo(2,ElemInfo(3,l)+k+inter) .GT.0) .AND. (SideInfo(3,ElemInfo(3,l)+k+inter) .GT.0)) then 
+                  nintface=nintface+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l)+k+inter)
+               end if 
+
+               if ((SideInfo(2,ElemInfo(3,l)+k+inter) .LT.0) .AND. (SideInfo(3,ElemInfo(3,l)+k+inter) .GT.0)&
+                .AND. (SideInfo(1,ElemInfo(3,l) + k + inter) .GT. 0)) then 
+                  nintface=nintface+1
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=-SideInfo(3,ElemInfo(3,l)+k+inter)
+               end if 
+               !boundary
+               if (SideInfo(5,ElemInfo(3,l)+k+inter) .NE. 0) then 
+                  nbface=nbface+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=-1
+               end if 
+               !master and slaves 
+               if (SideInfo(3,ElemInfo(3,l) + k + inter)==-1) then 
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k)-1)=1
+                  nmaster=nmaster+1
+                  do ll=1,4
+                     HorsesMortars(2+ll, (l*6)-5 + HsideMap2(k)-1)=SideInfo(3,ElemInfo(3,l) + k + inter + ll)
+                     nslave=nslave+1
+                  end do 
+                  inter=inter+4
+                  self % elements(l) % MortarFaces(HsideMap2(k))=1    ! Big Mortar 
+               end if 
+               
+               if (SideInfo(1,ElemInfo(3,l) + k + inter) .LT. 0) then 
+                  nslc=nslc+1
+                  HorsesMortars(2,(l*6)-5 + HsideMap2(k) -1 )=2
+                  HorsesMortars(3,(l*6)-5 + HsideMap2(k) -1 )=SideInfo(3,ElemInfo(3,l) + k + inter)
+                  self % elements(l) % MortarFaces(HsideMap2(k))=2    !slave Mortar 
+               end if 
+               k=k+1
+            end do 
+         end do 
+      end if 
       call FinishNodeMap (TempNodes , HOPRNodeMap, self % nodes, self % HOPRnodeIDs)
       
       
@@ -412,13 +439,19 @@ contains
          ALLOCATE( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
        else 
+         write (*,*) 'nbfaces=', nbface
+         write (*,*) 'ninterior (*2)=', nintface
+         write (*,*) 'nmaster=', nmaster 
+         write (*,*) 'nslave=', nslave
+         write (*,*) 'nslc=', nslc
          numberOfFaces        = nUniqueSides
          self % numberOfFaces = numberOfFaces
-         
+         write (*,*) 'numberOfFaces=', numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
 
          CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
        end if 
+
 !
 !
 !     -------------------------
@@ -437,7 +470,7 @@ contains
 !     Delete periodic- faces
 !     ---------------------------
 !
-      CALL DeletePeriodicMinusFaces( self )
+    CALL DeletePeriodicMinusFaces( self )
 !
 !     ---------------------------
 !     Assign faces ID to elements
@@ -828,7 +861,7 @@ contains
 !     --------------------------------
 !     Get actual mesh element face IDs
 !     --------------------------------
-!
+!  
       CALL getElementsFaceIDs(self)
 !
 !     --------------
