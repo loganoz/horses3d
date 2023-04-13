@@ -451,6 +451,7 @@ contains
          self % nonconforming= .TRUE.
          CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
        end if 
+
 !
 !
 !     -------------------------
