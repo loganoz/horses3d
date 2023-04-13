@@ -280,18 +280,33 @@ nssa: header mkdirs horseslibs-nssa horses3d.nssa
 
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NS   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.nssa: 
 	(cd $(HOME_DIR)/src/NavierStokesSolverRANS/ && $(MAKE) $(HORSES_NSSA_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NNSA - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.ins: 
 	(cd $(HOME_DIR)/src/IncompressibleNSSolver/ && $(MAKE) $(HORSES_iNS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  iNS  - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.ch: 
 	(cd $(HOME_DIR)/src/CahnHilliardSolver/ && $(MAKE) $(HORSES_CH_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  CH   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.mu: 
 	(cd $(HOME_DIR)/src/MultiphaseSolver/ && $(MAKE) $(HORSES_MU_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  MU   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS) ; do \
@@ -368,6 +383,9 @@ addons:
 	@for subdir in $(ADDONS); do \
 	    (cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) install) || exit 1; \
 	done
+	@echo "================================"
+	@echo ">> ADDONS- SUCCESFULLY COMPILED "
+	@echo "================================"
 
 ##########################################
 ##	Extra auxiliary rules 		##
