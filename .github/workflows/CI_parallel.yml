@@ -626,7 +626,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns FFS_SSPRK33.control
+          mpiexec -n 8 ./horses3d.ns FFS_SSPRK33.control
 #
 # 21) Forward facing step with SSPRK43
 # ------------------------------------
@@ -641,7 +641,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ns FFS_SSPRK43.control
+          mpiexec -n 8 ./horses3d.ns FFS_SSPRK43.control
 #
 # 22) Taylor-Green vortex with SVV-LES
 # ------------------------------------
