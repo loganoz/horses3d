@@ -708,41 +708,41 @@ module Clustering
 !
 !     Keep the last state if all the clusters are used
 !     ------------------------------------------------
-      if (self % nclusters == self % max_nclusters) then
-         return
-      end if
+      if (self % nclusters /= self % max_nclusters) then
 
-      i1 = self % nclusters + 1
-      i2 = self % max_nclusters
+         i1 = self % nclusters + 1
+         i2 = self % max_nclusters
 !
-!     Set default values for the new clusters
-!     ---------------------------------------
-      self % logL       = huge(1.0_RP)
-      self % g % logtau = log(1.0_RP / self % max_nclusters)
-      do i = i1, i2
-         do j = 1, self % ndims
-            self % g % cov(:,j,i)    = 0.0_RP
-            self % g % covinv(:,j,i) = 0.0_RP
-            self % g % cov(j,j,i)    = 1.0_RP
-            self % g % covinv(j,j,i) = 1.0_RP
+!        Set default values for the new clusters
+!        ---------------------------------------
+         self % logL       = huge(1.0_RP)
+         self % g % logtau = log(1.0_RP / self % max_nclusters)
+         do i = i1, i2
+            do j = 1, self % ndims
+               self % g % cov(:,j,i)    = 0.0_RP
+               self % g % covinv(:,j,i) = 0.0_RP
+               self % g % cov(j,j,i)    = 1.0_RP
+               self % g % covinv(j,j,i) = 1.0_RP
+            end do
          end do
-      end do
-      self % g % logdet(i1:i2) = 0.0_RP
+         self % g % logdet(i1:i2) = 0.0_RP
 !
-!     Set the centroids
-!     -----------------
-      if (present(centroids)) then
-         self % centroids(:,i1:i2) = centroids(:,i1:i2)
+!        Set the centroids
+!        -----------------
+         if (present(centroids)) then
+            self % centroids(:,i1:i2) = centroids(:,i1:i2)
 
-      else
-         if (MPI_Process % isRoot) then
-            call random_number(self % centroids(:,i1:i2))
-         end if
+         else
+            if (MPI_Process % isRoot) then
+               call random_number(self % centroids(:,i1:i2))
+            end if
 
 #if defined(_HAS_MPI_)
-         call MPI_Bcast(self % centroids(:,i1:i2), size(self % centroids(:,i1:i2)), MPI_DOUBLE, &
-                        0, MPI_COMM_WORLD, ierr)
+            call MPI_Bcast(self % centroids(:,i1:i2), size(self % centroids(:,i1:i2)), MPI_DOUBLE, &
+                           0, MPI_COMM_WORLD, ierr)
 #endif
+         end if
+
       end if
 
       if (present(use_kmeans)) then
