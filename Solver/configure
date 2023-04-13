@@ -35,10 +35,10 @@ done
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
-	    ./Euler/Diffuser \
-	    ./Euler/UniformFlow \
-	    ./Euler/JFNK \
-	    ./Euler/TaylorGreenKEPEC \
+            ./Euler/Diffuser \
+            ./Euler/UniformFlow \
+            ./Euler/JFNK \
+            ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -68,12 +68,13 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \
+            ./NavierStokes/CylinderGMM \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-	    ./CahnHilliard/TJokisaari \
+            ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \

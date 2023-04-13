@@ -674,6 +674,21 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           mpiexec -n 8 ./horses3d.ns IBMCylinder.control
           
+#
+# 24) Mach 2 cylinder with GMM shock capturing
+# --------------------------------------------
+
+      - name: Build CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          mpiexec -n 8 ./horses3d.ns CylinderGMM.control
 
 ########################################################################
 #######                       PARTICLES                         ########

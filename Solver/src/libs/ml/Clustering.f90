@@ -253,11 +253,24 @@ module Clustering
 !     Interface
 !     ---------
       type(kMeans_t), intent(inout) :: self
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: ierr
 
 
       if (self % initialized) then
-         call random_number(self % centroids)
+
+         if (MPI_Process % isRoot) then
+            call random_number(self % centroids)
+         end if
+
+#if defined(_HAS_MPI_)
+         call MPI_Bcast(self % centroids, size(self % centroids), MPI_DOUBLE, 0, MPI_COMM_WORLD, ierr)
+#endif
          self % centroids_set = .true.
+
       end if
 
    end subroutine kMeans_reset
@@ -374,10 +387,8 @@ module Clustering
 
          breakFlag = all(self % prevClusters == self % clusters)
 #if defined(_HAS_MPI_)
-         if (MPI_Process % doMPIAction) then
-            call MPI_AllReduce(MPI_IN_PLACE, breakFlag, 1, MPI_LOGICAL, MPI_LAND, &
-                               MPI_COMM_WORLD, ierr)
-         end if
+         call MPI_AllReduce(MPI_IN_PLACE, breakFlag, 1, MPI_LOGICAL, MPI_LAND, &
+                            MPI_COMM_WORLD, ierr)
 #endif
          if (breakFlag) exit
 
@@ -690,8 +701,9 @@ module Clustering
 !     ---------------
 !     Local variables
 !     ---------------
-      integer  :: i1, i2
-      integer  :: i, j
+      integer :: i1, i2
+      integer :: i, j
+      integer :: ierr
 
 !
 !     Keep the last state if all the clusters are used
@@ -721,8 +733,16 @@ module Clustering
 !     -----------------
       if (present(centroids)) then
          self % centroids(:,i1:i2) = centroids(:,i1:i2)
+
       else
-         call random_number(self % centroids(:,i1:i2))
+         if (MPI_Process % isRoot) then
+            call random_number(self % centroids(:,i1:i2))
+         end if
+
+#if defined(_HAS_MPI_)
+         call MPI_Bcast(self % centroids(:,i1:i2), size(self % centroids(:,i1:i2)), MPI_DOUBLE, &
+                        0, MPI_COMM_WORLD, ierr)
+#endif
       end if
 
       if (present(use_kmeans)) then
@@ -833,16 +853,10 @@ module Clustering
 !     ------------------------------------------
       minimum = minval(x, dim=2)
       maximum = maxval(x, dim=2)
+
+      call MPI_MinMax(minimum, maximum)
+
       mudiff  = self % mutol * maxval(maximum - minimum)
-!
-!     Trivial case
-!     ------------
-      if (self % nclusters == 1) then
-         call MPI_MinMax(minimum, maximum)
-         self % centroids(:,1) = (minimum + maximum) * 0.5_RP
-         if (present(info)) info = 0
-         return
-      end if
 !
 !     Initialization
 !     --------------
@@ -878,9 +892,7 @@ module Clustering
             breakFlag = abs((ll - llprev) / ll) <= self % lltol .or. nclusters < 1
          end if
 #if defined(_HAS_MPI_)
-         if (MPI_Process % doMPIAction) then
-            call MPI_Bcast(breakFlag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
-         end if
+         call MPI_Bcast(breakFlag, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
 #endif
          if (breakFlag) exit
 
@@ -1075,9 +1087,9 @@ module Clustering
 !     Global log-likelihood (only in root)
 !     ------------------------------------
 #if defined(_HAS_MPI_)
-      if (MPI_Process % doMPIRootAction) then
+      if (MPI_Process % isRoot) then
          call MPI_Reduce(MPI_IN_PLACE, logL, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
-      elseif (MPI_Process % doMPIAction) then
+      else
          call MPI_Reduce(logL, logL, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
       end if
 #endif
@@ -1128,15 +1140,7 @@ module Clustering
       end do
 
       ! Compute the global centroids
-#if defined(_HAS_MPI_)
-      if (MPI_Process % doMPIRootAction) then
-         call MPI_Reduce(MPI_IN_PLACE, g % mu, size(g % mu), MPI_DOUBLE, &
-                         MPI_SUM, 0, MPI_COMM_WORLD, info)
-      elseif (MPI_Process % doMPIAction) then
-         call MPI_Reduce(g % mu, g % mu, size(g % mu), MPI_DOUBLE, &
-                         MPI_SUM, 0, MPI_COMM_WORLD, info)
-      end if
-#endif
+      call MPI_SumAll(g % mu(:,1:nclusters))
 
       ! Compute the local covariance matrices
 !$omp parallel default(private) firstprivate(ndims, npts, nclusters) shared(R, g, x, inv_ns)
@@ -1171,17 +1175,9 @@ module Clustering
 !$omp end parallel
 
       ! Compute the global covariance matrices
-#if defined(_HAS_MPI_)
-      if (MPI_Process % doMPIRootAction) then
-         call MPI_Reduce(MPI_IN_PLACE, g % cov, size(g % cov), MPI_DOUBLE, &
-                         MPI_SUM, 0, MPI_COMM_WORLD, info)
-      elseif (MPI_Process % doMPIAction) then
-         call MPI_Reduce(g % cov, g % cov, size(g % cov), MPI_DOUBLE, &
-                         MPI_SUM, 0, MPI_COMM_WORLD, info)
-      end if
-#endif
+      call MPI_SumAll(g % cov(:,:,1:nclusters))
 
-      inv_sumtau = 1.0_RP / sum(g % logtau)
+      inv_sumtau = 1.0_RP / sum(g % logtau(1:nclusters))
       do j = 1, nclusters
          ! Regularize the covariance matrices
          do l = 1, ndims
@@ -1253,18 +1249,16 @@ module Clustering
          end do
 
          ! Rescale tau to make sure it adds to 1
-         tau_scale = 1.0_RP / sum(exp(g % logtau(1:nclusters)))
-         g % logtau(1:nclusters) = g % logtau(1:nclusters) + log(tau_scale)
+         tau_scale = logsumexp(g % logtau(1:nclusters))
+         g % logtau(1:nclusters) = g % logtau(1:nclusters) - tau_scale
       end if
 !
 !     Syncronize
 !     ----------
 #if defined(_HAS_MPI_)
-      if (MPI_Process % doMPIAction) then
-         call MPI_IBcast(nclusters, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, bcast_req(1), info)
-         call MPI_IBcast(g % storage, size(g % storage), MPI_DOUBLE, 0, MPI_COMM_WORLD, bcast_req(2), info)
-         call MPI_Waitall(2, bcast_req, MPI_STATUSES_IGNORE, info)
-      end if
+      call MPI_IBcast(nclusters, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, bcast_req(1), info)
+      call MPI_IBcast(g % storage, size(g % storage), MPI_DOUBLE, 0, MPI_COMM_WORLD, bcast_req(2), info)
+      call MPI_Waitall(2, bcast_req, MPI_STATUSES_IGNORE, info)
 #endif
 
    end subroutine GMM_adapt_clusters
@@ -1302,9 +1296,7 @@ module Clustering
          end do
       end if
 #if defined(_HAS_MPI_)
-      if (MPI_Process % doMPIAction) then
-         call MPI_Bcast(clustermap_, size(clustermap_), MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-      end if
+      call MPI_Bcast(clustermap_, size(clustermap_), MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
 #endif
 
       xavg_tmp = xavg
@@ -1601,7 +1593,7 @@ module Clustering
 
 #if defined(_HAS_MPI_)
       integer  :: ierr
-      integer  :: req(3)
+      integer  :: req(2)
 #endif
 
 !
@@ -1619,24 +1611,26 @@ module Clustering
 
 #if defined(_HAS_MPI_)
       call MPI_IAllReduce(MPI_IN_PLACE, mean, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, req(2), ierr)
+      call MPI_Waitall(size(req), req, MPI_STATUSES_IGNORE, ierr)
 #endif
+
+      inv_npts = 1.0_RP / npts_total
+      mean = mean * inv_npts
 !
 !     Compute the variance
 !     --------------------
       do i = 1, ndims
-         var(i) = sum((x(i, :) - mean(i))**2)
+         var(i) = sum((x(i, :) - mean(i))**2) * inv_npts
       end do
 
 #if defined(_HAS_MPI_)
-      call MPI_IAllReduce(MPI_IN_PLACE, var, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, req(3), ierr)
-      call MPI_Waitall(size(req), req, MPI_STATUSES_IGNORE, ierr)
+      call MPI_AllReduce(MPI_IN_PLACE, var, ndims, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
 #endif
 !
 !     Standardize data
 !     ----------------
-      inv_npts = 1.0_RP / npts_total
       do i = 1, ndims
-         x(i,:) = (x(i,:) - mean(i) * inv_npts) / sqrt(var(i) * inv_npts)
+         x(i,:) = (x(i,:) - mean(i)) / sqrt(var(i))
       end do
 
    end subroutine standardize_
