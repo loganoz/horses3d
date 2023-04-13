@@ -6,8 +6,8 @@ module RealDataLinkedList
    public   RealDataLinkedList_t
 
     type RealDataLinkedList_t
-      class(RealData_t), pointer    :: head => NULL()
-      integer                       :: no_of_entries = 0
+      type(RealData_t), pointer :: head => NULL()
+      integer                   :: no_of_entries = 0
       contains
          procedure   :: Append   => RealDataLinkedList_Append
          procedure   :: Load     => RealDataLinkedList_Load
@@ -16,41 +16,19 @@ module RealDataLinkedList
     end type RealDataLinkedList_t
    
    type RealData_t
-      real(kind=RP)  :: value
-      class(RealData_t), pointer    :: next => NULL()
-      contains
-         procedure :: destructKids => RealData_DestructKids
+      real(kind=RP)             :: value
+      type(RealData_t), pointer :: next => NULL()
     end type RealData_t
 !
 !   ========
     contains 
 !   ========
 !
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!     Procedures for RealData_t
-!
-      pure recursive subroutine RealData_DestructKids( self )
-         implicit none
-         class(RealData_t), intent(inout) :: self
-         
-         if ( associated (self % next) ) then
-            call self % next % destructKids
-            deallocate (self % next)
-         end if
-         
-      end subroutine RealData_DestructKids
-!
-!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-!
-!     Procedures for RealDataLinkedList_t
-!
       subroutine RealDataLinkedList_Append( self , value ) 
          implicit none
-         class(RealDataLinkedList_t)      :: self
-         real(kind=RP)                    :: value
-         class(RealData_t), pointer       :: current
+         class(RealDataLinkedList_t) :: self
+         real(kind=RP)               :: value
+         type(RealData_t), pointer   :: current
 
          if ( self % no_of_entries .eq. 0 ) then
             allocate( self % head ) 
@@ -70,14 +48,16 @@ module RealDataLinkedList
 
          end if
 
+         nullify(current)
+
       end subroutine RealDataLinkedList_Append
 
       subroutine RealDataLinkedList_Load( self , array ) 
          implicit none
-         class(RealDataLinkedList_t)      :: self
-         real(kind=RP), allocatable       :: array(:)
-         class(RealData_t), pointer       :: current
-         integer                          :: i
+         class(RealDataLinkedList_t) :: self
+         real(kind=RP), allocatable  :: array(:)
+         type(RealData_t), pointer   :: current
+         integer                     :: i
 
          allocate( array( self % no_of_entries ) ) 
 
@@ -85,9 +65,10 @@ module RealDataLinkedList
 
          do i = 1 , self % no_of_entries
             array(i) = current % value
-
             current => current % next
          end do
+
+         nullify(current)
 
       end subroutine RealDataLinkedList_Load
       
@@ -129,16 +110,21 @@ module RealDataLinkedList
          implicit none
          !-arguments------------------------------------------------
          class(RealDataLinkedList_t), intent(inout) :: self
+         type(RealData_t), pointer                  :: data, nextdata
+         integer                                    :: i
          !----------------------------------------------------------
          
-         if ( self % no_of_entries .eq. 0 ) then
-            return
-         else
-            call self % head % destructKids
-            deallocate (self % head)
-            
-            self % no_of_entries = 0
-         end if
+         data => self % head
+         do i = 1, self % no_of_entries
+            nextdata => data % next
+            deallocate(data)
+            data => nextdata
+         end do
+
+         self % no_of_entries = 0
+
+         nullify(data)
+         nullify(nextdata)
          
       end subroutine RealDataLinkedList_Destruct
 
