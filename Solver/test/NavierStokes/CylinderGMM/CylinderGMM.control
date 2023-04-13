@@ -1,0 +1,69 @@
+!
+!       *******************
+!       Sample control file
+!       *******************
+!
+!-------------------------- Configuration:-
+                          Mesh file name = ../../TestMeshes/CylinderNSpol3.mesh
+                      Solution file name = RESULTS/CylinderGMM.hsol
+               Save sensor with solution = .true.
+                                 Restart = .false.
+                       Restart file name = RESULTS/CylinderGMM.hsol
+
+!-------------------- Physical parameters:-
+!                        ** Navier-Stokes
+                          Flow equations = NS
+                             Mach number = 2.0
+                         Reynolds number = 1e6
+                          Prandtl number = 0.72
+                               AoA Theta = 0.0
+                                 AoA Phi = 90.0
+                       Compute gradients = .true.
+
+!------------------------- Discretization:-
+                        Polynomial order = 4
+                    Discretization nodes = Gauss-Lobatto
+                          Riemann solver = Matrix dissipation
+                 Inviscid discretization = Split-form
+                               Averaging = Chandrasekar
+                      Gradient variables = Entropy
+                  Viscous discretization = BR1
+
+!----------------------- Shock-capturing:-
+                 Enable shock-capturing = .true.
+                           Shock sensor = gmm
+              Sensor number of clusters = 4
+                     Shock first method = Non-filtered
+                    Shock second method = Non-filtered
+                   Shock viscous flux 1 = Physical
+                   Shock viscous flux 2 = Guermond-Popov
+                  Shock update strategy = Sensor
+                             Shock mu 1 = 0.0
+                          Shock alpha 1 = 0.0
+                             Shock mu 2 = 1.0e-4
+                          Shock alpha 2 = 1.0e-4
+
+!----------------------- Time integration:-
+                        Time integration = Explicit
+                         Explicit method = SSPRK33
+                                      dt = 1e-4
+                    Number of time steps = 10
+                         Output interval = 100
+                   Convergence tolerance = 1.0e-10
+
+!-------------------- Boundary conditions:-
+#define boundary InnerCylinder
+  type = FreeSlipWall
+#end
+
+#define boundary bottom__top__back__front
+  type = FreeSlipWall
+#end
+
+#define boundary left
+  type = Inflow
+#end
+
+#define boundary right
+  type = Outflow
+#end
