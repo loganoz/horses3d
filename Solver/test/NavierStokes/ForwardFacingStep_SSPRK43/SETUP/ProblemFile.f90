@@ -564,7 +564,6 @@ end module ProblemFileFunctions
             if ( sharedManager % numberOfAssertionFailures() == 0 ) then
                write(6,*) testName, " ... Passed"
                write(6,*) "This test checks if: "
-               write(6,*) "   - The restart file was read correctly (changes in output file format)"
                write(6,*) "   - The residuals are 'exact' (1e-3)"
             else
                write(6,*) testName, " ... Failed"
