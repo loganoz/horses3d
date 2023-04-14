@@ -2,7 +2,7 @@
 ! ////////////////////////////////////////////////////////////////////
 ! HORSES3D Converter
 !     Main program horsesConverter
-!	This module read control file "horses2Converter.convert"
+!	This module read control file "horsesConverter.convert"
 !
 ! ////////////////////////////////////////////////////////////////////
 !
@@ -136,10 +136,10 @@ MODULE getTaskConverter
 !
 !  			Create template for control input file if does not exist
 !  			--------------------------------------------------------
-			write(STD_OUT,'(10X,A,A)') "ERROR::horses2foam.convert does not exist. File is generated"
+			write(STD_OUT,'(10X,A,A)') "ERROR::horsesConverter.convert does not exist. File is generated"
 			OPEN(newunit=fID,file=filename,status="new",action="write")
 			WRITE(fid,'(A)')'!//////////////////////////////////////////////////////////////////////////////////////////////////////////!'
-			WRITE(fid,'(A)')'!////////////////////////////////// HORSES3D to FOAM format for PARAVIEW //////////////////////////////////!'
+			WRITE(fid,'(A)')'!/////////////////////////////////////// HORSES3D Converter addons ////////////////////////////////////////!'
 			WRITE(fid,'(A)')'!////////////////////////////////// ---------Control Input File--------- //////////////////////////////////!'
 			WRITE(fid,'(A)')'!//////////////////////////////////////////////////////////////////////////////////////////////////////////!'
 			WRITE(fid,'(A)')'Task                = meshInterpolation/horsesMesh2OF/OF2Horses'
