@@ -451,7 +451,6 @@ contains
 
          CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
        end if 
-
 !
 !
 !     -------------------------
@@ -464,13 +463,15 @@ contains
 !     Construct periodic faces
 !     ---------------------------
 !
-      CALL ConstructPeriodicFaces( self, periodRelative )
+      if (ConformingMesh) then 
+         CALL ConstructPeriodicFaces( self, periodRelative )
 !
 !     ---------------------------
 !     Delete periodic- faces
 !     ---------------------------
 !
-    CALL DeletePeriodicMinusFaces( self )
+         CALL DeletePeriodicMinusFaces( self )
+      end if 
 !
 !     ---------------------------
 !     Assign faces ID to elements
@@ -547,6 +548,11 @@ contains
 #else
       error stop ':: HDF5 is not linked correctly'
 #endif
+
+do j=1, self % no_of_elements
+   write(*,*)'element id=', self % elements(j) % eID
+   write(*,*) 'faces id=', self % elements(j) % faceIDs 
+end do 
    end subroutine ConstructMesh_FromHDF5File_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
