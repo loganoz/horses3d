@@ -649,7 +649,9 @@
 !        -------------
 #ifdef NAVIERSTOKES
          if (ShockCapturingDriver % isActive) then
-            call ShockCapturingDriver % Detect(sem, t)
+            if (mod(k + 1, ShockCapturingDriver % period) == 0) then
+               call ShockCapturingDriver % Detect(sem, t)
+            end if
          end if
 #endif
 !
