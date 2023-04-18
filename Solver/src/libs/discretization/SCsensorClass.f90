@@ -45,6 +45,8 @@ module SCsensorClass
          integer  :: min_steps  !< Minimum number of steps before the sensor is deactivated
 
          type(GMM_t)           :: gmm          !< Gaussian mixture model
+         integer               :: nfeatures    !< Dimension of the feature space
+         integer,  allocatable :: features(:)  !< Variables defining the feature space
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
@@ -101,23 +103,34 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable :: sensorType
-      character(len=:), allocatable :: sVar
-      integer                       :: nclusters
+      character(len=LINE_LENGTH)              :: sensorType
+      character(len=LINE_LENGTH), allocatable :: varnames(:)
+      integer                                 :: nclusters
 
 
       sensor % min_steps = minSteps
 !
+!     Sensed variables
+!     ----------------
+      ! TODO: gfortran crashes
+      ! varnames = controlVariables % getValueOrDefault(SC_VARIABLE_KEY, LINE_LENGTH, [SC_RHOP_VAL])
+      if ( controlVariables % ContainsKey(SC_VARIABLE_KEY) ) then
+         varnames = controlVariables % StringVecValueForKey(SC_VARIABLE_KEY, LINE_LENGTH)
+      else
+         varnames = [SC_RHOP_VAL]
+      end if
+      sensor % nfeatures = size(varnames)
+      sensor % features = Sensor_val2id(varnames)
+
+      ! Required for 1D sensors
+      sensor % sVar = sensor % features(1)
+!
 !     Sensor type
 !     -----------
-      if (controlVariables % containsKey(SC_SENSOR_KEY)) then
-         sensorType = controlVariables % stringValueForKey(SC_SENSOR_KEY, LINE_LENGTH)
-      else
-         sensorType = SC_INTEGRAL_VAL
-      end if
+      sensorType = controlVariables % getValueOrDefault(SC_SENSOR_KEY, LINE_LENGTH, SC_INTEGRAL_VAL)
       call toLower(sensorType)
 
-      select case (sensorType)
+      select case (trim(sensorType))
       case (SC_ZERO_VAL)
          sensor % sens_type = SC_ZERO_ID
          sensor % Compute_Raw => Sensor_zero
@@ -152,14 +165,10 @@ module SCsensorClass
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
 
-         allocate(sensor % x(2, sem % NDOF))
+         allocate(sensor % x(sensor % nfeatures, sem % NDOF))
 
-         if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
-            nclusters = controlVariables % integerValueForKey(SC_NUM_CLUSTERS_KEY)
-         else
-            nclusters = 2
-         end if
-         call sensor % gmm % init(2, nclusters)
+         nclusters = controlVariables % getValueOrDefault(SC_NUM_CLUSTERS_KEY, 2)
+         call sensor % gmm % init(sensor % nfeatures, nclusters)
 
       case default
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
@@ -179,72 +188,27 @@ module SCsensorClass
 !     -----------------------------
       if (sensor % sens_type /= SC_GMM_ID) then
 !
-!         Sensor thresholds
-!         --------------
-          if (controlVariables % containsKey(SC_LOW_THRES_KEY)) then
-             sensor % low = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
-          else
-             write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
-             stop
-          end if
-
-          if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
-             sensor % high = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
-          else
-             write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
-             stop
-          end if
-!
-!         Sensor parameters
-!         -----------------
-          sensor % s0   = (sensor % high + sensor % low) / 2.0_RP
-          sensor % ds   = (sensor % high - sensor % low)
-          sensor % ds2  = sensor % ds / 2.0_RP
-
-      end if
-!
-!     Sensed variable
-!     ---------------
-      if (sensor % sens_type == SC_GMM_ID) then
-         sensor % sVar = SC_DIVV_P_GRAD_ID
-
-      elseif (controlVariables % containsKey(SC_VARIABLE_KEY)) then
-         sVar = controlVariables % stringValueForKey(SC_VARIABLE_KEY, LINE_LENGTH)
-         call toLower(sVar)
-
-         select case (trim(sVar))
-         case (SC_RHO_VAL);      sensor % sVar = SC_RHO_ID
-         case (SC_RHOU_VAL);     sensor % sVar = SC_RHOU_ID
-         case (SC_RHOV_VAL);     sensor % sVar = SC_RHOV_ID
-         case (SC_RHOW_VAL);     sensor % sVar = SC_RHOW_ID
-         case (SC_RHOE_VAL);     sensor % sVar = SC_RHOE_ID
-         case (SC_U_VAL);        sensor % sVar = SC_U_ID
-         case (SC_V_VAL);        sensor % sVar = SC_V_ID
-         case (SC_W_VAL);        sensor % sVar = SC_W_ID
-         case (SC_P_VAL);        sensor % sVar = SC_P_ID
-         case (SC_RHOP_VAL);     sensor % sVar = SC_RHOP_ID
-         case (SC_RHO_GRAD_VAL); sensor % sVar = SC_RHO_GRAD_ID
-         case (SC_DIVV_VAL);     sensor % sVar = SC_DIVV_ID
-         case default
-            write(STD_OUT,*) 'ERROR. The sensor variable is unknown. Options are:'
-            write(STD_OUT,*) '   * ', SC_RHO_VAL
-            write(STD_OUT,*) '   * ', SC_RHOU_VAL
-            write(STD_OUT,*) '   * ', SC_RHOV_VAL
-            write(STD_OUT,*) '   * ', SC_RHOW_VAL
-            write(STD_OUT,*) '   * ', SC_RHOE_VAL
-            write(STD_OUT,*) '   * ', SC_U_VAL
-            write(STD_OUT,*) '   * ', SC_V_VAL
-            write(STD_OUT,*) '   * ', SC_W_VAL
-            write(STD_OUT,*) '   * ', SC_P_VAL
-            write(STD_OUT,*) '   * ', SC_RHOP_VAL
-            write(STD_OUT,*) '   * ', SC_RHO_GRAD_VAL
-            write(STD_OUT,*) '   * ', SC_DIVV_VAL
-            errorMessage(STD_OUT)
+!        Sensor thresholds
+!        --------------
+         if (controlVariables % containsKey(SC_LOW_THRES_KEY)) then
+            sensor % low = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
+         else
+            write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
             stop
-         end select
+         end if
 
-      else
-         sensor % sVar = SC_RHOP_ID
+         if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
+            sensor % high = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
+         else
+            write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
+            stop
+         end if
+!
+!        Sensor parameters
+!        -----------------
+         sensor % s0  = (sensor % high + sensor % low) / 2.0_RP
+         sensor % ds  = (sensor % high - sensor % low)
+         sensor % ds2 = sensor % ds / 2.0_RP
 
       end if
 
@@ -371,6 +335,11 @@ module SCsensorClass
 !     ---------
       implicit none
       class(SCsensor_t), intent(in) :: sensor
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      integer :: i
 
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensor type: "
@@ -396,22 +365,17 @@ module SCsensorClass
                                                 " (min. order is ", sensor % TEestim % Nmin, ")"
       end if
 
-      write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
-      select case (sensor % sVar)
-         case (SC_RHO_ID);         write(STD_OUT,"(A)") SC_RHO_VAL
-         case (SC_RHOU_ID);        write(STD_OUT,"(A)") SC_RHOU_VAL
-         case (SC_RHOV_ID);        write(STD_OUT,"(A)") SC_RHOV_VAL
-         case (SC_RHOW_ID);        write(STD_OUT,"(A)") SC_RHOW_VAL
-         case (SC_RHOE_ID);        write(STD_OUT,"(A)") SC_RHOE_VAL
-         case (SC_U_ID);           write(STD_OUT,"(A)") SC_U_VAL
-         case (SC_V_ID);           write(STD_OUT,"(A)") SC_V_VAL
-         case (SC_W_ID);           write(STD_OUT,"(A)") SC_W_VAL
-         case (SC_P_ID);           write(STD_OUT,"(A)") SC_P_VAL
-         case (SC_RHOP_ID);        write(STD_OUT,"(A)") SC_RHOP_VAL
-         case (SC_RHO_GRAD_ID);    write(STD_OUT,"(A)") SC_RHO_GRAD_VAL
-         case (SC_DIVV_ID);        write(STD_OUT,"(A)") SC_DIVV_VAL
-         case (SC_DIVV_P_GRAD_ID); write(STD_OUT,"(A)") SC_DIVV_P_GRAD_VAL
-      end select
+      if (sensor % sens_type == SC_GMM_ID) then
+         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable(s): "
+         write(STD_OUT,"(A)", advance="no") trim(Sensor_id2val(sensor % features(1)))
+         do i = 2, sensor % nfeatures
+            write(STD_OUT,"(A,A)", advance="no") ", ", trim(Sensor_id2val(Sensor % features(i)))
+         end do
+         write(STD_OUT,"(A)") ""
+      else
+         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
+         write(STD_OUT,"(A)") trim(Sensor_id2val(sensor % sVar))
+      end if
 
       write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
 
@@ -492,6 +456,104 @@ module SCsensorClass
       nullify(e)
 
    end subroutine Compute_SCsensor
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   impure elemental function Sensor_val2id(val) result(id)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      character(len=*), intent(in)  :: val
+      integer                       :: id
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      character(len=len(val)) :: val_
+
+
+      val_ = val
+      call toLower(val_)
+
+      select case (trim(val_))
+      case (SC_RHO_VAL);      id = SC_RHO_ID
+      case (SC_RHOU_VAL);     id = SC_RHOU_ID
+      case (SC_RHOV_VAL);     id = SC_RHOV_ID
+      case (SC_RHOW_VAL);     id = SC_RHOW_ID
+      case (SC_RHOE_VAL);     id = SC_RHOE_ID
+      case (SC_U_VAL);        id = SC_U_ID
+      case (SC_V_VAL);        id = SC_V_ID
+      case (SC_W_VAL);        id = SC_W_ID
+      case (SC_P_VAL);        id = SC_P_ID
+      case (SC_ENT_VAL);      id = SC_ENT_ID
+      case (SC_RHOP_VAL);     id = SC_RHOP_ID
+      case (SC_GRAD_RHO_VAL); id = SC_GRAD_RHO_ID
+      case (SC_GRAD_P_VAL);   id = SC_GRAD_P_ID
+      case (SC_GRAD_1_VAL);   id = SC_GRAD_1_ID
+      case (SC_GRAD_5_VAL);   id = SC_GRAD_5_ID
+      case (SC_DIV_V_VAL);    id = SC_DIV_V_ID
+      case default
+         write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable "', trim(val_), '" is unknown. Options are:'
+         write(STD_OUT,*) '   * ', SC_RHO_VAL
+         write(STD_OUT,*) '   * ', SC_RHOU_VAL
+         write(STD_OUT,*) '   * ', SC_RHOV_VAL
+         write(STD_OUT,*) '   * ', SC_RHOW_VAL
+         write(STD_OUT,*) '   * ', SC_RHOE_VAL
+         write(STD_OUT,*) '   * ', SC_U_VAL
+         write(STD_OUT,*) '   * ', SC_V_VAL
+         write(STD_OUT,*) '   * ', SC_W_VAL
+         write(STD_OUT,*) '   * ', SC_P_VAL
+         write(STD_OUT,*) '   * ', SC_ENT_VAL
+         write(STD_OUT,*) '   * ', SC_RHOP_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_RHO_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_P_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_1_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_5_VAL
+         write(STD_OUT,*) '   * ', SC_DIV_V_VAL
+         errorMessage(STD_OUT)
+         stop
+      end select
+
+   end function Sensor_val2id
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   impure elemental function Sensor_id2val(id) result(val)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      integer, intent(in)        :: id
+      character(len=LINE_LENGTH) :: val
+
+
+      select case (id)
+      case (SC_RHO_ID);      val = SC_RHO_VAL
+      case (SC_RHOU_ID);     val = SC_RHOU_VAL
+      case (SC_RHOV_ID);     val = SC_RHOV_VAL
+      case (SC_RHOW_ID);     val = SC_RHOW_VAL
+      case (SC_RHOE_ID);     val = SC_RHOE_VAL
+      case (SC_U_ID);        val = SC_U_VAL
+      case (SC_V_ID);        val = SC_V_VAL
+      case (SC_W_ID);        val = SC_W_VAL
+      case (SC_P_ID);        val = SC_P_VAL
+      case (SC_ENT_ID);      val = SC_ENT_VAL
+      case (SC_RHOP_ID);     val = SC_RHOP_VAL
+      case (SC_GRAD_RHO_ID); val = SC_GRAD_RHO_VAL
+      case (SC_GRAD_P_ID);   val = SC_GRAD_P_VAL
+      case (SC_GRAD_1_ID);   val = SC_GRAD_1_VAL
+      case (SC_GRAD_5_ID);   val = SC_GRAD_5_VAL
+      case (SC_DIV_V_ID);    val = SC_DIV_V_VAL
+      case default
+         write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable ID = ', id, ' is unknown.'
+         errorMessage(STD_OUT)
+         stop
+      end select
+
+   end function Sensor_id2val
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1017,6 +1079,7 @@ module SCsensorClass
       integer                :: eID
       integer                :: i, j, k
       integer                :: cnt
+      integer                :: ivar
       integer                :: n
       integer                :: cluster
       integer                :: nclusters
@@ -1030,92 +1093,17 @@ module SCsensorClass
 !     -----------------------------------------------------------------
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
-
          e => sem % mesh % elements(eID)
-
          do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-
             cnt = cnt + 1
-
-            ! Divergence of V
-            call getVelocityGradients(     &
-               e % storage % Q(:,i,j,k),   &
-               e % storage % U_x(:,i,j,k), &
-               e % storage % U_y(:,i,j,k), &
-               e % storage % U_z(:,i,j,k), &
-               ux, uy, uz                  &
-            )
-
-            sensor % x(1,cnt) = (ux(1) + uy(2) + uz(3))**2
-
-            ! Derivative of density
-            ! if (grad_vars == GRADVARS_ENTROPY) then
-            !     sensor % x(1,cnt) = dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k))**2 + &
-            !                         dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k))**2 + &
-            !                         dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k))**2
-            ! else
-            !     sensor % x(1,cnt) = e % storage % U_x(IRHO,i,j,k)**2 + &
-            !                         e % storage % U_y(IRHO,i,j,k)**2 + &
-            !                         e % storage % U_z(IRHO,i,j,k)**2
-            ! end if
-
-            ! Derivative of pressure
-            if (grad_vars == GRADVARS_STATE) then
-               u2 = (                               &
-                  e % storage % Q(IRHOU,i,j,k)**2 + &
-                  e % storage % Q(IRHOV,i,j,k)**2 + &
-                  e % storage % Q(IRHOW,i,j,k)**2   &
-               ) / e % storage % Q(IRHO,i,j,k)**2
-
-               dp(1) = thermodynamics % gammaMinus1 * (         &
-                  e % storage % U_x(IRHOE,i,j,k) -              &
-                  0.5_RP * e % storage % U_x(IRHO,i,j,k) * u2 - &
-                  e % storage % Q(IRHOU,i,j,k) * ux(1) -        &
-                  e % storage % Q(IRHOV,i,j,k) * ux(2) -        &
-                  e % storage % Q(IRHOW,i,j,k) * ux(3)          &
+            do ivar = 1, sensor % nfeatures
+               sensor % x(ivar,cnt) = GetSensedVariable(                  &
+                  sensor % features(ivar),                                &
+                  e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k),   &
+                  e % storage % U_y(:,i,j,k), e % storage % U_z(:,i,j,k)  &
                )
-               dp(2) = thermodynamics % gammaMinus1 * (         &
-                  e % storage % U_y(IRHOE,i,j,k) -              &
-                  0.5_RP * e % storage % U_y(IRHO,i,j,k) * u2 - &
-                  e % storage % Q(IRHOU,i,j,k) * uy(1) -        &
-                  e % storage % Q(IRHOV,i,j,k) * uy(2) -        &
-                  e % storage % Q(IRHOW,i,j,k) * uy(3)          &
-               )
-               dp(3) = thermodynamics % gammaMinus1 * (         &
-                  e % storage % U_z(IRHOE,i,j,k) -              &
-                  0.5_RP * e % storage % U_z(IRHO,i,j,k) * u2 - &
-                  e % storage % Q(IRHOU,i,j,k) * uz(1) -        &
-                  e % storage % Q(IRHOV,i,j,k) * uz(2) -        &
-                  e % storage % Q(IRHOW,i,j,k) * uz(3)          &
-               )
-
-            elseif (grad_vars == GRADVARS_ENERGY) then
-               p = Pressure(e % storage % Q(:,i,j,k))
-               dp(1) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_x(IRHO,i,j,k) + &
-                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_x(IRHOE,i,j,k)
-               dp(2) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_y(IRHO,i,j,k) + &
-                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_y(IRHOE,i,j,k)
-               dp(3) = p / e % storage % Q(IRHO,i,j,k) * e % storage % U_z(IRHO,i,j,k) + &
-                       e % storage % Q(IRHO,i,j,k) / dimensionless % gammaM2 * e % storage % U_z(IRHOE,i,j,k)
-
-            else ! grad_vars == GRADVARS_ENTROPY
-               p = Pressure(e % storage % Q(:,i,j,k))
-               dp(1) = p / e % storage % Q(IRHO,i,j,k) * &
-                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_x(:,i,j,k)) + &
-                      p * e % storage % U_x(IRHOE,i,j,k))
-               dp(2) = p / e % storage % Q(IRHO,i,j,k) * &
-                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_y(:,i,j,k)) + &
-                      p * e % storage % U_y(IRHOE,i,j,k))
-               dp(3) = p / e % storage % Q(IRHO,i,j,k) * &
-                      (dot_product(e % storage % Q(:,i,j,k), e % storage % U_z(:,i,j,k)) + &
-                      p * e % storage % U_z(IRHOE,i,j,k))
-
-            end if
-
-            sensor % x(2,cnt) = dp(1)**2 + dp(2)**2 + dp(3)**2
-
+            end do
          end do ;                end do ;                end do
-
       end do
 !
 !     Rescale the values
@@ -1193,13 +1181,15 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   function GetSensedVariable(varType, Q, U_x, U_y, U_z) result(s)
+   function GetSensedVariable(varType, Q, Qx, Qy, Qz) result(s)
 !
 !     -------
 !     Modules
 !     -------
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
-      use VariableConversion, only: Pressure, getVelocityGradients
+      use VariableConversion, only: getDensityGradient, getPressureGradient, getVelocityGradients
+      use VariableConversion, only: Pressure
+      use FluidData,          only: thermodynamics
       implicit none
 !
 !     ---------
@@ -1207,14 +1197,16 @@ module SCsensorClass
 !     ---------
       integer,  intent(in) :: varType
       real(RP), intent(in) :: Q(:)
-      real(RP), intent(in) :: U_x(:)
-      real(RP), intent(in) :: U_y(:)
-      real(RP), intent(in) :: U_z(:)
+      real(RP), intent(in) :: Qx(:)
+      real(RP), intent(in) :: Qy(:)
+      real(RP), intent(in) :: Qz(:)
       real(RP)             :: s
 !
 !     ---------------
 !     Local variables
 !     ---------------
+      real(RP) :: p
+      real(RP) :: drho(3), dp(3)
       real(RP) :: ux(3), uy(3), uz(3)
 
 
@@ -1246,21 +1238,30 @@ module SCsensorClass
       case (SC_P_ID)
          s = Pressure(Q)
 
+      case (SC_ENT_ID)
+         s = Pressure(Q)
+         s = (log(s) - thermodynamics % gamma * log(Q(IRHO)))
+
       case (SC_RHOP_ID)
          s = Pressure(Q) * Q(IRHO)
 
-      case (SC_RHO_GRAD_ID)
-         if ( grad_vars == GRADVARS_STATE ) then
-            s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
-         elseif ( grad_vars == GRADVARS_ENERGY ) then
-            s = POW2(U_x(IRHO)) + POW2(U_y(IRHO)) + POW2(U_z(IRHO))
-         else ! grad_vars == GRADVARS_ENTROPY
-            s = POW2(dot_product(Q, U_x)) + POW2(dot_product(Q, U_y)) + POW2(dot_product(Q, U_z))
-         end if
+      case (SC_GRAD_RHO_ID)
+         call getDensityGradient(Q, Qx, Qy, Qz, drho(1), drho(2), drho(3))
+         s = POW2(drho(1)) + POW2(drho(2)) + POW2(drho(3))
 
-      case (SC_DIVV_ID)
-         call getVelocityGradients(Q, U_x, U_y, U_z, ux, uy, uz)
-         s = (ux(1) + uy(2) + uz(3))**2
+      case (SC_GRAD_P_ID)
+         call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
+         s = POW2(dp(1)) + POW2(dp(2)) + POW2(dp(3))
+
+      case (SC_GRAD_1_ID)
+         s = POW2(Qx(IRHO)) + POW2(Qy(IRHO)) + POW2(Qz(IRHO))
+
+      case (SC_GRAD_5_ID)
+         s = POW2(Qx(IRHOE)) + POW2(Qy(IRHOE)) + POW2(Qz(IRHOE))
+
+      case (SC_DIV_V_ID)
+         call getVelocityGradients(Q, Qx, Qy, Qz, ux, uy, uz)
+         s = POW2(ux(1) + uy(2) + uz(3))
 
       end select
 

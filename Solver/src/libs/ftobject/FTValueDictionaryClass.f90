@@ -25,6 +25,7 @@
 !>     d = dict % doublePrecisionValueForKey("double")
 !>     l = dict % logicalValueForKey("logical")
 !>     s = dict % stringValueForKey("string",15)
+!>     v = dict % stringVecValueForKey("string",15)
 !>#Converting an FTDictionary to an FTValueDictionary
 !>            valueDict => valueDictionaryFromDictionary(dict)
 !>#Converting an FTObject to an FTValueDictionary
@@ -74,6 +75,7 @@
 #endif
          PROCEDURE :: integerValueForKey
          PROCEDURE :: stringValueForKey
+         PROCEDURE :: stringVecValueForKey
          PROCEDURE :: logicalValueForKey
 !
 !        --------------------
@@ -82,10 +84,14 @@
          PROCEDURE, PRIVATE :: getRealValueOrDefault
          PROCEDURE, PRIVATE :: getDoublePrescisionValueOrDefault
          PROCEDURE, PRIVATE :: getIntegerValueOrDefault
+         PROCEDURE, PRIVATE :: getStringValueOrDefault
+         ! PROCEDURE, PRIVATE :: getStringVecValueOrDefault   ! TODO: gfortran crashes
          PROCEDURE, PRIVATE :: getLogicalValueOrDefault
          GENERIC, PUBLIC    :: getValueOrDefault => getRealValueOrDefault,             &
                                                     getDoublePrescisionValueOrDefault, &
                                                     getIntegerValueOrDefault,          &
+                                                    getStringValueOrDefault,           &
+                                                    ! getStringVecValueOrDefault,        &
                                                     getLogicalValueOrDefault
 !
 !        -------------
@@ -357,6 +363,44 @@
          END IF 
          
       END FUNCTION stringValueForKey    
+!
+!////////////////////////////////////////////////////////////////////////
+!
+       FUNCTION stringVecValueForKey(self,key,requestedLength) RESULT(vec)
+         IMPLICIT NONE
+         CLASS(FTValueDictionary), INTENT(IN)        :: self
+         CHARACTER(LEN=*),         INTENT(IN)        :: key
+         INTEGER,                  INTENT(IN)        :: requestedLength
+         CHARACTER(LEN=requestedLength), ALLOCATABLE :: vec(:)
+
+         CHARACTER(LEN=requestedLength) :: str
+         INTEGER                        :: i
+         INTEGER                        :: i0
+         INTEGER                        :: i1
+
+         str = self % stringValueForKey(key, requestedLength)
+         i0 = INDEX(str, "[") + 1
+         i1 = INDEX(str, "]", BACK=.TRUE.)
+
+         ALLOCATE(vec(0))
+
+         IF (i0 == 1 .or. i1 == 0 .or. i0 == i1) THEN
+            vec = [vec, ""]
+            RETURN
+         END IF
+
+         DO
+            str = str(i0:)
+            i = SCAN(str, ",]")
+            vec = [vec, trim(adjustl(str(:i - 1)))]
+            IF (str(i:i) == "]") THEN
+               EXIT
+            ELSE
+               i0 = i + 1
+            END IF
+         END DO
+
+      END FUNCTION stringVecValueForKey
 !@mark -
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -533,6 +577,45 @@
          end if
    
       End Function getDoublePrescisionValueOrDefault
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      Function getStringValueOrDefault(self, key, reqLength, default) result(val)
+
+         implicit none
+         class(FTValueDictionary), intent(in) :: self
+         character(len=*),         intent(in) :: key
+         integer,                  intent(in) :: reqLength
+         character(len=*),         intent(in) :: default
+         character(len=reqLength)             :: val
+
+         if ( self % ContainsKey(key) ) then
+            val = self % StringValueForKey(key, reqLength)
+         else
+            val = default
+         end if
+
+      End Function getStringValueOrDefault
+!
+!////////////////////////////////////////////////////////////////////////
+!
+      ! TODO: gfortran crashes
+      ! Function getStringVecValueOrDefault(self, key, reqLength, default) result(val)
+
+      !    implicit none
+      !    class(FTValueDictionary), intent(in)  :: self
+      !    character(len=*),         intent(in)  :: key
+      !    integer,                  intent(in)  :: reqLength
+      !    character(len=reqLength), intent(in)  :: default(:)
+      !    character(len=reqLength), allocatable :: val(:)
+
+      !    if ( self % ContainsKey(key) ) then
+      !       val = self % StringVecValueForKey(key, reqLength)
+      !    else
+      !       val = default
+      !    end if
+
+      ! End Function getStringVecValueOrDefault
 !
 !//////////////////////////////////////////////////////////////////////// 
 ! 

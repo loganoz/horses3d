@@ -17,7 +17,7 @@ module SpatialDiscretization
       use FluidData
       use VariableConversion, only: NSGradientVariables_STATE, GetNSViscosity, NSGradientVariables_ENTROPY, &
                                     GetGradientValues_f, NSGradientVariables_ENERGY, get_laminar_mu_kappa, &
-                                    set_getVelocityGradients, GetNSKinematicViscosity
+                                    set_getGradients, GetNSKinematicViscosity
       use ProblemFileFunctions, only: UserDefinedSourceTermNS_f
       use BoundaryConditions
       use SpallartAlmarasTurbulence
@@ -148,19 +148,19 @@ module SpatialDiscretization
                      call SetGradientVariables(GRADVARS_STATE)
                      GetGradients => NSGradientVariables_STATE
                      ViscousFlux  => ViscousFlux_STATE
-                     call set_getVelocityGradients(GRADVARS_STATE)
+                     call set_getGradients(GRADVARS_STATE)
 
                   case ("entropy")
                      call SetGradientVariables(GRADVARS_ENTROPY)
                      GetGradients => NSGradientVariables_ENTROPY
                      ViscousFlux  => ViscousFlux_ENTROPY
-                     call set_getVelocityGradients(GRADVARS_ENTROPY)
+                     call set_getGradients(GRADVARS_ENTROPY)
 
                   case ("energy")
                      call SetGradientVariables(GRADVARS_ENERGY)
                      GetGradients => NSGradientVariables_ENERGY
                      ViscousFlux  => ViscousFlux_ENERGY
-                     call set_getVelocityGradients(GRADVARS_ENERGY)
+                     call set_getGradients(GRADVARS_ENERGY)
 
                   case default
                      print*, 'Entropy variables "',trim(gradient_variables),'" are not currently implemented'
@@ -179,7 +179,7 @@ module SpatialDiscretization
                   call SetGradientVariables(GRADVARS_STATE)
                   GetGradients => NSGradientVariables_STATE
                   ViscousFlux  => ViscousFlux_STATE
-                  call set_getVelocityGradients(GRADVARS_STATE)
+                  call set_getGradients(GRADVARS_STATE)
 
                end if
 
@@ -225,7 +225,7 @@ module SpatialDiscretization
                call SetGradientVariables(GRADVARS_STATE)
                GetGradients => NSGradientVariables_STATE
                ViscousFlux  => ViscousFlux_STATE
-               call set_getVelocityGradients(GRADVARS_STATE)
+               call set_getGradients(GRADVARS_STATE)
 
             end if
 

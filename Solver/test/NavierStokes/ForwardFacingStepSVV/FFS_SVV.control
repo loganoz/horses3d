@@ -33,7 +33,7 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = integral with sqrt
-                        Sensor variable = grad rho
+                       Sensor variables = [grad rho]
                      Sensor lower limit = 0.0
                     Sensor higher limit = 1.0
                      Shock first method = SVV

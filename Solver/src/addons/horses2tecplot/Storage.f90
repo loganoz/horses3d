@@ -10,14 +10,15 @@ module Storage
    public Mesh_t, Element_t, Boundary_t
    public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
    public partitionFileName, boundaryFileName, flowEq
-   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs
+   public gradType, hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs
 
    integer                          :: NVARS, NGRADVARS
+   integer                          :: gradType
    logical                          :: hasMPIranks, hasBoundaries, isOldStats
    logical                          :: hasExtraGradients = .false.
    logical                          :: hasUt_NS = .false.
    logical                          :: hasMu_NS = .false.
-   logical                          :: hasWallY     = .false.
+   logical                          :: hasWallY = .false.
    logical                          :: hasMu_sgs = .false.
    character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
    integer, parameter               :: NSTAT = 9
@@ -311,7 +312,7 @@ module Storage
 !        ----------------
          fid = putSolutionFileInReadDataMode(solutionName)
 
-         ! call set_getVelocityGradients(GRADVARS_STATE) ! FIXME: MIGHT BE NEEDED FOR HORSES2PLT
+         ! call set_getGradients(GRADVARS_STATE) ! FIXME: MIGHT BE NEEDED FOR HORSES2PLT
          ! write(STD_OUT,'(15X,A)') " WARNING horses2tecplot.90 :: Velocity Gradients set to default (GRADVARS_STATE)"
       
          if ( .not. isOldStats ) then
@@ -368,11 +369,10 @@ module Storage
                   read(fid) e % Q_x
                   read(fid) e % Q_y
                   read(fid) e % Q_z
-
-!                 Call set_getVelocityGradients to make the pointer to the actual subroutine, is needed only for the NS
-!                 Set state as is the default option TODO point to the correct one if its possible (oscar note)
-!                 ---------------------------
-                  call set_getVelocityGradients(GRADVARS_STATE)
+!
+!                 Point to the correct gradients
+!                 ------------------------------
+                  call set_getGradients(gradType)
 
                   ! Following block works for NS, CH, NSCH and iNS .... but not iNSCH: change 5 by 6 to use iNSCH (NS won't work)
                   if (NVARS .ge. 5) then
@@ -460,6 +460,15 @@ module Storage
          else
             if ( self % hasGradients ) then
                write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "yes"
+               write(STD_OUT,'(30X,A,A40)',advance='no') "->","Gradient variables: "
+               select case (gradType)
+               case (GRADVARS_STATE)
+                  write(STD_OUT,'(A)') "state"
+               case (GRADVARS_ENTROPY)
+                  write(STD_OUT,'(A)') "entropy"
+               case (GRADVARS_ENERGY)
+                  write(STD_OUT,'(A)') "energy"
+               end select
             else
                write(STD_OUT,'(30X,A,A40,A)') "->","Solution file contains gradients: ", "no"
             end if
