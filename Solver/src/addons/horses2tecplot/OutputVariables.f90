@@ -26,7 +26,7 @@ module OutputVariables
    public   getOutputVariables, ComputeOutputVariables, getOutputVariablesLabel
    public   getOutputVariablesList, outputVariablesForVariable, OutputVariablesForPreliminarVariable
    public   outScale, hasVariablesFlag, Lreference
-				 
+
    integer, parameter   :: STR_VAR_LEN = 16
 !
 !  ***************************
@@ -42,12 +42,18 @@ module OutputVariables
       enumerator :: Nzeta_V, Nav_V, N_V
       enumerator :: Xi_V, Eta_V, Zeta_V, ThreeAxes_V, Axes_V, eID_V
       enumerator :: MPIRANK_V
+      enumerator :: QX_V, QY_V, QZ_V
+      enumerator :: Q1X_V, Q2X_V, Q3X_V, Q4X_V, Q5X_V
+      enumerator :: Q1Y_V, Q2Y_V, Q3Y_V, Q4Y_V, Q5Y_V
+      enumerator :: Q1Z_V, Q2Z_V, Q3Z_V, Q4Z_V, Q5Z_V
+      enumerator :: GRADRHO_V, RHOX_V, RHOY_V, RHOZ_V
+      enumerator :: GRADP_V, PX_V, PY_V, PZ_V
       enumerator :: GRADV_V, UX_V, VX_V, WX_V
       enumerator :: UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V
       enumerator :: CX_V, CY_V, CZ_V
       enumerator :: OMEGA_V, OMEGAX_V, OMEGAY_V, OMEGAZ_V
       enumerator :: OMEGAABS_V, QCRIT_V, DIV_V
-      enumerator :: Vvec_Vmean, U_Vmean, V_Vmean, W_Vmean, ReST 
+      enumerator :: Vvec_Vmean, U_Vmean, V_Vmean, W_Vmean, ReST
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
       enumerator :: Vfvec_Vrms, Uf_Vrms, Vf_Vrms, Wf_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, Cf_V, MUTMINF
@@ -96,6 +102,32 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: AxesKey       = "Axes"
    character(len=STR_VAR_LEN), parameter  :: eIDKey        = "eID"
    character(len=STR_VAR_LEN), parameter  :: mpiRankKey    = "mpi_rank"
+   character(len=STR_VAR_LEN), parameter  :: QxKey         = "Q_x"
+   character(len=STR_VAR_LEN), parameter  :: QyKey         = "Q_y"
+   character(len=STR_VAR_LEN), parameter  :: QzKey         = "Q_z"
+   character(len=STR_VAR_LEN), parameter  :: Q1xKey        = "Q1_x"
+   character(len=STR_VAR_LEN), parameter  :: Q2xKey        = "Q2_x"
+   character(len=STR_VAR_LEN), parameter  :: Q3xKey        = "Q3_x"
+   character(len=STR_VAR_LEN), parameter  :: Q4xKey        = "Q4_x"
+   character(len=STR_VAR_LEN), parameter  :: Q5xKey        = "Q5_x"
+   character(len=STR_VAR_LEN), parameter  :: Q1yKey        = "Q1_y"
+   character(len=STR_VAR_LEN), parameter  :: Q2yKey        = "Q2_y"
+   character(len=STR_VAR_LEN), parameter  :: Q3yKey        = "Q3_y"
+   character(len=STR_VAR_LEN), parameter  :: Q4yKey        = "Q4_y"
+   character(len=STR_VAR_LEN), parameter  :: Q5yKey        = "Q5_y"
+   character(len=STR_VAR_LEN), parameter  :: Q1zKey        = "Q1_z"
+   character(len=STR_VAR_LEN), parameter  :: Q2zKey        = "Q2_z"
+   character(len=STR_VAR_LEN), parameter  :: Q3zKey        = "Q3_z"
+   character(len=STR_VAR_LEN), parameter  :: Q4zKey        = "Q4_z"
+   character(len=STR_VAR_LEN), parameter  :: Q5zKey        = "Q5_z"
+   character(len=STR_VAR_LEN), parameter  :: gradRhoKey    = "grad_rho"
+   character(len=STR_VAR_LEN), parameter  :: rhoxKey       = "rho_x"
+   character(len=STR_VAR_LEN), parameter  :: rhoyKey       = "rho_y"
+   character(len=STR_VAR_LEN), parameter  :: rhozKey       = "rho_z"
+   character(len=STR_VAR_LEN), parameter  :: gradPKey      = "grad_p"
+   character(len=STR_VAR_LEN), parameter  :: pxKey         = "p_x"
+   character(len=STR_VAR_LEN), parameter  :: pyKey         = "p_y"
+   character(len=STR_VAR_LEN), parameter  :: pzKey         = "p_z"
    character(len=STR_VAR_LEN), parameter  :: gradVKey      = "gradV"
    character(len=STR_VAR_LEN), parameter  :: uxKey         = "u_x"
    character(len=STR_VAR_LEN), parameter  :: vxKey         = "v_x"
@@ -127,10 +159,10 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: ReSTyyKey     = "Syy"
    character(len=STR_VAR_LEN), parameter  :: ReSTyzKey     = "Syz"
    character(len=STR_VAR_LEN), parameter  :: ReSTzzKey     = "Szz"
-   character(len=STR_VAR_LEN), parameter  :: VfvecRmsKey    = "Vfrms"
-   character(len=STR_VAR_LEN), parameter  :: UfRmsKey       = "ufrms"
-   character(len=STR_VAR_LEN), parameter  :: VfRmsKey       = "vfrms"
-   character(len=STR_VAR_LEN), parameter  :: WfRmsKey       = "wfrms"
+   character(len=STR_VAR_LEN), parameter  :: VfvecRmsKey   = "Vfrms"
+   character(len=STR_VAR_LEN), parameter  :: UfRmsKey      = "ufrms"
+   character(len=STR_VAR_LEN), parameter  :: VfRmsKey      = "vfrms"
+   character(len=STR_VAR_LEN), parameter  :: WfRmsKey      = "wfrms"
    character(len=STR_VAR_LEN), parameter  :: UTAUKey       = "u_tau"
    character(len=STR_VAR_LEN), parameter  :: WallYKey      = "wall_distance"
    character(len=STR_VAR_LEN), parameter  :: TauwKey       = "wall_shear"
@@ -148,6 +180,12 @@ module OutputVariables
                                                                             RHOEKey, cKey, CpKey, NxiKey, NetaKey, NzetaKey, NavKey, NKey, &
                                                                             XiKey, EtaKey, ZetaKey, ThreeAxesKey, AxesKey, eIDKey, &
                                                                             mpiRankKey, &
+                                                                            QxKey, QyKey, QzKey, &
+                                                                            Q1xKey, Q2xKey, Q3xKey, Q4xKey, Q5xKey, &
+                                                                            Q1yKey, Q2yKey, Q3yKey, Q4yKey, Q5yKey, &
+                                                                            Q1zKey, Q2zKey, Q3zKey, Q4zKey, Q5zKey, &
+                                                                            gradRhoKey, rhoxKey, rhoyKey, rhozKey, &
+                                                                            gradPKey, pxKey, pyKey, pzKey, &
                                                                             gradVKey, uxKey, vxKey, wxKey, &
                                                                             uyKey, vyKey, wyKey, uzKey, vzKey, wzKey, &
                                                                             cxKey, cyKey, czKey, &
@@ -158,14 +196,14 @@ module OutputVariables
                                                                             VfvecRmsKey, UfRmsKey, VfRmsKey, WfRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
                                                                             cfKey, mutminfKey, muSGSKey, sensorKey /)
-                                                                        
-                                                                        
-                                                               
+
+
+
    integer                          :: no_of_outputVariables, preliminarNoOfVariables
    integer, allocatable             :: outputVariableNames(:), preliminarVariables(:)
    logical                          :: outScale
    logical                          :: hasVariablesFlag
-   character(len=LINE_LENGTH)       :: askedVariables   
+   character(len=LINE_LENGTH)       :: askedVariables
    real(kind=RP)                    :: Lreference
 
    contains
@@ -216,10 +254,10 @@ module OutputVariables
                   preliminarVariables(i) = outputVariableForName(adjustl(trim(inputVar)))
                   pos = pos2
                end do
-            
+
                pos = index(trim(askedVariables),",",BACK=.true.)
                preliminarVariables(preliminarNoOfVariables) = outputVariableForName(TRIM(ADJUSTL(askedVariables(pos+1:))))
-               
+
             end if
          end if
 !
@@ -264,6 +302,8 @@ module OutputVariables
 
          if ( outScale ) then
             write(STD_OUT,'(30X,A,A)') "-> Variables are exported with dimensions."
+            write(STD_OUT,'(30X,A,A)') "   Warning: raw gradients (Qx, Qy, Qz, Q1x, ...) ", &
+                                       "are always non-dimensional"
 
          else
             write(STD_OUT,'(30X,A,A)') "-> Dimensionless mode."
@@ -276,6 +316,7 @@ module OutputVariables
          use SolutionFile
          use Storage
          use StatisticsMonitor
+         use VariableConversion
          implicit none
          integer, intent(in)          :: noOutput
 		 integer, intent(in)		  :: outputVarNames(1:noOutput)
@@ -293,6 +334,7 @@ module OutputVariables
 !
          integer       :: var, i, j, k
          real(kind=RP) :: Sym, Asym
+         real(kind=RP) :: drho(3), dp(3)
          logical       :: hasAdditionalVariables
 
          hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasSensor .or. hasMu_sgs
@@ -301,6 +343,9 @@ module OutputVariables
             if ( hasAdditionalVariables .or. (outputVarNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
                associate ( Q   => e % Qout, &
                            QDot=> e % QDot_out, &
+                           Q_x => e % Q_xout, &
+                           Q_y => e % Q_yout, &
+                           Q_z => e % Q_zout, &
                            U_x => e % U_xout, &
                            U_y => e % U_yout, &
                            U_z => e % U_zout, &
@@ -342,7 +387,7 @@ module OutputVariables
                                        ( POW2(Q(IRHOU,i,j,k)) + POW2(Q(IRHOV,i,j,k)) + POW2(Q(IRHOW,i,j,k))) /Q(IRHO,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
-				  
+
 			   case(P0_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = ( (Q(IRHOU,i,j,k)**2) + (Q(IRHOV,i,j,k)**2) + (Q(IRHOW,i,j,k)**2)) &
@@ -490,7 +535,7 @@ module OutputVariables
                   output(var,:,:,:) = e % mpi_rank
 !
 !              ******************
-!              Statistics variables   
+!              Statistics variables
 !              ******************
 !
                case(U_Vmean)
@@ -501,13 +546,13 @@ module OutputVariables
 
                case(V_Vmean)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = stats(V,i,j,k) 
+                     output(var,i,j,k) = stats(V,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
                case(W_Vmean)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) = stats(W,i,j,k) 
+                     output(var,i,j,k) = stats(W,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) * output(var,:,:,:)
 
@@ -570,54 +615,141 @@ module OutputVariables
 !              Gradient variables
 !              ******************
 !
+               case(Q1X_V)
+                  output(var,:,:,:) = Q_x(1,:,:,:)
+
+               case(Q2X_V)
+                  output(var,:,:,:) = Q_x(2,:,:,:)
+
+               case(Q3X_V)
+                  output(var,:,:,:) = Q_x(3,:,:,:)
+
+               case(Q4X_V)
+                  output(var,:,:,:) = Q_x(4,:,:,:)
+
+               case(Q5X_V)
+                  output(var,:,:,:) = Q_x(5,:,:,:)
+
+               case(Q1Y_V)
+                  output(var,:,:,:) = Q_y(1,:,:,:)
+
+               case(Q2Y_V)
+                  output(var,:,:,:) = Q_y(2,:,:,:)
+
+               case(Q3Y_V)
+                  output(var,:,:,:) = Q_y(3,:,:,:)
+
+               case(Q4Y_V)
+                  output(var,:,:,:) = Q_y(4,:,:,:)
+
+               case(Q5Y_V)
+                  output(var,:,:,:) = Q_y(5,:,:,:)
+
+               case(Q1Z_V)
+                  output(var,:,:,:) = Q_z(1,:,:,:)
+
+               case(Q2Z_V)
+                  output(var,:,:,:) = Q_z(2,:,:,:)
+
+               case(Q3Z_V)
+                  output(var,:,:,:) = Q_z(3,:,:,:)
+
+               case(Q4Z_V)
+                  output(var,:,:,:) = Q_z(4,:,:,:)
+
+               case(Q5Z_V)
+                  output(var,:,:,:) = Q_z(5,:,:,:)
+
+               case(RHOX_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getDensityGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                             drho(1), drho(2), drho(3))
+                     output(var,i,j,k) = drho(1)
+                  end do         ; end do         ; end do
+
+               case(RHOY_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getDensityGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                             drho(1), drho(2), drho(3))
+                     output(var,i,j,k) = drho(2)
+                  end do         ; end do         ; end do
+
+               case(RHOZ_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getDensityGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                             drho(1), drho(2), drho(3))
+                     output(var,i,j,k) = drho(3)
+                  end do         ; end do         ; end do
+
+               case(PX_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getPressureGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                              dp(1), dp(2), dp(3))
+                     output(var,i,j,k) = dp(1)
+                  end do         ; end do         ; end do
+
+               case(PY_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getPressureGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                              dp(1), dp(2), dp(3))
+                     output(var,i,j,k) = dp(2)
+                  end do         ; end do         ; end do
+
+               case(PZ_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     call getPressureGradient(Q(:,i,j,k), Q_x(:,i,j,k), Q_y(:,i,j,k), Q_z(:,i,j,k), &
+                                              dp(1), dp(2), dp(3))
+                     output(var,i,j,k) = dp(3)
+                  end do         ; end do         ; end do
+
                case(UX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_x(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(VX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_x(2,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(WX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_x(3,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(UY_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_y(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(VY_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_y(2,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(WY_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_y(3,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(UZ_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_z(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(VZ_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_z(2,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(V_REF) / Lreference * output(var,:,:,:)
-               
+
                case(WZ_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
                      output(var,i,j,k) = U_z(3,i,j,k)
@@ -834,6 +966,21 @@ module OutputVariables
          case(Vvec_V)
             outputVariablesForVariable = 3
 
+         case(QX_V)
+            outputVariablesForVariable = NVARS
+
+         case(QY_V)
+            outputVariablesForVariable = NVARS
+
+         case(QZ_V)
+            outputVariablesForVariable = NVARS
+
+         case(GRADRHO_V)
+            outputVariablesForVariable = 3
+
+         case(GRADP_V)
+            outputVariablesForVariable = 3
+
          case(gradV_V)
             outputVariablesForVariable = 9
 
@@ -896,6 +1043,21 @@ module OutputVariables
 
          case(Vvec_V)
             output = (/U_V, V_V, W_V/)
+
+         case(QX_V)
+            output = (/Q1X_V, Q2X_V, Q3X_V, Q4X_V, Q5X_V/)
+
+         case(QY_V)
+            output = (/Q1Y_V, Q2Y_V, Q3Y_V, Q4Y_V, Q5Y_V/)
+
+         case(QZ_V)
+            output = (/Q1Z_V, Q2Z_V, Q3Z_V, Q4Z_V, Q5Z_V/)
+
+         case(GRADRHO_V)
+            output = (/RHOX_V, RHOY_V, RHOZ_V/)
+
+         case(GRADP_V)
+            output = (/PX_V, PY_V, PZ_V/)
 
          case(gradV_V)
             output = (/UX_V, VX_V, WX_V, UY_V, VY_V, WY_V, UZ_V, VZ_V, WZ_V/)
