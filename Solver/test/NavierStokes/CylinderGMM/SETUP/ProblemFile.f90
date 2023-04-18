@@ -528,7 +528,7 @@ end module ProblemFileFunctions
             real(kind=RP), parameter           :: res(5) = [ 136.8806_RP, &
                                                              44.4832_RP, &
                                                              0.0_RP, &
-                                                             165.9623_RP, &
+                                                             165.9567_RP, &
                                                              156.9187_RP  ]
 
             call initializeSharedAssertionsManager
@@ -536,27 +536,22 @@ end module ProblemFileFunctions
 
             call FTAssertEqual(expectedValue = res(1), &
                                actualValue   = monitors % residuals % values(1,1), &
-                               tol           = 1.0e-3_RP, &
+                               tol           = 1.0e-5_RP, &
                                msg           = "Continuity residual")
 
             call FTAssertEqual(expectedValue = res(2), &
                                actualValue   = monitors % residuals % values(2,1), &
-                               tol           = 1.0e-3_RP, &
+                               tol           = 1.0e-5_RP, &
                                msg           = "X-momentum residual")
-
-            call FTAssertEqual(expectedValue = res(3) + 1.0_RP, &
-                               actualValue   = monitors % residuals % values(3,1) + 1.0_RP, &
-                               tol           = 1.0e-3_RP, &
-                               msg           = "Y-momentum residual")
 
             call FTAssertEqual(expectedValue = res(4), &
                                actualValue   = monitors % residuals % values(4,1), &
-                               tol           = 1.0e-3_RP, &
+                               tol           = 1.0e-5_RP, &
                                msg           = "Z-momentum residual")
 
             call FTAssertEqual(expectedValue = res(5), &
                                actualValue   = monitors % residuals % values(5,1), &
-                               tol           = 1.0e-3_RP, &
+                               tol           = 1.0e-5_RP, &
                                msg           = "Energy residual")
 
             call sharedManager % summarizeAssertions(title = testName,iUnit = 6)
@@ -564,7 +559,7 @@ end module ProblemFileFunctions
             if ( sharedManager % numberOfAssertionFailures() == 0 ) then
                write(6,*) testName, " ... Passed"
                write(6,*) "This test checks if: "
-               write(6,*) "   - The residuals are 'exact' (1e-3)"
+               write(6,*) "   - The residuals (2D) are 'exact' (1e-5)"
             else
                write(6,*) testName, " ... Failed"
                stop 99

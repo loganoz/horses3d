@@ -34,6 +34,7 @@
                            Shock sensor = gmm
                        Sensor variables = [grad p, div v]
               Sensor number of clusters = 4
+                      Sensor skip steps = 5
                      Shock first method = Non-filtered
                     Shock second method = Non-filtered
                    Shock viscous flux 1 = Physical
