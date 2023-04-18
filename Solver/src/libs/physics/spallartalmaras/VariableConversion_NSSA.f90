@@ -13,7 +13,10 @@ module VariableConversion_NSSA
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   set_getVelocityGradients, GetNSKinematicViscosity, ComputeVorticity
+   public   getDensityGradient, getPressureGradient
+   public   set_getGradients, GetNSKinematicViscosity, ComputeVorticity
+
+#if defined SPALARTALMARAS
    public   geteddyviscositygradients
   
 
@@ -34,9 +37,29 @@ module VariableConversion_NSSA
          real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
          real(kind=RP), intent(out) :: U_x(NDIM), U_y(NDIM), U_z(NDIM)
       end subroutine getVelocityGradients_f
+
+      pure subroutine getDensityGradient_f(Q,Q_x,Q_y,Q_z,rho_x,rho_y,rho_z)
+         use SMConstants
+         use PhysicsStorage_NSSA
+         implicit none
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: rho_x, rho_y, rho_z
+      end subroutine getDensityGradient_f
+
+      pure subroutine getPressureGradient_f(Q,Q_x,Q_y,Q_z,p_x,p_y,p_z)
+         use SMConstants
+         use PhysicsStorage_NSSA
+         implicit none
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: p_x, p_y, p_z
+      end subroutine getPressureGradient_f
     end interface
 
     procedure(getVelocityGradients_f), pointer :: getVelocityGradients
+    procedure(getDensityGradient_f),   pointer :: getDensityGradient
+    procedure(getPressureGradient_f),  pointer :: getPressureGradient
    
    contains
 !
@@ -382,6 +405,87 @@ module VariableConversion_NSSA
          u_z = Q_z(IRHOU:IRHOW)
 
       end subroutine getVelocityGradients_Energy
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -------------------------------------
+!     Routines to get the density gradients
+!     -------------------------------------
+!
+      pure subroutine getDensityGradient_State(Q,Q_x,Q_y,Q_z,rho_x,rho_y,rho_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: rho_x, rho_y, rho_z
+         !-------------------------------------------------------------
+
+         rho_x = Q_x(IRHO)
+         rho_y = Q_y(IRHO)
+         rho_z = Q_z(IRHO)
+
+      end subroutine getDensityGradient_State
+
+      pure subroutine getDensityGradient_Energy(Q,Q_x,Q_y,Q_z,rho_x,rho_y,rho_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: rho_x, rho_y, rho_z
+         !-------------------------------------------------------------
+
+         rho_x = Q_x(IRHO)
+         rho_y = Q_y(IRHO)
+         rho_z = Q_z(IRHO)
+
+      end subroutine getDensityGradient_Energy
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     --------------------------------------
+!     Routines to get the pressure gradients
+!     --------------------------------------
+!
+      pure subroutine getPressureGradient_State(Q,Q_x,Q_y,Q_z,p_x,p_y,p_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: p_x, p_y, p_z
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: u2
+         real(kind=RP) :: ux(NDIM), uy(NDIM), uz(NDIM)
+         !-------------------------------------------------------------
+
+         call getVelocityGradients_State(Q, Q_x, Q_y, Q_z, ux, uy, uz)
+         u2 = (POW2(Q(IRHOU)) + POW2(Q(IRHOV)) + POW2(Q(IRHOW))) / POW2(Q(IRHO))
+
+         p_x = thermodynamics % gammaMinus1 * (Q_x(IRHOE) - 0.5_RP * Q_x(IRHO) * u2 &
+             - Q(IRHOU) * ux(1) - Q(IRHOV) * ux(2) - Q(IRHOW) * ux(3))
+         p_y = thermodynamics % gammaMinus1 * (Q_y(IRHOE) - 0.5_RP * Q_y(IRHO) * u2 &
+             - Q(IRHOU) * uy(1) - Q(IRHOV) * uy(2) - Q(IRHOW) * uy(3))
+         p_z = thermodynamics % gammaMinus1 * (Q_z(IRHOE) - 0.5_RP * Q_z(IRHO) * u2 &
+             - Q(IRHOU) * uz(1) - Q(IRHOV) * uz(2) - Q(IRHOW) * uz(3))
+
+      end subroutine getPressureGradient_State
+
+      pure subroutine getPressureGradient_Energy(Q,Q_x,Q_y,Q_z,p_x,p_y,p_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: p_x, p_y, p_z
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: p
+         !-------------------------------------------------------------
+
+         p = Pressure(Q)
+
+         p_x = p / Q(IRHO) * Q_x(IRHO) + Q(IRHO) / dimensionless % gammaM2 * Q_x(IRHOE)
+         p_y = p / Q(IRHO) * Q_y(IRHO) + Q(IRHO) / dimensionless % gammaM2 * Q_y(IRHOE)
+         p_z = p / Q(IRHO) * Q_z(IRHO) + Q(IRHO) / dimensionless % gammaM2 * Q_z(IRHOE)
+
+      end subroutine getPressureGradient_Energy
 
 !
 !/////////////////////////////////////////////////////////////////////////////
@@ -556,20 +660,24 @@ module VariableConversion_NSSA
          
       end subroutine getConservativeGradients_3D
 
-      subroutine set_GetVelocityGradients(grad_vars_)
+      subroutine set_getGradients(grad_vars_)
          implicit none
          integer, intent(in)  :: grad_vars_
 
          select case (grad_vars_)
          case(GRADVARS_STATE)
             getVelocityGradients => getVelocityGradients_STATE
+            getDensityGradient   => getDensityGradient_STATE
+            getPressureGradient  => getPressureGradient_STATE
 
          case(GRADVARS_ENERGY)
             getVelocityGradients => getVelocityGradients_ENERGY
+            getDensityGradient   => getDensityGradient_ENERGY
+            getPressureGradient  => getPressureGradient_ENERGY
 
          end select
 
-      end subroutine set_getVelocityGradients
+      end subroutine set_getGradients
 
       subroutine geteddyviscositygradients(Q, Q_x, Q_y, Q_z , theta_x, theta_y, theta_z)
          implicit none

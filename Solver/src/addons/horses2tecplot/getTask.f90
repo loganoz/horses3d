@@ -54,6 +54,7 @@ module getTask
    character(len=*), parameter   :: PARTITION_FILE_FLAG="--partition-file="
    character(len=*), parameter   :: OUTPUT_FILE_TYPE="--output-type="
    character(len=*), parameter   :: WRITE_MESH_TYPE="--write-mesh="
+   character(len=*), parameter   :: GRADIENTS_FLAG="--gradients="
 
    contains
 
@@ -120,8 +121,9 @@ module getTask
       subroutine getTaskTypeControl(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, oldStats, writeMesh)
          use FTValueDictionaryClass, only: FTValueDictionary
          use FileReaders           , only: ReadControlFile 
-         use FileReadingUtilities, only: getCharArrayFromString
+         use FileReadingUtilities  , only: getCharArrayFromString
          use SolutionFile
+         use PhysicsStorage        , only: GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
          use Storage
          use OutputVariables       , only: outScale, hasVariablesFlag, askedVariables, Lreference
          use Utilities, only: toLower
@@ -147,6 +149,7 @@ module getTask
          character(len=LINE_LENGTH)                             :: basisName, modeName, auxiliarName
          character(len=LINE_LENGTH)                             :: solutionsPattern, fullExpression
 		 character(len=LINE_LENGTH)								:: inputResultName
+         character(len=LINE_LENGTH)                             :: gradVars
          real(kind=RP)                                          :: r
          integer                                                :: pos, pos2
          character(len=LINE_LENGTH)                             :: additionalVariablesStr, addVar
@@ -356,6 +359,22 @@ module getTask
                 end select
              end do
          end if
+
+         gradVars = controlVariables % getValueOrDefault("gradient variables", LINE_LENGTH, "state")
+         call toLower(gradVars)
+
+         select case (trim(gradVars))
+         case ("state")
+            gradType = GRADVARS_STATE
+         case ("entropy")
+            gradType = GRADVARS_ENTROPY
+         case ("energy")
+            gradType = GRADVARS_ENERGY
+         case default
+            write(STD_OUT,'(A,A,A)') "Gradients of type ", trim(gradVars), " are not implemented"
+            errorMessage(STD_OUT)
+            stop
+         end select
 !
 !        Write Mesh File first (for foam output)
 !        --------------------------------------
@@ -368,8 +387,10 @@ module getTask
 
       subroutine getTaskTypeCommand(taskType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis,mode, oldStats, writeMesh)
          use SolutionFile
-         use Storage               , only: hasMPIranks, hasBoundaries, partitionFileName, boundaryFileName, flowEq
-         use OutputVariables       , only: outScale, hasVariablesFlag, askedVariables, Lreference
+         use Storage        , only: hasMPIranks, hasBoundaries, partitionFileName, boundaryFileName, flowEq, gradType
+         use OutputVariables, only: outScale, hasVariablesFlag, askedVariables, Lreference
+         use PhysicsStorage , only: GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
+         use Utilities      , only: toLower
          implicit none
          integer,                                 intent(out) :: taskType
          character(len=*),                        intent(out) :: meshName
@@ -394,6 +415,7 @@ module getTask
          logical                                              :: basisPresent
          character(len=LINE_LENGTH)                           :: auxiliarName, basisName, modeName
          character(len=LINE_LENGTH)                           :: fileTypeName
+         character(len=LINE_LENGTH)                           :: gradVars
          integer                                              :: fileType
 !
 !        Get number of command arguments         
@@ -640,6 +662,36 @@ module getTask
 		 end if 
          oldStats = .false.
          Lreference = 1.0_RP
+!
+!        Get gradient variables
+!        ----------------------
+         gradType = GRADVARS_STATE
+
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), GRADIENTS_FLAG)
+
+            if ( pos .ne. 0 ) then
+               gradVars = auxiliarName(pos + len_trim(GRADIENTS_FLAG):len_trim(auxiliarName))
+               call toLower(gradVars)
+
+               select case (trim(gradVars))
+               case ("state")
+                  gradType = GRADVARS_STATE
+               case ("entropy")
+                  gradType = GRADVARS_ENTROPY
+               case ("energy")
+                  gradType = GRADVARS_ENERGY
+               case default
+                  write(STD_OUT,'(A,A,A)') "Gradients of type ", trim(gradVars), " are not implemented"
+                  errorMessage(STD_OUT)
+                  stop
+               end select
+
+               exit
+
+            end if
+         end do
 
       end subroutine getTaskTypeCommand
 

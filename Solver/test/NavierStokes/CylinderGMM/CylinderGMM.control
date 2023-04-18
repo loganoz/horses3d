@@ -32,6 +32,7 @@
 !----------------------- Shock-capturing:-
                  Enable shock-capturing = .true.
                            Shock sensor = gmm
+                       Sensor variables = [grad p, div v]
               Sensor number of clusters = 4
                      Shock first method = Non-filtered
                     Shock second method = Non-filtered
