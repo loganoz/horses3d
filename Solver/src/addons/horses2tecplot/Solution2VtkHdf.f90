@@ -367,6 +367,33 @@ module Solution2VtkHdfModule
       end do            ; end do            ; end do
 
       if ( hasGradients ) then
+         allocate( e % Q_xout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
+         e % Q_xout = 0.0_RP
+
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % Q_xout(:,i,j,k) = e % Q_xout(:,i,j,k) + e % Q_x(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+
+         allocate( e % Q_yout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % Q_yout = 0.0_RP
+
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % Q_yout(:,i,j,k) = e % Q_yout(:,i,j,k) + e % Q_y(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+
+         allocate( e % Q_zout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % Q_zout = 0.0_RP
+
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % Q_zout(:,i,j,k) = e % Q_zout(:,i,j,k) + e % Q_z(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+
          allocate( e % U_xout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)))
          e % U_xout = 0.0_RP
 
@@ -376,7 +403,7 @@ module Solution2VtkHdfModule
             end do            ; end do            ; end do
          end do            ; end do            ; end do
 
-       allocate( e % U_yout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % U_yout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % U_yout = 0.0_RP
 
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
@@ -385,7 +412,7 @@ module Solution2VtkHdfModule
             end do            ; end do            ; end do
          end do            ; end do            ; end do
 
-       allocate( e % U_zout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % U_zout(1:NGRADVARS, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % U_zout = 0.0_RP
 
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
