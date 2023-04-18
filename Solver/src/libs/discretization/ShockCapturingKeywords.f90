@@ -22,6 +22,7 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_TE_DTYPE_KEY       = "sensor te derivative"
    character(len=*), parameter :: SC_NUM_CLUSTERS_KEY   = "sensor number of clusters"
    character(len=*), parameter :: SC_SENSOR_INERTIA_KEY = "sensor min. timesteps"
+   character(len=*), parameter :: SC_SENSOR_SKIP_KEY    = "sensor skip steps"
 !
 !  Sensor types
 !  ------------

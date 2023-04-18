@@ -46,7 +46,8 @@ module ShockCapturing
 
    type SCdriver_t
 
-      logical  :: isActive = .false.  !< On/Off flag
+      logical :: isActive = .false.  !< On/Off flag
+      integer :: period              !< Sensor is computed when 'mod(period, iter) == 0'
 
       type(SCsensor_t),             private              :: sensor   !< Sensor
       class(ArtificialViscosity_t), private, allocatable :: method1  !< First SC method
@@ -145,19 +146,15 @@ module ShockCapturing
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable :: method
-      integer                       :: minSteps
+      character(len=LINE_LENGTH) :: method
+      integer                    :: minSteps
 
 !
 !     Check if shock-capturing is requested
 !     -------------------------------------
       allocate(self)
 
-      if (controlVariables % containsKey(SC_KEY)) then
-         self % isActive = controlVariables % logicalValueForKey(SC_KEY)
-      else
-         self % isActive = .false.
-      end if
+      self % isActive = controlVariables % getValueOrDefault(SC_KEY, .false.)
 
       if (.not. self % isActive) then
          return
@@ -165,11 +162,7 @@ module ShockCapturing
 !
 !     Shock-capturing methods
 !     -----------------------
-      if (controlVariables % containsKey(SC_METHOD1_KEY)) then
-         method = controlVariables % stringValueForKey(SC_METHOD1_KEY, LINE_LENGTH)
-      else
-         method = SC_NO_VAL
-      end if
+      method = controlVariables % getValueOrDefault(SC_METHOD1_KEY, LINE_LENGTH, SC_NO_VAL)
       call toLower(method)
 
       select case (trim(method))
@@ -191,11 +184,7 @@ module ShockCapturing
 
       end select
 
-      if (controlVariables % containsKey(SC_METHOD2_KEY)) then
-         method = controlVariables % stringValueForKey(SC_METHOD2_KEY, LINE_LENGTH)
-      else
-         method = SC_NO_VAL
-      end if
+      method = controlVariables % getValueOrDefault(SC_METHOD2_KEY, LINE_LENGTH, SC_NO_VAL)
       call toLower(method)
 
       select case (trim(method))
@@ -224,15 +213,16 @@ module ShockCapturing
 !
 !     Sensor 'inertia'
 !     ----------------
-      if (controlVariables % containsKey(SC_SENSOR_INERTIA_KEY)) then
-         minSteps = controlVariables % realValueForKey(SC_SENSOR_INERTIA_KEY)
-         if (minSteps < 1) then
-            write(STD_OUT,*) 'ERROR. Sensor inertia must be at least 1.'
-            stop
-         end if
-      else
-         minSteps = 1
+      minSteps = controlVariables % getValueOrDefault(SC_SENSOR_INERTIA_KEY, 1)
+
+      if (minSteps < 1) then
+         write(STD_OUT,*) 'ERROR. Sensor inertia must be at least 1.'
+         stop
       end if
+!
+!     Sensor steps to skip
+!     --------------------
+      self % period = controlVariables % getValueOrDefault(SC_SENSOR_SKIP_KEY, 0) + 1
 !
 !     Construct sensor
 !     ----------------
@@ -332,6 +322,8 @@ module ShockCapturing
 
       call self % sensor % Describe()
 
+      write(STD_OUT,"(30X,A,A30,I0)") "->", "Steps to skip: ", self % period - 1
+
       if (allocated(self % method1)) then
          write(STD_OUT,*) ""
          write(STD_OUT,"(30X,A,A30)") "=>", "First method"
@@ -391,34 +383,17 @@ module ShockCapturing
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable :: update
+      character(len=LINE_LENGTH) :: update
 
 !
 !     Viscosity values (mu and alpha)
 !     -------------------------------
       if (region == 1) then
-
-         if (controlVariables % containsKey(SC_MU1_KEY)) then
-            self % mu1 = controlVariables % doublePrecisionValueForKey(SC_MU1_KEY)
-         else
-            self % mu1 = 0.0_RP
-         end if
-
-         if (controlVariables % containsKey(SC_MU2_KEY)) then
-            self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
-         else
-            self % mu2 = self % mu1
-         end if
-
+         self % mu1 = controlVariables % getValueOrDefault(SC_MU1_KEY, 0.0_RP)
+         self % mu2 = controlVariables % getValueOrDefault(SC_MU2_KEY, self % mu1)
       else
-
-         if (controlVariables % containsKey(SC_MU2_KEY)) then
-            self % mu2 = controlVariables % doublePrecisionValueForKey(SC_MU2_KEY)
-         else
-            self % mu2 = 0.0_RP
-         end if
+         self % mu2 = controlVariables % getValueOrDefault(SC_MU2_KEY, 0.0_RP)
          self % mu1 = self % mu2
-
       end if
 
       if (controlVariables % containsKey(SC_ALPHA_MU_KEY)) then
@@ -433,28 +408,11 @@ module ShockCapturing
          self % alphaIsPropToMu = .false.
 
          if (region == 1) then
-
-            if (controlVariables % containsKey(SC_ALPHA1_KEY)) then
-               self % alpha1 = controlVariables % doublePrecisionValueForKey(SC_ALPHA1_KEY)
-            else
-               self % alpha1 = 0.0_RP
-            end if
-
-            if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
-               self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
-            else
-               self % alpha2 = self % alpha1
-            end if
-
+            self % alpha1 = controlVariables % getValueOrDefault(SC_ALPHA1_KEY, 0.0_RP)
+            self % alpha2 = controlVariables % getValueOrDefault(SC_ALPHA2_KEY, self % alpha1)
          else
-
-            if (controlVariables % containsKey(SC_ALPHA2_KEY)) then
-               self % alpha2 = controlVariables % doublePrecisionValueForKey(SC_ALPHA2_KEY)
-            else
-               self % alpha2 = 0.0_RP
-            end if
+            self % alpha2 = controlVariables % getValueOrDefault(SC_ALPHA2_KEY, 0.0_RP)
             self % alpha1 = self % alpha2
-
          end if
 
       end if
@@ -463,48 +421,42 @@ module ShockCapturing
 !     -----------------------
       if (region == 1) then
 
-         if (controlVariables % containsKey(SC_UPDATE_KEY)) then
-            update = controlVariables % StringValueForKey(SC_UPDATE_KEY, LINE_LENGTH)
-            call toLower(update)
+         update = controlVariables % getValueOrDefault(SC_UPDATE_KEY, LINE_LENGTH, SC_CONST_VAL)
+         call toLower(update)
 
-            select case (trim(update))
-            case (SC_CONST_VAL)
-               self % updateMethod = SC_CONST_ID
-
-            case (SC_SENSOR_VAL)
-               self % updateMethod = SC_SENSOR_ID
-
-#if !defined (SPALARTALMARAS)
-            case (SC_SMAG_VAL)
-
-               self % updateMethod = SC_SMAG_ID
-               if (.not. self % alphaIsPropToMu) then
-                  write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using shock-capturing with LES.'
-                  stop
-               end if
-
-               ! TODO: Use the default constructor
-               self % Smagorinsky % active = .true.
-               self % Smagorinsky % requiresWallDistances = .false.
-               self % Smagorinsky % WallModel = 0  ! No wall model
-               self % Smagorinsky % CS = self % mu1
-#endif
-
-            case default
-               write(STD_OUT,*) 'ERROR. Unavailable shock-capturing update strategy. Options are:'
-               write(STD_OUT,*) '   * ', SC_CONST_VAL
-               write(STD_OUT,*) '   * ', SC_SENSOR_VAL
-#if !defined (SPALARTALMARAS)
-               write(STD_OUT,*) '   * ', SC_SMAG_VAL
-#endif
-               stop
-
-            end select
-
-         else
+         select case (trim(update))
+         case (SC_CONST_VAL)
             self % updateMethod = SC_CONST_ID
 
-         end if
+         case (SC_SENSOR_VAL)
+            self % updateMethod = SC_SENSOR_ID
+
+#if !defined (SPALARTALMARAS)
+         case (SC_SMAG_VAL)
+
+            self % updateMethod = SC_SMAG_ID
+            if (.not. self % alphaIsPropToMu) then
+               write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using shock-capturing with LES.'
+               stop
+            end if
+
+            ! TODO: Use the default constructor
+            self % Smagorinsky % active = .true.
+            self % Smagorinsky % requiresWallDistances = .false.
+            self % Smagorinsky % WallModel = 0  ! No wall model
+            self % Smagorinsky % CS = self % mu1
+#endif
+
+         case default
+            write(STD_OUT,*) 'ERROR. Unavailable shock-capturing update strategy. Options are:'
+            write(STD_OUT,*) '   * ', SC_CONST_VAL
+            write(STD_OUT,*) '   * ', SC_SENSOR_VAL
+#if !defined (SPALARTALMARAS)
+            write(STD_OUT,*) '   * ', SC_SMAG_VAL
+#endif
+            stop
+
+         end select
 
       else
 
@@ -578,7 +530,7 @@ module ShockCapturing
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable :: flux
+      character(len=LINE_LENGTH) :: flux
 
 !
 !     Parent initializer
@@ -588,12 +540,10 @@ module ShockCapturing
 !
 !     Set the flux type
 !     -----------------
-      if (region == 1 .and. controlVariables % containsKey(SC_VISC_FLUX1_KEY)) then
-         flux = controlVariables % stringValueForKey(SC_VISC_FLUX1_KEY, LINE_LENGTH)
-      elseif (region == 2 .and. controlVariables % containsKey(SC_VISC_FLUX2_KEY)) then
-         flux = controlVariables % stringValueForKey(SC_VISC_FLUX2_KEY, LINE_LENGTH)
-      else
-         flux = SC_PHYS_VAL
+      if (region == 1) then
+         flux = controlVariables % getValueOrDefault(SC_VISC_FLUX1_KEY, LINE_LENGTH, SC_PHYS_VAL)
+      else !region == 2
+         flux = controlVariables % getValueOrDefault(SC_VISC_FLUX2_KEY, LINE_LENGTH, SC_PHYS_VAL)
       end if
 
       call toLower(flux)
