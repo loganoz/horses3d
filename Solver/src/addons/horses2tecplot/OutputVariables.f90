@@ -317,6 +317,7 @@ module OutputVariables
          use Storage
          use StatisticsMonitor
          use VariableConversion
+         use FluidData
          implicit none
          integer, intent(in)          :: noOutput
 		 integer, intent(in)		  :: outputVarNames(1:noOutput)
@@ -666,6 +667,7 @@ module OutputVariables
                                              drho(1), drho(2), drho(3))
                      output(var,i,j,k) = drho(1)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) / Lreference * output(var,:,:,:)
 
                case(RHOY_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -673,6 +675,7 @@ module OutputVariables
                                              drho(1), drho(2), drho(3))
                      output(var,i,j,k) = drho(2)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) / Lreference * output(var,:,:,:)
 
                case(RHOZ_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -680,6 +683,7 @@ module OutputVariables
                                              drho(1), drho(2), drho(3))
                      output(var,i,j,k) = drho(3)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) / Lreference * output(var,:,:,:)
 
                case(PX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -687,6 +691,7 @@ module OutputVariables
                                               dp(1), dp(2), dp(3))
                      output(var,i,j,k) = dp(1)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) / Lreference * output(var,:,:,:)
 
                case(PY_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -694,6 +699,7 @@ module OutputVariables
                                               dp(1), dp(2), dp(3))
                      output(var,i,j,k) = dp(2)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) / Lreference * output(var,:,:,:)
 
                case(PZ_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
@@ -701,6 +707,7 @@ module OutputVariables
                                               dp(1), dp(2), dp(3))
                      output(var,i,j,k) = dp(3)
                   end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) / Lreference * output(var,:,:,:)
 
                case(UX_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
