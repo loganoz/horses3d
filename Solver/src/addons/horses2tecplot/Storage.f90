@@ -208,6 +208,7 @@ module Storage
 
       subroutine Mesh_ReadSolution(self,solutionName)
          use Headers
+         use FluidData
          implicit none
          class(Mesh_t)         :: self
          character(len=*), intent(in)     :: solutionName
@@ -224,7 +225,9 @@ module Storage
          integer                        :: iter
          real(kind=RP)                  :: time
          real(kind=RP), allocatable     :: Qdot(:,:,:,:)
-         character(len=1024)  :: msg
+         character(len=1024)            :: msg
+         type(Thermodynamics_t)         :: thermodynamics_
+         type(Dimensionless_t)          :: dimensionless_
 
          self % solutionName = trim(solutionName)
 		 write(STD_OUT,'(10X,A,A)') "Loading Solution File:"
@@ -310,6 +313,15 @@ module Storage
 !        Read reference values
 !        ---------------------
          self % refs = getSolutionFileReferenceValues(trim(solutionName))
+!
+!        Set up physics (TODO)
+!        ---------------------
+         thermodynamics_ % gamma = self % refs(GAMMA_REF)
+         thermodynamics_ % gammaMinus1 = self % refs(GAMMA_REF) - 1.0_RP
+         call SetThermodynamics(thermodynamics_)
+
+         dimensionless_ % gammaM2 = self % refs(GAMMA_REF) * POW2(self % refs(MACH_REF))
+         call SetDimensionless(dimensionless_)
 !
 !        Read coordinates
 !        ----------------
