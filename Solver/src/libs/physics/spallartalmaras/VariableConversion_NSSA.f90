@@ -434,9 +434,9 @@ module VariableConversion_NSSA
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-!     -------------------------------------
-!     Routines to get the density gradients
-!     -------------------------------------
+!     ------------------------------------
+!     Routines to get the density gradient
+!     ------------------------------------
 !
       pure subroutine getDensityGradient_State(Q,Q_x,Q_y,Q_z,rho_x,rho_y,rho_z)
          implicit none
@@ -486,11 +486,11 @@ module VariableConversion_NSSA
          call getVelocityGradients_State(Q, Q_x, Q_y, Q_z, ux, uy, uz)
          u2 = (POW2(Q(IRHOU)) + POW2(Q(IRHOV)) + POW2(Q(IRHOW))) / POW2(Q(IRHO))
 
-         p_x = thermodynamics % gammaMinus1 * (Q_x(IRHOE) - 0.5_RP * Q_x(IRHO) * u2 &
+         p_x = thermodynamics % gammaMinus1 * (Q_x(IRHOE) + 0.5_RP * Q_x(IRHO) * u2 &
              - Q(IRHOU) * ux(1) - Q(IRHOV) * ux(2) - Q(IRHOW) * ux(3))
-         p_y = thermodynamics % gammaMinus1 * (Q_y(IRHOE) - 0.5_RP * Q_y(IRHO) * u2 &
+         p_y = thermodynamics % gammaMinus1 * (Q_y(IRHOE) + 0.5_RP * Q_y(IRHO) * u2 &
              - Q(IRHOU) * uy(1) - Q(IRHOV) * uy(2) - Q(IRHOW) * uy(3))
-         p_z = thermodynamics % gammaMinus1 * (Q_z(IRHOE) - 0.5_RP * Q_z(IRHO) * u2 &
+         p_z = thermodynamics % gammaMinus1 * (Q_z(IRHOE) + 0.5_RP * Q_z(IRHO) * u2 &
              - Q(IRHOU) * uz(1) - Q(IRHOV) * uz(2) - Q(IRHOW) * uz(3))
 
       end subroutine getPressureGradient_State
