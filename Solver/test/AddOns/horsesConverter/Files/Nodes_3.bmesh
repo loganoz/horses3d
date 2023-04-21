@@ -1,0 +1,21 @@
+           5
+ top                                                             
+           4
+       1       2       3       3
+       2       2       2       4
+ symmetry_r                                                      
+           3
+       1       2       3
+       3       3       3
+ left                                                            
+           1
+       1
+       6
+ bottom                                                          
+           3
+       1       2       3
+       1       1       1
+ symmetry_l                                                      
+           3
+       1       2       3
+       5       5       5

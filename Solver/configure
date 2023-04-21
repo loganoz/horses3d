@@ -89,6 +89,10 @@ COMPONENTS_TEST_CASES="FacePatches \
 		       HexMappings \
  		       MeshConsistency \
 		       NodalStorage"
+			   
+ADDONS="./AddOns/horsesConverter/MappingResult \
+        ./AddOns/horsesConverter/HorsesMesh2OF \
+        ./AddOns/horsesConverter/OF2Horses"
 
 cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
@@ -120,6 +124,10 @@ for subdir in $COMPONENTS_TEST_CASES; do
 	sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/$subdir/Makefile
 	sed -i -e "s#@PROG_NAME#$subdir#g" ./test/Components/$subdir/Makefile
 	rm -f ./test/Components/$subdir/Makefile-e
+done
+
+for subdir in $ADDONS; do
+	ln -fsv $PWD/bin/horsesConverter ./test/$subdir
 done
 
 # Comment gradients as it is outdated
