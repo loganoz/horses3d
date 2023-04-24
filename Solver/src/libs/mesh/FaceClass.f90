@@ -60,6 +60,7 @@
    !
    !     ************************************************************************************
    !
+
          type Face
             type(Face),pointer              :: Mortar(:)                !Array of face pointers to slave mortar faces, (only for big master mortar)
             integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
@@ -190,10 +191,12 @@
          integer,                 intent(in)    :: NelRight(2) ! Right element face polynomial order
          integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
          real(kind=RP), optional, intent(in)    :: offset
+
+         integer :: i 
 #if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
          logical  :: computeGradients = .true.
 #endif
-   !     
+   !     i
    !     -------------------------------------------------------------
    !     First, get face elements polynomial orders (without rotation)
    !     -------------------------------------------------------------
@@ -245,18 +248,25 @@
             call Tset(self % NfLeft(2), self % Nf(2)) % construct(self % NfLeft(2), self % Nf(2))
             call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
          else 
-            call TsetM(self % NfLeft(1), self % Nf(1), 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP)
-            call TsetM(self % Nf(1), self % NfLeft(1), 1) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP)
+            call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 1)
+            call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 2)
    
-            call TsetM(self % NfLeft(1), self % Nf(1), 2) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP)
-            call TsetM(self % Nf(1), self % NfLeft(1), 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP)
+            call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 1)
+            call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 2)
             
-            call TsetM(self % NfLeft(2), self % Nf(2), 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP)
-            call TsetM(self % Nf(2), self % NfLeft(2), 1) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP)
+            call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP, 1)
+            call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP, 2)
    
-            call TsetM(self % NfLeft(2), self % Nf(2), 2) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP)
-            call TsetM(self % Nf(2), self % NfLeft(2), 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP)
-         
+            call TsetM(self % NfLeft(2), self % Nf(2), 2, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 1)
+            call TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 2)
+            !do i = 0, self % NfLeft(1)
+              ! write(*,*) TsetM(self % NfLeft(1), self%Nf(1),1,1)%T(:,i)
+              ! end do 
+              ! write(*,*) "//////////////////////////"
+               !do i = 0, self % NfLeft(1)
+               !   write(*,*) 0.5_RP*TsetM(self % Nf(1), self% NfLeft(1),1,2)%T(:,i)
+              ! end do 
+              ! write(*,*) "//////////////////////////"
          end if 
          
          call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
@@ -264,6 +274,7 @@
          
          call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
          call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
+
    !
    !     -----------------------  0- no projection
    !     Set the projection type: 1- x needs projection
@@ -293,7 +304,7 @@
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
-      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
+      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot, fma, fmb, fmc, fmd)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)              :: self
@@ -303,6 +314,11 @@
          integer,       intent(in)                 :: side
          real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
          logical,       intent(in), optional       :: computeQdot
+         class(Face), optional, intent(inout)      ::fma
+         class(Face), optional, intent(inout)      ::fmb
+         class(Face), optional, intent(inout)      :: fmc
+         class(Face), optional, intent(inout)      :: fmd 
+
    !
    !     ---------------
    !     Local variables
@@ -326,6 +342,7 @@
          !     ! print *, "projectionType 2: ",  self % projectionType(2)
          !     print *, "projectionType side: ",  self % projectionType(side)
          ! end if
+         !write(*,*) "proj sol toface", self % ID 
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
@@ -392,43 +409,84 @@
             end select
             end associate
          end select
+        !write(*,*) Tset(self % NfRight(1), self % Nf(1)) % T
       end if 
       if (self % isMortar==1)  then 
+         if(side .ne. 1) then 
+            write(*,*)'problem big mortar on wrong side'
+         end if 
             do lm=1,4   
                select case (lm)
                case (1)
                   a=2
                   b=2 
-               case(2)
-                  a=1
-                  b=2
-               case(3)
-                  a=1
-                  b=1
-               case(4)
-                  a=2
-                  b=1
-               end select  
-               associate(Qf => self % Mortar(lm) % storage(1) % Q)
-                  Qf = 0.0_RP
-                  do l = 0, self % Mortar(lm) % NfLeft(2)  ; do j = 0, self % Mortar(lm) % Nf(2)   
-                     do m = 0, self % Mortar(lm) % NfLeft(1) ; do i = 0, self % Mortar(lm) % Nf(1)
-                        Qf(:,i,j) = Qf(:,i,j) + TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                self % Mortar(lm) % Nf(1), a) % T(i,m) &
-                                             * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                                self % Mortar(lm) % Nf(2), b) % T(j,l) &
+                  associate(Qf => fma % storage(1) % Q)
+                     Qf = 0.0_RP
+                  do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   
+                     do m = 0, fma % NfLeft(1) ; do i = 0, fma % Nf(1)
+                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fma % NfLeft(1), &
+                        fma % Nf(1), a, 1) % T(i,m) &
+                                           * TsetM(fma % NfLeft(2), &
+                                           fma % Nf(2), b, 1) % T(j,l) &
                                              * Qe(:,m,l)
                      end do                 ; end do
                   end do                  ; end do
                end associate
+               
+               case(2)
+                  a=1!
+                  b=2!
+                  associate(Qf => fmb % storage(1) % Q)
+                     Qf = 0.0_RP
+                  do l = 0, fmb % NfLeft(2)  ; do j = 0, fmb % Nf(2)   
+                     do m = 0, fmb % NfLeft(1) ; do i = 0, fmb % Nf(1)
+                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmb % NfLeft(1), &
+                        fmb % Nf(1), a, 1) % T(i,m) &
+                                           * TsetM(fmb % NfLeft(2), &
+                                           fmb % Nf(2), b, 1) % T(j,l) &
+                                             * Qe(:,m,l)
+                     end do                 ; end do
+                  end do                  ; end do
+               end associate
+               case(3)
+                  a=1
+                  b=1
+                  associate(Qf => fmc % storage(1) % Q)
+                     Qf = 0.0_RP
+                  do l = 0, fmc % NfLeft(2)  ; do j = 0, fmc % Nf(2)   
+                     do m = 0, fmc % NfLeft(1) ; do i = 0, fmc % Nf(1)
+                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmc % NfLeft(1), &
+                        fmc % Nf(1), a, 1) % T(i,m) &
+                                           * TsetM(fmc % NfLeft(2), &
+                                           fmc % Nf(2), b, 1) % T(j,l) &
+                                             * Qe(:,m,l)
+                     end do                 ; end do
+                  end do                  ; end do
+               end associate
+               case(4)
+                  a=2!
+                  b=1!
+                  associate(Qf => fmd % storage(1) % Q)
+                     Qf = 0.0_RP
+                  do l = 0, fmd % NfLeft(2)  ; do j = 0, fmd % Nf(2)   
+                     do m = 0, fmd % NfLeft(1) ; do i = 0, fmd % Nf(1)
+                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmd % NfLeft(1), &
+                        fmd % Nf(1), a, 1) % T(i,m) &
+                                           * TsetM(fmd % NfLeft(2), &
+                                           fmd % Nf(2), b, 1) % T(j,l) &
+                                             * Qe(:,m,l)
+                     end do                 ; end do
+                  end do                  ; end do
+               end associate
+               end select  
             end do     
       end if
-   
+
       end subroutine Face_AdaptSolutionToFace
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
-      subroutine Face_AdaptGradientsToFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side)
+      subroutine Face_AdaptGradientsToFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side, fma, fmb, fmc ,fmd)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)  :: self
@@ -438,6 +496,10 @@
          real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
          real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
          integer,       intent(in)     :: side
+         class(Face), optional, intent(inout)      ::fma
+         class(Face), optional, intent(inout)      ::fmb
+         class(Face), optional, intent(inout)      :: fmc
+         class(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
@@ -580,19 +642,19 @@
                do l = 0, self % Mortar(lm) % NfLeft(2)  ; do j = 0, self % Mortar(lm) % Nf(2)   
                   do m = 0, self % Mortar (lm) % NfLeft(1) ; do i = 0, self % Mortar(lm) %Nf(1)
                      Uxf(:,i,j) = Uxf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1) , &
-                                                self % Mortar(lm) %  Nf(1), a) % T(i,m) &
+                                                self % Mortar(lm) %  Nf(1), a, 1) % T(i,m) &
                                                * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                                self % Mortar(lm) %Nf(2), b) % T(j,l) &
+                                                self % Mortar(lm) %Nf(2), b, 1) % T(j,l) &
                                                * Uxe_rot(:,m,l)
                      Uyf(:,i,j) = Uyf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                self % Mortar(lm) % Nf(1), a) % T(i,m) &
+                                                self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
                                                * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                               self % Mortar(lm) % Nf(2), b) % T(j,l) &
+                                               self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
                                                * Uye_rot(:,m,l)
                      Uzf(:,i,j) = Uzf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                self % Mortar(lm) % Nf(1), a) % T(i,m) &
+                                                self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
                                                * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                               self % Mortar(lm) % Nf(2), b) % T(j,l) &
+                                               self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
                                                * Uze_rot(:,m,l)
                   end do                 ; end do
                end do                  ; end do
@@ -602,7 +664,7 @@
    
       end subroutine Face_AdaptGradientsToFace
    
-      subroutine Face_AdaptAviscFluxToFace(self, nEqn, Nelx, Nely, AVn_e, side)
+      subroutine Face_AdaptAviscFluxToFace(self, nEqn, Nelx, Nely, AVn_e, side, fma, fmb, fmc, fmd)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)  :: self
@@ -610,6 +672,10 @@
          integer,       intent(in)     :: Nelx, Nely
          real(kind=RP), intent(in)     :: AVn_e(1:nEqn, 0:Nelx, 0:Nely)
          integer,       intent(in)     :: side
+         class(Face), optional, intent(inout)      ::fma
+         class(Face), optional, intent(inout)      ::fmb
+         class(Face), optional, intent(inout)      :: fmc
+         class(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
@@ -706,9 +772,9 @@
                do l = 0, self % Mortar(lm) % NfLeft(2)  ; do j = 0, self % Mortar (lm) % Nf(2)   
                   do m = 0, self % Mortar(lm) % NfLeft(1) ; do i = 0, self % Mortar(lm) % Nf(1)
                      AVf(:,i,j) = AVf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                   self % Mortar(lm) % Nf(1), a) % T(i,m) &
+                                                   self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
                                                * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                                   self % Mortar(lm) % Nf(2), b) % T(j,l) &
+                                                   self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
                                                * AVn_e(:,m,l)
                   end do                 ; end do
                end do                  ; end do
@@ -718,7 +784,8 @@
    
       end subroutine Face_AdaptAviscFluxToFace
    
-      subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements, flux_M1, flux_M2, flux_M3, flux_M4)
+      subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements, flux_M1, flux_M2, flux_M3, flux_M4, fma, fmb, &
+         fmc, fmd)
          use MappedGeometryClass
          use PhysicsStorage
          implicit none
@@ -727,10 +794,14 @@
          real(kind=RP), optional, intent(in)  :: flux(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
          integer,       intent(in)  :: whichElements(2)
    
-         real(kind=RP), optional, intent(in)  :: flux_M1(1:nEqn, 0:self % Mortar(1) % Nf(1), 0:self % Mortar(1) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: flux_M2(1:nEqn, 0:self % Mortar(2) % Nf(1), 0:self % Mortar(2) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: flux_M3(1:nEqn, 0:self % Mortar(3) % Nf(1), 0:self % Mortar(3) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: flux_M4(1:nEqn, 0:self % Mortar(4) % Nf(1), 0:self % Mortar(4) % Nf(2))
+         real(kind=RP), optional, intent(in)  :: flux_M1(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), optional, intent(in)  :: flux_M2(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), optional, intent(in)  :: flux_M3(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), optional, intent(in)  :: flux_M4(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         class(Face), optional, intent(inout)      ::fma
+         class(Face), optional, intent(inout)      ::fmb
+         class(Face), optional, intent(inout)      :: fmc
+         class(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
@@ -775,43 +846,43 @@
                   associate(fStar => self % storage(1) % Fstar)
                   fStar(1:nEqn,:,:) = 0.0
    
-                  do l = 0, self % Mortar(1) % Nf(2)  ; do j = 0, self % Mortar(1) % NfLeft(2)   
-                     do m = 0, self % Mortar(1) % Nf(1) ; do i = 0, self % Mortar (1) % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(self % Mortar(1) % Nf(1), &
-                                                               self % Mortar(1) % NfLeft(1), 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(self % Mortar(1) % Nf(2), &
-                                                               self % Mortar(1) % NfLeft(2), 2) % T(j,l) &
+                  do l = 0, fma % Nf(2)  ; do j = 0, fma % NfLeft(2)   
+                     do m = 0, fma % Nf(1) ; do i = 0, fma % NfLeft(1)
+                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fma % Nf(1), &
+                                                               fma % NfLeft(1), 2, 2) % T(i,m) &
+                                                               * 0.5_RP* TsetM(fma % Nf(2), &
+                                                               fma % NfLeft(2), 2, 2) % T(j,l) &
                                                                * flux_M1(:,m,l)
                      end do                 ; end do
                   end do                  ; end do
    
-                  do l = 0, self % Mortar(2) % Nf(2)  ; do j = 0, self % Mortar(2) % NfLeft(2)   
-                     do m = 0, self % Mortar(2) % Nf(1) ; do i = 0, self % Mortar(2) % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(self % Mortar(2) % Nf(1), &
-                                                               self % Mortar(2) % NfLeft(1), 1) % T(i,m) &
-                                                               * 0.5_RP* TsetM(self % Mortar(2) % Nf(2), &
-                                                               self % Mortar(2) % NfLeft(2), 2) % T(j,l) &
+                  do l = 0, fmb % Nf(2)  ; do j = 0, fmb % NfLeft(2)   
+                     do m = 0, fmb % Nf(1) ; do i = 0, fmb % NfLeft(1)
+                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmb % Nf(1), &
+                                                               fmb % NfLeft(1), 2, 2) % T(i,m) &
+                                                               * 0.5_RP* TsetM(fmb % Nf(2), &
+                                                               fmb % NfLeft(2), 1, 2) % T(j,l) &
                                                                * flux_M2(:,m,l)
                      end do                 ; end do
                   end do                  ; end do
    
-                  do l = 0, self % Mortar(3) % Nf(2)  ; do j = 0, self % Mortar(3) % NfLeft(2)   
-                     do m = 0, self % Mortar(3) % Nf(1) ; do i = 0, self % Mortar(3) % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(self % Mortar(3) % Nf(1), &
-                                                               self % Mortar(3) % NfLeft(1), 1) % T(i,m) &
-                                                               * 0.5_RP* TsetM(self % Mortar(3) % Nf(2), &
-                                                               self % Mortar(3) % NfLeft(2), 1) % T(j,l) &
+                  do l = 0, fmc % Nf(2)  ; do j = 0, fmc % NfLeft(2)   
+                     do m = 0,  fmc % Nf(1) ; do i = 0, fmc % NfLeft(1)
+                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmc% Nf(1), &
+                                                               fmc % NfLeft(1), 1, 2) % T(i,m) &
+                                                               * 0.5_RP* TsetM(fmc % Nf(2), &
+                                                               fmc % NfLeft(2), 1, 2) % T(j,l) &
                                                                * flux_M3(:,m,l)
    
                      end do                 ; end do
                   end do                  ; end do
    
-                  do l = 0, self % Mortar(4) % Nf(2)  ; do j = 0, self % Mortar(4) % NfLeft(2)   
-                     do m = 0, self % Mortar(4) % Nf(1) ; do i = 0, self % Mortar(4) % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(self % Mortar(4) % Nf(1), &
-                                                               self % Mortar(4) % NfLeft(1), 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(self % Mortar(4) % Nf(2), &
-                                                               self % Mortar(4) % NfLeft(2), 1) % T(j,l) &
+                  do l = 0, fmd % Nf(2)  ; do j = 0, fmd% NfLeft(2)   
+                     do m = 0, fmd % Nf(1) ; do i = 0, fmd % NfLeft(1)
+                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmd % Nf(1), &
+                                                                fmd % NfLeft(1), 1, 2) % T(i,m) &
+                                                               * 0.5_RP* TsetM(fmd % Nf(2), &
+                                                               fmd % NfLeft(2), 2, 2) % T(j,l) &
                                                                * flux_M4(:,m,l)
    
                      end do                 ; end do
@@ -1009,13 +1080,13 @@
                         a=2
                         b=1
                      end select    
-                     do l = 0, self % Mortar(lm) % Nf(2)  ; do j = 0, self % Mortar(lm) % NfLeft(2)   
-                        do m = 0, self % Mortar(lm) % Nf(1) ; do i = 0, self % Mortar (lm) % NfLeft(1)
+                     do l = 0, self % Mortar(lm)% Nf(2)  ; do j = 0, self % Mortar(lm) % NfLeft(2)   
+                        do m = 0, self % Mortar(lm) % Nf(1) ; do i = 0, self % Mortar (lm)% NfLeft(1)
                            dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
                                                                +  0.5_RP* TsetM(self % Mortar(lm) % Nf(1), &
-                                                                  self % Mortar(lm) % NfLeft(1), a) % T(i,m) &
+                                                                  self % Mortar(lm) % NfLeft(1), a, 2) % T(i,m) &
                                                                   * 0.5_RP* TsetM(self % Mortar(lm) % Nf(2), &
-                                                                  self % Mortar(lm) % NfLeft(2), b) % T(j,l) &
+                                                                  self % Mortar(lm) % NfLeft(2), b, 2) % T(j,l) &
                                                                   * fluxDeriv(:,:,m,l)
                         end do                 ; end do
                      end do                  ; end do
@@ -1143,9 +1214,9 @@
                   do l = 0, self % Mortar(1) % Nf(2)  ; do j = 0, self % Mortar(1) % NfLeft(2)   
                      do m = 0, self % Mortar(1) % Nf(1) ; do i = 0, self % Mortar(1) % NfLeft(1)
                         unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(1) % Nf(1), &
-                                                            self % Mortar(1) % NfLeft(1), 2) % T(i,m) &
+                                                            self % Mortar(1) % NfLeft(1), 2, 2) % T(i,m) &
                                                             * 0.5_RP* TsetM(self % Mortar(1) % Nf(2), &
-                                                            self % Mortar(1) % NfLeft(2), 2) % T(j,l) &
+                                                            self % Mortar(1) % NfLeft(2), 2, 2) % T(j,l) &
                                                              * HfluxM1(:,:,m,l)
                      end do                 ; end do
                   end do                  ; end do
@@ -1153,19 +1224,19 @@
                   do l = 0, self % Mortar(2) % Nf(2)  ; do j = 0, self % Mortar(2) % NfLeft(2)   
                      do m = 0, self % Mortar(2) % Nf(1) ; do i = 0, self % Mortar(2) % NfLeft(1)
                         unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(2) % Nf(1), &
-                                                            self % Mortar(2) % NfLeft(1), 1) % T(i,m) &
+                                                            self % Mortar(2) % NfLeft(1), 1, 2) % T(i,m) &
                                                             * 0.5_RP* TsetM(self % Mortar(2) % Nf(2), &
-                                                            self % Mortar(2) % NfLeft(2), 2) % T(j,l) &
+                                                            self % Mortar(2) % NfLeft(2), 2, 2) % T(j,l) &
                                                              * HfluxM2(:,:,m,l)
                      end do                 ; end do
                   end do                  ; end do
    
                   do l = 0, self % Mortar(3) % Nf(2)  ; do j = 0, self % Mortar(3) % NfLeft(2)   
-                     do m = 0, self % Mortar(3) % Nf(1) ; do i = 0, self % Mortar(3) % NfLeft(1)
+                     do m = 0, self % Mortar(3) % Nf(1) ; do i = 0, self % Mortar(3)% NfLeft(1)
                         unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(3) % Nf(1), &
-                                                            self % Mortar(3) % NfLeft(1), 1) % T(i,m) &
+                                                            self % Mortar(3) % NfLeft(1), 1, 2) % T(i,m) &
                                                             * 0.5_RP* TsetM(self % Mortar(3) % Nf(2), &
-                                                            self % Mortar(3) % NfLeft(2), 1) % T(j,l) &
+                                                            self % Mortar(3) % NfLeft(2), 1, 2) % T(j,l) &
                                                             * HfluxM3(:,:,m,l)
                      end do                 ; end do
                   end do                  ; end do
@@ -1173,9 +1244,9 @@
                   do l = 0, self % Mortar(4) % Nf(2)  ; do j = 0, self % Mortar(4) % NfLeft(2)   
                      do m = 0, self % Mortar(4) % Nf(1) ; do i = 0, self % Mortar(4) % NfLeft(1)
                         unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(4) % Nf(1), &
-                                                            self % Mortar(4) % NfLeft(1), 2) % T(i,m) &
+                                                            self % Mortar(4) % NfLeft(1), 2, 2) % T(i,m) &
                                                             * 0.5_RP* TsetM(self % Mortar(4) % Nf(2), &
-                                                            self % Mortar(4) % NfLeft(2), 1) % T(j,l) &
+                                                            self % Mortar(4) % NfLeft(2), 1, 2) % T(j,l) &
                                                             * HfluxM4(:,:,m,l)
                      end do                 ; end do
                   end do                  ; end do
@@ -1318,9 +1389,9 @@
                      do m = 0, self % Mortar(lm) % Nf(1) ; do i = 0, self % Mortar (lm) % NfLeft(1)
                         dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) &
                                                             +  0.5_RP* TsetM(self % Mortar(lm) % Nf(1), &
-                                                               self % Mortar(lm) % NfLeft(1), a) % T(i,m) &
+                                                               self % Mortar(lm) % NfLeft(1), a, 2) % T(i,m) &
                                                                * 0.5_RP* TsetM(self % Mortar(lm) % Nf(2), &
-                                                               self % Mortar(lm) % NfLeft(2), b) % T(j,l) &
+                                                               self % Mortar(lm) % NfLeft(2), b, 2) % T(j,l) &
                                                                * fluxDeriv(:,:,:,m,l)
                      end do                 ; end do
                   end do                  ; end do
