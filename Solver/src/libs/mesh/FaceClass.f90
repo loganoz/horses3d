@@ -353,7 +353,7 @@
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
-      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot)
+      subroutine Face_AdaptSolutionToFace(self, nEqn, Nelx, Nely, Qe, side, QdotE, computeQdot, fma, fmb, fmc, fmd)
          use MappedGeometryClass
          implicit none
          class(Face),   intent(inout)              :: self
