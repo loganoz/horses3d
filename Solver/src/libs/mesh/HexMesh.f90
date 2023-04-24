@@ -74,6 +74,8 @@ MODULE HexMeshClass
          integer                                   :: dir2D_ctrl  = 0               ! dir2D as in the control file
          logical                                   :: anisotropic = .FALSE.         ! Is the mesh composed by elements with anisotropic polynomial orders? default false
          logical                                   :: ignoreBCnonConformities = .FALSE.
+         logical                                   :: nonconforming= .FALSE. 
+         logical                                   :: sliding= .FALSE.
          integer,                     allocatable  :: HO_Elements(:)           !List of elements with polynomial order greater than 1
          integer,                     allocatable  :: LO_Elements(:)           !List of elements with polynomial order less or equal than 1
          integer,                     allocatable  :: HO_FacesInterior(:)      !List of interior faces with polynomial order greater than 1
@@ -1129,13 +1131,24 @@ slavecoord:             DO l = 1, 4
 !$omp do schedule(runtime)
          do eID = 1, size(self % elements)
             fIDs = self % elements(eID) % faceIDs
-            call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
-                                                                self % faces(fIDs(1)),&
-                                                                self % faces(fIDs(2)),&
-                                                                self % faces(fIDs(3)),&
-                                                                self % faces(fIDs(4)),&
-                                                                self % faces(fIDs(5)),&
-                                                                self % faces(fIDs(6)) )
+            if (.not.self%nonconforming) then 
+               call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+                                                               fFR=self % faces(fIDs(1)),&
+                                                               fBK=self % faces(fIDs(2)),&
+                                                               fBOT=self % faces(fIDs(3)),&
+                                                               fR=self % faces(fIDs(4)),&
+                                                               fT=self % faces(fIDs(5)),&
+                                                               fL=self % faces(fIDs(6)), nf=self%NumberOfFaces )
+            else 
+               call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
+                                                               fFR=self % faces(fIDs(1)),&
+                                                               fBK=self % faces(fIDs(2)),&
+                                                               fBOT=self % faces(fIDs(3)),&
+                                                               fR=self % faces(fIDs(4)),&
+                                                               fT=self % faces(fIDs(5)),&
+                                                               fL=self % faces(fIDs(6)), nf=self%NumberOfFaces,&
+                                                               faces=self % faces )
+            end if 
          end do
 !$omp end do
 
@@ -4238,35 +4251,13 @@ slavecoord:             DO l = 1, 4
       if (Face_St) then
          do fID = 1, size(self % faces)
             associate ( f => self % faces(fID) )
-               write(*,*) 'allocating storage for face', fID
                call f % storage(1) % Construct(NDIM, f % Nf, f % NelLeft , computeGradients, .FALSE., FaceComputeQdot)
                call f % storage(2) % Construct(NDIM, f % Nf, f % NelRight, computeGradients, .FALSE., FaceComputeQdot)
-               write(*,*)'yeahhh'
-               associate(Qf => f % storage(1) % Q)
-                  Qf = 0.0_RP
-                  write(*,*) Qf(1,1,1)
-               end associate 
+
             end associate
          end do
       end if
-     !do fID = 1, size(self % faces)
-         !associate ( f => self % faces(fID) )
-            !if (f % IsMortar==1) then 
-            !write(*,*) 'big master', fID
-            !do eID=1,4
-               !associate (fm=>self % faces(fID)%Mortar(eID))
-                  !write(*,*)'slave', fm % ID 
-                  !associate(Qf => self % faces(fID)%Mortar(eID) % storage(1) % Q)
-                  !associate(Qf=>fm % storage(1) % Q)
-                     !Qf=> self % faces(fID)%Mortar(eID) % storage(1) % Q 
-                 ! Qf = 0.0_RP
-                !  write(*,*) Qf(1,1,1)
-                 ! end associate 
-              ! end associate 
-           ! end do 
-           ! end if 
-        ! end associate 
-      !end do 
+
 !     Point element storage
 !     ---------------------
       DO eID = 1, SIZE(self % elements)
