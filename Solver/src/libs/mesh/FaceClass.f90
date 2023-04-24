@@ -60,6 +60,7 @@
    !
    !     ************************************************************************************
    !
+
          type Face
             type(Face),pointer              :: Mortar(:)                !Array of face pointers to slave mortar faces, (only for big master mortar)
             integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
@@ -275,6 +276,7 @@
          
          call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
          call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
+
    !
    !     -----------------------  0- no projection
    !     Set the projection type: 1- x needs projection
