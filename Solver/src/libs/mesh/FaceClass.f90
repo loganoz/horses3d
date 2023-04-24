@@ -60,6 +60,7 @@
    !
    !     ************************************************************************************
    !
+
          type Face
          integer, allocatable            :: Mortar(:)                !fID of the slave mortar slve
          integer                         :: IsMortar                 !0 = conforming, 1 = big master mortar, 2 = small slave 
