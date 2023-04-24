@@ -4627,24 +4627,7 @@ if (.not.self % nonconforming) then
             end associate
          end do
       end if
-     !do fID = 1, size(self % faces)
-         !associate ( f => self % faces(fID) )
-            !if (f % IsMortar==1) then 
-            !write(*,*) 'big master', fID
-            !do eID=1,4
-               !associate (fm=>self % faces(fID)%Mortar(eID))
-                  !write(*,*)'slave', fm % ID 
-                  !associate(Qf => self % faces(fID)%Mortar(eID) % storage(1) % Q)
-                  !associate(Qf=>fm % storage(1) % Q)
-                     !Qf=> self % faces(fID)%Mortar(eID) % storage(1) % Q 
-                 ! Qf = 0.0_RP
-                !  write(*,*) Qf(1,1,1)
-                 ! end associate 
-              ! end associate 
-           ! end do 
-           ! end if 
-        ! end associate 
-      !end do 
+
 !     Point element storage
 !     ---------------------
       DO eID = 1, SIZE(self % elements)
