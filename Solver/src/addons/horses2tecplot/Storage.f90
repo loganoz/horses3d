@@ -66,6 +66,8 @@ module Storage
       integer                    :: no_of_faces
       integer, allocatable       :: elements(:)
       integer, allocatable       :: elementSides(:)
+	  logical, allocatable       :: cornerDomain(:)
+	  logical, allocatable       :: edgeDomain(:)	
    end type Boundary_t
 
    type Mesh_t
@@ -514,6 +516,8 @@ module Storage
 
                allocate ( boundaries(bID) % elements    (boundaries(bID) % no_of_faces) )
                allocate ( boundaries(bID) % elementSides(boundaries(bID) % no_of_faces) )
+			   allocate ( boundaries(bID) % cornerDomain(boundaries(bID) % no_of_faces) )
+			   allocate ( boundaries(bID) % edgeDomain  (boundaries(bID) % no_of_faces) )
 
                read(fd,*) boundaries(bID) % elements
                read(fd,*) boundaries(bID) % elementSides

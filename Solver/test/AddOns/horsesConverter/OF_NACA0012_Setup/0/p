@@ -1,0 +1,48 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      p;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [1 -1 -2 0 0 0 0];
+
+internalField   uniform 101325;
+
+boundaryField
+{
+    inflow
+    {
+        type            zeroGradient;
+    }
+    back
+    {
+        type            symmetry;
+    }
+    outflow
+    {
+        type            waveTransmissive;
+        gamma           1.4;
+        fieldInf        101325;
+        lInf            40;
+        value           uniform 101325;
+    }
+    airfoilt
+    {
+        type            zeroGradient;
+    }
+    front
+    {
+        type            symmetry;
+    }
+    airfoilb
+    {
+        type            zeroGradient;
+    }
+}
+
+
+// ************************************************************************* //
