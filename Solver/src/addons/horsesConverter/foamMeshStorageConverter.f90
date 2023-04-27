@@ -677,7 +677,7 @@ MODULE foamMeshStorageConverter
                     BufferSet(:)    = ArraySet(:,k-1)
                     ArraySet(:,k-1) = ArraySet(:,k)
                     ArraySet(:,k)   = BufferSet(:)
-                    IF(k.GT.1) THEN
+                    IF(k.GT.2) THEN
                         CALL sortItegerArrayMinMax(sizeArray, ArraySet, nColumn, k-1)
                     END IF
                 END IF
