@@ -169,7 +169,6 @@ MODULE convertVTK2Horses
 !$omp do schedule(runtime) private(i,j,k,x,ii,pointID,pIDstart)			 
 		 DO eID=1, mesh % no_of_elements
 			pIDstart=pIDstartGlobal
-			associate ( e => mesh % elements(eID) )
 			
 !$omp critical
 		    counter = counter + 1
@@ -177,7 +176,8 @@ MODULE convertVTK2Horses
 				write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Elements: ", counter," of ", mesh % no_of_elements
 			END IF			
 !$omp end critical
-			
+
+			associate ( e => mesh % elements(eID) )
 			allocate( e % Qout(1:5,0:e % Nout(1),0:e % Nout(2),0:e % Nout(3)) )
 			e % Qout=0.0_RP
 			DO k = 0, e % Nout(3) ; DO j = 0, e % Nout(2) ; DO i = 0, e % Nout(1)
