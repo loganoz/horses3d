@@ -252,15 +252,17 @@ MODULE foamMeshStorageConverter
 !           Correct the number point with identical location
 !           ------------------------------------------------
 			write(STD_OUT,'(20X,A,A)') "->  ", "Looping to correct number point with identical location ..."
-			l = 1
+			l = 0
 !$omp parallel shared(mesh, self, tol, l, multiplePoints, nMultiplePoints, multiplePointsEdge, nMultiplePointsEdge )
 !$omp do schedule(runtime) private(k,i2,k2,x)	
 
 			DO i=1, nMultiplePoints
-				IF (i .eq. l*int(nMultiplePoints/5)) then
-					write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Multiple Points: ", i," of ", nMultiplePoints
-					l=l+1
+!$omp critical
+				l = l + 1
+				IF (mod (l,int(nMultiplePoints/5)).eq.0) then
+					write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Multiple Points: ", l," of ", nMultiplePoints
 				END IF
+!$omp end critical
 				
 				k=multiplePoints(i)
 				ASSOCIATE(p =>self % horsesPoints (k))
@@ -286,13 +288,15 @@ MODULE foamMeshStorageConverter
 			END DO 
 !$omp end do
 			
-			l=1
+			l = 0
 !$omp do schedule(runtime) private(k,i2,k2,x)	
 			DO i=1, nMultiplePointsEdge
-				IF (i .eq. l*int(nMultiplePointsEdge/5)) then
-					write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Multiple Points Edge: ", i," of ", nMultiplePointsEdge
-					l=l+1
+!$omp critical 
+				l = l + 1
+				IF (mod(l,int(nMultiplePointsEdge/5)).eq.0) then
+					write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Multiple Points Edge: ", l," of ", nMultiplePointsEdge
 				END IF
+!$omp end critical
 				
 				k=multiplePointsEdge(i)
 				ASSOCIATE(p =>self % horsesPoints (k))
@@ -673,7 +677,7 @@ MODULE foamMeshStorageConverter
                     BufferSet(:)    = ArraySet(:,k-1)
                     ArraySet(:,k-1) = ArraySet(:,k)
                     ArraySet(:,k)   = BufferSet(:)
-                    IF(k.GT.1) THEN
+                    IF(k.GT.2) THEN
                         CALL sortItegerArrayMinMax(sizeArray, ArraySet, nColumn, k-1)
                     END IF
                 END IF

@@ -226,6 +226,7 @@ MODULE foamResultVTKStorageConverter
 		DO k=1, nData
 			inputLine=trim(inputLine)
 			ii=ii+1
+			if (ii.gt.nPoints) exit
 			cEnd   = INDEX(inputLine,' ', .false. )
 			input  = inputLine(1:cEnd-1)
 			inputLine = inputLine(cEnd+1:len(inputLine))
@@ -273,6 +274,7 @@ MODULE foamResultVTKStorageConverter
 					ii=1
 					jj=jj+1
 				end if
+				if (jj.gt.nPoints) exit
 				cEnd   = INDEX(inputLine,' ', .false. )
 				input  = inputLine(1:cEnd-1)
 				inputLine = inputLine(cEnd+1:len(inputLine))

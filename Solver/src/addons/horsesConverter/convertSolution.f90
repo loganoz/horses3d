@@ -129,8 +129,8 @@ MODULE convertSolution
 		
 	  SUBROUTINE interpolation (mesh1, mesh2)
          implicit none
-         class(Mesh_t),      intent(in)  :: mesh1
-		 class(Mesh_t),      intent(inout)  :: mesh2 
+         class(Mesh_t),          intent(in)  :: mesh1
+		 class(Mesh_t),target,intent(inout)  :: mesh2 
 	  
 !
 !        ---------------
@@ -141,14 +141,23 @@ MODULE convertSolution
 		 integer					   :: eID1, eID2, eIDOut, eIDf, eID
 		 real(kind=RP)  			   :: xi(NDIM)
 		 logical                       :: success = .false.
+		 type(element_t), pointer      :: e => null()
 		 
          real(kind=RP) , allocatable   :: lxi(:), leta(:), lzeta(:)
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
 		 
 		 eIDOut=1
-		 counter=1
+		 counter=0
 		 
-		 call addNewSpectralBasis(spA, mesh1 % elements(1) % Nmesh, mesh1 % nodeType)
+		 n=0
+		 do i=1, mesh1 % no_of_elements
+			m=maxval(mesh1 % elements(i) % Nmesh)
+			if (m.gt.n) then 
+				n=m
+				eID=i
+		    end if
+		 end do 
+		 call addNewSpectralBasis(spA, mesh1 % elements(eID) % Nmesh, mesh1 % nodeType)
 !
 !        Interpolation Process
 !        ---------------------
@@ -156,80 +165,75 @@ MODULE convertSolution
          write(STD_OUT,'(10X,A,A)') "Interpolate Result:"
          write(STD_OUT,'(10X,A,A)') "------------------"
 
-!$omp parallel shared(mesh1, mesh2, counter, eIDOut )
-!$omp do schedule(runtime) private(i,j,k,l,m,n,eID1,xi,lxi,leta,lzeta, success, eIDf, eID)
+!$omp parallel do schedule(runtime) default(private) shared(mesh1, mesh2, counter, spA) firstprivate(eIDout)
 		 
 		 do eID2=1, mesh2 % no_of_elements
 			eIDf = eIDOut
-			associate( e => mesh2 % elements(eID2) )
-			
-				if (eID2.eq.counter*int(mesh2 % no_of_elements/10))then
-					write(STD_OUT,'(30X,A,A15,I6,A4,I7)') "->","Element: ", eID2," of ",  mesh2 % no_of_elements
-					counter=counter+1
-				end if 
-!
-!              	 Allocate memory for the coordinates
-!              	 -----------------------------------            
-				 allocate( e % Qout(1:NVARS,0:e % Nout(1),0:e % Nout(2),0:e % Nout(3)) )
-				 
-				 e % Qout (:,:,:,:)=0.0_RP
-			do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
-				  success = .false.
-				  
-!    			  Search in high order element 
-					do eID=1, mesh1 % no_of_elements
-						eID1=eIDf-1+INT((-1)**(eID+1)*CEILING(REAL(eID/2_RP)))
-						if (eID1.le.0) eID1=eID1+mesh1 % no_of_elements
-						if (eID1.gt.mesh1 % no_of_elements) eID1=eID1-mesh1 % no_of_elements
-						success = FindPointWithCoords(mesh1 % elements(eID1), e % xOut(:,i, j, k), xi)
-						if (success) then 
-							eIDf=eID1
-							exit
-						end if 
-					 end do 
-					 
-					 if (.not.success) then
-						write(STD_OUT,'(10X,A,I6)') "ERROR-Element Outside Range, eID ", eID2
-						write(STD_OUT,'(10X,A )') "CHECK-Meshes geometry, must be similar"
-						CALL EXIT(0)
-					 end if 
+			e => mesh2 % elements(eID2) 
 
+!$omp critical (FLAG)
+			counter = counter + 1
+			if (mod(counter, mesh2 % no_of_elements / 10) == 0) then
+				write(STD_OUT,'(30X,A,A15,I6,A4,I7)') "->", "Element: ", counter," of ", mesh2 % no_of_elements
+			end if
+!$omp end critical (FLAG)
+!
+!           Allocate memory for the coordinates
+!           -----------------------------------            
+			allocate( e % Qout(1:NVARS,0:e % Nout(1),0:e % Nout(2),0:e % Nout(3)) )
+			 
+			e % Qout=0.0_RP
+			do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+				 success = .false.
+				  
+!    			Search in high order element 
+				do eID=1, mesh1 % no_of_elements
+					eID1=eIDf-1+INT((-1)**(eID+1)*CEILING(REAL(eID/2_RP)))
+					if (eID1.le.0) eID1=eID1+mesh1 % no_of_elements
+					if (eID1.gt.mesh1 % no_of_elements) eID1=eID1-mesh1 % no_of_elements
+					success = FindPointWithCoords(mesh1 % elements(eID1), e % xOut(:,i, j, k), xi)
+					if (success) then 
+						eIDf=eID1
+						exit
+					end if 
+				 end do 
+					 
+				 if (.not.success) then
+					write(STD_OUT,'(10X,A,I6)') "ERROR-Element Outside Range, eID ", eID2
+					write(STD_OUT,'(10X,A )') "CHECK-Meshes geometry, must be similar"
+					CALL EXIT(0)
+				 end if 
 !
 !        		Get the Lagrange interpolants
 !        		-----------------------------
-					  associate(e1 => mesh1 % elements(eID1))
-					  call addNewSpectralBasis(spA, e1 % Nmesh, mesh1 % nodeType)
-					  associate( spAxi   => spA(e1 % Nmesh(1)), &
-								 spAeta  => spA(e1 % Nmesh(2)), &
-								 spAzeta => spA(e1 % Nmesh(3)) )
-								 
-					  if (allocated(lxi)) deallocate(lxi  )
-					  if (allocated(leta)) deallocate(leta  )
-					  if (allocated(lzeta)) deallocate(lzeta  )
-					  
-					  allocate( lxi(0 : e1 % Nmesh(1)) )
-					  allocate( leta(0 : e1 % Nmesh(2)) )
-					  allocate( lzeta(0 : e1 % Nmesh(3)) )
-					  lxi = spAxi % lj(xi(1))
-					  leta = spAeta % lj(xi(2))
-					  lzeta = spAzeta % lj(xi(3))
-
+				  associate(e1 => mesh1 % elements(eID1))
+				  associate( spAxi   => spA(e1 % Nmesh(1)), &
+							 spAeta  => spA(e1 % Nmesh(2)), &
+							 spAzeta => spA(e1 % Nmesh(3)) )
+							 
+				  if (allocated(lxi)) deallocate(lxi  )
+				  if (allocated(leta)) deallocate(leta  )
+				  if (allocated(lzeta)) deallocate(lzeta  )
 				  
+				  allocate( lxi(0 : e1 % Nmesh(1)) )
+				  allocate( leta(0 : e1 % Nmesh(2)) )
+				  allocate( lzeta(0 : e1 % Nmesh(3)) )
+				  lxi = spAxi % lj(xi(1))
+				  leta = spAeta % lj(xi(2))
+				  lzeta = spAzeta % lj(xi(3))
+
 				  do n = 0, e1 % Nmesh(3)    ; do m = 0, e1 % Nmesh(2)  ; do l = 0, e1 % Nmesh(1)
-						e % Qout(:,i,j,k) = e % Qout(:,i,j,k) + e1 % Q (:,l,m,n) * lxi(l) * leta(m) *  lzeta(n)
+						e % Qout(1:NVARS,i,j,k) = e % Qout(1:NVARS,i,j,k) + e1 % Q (1:NVARS,l,m,n) * lxi(l) * leta(m) *  lzeta(n)
 				  end do               ; end do             ; end do
 				  
-			  
 				  deallocate( lxi, leta, lzeta)
 				  end associate
 				  end associate
             end do         ; end do         ; end do
-			end associate
 			eIDOut = eIDf
 		 end do
-!$omp end do
-!$omp end parallel			 
-	  
+!$omp end parallel do		 
+	  nullify(e)
 	  END SUBROUTINE interpolation
 !
 !////////////////////////////////////////////////////////////////////////
