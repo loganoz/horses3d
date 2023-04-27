@@ -146,7 +146,7 @@ MODULE convertSolution
          type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
 		 
 		 eIDOut=1
-		 counter=1
+		 counter=0
 		 
 		 call addNewSpectralBasis(spA, mesh1 % elements(1) % Nmesh, mesh1 % nodeType)
 !
@@ -157,16 +157,18 @@ MODULE convertSolution
          write(STD_OUT,'(10X,A,A)') "------------------"
 
 !$omp parallel shared(mesh1, mesh2, counter, eIDOut )
-!$omp do schedule(runtime) private(i,j,k,l,m,n,eID1,xi,lxi,leta,lzeta, success, eIDf, eID)
+!$omp do schedule(runtime) private(i,j,k,l,m,n,eID1,xi,lxi,leta,lzeta, success, eIDf, eID )
 		 
 		 do eID2=1, mesh2 % no_of_elements
 			eIDf = eIDOut
 			associate( e => mesh2 % elements(eID2) )
-			
-				if (eID2.eq.counter*int(mesh2 % no_of_elements/10))then
-					write(STD_OUT,'(30X,A,A15,I6,A4,I7)') "->","Element: ", eID2," of ",  mesh2 % no_of_elements
-					counter=counter+1
-				end if 
+
+!$omp critical 
+                counter = counter + 1
+                if (mod(counter, mesh2 % no_of_elements / 10) == 0) then
+                    write(STD_OUT,'(30X,A,A15,I6,A4,I7)') "->", "Element: ", counter," of ", mesh2 % no_of_elements
+                end if
+!$omp end critical 
 !
 !              	 Allocate memory for the coordinates
 !              	 -----------------------------------            

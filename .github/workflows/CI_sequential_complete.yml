@@ -932,7 +932,7 @@ jobs:
         working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          OMP_NUM_THREADS=1 ./horsesConverter
+          ./horsesConverter
 
 #
 # 2) Horses Mesh to OpenFOAM - horsesConverter
@@ -941,7 +941,7 @@ jobs:
         working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          OMP_NUM_THREADS=1 ./horsesConverter
+          ./horsesConverter
 
 #
 # 3) OpenFOAM to Horses - horsesConverter
@@ -950,4 +950,4 @@ jobs:
         working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          OMP_NUM_THREADS=1 ./horsesConverter
+          ./horsesConverter

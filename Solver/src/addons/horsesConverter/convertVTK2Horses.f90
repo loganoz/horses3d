@@ -46,7 +46,7 @@ MODULE convertVTK2Horses
             integer                                    :: eID, pointID
             real(kind=RP)                              :: x(NDIM)
 			real(kind=RP)                              :: xi(0:Nout(1)), eta(0:Nout(2)), zeta(0:Nout(3))
-            integer                                    :: i, j, k, l, ii, fid, iSol, pIDstart, pIDstartGlobal
+            integer                                    :: i, j, k, ii, fid, iSol, pIDstart, pIDstartGlobal, counter
 			integer                       			   :: pos, pos2
 			character(len=LINE_LENGTH) 				   :: dir, time
 			real(kind=RP), parameter   				   :: TOL = 1.0e-4_RP
@@ -164,16 +164,19 @@ MODULE convertVTK2Horses
 
 		 write(STD_OUT,'(30X,A,A30)') "->","Looking for element points: "
 		 pIDstartGlobal=0
-		 l=1
-!$omp parallel shared(mesh, VTKresult,pIDstartGlobal, l)
+		 counter=0
+!$omp parallel shared(mesh, VTKresult,pIDstartGlobal, counter)
 !$omp do schedule(runtime) private(i,j,k,x,ii,pointID,pIDstart)			 
 		 DO eID=1, mesh % no_of_elements
 			pIDstart=pIDstartGlobal
 			associate ( e => mesh % elements(eID) )
-			IF (eID .eq. l*int(mesh % no_of_elements/10)) then
-				write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Elements: ", eID," of ", mesh % no_of_elements
-				l=l+1	
+			
+!$omp critical
+		    counter = counter + 1
+			IF (mod(counter,int(mesh % no_of_elements/10)).eq.0)then
+				write(STD_OUT,'(25X,A,A,I10,A,I10,A)') "->  ","Looping Elements: ", counter," of ", mesh % no_of_elements
 			END IF			
+!$omp end critical
 			
 			allocate( e % Qout(1:5,0:e % Nout(1),0:e % Nout(2),0:e % Nout(3)) )
 			e % Qout=0.0_RP
