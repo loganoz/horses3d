@@ -950,4 +950,4 @@ jobs:
         working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horsesConverter
+          OMP_NUM_THREADS=4 ./horsesConverter
