@@ -2891,7 +2891,6 @@ slavecoord:             DO l = 1, 4
          end if
 
          if (saveLES) padding = padding + 2
-            print *, "saveLES: ", saveLES
 !
 !        Write arrays
 !        ------------

@@ -4,6 +4,7 @@ module ResidualsMonitorClass
    use PhysicsStorage
    use HexMeshClass
    use MonitorDefinitions
+   use MPI_Process_Info
    implicit none
    
    private
@@ -192,21 +193,25 @@ module ResidualsMonitorClass
 !        -------------------------------------------
          integer                    :: i
          integer                    :: fID
+
+         if ( MPI_Process % isRoot ) then
 !
-!        Open file
-!        ---------
-         open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
+!           Open file
+!           ---------
+            open( newunit = fID , file = trim ( self % fileName ) , action = "write" , access = "append" , status = "old" )
 !
-!        Write values
-!        ------------      
-         do i = 1 , no_of_lines
-            write(fID, '(I10,3(2X,ES24.16))', advance="no") iter(i), t(i), TotalSimuTime(i), SolverSimuTime(i)
-            write(fID, 111) self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
-         end do
+!           Write values
+!           ------------
+            do i = 1 , no_of_lines
+               write(fID, '(I10,3(2X,ES24.16))', advance="no") iter(i), t(i), TotalSimuTime(i), SolverSimuTime(i)
+               write(fID, 111) self % values(1:NCONS,i), maxval(self % values(1:NCONS,i))
+            end do
 !
-!        Close file
-!        ----------        
-         close ( fID )
+!           Close file
+!           ----------
+            close ( fID )
+
+         end if
 
          if ( no_of_lines .ne. 0 ) then
             self % values(1:NCONS,1) = self % values(1:NCONS,no_of_lines)
