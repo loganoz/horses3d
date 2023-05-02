@@ -77,10 +77,10 @@ MODULE convertSolution
             call mesh % ReadMesh(meshFile1)
 			call mesh2 % ReadMesh(meshFile2)
 			
+			call mesh % ReadSolution(resultFile1)
+			
 			mesh2 % refs = mesh % refs
 			mesh2 % time = mesh % time
-			
-			call mesh % ReadSolution(resultFile1)
 			
 			Nout=polyOrder
 			
