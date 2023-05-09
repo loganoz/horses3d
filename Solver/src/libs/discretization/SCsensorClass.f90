@@ -741,6 +741,7 @@ module SCsensorClass
       real(RP), allocatable  :: sVar(:,:,:)
       real(RP), allocatable  :: sVarMod(:,:,:)
       real(RP), pointer      :: Lwx(:), Lwy(:), Lwz(:)
+      real(RP)               :: corner, edges, faces, vol
       real(RP)               :: num, den
 
 
@@ -789,14 +790,6 @@ module SCsensorClass
             sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
          end do       ; end do       ; end do       ; end do
 !
-!        Check almost zero values
-!        ------------------------
-         do k = 0, Nz ; do j = 0, Ny ; do i = 0 , Nx
-            if (AlmostEqual(sVarMod(i,j,k), 0.0_RP)) then
-               sVarMod(i,j,k) = abs(sVarMod(i,j,k))
-            end if
-         end do       ; end do       ; end do
-!
 !        Ratio of higher modes vs all the modes
 !        --------------------------------------
 !        Explanation: The higher modes are contained in the subspace V(Nx,Ny,Nz) - V(Nx-1,Ny-1,Nz-1)
@@ -808,37 +801,46 @@ module SCsensorClass
          Lwz => NodalStorage(Nz) % Lw
 
          ! Corner (Nx, Ny, Nz)
-         num = sVarMod(Nx,Ny,Nz)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(Nz)
+         corner = sVarMod(Nx,Ny,Nz)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(Nz)
 
          ! Edges
+         edges = 0.0_RP
          do i = 0, Nx-1  ! +X edge
-            num = num + sVarMod(i,Ny,Nz)**2 * Lwx(i) * Lwy(Ny) * Lwz(Nz)
+            edges = edges + sVarMod(i,Ny,Nz)**2 * Lwx(i) * Lwy(Ny) * Lwz(Nz)
          end do
          do j = 0, Ny-1  ! +Y edge
-            num = num + sVarMod(Nx,j,Nz)**2 * Lwx(Nx) * Lwy(j) * Lwz(Nz)
+            edges = edges + sVarMod(Nx,j,Nz)**2 * Lwx(Nx) * Lwy(j) * Lwz(Nz)
          end do
          do k = 0, Nz-1  ! +Z edge
-            num = num + sVarMod(Nx,Ny,k)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(k)
+            edges = edges + sVarMod(Nx,Ny,k)**2 * Lwx(Nx) * Lwy(Ny) * Lwz(k)
          end do
 
-         ! Faces (Not in 2D cases, this would cover all the modes)
-         if (all(e % Nxyz > 0)) then
-            do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
-               num = num + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
-            end do         ; end do
-            do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
-               num = num + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
-            end do         ; end do
-            do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
-               num = num + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
-            end do         ; end do
-         end if
+         ! Faces
+         faces = 0.0_RP
+         do k = 0, Nz-1 ; do j = 0, Ny-1  ! +X face
+            faces = faces + sVarMod(Nx,j,k)**2 * Lwx(Nx) * Lwy(j) * Lwz(k)
+         end do         ; end do
+         do k = 0, Nz-1 ; do i = 0, Nx-1  ! +Y face
+            faces = faces + sVarMod(i,Ny,k)**2 * Lwx(i) * Lwy(Ny) * Lwz(k)
+         end do         ; end do
+         do j = 0, Ny-1 ; do i = 0, Nx-1  ! +Z face
+            faces = faces + sVarMod(i,j,Nz)**2 * Lwx(i) * Lwy(j) * Lwz(Nz)
+         end do         ; end do
+
+         ! Interior volume
+         vol = 0.0_RP
+         do k = 0, Nz-1 ; do j = 0, Ny-1 ; do i = 0, Nx-1
+            vol = vol + sVarMod(i,j,k)**2 * Lwx(i) * Lwy(j) * Lwz(k)
+         end do       ; end do       ; end do
 
          ! Total sum
-         den = num
-         do k = 0, Nz-1 ; do j = 0, Ny-1 ; do i = 0, Nx-1
-            den = den + sVarMod(i,j,k)**2 * Lwx(i) * Lwy(j) * Lwz(k)
-         end do       ; end do       ; end do
+         if (sem % mesh % meshIs2D) then
+            num = corner + edges
+            den = num + faces
+         else
+            num = corner + edges + faces
+            den = num + vol
+         end if
 
          ! Sensor value as the ratio of num / den
          e % storage % sensor = SinRamp(sensor, log10( num / den ))
