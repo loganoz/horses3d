@@ -40,16 +40,18 @@ MACROS =
 ########################################
 FFLAGS=-fPIC
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
-                   -fbackslash
-GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
-                  -fbacktrace -fbounds-check -finit-real=snan -Wall \
-                  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
-                  -fbackslash -fcheck=pointer
-INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -fp-model precise
-INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
+                   -march=native -fbackslash -D_has_Quad
+GNU_DEBUG_FLAGS= -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
+                 -fbacktrace -fbounds-check -finit-real=snan -Wall \
+                 -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+                 -fbackslash -fcheck=pointer -march=native -D_has_Quad
+INTEL_RELEASE_FLAGS= -cpp -O3 -msse4.2 -axAVX,CORE-AVX2 -assume bscc -fp-model precise \
+                     -D_has_Quad
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
                    -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
-                   -ftrace=full -ftz -fp-model precise \
-                   -fp-speculation=off -assume bscc
+                   -ftrace=full -ftz -msse4.2 -axAVX,CORE-AVX2 -fp-model precise \
+                   -fp-speculation=off -assume bscc -D_has_Quad
+
 ARFLAGS=crv
 
 TARGET=./libproblemfile
