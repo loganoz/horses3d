@@ -49,6 +49,7 @@
          type(Autosave_t)                       :: autosave
          type(pAdaptation_t)                    :: pAdaptator
          type(MultiTauEstim_t)                  :: TauEstimator
+         character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
@@ -143,6 +144,13 @@
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
 
+         if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
+            self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
+         else
+            self % integration_method = EXPLICIT_SOLVER
+         end if
+         call toLower(self % integration_method)
+
          if ( controlVariables % ContainsKey("explicit method") ) then
             keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
             call toLower(keyword)
@@ -175,7 +183,6 @@
          else
             self % RKStep => TakeRK3Step
             self % RKStep_key = RK3_KEY
-
          end if
 
          if ( controlVariables % ContainsKey("compute time derivative after timestep") ) then
@@ -197,7 +204,7 @@
          end if
 !
 !        ------------------------------------
-!        Integrator-dependent initializarions
+!        Integrator-dependent initializations
 !        ------------------------------------
 !
          SELECT CASE (controlVariables % StringValueForKey("simulation type",LINE_LENGTH))
@@ -226,7 +233,7 @@
          if (.not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/)')
-         call Section_Header("Explicit time integrator")
+         call Section_Header("Time integrator")
          write(STD_OUT,'(/)')
 
          write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Simulation type: "
@@ -238,24 +245,30 @@
          end select
 
          write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Method: "
-         select case (self % RKStep_key)
-         case (EULER_KEY)
-            write(STD_OUT,'(A)') "Euler"
-         case (RK3_KEY)
-            write(STD_OUT,'(A)') "RK3"
-         case (RK5_KEY)
-            write(STD_OUT,'(A)') "RK5"
-         case (SSPRK33_KEY)
-            write(STD_OUT,'(A)') "SSPRK33"
-         case (SSPRK43_KEY)
-            write(STD_OUT,'(A)') "SSPRK43"
-         end select
+         if (self % integration_method == EXPLICIT_SOLVER) then
+            select case (self % RKStep_key)
+            case (EULER_KEY)
+               write(STD_OUT,'(A)') "Euler"
+            case (RK3_KEY)
+               write(STD_OUT,'(A)') "RK3"
+            case (RK5_KEY)
+               write(STD_OUT,'(A)') "RK5"
+            case (SSPRK33_KEY)
+               write(STD_OUT,'(A)') "SSPRK33"
+            case (SSPRK43_KEY)
+               write(STD_OUT,'(A)') "SSPRK43"
+            end select
 
-         write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
-         if (LIMITED) then
-            write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
+            write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
+            if (LIMITED) then
+               write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
+            else
+               write(STD_OUT,'(L)') LIMITED
+            end if
+
          else
-            write(STD_OUT,'(L)') LIMITED
+            write(STD_OUT,'(A)') self % integration_method
+
          end if
 
          write(STD_OUT,'(30X,A,A28,L)') "->" , "Derivative after timestep: ", CTD_AFTER_STEPS
@@ -418,7 +431,6 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
       logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
@@ -426,12 +438,6 @@
 !     Read Control variables
 !     ----------------------
 !
-      IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
-         TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
-      ELSE ! Default value
-         TimeIntegration = EXPLICIT_SOLVER
-      END IF
-      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
       ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
@@ -540,7 +546,7 @@
 !     Integrate in time
 !     -----------------
 !
-      select case (TimeIntegration)
+      select case (self % integration_method)
       case(FAS_SOLVER)
          call FASSolver % construct(controlVariables,sem)
 
@@ -607,7 +613,7 @@
 !
 !        Perform time step
 !        -----------------
-         SELECT CASE (TimeIntegration)
+         SELECT CASE (self % integration_method)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (ROSENBROCK_SOLVER)
@@ -759,7 +765,7 @@
 !     Finish up
 !     ---------
 !
-      select case(TimeIntegration)
+      select case(self % integration_method)
       case(FAS_SOLVER)
          CALL FASSolver % destruct
 
