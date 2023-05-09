@@ -374,7 +374,10 @@
          CHARACTER(LEN=requestedLength), ALLOCATABLE :: vec(:)
 
          CHARACTER(LEN=requestedLength) :: str
+         CHARACTER(LEN=requestedLength) :: tmp
+         INTEGER                        :: cnt
          INTEGER                        :: i
+         INTEGER                        :: iv
          INTEGER                        :: i0
          INTEGER                        :: i1
 
@@ -382,17 +385,31 @@
          i0 = INDEX(str, "[") + 1
          i1 = INDEX(str, "]", BACK=.TRUE.)
 
-         ALLOCATE(vec(0))
-
+         ! Check the format
          IF (i0 == 1 .or. i1 == 0 .or. i0 == i1) THEN
-            vec = [vec, ""]
+            vec = [""]
             RETURN
          END IF
 
+         ! Count the number of variables
+         cnt = 1
+         tmp = str
          DO
+            i = INDEX(tmp, ",") + 1
+            IF (i > 1) THEN
+               cnt = cnt + 1
+               tmp = tmp(i:)
+            ELSE
+               EXIT
+            END IF
+         END DO
+
+         ! Read the variables
+         ALLOCATE(vec(cnt))
+         DO iv = 1, cnt
             str = str(i0:)
             i = SCAN(str, ",]")
-            vec = [vec, trim(adjustl(str(:i - 1)))]
+            vec(iv) = TRIM(ADJUSTL(str(:i - 1)))
             IF (str(i:i) == "]") THEN
                EXIT
             ELSE
