@@ -350,7 +350,16 @@ module EllipticBR1
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
 
             end associate
          end do
@@ -387,7 +396,8 @@ module EllipticBR1
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+ 
             end associate
          end do
 !$omp end do
@@ -452,7 +462,6 @@ module EllipticBR1
          integer,    intent(in)           :: nEqn, nGradEqn
          procedure(GetGradientValues_f)   :: GetGradients
          type(Face), optional             :: fma
-
 !
 !        ---------------
 !        Local variables
@@ -465,7 +474,6 @@ module EllipticBR1
 
          integer       :: i,j, lm
          integer       :: Sidearray(2)
-
            do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
 #ifdef MULTIPHASE
             call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL, rho_ = f % storage(1) % rho(i,j))
