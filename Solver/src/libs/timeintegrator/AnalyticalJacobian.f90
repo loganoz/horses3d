@@ -295,8 +295,13 @@ contains
 !     ----------------------------------------------
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
-         call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
-         if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
+         if (mesh % faces(fID)% IsMortar==0 .OR. mesh % faces(fID)% IsMortar==2) then 
+            if (mesh % faces(fID)% IsMortar==0) call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,LEFT ,LEFT )   ! dF/dQL to the left element 
+            if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY )) call mesh % faces(fID) % ProjectFluxJacobianToElements(nEqn,RIGHT,RIGHT)   ! dF/dQR to the right element
+         elseif(mesh % faces(fID)% IsMortar==1) then 
+            call mesh % faces(fID) % ProjectMortarFluxJacobianToElements(nEqn,LEFT ,LEFT,  mesh % faces(fID+1),mesh % faces(fID+2), &
+            mesh % faces(fID+3), mesh % faces(fID+4))   ! dF/dQL to the left element 
+         end if 
       end do
 !$omp end do
 !
@@ -354,8 +359,15 @@ contains
 !$omp do schedule(runtime)
       do fID = 1, size(mesh % faces)
          if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
-            call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
-            call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
+            if (mesh % faces(fID) % Ismortar==0) then 
+               call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, LEFT ,RIGHT)   ! dF/dQR to the left element
+               call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
+            elseif (mesh % faces(fID) % Ismortar==2) then 
+               call mesh % faces(fID) % ProjectFluxJacobianToElements(NCONS, RIGHT,LEFT )   ! dF/dQL to the right element 
+            elseif (mesh % faces(fID) % Ismortar==1) then 
+               call mesh % faces(fID) % ProjectMortarFluxJacobianToElements(NCONS, LEFT ,RIGHT, mesh % faces(fID+1), mesh % faces(fID+2), &
+               mesh % faces(fID+3), mesh % faces(fID+4))   ! dF/dQR to the left element
+            end if 
          end if
       end do
 !$omp end do
@@ -367,8 +379,15 @@ contains
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
             if (mesh % faces(fID) % faceType /= HMESH_BOUNDARY) then
-               call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
-               call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
+               if (mesh % faces(fID) % Ismortar==0) then 
+                  call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT ,RIGHT)   ! dF/dGradQR to the left element
+                  call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT )   ! dF/dGradQL to the right element 
+               elseif (mesh % faces(fID) % Ismortar==2) then 
+                  call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,LEFT ) 
+               elseif (mesh % faces(fID) % Ismortar==1) then 
+                  call mesh % faces(fID) % ProjectMortarGradJacobianToElements(LEFT ,RIGHT, mesh % faces(fID+1), mesh % faces(fID+2), &
+                  mesh % faces(fID+3), mesh % faces(fID+4))
+               end if 
             end if
          end do
 !$omp end do
@@ -420,7 +439,12 @@ contains
       do fID = 1, size(mesh % faces)
          select case (mesh % faces(fID) % faceType)
             case (HMESH_INTERIOR)
-               call ComputeInterfaceFluxJacobian(mesh % faces(fID))
+               if (mesh % faces(fID)% IsMortar==0) then 
+                  call ComputeInterfaceFluxJacobian(mesh % faces(fID))
+               elseif (mesh % faces(fID)%IsMortar==1) then 
+                  call  ComputeInterfaceMortarFluxJacobian(mesh % faces(fID), mesh % faces(fID+1), mesh % faces(fID+2), &
+                  mesh % faces(fID+3), mesh % faces(fID+4))
+               end if 
             case (HMESH_BOUNDARY)
                call ComputeBoundaryFluxJacobian(mesh % faces(fID),time)
          end select
@@ -459,6 +483,116 @@ contains
       end if
 #endif
    end subroutine ComputeNumericalFluxJacobian
+
+   subroutine ComputeInterfaceMortarFluxJacobian(f, fma, fmb, fmc, fmd )
+      implicit none
+      !--------------------------------------------
+      type(Face), intent(inout) :: f
+      type(Face), intent(inout) :: fma
+      type(Face), intent(inout) :: fmb 
+      type(Face), intent(inout) :: fmc 
+      type(Face), intent(inout) :: fmd 
+      !--------------------------------------------
+      integer :: i,j, lm 
+      integer :: Nfm(4,2) 
+
+      Nfm(1,:)=fma % Nf
+      Nfm(2,:)=fmb % Nf
+      Nfm(3,:)=fmc % Nf
+      Nfm(4,:)=fmd % Nf
+      !--------------------------------------------
+      
+     do lm=1,4 
+      do j = 0, Nfm(lm,2) ; do i = 0, Nfm(lm,1)
+!
+!        Get numerical flux jacobian on the face point (i,j)
+!        ---------------------------------------------------
+        select case(lm)
+        case(1)
+         
+         call RiemannSolver_dFdQ(ql   = fma % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fma % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fma % geom % normal (:,i,j)    , &
+                                 dfdq_num = fma % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
+                                 side = LEFT)
+         call RiemannSolver_dFdQ(ql   = fma % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fma % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fma % geom % normal (:,i,j)    , &
+                                 dfdq_num = fma % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
+                                 side = RIGHT)
+!
+!        Scale with the mapping Jacobian
+!        -------------------------------
+         fma % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * fma % geom % jacobian(i,j)
+         fma % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * fma % geom % jacobian(i,j)
+
+        case(2) 
+
+        call RiemannSolver_dFdQ(ql   = fmb % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmb % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmb % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmb % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
+                                 side = LEFT)
+        call RiemannSolver_dFdQ(ql   = fmb % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmb % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmb % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmb % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
+                                 side = RIGHT)
+!
+!        Scale with the mapping Jacobian
+!        -------------------------------
+         fmb % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * fmb % geom % jacobian(i,j)
+         fmb % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * fmb % geom % jacobian(i,j)
+
+        case(3)
+        
+        call RiemannSolver_dFdQ(ql   = fmc % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmc % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmc % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmc % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
+                                 side = LEFT)
+        call RiemannSolver_dFdQ(ql   = fmc % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmc % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmc % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmc % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
+                                 side = RIGHT)
+!
+!        Scale with the mapping Jacobian
+!        -------------------------------
+         fmc % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * fmc % geom % jacobian(i,j)
+         fmc % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * fmc % geom % jacobian(i,j)
+
+        case(4)
+
+        call RiemannSolver_dFdQ(ql   = fmd % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmd % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmd % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmd % storage(LEFT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqL
+                                 side = LEFT)
+        call RiemannSolver_dFdQ(ql   = fmd % storage(LEFT)  % Q(:,i,j), &
+                                 qr   = fmd % storage(RIGHT) % Q(:,i,j), &
+                                 nHat = fmd % geom % normal (:,i,j)    , &
+                                 dfdq_num = fmd % storage(RIGHT) % dFStar_dqF (:,:,i,j), & ! this is dFStar/dqR
+                                 side = RIGHT)
+!
+!        Scale with the mapping Jacobian
+!        -------------------------------
+         fmd % storage(LEFT ) % dFStar_dqF (:,:,i,j) = f % storage(LEFT  ) % dFStar_dqF (:,:,i,j) * fmd % geom % jacobian(i,j)
+         fmd % storage(RIGHT) % dFStar_dqF (:,:,i,j) = f % storage(RIGHT ) % dFStar_dqF (:,:,i,j) * fmd % geom % jacobian(i,j)
+        end select 
+      end do             ; end do
+#ifndef SPALARTALMARAS
+      if (flowIsNavierStokes)  then 
+      if (lm==1) call ViscousDiscretization % RiemannSolver_Jacobians(fma)
+      if (lm==2) call ViscousDiscretization % RiemannSolver_Jacobians(fmb)
+      if (lm==3) call ViscousDiscretization % RiemannSolver_Jacobians(fmc)
+      if (lm==4) call ViscousDiscretization % RiemannSolver_Jacobians(fmd)
+      end if 
+#endif
+
+    end do 
+
+   end subroutine ComputeInterfaceMortarFluxJacobian
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
