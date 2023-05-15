@@ -3612,6 +3612,7 @@ if (.not.self % nonconforming) then
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
+         logical, optional,   intent(in)        :: saveLES_
 !
 !        ---------------
 !        Local variables
@@ -3621,7 +3622,7 @@ if (.not.self % nonconforming) then
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor
+         logical                          :: saveSensor, saveLES
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -3652,6 +3653,11 @@ if (.not.self % nonconforming) then
             saveSensor = saveSensor_
          else
             saveSensor = .false.
+         end if
+         if (present(saveLES_)) then
+            saveLES = saveLES_
+         else
+            saveLES = .false.
          end if
 
          if (saveGradients .and. computeGradients) then
@@ -3732,6 +3738,17 @@ if (.not.self % nonconforming) then
             if (saveSensor) then
                write(fid) e % storage % sensor
             end if
+
+          if (saveLES) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+               write(fid) Q
+               Q(1,:,:,:) = e % storage % mu_turb_NS(:,:,:) !mu_sgs
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
 
             end associate
          end do
