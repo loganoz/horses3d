@@ -425,7 +425,6 @@
          integer,       intent(in)                 :: side
          real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
          logical,       intent(in), optional       :: computeQdot
-
          
    !
    !     ---------------
@@ -487,6 +486,7 @@
                end select
                end associate
          case(2)
+
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
@@ -967,7 +967,6 @@
    !
          integer           :: i, j, ii, jj, l, m, side, q, p, lm
          real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-
 
          do side = 1, 2
             select case ( whichElements(side) )

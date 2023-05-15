@@ -163,8 +163,8 @@ module EllipticBR1
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
 
-            if (mesh % faces(fID) % IsMortar==1) then  
-            associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
+            if (mesh % faces(fID) % IsMortar==1) then 
+               associate(unStar=>mesh% faces(fID)%storage(1)%unStar)
                   unStar=0.0_RP
                end associate
                associate(unStar=>mesh% faces(fID)%storage(2)%unStar)
@@ -172,12 +172,12 @@ module EllipticBR1
                end associate
                do m=1,4
                   if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
-                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
-                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
-                    end if 
-                 end do 
-              elseif (mesh % faces(fID) % IsMortar==0) then
-                 call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+                   call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+            elseif (mesh % faces(fID) % IsMortar==0) then
+               call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
             end if 
          end do
 !$omp end do nowait
@@ -243,7 +243,9 @@ module EllipticBR1
                   end if 
                end do
             end if 
+            if (mesh% faces(fID)%IsMortar .ne. 1) then 
             call BR1_ComputeMPIFaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            end if 
          end do
 !$omp end do 
 
@@ -272,12 +274,21 @@ module EllipticBR1
 !           Prolong gradients
 !           -----------------
             fIDs = e % faceIDs
+            if ( .not.mesh % nonconforming ) then
             call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
                                              mesh % faces(fIDs(6)))
+            else
+               call e % ProlongGradientsToFaces(nGradEqn,fFR=mesh % faces(fIDs(1)),&
+               fBK=mesh % faces(fIDs(2)),&
+               fBOT=mesh % faces(fIDs(3)),&
+               fR=mesh % faces(fIDs(4)),&
+               fT=mesh % faces(fIDs(5)),&
+               fL=mesh % faces(fIDs(6)), faces=mesh%faces)
+            end if 
  
             end associate
          end do
@@ -450,11 +461,7 @@ module EllipticBR1
          real(kind=RP) :: UL(nGradEqn), UR(nGradEqn)
          real(kind=RP) :: uStar(nGradEqn)
          real(kind=RP) :: uStar_n(nGradEqn,NDIM,0:f % Nf(1), 0:f % Nf(2))
-         real(kind=RP), allocatable :: uStar_nM1(:,:,:,:)
-         real(kind=RP), allocatable :: uStar_nM2(:,:,:,:)
-         real(kind=RP), allocatable :: uStar_nM3(:,:,:,:)
-         real(kind=RP), allocatable :: uStar_nM4(:,:,:,:)
-
+ 
 
          integer       :: i,j, lm
          integer       :: Sidearray(2)
@@ -489,14 +496,14 @@ module EllipticBR1
            if (f % IsMortar==0) then 
            Sidearray = (/1,2/)
            call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
-         end if 
-         if (f % IsMortar==2 .and. present(fma)) then 
+           end if 
+           if (f % IsMortar==2 .and. present(fma)) then 
             Sidearray = (/1,0/)
-            call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, Hflux=uStar_n,whichElements=Sidearray,factor=1) 
-            Sidearray = (/0,2/)
-            call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
-         end if 
-    
+             call fma % ProjectMortarGradientFluxToElements(nEqn=nGradEqn, fma=f, Hflux=uStar_n,whichElements=Sidearray,factor=1) 
+             Sidearray = (/0,2/)
+             call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
+           end if 
+         
       end subroutine BR1_ComputeElementInterfaceAverage   
 
       subroutine BR1_ComputeMPIFaceAverage(self, f, nEqn, nGradEqn, GetGradients)
@@ -553,7 +560,7 @@ module EllipticBR1
 
          Sidearray = (/maxloc(f % elementIDs, dim = 1), HMESH_NONE/)
          call f % ProjectGradientFluxToElements(nGradEqn, uStar_n,Sidearray,1)
-         
+
          if (f % IsMortar==2) then 
             !write(*,*) 'this side', thisSide
             call f% Interpolatesmall2biggrad(nGradEqn, uStar_n)
