@@ -111,6 +111,7 @@ module InterpolationMatrices
    !        Prolongation matrix
    !        -------------------         
                call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, offset + 0.5_RP *spAd % x, this % T)
+
          else
    !
    !        Restriction (backwards) matrix
