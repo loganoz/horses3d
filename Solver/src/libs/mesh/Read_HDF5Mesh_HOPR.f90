@@ -439,16 +439,16 @@ contains
          ALLOCATE( self % faces(self % numberOfFaces) )
          CALL ConstructFaces( self, success )
        else 
-         write (*,*) 'nbfaces=', nbface
-         write (*,*) 'ninterior (*2)=', nintface
-         write (*,*) 'nmaster=', nmaster 
-         write (*,*) 'nslave=', nslave
-         write (*,*) 'nslc=', nslc
+         !write (*,*) 'nbfaces=', nbface
+         !write (*,*) 'ninterior (*2)=', nintface
+         !write (*,*) 'nmaster=', nmaster 
+        ! write (*,*) 'nslave=', nslave
+         !write (*,*) 'nslc=', nslc
          numberOfFaces        = nUniqueSides
          self % numberOfFaces = numberOfFaces
-         write (*,*) 'numberOfFaces=', numberOfFaces
+         !write (*,*) 'numberOfFaces=', numberOfFaces
          ALLOCATE( self % faces(self % numberOfFaces) )
-
+         self % nonconforming= .TRUE.
          CALL ConstructFaces( self, success,numberOfElements, HorsesMortars)    
        end if 
 !
@@ -549,10 +549,29 @@ contains
       error stop ':: HDF5 is not linked correctly'
 #endif
 
-do j=1, self % no_of_elements
-   write(*,*)'element id=', self % elements(j) % eID
-   write(*,*) 'faces id=', self % elements(j) % faceIDs 
-end do 
+!do j=1, self % no_of_elements
+ !  write(*,*)'element id=', self % elements(j) % eID
+  ! do i=1,6
+   !   write(*,*) '   face ID', self % elements(j) % faceIDs(i), 'Ismortar=', self % faces(self % elements(j) % faceIDs(i))% IsMortar,&
+    !  'face type :', self % faces(self % elements(j) % faceIDs(i))%FaceType  
+
+     ! write(*,*) 'normal :',self % faces(self % elements(j) % faceIDs(i))%geom%normal 
+      !write(*,*) 'GradXi :',self % faces(self % elements(j) % faceIDs(i))%geom%GradXi
+      !write(*,*) 'GradEta :',self % faces(self % elements(j) % faceIDs(i))%geom%GradEta 
+      !write(*,*) 'GradZeta :',self % faces(self % elements(j) % faceIDs(i))%geom%GradZeta 
+
+    !  if (self % faces(self % elements(j) % faceIDs(i))% IsMortar==2) then 
+      !   write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementSide(1)
+       !  write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementSide(2)
+        ! write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementIDs(1)
+        ! write(*,*) self % faces(self % elements(j) % faceIDs(i))%elementIDs(2)
+      !end if 
+
+ !  end do 
+!end do 
+
+
+
    end subroutine ConstructMesh_FromHDF5File_
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

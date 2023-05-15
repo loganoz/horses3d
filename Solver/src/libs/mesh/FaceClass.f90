@@ -87,14 +87,22 @@
                procedure   :: Print                         => PrintFace
                procedure   :: LinkWithElements              => Face_LinkWithElements
                procedure   :: AdaptSolutionToFace           => Face_AdaptSolutionToFace
+               procedure   :: AdaptSolutionToMortarFace     => Face_AdaptSolutionToMortarFace
                procedure   :: AdaptGradientsToFace          => Face_AdaptGradientsToFace
+               procedure   :: AdaptGradientsToMortarFace    => Face_AdaptGradientsToMortarFace
                procedure   :: AdaptAviscFluxToFace          => Face_AdaptAviscFluxToFace
-               procedure   :: ProjectFluxToElements         => Face_ProjectFluxToElements
-               procedure   :: ProjectGradientFluxToElements => Face_ProjectGradientFluxToElements
+               procedure   :: AdaptAviscFluxToMortarFace    => Face_AdaptAviscFluxToMortarFace
+
+               procedure   :: ProjectFluxToElements                => Face_ProjectFluxToElements
+               procedure   :: ProjectMortarFluxToElements          => Face_ProjectMortarFluxToElements
+               procedure   :: ProjectGradientFluxToElements        => Face_ProjectGradientFluxToElements
+               procedure   :: ProjectMortarGradientFluxToElements  => Face_ProjectMortarGradientFluxToElements
 #if defined(NAVIERSTOKES)
-               procedure   :: ProjectFluxJacobianToElements => Face_ProjectFluxJacobianToElements
-               procedure   :: ProjectGradJacobianToElements => Face_ProjectGradJacobianToElements
-               procedure   :: ProjectBCJacobianToElements   => Face_ProjectBCJacobianToElements
+               procedure   :: ProjectFluxJacobianToElements       => Face_ProjectFluxJacobianToElements
+               procedure   :: ProjectMortarFluxJacobianToElements => Face_ProjectMortarFluxJacobianToElements
+               procedure   :: ProjectGradJacobianToElements       => Face_ProjectGradJacobianToElements
+               procedure   :: ProjectMortarGradJacobianToElements => Face_ProjectMortarGradJacobianToElements
+               procedure   :: ProjectBCJacobianToElements         => Face_ProjectBCJacobianToElements
 #endif
                procedure   :: copy           => Face_Assign
                generic     :: assignment(=)  => copy
@@ -192,7 +200,7 @@
          integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
          real(kind=RP), optional, intent(in)    :: offset
 
-         integer :: i 
+         integer :: i ,j
 #if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
          logical  :: computeGradients = .true.
 #endif
@@ -247,26 +255,20 @@
             
             call Tset(self % NfLeft(2), self % Nf(2)) % construct(self % NfLeft(2), self % Nf(2))
             call Tset(self % Nf(2), self % NfLeft(2)) % construct(self % Nf(2), self % NfLeft(2))
+
          else 
-            call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 1)
-            call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 2)
+            call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), 0.5_RP, 1)
+            call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), 0.5_RP, 2)
    
-            call TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 1)
-            call TsetM(self % Nf(1), self % NfLeft(1), 2, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 2)
+            call TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % construct(self % NfLeft(1), self % Nf(1), -0.5_RP, 1)
+            call TsetM(self % Nf(1), self % NfLeft(1), 1, 2) % construct(self % Nf(1), self % NfLeft(1), -0.5_RP, 2)
             
-            call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP, 1)
-            call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP, 2)
+            call TsetM(self % NfLeft(2), self % Nf(2), 2, 1) % construct(self % NfLeft(2), self % Nf(2), 0.5_RP, 1)
+            call TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % construct(self % Nf(2), self % NfLeft(2), 0.5_RP, 2)
    
-            call TsetM(self % NfLeft(2), self % Nf(2), 2, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 1)
-            call TsetM(self % Nf(2), self % NfLeft(2), 2, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 2)
-            !do i = 0, self % NfLeft(1)
-              ! write(*,*) TsetM(self % NfLeft(1), self%Nf(1),1,1)%T(:,i)
-              ! end do 
-              ! write(*,*) "//////////////////////////"
-               !do i = 0, self % NfLeft(1)
-               !   write(*,*) 0.5_RP*TsetM(self % Nf(1), self% NfLeft(1),1,2)%T(:,i)
-              ! end do 
-              ! write(*,*) "//////////////////////////"
+            call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 1)
+            call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 2)
+
          end if 
          
          call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
@@ -314,21 +316,21 @@
          integer,       intent(in)                 :: side
          real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
          logical,       intent(in), optional       :: computeQdot
-         class(Face), optional, intent(inout)      ::fma
-         class(Face), optional, intent(inout)      ::fmb
-         class(Face), optional, intent(inout)      :: fmc
-         class(Face), optional, intent(inout)      :: fmd 
-
+         type(Face), optional, intent(inout)      ::fma
+         type(Face), optional, intent(inout)      ::fmb
+         type(Face), optional, intent(inout)      :: fmc
+         type(Face), optional, intent(inout)      :: fmd 
+         
    !
    !     ---------------
    !     Local variables
    !     ---------------
    !
-         integer       :: i, j, k, l, m, ii, jj, a, b, lm
+         integer       :: i, j, k, l, m, ii, jj, a, b, lm, inb, jnb , p, q
          real(kind=RP) :: Qe_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
          ! real(kind=RP) :: QdotE_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
          logical :: prolongQdot
-   
+
          ! prolongQdot = present(QdotE)
          if (present(computeQdot)) then
              prolongQdot = computeQdot
@@ -346,6 +348,9 @@
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
+            if (self % IsMortar==2) then 
+               write(*,*) 'slave mortar on wrong side'
+            end if 
                associate(Qf => self % storage(1) % Q)
                select case ( self % projectionType(1) )
                case (0)
@@ -376,6 +381,7 @@
                end select
                end associate
          case(2)
+
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
@@ -409,80 +415,77 @@
             end select
             end associate
          end select
-        !write(*,*) Tset(self % NfRight(1), self % Nf(1)) % T
+
       end if 
-      if (self % isMortar==1)  then 
-         if(side .ne. 1) then 
-            write(*,*)'problem big mortar on wrong side'
-         end if 
-            do lm=1,4   
-               select case (lm)
-               case (1)
-                  a=2
-                  b=2 
-                  associate(Qf => fma % storage(1) % Q)
-                     Qf = 0.0_RP
-                  do l = 0, fma % NfLeft(2)  ; do j = 0, fma % Nf(2)   
-                     do m = 0, fma % NfLeft(1) ; do i = 0, fma % Nf(1)
-                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fma % NfLeft(1), &
-                        fma % Nf(1), a, 1) % T(i,m) &
-                                           * TsetM(fma % NfLeft(2), &
-                                           fma % Nf(2), b, 1) % T(j,l) &
-                                             * Qe(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-               end associate
-               
-               case(2)
-                  a=1!
-                  b=2!
-                  associate(Qf => fmb % storage(1) % Q)
-                     Qf = 0.0_RP
-                  do l = 0, fmb % NfLeft(2)  ; do j = 0, fmb % Nf(2)   
-                     do m = 0, fmb % NfLeft(1) ; do i = 0, fmb % Nf(1)
-                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmb % NfLeft(1), &
-                        fmb % Nf(1), a, 1) % T(i,m) &
-                                           * TsetM(fmb % NfLeft(2), &
-                                           fmb % Nf(2), b, 1) % T(j,l) &
-                                             * Qe(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-               end associate
-               case(3)
-                  a=1
-                  b=1
-                  associate(Qf => fmc % storage(1) % Q)
-                     Qf = 0.0_RP
-                  do l = 0, fmc % NfLeft(2)  ; do j = 0, fmc % Nf(2)   
-                     do m = 0, fmc % NfLeft(1) ; do i = 0, fmc % Nf(1)
-                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmc % NfLeft(1), &
-                        fmc % Nf(1), a, 1) % T(i,m) &
-                                           * TsetM(fmc % NfLeft(2), &
-                                           fmc % Nf(2), b, 1) % T(j,l) &
-                                             * Qe(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-               end associate
-               case(4)
-                  a=2!
-                  b=1!
-                  associate(Qf => fmd % storage(1) % Q)
-                     Qf = 0.0_RP
-                  do l = 0, fmd % NfLeft(2)  ; do j = 0, fmd % Nf(2)   
-                     do m = 0, fmd % NfLeft(1) ; do i = 0, fmd % Nf(1)
-                        Qf(:,i,j) = Qf(:,i,j) + TsetM(fmd % NfLeft(1), &
-                        fmd % Nf(1), a, 1) % T(i,m) &
-                                           * TsetM(fmd % NfLeft(2), &
-                                           fmd % Nf(2), b, 1) % T(j,l) &
-                                             * Qe(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-               end associate
-               end select  
-            end do     
-      end if
 
       end subroutine Face_AdaptSolutionToFace
+
+      subroutine Face_AdaptSolutionToMortarFace(self, nEqn,Nelx,Nely, Qe, side, QdotE, computeQdot, fma, fmb, fmc, fmd)
+         use MappedGeometryClass
+         implicit none
+         class(Face),   intent(inout)              :: self
+         integer,       intent(in)                 :: nEqn
+         integer,       intent(in)                 :: Nelx, Nely
+         real(kind=RP), intent(in)                 :: Qe(1:nEqn, 0:Nelx, 0:Nely)
+         integer,       intent(in)                 :: side
+         real(kind=RP), intent(in), optional       :: QdotE(1:nEqn, 0:Nelx, 0:Nely)
+         logical,       intent(in), optional       :: computeQdot
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+         
+         integer       :: i, j, l, lm , p, q
+
+
+         logical :: prolongQdot
+         real(kind=RP) :: small(1:nEqn, 0:fma%Nf(1), 0:fma%Nf(2),4)
+         real(kind=RP) :: MInt(0:fma%Nf(1),0:fma%Nf(1),1:2)
+         real(kind=RP) :: tmp(1:nEqn, 0:fma%Nf(1),0:fma%Nf(1))
+
+
+         if (self % isMortar==1)  then 
+
+            if(side .ne. 1) then 
+               write(*,*)'problem big mortar on wrong side'
+            end if 
+            if ((fma % IsMortar.ne.2) .or. (fmb % IsMortar.ne.2) .or. (fmc % IsMortar.ne.2) .or. (fmd % IsMortar.ne.2)) then 
+               write(*,*) 'problem mortar slave projection sol to face'
+            end if 
+
+            MInt(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+            MInt(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+
+            do j=1,2
+               tmp=0.0_RP
+               do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     tmp(:,p,q)=tmp(:,p,q) +MInt(l,q,j)*Qe(:,p,l)
+                  end do ; end do ; end do
+
+               do i=1,2
+               small(:,:,:,i+2*(j-1))=0.0_RP
+                  do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     small(:,p,q,i+2*(j-1))=small(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp(:,l,q)
+                  end do ; end do ; end do 
+               end do 
+            end do 
+
+            associate(Qf => fma % storage(1) % Q)
+               Qf=small(:,:,:,1)
+            end associate 
+            associate(Qf => fmb % storage(1) % Q)
+               Qf=small(:,:,:,2)
+            end associate 
+            associate(Qf => fmc % storage(1) % Q)
+               Qf=small(:,:,:,4)
+            end associate 
+            associate(Qf => fmd % storage(1) % Q)
+               Qf=small(:,:,:,3)
+            end associate 
+
+         end if
+
+      end subroutine Face_AdaptSolutionToMortarFace
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
@@ -496,10 +499,10 @@
          real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
          real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
          integer,       intent(in)     :: side
-         class(Face), optional, intent(inout)      ::fma
-         class(Face), optional, intent(inout)      ::fmb
-         class(Face), optional, intent(inout)      :: fmc
-         class(Face), optional, intent(inout)      :: fmd 
+         type(Face), optional, intent(inout)      ::fma
+         type(Face), optional, intent(inout)      ::fmb
+         type(Face), optional, intent(inout)      :: fmc
+         type(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
@@ -509,7 +512,7 @@
          real(kind=RP) :: Uxe_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
          real(kind=RP) :: Uye_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
          real(kind=RP) :: Uze_rot(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-   
+
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
@@ -617,52 +620,108 @@
             end associate
          end select
       end if 
-      if (self % isMortar== 1) then 
-         do lm=1,4  
-               select case (lm)
-               case (1)
-                  a=2
-                  b=2 
-               case(2)
-                  a=1
-                  b=2
-               case(3)
-                  a=1
-                  b=1
-               case(4)
-                  a=2
-                  b=1
-               end select  
-            associate(Uxf => self % Mortar(lm) % storage(1) % U_x, &
-                      Uyf => self % Mortar(lm) % storage(1) % U_y, &
-                      Uzf => self % Mortar(lm) % storage(1) % U_z   )
-                  Uxf = 0.0_RP
-                  Uyf = 0.0_RP
-                  Uzf = 0.0_RP
-               do l = 0, self % Mortar(lm) % NfLeft(2)  ; do j = 0, self % Mortar(lm) % Nf(2)   
-                  do m = 0, self % Mortar (lm) % NfLeft(1) ; do i = 0, self % Mortar(lm) %Nf(1)
-                     Uxf(:,i,j) = Uxf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1) , &
-                                                self % Mortar(lm) %  Nf(1), a, 1) % T(i,m) &
-                                               * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                                self % Mortar(lm) %Nf(2), b, 1) % T(j,l) &
-                                               * Uxe_rot(:,m,l)
-                     Uyf(:,i,j) = Uyf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
-                                               * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                               self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
-                                               * Uye_rot(:,m,l)
-                     Uzf(:,i,j) = Uzf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
-                                               * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                               self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
-                                               * Uze_rot(:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end associate
-         end do     
-      end if 
-   
+      
       end subroutine Face_AdaptGradientsToFace
+
+      subroutine Face_AdaptGradientsToMortarFace(self, nEqn, Nelx, Nely, Uxe, Uye, Uze, side, fma, fmb, fmc ,fmd)
+         use MappedGeometryClass
+         implicit none
+         class(Face),   intent(inout)  :: self
+         integer,       intent(in)     :: nEqn 
+         integer,       intent(in)     :: Nelx, Nely
+         real(kind=RP), intent(in)     :: Uxe(nEqn, 0:Nelx, 0:Nely)
+         real(kind=RP), intent(in)     :: Uye(nEqn, 0:Nelx, 0:Nely)
+         real(kind=RP), intent(in)     :: Uze(nEqn, 0:Nelx, 0:Nely)
+         integer,       intent(in)     :: side
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+   !
+   !     ---------------
+   !     Local variables
+   !     ---------------
+   !
+         integer       :: i, j, l, lm , p, q
+         real(kind=RP) :: smallx(1:nEqn, 0:fma%Nf(1), 0:fma%Nf(2),4)
+         real(kind=RP) :: smally(1:nEqn, 0:fma%Nf(1), 0:fma%Nf(2),4)
+         real(kind=RP) :: smallz(1:nEqn, 0:fma%Nf(1), 0:fma%Nf(2),4)
+         real(kind=RP) :: MInt(0:fma%Nf(1),0:fma%Nf(1),1:2)
+         real(kind=RP) :: tmp_x(1:nEqn, 0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP) :: tmp_y(1:nEqn, 0:fma%Nf(1),0:fma%Nf(1))
+         real(kind=RP) :: tmp_z(1:nEqn, 0:fma%Nf(1),0:fma%Nf(1))
+   
+         if (self % isMortar==1)  then 
+   
+            if(side .ne. 1) then 
+               write(*,*)'problem big mortar on wrong side'
+            end if 
+            if ((fma % IsMortar.ne.2) .or. (fmb % IsMortar.ne.2) .or. (fmc % IsMortar.ne.2) .or. (fmd % IsMortar.ne.2)) then 
+               write(*,*) 'problem mortar slave projection sol to face'
+            end if 
+   
+            MInt(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+            MInt(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+            
+            do j=1,2
+               tmp_x=0.0_RP
+               tmp_y=0.0_RP
+               tmp_z=0.0_RP
+               do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     tmp_x(:,p,q)=tmp_x(:,p,q) +MInt(l,q,j)*Uxe(:,p,l)
+                     tmp_y(:,p,q)=tmp_y(:,p,q) +MInt(l,q,j)*Uye(:,p,l)
+                     tmp_z(:,p,q)=tmp_z(:,p,q) +MInt(l,q,j)*Uze(:,p,l)
+                  end do ; end do ; end do
+   
+               do i=1,2
+               smallx(:,:,:,i+2*(j-1))=0.0_RP
+               smally(:,:,:,i+2*(j-1))=0.0_RP
+               smallz(:,:,:,i+2*(j-1))=0.0_RP
+                  do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     smallx(:,p,q,i+2*(j-1))=smallx(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp_x(:,l,q)
+                     smally(:,p,q,i+2*(j-1))=smally(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp_y(:,l,q)
+                     smallz(:,p,q,i+2*(j-1))=smallz(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp_z(:,l,q)
+                  end do ; end do ; end do 
+               end do 
+            end do 
+   
+            associate(Uxf =>fma % storage(1) % U_x, &
+               Uyf => fma % storage(1) % U_y, &
+               Uzf => fma % storage(1) % U_z   )
+               Uxf=smallx(:,:,:,1)
+               Uyf=smally(:,:,:,1)
+               Uzf=smallz(:,:,:,1)
+            end associate 
+   
+            associate(Uxf =>fmb % storage(1) % U_x, &
+               Uyf => fmb % storage(1) % U_y, &
+               Uzf => fmb % storage(1) % U_z   )
+               Uxf=smallx(:,:,:,2)
+               Uyf=smally(:,:,:,2)
+               Uzf=smallz(:,:,:,2)
+            end associate 
+   
+   
+            associate(Uxf =>fmc % storage(1) % U_x, &
+               Uyf => fmc % storage(1) % U_y, &
+               Uzf => fmc % storage(1) % U_z   )
+               Uxf=smallx(:,:,:,4)
+               Uyf=smally(:,:,:,4)
+               Uzf=smallz(:,:,:,4)
+            end associate
+   
+            associate(Uxf =>fmd % storage(1) % U_x, &
+               Uyf => fmd % storage(1) % U_y, &
+               Uzf => fmd % storage(1) % U_z   )
+               Uxf=smallx(:,:,:,3)
+               Uyf=smally(:,:,:,3)
+               Uzf=smallz(:,:,:,3)
+            end associate
+         end if
+   
+   
+      end subroutine Face_AdaptGradientsToMortarFace
+   
    
       subroutine Face_AdaptAviscFluxToFace(self, nEqn, Nelx, Nely, AVn_e, side, fma, fmb, fmc, fmd)
          use MappedGeometryClass
@@ -672,10 +731,10 @@
          integer,       intent(in)     :: Nelx, Nely
          real(kind=RP), intent(in)     :: AVn_e(1:nEqn, 0:Nelx, 0:Nely)
          integer,       intent(in)     :: side
-         class(Face), optional, intent(inout)      ::fma
-         class(Face), optional, intent(inout)      ::fmb
-         class(Face), optional, intent(inout)      :: fmc
-         class(Face), optional, intent(inout)      :: fmd 
+         type(Face), optional, intent(inout)      ::fma
+         type(Face), optional, intent(inout)      ::fmb
+         type(Face), optional, intent(inout)      :: fmc
+         type(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
@@ -683,7 +742,7 @@
    !
          integer       :: i, j, k, l, m, ii, jj, lm, a, b 
          real(kind=RP) :: AVn_e_rot(1:nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-   
+
       if (self % isMortar==0 .OR. self % isMortar==2 ) then
          select case (side)
          case(1)
@@ -751,38 +810,73 @@
             end associate
          end select
       end if 
-      if (self % isMortar== 1) then 
-         do lm=1,4   
-            select case (lm)
-            case (1)
-               a=2
-               b=2 
-            case(2)
-               a=1
-               b=2
-            case(3)
-               a=1
-               b=1
-            case(4)
-               a=2
-               b=1
-            end select  
-            associate(AVf => self % Mortar(lm) % storage(1) % AviscFlux)
-               AVf = 0.0_RP
-               do l = 0, self % Mortar(lm) % NfLeft(2)  ; do j = 0, self % Mortar (lm) % Nf(2)   
-                  do m = 0, self % Mortar(lm) % NfLeft(1) ; do i = 0, self % Mortar(lm) % Nf(1)
-                     AVf(:,i,j) = AVf(:,i,j) +   TsetM(self % Mortar(lm) % NfLeft(1), &
-                                                   self % Mortar(lm) % Nf(1), a, 1) % T(i,m) &
-                                               * TsetM(self % Mortar(lm) % NfLeft(2), &
-                                                   self % Mortar(lm) % Nf(2), b, 1) % T(j,l) &
-                                               * AVn_e(:,m,l)
-                  end do                 ; end do
-               end do                  ; end do
-            end associate
-         end do     
-      end if 
    
       end subroutine Face_AdaptAviscFluxToFace
+
+      subroutine Face_AdaptAviscFluxToMortarFace(self, nEqn, Nelx, Nely, AVn_e, side, fma, fmb, fmc, fmd)
+         use MappedGeometryClass
+         implicit none
+         class(Face),   intent(inout)  :: self
+         integer,       intent(in)     :: nEqn
+         integer,       intent(in)     :: Nelx, Nely
+         real(kind=RP), intent(in)     :: AVn_e(1:nEqn, 0:Nelx, 0:Nely)
+         integer,       intent(in)     :: side
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+   !
+   !     ---------------
+   !     Local variables
+   !     ---------------
+   !
+         integer       :: i, j, l, m, lm, p, q
+         real(kind=RP) :: small(1:nEqn, 0:fma%Nf(1), 0:fma%Nf(2),4)
+         real(kind=RP) :: MInt(0:fma%Nf(1),0:fma%Nf(1),1:2)
+         real(kind=RP) :: tmp(1:nEqn, 0:fma%Nf(1),0:fma%Nf(1))
+   
+         if (self % isMortar==1)  then 
+   
+            if(side .ne. 1) then 
+               write(*,*)'problem big mortar on wrong side'
+            end if 
+            if ((fma % IsMortar.ne.2) .or. (fmb % IsMortar.ne.2) .or. (fmc % IsMortar.ne.2) .or. (fmd % IsMortar.ne.2)) then 
+               write(*,*) 'problem mortar slave projection sol to face'
+            end if 
+   
+            MInt(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 1) % T)
+            MInt(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 1) % T)
+   
+            do j=1,2
+               tmp=0.0_RP
+               do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     tmp(:,p,q)=tmp(:,p,q) +MInt(l,q,j)* AVn_e(:,p,l)
+                  end do ; end do ; end do
+   
+               do i=1,2
+               small(:,:,:,i+2*(j-1))=0.0_RP
+                  do q=0, fma%Nf(1) ; do p=0, fma%Nf(1) ; do l=0, fma%Nf(1)
+                     small(:,p,q,i+2*(j-1))=small(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp(:,l,q)
+                  end do ; end do ; end do 
+               end do 
+            end do 
+   
+            associate(AVf => fma % storage(1) % AviscFlux)
+               AVf=small(:,:,:,1)
+            end associate 
+            associate(AVf => fmb % storage(1) % AviscFlux)
+               AVf=small(:,:,:,2)
+            end associate 
+            associate(AVf => fmc % storage(1) % AviscFlux)
+               AVf=small(:,:,:,4)
+            end associate 
+            associate(AVf => fmd % storage(1) % AviscFlux)
+               AVf=small(:,:,:,3)
+            end associate 
+   
+         end if
+   
+      end subroutine Face_AdaptAviscFluxToMortarFace
    
       subroutine Face_ProjectFluxToElements(self, nEqn, flux, whichElements, flux_M1, flux_M2, flux_M3, flux_M4, fma, fmb, &
          fmc, fmd)
@@ -798,18 +892,22 @@
          real(kind=RP), optional, intent(in)  :: flux_M2(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
          real(kind=RP), optional, intent(in)  :: flux_M3(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
          real(kind=RP), optional, intent(in)  :: flux_M4(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
-         class(Face), optional, intent(inout)      ::fma
-         class(Face), optional, intent(inout)      ::fmb
-         class(Face), optional, intent(inout)      :: fmc
-         class(Face), optional, intent(inout)      :: fmd 
+         type(Face), optional, intent(inout)      ::fma
+         type(Face), optional, intent(inout)      ::fmb
+         type(Face), optional, intent(inout)      :: fmc
+         type(Face), optional, intent(inout)      :: fmd 
    !
    !     ---------------
    !     Local variables
    !     ---------------
    !
-         integer           :: i, j, ii, jj, l, m, side
+         integer           :: i, j, ii, jj, l, m, side, q, p, lm
          real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-   
+         real(kind=RP),allocatable     :: Flux_tmp(:, :, :)
+         real(kind=RP),allocatable     :: Flux_master(:, :, :, :)
+         real(kind=RP),allocatable     :: small(:, :, :, :)
+         real(kind=RP),allocatable     :: Mout(:, :, :)
+
          do side = 1, 2
             select case ( whichElements(side) )
             case (1)    ! Prolong to left element
@@ -842,54 +940,7 @@
                   end select
                   end associate
                end if 
-               if (self % IsMortar==1) then 
-                  associate(fStar => self % storage(1) % Fstar)
-                  fStar(1:nEqn,:,:) = 0.0
-   
-                  do l = 0, fma % Nf(2)  ; do j = 0, fma % NfLeft(2)   
-                     do m = 0, fma % Nf(1) ; do i = 0, fma % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fma % Nf(1), &
-                                                               fma % NfLeft(1), 2, 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(fma % Nf(2), &
-                                                               fma % NfLeft(2), 2, 2) % T(j,l) &
-                                                               * flux_M1(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, fmb % Nf(2)  ; do j = 0, fmb % NfLeft(2)   
-                     do m = 0, fmb % Nf(1) ; do i = 0, fmb % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmb % Nf(1), &
-                                                               fmb % NfLeft(1), 2, 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(fmb % Nf(2), &
-                                                               fmb % NfLeft(2), 1, 2) % T(j,l) &
-                                                               * flux_M2(:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, fmc % Nf(2)  ; do j = 0, fmc % NfLeft(2)   
-                     do m = 0,  fmc % Nf(1) ; do i = 0, fmc % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmc% Nf(1), &
-                                                               fmc % NfLeft(1), 1, 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(fmc % Nf(2), &
-                                                               fmc % NfLeft(2), 1, 2) % T(j,l) &
-                                                               * flux_M3(:,m,l)
-   
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, fmd % Nf(2)  ; do j = 0, fmd% NfLeft(2)   
-                     do m = 0, fmd % Nf(1) ; do i = 0, fmd % NfLeft(1)
-                        fStar(1:nEqn,i,j) = fStar(1:nEqn,i,j) +  0.5_RP* TsetM(fmd % Nf(1), &
-                                                                fmd % NfLeft(1), 1, 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(fmd % Nf(2), &
-                                                               fmd % NfLeft(2), 2, 2) % T(j,l) &
-                                                               * flux_M4(:,m,l)
-   
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  end associate 
-               end if 
+ 
    
             case (2)    ! Prolong to right element
    !      
@@ -938,14 +989,77 @@
          !           3rd stage: Inversion
          !           *********
          !
+                     
                      fStar = -fStar
-   
+                     
                      end associate
                   end if 
                end select
          end do
    
       end subroutine Face_ProjectFluxToElements
+
+      subroutine Face_ProjectMortarFluxToElements(self, nEqn, flux, whichElements, flux_M1, flux_M2, flux_M3, flux_M4, fma, fmb, &
+         fmc, fmd)
+         use MappedGeometryClass
+         use PhysicsStorage
+         implicit none
+         class(Face)       :: self
+         integer,       intent(in)  :: nEqn
+         real(kind=RP), optional, intent(in)  :: flux(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         integer,       intent(in)  :: whichElements(2)
+   
+         real(kind=RP), intent(in)  :: flux_M1(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), intent(in)  :: flux_M2(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), intent(in)  :: flux_M3(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         real(kind=RP), intent(in)  :: flux_M4(1:nEqn, 0:self % Nf(1), 0:self % Nf(2))
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+   !
+   !     ---------------
+   !     Local variables
+   !     ---------------
+   !
+         integer           :: i, j, ii, jj, l, m, side, q, p, lm
+         real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
+         real(kind=RP)     :: Flux_tmp(1:nEqn, 0:fma % NfLeft(1), 0:fma % NfLeft(1))
+         real(kind=RP)     :: Flux_master(1:nEqn, 0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         real(kind=RP)     :: small(1:nEqn,0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
+         if (self % IsMortar==1) then 
+
+            small(:,:,:,1)=flux_M1
+            small(:,:,:,2)=flux_M2
+            small(:,:,:,3)=flux_M4
+            small(:,:,:,4)=flux_M3
+
+            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Flux_master=0.0_RP
+            do lm=1,4
+               do j=1,2
+                  Flux_tmp(:,:,:)=0.0_RP
+                  do i=1,2
+                     do q=0,fma % NfLeft(1) ; do p=0,fma % NfLeft(1) ; do l=0,fma % NfLeft(1)
+                           Flux_tmp(:,p,q)=Flux_tmp(:,p,q) + Mout(l,p,i)*small(:,l,q,i+2*(j-1))
+                     end do ; end do ; end do 
+                  end do 
+               
+                  do p=0,fma % NfLeft(1) ; do q=0,fma % NfLeft(1) ; do l=0,fma % NfLeft(1)
+                        Flux_master(:,p,q,lm)=Flux_master(:,p,q,lm) + Mout(l,q,j)*Flux_tmp(:,p,l) 
+                  end do ; end do ; end do 
+               end do 
+            end do 
+
+            associate(fStar => self % storage(1) % Fstar)
+
+               fStar=(Flux_master(:,:,:,1)+Flux_master(:,:,:,2)+Flux_master(:,:,:,4)+Flux_master(:,:,:,3))
+      
+            end associate 
+          end if 
+      end subroutine Face_ProjectMortarFluxToElements
 #if defined(NAVIERSTOKES) 
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1022,7 +1136,7 @@
          integer                :: i, j, ii, jj, l, m, side, lm, a, b
          real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
          real(kind=RP)          :: fStarAux(nEqn,nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
-         
+
          fluxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
    
          select case ( whichElement )
@@ -1058,41 +1172,6 @@
                      end do                  ; end do
                   end select
                   end associate
-               end if 
-   
-               if (self % IsMortar==1) then 
-                  associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
-                     dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv) = 0._RP
-   
-                  do lm=1,4
-                     fluxDeriv(1:,1:,0:,0:) => self % Mortar(lm) % storage(whichderiv) % dFStar_dqF
-                     select case (lm)
-                     case (1)
-                        a=2
-                        b=2 
-                     case(2)
-                        a=1
-                        b=2
-                     case(3)
-                        a=1
-                        b=1
-                     case(4)
-                        a=2
-                        b=1
-                     end select    
-                     do l = 0, self % Mortar(lm)% Nf(2)  ; do j = 0, self % Mortar(lm) % NfLeft(2)   
-                        do m = 0, self % Mortar(lm) % Nf(1) ; do i = 0, self % Mortar (lm)% NfLeft(1)
-                           dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) = dFStar_dq(1:nEqn,1:nEqn,i,j,whichderiv) &
-                                                               +  0.5_RP* TsetM(self % Mortar(lm) % Nf(1), &
-                                                                  self % Mortar(lm) % NfLeft(1), a, 2) % T(i,m) &
-                                                                  * 0.5_RP* TsetM(self % Mortar(lm) % Nf(2), &
-                                                                  self % Mortar(lm) % NfLeft(2), b, 2) % T(j,l) &
-                                                                  * fluxDeriv(:,:,m,l)
-                        end do                 ; end do
-                     end do                  ; end do
-                  end do 
-   
-                  end associate 
                end if 
    
             case (RIGHT)    ! Prolong to right element
@@ -1149,11 +1228,77 @@
          
    
       end subroutine Face_ProjectFluxJacobianToElements
+
+      subroutine Face_ProjectMortarFluxJacobianToElements(self, nEqn, whichElement,whichderiv, fma, fmb, fmc, fmd) !!!ok
+         use MappedGeometryClass
+         use PhysicsStorage
+         implicit none
+         class(Face), target        :: self
+         integer,       intent(in)  :: nEqn
+         integer,       intent(in)  :: whichElement
+         integer,       intent(in)  :: whichderiv           !<  One can either transfer the derivative with respect to qL (LEFT) or to qR (RIGHT)
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+   !
+   !     ---------------
+   !     Local variables
+   !     ---------------
+   !
+         integer                :: i, j, l, m, side, lm, p, q
+         real(kind=RP), pointer :: fluxDeriv(:,:,:,:)
+         !write(*,*)'hum flux jacobian...'
+         !luxDeriv(1:,1:,0:,0:) => self % storage(whichderiv) % dFStar_dqF
+   
+         real(kind=RP)     :: Flux_tmp(nEqn,nEqn,0: fma % NfLeft(1),0:fma % NfLeft(1))
+         real(kind=RP)     :: Flux_master(nEqn,nEqn,0: fma % NfLeft(1),0:fma % NfLeft(1),2,4)
+         real(kind=RP)     :: small(nEqn,nEqn,0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
+   
+   
+          if (self % Ismortar==1) then 
+            small(:,:,:,:,1) = fma  % storage(whichderiv) % dFStar_dqF
+            small(:,:,:,:,2) = fmb % storage(whichderiv) % dFStar_dqF
+            small(:,:,:,:,4) = fmc % storage(whichderiv) % dFStar_dqF
+            small(:,:,:,:,3) = fmd % storage(whichderiv) % dFStar_dqF
+            
+             
+            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Flux_master=0.0_RP
+            do lm=1,4
+               do j=1,2
+                  Flux_tmp(:,:,:,:)=0.0_RP
+                  do i=1,2
+                     do q=0,fma % NfLeft(1) ; do p=0,fma % NfLeft(1); do l=0,fma % NfLeft(1)
+                        Flux_tmp(:,:,p,q)=Flux_tmp(:,:,p,q) + Mout(l,p,i)*small(:,:,l,q,i+2*(j-1))
+                     end do ; end do ; end do 
+                  end do 
+                 
+                  do p=0,fma % NfLeft(1) ; do q=0,fma % NfLeft(1) ; do l=0,fma % NfLeft(1)
+                        Flux_master(1:nEqn,1:nEqn,p,q,whichderiv,lm)=Flux_master(1:nEqn,1:nEqn,p,q,whichderiv,lm) &
+                         + Mout(l,q,j)*Flux_tmp(:,:,p,l) 
+                  end do ; end do ; end do 
+               end do 
+            end do
+   
+            associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv)=(Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,1)+&
+               Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,2)+ Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,4)+ &
+               Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,3))
+            end associate 
+   
+   
+            end if 
+         
+      end subroutine Face_ProjectMortarFluxJacobianToElements
+   
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
 #endif
-      subroutine Face_ProjectGradientFluxToElements(self, nEqn, Hflux, whichElements, factor, HfluxM1, HfluxM2, HfluxM3, HfluxM4)
+      subroutine Face_ProjectGradientFluxToElements(self, nEqn, Hflux, whichElements, factor)
          use MappedGeometryClass
          use PhysicsStorage
          implicit none
@@ -1162,22 +1307,22 @@
          real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
          integer,       intent(in)  :: whichElements(2)
          integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
-         real(kind=RP), optional, intent(in)  :: HfluxM1(nEqn, NDIM, 0:self % Mortar(1) % Nf(1), 0:self % Mortar(1) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: HfluxM2(nEqn, NDIM, 0:self % Mortar(2) % Nf(1), 0:self % Mortar(2) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: HfluxM3(nEqn, NDIM, 0:self % Mortar(3) % Nf(1), 0:self % Mortar(3) % Nf(2))
-         real(kind=RP), optional, intent(in)  :: HfluxM4(nEqn, NDIM, 0:self % Mortar(4) % Nf(1), 0:self % Mortar(4) % Nf(2))
-   
+
    !
    !     ---------------
    !     Local variables
    !     ---------------
    !
-         integer           :: i, j, ii, jj, l, m, side
+         integer           :: i, j, ii, jj, l, m, side,p,q,lm
          real(kind=RP)     :: hStarAux(nEqn, NDIM, 0:self % NfRight(1), 0:self % NfRight(2))
-   
+         real(kind=RP), allocatable     :: Flux_tmp(:,:,:,:)
+         real(kind=RP), allocatable     :: Flux_master(:,:,:,:,:)
+         real(kind=RP), allocatable     ::small(:,:,:,:,:)
+         real(kind=RP), allocatable     ::Mout( :,:,:)
+
          do side = 1, 2
             select case ( whichElements(side) )
-            case (1)    ! Prolong from left element
+            case (1)    ! project from left element
             if (self % IsMortar==0) then 
                associate(unStar => self % storage(1) % unStar)
                select case ( self % projectionType(1) )
@@ -1206,52 +1351,6 @@
                   end do                  ; end do
                end select
                end associate
-            end if 
-            if (self % IsMortar==1) then 
-               associate(unStar => self % storage(1) % unStar)
-                  unStar(:,:,:,:) = 0.0_RP
-   
-                  do l = 0, self % Mortar(1) % Nf(2)  ; do j = 0, self % Mortar(1) % NfLeft(2)   
-                     do m = 0, self % Mortar(1) % Nf(1) ; do i = 0, self % Mortar(1) % NfLeft(1)
-                        unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(1) % Nf(1), &
-                                                            self % Mortar(1) % NfLeft(1), 2, 2) % T(i,m) &
-                                                            * 0.5_RP* TsetM(self % Mortar(1) % Nf(2), &
-                                                            self % Mortar(1) % NfLeft(2), 2, 2) % T(j,l) &
-                                                             * HfluxM1(:,:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, self % Mortar(2) % Nf(2)  ; do j = 0, self % Mortar(2) % NfLeft(2)   
-                     do m = 0, self % Mortar(2) % Nf(1) ; do i = 0, self % Mortar(2) % NfLeft(1)
-                        unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(2) % Nf(1), &
-                                                            self % Mortar(2) % NfLeft(1), 1, 2) % T(i,m) &
-                                                            * 0.5_RP* TsetM(self % Mortar(2) % Nf(2), &
-                                                            self % Mortar(2) % NfLeft(2), 2, 2) % T(j,l) &
-                                                             * HfluxM2(:,:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, self % Mortar(3) % Nf(2)  ; do j = 0, self % Mortar(3) % NfLeft(2)   
-                     do m = 0, self % Mortar(3) % Nf(1) ; do i = 0, self % Mortar(3)% NfLeft(1)
-                        unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(3) % Nf(1), &
-                                                            self % Mortar(3) % NfLeft(1), 1, 2) % T(i,m) &
-                                                            * 0.5_RP* TsetM(self % Mortar(3) % Nf(2), &
-                                                            self % Mortar(3) % NfLeft(2), 1, 2) % T(j,l) &
-                                                            * HfluxM3(:,:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-                  do l = 0, self % Mortar(4) % Nf(2)  ; do j = 0, self % Mortar(4) % NfLeft(2)   
-                     do m = 0, self % Mortar(4) % Nf(1) ; do i = 0, self % Mortar(4) % NfLeft(1)
-                        unStar(:,:,i,j) = unStar(:,:,i,j) + 0.5_RP* TsetM(self % Mortar(4) % Nf(1), &
-                                                            self % Mortar(4) % NfLeft(1), 2, 2) % T(i,m) &
-                                                            * 0.5_RP* TsetM(self % Mortar(4) % Nf(2), &
-                                                            self % Mortar(4) % NfLeft(2), 1, 2) % T(j,l) &
-                                                            * HfluxM4(:,:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-   
-               end associate 
             end if 
    
             case (2)    ! Prolong from right element
@@ -1309,6 +1408,69 @@
          end do
    
       end subroutine Face_ProjectGradientFluxToElements
+
+      subroutine Face_ProjectMortarGradientFluxToElements(self, nEqn, Hflux, whichElements, factor,fma,fmb,fmc,fmd, HfluxM1, HfluxM2, HfluxM3, HfluxM4)   !!!ok
+         use MappedGeometryClass
+         use PhysicsStorage
+         implicit none
+         class(Face)       :: self
+         integer,       intent(in)  :: nEqn
+         real(kind=RP), intent(in), optional  :: Hflux(nEqn, NDIM, 0:self % Nf(1), 0:self % Nf(2))
+         integer,       intent(in)  :: whichElements(2)
+         integer,       intent(in)  :: factor               ! A factor that relates LEFT and RIGHT fluxes
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+         real(kind=RP), intent(in)  :: HfluxM1(nEqn, NDIM, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP), intent(in)  :: HfluxM2(nEqn, NDIM, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP), intent(in)  :: HfluxM3(nEqn, NDIM, 0:fma % Nf(1), 0:fma % Nf(2))
+         real(kind=RP), intent(in)  :: HfluxM4(nEqn, NDIM, 0:fma % Nf(1), 0:fma % Nf(2))
+   
+   !
+   !     ---------------
+   !     Local variables
+   !     --------------
+   !
+         integer           :: i, j, l, m,p,q,lm
+         real(kind=RP)     :: Flux_tmp(1:nEqn,NDIM, 0:fma % NfLeft(1), 0:fma % NfLeft(1))
+         real(kind=RP)     :: Flux_master(1:nEqn,NDIM, 0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         real(kind=RP)     :: small(1:nEqn,NDIM,0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
+   
+         if (self % IsMortar==1) then 
+            
+            small(:,:,:,:,1)=HfluxM1
+            small(:,:,:,:,2)=HfluxM2
+            small(:,:,:,:,3)=HfluxM4
+            small(:,:,:,:,4)=HfluxM3
+   
+            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Flux_master=0.0_RP
+            do lm=1,4
+               do j=1,2
+                  Flux_tmp(:,:,:,:)=0.0_RP
+                  do i=1,2
+                     do q=0,fma % NfLeft(1) ; do p=0,fma % NfLeft(1); do l=0,fma % NfLeft(1)
+                        Flux_tmp(:,:,p,q)=Flux_tmp(:,:,p,q) + Mout(l,p,i)*small(:,:,l,q,i+2*(j-1))
+                     end do ; end do ; end do 
+                  end do 
+                 
+                  do p=0,fma % NfLeft(1) ; do q=0,fma % NfLeft(1) ; do l=0,fma % NfLeft(1)
+                        Flux_master(:,:,p,q,lm)=Flux_master(:,:,p,q,lm) + Mout(l,q,j)*Flux_tmp(:,:,p,l) 
+                  end do ; end do ; end do 
+               end do 
+            end do
+   
+            associate(unStar => self % storage(1) % unStar)
+               unStar=(Flux_master(:,:,:,:,1)+Flux_master(:,:,:,:,2)+Flux_master(:,:,:,:,4)+Flux_master(:,:,:,:,3))
+            end associate 
+   
+         end if 
+   
+      end subroutine Face_ProjectMortarGradientFluxToElements
+     
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
    !
@@ -1364,40 +1526,6 @@
                end select
                
                end associate
-            end if 
-            if (self % Ismortar==1) then 
-               associate(dFv_dGradQEl => self % storage(1) % dFv_dGradQEl)
-                  dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,:,:,whichderiv) = 0._RP
-   
-               do lm=1,4
-                  fluxDeriv(1:,1:,1:,0:,0:) => self % Mortar (lm) % storage(whichderiv) % dFv_dGradQF
-                  select case (lm)
-                  case (1)
-                     a=2
-                     b=2 
-                  case(2)
-                     a=1
-                     b=2
-                  case(3)
-                     a=1
-                     b=1
-                  case(4)
-                     a=2
-                     b=1
-                  end select  
-                  do l = 0, self % Mortar(lm) % Nf(2)  ; do j = 0, self % Mortar(lm) % NfLeft(2)   
-                     do m = 0, self % Mortar(lm) % Nf(1) ; do i = 0, self % Mortar (lm) % NfLeft(1)
-                        dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) = dFv_dGradQEl(1:NCONS,1:NCONS,1:NDIM,i,j,whichderiv) &
-                                                            +  0.5_RP* TsetM(self % Mortar(lm) % Nf(1), &
-                                                               self % Mortar(lm) % NfLeft(1), a, 2) % T(i,m) &
-                                                               * 0.5_RP* TsetM(self % Mortar(lm) % Nf(2), &
-                                                               self % Mortar(lm) % NfLeft(2), b, 2) % T(j,l) &
-                                                               * fluxDeriv(:,:,:,m,l)
-                     end do                 ; end do
-                  end do                  ; end do
-               end do 
-   
-               end associate 
             end if 
    
             case (RIGHT)    ! Prolong to right element
@@ -1456,6 +1584,66 @@
          
          
       end subroutine Face_ProjectGradJacobianToElements
+      
+      subroutine Face_ProjectMortarGradJacobianToElements(self, whichElement, whichderiv, fma, fmb, fmc, fmd)
+         use MappedGeometryClass
+         use PhysicsStorage
+         implicit none
+         !---------------------------------------------------------
+         class(Face), target        :: self
+         integer,       intent(in)  :: whichElement
+         integer,       intent(in)  :: whichderiv
+         type(Face), intent(inout)      ::fma
+         type(Face), intent(inout)      ::fmb
+         type(Face), intent(inout)      :: fmc
+         type(Face), intent(inout)      :: fmd 
+         !---------------------------------------------------------
+   
+         real(kind=RP), pointer :: fluxDeriv(:,:,:,:,:)
+   
+         integer           :: i, j, l, m, p, q, lm
+         real(kind=RP)     :: Flux_tmp(1:NCONS,1:NCONS,1:NDIM,0: fma % NfLeft(1),0:fma % NfLeft(1))
+         real(kind=RP)     :: Flux_master(1:NCONS,1:NCONS,1:NDIM,0: fma % NfLeft(1),0:fma % NfLeft(1),2,4)
+         real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
+         real(kind=RP)     :: small(1:NCONS,1:NCONS,NDIM,0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
+         
+          if (self % Ismortar==1) then 
+            small(:,:,:,:,:,1)=fma % storage(whichderiv) % dFv_dGradQF
+            
+            small(:,:,:,:,:,2) = fmb % storage(whichderiv) % dFv_dGradQF
+
+            small(:,:,:,:,:,4) = fmc % storage(whichderiv) % dFv_dGradQF
+
+            small(:,:,:,:,:,3) = fmd % storage(whichderiv) % dFv_dGradQF
+
+
+            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Flux_master=0.0_RP
+            do lm=1,4
+               do j=1,2
+                  Flux_tmp(:,:,:,:,:)=0.0_RP
+                  do i=1,2
+                     do q=0,fma % NfLeft(1) ; do p=0,fma % NfLeft(1); do l=0,fma % NfLeft(1)
+                        Flux_tmp(:,:,:,p,q)=Flux_tmp(:,:,:,p,q) + Mout(l,p,i)*small(:,:,:,l,q,i+2*(j-1))
+                     end do ; end do ; end do 
+                  end do 
+                 
+                  do p=0,fma % NfLeft(1) ; do q=0,fma % NfLeft(1) ; do l=0,fma % NfLeft(1)
+                        Flux_master(1:NCONS,1:NCONS,1:NDIM,p,q,whichderiv,lm)=Flux_master(1:NCONS,1:NCONS,1:NDIM,p,q,whichderiv,lm) &
+                         + Mout(l,q,j)*Flux_tmp(:,:,:,p,l) 
+                  end do ; end do ; end do 
+               end do 
+            end do
+   
+            associate(dFv_dGradQEl => self % storage(1) % dFv_dGradQEl)
+               dFv_dGradQEl=(Flux_master(:,:,:,:,:,:,1)+Flux_master(:,:,:,:,:,:,2)+Flux_master(:,:,:,:,:,:,4)+Flux_master(:,:,:,:,:,:,3))
+            end associate 
+   
+         end if 
+         
+      end subroutine Face_ProjectMortarGradJacobianToElements
+
 #endif
    !
    !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1525,5 +1713,6 @@
             to % geom = from % geom
             to % storage = from % storage
          end subroutine Face_Assign
+
    end Module FaceClass
    
