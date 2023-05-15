@@ -88,24 +88,16 @@ module InterpolationMatrices
    !
    !        Prolongation matrix
    !        -------------------
-            if (.not.present(offset)) then 
                call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, spAd % x, this % T)
-            else 
-              ! call PolynomialInterpolationMatrix(Norigin, Ndest, offset + 0.5_RP * spAo % x, spAo % wb, spAd % x, this % T)
-               call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, offset + 0.5_RP *spAd % x, this % T)
-            end if 
+            
          else
    !
    !        Restriction (backwards) matrix
    !        ------------------------------
             allocate( Ttemp(0:Norigin, 0:Ndest) )
-            
-            if (.not.present(offset)) then 
-               call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Ttemp)
-            else 
-               !call PolynomialInterpolationMatrix(Ndest, Norigin, offset + 0.5_RP * spAd % x, spAd % wb, spAo % x, Ttemp)
-               call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, offset + 0.5_RP * spAo % x, Ttemp)
-            end if 
+
+            call PolynomialInterpolationMatrix(Ndest, Norigin, spAd % x, spAd % wb, spAo % x, Ttemp)
+
             this % T = transpose(Ttemp)
 
             do j = 0, Norigin ; do i = 0, Ndest
@@ -119,6 +111,7 @@ module InterpolationMatrices
    !        Prolongation matrix
    !        -------------------         
                call PolynomialInterpolationMatrix(Norigin, Ndest, spAo % x, spAo % wb, offset + 0.5_RP *spAd % x, this % T)
+
          else
    !
    !        Restriction (backwards) matrix
@@ -132,6 +125,7 @@ module InterpolationMatrices
                this % T(i,j) = this % T(i,j) * spAo % w(j) / spAd % w(i)
             end do            ; end do
          end if
+        ! this % T = transpose(this % T)
       end if 
 !
 !     Set constructed flag
