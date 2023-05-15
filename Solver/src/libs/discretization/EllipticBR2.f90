@@ -152,12 +152,22 @@ module EllipticBR2
 !           Prolong to faces
 !           ----------------
             fIDs = e % faceIDs
+            if (.not.mesh%nonconforming) then 
             call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
                                              mesh % faces(fIDs(2)),&
                                              mesh % faces(fIDs(3)),&
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
+                                             mesh % faces(fIDs(6)))
+            else 
+            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                             mesh % faces(fIDs(2)),&
+                                             mesh % faces(fIDs(3)),&
+                                             mesh % faces(fIDs(4)),&
+                                             mesh % faces(fIDs(5)),&
+                                             mesh % faces(fIDs(6)),&
+                                             faces=mesh % faces)
+            end if 
 
             end associate
          end do
@@ -170,7 +180,12 @@ module EllipticBR2
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
-            call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            if (mesh % faces(fID) % IsMortar==0) then 
+               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+            elseif (mesh % faces(fID) % IsMortar==1) then 
+               call BR2_GradientInterfaceSolution(mesh % faces(fID), nEqn, nGradEqn, GetGradients, &
+               mesh % faces(fID+1), mesh % faces(fID+2), mesh % faces(fID+3), mesh % faces(fID+4))
+            end if 
          end do
 !$omp end do nowait
 
@@ -387,7 +402,7 @@ module EllipticBR2
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients)
+      subroutine BR2_GradientInterfaceSolution(f, nEqn, nGradEqn, GetGradients, fma, fmb, fmc, fmd)
 !
 !        ************************************************
 !           The BR2 is written in strong form, since it
@@ -414,6 +429,10 @@ module EllipticBR2
          type(Face)                       :: f
          integer, intent(in)              :: nEqn, nGradEqn
          procedure(GetGradientValues_f)   :: GetGradients
+         type(Face), optional             :: fma
+         type(Face), optional             :: fmb
+         type(Face), optional             :: fmc
+         type(Face), optional             :: fmd
 !
 !        ---------------
 !        Local variables
@@ -429,9 +448,9 @@ module EllipticBR2
          real(kind=RP), allocatable :: HfluxM4(:,:,:,:)
 
          integer       :: i,j, lm
-         type(face), pointer :: fm 
+         integer :: Nfm(4,2) 
 
-         if (f % IsMortar==0 .OR. f % Ismortar==2) then 
+         if (f % IsMortar==0 ) then 
             do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
                call GetGradients(nEqn, nGradEqn, Q = f % storage(1) % Q(:,i,j), U = UL)
                call GetGradients(nEqn, nGradEqn, Q = f % storage(2) % Q(:,i,j), U = UR)
@@ -445,43 +464,60 @@ module EllipticBR2
             call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1)
          end if 
          if (f % IsMortar==1) then 
-            do lm=1,4
-               fm=>f % Mortar(lm)
-               if (lm==1) allocate(HfluxM1(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
-               if (lm==2) allocate(HfluxM2(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
-               if (lm==3) allocate(HfluxM3(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
-               if (lm==4) allocate(HfluxM4(nGradEqn,NDIM,0:fm % Nf(1), 0:fm % Nf(2)))
+            Nfm(1,:)=fma % Nf
+            Nfm(2,:)=fmb % Nf
+            Nfm(3,:)=fmc % Nf
+            Nfm(4,:)=fmd % Nf
+            do lm=1, 4
+               if (lm==1) allocate(HfluxM1(nGradEqn,NDIM,0:fma % Nf(1), 0:fma % Nf(2)))
+               if (lm==2) allocate(HfluxM2(nGradEqn,NDIM,0:fmb % Nf(1), 0:fmb % Nf(2)))
+               if (lm==3) allocate(HfluxM3(nGradEqn,NDIM,0:fmc % Nf(1), 0:fmc % Nf(2)))
+               if (lm==4) allocate(HfluxM4(nGradEqn,NDIM,0:fmd % Nf(1), 0:fmd % Nf(2)))
 
-               do j = 0, f % Nf(2)  ; do i = 0, f % Nf(1)
-                  call GetGradients(nEqn, nGradEqn, Q = fm % storage(1) % Q(:,i,j), U = UL)
-                  call GetGradients(nEqn, nGradEqn, Q = fm % storage(2) % Q(:,i,j), U = UR)
-
+               do j = 0, Nfm(lm,2)  ; do i = 0, Nfm(lm,1)
+                  if (lm==1) then 
+                     call GetGradients(nEqn, nGradEqn, Q = fma % storage(1) % Q(:,i,j), U = UL)
+                     call GetGradients(nEqn, nGradEqn, Q = fma % storage(2) % Q(:,i,j), U = UR)  
+                  elseif (lm==2) then 
+                     call GetGradients(nEqn, nGradEqn, Q = fmb % storage(1) % Q(:,i,j), U = UL)
+                     call GetGradients(nEqn, nGradEqn, Q = fmb % storage(2) % Q(:,i,j), U = UR) 
+                  elseif(lm==3) then 
+                     call GetGradients(nEqn, nGradEqn, Q = fmc % storage(1) % Q(:,i,j), U = UL)
+                     call GetGradients(nEqn, nGradEqn, Q = fmc % storage(2) % Q(:,i,j), U = UR) 
+                  elseif(lm==4) then 
+                     call GetGradients(nEqn, nGradEqn, Q = fmd % storage(1) % Q(:,i,j), U = UL)
+                     call GetGradients(nEqn, nGradEqn, Q = fmd % storage(2) % Q(:,i,j), U = UR) 
+                  end if 
                   select case (lm)
                   case (1)
-                  Uhat = 0.5_RP * (UL - UR) * fm % geom % jacobian(i,j)
-                  HfluxM1(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
-                  HfluxM1(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
-                  HfluxM1(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+                  Uhat = 0.5_RP * (UL - UR) * fma % geom % jacobian(i,j)
+                  HfluxM1(:,IX,i,j) = Uhat * fma % geom % normal(IX,i,j)
+                  HfluxM1(:,IY,i,j) = Uhat * fma % geom % normal(IY,i,j)
+                  HfluxM1(:,IZ,i,j) = Uhat * fma % geom % normal(IZ,i,j)
                   case (2)
-                  Uhat = 0.5_RP * (UL - UR) * fm % geom % jacobian(i,j)
-                  HfluxM2(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
-                  HfluxM2(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
-                  HfluxM2(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+                  Uhat = 0.5_RP * (UL - UR) * fmb % geom % jacobian(i,j)
+                  HfluxM2(:,IX,i,j) = Uhat * fmb % geom % normal(IX,i,j)
+                  HfluxM2(:,IY,i,j) = Uhat * fmb % geom % normal(IY,i,j)
+                  HfluxM2(:,IZ,i,j) = Uhat * fmb % geom % normal(IZ,i,j)
                   case (3)
-                  Uhat = 0.5_RP * (UL - UR) * fm % geom % jacobian(i,j)
-                  HfluxM3(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
-                  HfluxM3(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
-                  HfluxM3(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+                  Uhat = 0.5_RP * (UL - UR) * fmc % geom % jacobian(i,j)
+                  HfluxM3(:,IX,i,j) = Uhat * fmc % geom % normal(IX,i,j)
+                  HfluxM3(:,IY,i,j) = Uhat * fmc % geom % normal(IY,i,j)
+                  HfluxM3(:,IZ,i,j) = Uhat * fmc % geom % normal(IZ,i,j)
                   case (4)
-                  Uhat = 0.5_RP * (UL - UR) * fm % geom % jacobian(i,j)
-                  HfluxM4(:,IX,i,j) = Uhat * fm % geom % normal(IX,i,j)
-                  HfluxM4(:,IY,i,j) = Uhat * fm % geom % normal(IY,i,j)
-                  HfluxM4(:,IZ,i,j) = Uhat * fm % geom % normal(IZ,i,j)
+                  Uhat = 0.5_RP * (UL - UR) * fmd % geom % jacobian(i,j)
+                  HfluxM4(:,IX,i,j) = Uhat * fmd % geom % normal(IX,i,j)
+                  HfluxM4(:,IY,i,j) = Uhat * fmd % geom % normal(IY,i,j)
+                  HfluxM4(:,IZ,i,j) = Uhat * fmd % geom % normal(IZ,i,j)
                   end select 
                end do               ; end do
 
             end do 
-            call f % ProjectGradientFluxToElements(nGradEqn, HFlux,(/1,2/),1, HfluxM1, HfluxM2, HfluxM3, HfluxM4)
+            call f % ProjectMortarGradientFluxToElements(nGradEqn, HFlux,(/1,0/),1,fma,fmb, fmc,fmd, HfluxM1, HfluxM2, HfluxM3, HfluxM4)
+            call fma % ProjectGradientFluxToElements(nGradEqn, HFluxM1,(/0,2/),1)
+            call fmb % ProjectGradientFluxToElements(nGradEqn, HFluxM2,(/0,2/),1)
+            call fmc % ProjectGradientFluxToElements(nGradEqn, HFluxM3,(/0,2/),1)
+            call fmd % ProjectGradientFluxToElements(nGradEqn, HFluxM4,(/0,2/),1)
          end if 
       end subroutine BR2_GradientInterfaceSolution   
 

@@ -303,10 +303,11 @@ MODULE HexMeshClass
                  nintfacec=0
                  if (present(numberOfElements)) ConformingMesh=.FALSE.
                  !if (present(HorsesMortars)) then 
+                  !write(*,*) 'HORSESMORTARS'
                   !do l=1,6*SIZE( self % elements )
                     ! write(*,*) HorsesMortars(:,l)
-                  !end do 
-                 !end if 
+                 ! end do 
+                !end if 
                  table = Table_t(size(self % nodes))
         
                  self % numberOfFaces = 0
@@ -416,7 +417,7 @@ MODULE HexMeshClass
                                    !write(*,*) "master mortar face construted"
                           call table % AddEntry(faceNodeIDs)
    
-                          allocate(self%faces(self % numberOfFaces)%Mortar(4))
+                          !allocate(self%faces(self % numberOfFaces)%Mortar(4))
 
                           self % faces(self % numberOfFaces) % IsMortar=1
                           !write(*,*) "slave aloocation done "
@@ -474,10 +475,10 @@ MODULE HexMeshClass
                              self % faces(self % numberOfFaces) % rotation       =0
                              self % faces(self % numberOfFaces) % IsMortar=2
         
-                             fp=>self%faces(self%numberOffaces - l)%Mortar(l)
+                             !fp=>self%faces(self%numberOffaces - l)%Mortar(l)
 
                              !self%faces(self%numberOffaces - l)%Mortar(l) => self%faces(self%numberOffaces)
-                             fp=self%faces(self%numberOffaces)
+                             !fp=self%faces(self%numberOffaces)
                              !write(*,*) "slave construction done "
                              !self%faces(self%numberOffaces - l)%Mortar(l)%fp=>self%faces(self%numberOffaces)
                              call table % AddEntry(MfaceNodeIDs)
@@ -1055,7 +1056,7 @@ slavecoord:             DO l = 1, 4
                                                                fBOT=self % faces(fIDs(3)),&
                                                                fR=self % faces(fIDs(4)),&
                                                                fT=self % faces(fIDs(5)),&
-                                                               fL=self % faces(fIDs(6)), nf=self % NumberOfFaces )
+                                                               fL=self % faces(fIDs(6)))
             else 
                call self % elements(eID) % ProlongSolutionToFaces(nEqn, &
                                                                fFR=self % faces(fIDs(1)),&
@@ -1063,13 +1064,17 @@ slavecoord:             DO l = 1, 4
                                                                fBOT=self % faces(fIDs(3)),&
                                                                fR=self % faces(fIDs(4)),&
                                                                fT=self % faces(fIDs(5)),&
-                                                               fL=self % faces(fIDs(6)), nf=self % NumberOfFaces, &
+                                                               fL=self % faces(fIDs(6)),&
                                                                faces=self % faces )
             end if 
-            
          end do
 !$omp end do
-
+         !do eID=1, size(self % faces)
+           ! if (self%faces(eID)%IsMortar==2) then 
+            !   write(*,*) 'qleft -qrightslave ID',eID, self%faces(eID)%storage(1) % Q-self%faces(eID)%storage(2) % Q
+            !   write(*,*) '******************************************************'
+            !end if 
+        ! end do   
       end subroutine HexMesh_ProlongSolutionToFaces
 !
 !////////////////////////////////////////////////////////////////////////
@@ -1096,7 +1101,7 @@ slavecoord:             DO l = 1, 4
                                                                fBOT=self % faces(fIDs(3)),&
                                                                fR=self % faces(fIDs(4)),&
                                                                fT=self % faces(fIDs(5)),&
-                                                               fL=self % faces(fIDs(6)), nf=self%NumberOfFaces )
+                                                               fL=self % faces(fIDs(6)))
             else 
                call self % elements(eID) % ProlongGradientsToFaces(nGradEqn, &
                                                                fFR=self % faces(fIDs(1)),&
@@ -1104,7 +1109,7 @@ slavecoord:             DO l = 1, 4
                                                                fBOT=self % faces(fIDs(3)),&
                                                                fR=self % faces(fIDs(4)),&
                                                                fT=self % faces(fIDs(5)),&
-                                                               fL=self % faces(fIDs(6)), nf=self%NumberOfFaces,&
+                                                               fL=self % faces(fIDs(6)),&
                                                                faces=self % faces )
             end if 
          end do
@@ -3109,7 +3114,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_)
+      subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -3119,6 +3124,7 @@ slavecoord:             DO l = 1, 4
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
+         logical, optional,   intent(in)        :: saveLES_
 !
 !        ---------------
 !        Local variables
@@ -3128,7 +3134,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor
+         logical                          :: saveSensor, saveLES
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -3159,6 +3165,11 @@ slavecoord:             DO l = 1, 4
             saveSensor = saveSensor_
          else
             saveSensor = .false.
+         end if
+         if (present(saveLES_)) then
+            saveLES = saveLES_
+         else
+            saveLES = .false.
          end if
 
          if (saveGradients .and. computeGradients) then
@@ -3239,6 +3250,17 @@ slavecoord:             DO l = 1, 4
             if (saveSensor) then
                write(fid) e % storage % sensor
             end if
+
+          if (saveLES) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+               write(fid) Q
+               Q(1,:,:,:) = e % storage % mu_turb_NS(:,:,:) !mu_sgs
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
 
             end associate
          end do
