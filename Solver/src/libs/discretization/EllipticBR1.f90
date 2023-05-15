@@ -172,12 +172,12 @@ module EllipticBR1
                end associate
                do m=1,4
                   if (mesh % faces(fID)%Mortar(m) .ne. 0) then 
-                     call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
-                     f=mesh % faces(mesh % faces(fID)%Mortar(m)))
-                    end if 
-                 end do 
-              elseif (mesh % faces(fID) % IsMortar==0) then
-                 call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+                   call BR1_ComputeElementInterfaceAverage(self=self, fma=mesh % faces(fID), nEqn=nEqn, nGradEqn=nGradEqn, GetGradients=GetGradients, &
+                   f=mesh % faces(mesh % faces(fID)%Mortar(m)))
+                  end if 
+               end do 
+            elseif (mesh % faces(fID) % IsMortar==0) then
+               call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
             end if 
          end do
 !$omp end do nowait
@@ -410,6 +410,14 @@ module EllipticBR1
                                              mesh % faces(fIDs(4)),&
                                              mesh % faces(fIDs(5)),&
                                              mesh % faces(fIDs(6)))
+            else
+               call e % ProlongGradientsToFaces(nGradEqn,fFR=mesh % faces(fIDs(1)),&
+               fBK=mesh % faces(fIDs(2)),&
+               fBOT=mesh % faces(fIDs(3)),&
+               fR=mesh % faces(fIDs(4)),&
+               fT=mesh % faces(fIDs(5)),&
+               fL=mesh % faces(fIDs(6)), faces=mesh%faces)
+            end if 
  
             end associate
          end do

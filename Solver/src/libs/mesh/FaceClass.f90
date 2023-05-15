@@ -424,6 +424,7 @@
                end select
                end associate
          case(2)
+
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
