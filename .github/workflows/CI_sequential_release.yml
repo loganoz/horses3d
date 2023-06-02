@@ -31,18 +31,18 @@ jobs:
         mode: ['RELEASE']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
-        mkl: ['y','n']
+        mkl: ['YES','NO']
         exclude:
         - compiler: gfortran
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'y'
+          mkl: 'YES'
         - compiler: ifort
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'n'
+          mkl: 'NO'
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
