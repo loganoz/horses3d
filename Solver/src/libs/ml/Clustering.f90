@@ -1515,11 +1515,7 @@ module Clustering
 
 
 #if defined(_OPENMP)
-!$omp parallel
-!$omp single
-      n = omp_get_num_threads()
-!$omp end single
-!$omp end parallel
+      n = omp_get_max_threads()
 #else
       n = 1
 #endif
