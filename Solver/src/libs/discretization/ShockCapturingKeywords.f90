@@ -86,6 +86,7 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_GRAD_1_VAL   = "grad 1"
    character(len=*), parameter :: SC_GRAD_5_VAL   = "grad 5"
    character(len=*), parameter :: SC_DIV_V_VAL    = "div v"
+   character(len=*), parameter :: SC_MACH_V_VAL   = "mach perp"
 
    integer, parameter :: SC_RHO_ID      = 1
    integer, parameter :: SC_RHOU_ID     = 2
@@ -103,6 +104,7 @@ module ShockCapturingKeywords
    integer, parameter :: SC_GRAD_1_ID   = 14
    integer, parameter :: SC_GRAD_5_ID   = 15
    integer, parameter :: SC_DIV_V_ID    = 16
+   integer, parameter :: SC_MACH_V_ID   = 17
 !
 !  Derivative types
 !  ----------------

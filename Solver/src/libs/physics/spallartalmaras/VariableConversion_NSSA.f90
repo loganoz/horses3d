@@ -6,7 +6,7 @@ module VariableConversion_NSSA
    implicit none
 
    private
-   public   Pressure, Temperature
+   public   Pressure, SoundSpeed, Temperature
    public   get_laminar_mu_kappa, SutherlandsLaw
    public   NSGradientVariables_STATE
    public   NSGradientVariables_ENTROPY
@@ -87,6 +87,32 @@ module VariableConversion_NSSA
       P = thermodynamics % gammaMinus1*(Q(5) - 0.5_RP*(Q(2)**2 + Q(3)**2 + Q(4)**2)/Q(1))
 
       end function Pressure
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! Compute the speed of sound from the state variables
+!---------------------------------------------------------------------
+!
+      PURE function SoundSpeed(Q) RESULT(A)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      REAL(KIND=RP) :: A
+
+      P = Pressure(Q)
+      A = SQRT(thermodynamics % gamma * P / Q(1))
+
+      end function SoundSpeed
 !
 ! /////////////////////////////////////////////////////////////////////
 !
