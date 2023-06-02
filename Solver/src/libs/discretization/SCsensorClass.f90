@@ -494,6 +494,7 @@ module SCsensorClass
       case (SC_GRAD_1_VAL);   id = SC_GRAD_1_ID
       case (SC_GRAD_5_VAL);   id = SC_GRAD_5_ID
       case (SC_DIV_V_VAL);    id = SC_DIV_V_ID
+      case (SC_MACH_V_VAL);   id = SC_MACH_V_ID
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable "', trim(val_), '" is unknown. Options are:'
          write(STD_OUT,*) '   * ', SC_RHO_VAL
@@ -512,6 +513,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_GRAD_1_VAL
          write(STD_OUT,*) '   * ', SC_GRAD_5_VAL
          write(STD_OUT,*) '   * ', SC_DIV_V_VAL
+         write(STD_OUT,*) '   * ', SC_MACH_V_VAL
          errorMessage(STD_OUT)
          stop
       end select
@@ -547,6 +549,7 @@ module SCsensorClass
       case (SC_GRAD_1_ID);   val = SC_GRAD_1_VAL
       case (SC_GRAD_5_ID);   val = SC_GRAD_5_VAL
       case (SC_DIV_V_ID);    val = SC_DIV_V_VAL
+      case (SC_MACH_V_ID);   id = SC_MACH_V_VAL
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable ID = ', id, ' is unknown.'
          errorMessage(STD_OUT)
@@ -1190,7 +1193,7 @@ module SCsensorClass
 !     -------
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
       use VariableConversion, only: getDensityGradient, getPressureGradient, getVelocityGradients
-      use VariableConversion, only: Pressure
+      use VariableConversion, only: Pressure, SoundSpeed
       use FluidData,          only: thermodynamics
       implicit none
 !
@@ -1207,7 +1210,8 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: p
+      real(RP) :: p, a
+      real(RP) :: u(3)
       real(RP) :: drho(3), dp(3)
       real(RP) :: ux(3), uy(3), uz(3)
 
@@ -1264,6 +1268,12 @@ module SCsensorClass
       case (SC_DIV_V_ID)
          call getVelocityGradients(Q, Qx, Qy, Qz, ux, uy, uz)
          s = POW2(ux(1) + uy(2) + uz(3))
+
+      case (SC_MACH_V_ID)
+         call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
+         u = Q(IRHOU:IRHOW) / Q(IRHO)
+         a = SoundSpeed(Q)
+         s = dot_product(u, dp) / (a * norm2(dp) + 10.0_RP * epsilon(1.0_RP))
 
       end select
 

@@ -6,7 +6,7 @@ module VariableConversion_NS
    implicit none
 
    private
-   public   Pressure, Temperature, TemperatureDeriv, PressureDot
+   public   Pressure, SoundSpeed, Temperature, TemperatureDeriv, PressureDot
    public   get_laminar_mu_kappa, SutherlandsLaw
    public   NSGradientVariables_STATE
    public   NSGradientVariables_ENTROPY
@@ -86,6 +86,7 @@ module VariableConversion_NS
       end function Pressure
 !
 ! /////////////////////////////////////////////////////////////////////
+!
 !---------------------------------------------------------------------
 !! Compute the pressure time derivate from the state variables and its time derivatives
 !---------------------------------------------------------------------
@@ -109,6 +110,32 @@ module VariableConversion_NS
       PDot = thermodynamics % gammaMinus1*PDot
 
       end function PressureDot
+!
+! /////////////////////////////////////////////////////////////////////
+!
+!---------------------------------------------------------------------
+!! Compute the speed of sound from the state variables
+!---------------------------------------------------------------------
+!
+      PURE function SoundSpeed(Q) RESULT(A)
+!
+!     ---------
+!     Arguments
+!     ---------
+!
+      REAL(KIND=RP), DIMENSION(NCONS), INTENT(IN) :: Q
+!
+!     ---------------
+!     Local Variables
+!     ---------------
+!
+      REAL(KIND=RP) :: P
+      REAL(KIND=RP) :: A
+
+      P = Pressure(Q)
+      A = SQRT(thermodynamics % gamma * P / Q(1))
+
+      end function SoundSpeed
 !
 ! /////////////////////////////////////////////////////////////////////
 !
