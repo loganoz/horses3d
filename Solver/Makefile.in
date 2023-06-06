@@ -110,7 +110,7 @@ endif
 ##########################
 ## 	Link MKL 	##
 ##########################
-ifeq '$(WITH_MKL)''y'
+ifeq '$(WITH_MKL)''YES'
 	ifeq '$(FC)''gfortran'
 		MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
