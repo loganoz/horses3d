@@ -47,6 +47,8 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 
     with the desired *options* (defaults are bold):
 
+    - PLATFORM=MACOSX/**LINUX**
+
     - MODE=DEBUG/**RELEASE**
 
     - COMPILER=ifort/**gfortran**
