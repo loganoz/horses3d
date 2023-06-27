@@ -13,7 +13,7 @@ module VariableConversion_NS
    public   NSGradientVariables_ENERGY
    public   getPrimitiveVariables, getEntropyVariables
    public   getRoeVariables, GetNSViscosity, getVelocityGradients, getTemperatureGradient, getConservativeGradients
-   public   getDensityGradient, getPressureGradient
+   public   getDensityGradient, getPressureGradient, getSoundSpeedGradient
    public   set_getGradients
   
 
@@ -586,10 +586,41 @@ module VariableConversion_NS
          p_z = p / Q(IRHO) * (dot_product(Q, Q_z) + p * Q_z(IRHOE))
 
       end subroutine getPressureGradient_Entropy
+!
+!///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+!     -----------------------------------------------
+!     Routines to get the gradient of the sound speed
+!     -----------------------------------------------
+!
+      pure subroutine getSoundSpeedGradient(Q,Q_x,Q_y,Q_z,a_x,a_y,a_z)
+         implicit none
+         !-arguments---------------------------------------------------
+         real(kind=RP), intent(in)  :: Q(NCONS)
+         real(kind=RP), intent(in)  :: Q_x(NGRAD), Q_y(NGRAD), Q_z(NGRAD)
+         real(kind=RP), intent(out) :: a_x, a_y, a_z
+         !-local-variables---------------------------------------------
+         real(kind=RP) :: gam
+         real(kind=RP) :: rho, p
+         real(kind=RP) :: drho(3), dp(3)
+         real(kind=RP) :: cr, cp
+         !-------------------------------------------------------------
 
-!
-!/////////////////////////////////////////////////////////////////////////////
-!
+         gam = thermodynamics % gamma
+         rho = Q(IRHO)
+         p = Pressure(Q)
+
+         call getDensityGradient(Q, Q_x, Q_y, Q_z, drho(1), drho(2), drho(3))
+         call getPressureGradient(Q, Q_x, Q_y, Q_z, dp(1), dp(2), dp(3))
+
+         cr = -sqrt(gam * p / rho**3) * 0.5_RP
+         cp = sqrt(gam / (rho * p)) * 0.5_RP
+
+         a_x = cr * drho(1) + cp * dp(1)
+         a_y = cr * drho(2) + cp * dp(2)
+         a_z = cr * drho(3) + cp * dp(3)
+
+      end subroutine getSoundSpeedGradient
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !

@@ -478,24 +478,25 @@ module SCsensorClass
       call toLower(val_)
 
       select case (trim(val_))
-      case (SC_RHO_VAL);      id = SC_RHO_ID
-      case (SC_RHOU_VAL);     id = SC_RHOU_ID
-      case (SC_RHOV_VAL);     id = SC_RHOV_ID
-      case (SC_RHOW_VAL);     id = SC_RHOW_ID
-      case (SC_RHOE_VAL);     id = SC_RHOE_ID
-      case (SC_U_VAL);        id = SC_U_ID
-      case (SC_V_VAL);        id = SC_V_ID
-      case (SC_W_VAL);        id = SC_W_ID
-      case (SC_P_VAL);        id = SC_P_ID
-      case (SC_ENT_VAL);      id = SC_ENT_ID
-      case (SC_RHOP_VAL);     id = SC_RHOP_ID
-      case (SC_GRAD_RHO_VAL); id = SC_GRAD_RHO_ID
-      case (SC_GRAD_P_VAL);   id = SC_GRAD_P_ID
-      case (SC_GRAD_1_VAL);   id = SC_GRAD_1_ID
-      case (SC_GRAD_5_VAL);   id = SC_GRAD_5_ID
-      case (SC_DIV_V_VAL);    id = SC_DIV_V_ID
-      case (SC_MACH_V_VAL);   id = SC_MACH_V_ID
-      case (SC_MACH_N_V_VAL); id = SC_MACH_N_V_ID
+      case (SC_RHO_VAL);       id = SC_RHO_ID
+      case (SC_RHOU_VAL);      id = SC_RHOU_ID
+      case (SC_RHOV_VAL);      id = SC_RHOV_ID
+      case (SC_RHOW_VAL);      id = SC_RHOW_ID
+      case (SC_RHOE_VAL);      id = SC_RHOE_ID
+      case (SC_U_VAL);         id = SC_U_ID
+      case (SC_V_VAL);         id = SC_V_ID
+      case (SC_W_VAL);         id = SC_W_ID
+      case (SC_P_VAL);         id = SC_P_ID
+      case (SC_ENT_VAL);       id = SC_ENT_ID
+      case (SC_RHOP_VAL);      id = SC_RHOP_ID
+      case (SC_GRAD_RHO_VAL);  id = SC_GRAD_RHO_ID
+      case (SC_GRAD_P_VAL);    id = SC_GRAD_P_ID
+      case (SC_GRAD_1_VAL);    id = SC_GRAD_1_ID
+      case (SC_GRAD_5_VAL);    id = SC_GRAD_5_ID
+      case (SC_DIV_V_VAL);     id = SC_DIV_V_ID
+      case (SC_MACH_V_VAL);    id = SC_MACH_V_ID
+      case (SC_MACH_N_V_VAL);  id = SC_MACH_N_V_ID
+      case (SC_GRAD_MACH_VAL); id = SC_GRAD_MACH_ID
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable "', trim(val_), '" is unknown. Options are:'
          write(STD_OUT,*) '   * ', SC_RHO_VAL
@@ -516,6 +517,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_DIV_V_VAL
          write(STD_OUT,*) '   * ', SC_MACH_V_VAL
          write(STD_OUT,*) '   * ', SC_MACH_N_V_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_MACH_VAL
          errorMessage(STD_OUT)
          stop
       end select
@@ -535,24 +537,25 @@ module SCsensorClass
 
 
       select case (id)
-      case (SC_RHO_ID);      val = SC_RHO_VAL
-      case (SC_RHOU_ID);     val = SC_RHOU_VAL
-      case (SC_RHOV_ID);     val = SC_RHOV_VAL
-      case (SC_RHOW_ID);     val = SC_RHOW_VAL
-      case (SC_RHOE_ID);     val = SC_RHOE_VAL
-      case (SC_U_ID);        val = SC_U_VAL
-      case (SC_V_ID);        val = SC_V_VAL
-      case (SC_W_ID);        val = SC_W_VAL
-      case (SC_P_ID);        val = SC_P_VAL
-      case (SC_ENT_ID);      val = SC_ENT_VAL
-      case (SC_RHOP_ID);     val = SC_RHOP_VAL
-      case (SC_GRAD_RHO_ID); val = SC_GRAD_RHO_VAL
-      case (SC_GRAD_P_ID);   val = SC_GRAD_P_VAL
-      case (SC_GRAD_1_ID);   val = SC_GRAD_1_VAL
-      case (SC_GRAD_5_ID);   val = SC_GRAD_5_VAL
-      case (SC_DIV_V_ID);    val = SC_DIV_V_VAL
-      case (SC_MACH_V_ID);   id = SC_MACH_V_VAL
-      case (SC_MACH_N_V_ID); id = SC_MACH_N_V_VAL
+      case (SC_RHO_ID);       val = SC_RHO_VAL
+      case (SC_RHOU_ID);      val = SC_RHOU_VAL
+      case (SC_RHOV_ID);      val = SC_RHOV_VAL
+      case (SC_RHOW_ID);      val = SC_RHOW_VAL
+      case (SC_RHOE_ID);      val = SC_RHOE_VAL
+      case (SC_U_ID);         val = SC_U_VAL
+      case (SC_V_ID);         val = SC_V_VAL
+      case (SC_W_ID);         val = SC_W_VAL
+      case (SC_P_ID);         val = SC_P_VAL
+      case (SC_ENT_ID);       val = SC_ENT_VAL
+      case (SC_RHOP_ID);      val = SC_RHOP_VAL
+      case (SC_GRAD_RHO_ID);  val = SC_GRAD_RHO_VAL
+      case (SC_GRAD_P_ID);    val = SC_GRAD_P_VAL
+      case (SC_GRAD_1_ID);    val = SC_GRAD_1_VAL
+      case (SC_GRAD_5_ID);    val = SC_GRAD_5_VAL
+      case (SC_DIV_V_ID);     val = SC_DIV_V_VAL
+      case (SC_MACH_V_ID);    val = SC_MACH_V_VAL
+      case (SC_MACH_N_V_ID);  val = SC_MACH_N_V_VAL
+      case (SC_GRAD_MACH_ID); val = SC_GRAD_MACH_VAL
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable ID = ', id, ' is unknown.'
          errorMessage(STD_OUT)
@@ -1196,7 +1199,7 @@ module SCsensorClass
 !     -------
       use PhysicsStorage,     only: IRHO, IRHOU, IRHOV, IRHOW, IRHOE
       use VariableConversion, only: getDensityGradient, getPressureGradient, getVelocityGradients
-      use VariableConversion, only: Pressure, SoundSpeed
+      use VariableConversion, only: getSoundSpeedGradient, Pressure, SoundSpeed
       use FluidData,          only: thermodynamics
       implicit none
 !
@@ -1213,9 +1216,10 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      real(RP) :: p, a
+      real(RP) :: p, a, umag
+      real(RP) :: ca, cu(3)
       real(RP) :: u(3)
-      real(RP) :: drho(3), dp(3)
+      real(RP) :: drho(3), dp(3), da(3)
       real(RP) :: ux(3), uy(3), uz(3)
 
 
@@ -1282,6 +1286,18 @@ module SCsensorClass
          u = Q(IRHOU:IRHOW) / Q(IRHO)
          a = SoundSpeed(Q)
          s = dot_product(u, dp) / (a * norm2(dp) + 10.0_RP * epsilon(1.0_RP))
+
+      case (SC_GRAD_MACH_ID)
+         a = SoundSpeed(Q)
+         u = Q(IRHOU:IRHOW) / Q(IRHO)
+         umag = sqrt(dot_product(u, u))
+         call getSoundSpeedGradient(Q, Qx, Qy, Qz, da(1), da(2), da(3))
+         call getVelocityGradients(Q, Qx, Qy, Qz, ux, uy, uz)
+         cu = u / (umag * a)
+         ca = -umag / POW2(a)
+         s = POW2(ca * da(1) + dot_product(cu, ux)) + &
+             POW2(ca * da(2) + dot_product(cu, uy)) + &
+             POW2(ca * da(3) + dot_product(cu, uz))
 
       end select
 
