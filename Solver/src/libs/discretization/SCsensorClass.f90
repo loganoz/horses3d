@@ -752,6 +752,7 @@ module SCsensorClass
       integer                :: Nx, Ny, Nz
       real(RP), allocatable  :: sVar(:,:,:)
       real(RP), allocatable  :: sVarMod(:,:,:)
+      real(RP), allocatable  :: sVarTmp(:,:,:)
       real(RP), pointer      :: Lwx(:), Lwy(:), Lwz(:)
       real(RP)               :: corner, edges, faces, vol
       real(RP)               :: num, den
@@ -763,6 +764,7 @@ module SCsensorClass
       maxNz = maxval(sem % mesh % Nz)
       allocate(sVar(0:maxNx,0:maxNy,0:maxNz))
       allocate(sVarMod(0:maxNx,0:maxNy,0:maxNz))
+      allocate(sVarTmp(0:maxNx,0:maxNy,0:maxNz))
 
 !$omp parallel do default(private) shared(sem, sensor, NodalStorage)
       do eID = 1, sem % mesh % no_of_elements
@@ -785,21 +787,22 @@ module SCsensorClass
 !
 !        Switch to modal space
 !        ---------------------
-         sVarMod = 0.0_RP
-
          ! Xi direction
+         sVarMod = 0.0_RP
          do k = 0, Nz ; do j = 0, Ny ; do r = 0, Nx ; do i = 0, Nx
             sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nx) % Fwd(i,r) * sVar(r,j,k)
          end do       ; end do       ; end do       ; end do
 
          ! Eta direction
+         sVarTmp = 0.0_RP
          do k = 0, Nz ; do r = 0, Ny ; do j = 0, Ny ; do i = 0, Nx
-            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Ny) % Fwd(j,r) * sVar(i,r,k)
+            sVarTmp(i,j,k) = sVarTmp(i,j,k) + NodalStorage(Ny) % Fwd(j,r) * sVarMod(i,r,k)
          end do       ; end do       ; end do       ; end do
 
          ! Zeta direction
+         sVarMod = 0.0_RP
          do r = 0, Nz ; do k = 0, Nz ; do j = 0, Ny ; do i = 0, Nx
-            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVar(i,j,r)
+            sVarMod(i,j,k) = sVarMod(i,j,k) + NodalStorage(Nz) % Fwd(k,r) * sVarTmp(i,j,r)
          end do       ; end do       ; end do       ; end do
 !
 !        Ratio of higher modes vs all the modes
@@ -853,6 +856,7 @@ module SCsensorClass
             num = corner + edges + faces
             den = num + vol
          end if
+         den = den + 10.0_RP * epsilon(1.0_RP)
 
          ! Sensor value as the ratio of num / den
          e % storage % sensor = SinRamp(sensor, log10( num / den ))
