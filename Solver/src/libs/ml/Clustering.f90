@@ -747,7 +747,7 @@ module Clustering
 
       if (present(use_kmeans)) then
          if (use_kmeans) then
-            call self % kmeans % init(self % ndims, self % max_nclusters, 10)
+            call self % kmeans % init(self % ndims, self % max_nclusters)
             call self % kmeans % fit(x, centroids=self % centroids)
             self % centroids = self % kmeans % centroids
          end if
