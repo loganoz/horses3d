@@ -501,18 +501,22 @@ Module DGSEMClass
 !
 !           Save the initial condition
 !           --------------------------
+!
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
             saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
-            write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES)
-            !TDG: ADD PARTICLES WRITE WITH IFDEF
-
+            IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN           
+               write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
+               call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES)
+               !TDG: ADD PARTICLES WRITE WITH IFDEF
+            END IF 
          END IF
 
-         write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
-         call self % mesh % Export( trim(solutionName) )
+         IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
+            write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
+            call self % mesh % Export( trim(solutionName) )
 
-         call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
+            call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
+         END IF 
 
       end subroutine DGSEM_SetInitialCondition
 !
