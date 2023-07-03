@@ -139,6 +139,14 @@ module SCsensorClass
          sensor % sens_type = SC_ONE_ID
          sensor % Compute_Raw => Sensor_one
 
+      case (SC_MAX_VAL)
+         sensor % sens_type = SC_MAX_ID
+         sensor % Compute_Raw => Sensor_maximum
+
+      case (SC_MIN_VAL)
+         sensor % sens_type = SC_MIN_ID
+         sensor % Compute_Raw => Sensor_minimum
+
       case (SC_INTEGRAL_VAL)
          sensor % sens_type = SC_INTEGRAL_ID
          sensor % Compute_Raw => Sensor_integral
@@ -174,6 +182,8 @@ module SCsensorClass
          write(STD_OUT,*) "ERROR. The sensor type is unknown. Options are:"
          write(STD_OUT,*) '   * ', SC_ZERO_VAL
          write(STD_OUT,*) '   * ', SC_ONE_VAL
+         write(STD_OUT,*) '   * ', SC_MAX_VAL
+         write(STD_OUT,*) '   * ', SC_MIN_VAL
          write(STD_OUT,*) '   * ', SC_INTEGRAL_VAL
          write(STD_OUT,*) '   * ', SC_INTEGRAL_SQRT_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
@@ -346,6 +356,8 @@ module SCsensorClass
       select case (sensor % sens_type)
          case (SC_ZERO_ID);          write(STD_OUT,"(A)") SC_ZERO_VAL
          case (SC_ONE_ID);           write(STD_OUT,"(A)") SC_ONE_VAL
+         case (SC_MAX_ID);           write(STD_OUT,"(A)") SC_MAX_VAL
+         case (SC_MIN_ID);           write(STD_OUT,"(A)") SC_MIN_VAL
          case (SC_INTEGRAL_ID);      write(STD_OUT,"(A)") SC_INTEGRAL_VAL
          case (SC_INTEGRAL_SQRT_ID); write(STD_OUT,"(A)") SC_INTEGRAL_SQRT_VAL
          case (SC_MODAL_ID);         write(STD_OUT,"(A)") SC_MODAL_VAL
@@ -478,26 +490,28 @@ module SCsensorClass
       call toLower(val_)
 
       select case (trim(val_))
-      case (SC_RHO_VAL);        id = SC_RHO_ID
-      case (SC_RHOU_VAL);       id = SC_RHOU_ID
-      case (SC_RHOV_VAL);       id = SC_RHOV_ID
-      case (SC_RHOW_VAL);       id = SC_RHOW_ID
-      case (SC_RHOE_VAL);       id = SC_RHOE_ID
-      case (SC_U_VAL);          id = SC_U_ID
-      case (SC_V_VAL);          id = SC_V_ID
-      case (SC_W_VAL);          id = SC_W_ID
-      case (SC_P_VAL);          id = SC_P_ID
-      case (SC_ENT_VAL);        id = SC_ENT_ID
-      case (SC_RHOP_VAL);       id = SC_RHOP_ID
-      case (SC_GRAD_RHO_VAL);   id = SC_GRAD_RHO_ID
-      case (SC_GRAD_RHO_V_VAL); id = SC_GRAD_RHO_V_ID
-      case (SC_GRAD_P_VAL);     id = SC_GRAD_P_ID
-      case (SC_DIV_V_VAL);      id = SC_DIV_V_ID
-      case (SC_DIV_V_MOD_VAL);  id = SC_DIV_V_MOD_ID
-      case (SC_MACH_VAL);       id = SC_MACH_ID
-      case (SC_MACH_SIGN_VAL);  id = SC_MACH_SIGN_ID
-      case (SC_MACH_N_VAL);     id = SC_MACH_N_ID
-      case (SC_GRAD_MACH_VAL);  id = SC_GRAD_MACH_ID
+      case (SC_RHO_VAL);         id = SC_RHO_ID
+      case (SC_RHOU_VAL);        id = SC_RHOU_ID
+      case (SC_RHOV_VAL);        id = SC_RHOV_ID
+      case (SC_RHOW_VAL);        id = SC_RHOW_ID
+      case (SC_RHOE_VAL);        id = SC_RHOE_ID
+      case (SC_U_VAL);           id = SC_U_ID
+      case (SC_V_VAL);           id = SC_V_ID
+      case (SC_W_VAL);           id = SC_W_ID
+      case (SC_P_VAL);           id = SC_P_ID
+      case (SC_ENT_VAL);         id = SC_ENT_ID
+      case (SC_RHOP_VAL);        id = SC_RHOP_ID
+      case (SC_GRAD_RHO_VAL);    id = SC_GRAD_RHO_ID
+      case (SC_GRAD_RHO_V_VAL);  id = SC_GRAD_RHO_V_ID
+      case (SC_GRAD_RHO_P_VAL);  id = SC_GRAD_RHO_P_ID
+      case (SC_GRAD_P_VAL);      id = SC_GRAD_P_ID
+      case (SC_GRAD_RHOP_VAL);   id = SC_GRAD_RHOP_ID
+      case (SC_DIV_V_VAL);       id = SC_DIV_V_ID
+      case (SC_DIV_V_MOD_VAL);   id = SC_DIV_V_MOD_ID
+      case (SC_MACH_VAL);        id = SC_MACH_ID
+      case (SC_MACH_SIGN_VAL);   id = SC_MACH_SIGN_ID
+      case (SC_MACH_N_VAL);      id = SC_MACH_N_ID
+      case (SC_GRAD_MACH_P_VAL); id = SC_GRAD_MACH_P_ID
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable "', trim(val_), '" is unknown. Options are:'
          write(STD_OUT,*) '   * ', SC_RHO_VAL
@@ -513,13 +527,15 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_RHOP_VAL
          write(STD_OUT,*) '   * ', SC_GRAD_RHO_VAL
          write(STD_OUT,*) '   * ', SC_GRAD_RHO_V_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_RHO_P_VAL
          write(STD_OUT,*) '   * ', SC_GRAD_P_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_RHOP_VAL
          write(STD_OUT,*) '   * ', SC_DIV_V_VAL
          write(STD_OUT,*) '   * ', SC_DIV_V_MOD_VAL
          write(STD_OUT,*) '   * ', SC_MACH_VAL
          write(STD_OUT,*) '   * ', SC_MACH_SIGN_VAL
          write(STD_OUT,*) '   * ', SC_MACH_N_VAL
-         write(STD_OUT,*) '   * ', SC_GRAD_MACH_VAL
+         write(STD_OUT,*) '   * ', SC_GRAD_MACH_P_VAL
          errorMessage(STD_OUT)
          stop
       end select
@@ -539,26 +555,28 @@ module SCsensorClass
 
 
       select case (id)
-      case (SC_RHO_ID);        val = SC_RHO_VAL
-      case (SC_RHOU_ID);       val = SC_RHOU_VAL
-      case (SC_RHOV_ID);       val = SC_RHOV_VAL
-      case (SC_RHOW_ID);       val = SC_RHOW_VAL
-      case (SC_RHOE_ID);       val = SC_RHOE_VAL
-      case (SC_U_ID);          val = SC_U_VAL
-      case (SC_V_ID);          val = SC_V_VAL
-      case (SC_W_ID);          val = SC_W_VAL
-      case (SC_P_ID);          val = SC_P_VAL
-      case (SC_ENT_ID);        val = SC_ENT_VAL
-      case (SC_RHOP_ID);       val = SC_RHOP_VAL
-      case (SC_GRAD_RHO_ID);   val = SC_GRAD_RHO_VAL
-      case (SC_GRAD_RHO_V_ID); val = SC_GRAD_RHO_V_VAL
-      case (SC_GRAD_P_ID);     val = SC_GRAD_P_VAL
-      case (SC_DIV_V_ID);      val = SC_DIV_V_VAL
-      case (SC_DIV_V_MOD_ID);  val = SC_DIV_V_MOD_VAL
-      case (SC_MACH_ID);       val = SC_MACH_VAL
-      case (SC_MACH_SIGN_ID);  val = SC_MACH_SIGN_VAL
-      case (SC_MACH_N_ID);     val = SC_MACH_N_VAL
-      case (SC_GRAD_MACH_ID);  val = SC_GRAD_MACH_VAL
+      case (SC_RHO_ID);         val = SC_RHO_VAL
+      case (SC_RHOU_ID);        val = SC_RHOU_VAL
+      case (SC_RHOV_ID);        val = SC_RHOV_VAL
+      case (SC_RHOW_ID);        val = SC_RHOW_VAL
+      case (SC_RHOE_ID);        val = SC_RHOE_VAL
+      case (SC_U_ID);           val = SC_U_VAL
+      case (SC_V_ID);           val = SC_V_VAL
+      case (SC_W_ID);           val = SC_W_VAL
+      case (SC_P_ID);           val = SC_P_VAL
+      case (SC_ENT_ID);         val = SC_ENT_VAL
+      case (SC_RHOP_ID);        val = SC_RHOP_VAL
+      case (SC_GRAD_RHO_ID);    val = SC_GRAD_RHO_VAL
+      case (SC_GRAD_RHO_V_ID);  val = SC_GRAD_RHO_V_VAL
+      case (SC_GRAD_RHO_P_ID);  val = SC_GRAD_RHO_P_VAL
+      case (SC_GRAD_P_ID);      val = SC_GRAD_P_VAL
+      case (SC_GRAD_RHOP_ID);   val = SC_GRAD_RHOP_VAL
+      case (SC_DIV_V_ID);       val = SC_DIV_V_VAL
+      case (SC_DIV_V_MOD_ID);   val = SC_DIV_V_MOD_VAL
+      case (SC_MACH_ID);        val = SC_MACH_VAL
+      case (SC_MACH_SIGN_ID);   val = SC_MACH_SIGN_VAL
+      case (SC_MACH_N_ID);      val = SC_MACH_N_VAL
+      case (SC_GRAD_MACH_P_ID); val = SC_GRAD_MACH_P_VAL
       case default
          write(STD_OUT,'(A,A,A)') 'ERROR. The sensor variable ID = ', id, ' is unknown.'
          errorMessage(STD_OUT)
@@ -622,6 +640,98 @@ module SCsensorClass
 !$omp end parallel do
 
    end subroutine Sensor_one
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_maximum(sensor, sem, t)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i
+      integer                :: j
+      integer                :: k
+      real(RP)               :: contribution
+      real(RP)               :: val
+
+!$omp parallel do default(private) shared(sem, sensor)
+      do eID = 1, sem % mesh % no_of_elements
+         e => sem % mesh % elements(eID)
+         val = -huge(1.0_RP)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            contribution = GetSensedVariable( &
+               sensor % sVar,                 &
+               e % storage % Q(:,i,j,k),      &
+               e % storage % U_x(:,i,j,k),    &
+               e % storage % U_y(:,i,j,k),    &
+               e % storage % U_z(:,i,j,k)     &
+            )
+            val = max(val, contribution)
+         end do                ; end do                ; end do
+         e % storage % sensor = SinRamp(sensor, val)
+
+      end do
+!$omp end parallel do
+
+      nullify(e)
+
+   end subroutine Sensor_maximum
+!
+!///////////////////////////////////////////////////////////////////////////////
+!
+   subroutine Sensor_minimum(sensor, sem, t)
+!
+!     ---------
+!     Interface
+!     ---------
+      implicit none
+      class(SCsensor_t), target, intent(inout) :: sensor
+      type(DGSem),       target, intent(inout) :: sem
+      real(RP),                  intent(in)    :: t
+!
+!     ---------------
+!     Local variables
+!     ---------------
+      type(Element), pointer :: e
+      integer                :: eID
+      integer                :: i
+      integer                :: j
+      integer                :: k
+      real(RP)               :: contribution
+      real(RP)               :: val
+
+!$omp parallel do default(private) shared(sem, sensor)
+      do eID = 1, sem % mesh % no_of_elements
+         e => sem % mesh % elements(eID)
+         val = huge(1.0_RP)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            contribution = GetSensedVariable( &
+               sensor % sVar,                 &
+               e % storage % Q(:,i,j,k),      &
+               e % storage % U_x(:,i,j,k),    &
+               e % storage % U_y(:,i,j,k),    &
+               e % storage % U_z(:,i,j,k)     &
+            )
+            val = min(val, contribution)
+         end do                ; end do                ; end do
+         e % storage % sensor = SinRamp(sensor, val)
+
+      end do
+!$omp end parallel do
+
+      nullify(e)
+
+   end subroutine Sensor_minimum
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
@@ -1137,18 +1247,20 @@ module SCsensorClass
 !     Compute the sensor values
 !     -------------------------
       nclusters = sensor % gmm % nclusters
-      cnt = 0
-      do eID = 1, sem % mesh % no_of_elements
-         e => sem % mesh % elements(eID)
-         if (nclusters <= 1) then
-            e % storage % sensor = 0.0_RP
-         else
+      if (nclusters <= 1) then
+         do eID = 1, sem % mesh % no_of_elements
+            sem % mesh % elements(eID) % storage % sensor = 0.0_RP
+         end do
+      else
+         cnt = 0
+         do eID = 1, sem % mesh % no_of_elements
+            e => sem % mesh % elements(eID)
             n = product(e % Nxyz + 1)
             cluster = maxval(maxloc(sensor % gmm % prob(cnt+1:cnt+n,1:nclusters), dim=2))
             e % storage % sensor = real(cluster - 1, RP) / (nclusters - 1)
-         end if
-         cnt = cnt + n
-      end do
+            cnt = cnt + n
+         end do
+      end if
 
       nullify(e)
 
@@ -1272,12 +1384,24 @@ module SCsensorClass
       case (SC_GRAD_RHO_V_ID)
          call getDensityGradient(Q, Qx, Qy, Qz, drho(1), drho(2), drho(3))
          u = Q(IRHOU:IRHOW)
-         umag = sqrt(dot_product(u, u))
-         s = dot_product(drho, u) / umag
+         s = dot_product(drho, u) / norm2(u)
+
+      case (SC_GRAD_RHO_P_ID)
+         call getDensityGradient(Q, Qx, Qy, Qz, drho(1), drho(2), drho(3))
+         call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
+         s = dot_product(drho, dp) / norm2(dp)
 
       case (SC_GRAD_P_ID)
          call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
          s = POW2(dp(1)) + POW2(dp(2)) + POW2(dp(3))
+
+      case (SC_GRAD_RHOP_ID)
+         call getDensityGradient(Q, Qx, Qy, Qz, drho(1), drho(2), drho(3))
+         call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
+         p = Pressure(Q)
+         s = POW2(Q(IRHO) * dp(1) + p * drho(1)) + &
+             POW2(Q(IRHO) * dp(2) + p * drho(2)) + &
+             POW2(Q(IRHO) * dp(3) + p * drho(3))
 
       case (SC_DIV_V_ID)
          call getVelocityGradients(Q, Qx, Qy, Qz, ux, uy, uz)
@@ -1289,7 +1413,7 @@ module SCsensorClass
          vort(1) = uy(3) - uz(2)
          vort(2) = uz(1) - ux(3)
          vort(3) = ux(2) - uy(1)
-         s = div2 / (div2 + POW2(vort(1)) + POW2(vort(2)) + POW2(vort(3)) + 10.0_RP * epsilon(1.0_RP))
+         s = div2 / (div2 + POW2(vort(1)) + POW2(vort(2)) + POW2(vort(3)) + 1e-30_RP)
 
       case (SC_MACH_ID)
          u = Q(IRHOU:IRHOW) / Q(IRHO)
@@ -1305,19 +1429,21 @@ module SCsensorClass
          call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
          u = Q(IRHOU:IRHOW) / Q(IRHO)
          a = SoundSpeed(Q)
-         s = dot_product(u, dp) / (a * norm2(dp) + 10.0_RP * epsilon(1.0_RP))
+         s = dot_product(u, dp) / (a * norm2(dp))
 
-      case (SC_GRAD_MACH_ID)
-         a = SoundSpeed(Q)
-         u = Q(IRHOU:IRHOW) / Q(IRHO)
-         umag = sqrt(dot_product(u, u))
+      case (SC_GRAD_MACH_P_ID)
          call getSoundSpeedGradient(Q, Qx, Qy, Qz, da(1), da(2), da(3))
          call getVelocityGradients(Q, Qx, Qy, Qz, ux, uy, uz)
+         call getPressureGradient(Q, Qx, Qy, Qz, dp(1), dp(2), dp(3))
+         a = SoundSpeed(Q)
+         u = Q(IRHOU:IRHOW) / Q(IRHO)
+         umag = norm2(u)
          cu = u / (umag * a)
          ca = -umag / POW2(a)
-         s = POW2(ca * da(1) + dot_product(cu, ux)) + &
-             POW2(ca * da(2) + dot_product(cu, uy)) + &
-             POW2(ca * da(3) + dot_product(cu, uz))
+         s = (ca * da(1) + dot_product(cu, ux)) * dp(1) + &
+             (ca * da(2) + dot_product(cu, uy)) * dp(2) + &
+             (ca * da(3) + dot_product(cu, uz)) * dp(3)
+         s = s / norm2(dp)
 
       end select
 
