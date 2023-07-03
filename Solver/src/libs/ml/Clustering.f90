@@ -993,8 +993,8 @@ module Clustering
 
 !$omp do
          do i = 1, npts
-            lognorm = logsumexp(self % prob(i,:))
-            self % prob(i,:) = exp(self % prob(i,:) - lognorm)
+            lognorm = logsumexp(self % prob(i,1:nclusters))
+            self % prob(i,1:nclusters) = exp(self % prob(i,1:nclusters) - lognorm)
          end do
 !$omp end do
 !$omp end parallel
@@ -1217,13 +1217,14 @@ module Clustering
       real(RP) :: tau_scale
 
 !
-!     Make sure the clusters do not overlap
-!     -------------------------------------
+!     Make sure the clusters are good
+!     -------------------------------
       if (MPI_Process % isRoot) then
          k = 1
          init_nclusters = nclusters
          do j = 1, init_nclusters
 
+            ! Check distances between centroids
             deleteit = .false.
             do l = 1, k-1
                if (all(g % mu(:,k) - g % mu(:,l) < mudiff)) then
@@ -1235,7 +1236,7 @@ module Clustering
             ! Delete the marked clusters
             if (deleteit) then
                do l = k+1, nclusters
-                  g % logtau(l-1) = g % logtau(l)
+                  g % logtau(l-1) = logsumexp([g % logtau(l-1), g % logtau(l)])
                   g % mu(:,l-1) = g % mu(:,l)
                   g % cov(:,:,l-1) = g % cov(:,:,l)
                   g % covinv(:,:,l-1) = g % covinv(:,:,l)
@@ -1247,10 +1248,6 @@ module Clustering
             end if
 
          end do
-
-         ! Rescale tau to make sure it adds to 1
-         tau_scale = logsumexp(g % logtau(1:nclusters))
-         g % logtau(1:nclusters) = g % logtau(1:nclusters) - tau_scale
       end if
 !
 !     Syncronize
