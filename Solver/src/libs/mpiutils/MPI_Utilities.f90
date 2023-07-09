@@ -1,3 +1,4 @@
+#include "Includes.h"
 module MPI_Utilities
    use SMConstants
    use MPI_Process_Info
@@ -73,7 +74,22 @@ module MPI_Utilities
 
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-         call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         select rank(x)
+         rank(0)
+            call MPI_Allreduce(MPI_IN_PLACE, x, 1, MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(1)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(2)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(3)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(4)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank default
+            write(STD_OUT,*) 'MPI_OpAll_int only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            stop
+         end select
       end if
 #endif
    end subroutine MPI_OpAll_int
@@ -89,7 +105,22 @@ module MPI_Utilities
 
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-         call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         select rank(x)
+         rank(0)
+            call MPI_Allreduce(MPI_IN_PLACE, x, 1, MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(1)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(2)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(3)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(4)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank default
+            write(STD_OUT,*) 'MPI_OpAll_real only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            stop
+         end select
       end if
 #endif
    end subroutine MPI_OpAll_real
@@ -127,9 +158,42 @@ module MPI_Utilities
 
 #if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-         call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
-         call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
-         call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         if (rank(minimum) > 4 .or. rank(maximum) > 4) then
+            write(STD_OUT,*) 'MPI_MinMax only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            stop
+         end if
+
+         select rank(minimum)
+         rank(0)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(1)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(2)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(3)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(4)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         end select
+
+         select rank(maximum)
+         rank(0)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(1)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(2)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(3)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(4)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         end select
       end if
 #endif
    end subroutine MPI_MinMax
