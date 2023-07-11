@@ -3,7 +3,6 @@
 module WallDistance
 #if defined(NAVIERSTOKES)
    use SMConstants
-   use LESModels
    use NodalStorageClass
    use Utilities, only: almostEqual
 

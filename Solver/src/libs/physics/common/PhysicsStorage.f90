@@ -9,10 +9,10 @@ module PhysicsStorage
 #ifdef CAHNHILLIARD
    use FluidData, only: multiphase
 #endif
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-   use PhysicsStorage_NS
-#elif defined(SPALARTALMARAS)
+#if defined(SPALARTALMARAS)
    use PhysicsStorage_NSSA
+#elif defined(NAVIERSTOKES)
+   use PhysicsStorage_NS
 #elif defined(INCNS)
    use PhysicsStorage_iNS
 #elif defined(MULTIPHASE)
