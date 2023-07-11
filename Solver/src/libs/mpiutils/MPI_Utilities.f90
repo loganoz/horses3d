@@ -198,4 +198,24 @@ module MPI_Utilities
 #endif
    end subroutine MPI_MinMax
 
+!-----------------------------------------------------------------------------------------------------------------------
+! NOTE
+!-----------------------------------------------------------------------------------------------------------------------
+! We have been forced to use `select rank` constructs to avoid compilation issues in several clusters. If the external
+! MPI library implements `.mod` files that support assumed-rank variables, the code can be simplified. Take for example
+! the case of the `maximum` variable in `MPI_MinMax`, where the whole construct:
+!
+!   select rank(maximum)
+!   rank(0)
+!     call MPI_IAllreduce(MPI_IN_PLACE, maximum, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!   rank(1)
+!     call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!   ...
+!   end select
+!
+! can be simplified to:
+!
+!   call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!-----------------------------------------------------------------------------------------------------------------------
+
 end module MPI_Utilities
