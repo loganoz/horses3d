@@ -234,6 +234,7 @@ For default, the residuals monitors are created without any specification on the
 #end
 \end{lstlisting}
 
+Only constant time-stepping is supported (set time step with keyword dt = X instead of cfl).
 By default, the statistic monitor will average following variables:
 
 \begin{multicols}{3}
@@ -635,7 +636,7 @@ Tool to merge several statistics files. The usage is the following:
 Some remarks:
 \begin{itemize}
 \item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations. 
-\item Only constant time-stepping is supported.
+\item Only constant time-stepping is supported (set time step with keyword dt = X instead of cfl).
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
 
