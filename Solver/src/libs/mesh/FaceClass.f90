@@ -200,7 +200,24 @@
          integer,                 intent(in)    :: nodeType    ! Either Gauss or Gauss-Lobatto
          real(kind=RP), optional, intent(in)    :: offset
 
+         real(kind=RP) :: test1(0:3)
+         real(kind=RP) :: test2(0:3)
+       real(kind=RP) :: test3(0:3)
+       real(kind=RP) :: test4(1:3,0:3, 0:3)
+
+       real(kind=RP) :: small(1:3, 0:3, 0:3,4)
+       real(kind=RP) :: MInt(0 : 3, 0 : 3,1:2)
+       real(kind=RP) :: tmp(1:3, 0:3,0:3)
+       real(kind=RP)     :: Flux_tmp(1:3, 0:3, 0:3)
+         real(kind=RP)     :: Flux_master(1:3, 0: 3, 0:3,4)
+         !real(kind=RP)     :: small(1:3,0: self % NfLeft(1), 0:self % NfLeft(1),4)
+         real(kind=RP)     :: Mout(0: 3, 0:3, 2)
+         integer :: p,q,l,lm 
+         !real(kind=RP) :: test4(self % NfLeft(1), self % Nf(1))
+         !real(kind=RP) :: test5(self % NfLeft(1), self % Nf(1))
          integer :: i ,j
+         real(kind=RP) ::error
+         real(kind=RP) ::w(4)
 #if (!defined(NAVIERSTOKES)) && (!defined(INCNS))
          logical  :: computeGradients = .true.
 #endif
@@ -269,6 +286,86 @@
             call TsetM(self % NfLeft(2), self % Nf(2), 1, 1) % construct(self % NfLeft(2), self % Nf(2), -0.5_RP, 1)
             call TsetM(self % Nf(2), self % NfLeft(2), 1, 2) % construct(self % Nf(2), self % NfLeft(2), -0.5_RP, 2)
 
+           ! MInt(:,:,1)=transpose(TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % T)
+           ! MInt(:,:,2)=transpose(TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % T)
+           ! CALL RANDOM_NUMBER(test4)
+           ! write(*,*) 'test1 befor', test4
+           ! do j=1,2
+              ! tmp=0.0_RP
+            !   do q=0, self%Nf(1) ; do p=0, self%Nf(1) ; do l=0, self%Nf(1)
+                !     tmp(:,p,q)=tmp(:,p,q) +MInt(l,q,j)*test4(:,p,l)
+                !  end do ; end do ; end do
+
+              ! do i=1,2
+              ! small(:,:,:,i+2*(j-1))=0.0_RP
+               !   do q=0, self%Nf(1) ; do p=0, self%Nf(1) ; do l=0, self%Nf(1)
+                !     small(:,p,q,i+2*(j-1))=small(:,p,q,i+2*(j-1)) +MInt(l,p,i)*tmp(:,l,q)
+               !   end do ; end do ; end do 
+              ! end do 
+          !  end do 
+
+
+          !  Mout(:,:,1)=transpose(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+          !  Mout(:,:,2)=transpose(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
+          !  Flux_master=0.0_RP
+           ! do lm=1,4
+            !   do j=1,2
+            !      Flux_tmp(:,:,:)=0.0_RP
+             ! !    do i=1,2
+               !      do q=0,self % NfLeft(1) ; do p=0,self % NfLeft(1) ; do l=0,self % NfLeft(1)
+                !           Flux_tmp(:,p,q)=Flux_tmp(:,p,q) + Mout(l,p,i)*small(:,l,q,i+2*(j-1))
+               !      end do ; end do ; end do 
+             !     end do 
+               
+             !     do p=0,self % NfLeft(1) ; do q=0,self % NfLeft(1) ; do l=0,self % NfLeft(1)
+             !           Flux_master(:,p,q,lm)=Flux_master(:,p,q,lm) + Mout(l,q,j)*Flux_tmp(:,p,l) 
+              !    end do ; end do ; end do 
+              ! end do 
+            !end do 
+
+           ! MInt(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % T)
+           ! MInt(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % T)
+           ! Mout(:,:,1)=(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T)
+            !Mout(:,:,2)=(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T)
+            
+          !  write(*,*) 'matmul'
+          !!  write(*,*)  MATMUL(Mout(:,:,1),MInt(:,:,1))+ MATMUL(Mout(:,:,2),MInt(:,:,2))
+            !test1=MATMUL(TsetM(self % NfLeft(1), self % Nf(1), 2, 2) % T, TsetM(self % NfLeft(1), self % Nf(1), 2, 1) % T)  
+            !test2=MATMUL(TsetM(self % NfLeft(1), self % Nf(1), 1, 2) % T, TsetM(self % NfLeft(1), self % Nf(1), 1, 1) % T)  
+            !test3=test1+test2 
+          !  write(*,*) 'test afterp', Flux_master(:,:,:,1)+Flux_master(:,:,:,2)+Flux_master(:,:,:,3)+Flux_master(:,:,:,4)
+          !  test2 = 1.33_RP
+          !  test1 = MATMUL(MInt(:,:,1),test2) !interpolate to mortar1
+          !  error = SUM(ABS(test1-1.33_RP))/REAL(4)
+         !   write(*,*)'Error of interpolate constant to mortar 1:',error
+         !   test2 = MATMUL(MInt(:,:,2),test2) !interpolate to mortar2
+         !   error = SUM(ABS(test2-1.33_RP))/REAL(4)
+         !   write(*,*)'Error of interpolate constant to mortar 2:',error
+           ! test2 = MATMUL(Mout(:,:,1),test1)+MATMUL(Mout(:,:,2),test2)
+            !error = SUM(ABS(0.5_RP*test2-1.33_RP))/REAL(4)
+           ! write(*,*)'Error of project constant back to big side:',error
+          !  IF(error.GT. 100.*epsilon(1._RP)) THEN
+             !  write(*,*) 'aie'
+           ! else 
+            !   write(*,*) 'good'
+            ! END IF
+            ! w=NodalStorage(3)%wb 
+
+
+             !  test2 = 1.0d0
+             !  test2(0) = -10.33d0
+             !  error  = SUM(test2*w)  !save mean value of big side
+             !  test1 = MATMUL(MInt(:,:,1),test2) !interpolate to mortar1
+             !  test2 = MATMUL(MInt(:,:,2),test2) !interpolate to mortar2
+             !  test2 = 0.5*(MATMUL(Mout(:,:,1),test1)+MATMUL(Mout(:,:,2),test2)) !project  back
+             !  error  = error - SUM(test2*w)  !difference to initial mean value
+             !  write(*,*)'Error of mean value of polynomial, projected back to big side:',error
+             !  IF(error.GT. 100.*epsilon(1._RP)) THEN
+              !    write(*,*) 'aie'
+             !  else 
+               !   write(*,*) 'Mortar operators build successfully.'
+              !  END IF
+
          end if 
          
          call Tset(self % NfRight(1), self % Nf(1)) % construct(self % NfRight(1), self % Nf(1))
@@ -277,6 +374,8 @@
          call Tset(self % NfRight(2), self % Nf(2)) % construct(self % NfRight(2), self % Nf(2))
          call Tset(self % Nf(2), self % NfRight(2)) % construct(self % Nf(2), self % NfRight(2))
 
+
+      
    !
    !     -----------------------  0- no projection
    !     Set the projection type: 1- x needs projection
@@ -385,6 +484,8 @@
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               if (ii .NE. i) write(*,*) 'non equal ii'
+               if (jj .NE. j) write(*,*) 'non equal jj'
                Qe_rot(:,i,j) = Qe(:,ii,jj) 
             end do                        ; end do
    
@@ -477,11 +578,24 @@
                Qf=small(:,:,:,2)
             end associate 
             associate(Qf => fmc % storage(1) % Q)
-               Qf=small(:,:,:,4)
-            end associate 
-            associate(Qf => fmd % storage(1) % Q)
                Qf=small(:,:,:,3)
             end associate 
+            associate(Qf => fmd % storage(1) % Q)
+               Qf=small(:,:,:,4)
+            end associate 
+
+           ! associate(Qf => fma % storage(2) % Q)
+           !    Qf=small(:,:,:,1)
+           ! end associate 
+           ! associate(Qf => fmb % storage(2) % Q)
+               !Qf=small(:,:,:,2)
+           !! end associate 
+           ! associate(Qf => fmc % storage(2) % Q)
+           !    Qf=small(:,:,:,4)
+           ! end associate 
+            !associate(Qf => fmd % storage(2) % Q)
+            !   Qf=small(:,:,:,3)
+           ! end associate 
 
          end if
 
@@ -618,7 +732,7 @@
             end select
             end associate
          end select
-      end if 
+     end if 
       
       end subroutine Face_AdaptGradientsToFace
 
@@ -691,6 +805,13 @@
                Uyf=smally(:,:,:,1)
                Uzf=smallz(:,:,:,1)
             end associate 
+            !associate(Uxf =>fma % storage(2) % U_x, &
+            !   Uyf => fma % storage(1) % U_y, &
+            !   Uzf => fma % storage(1) % U_z   )
+            !   Uxf=smallx(:,:,:,1)
+            !   Uyf=smally(:,:,:,1)
+           !    Uzf=smallz(:,:,:,1)
+           ! end associate 
    
             associate(Uxf =>fmb % storage(1) % U_x, &
                Uyf => fmb % storage(1) % U_y, &
@@ -699,23 +820,44 @@
                Uyf=smally(:,:,:,2)
                Uzf=smallz(:,:,:,2)
             end associate 
+           ! associate(Uxf =>fmb % storage(2) % U_x, &
+            !   Uyf => fmb % storage(1) % U_y, &
+            !   Uzf => fmb % storage(1) % U_z   )
+            !  Uxf=smallx(:,:,:,2)
+            !   Uyf=smally(:,:,:,2)
+            !   Uzf=smallz(:,:,:,2)
+           ! end associate 
    
    
             associate(Uxf =>fmc % storage(1) % U_x, &
                Uyf => fmc % storage(1) % U_y, &
                Uzf => fmc % storage(1) % U_z   )
-               Uxf=smallx(:,:,:,4)
-               Uyf=smally(:,:,:,4)
-               Uzf=smallz(:,:,:,4)
-            end associate
-   
-            associate(Uxf =>fmd % storage(1) % U_x, &
-               Uyf => fmd % storage(1) % U_y, &
-               Uzf => fmd % storage(1) % U_z   )
                Uxf=smallx(:,:,:,3)
                Uyf=smally(:,:,:,3)
                Uzf=smallz(:,:,:,3)
             end associate
+           ! associate(Uxf =>fmc % storage(2) % U_x, &
+            !   Uyf => fmc % storage(1) % U_y, &
+            !   Uzf => fmc % storage(1) % U_z   )
+            !   Uxf=smallx(:,:,:,4)
+             !  Uyf=smally(:,:,:,4)
+             !  Uzf=smallz(:,:,:,4)
+           ! end associate
+   
+            associate(Uxf =>fmd % storage(1) % U_x, &
+               Uyf => fmd % storage(1) % U_y, &
+               Uzf => fmd % storage(1) % U_z   )
+               Uxf=smallx(:,:,:,4)
+               Uyf=smally(:,:,:,4)
+               Uzf=smallz(:,:,:,4)
+            end associate
+           ! associate(Uxf =>fmd % storage(2) % U_x, &
+             !  Uyf => fmd % storage(1) % U_y, &
+             !  Uzf => fmd % storage(1) % U_z   )
+             !  Uxf=smallx(:,:,:,3)
+             !  Uyf=smally(:,:,:,3)
+            !   Uzf=smallz(:,:,:,3)
+           ! end associate
          end if
    
    
@@ -866,11 +1008,24 @@
                AVf=small(:,:,:,2)
             end associate 
             associate(AVf => fmc % storage(1) % AviscFlux)
-               AVf=small(:,:,:,4)
-            end associate 
-            associate(AVf => fmd % storage(1) % AviscFlux)
                AVf=small(:,:,:,3)
             end associate 
+            associate(AVf => fmd % storage(1) % AviscFlux)
+               AVf=small(:,:,:,4)
+            end associate 
+
+           ! associate(AVf => fma % storage(2) % AviscFlux)
+            !   AVf=small(:,:,:,1)
+           ! end associate 
+           ! associate(AVf => fmb % storage(2) % AviscFlux)
+            !   AVf=small(:,:,:,2)
+            !end associate 
+           ! associate(AVf => fmc % storage(2) % AviscFlux)
+            !   AVf=small(:,:,:,4)
+           ! end associate 
+           ! associate(AVf => fmd % storage(2) % AviscFlux)
+           !    AVf=small(:,:,:,3)
+           ! end associate 
    
          end if
    
@@ -1020,21 +1175,24 @@
    !     Local variables
    !     ---------------
    !
+   
          integer           :: i, j, ii, jj, l, m, side, q, p, lm
          real(kind=RP)     :: fStarAux(nEqn, 0:self % NfRight(1), 0:self % NfRight(2))
          real(kind=RP)     :: Flux_tmp(1:nEqn, 0:fma % NfLeft(1), 0:fma % NfLeft(1))
          real(kind=RP)     :: Flux_master(1:nEqn, 0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
          real(kind=RP)     :: small(1:nEqn,0: fma % NfLeft(1), 0:fma % NfLeft(1),4)
          real(kind=RP)     :: Mout(0: fma % NfLeft(1), 0:fma % NfLeft(1), 2)
+
+             !  write(*,*) 'mortar prohection'
          if (self % IsMortar==1) then 
 
             small(:,:,:,1)=flux_M1
             small(:,:,:,2)=flux_M2
-            small(:,:,:,3)=flux_M4
-            small(:,:,:,4)=flux_M3
+            small(:,:,:,3)=flux_M3
+            small(:,:,:,4)=flux_M4
 
-            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
-            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             Flux_master=0.0_RP
             do lm=1,4
                do j=1,2
@@ -1053,8 +1211,14 @@
 
             associate(fStar => self % storage(1) % Fstar)
 
-               fStar=(Flux_master(:,:,:,1)+Flux_master(:,:,:,2)+Flux_master(:,:,:,4)+Flux_master(:,:,:,3))
+               fStar=0.25_RP*(Flux_master(:,:,:,1)+Flux_master(:,:,:,2)+Flux_master(:,:,:,4)+Flux_master(:,:,:,3))
       
+            end associate 
+
+            associate(fStar => self % storage(2) % Fstar)
+
+               fStar=0.25_RP*(Flux_master(:,:,:,1)+Flux_master(:,:,:,2)+Flux_master(:,:,:,4)+Flux_master(:,:,:,3))
+               fStar = -fStar
             end associate 
           end if 
       end subroutine Face_ProjectMortarFluxToElements
@@ -1257,12 +1421,12 @@
           if (self % Ismortar==1) then 
             small(:,:,:,:,1) = fma  % storage(whichderiv) % dFStar_dqF
             small(:,:,:,:,2) = fmb % storage(whichderiv) % dFStar_dqF
-            small(:,:,:,:,4) = fmc % storage(whichderiv) % dFStar_dqF
-            small(:,:,:,:,3) = fmd % storage(whichderiv) % dFStar_dqF
+            small(:,:,:,:,3) = fmc % storage(whichderiv) % dFStar_dqF
+            small(:,:,:,:,4) = fmd % storage(whichderiv) % dFStar_dqF
             
              
-            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
-            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             Flux_master=0.0_RP
             do lm=1,4
                do j=1,2
@@ -1281,11 +1445,16 @@
             end do
    
             associate(dFStar_dq => self % storage(1) % dFStar_dqEl)
-               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv)=(Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,1)+&
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv)=0.25_RP*(Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,1)+&
                Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,2)+ Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,4)+ &
                Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,3))
             end associate 
-   
+            associate(dFStar_dq => self % storage(2) % dFStar_dqEl)
+               dFStar_dq(1:nEqn,1:nEqn,:,:,whichderiv)=0.25_RP*(Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,1)+&
+               Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,2)+ Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,4)+ &
+               Flux_master(1:nEqn,1:nEqn,:,:,whichderiv,3))
+               dFStar_dq = -dFStar_dq
+            end associate 
    
             end if 
          
@@ -1438,11 +1607,11 @@
             
             small(:,:,:,:,1)=HfluxM1
             small(:,:,:,:,2)=HfluxM2
-            small(:,:,:,:,3)=HfluxM4
-            small(:,:,:,:,4)=HfluxM3
+            small(:,:,:,:,3)=HfluxM3
+            small(:,:,:,:,4)=HfluxM4
    
-            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
-            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             Flux_master=0.0_RP
             do lm=1,4
                do j=1,2
@@ -1460,9 +1629,12 @@
             end do
    
             associate(unStar => self % storage(1) % unStar)
-               unStar=(Flux_master(:,:,:,:,1)+Flux_master(:,:,:,:,2)+Flux_master(:,:,:,:,4)+Flux_master(:,:,:,:,3))
+               unStar=0.25_RP*(Flux_master(:,:,:,:,1)+Flux_master(:,:,:,:,2)+Flux_master(:,:,:,:,4)+Flux_master(:,:,:,:,3))
             end associate 
-   
+            associate(unStar => self % storage(2) % unStar)
+               unStar=0.25_RP*(Flux_master(:,:,:,:,1)+Flux_master(:,:,:,:,2)+Flux_master(:,:,:,:,4)+Flux_master(:,:,:,:,3))
+               unStar = factor * unStar
+            end associate 
          end if 
    
       end subroutine Face_ProjectMortarGradientFluxToElements
@@ -1608,13 +1780,13 @@
             
             small(:,:,:,:,:,2) = fmb % storage(whichderiv) % dFv_dGradQF
 
-            small(:,:,:,:,:,4) = fmc % storage(whichderiv) % dFv_dGradQF
+            small(:,:,:,:,:,3) = fmc % storage(whichderiv) % dFv_dGradQF
 
-            small(:,:,:,:,:,3) = fmd % storage(whichderiv) % dFv_dGradQF
+            small(:,:,:,:,:,4) = fmd % storage(whichderiv) % dFv_dGradQF
 
 
-            Mout(:,:,1)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
-            Mout(:,:,2)=0.5_RP*transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
+            Mout(:,:,1)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 1, 2) % T)
+            Mout(:,:,2)=transpose(TsetM(fma % NfLeft(1), fma % Nf(1), 2, 2) % T)
             Flux_master=0.0_RP
             do lm=1,4
                do j=1,2
@@ -1633,9 +1805,12 @@
             end do
    
             associate(dFv_dGradQEl => self % storage(1) % dFv_dGradQEl)
-               dFv_dGradQEl=(Flux_master(:,:,:,:,:,:,1)+Flux_master(:,:,:,:,:,:,2)+Flux_master(:,:,:,:,:,:,4)+Flux_master(:,:,:,:,:,:,3))
+               dFv_dGradQEl=0.25_RP*(Flux_master(:,:,:,:,:,:,1)+Flux_master(:,:,:,:,:,:,2)+Flux_master(:,:,:,:,:,:,4)+Flux_master(:,:,:,:,:,:,3))
             end associate 
-   
+            associate(dFv_dGradQEl => self % storage(2) % dFv_dGradQEl)
+               dFv_dGradQEl=0.25_RP*(Flux_master(:,:,:,:,:,:,1)+Flux_master(:,:,:,:,:,:,2)+Flux_master(:,:,:,:,:,:,4)+Flux_master(:,:,:,:,:,:,3))
+            dFv_dGradQEl = -dFv_dGradQEl
+            end associate 
          end if 
          
       end subroutine Face_ProjectMortarGradJacobianToElements
