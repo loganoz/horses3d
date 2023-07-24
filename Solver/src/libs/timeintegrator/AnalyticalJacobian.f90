@@ -310,8 +310,13 @@ contains
       if (flowIsNavierStokes) then
 !$omp do schedule(runtime)
          do fID = 1, size(mesh % faces)
-            call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT, LEFT)   ! dF/dQL to the left element 
-            if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+            if (mesh % faces(fID)% IsMortar==0 .OR. mesh % faces(fID)% IsMortar==2) then 
+               if (mesh % faces(fID)% IsMortar==0) call mesh % faces(fID) % ProjectGradJacobianToElements(LEFT, LEFT)   ! dF/dQL to the left element 
+               if (.not. (mesh % faces(fID) % faceType == HMESH_BOUNDARY)) call mesh % faces(fID) % ProjectGradJacobianToElements(RIGHT,RIGHT)   ! dF/dQR to the right element
+            elseif(mesh % faces(fID)% IsMortar==1) then 
+               call mesh % faces(fID) % ProjectMortarGradJacobianToElements(LEFT ,LEFT,  mesh % faces(fID+1),mesh % faces(fID+2), &
+               mesh % faces(fID+3), mesh % faces(fID+4))   ! dF/dQL to the left element 
+            end if 
          end do
 !$omp end do
       end if

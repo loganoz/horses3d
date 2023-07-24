@@ -428,6 +428,8 @@
             associate( Qf => self % storage(2) % Q )
             do j = 0, self % NfRight(2)   ; do i = 0, self % NfRight(1)
                call leftIndexes2Right(i,j,self % NfRight(1), self % NfRight(2), self % rotation, ii, jj)
+               if (ii .NE. i) write(*,*) 'non equal ii'
+               if (jj .NE. j) write(*,*) 'non equal jj'
                Qe_rot(:,i,j) = Qe(:,ii,jj) 
             end do                        ; end do
    
