@@ -8,6 +8,7 @@ module SCsensorClass
    use ElementClass,      only: Element
    use Utilities,         only: toLower
    use Clustering,        only: GMM_t, rescale
+   use StopwatchClass,    only: Stopwatch
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_MinMax
 #ifdef _HAS_MPI_
@@ -221,6 +222,10 @@ module SCsensorClass
          sensor % ds2 = sensor % ds / 2.0_RP
 
       end if
+!
+!     Stopwatch event
+!     ---------------
+      call Stopwatch % CreateNewEvent("Shock sensor")
 
    end subroutine Set_SCsensor
 !
@@ -440,7 +445,9 @@ module SCsensorClass
 !
 !     Compute the sensor
 !     ------------------
+      call Stopwatch % Start("Shock sensor")
       call sensor % Compute_Raw(sem, t)
+      call Stopwatch % Pause("Shock sensor")
 !
 !     Add 'inertia' to the scaled value
 !     ---------------------------------

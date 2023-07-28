@@ -1817,6 +1817,8 @@ slavecoord:             DO l = 1, 4
          end if
 #endif
 
+         self % meshIs2D = .FALSE.
+         self % dir2D = 0
          if ( any(meshExtrudedIn) ) then
             self % meshIs2D = .TRUE.
 
@@ -3891,7 +3893,12 @@ slavecoord:             DO l = 1, 4
 !     ---------------------
       DO eID = 1, SIZE(self % elements)
          associate (e => self % elements(eID))
-         e % hn = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)  ! Also compute h/p here
+         e % hn = e % geom % Volume / product(e % Nxyz + 1)
+         if (self % meshIs2D) then
+            e % hn = sqrt(e % hn * (e % Nxyz(self % dir2D) + 1))
+         else
+            e % hn = e % hn ** (1.0_RP / 3.0_RP)
+         end if
          e % storage => self % storage % elements(eID)
          end associate
       END DO
@@ -4141,7 +4148,7 @@ slavecoord:             DO l = 1, 4
          if ( all( e % Nxyz == NNew(:,eID)) ) then
             cycle
          else
-            call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num )
+            call e % pAdapt ( NNew(:,eID), self % nodeType, saveGradients, self % storage % prevSol_num, self % dir2D )
 !$omp critical
             self % Nx(eID) = NNew(1,eID)
             self % Ny(eID) = NNew(2,eID)

@@ -466,7 +466,7 @@
 !
 !////////////////////////////////////////////////////////////////////////
 !
-#ifdef _has_Quad
+#if defined(_has_Quad)
       DOUBLE PRECISION FUNCTION quadValue(self)
          IMPLICIT NONE 
          CLASS(FTValue)  :: self

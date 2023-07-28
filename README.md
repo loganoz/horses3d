@@ -10,6 +10,7 @@ Copyright (c) 2021 NUMATH https://numath.dmae.upm.es
 
 HORSES3D supports curvilinear, hexahedral, conforming meshes in GMSH, HDF5 and SpecMesh/HOHQMesh format. A hybrid CPU-based parallelisation strategy (shared and distributed memory) with OpenMP and MPI is followed.
 
+This branch contains the code used to perform the simulations of the article "Unsupervised machine learning shock capturing for High-Order CFD solvers".
 
 ## External libraries
 
