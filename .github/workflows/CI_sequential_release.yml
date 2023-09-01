@@ -65,21 +65,18 @@ jobs:
           path: /opt/intel
           key: intel-${{ runner.os }}-compilers-b
 
-      - name: Install Intel compilers and libraries
-        # if: (matrix.compiler == 'ifort' && steps.cache-intel-compilers.outputs.cache-hit != 'true')
+      - name: Intel Apt repository
         if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
           sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
-          sudo add-apt-repository "deb https://apt.repos.intel.com/oneapi all main"
+          rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
           sudo apt-get update
-          sudo apt-get install intel-hpckit-getting-started intel-oneapi-clck intel-oneapi-common-licensing intel-oneapi-common-vars
-          sudo apt-get install intel-oneapi-dev-utilities  intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-compiler-fortran intel-oneapi-itac
-          sudo apt-get install intel-oneapi-mkl intel-oneapi-mpi intel-oneapi-mpi-devel
-          # Ubunu 18.04.3 has an issue that causes ifort to fail invoking ld. packages below avoid the problem
-          # sudo apt-get install libc6-dev=2.27-3ubuntu1.2 libc6=2.27-3ubuntu1.2 libc-bin=2.27-3ubuntu1.2
 
-
+      - name: Install Intel oneAPI
+        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -93,6 +90,7 @@ jobs:
       - name: Show ${{matrix.compiler}} version
         run: |
           source /opt/intel/oneapi/setvars.sh || true
+          printenv >> $GITHUB_ENV
           ${{matrix.compiler}} --version
 
       - name: Configure
