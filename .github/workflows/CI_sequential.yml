@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI SEQUENTIAL RELEASE
+name: CI SEQUENTIAL
 
 ########################################################################
 # Controls when the action will run.
@@ -28,7 +28,7 @@ jobs:
       fail-fast: true
       matrix:
         compiler: ['gfortran', 'ifort']
-        mode: ['RELEASE']
+        mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
         mkl: ['YES','NO']
