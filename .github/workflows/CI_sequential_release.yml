@@ -147,37 +147,33 @@ jobs:
 # 4) HEXMESH TEST
 # ---------------
 
-# Not working with ifort. Deactivated until we understand what happens
+      - name: Build HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 
-#      - name: Build HexMesh
-#        working-directory: ./Solver/test/Components/HexMesh
-#        run: |
-#          source /opt/intel/oneapi/setvars.sh || true
-#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-
-#      - name: Run HexMesh
-#        working-directory: ./Solver/test/Components/HexMesh
-#        run: |
-#          source /opt/intel/oneapi/setvars.sh || true
-#          ./bin/HexMesh
+      - name: Run HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/HexMesh
 
 #
 # 5) MESHCONSISTENCY TEST
 # -----------------------
 
-# Not working with ifort. Deactivated until we understand what happens
+      - name: Build MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 
-#      - name: Build MeshConsistency
-#        working-directory: ./Solver/test/Components/MeshConsistency
-#        run: |
-#          source /opt/intel/oneapi/setvars.sh || true
-#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-
-#      - name: Run MeshConsistency
-#        working-directory: ./Solver/test/Components/MeshConsistency
-#        run: |
-#          source /opt/intel/oneapi/setvars.sh || true
-#          ./bin/MeshConsistency
+      - name: Run MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/MeshConsistency
 
 #
 # 6) NODALSTORAGE TEST
