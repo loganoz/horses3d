@@ -253,7 +253,33 @@
          OPEN(UNIT=11, FILE = meshfileName)
          CLOSE(11, STATUS = "DELETE")
          
-         call DestructGlobalNodalStorage()
+!
+!        --------------------------------------------------------------
+!        Call to DestructGlobalNodalStorage created an error with ifort
+!        Copy the subroutine here to solved the issue         
+!        --------------------------------------------------------------
+!
+
+         !call DestructGlobalNodalStorage()
+
+         if ( allocated(NodalStorage_Gauss) ) then
+            do k=lbound(NodalStorage_Gauss,1), ubound(NodalStorage_Gauss,1)
+               IF (.NOT. NodalStorage_Gauss(k) % Constructed) cycle
+               call NodalStorage_Gauss(k) % destruct()
+            end do
+            deallocate (NodalStorage_Gauss)
+         end if
+   
+         if ( allocated(NodalStorage_GaussLobatto) ) then
+            do k=lbound(NodalStorage_GaussLobatto,1), ubound(NodalStorage_GaussLobatto,1)
+               IF (.NOT. NodalStorage_GaussLobatto(k) % Constructed) cycle
+               call NodalStorage_GaussLobatto(k) % destruct()
+            end do      
+            deallocate (NodalStorage_GaussLobatto)
+         end if
+   
+         nullify (NodalStorage)
+
          call Finalize_InterpolationMatrices
          
       END SUBROUTINE testTwoBoxesMeshConstruction
@@ -275,7 +301,7 @@
          EXTERNAL                :: cylindricalGeometry
          TYPE(HexMesh), target   :: mesh
          TYPE(Face)              :: testFace
-         INTEGER                 :: j, N(3), id
+         INTEGER                 :: j, k, N(3), id
          INTEGER                 :: iFaceID
          INTEGER                 :: numberOfBoundaryFaces, NumberofInteriorFaces
          INTEGER                 :: eID, l, NDOF, firstIdx
@@ -362,7 +388,33 @@
          CALL FTAssertEqual(expectedValue = 5, actualValue = testFace % elementSide(1),msg = "Face element master side")
          CALL FTAssertEqual(expectedValue = 3, actualValue = testFace % elementSide(2),msg = "Face element slave side")
          
-         call DestructGlobalNodalStorage()
+!
+!        --------------------------------------------------------------
+!        Call to DestructGlobalNodalStorage created an error with ifort
+!        Copy the subroutine here to solved the issue         
+!        --------------------------------------------------------------
+!
+
+         !call DestructGlobalNodalStorage()
+
+         if ( allocated(NodalStorage_Gauss) ) then
+            do k=lbound(NodalStorage_Gauss,1), ubound(NodalStorage_Gauss,1)
+               IF (.NOT. NodalStorage_Gauss(k) % Constructed) cycle
+               call NodalStorage_Gauss(k) % destruct()
+            end do
+            deallocate (NodalStorage_Gauss)
+         end if
+   
+         if ( allocated(NodalStorage_GaussLobatto) ) then
+            do k=lbound(NodalStorage_GaussLobatto,1), ubound(NodalStorage_GaussLobatto,1)
+               IF (.NOT. NodalStorage_GaussLobatto(k) % Constructed) cycle
+               call NodalStorage_GaussLobatto(k) % destruct()
+            end do      
+            deallocate (NodalStorage_GaussLobatto)
+         end if
+   
+         nullify (NodalStorage)
+
          call Finalize_InterpolationMatrices
       END SUBROUTINE testTwoElementCylindersMesh
 !

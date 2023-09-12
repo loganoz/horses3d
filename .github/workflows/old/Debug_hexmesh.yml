@@ -1,0 +1,145 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Debug hexmesh
+
+########################################################################
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  #push:
+  #  branches: [ master ]
+  #pull_request:
+  #  branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+#env:
+#  HDF5_ROOT : /usr/lib/x86_64-linux-gnu/hdf5/serial/
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Define strategy matrix
+    strategy:
+      fail-fast: true
+      matrix:
+        compiler: ['ifort']
+        mode: ['DEBUG']
+        comm: ['SEQUENTIAL']
+        enable_threads: ['NO']
+        mkl: ['YES','NO']
+        exclude:
+        - compiler: gfortran
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'YES'
+        - compiler: ifort
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'NO'
+    # Steps represent a sequence of tasks that will be executed as part of the job
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      # sudo apt-get install -qq pkg-config libhdf5-serial-dev
+#      - name: Install Linux packages
+#        run: |
+#          sudo apt-get update
+#          sudo apt install libhdf5-dev
+#          dpkg -L libhdf5-dev
+
+      # IF COMPILER = IFORT -> INSTALL IFORT #
+      - name: cache-intel-compilers
+        # if: (matrix.compiler == 'ifort')
+        id: cache-intel-compilers
+        uses: actions/cache@v3
+        with:
+          path: /opt/intel
+          key: intel-${{ runner.os }}-compilers-b
+
+      - name: Intel Apt repository
+        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+          sudo apt-get update
+
+      - name: Install Intel oneAPI
+        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
+      # Runs a single command using the runners shell
+      ##- name: Install gfortran
+      ##  run: |
+      ##   sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      ##   sudo apt update
+      ##   sudo apt-get install gfortran-9
+
+      ##- name: Show gfortran version
+      ##  run: gfortran-9 --version
+
+      - name: Show ${{matrix.compiler}} version
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          printenv >> $GITHUB_ENV
+          ${{matrix.compiler}} --version
+
+      - name: Configure
+        working-directory: ./Solver
+        run: ./configure
+
+      - name: Compile horses3d
+        working-directory: ./Solver
+        run: |
+         source /opt/intel/oneapi/setvars.sh || true
+         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+########################################################################
+#######                         COMPONENTS                      ########
+########################################################################
+
+#
+# 4) HEXMESH TEST
+# ---------------
+
+# Not working with ifort. Deactivated until we understand what happens
+
+      - name: Build HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/HexMesh
+
+#
+# 5) MESHCONSISTENCY TEST
+# -----------------------
+
+# Not working with ifort. Deactivated until we understand what happens
+
+      - name: Build MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      - name: Run MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./bin/MeshConsistency

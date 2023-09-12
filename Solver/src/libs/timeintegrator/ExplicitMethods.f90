@@ -877,10 +877,12 @@ MODULE ExplicitMethods
             if (rho < minrho) minrho = rho
          end do               ; end do               ; end do
 
-         m = min(LIMITER_MIN, Qavg(1))
-         theta = abs((Qavg(1) - m) / (Qavg(1) - minrho))
-         if (theta <= 1.0_RP) then
-            e % storage % Q(1,:,:,:) = theta * (e % storage % Q(1,:,:,:) - Qavg(1)) + Qavg(1)
+         if (Qavg(1) /= minrho) then
+            m = min(LIMITER_MIN, Qavg(1))
+            theta = abs((Qavg(1) - m) / (Qavg(1) - minrho))
+            if (theta <= 1.0_RP) then
+               e % storage % Q(1,:,:,:) = theta * (e % storage % Q(1,:,:,:) - Qavg(1)) + Qavg(1)
+            end if
          end if
 
          ! Pressure now (Jensen's inequality is NOT conservative for the pressure)
@@ -894,12 +896,14 @@ MODULE ExplicitMethods
          end do               ; end do               ; end do
          pavg = pavg / e % geom % volume
 
-         m = min(LIMITER_MIN, pavg)
-         theta = abs((pavg - m) / (pavg - minp))
-         if (theta <= 1.0_RP) then
-            do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
-               e % storage % Q(:,i,j,k) = theta * (e % storage % Q(:,i,j,k) - Qavg) + Qavg
-            end do               ; end do               ; end do
+         if (pavg /= minp) then
+            m = min(LIMITER_MIN, pavg)
+            theta = abs((pavg - m) / (pavg - minp))
+            if (theta <= 1.0_RP) then
+               do k = 0, e % Nxyz(3); do j = 0, e % Nxyz(2); do i = 0, e % Nxyz(1)
+                  e % storage % Q(:,i,j,k) = theta * (e % storage % Q(:,i,j,k) - Qavg) + Qavg
+               end do               ; end do               ; end do
+            end if
          end if
 
       end do
