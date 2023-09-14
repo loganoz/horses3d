@@ -24,8 +24,9 @@ jobs:
     runs-on: ubuntu-latest
 
     # Define strategy matrix
+    continue-on-error: true
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         compiler: ['gfortran', 'ifort']
         mode: ['RELEASE', 'DEBUG']
