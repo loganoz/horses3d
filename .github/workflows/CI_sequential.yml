@@ -126,14 +126,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run FacePatches
         working-directory: ./Solver/test/Components/FacePatches
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./bin/FacePatches
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) GRADIENTS TEST
@@ -148,14 +148,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run HexMappings
         working-directory: ./Solver/test/Components/HexMappings
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./bin/HexMappings
-        if: always()
+        if: '!cancelled()'
 
 #
 # 4) HEXMESH TEST
@@ -166,14 +166,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run HexMesh
         working-directory: ./Solver/test/Components/HexMesh
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./bin/HexMesh
-        if: always()
+        if: '!cancelled()'
 
 #
 # 5) MESHCONSISTENCY TEST
@@ -184,14 +184,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run MeshConsistency
         working-directory: ./Solver/test/Components/MeshConsistency
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./bin/MeshConsistency
-        if: always()
+        if: '!cancelled()'
 
 #
 # 6) NODALSTORAGE TEST
@@ -202,14 +202,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NodalStorage
         working-directory: ./Solver/test/Components/NodalStorage
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./bin/NodalStorage
-        if: always()
+        if: '!cancelled()'
 
 ########################################################################
 #######                         EULER                           ########
@@ -223,14 +223,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run Diffuser
         working-directory: ./Solver/test/Euler/Diffuser
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns DiffuserFlow.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) UNIFORM FLOW
@@ -241,14 +241,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run UniformFlow
         working-directory: ./Solver/test/Euler/UniformFlow
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns UniformFlow.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) BOX AROUND CIRCLE
@@ -259,14 +259,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run BoxAroundCircle
         working-directory: ./Solver/test/Euler/BoxAroundCircle
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns BoxAroundCircle.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 4) BOX AROUND CIRCLE PIROZZOLI
@@ -277,14 +277,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run BoxAroundCirclePirozzoli
         working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns BoxAroundCirclePirozzoli.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 5) Inviscid TGV with KEPEC
@@ -295,14 +295,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run TaylorGreenKEPEC
         working-directory: ./Solver/test/Euler/TaylorGreenKEPEC
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenKEPEC.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 6) Vortex transport 2D with KEPEC
@@ -336,14 +336,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run JFNK Uniform Flow
         working-directory: ./Solver/test/Euler/JFNK
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns UniformFlowJFNK.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 8) BOX AROUND CIRCLE WITH ADAPTATION
@@ -354,14 +354,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run BoxAroundCircle_pAdapted
         working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns BoxAroundCircle_pAdapted.control
-        if: always()
+        if: '!cancelled()'
 
 ########################################################################
 #######                         NAVIER-STOKES                   ########
@@ -376,14 +376,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run Convergence
         working-directory: ./Solver/test/NavierStokes/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Convergence.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 0) Convergence energy
@@ -394,14 +394,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run Convergence_energy
         working-directory: ./Solver/test/NavierStokes/Convergence_energy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Convergence.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 0) Convergence entropy
@@ -412,14 +412,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run Convergence_entropy
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Convergence.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 1) CYLINDER
@@ -430,14 +430,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinder
         working-directory: ./Solver/test/NavierStokes/Cylinder
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) CYLINDER IP
@@ -448,14 +448,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderIP
         working-directory: ./Solver/test/NavierStokes/CylinderIP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderIP.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) CYLINDER BR2
@@ -466,14 +466,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderBR2
         working-directory: ./Solver/test/NavierStokes/CylinderBR2
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderBR2.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 4) CYLINDER DUCROS
@@ -484,14 +484,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderDucros
         working-directory: ./Solver/test/NavierStokes/CylinderDucros
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderDucros.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 5) CYLINDER Smagorinsky
@@ -502,14 +502,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderSmagorinsky
         working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderSmagorinsky.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 6) CYLINDER WALE
@@ -520,14 +520,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderWALE
         working-directory: ./Solver/test/NavierStokes/CylinderWALE
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderWALE.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 7) CYLINDER Vreman
@@ -538,14 +538,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderVreman
         working-directory: ./Solver/test/NavierStokes/CylinderVreman
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderVreman.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 8) TAYLOR GREEN VORTEX
@@ -556,14 +556,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run TaylorGreen
         working-directory: ./Solver/test/NavierStokes/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreen.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 9) TAYLOR GREEN VORTEX KEP BR2
@@ -574,14 +574,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run TaylorGreenKEP_BR2
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenKEP_BR2.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 10) TAYLOR GREEN VORTEX KEPEC IP
@@ -592,14 +592,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run TaylorGreenKEPEC_IP
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenKEPEC_IP.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 11) CYLINDER FAS
@@ -610,14 +610,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderFAS
         working-directory: ./Solver/test/NavierStokes/CylinderFAS
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderFAS.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 12) CYLINDER IP+BDF2
@@ -629,14 +629,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
     
       - name: Run NSCylinderIP_BDF2
         working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderIP_BDF2.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 13) CYLINDER DIFFERENT ORDERS
@@ -647,14 +647,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NSCylinderDifferentOrders
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderDifferentOrders.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 14) ENTROPY CONSERVING TEST
@@ -665,14 +665,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run EntropyConservingTest
         working-directory: ./Solver/test/NavierStokes/EntropyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns EntropyConservingTest.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 15) ENERGY CONSERVING TEST
@@ -683,14 +683,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run EnergyConservingTest
         working-directory: ./Solver/test/NavierStokes/EnergyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns EnergyConservingTest.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 16) NACA0012 Steady
@@ -701,14 +701,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run NACA0012
         working-directory: ./Solver/test/NavierStokes/NACA0012
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns NACA0012.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 17) NACA0012 Unsteady Dual Time Stepping
@@ -719,14 +719,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run DualTimeStepping
         working-directory: ./Solver/test/NavierStokes/DualTimeStepping
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns DualTimeStepping.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 18) Manufactured Solution for Spalart-Almaras
@@ -737,14 +737,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa MSSA.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 19) Flat-Plate test case for Spalart-Almaras
@@ -755,14 +755,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run FlatPlateSA
         working-directory: ./Solver/test/NavierStokes/FlatPlateSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa FlatPlate.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 20) Numerical Jacobian for BIRK5
@@ -773,14 +773,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run BIRK5NumJac
         working-directory: ./Solver/test/NavierStokes/BIRK5NumJac
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns Cylinder.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 21) Forward facing step with SVV
@@ -791,7 +791,7 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
 
       - name: Run ForwardFacingStepSVV
@@ -799,7 +799,7 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SVV.control
-        if: always()
+        if: '!cancelled()'
   
 #
 # 20) Forward facing step with SSPRK33 and limiter
@@ -810,14 +810,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run ForwardFacingStep_SSPRK33
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SSPRK33.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 21) Forward facing step with SSPRK43
@@ -828,14 +828,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run ForwardFacingStep_SSPRK43
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SSPRK43.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 22) Taylor-Green vortex with SVV-LES
@@ -846,14 +846,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run TaylorGreenSVVLES
         working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenSVVLES.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 23) CYLINDER ANIS FAS
@@ -864,14 +864,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
      
       - name: Run CylinderAnisFAS
         working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderAnisFAS.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 24) IBM CYLINDER 
@@ -882,14 +882,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run IBM_Cylinder
         working-directory: ./Solver/test/NavierStokes/IBM_Cylinder
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns IBMCylinder.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 25) Mach 2 cylinder with GMM shock capturing
@@ -900,14 +900,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run CylinderGMM
         working-directory: ./Solver/test/NavierStokes/CylinderGMM
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns CylinderGMM.control
-        if: always()
+        if: '!cancelled()'
 
 ########################################################################
 #######                       PARTICLES                         ########
@@ -921,14 +921,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run ParticlesFreeFall
         working-directory: ./Solver/test/Particles/FreeFall
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FreeFall.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) RadiationHeat
@@ -938,14 +938,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run RadiationHeat
         working-directory: ./Solver/test/Particles/RadiationHeat
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns RadiationHeat.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) ParticleBoundaryCond
@@ -984,14 +984,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run MultiphaseConvergence
         working-directory: ./Solver/test/Multiphase/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu Convergence.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) RisingBubble
@@ -1002,14 +1002,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run MultiphaseRisingBubble
         working-directory: ./Solver/test/Multiphase/RisingBubble
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu RisingBubble.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) Pipe
@@ -1020,14 +1020,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run MultiphasePipe
         working-directory: ./Solver/test/Multiphase/Pipe
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu AnnularFlow.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 4) Entropy conserving test
@@ -1038,14 +1038,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run MultiphaseEntropyConservingTest
         working-directory: ./Solver/test/Multiphase/EntropyConservingTest
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.mu EntropyConservingTest.control
-        if: always()
+        if: '!cancelled()'
 
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
@@ -1059,14 +1059,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run iNS-Convergence
         working-directory: ./Solver/test/IncompressibleNS/Convergence
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins Convergence4P5.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) Kovasznay
@@ -1077,14 +1077,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run iNS-Kovasznay
         working-directory: ./Solver/test/IncompressibleNS/Kovasznay
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins Kovasznay.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) Lid driven cavity
@@ -1095,14 +1095,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run iNS-LidDrivenCavity
         working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins LDCRe7500.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 4) Taylor Green Vortex
@@ -1113,14 +1113,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run iNS-TaylorGreenVortex
         working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins TGV_Central.control
-        if: always()
+        if: '!cancelled()'
 
 #
 # 5) Rayleigh-Taylor instability
@@ -1131,14 +1131,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: always()
+        if: '!cancelled()'
 
       - name: Run iNS-RayleighTaylor
         working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins RTI.control
-        if: always()
+        if: '!cancelled()'
 
 
           
@@ -1153,7 +1153,7 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horsesConverter
-        if: always()
+        if: '!cancelled()'
 
 #
 # 2) Horses Mesh to OpenFOAM - horsesConverter
@@ -1163,7 +1163,7 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horsesConverter
-        if: always()
+        if: '!cancelled()'
 
 #
 # 3) OpenFOAM to Horses - horsesConverter
@@ -1173,4 +1173,4 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           OMP_NUM_THREADS=4 ./horsesConverter
-        if: always()
+        if: '!cancelled()'
