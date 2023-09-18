@@ -207,14 +207,14 @@
       if ( thermodynamics_ % number_of_fluids .eq. 2 ) then
          if ( .not. almostEqual(thermodynamics_ % mu(1), 0.0_RP)) then
             dimensionless_ % mu(2) = dimensionless_ % mu(1) * thermodynamics_ % mu(2) / thermodynamics_ % mu(1)
-            dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+            dimensionless_ % Re = 1.0_RP / max ( dimensionless_ % mu(1), epsilon(1.0_RP) )
          else
             dimensionless_ % mu(2) = 0.0_RP
             dimensionless_ % Re    = 0.0_RP
 
          end if
       else
-         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+         dimensionless_ % Re = 1.0_RP / max ( dimensionless_ % mu(1), epsilon(1.0_RP) )
       end if
 !
 !     **************************
