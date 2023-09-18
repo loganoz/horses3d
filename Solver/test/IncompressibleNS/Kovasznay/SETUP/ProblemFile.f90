@@ -400,7 +400,7 @@ end module ProblemFileFunctions
             U_aux(INSRHOU) = Q_aux(INSRHOU) / sqrt(rho)             
             U_aux(INSRHOV) = Q_aux(INSRHOV) / sqrt(rho)             
             U_aux(INSRHOW) = Q_aux(INSRHOW) / sqrt(rho)             
-            U(INSP)      = Q_aux(INSP)
+            U_aux(INSP)    = Q_aux(INSP)
 
             U = 0.5_RP * (U_aux + U)
 
