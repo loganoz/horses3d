@@ -462,7 +462,7 @@ module SpatialDiscretization
 !
 !$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
          do eID = 1, size(mesh % elements)
-            e => mesh % elements(eID)
+            associate(e => mesh % elements(eID))
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
                e % storage % QDot(IMC,i,j,k)      = 0.0_RP
@@ -486,7 +486,7 @@ module SpatialDiscretization
 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
-
+            end associate
          end do
 !$omp end do
 
