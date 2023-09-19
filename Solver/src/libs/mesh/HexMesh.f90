@@ -3825,6 +3825,14 @@ slavecoord:             DO l = 1, 4
          RKSteps_num = 0
       end if
 
+#ifdef MULTIPHASE
+      ! This is a fix to prevent a seg fault in debug mode
+      ! implemented by g.rubio@upm.es 09/2023
+      if ( trim(time_int) == "explicit" ) then
+         bdf_order = 1  
+         RKSteps_num = 3   
+      endif  
+#endif 
 !     Construct global and elements' storage
 !     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
