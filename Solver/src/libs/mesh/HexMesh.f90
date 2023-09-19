@@ -421,6 +421,7 @@ MODULE HexMeshClass
 
                           self % faces(self % numberOfFaces) % IsMortar=1
                           !write(*,*) "slave aloocation done "
+                         ! write(*,*) 'master:', eID
                           DO l=1, 4  
                              eIDM=HorsesMortars(l + 2, (eID*6)-5 + faceNumber-1)
                              if (eIDM==0) write(*,*) "aie..."
@@ -482,6 +483,7 @@ MODULE HexMeshClass
                              !write(*,*) "slave construction done "
                              !self%faces(self%numberOffaces - l)%Mortar(l)%fp=>self%faces(self%numberOffaces)
                              call table % AddEntry(MfaceNodeIDs)
+                             !write(*,*) 'slave:', eIDM
                           END DO !l
                        END IF  
                        
