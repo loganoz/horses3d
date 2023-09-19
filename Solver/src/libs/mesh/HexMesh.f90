@@ -3830,7 +3830,7 @@ slavecoord:             DO l = 1, 4
       ! implemented by g.rubio@upm.es 09/2023
       if ( trim(time_int) == "explicit" ) then
          bdf_order = 1  
-         RKSteps_num = 3   
+         RKSteps_num = 0   
       endif  
 #endif 
 !     Construct global and elements' storage
