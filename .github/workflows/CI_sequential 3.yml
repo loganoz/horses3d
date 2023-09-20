@@ -1,15 +1,15 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI SEQUENTIAL GNU DEBUG MULTIPHASE
+name: CI SEQ MULTIPHYSICS
 
 ########################################################################
 # Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
-  #push:
-  #  branches: [ master ]
-  #pull_request:
-  #  branches: [ master ]
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -27,12 +27,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['gfortran']
-        mode: ['DEBUG']
+        compiler: ['gfortran', 'ifort']
+        mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
-        mkl: ['NO']
-                 
+        mkl: ['YES','NO']
+        exclude:
+        - compiler: gfortran
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'YES'
+        - compiler: gfortran
+          mode: DEBUG
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'YES'          
+        - compiler: ifort
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'NO'
+        - compiler: ifort
+          mode: DEBUG
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'NO'          
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -95,45 +115,73 @@ jobs:
          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 
 
+
+########################################################################
+#######                       PARTICLES                         ########
+########################################################################
+
+#
+# 1) FreeFall
+# ----------------------------
+      - name: Build ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run ParticlesFreeFall
+        working-directory: ./Solver/test/Particles/FreeFall
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FreeFall.control
+        if: '!cancelled()'
+
+#
+# 2) RadiationHeat
+# ----------------------------
+      - name: Build RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run RadiationHeat
+        working-directory: ./Solver/test/Particles/RadiationHeat
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns RadiationHeat.control
+        if: '!cancelled()'
+
+#
+# 3) ParticleBoundaryCond
+# ----------------------------
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build ParticleBoundaryCond
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond/SETUP
+      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      # - name: Run ParticleBoundaryCond
+      #   working-directory: ./Solver/test/Particles/ParticleBoundaryCond
+      #   run: ./horses3d.ns BoundaryCondition.control
+#
+# 4) Pouransari
+# ----------------------------
+      # This case uses a random initialization that affects the solution.
+      # it only works in Alderaan
+      # - name: Build Pouransari
+      #   working-directory: ./Solver/test/Particles/Pouransari/SETUP
+      #   run: make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+
+      # - name: Run Pouransari
+      #   working-directory: ./Solver/test/Particles/Pouransari
+      #   run: ./horses3d.ns Pouransari_St0041.control
+
 ########################################################################
 #######                       MULTIPHASE                        ########
 ########################################################################
-#
-# 3) Pipe
-# ----------------------------
-
-      - name: Build MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu AnnularFlow.control
-        if: '!cancelled()'
-
-#
-# 4) Entropy conserving test
-# ----------------------------
-
-      - name: Build MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu EntropyConservingTest.control
-        if: '!cancelled()'
-
 #
 # 1) Convergence
 # ----------------------------
@@ -170,6 +218,41 @@ jobs:
           ./horses3d.mu RisingBubble.control
         if: '!cancelled()'
 
+#
+# 3) Pipe
+# ----------------------------
+
+      - name: Build MultiphasePipe
+        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run MultiphasePipe
+        working-directory: ./Solver/test/Multiphase/Pipe
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu AnnularFlow.control
+        if: '!cancelled()'
+
+#
+# 4) Entropy conserving test
+# ----------------------------
+
+      - name: Build MultiphaseEntropyConservingTest
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run MultiphaseEntropyConservingTest
+        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.mu EntropyConservingTest.control
+        if: '!cancelled()'
 
 ########################################################################
 #######                      INCOMPRESSIBLE                     ########
@@ -266,35 +349,3 @@ jobs:
 
 
           
-########################################################################
-#######                        ADDONS                           ########
-########################################################################
-#
-# 1) Mapping Result - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_MappingResult
-        working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horsesConverter
-        if: '!cancelled()'
-
-#
-# 2) Horses Mesh to OpenFOAM - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_HorsesMesh2OF
-        working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horsesConverter
-        if: '!cancelled()'
-
-#
-# 3) OpenFOAM to Horses - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_OF2Horses
-        working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          OMP_NUM_THREADS=4 ./horsesConverter
-        if: '!cancelled()'

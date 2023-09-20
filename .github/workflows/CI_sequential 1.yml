@@ -1,15 +1,15 @@
 # This is a basic workflow to help you get started with Actions
 
-name: CI SEQUENTIAL INTEL DEBUG MULTIPHASE
+name: CI SEQ COMP+EULER
 
 ########################################################################
 # Controls when the action will run.
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
-  #push:
-  #  branches: [ master ]
-  #pull_request:
-  #  branches: [ master ]
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -27,12 +27,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: ['ifort']
-        mode: ['DEBUG']
+        compiler: ['gfortran', 'ifort']
+        mode: ['RELEASE', 'DEBUG']
         comm: ['SEQUENTIAL']
         enable_threads: ['YES']
-        mkl: ['YES']
-                 
+        mkl: ['YES','NO']
+        exclude:
+        - compiler: gfortran
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'YES'
+        - compiler: gfortran
+          mode: DEBUG
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'YES'          
+        - compiler: ifort
+          mode: RELEASE
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'NO'
+        - compiler: ifort
+          mode: DEBUG
+          comm: SEQUENTIAL
+          enable_threads: YES
+          mkl: 'NO'          
     # Steps represent a sequence of tasks that will be executed as part of the job
 
     steps:
@@ -94,206 +114,252 @@ jobs:
          make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
 
-
 ########################################################################
-#######                       MULTIPHASE                        ########
-########################################################################
-#
-# 1) Convergence
-# ----------------------------
-
-      - name: Build MultiphaseConvergence
-        working-directory: ./Solver/test/Multiphase/Convergence/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphaseConvergence
-        working-directory: ./Solver/test/Multiphase/Convergence
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu Convergence.control
-        if: '!cancelled()'
-
-#
-# 2) RisingBubble
-# ----------------------------
-
-      - name: Build MultiphaseRisingBubble
-        working-directory: ./Solver/test/Multiphase/RisingBubble/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphaseRisingBubble
-        working-directory: ./Solver/test/Multiphase/RisingBubble
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu RisingBubble.control
-        if: '!cancelled()'
-
-#
-# 3) Pipe
-# ----------------------------
-
-      - name: Build MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphasePipe
-        working-directory: ./Solver/test/Multiphase/Pipe
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu AnnularFlow.control
-        if: '!cancelled()'
-
-#
-# 4) Entropy conserving test
-# ----------------------------
-
-      - name: Build MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest/SETUP
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
-
-      - name: Run MultiphaseEntropyConservingTest
-        working-directory: ./Solver/test/Multiphase/EntropyConservingTest
-        run: |
-          source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.mu EntropyConservingTest.control
-        if: '!cancelled()'
-
-########################################################################
-#######                      INCOMPRESSIBLE                     ########
+#######                         COMPONENTS                      ########
 ########################################################################
 #
-# 1) Convergence
-# ----------------------------
+# 1) FACE PATCHES TEST
+# --------------------
 
-      - name: Build iNS-Convergence
-        working-directory: ./Solver/test/IncompressibleNS/Convergence/SETUP
+      - name: Build FacePatches
+        working-directory: ./Solver/test/Components/FacePatches
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
-      - name: Run iNS-Convergence
-        working-directory: ./Solver/test/IncompressibleNS/Convergence
+      - name: Run FacePatches
+        working-directory: ./Solver/test/Components/FacePatches
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins Convergence4P5.control
+          ./bin/FacePatches
         if: '!cancelled()'
 
 #
-# 2) Kovasznay
-# ----------------------------
+# 2) GRADIENTS TEST
+# -----------------
+    # This test has been inactive in Alderaan for quite a long time
+#
+# 3) HEXMAPPINGS TEST
+# -------------------
 
-      - name: Build iNS-Kovasznay
-        working-directory: ./Solver/test/IncompressibleNS/Kovasznay/SETUP
+      - name: Build HexMappings
+        working-directory: ./Solver/test/Components/HexMappings
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
-      - name: Run iNS-Kovasznay
-        working-directory: ./Solver/test/IncompressibleNS/Kovasznay
+      - name: Run HexMappings
+        working-directory: ./Solver/test/Components/HexMappings
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins Kovasznay.control
+          ./bin/HexMappings
         if: '!cancelled()'
 
 #
-# 3) Lid driven cavity
-# ----------------------------
+# 4) HEXMESH TEST
+# ---------------
 
-      - name: Build iNS-LidDrivenCavity
-        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity/SETUP
+      - name: Build HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
-      - name: Run iNS-LidDrivenCavity
-        working-directory: ./Solver/test/IncompressibleNS/LidDrivenCavity
+      - name: Run HexMesh
+        working-directory: ./Solver/test/Components/HexMesh
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins LDCRe7500.control
+          ./bin/HexMesh
         if: '!cancelled()'
 
 #
-# 4) Taylor Green Vortex
-# ----------------------------
+# 5) MESHCONSISTENCY TEST
+# -----------------------
 
-      - name: Build iNS-TaylorGreenVortex
-        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen/SETUP
+      - name: Build MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
-      - name: Run iNS-TaylorGreenVortex
-        working-directory: ./Solver/test/IncompressibleNS/TaylorGreen
+      - name: Run MeshConsistency
+        working-directory: ./Solver/test/Components/MeshConsistency
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins TGV_Central.control
+          ./bin/MeshConsistency
         if: '!cancelled()'
 
 #
-# 5) Rayleigh-Taylor instability
-# -------------------------------
+# 6) NODALSTORAGE TEST
+# --------------------
 
-      - name: Build iNS-RayleighTaylor
-        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor/SETUP
+      - name: Build NodalStorage
+        working-directory: ./Solver/test/Components/NodalStorage
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
 
-      - name: Run iNS-RayleighTaylor
-        working-directory: ./Solver/test/IncompressibleNS/RayleighTaylor
+      - name: Run NodalStorage
+        working-directory: ./Solver/test/Components/NodalStorage
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horses3d.ins RTI.control
+          ./bin/NodalStorage
         if: '!cancelled()'
 
-
-          
 ########################################################################
-#######                        ADDONS                           ########
+#######                         EULER                           ########
 ########################################################################
 #
-# 1) Mapping Result - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_MappingResult
-        working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
+# 1) DIFFUSER
+# -----------
+
+      - name: Build Diffuser
+        working-directory: ./Solver/test/Euler/Diffuser/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horsesConverter
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run Diffuser
+        working-directory: ./Solver/test/Euler/Diffuser
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns DiffuserFlow.control
         if: '!cancelled()'
 
 #
-# 2) Horses Mesh to OpenFOAM - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_HorsesMesh2OF
-        working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
+# 2) UNIFORM FLOW
+# ---------------
+
+      - name: Build UniformFlow
+        working-directory: ./Solver/test/Euler/UniformFlow/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ./horsesConverter
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run UniformFlow
+        working-directory: ./Solver/test/Euler/UniformFlow
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns UniformFlow.control
         if: '!cancelled()'
 
 #
-# 3) OpenFOAM to Horses - horsesConverter
-# --------------------------------------------
-      - name: Run horsesConverter_OF2Horses
-        working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
+# 3) BOX AROUND CIRCLE
+# --------------------
+
+      - name: Build BoxAroundCircle
+        working-directory: ./Solver/test/Euler/BoxAroundCircle/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          OMP_NUM_THREADS=4 ./horsesConverter
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
         if: '!cancelled()'
+
+      - name: Run BoxAroundCircle
+        working-directory: ./Solver/test/Euler/BoxAroundCircle
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCircle.control
+        if: '!cancelled()'
+
+#
+# 4) BOX AROUND CIRCLE PIROZZOLI
+# ------------------------------
+
+      - name: Build BoxAroundCirclePirozzoli
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run BoxAroundCirclePirozzoli
+        working-directory: ./Solver/test/Euler/BoxAroundCirclePirozzoli
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCirclePirozzoli.control
+        if: '!cancelled()'
+
+#
+# 5) Inviscid TGV with KEPEC
+# --------------------------
+
+      - name: Build TaylorGreenKEPEC
+        working-directory: ./Solver/test/Euler/TaylorGreenKEPEC/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run TaylorGreenKEPEC
+        working-directory: ./Solver/test/Euler/TaylorGreenKEPEC
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns TaylorGreenKEPEC.control
+        if: '!cancelled()'
+
+#
+# 6) Vortex transport 2D with KEPEC
+# ---------------------------------
+
+# Outdated test case. 
+#
+#      - name: Build VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D/SETUP
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+#
+#      - name: Run VortexTransport2DKEPEC
+#        working-directory: ./Solver/test/Euler/VortexTransport2D
+#        run: |
+#          source /opt/intel/oneapi/setvars.sh || true
+#          ./horses3d.ns VortexTransport2D.control
+
+#
+# 7) Jacobian-Free Newton-Krylov
+# ------------------------------
+
+      # Deactivated because a mismatch in the accuracy.
+      # Double Precision equality failed:
+      #  Final maximum residual
+      #  Expected [1.6257217794191102E-011], Got [3.4106051316484809E-013]
+
+      - name: Build JFNK Uniform Flow
+        working-directory: ./Solver/test/Euler/JFNK/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run JFNK Uniform Flow
+        working-directory: ./Solver/test/Euler/JFNK
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns UniformFlowJFNK.control
+        if: '!cancelled()'
+
+#
+# 8) BOX AROUND CIRCLE WITH ADAPTATION
+# ------------------------------------
+
+      - name: Build BoxAroundCircle_pAdapted
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+        if: '!cancelled()'
+
+      - name: Run BoxAroundCircle_pAdapted
+        working-directory: ./Solver/test/Euler/BoxAroundCircle_pAdapted
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns BoxAroundCircle_pAdapted.control
+        if: '!cancelled()'
+
