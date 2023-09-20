@@ -614,9 +614,9 @@ module SpatialDiscretization
             associate( f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               if (f% IsMortar==0) then
+               if (f% IsMortar==1) then
                CALL computeElementInterfaceFluxM_MU( f,mesh % faces(fID+1),mesh % faces(fID+2),mesh % faces(fID+3),mesh % faces(fID+4)  ) 
-               elseif(f%IsMortar==1) then 
+               else 
                   CALL computeElementInterfaceFlux_MU( f ) 
                end if 
  
@@ -1141,10 +1141,10 @@ module SpatialDiscretization
             associate( f => mesh % faces(fID)) 
             select case (f % faceType) 
             case (HMESH_INTERIOR) 
-               if (f%IsMortar == 0) then 
-               CALL Laplacian_computeElementInterfaceFlux( f) 
-               elseif(f % IsMortar==1) then 
+               if(f % IsMortar==1) then 
                   CALL Laplacian_computeElementInterfaceFluxM( f,mesh % faces(fID+1),mesh % faces(fID+2),mesh % faces(fID+3),mesh % faces(fID+4) ) 
+               else 
+                  CALL Laplacian_computeElementInterfaceFlux( f) 
                end if 
             case (HMESH_BOUNDARY) 
                CALL Laplacian_computeBoundaryFlux(f, t) 
