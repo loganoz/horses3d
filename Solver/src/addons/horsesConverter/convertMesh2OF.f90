@@ -127,7 +127,7 @@ MODULE convertMesh2OF
 !        Create pointer for paraview
 !        ---------------------------
 		 CALL chdir('foamFiles')
-		 open(fid, file="paraView.foam", status="unknown", action="write")
+		 open( newunit =fid, file="paraView.foam", status="unknown", action="write")
 		 close(fid)
 		 
 		 write(STD_OUT,'(/)')
