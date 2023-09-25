@@ -965,8 +965,6 @@ module SpatialDiscretization
          real(kind=RP) :: UxL(1:NGRAD), UyL(1:NGRAD), UzL(1:NGRAD)
          real(kind=RP) :: UxR(1:NGRAD), UyR(1:NGRAD), UzR(1:NGRAD)
 
-         if (f % IsMortar==0 .OR. f %IsMortar==2) then 
-
          DO j = 0, f % Nf(2)
             DO i = 0, f % Nf(1)
 
