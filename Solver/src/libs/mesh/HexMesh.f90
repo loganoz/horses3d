@@ -97,6 +97,7 @@ MODULE HexMeshClass
 #if defined(NAVIERSTOKES)
             procedure :: SaveStatistics                => HexMesh_SaveStatistics
             procedure :: ResetStatistics               => HexMesh_ResetStatistics
+            procedure :: SaveNewVariable               => HexMesh_SaveNewVariable
 #endif
             procedure :: LoadSolution                  => HexMesh_LoadSolution
             procedure :: LoadSolutionForRestart        => HexMesh_LoadSolutionForRestart
@@ -3013,6 +3014,57 @@ slavecoord:             DO l = 1, 4
          end do
 
       end subroutine HexMesh_ResetStatistics
+
+      subroutine HexMesh_SaveNewVariable(self, iter, time, name, variableIndex)
+         use SolutionFile
+         implicit none
+         class(HexMesh),      intent(in)        :: self
+         integer,             intent(in)        :: iter
+         real(kind=RP),       intent(in)        :: time
+         character(len=*),    intent(in)        :: name
+         integer,             intent(in)        :: variableIndex
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer                          :: fid, eID
+         integer(kind=AddrInt)            :: pos, padding
+         real(kind=RP)                    :: refs(NO_OF_SAVED_REFS) 
+         real(kind=RP), allocatable       :: Q(:,:,:,:)
+!
+!        Gather reference quantities
+!        ---------------------------
+         refs(GAMMA_REF) = thermodynamics % gamma
+         refs(RGAS_REF)  = thermodynamics % R
+         refs(RHO_REF)   = refValues      % rho
+         refs(V_REF)     = refValues      % V
+         refs(T_REF)     = refValues      % T
+         refs(MACH_REF)  = dimensionless  % Mach
+         refs(RE_REF)    = dimensionless  % Re
+
+!        Create new file
+!        ---------------
+         call CreateNewSolutionFile(trim(name),STATS_FILE, self % nodeType, self % no_of_allElements, iter, time, refs)
+         
+         padding = 2_AddrInt
+!
+!        Write arrays
+!        ------------
+         fID = putSolutionFileInWriteDataMode(trim(name))
+         do eID = 1, self % no_of_elements
+            associate( e => self % elements(eID) )
+            pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
+            call writeArray(fid, e % storage % stats % mu_avg(1:2,:,:,:), position=pos)
+            end associate
+         end do
+         close(fid)
+!
+!        Close the file
+!        --------------
+         call SealSolutionFile(trim(name))
+
+      end subroutine HexMesh_SaveNewVariable
 #endif
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

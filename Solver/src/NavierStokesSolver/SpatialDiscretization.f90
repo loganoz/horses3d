@@ -386,9 +386,12 @@ module SpatialDiscretization
                                                                                    e % storage % U_x(:,i,j,k), &
                                                                                    e % storage % U_y(:,i,j,k), &
                                                                                    e % storage % U_z(:,i,j,k), &
-                                                                                   mu_smag)
-                  e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
-                  e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+                                                                                   ! mu_smag)
+                                                                                   e % storage % mu_turb_NS(i,j,k) )
+                  ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
+                  ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
+                  e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + e % storage % mu_turb_NS(i,j,k)
+                  e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + e % storage % mu_turb_NS(i,j,k) * dimensionless % mu_to_kappa
                end do                ; end do                ; end do
                end associate
             end do

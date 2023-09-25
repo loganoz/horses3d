@@ -51,6 +51,7 @@ module StatisticsMonitor
       real(kind=RP)  :: starting_time
       integer        :: no_of_samples
       logical        :: saveGradients
+      logical        :: saveMu
       contains
          procedure   :: Construct    => StatisticsMonitor_Construct
          procedure   :: Update       => StatisticsMonitor_Update
@@ -67,7 +68,7 @@ module StatisticsMonitor
 !
 !//////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients)
+      subroutine StatisticsMonitor_Construct(self, mesh, saveGradients, saveMuAvg)
          use ParamfileRegions
          use PhysicsStorage, only: NCONS, NGRAD
          use HexMeshClass,   only: no_of_stats_variables
@@ -75,6 +76,7 @@ module StatisticsMonitor
          class(StatisticsMonitor_t)    :: self
          class(HexMesh)                :: mesh
          logical, intent(in)           :: saveGradients
+         logical, intent(in)           :: saveMuAvg
          integer, allocatable          :: Nsample, i0, Ndump, Nreset
          real(kind=RP), allocatable    :: t0
          integer                       :: eID
@@ -82,6 +84,7 @@ module StatisticsMonitor
 
          NO_OF_VARIABLES = NO_OF_VARIABLES_Sij + NCONS
          self % saveGradients = saveGradients
+         self % saveMu = saveMuAvg
          if (saveGradients) NO_OF_VARIABLES = NO_OF_VARIABLES + NGRAD * NDIM
          no_of_stats_variables = NO_OF_VARIABLES
 !
@@ -169,6 +172,10 @@ module StatisticsMonitor
 
          write(fileName,'(A,A)') trim(solution_file),'.stats.hsol'
          if ( self % state .ne. OFF) call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
+         if (self%saveMu) then
+             write(fileName,'(A,A)') trim(solution_file),'.mu.stats.hsol'
+             if ( self % state .ne. OFF) call mesh % SaveNewVariable(iter, t, trim(fileName), 1)
+         end if 
 
       end subroutine StatisticsMonitor_WriteFile
 
@@ -246,9 +253,11 @@ module StatisticsMonitor
 
          do eID = 1, size(mesh % elements)
             associate(e    => mesh % elements(eID), &
-                      data => mesh % elements(eID) % storage % stats % data)
+                      data => mesh % elements(eID) % storage % stats % data, &
+                      mu_avg => mesh % elements(eID) % storage % stats % mu_avg)
 
             data           = data * self % no_of_samples
+            mu_avg         = mu_avg * self % no_of_samples
 
             do k = 0, e % Nxyz(3)   ; do j = 0, e % Nxyz(2)    ; do i = 0, e % Nxyz(1)
                data(U,i,j,k)  = data(U,i,j,k)  + e % storage % Q(IRHOU,i,j,k) / e % storage % Q(IRHO,i,j,k)
@@ -262,13 +271,18 @@ module StatisticsMonitor
                data(VW,i,j,k) = data(VW,i,j,k) + e % storage % Q(IRHOV,i,j,k) * e % storage % Q(IRHOW,i,j,k) / POW2(e % storage % Q(IRHO,i,j,k))
                data(limits(1):limits(2),i,j,k)  = data(limits(1):limits(2),i,j,k)  + e % storage % Q(:,i,j,k)
                if (self % saveGradients) then
-                   data(limits(2):limits(3),i,j,k)  = data(limits(2):limits(3),i,j,k)  + e % storage % U_x(:,i,j,k)
-                   data(limits(3):limits(4),i,j,k)  = data(limits(3):limits(4),i,j,k)  + e % storage % U_y(:,i,j,k)
-                   data(limits(4):limits(5),i,j,k)  = data(limits(4):limits(5),i,j,k)  + e % storage % U_z(:,i,j,k)
+                   data(limits(2)+1:limits(3),i,j,k)  = data(limits(2)+1:limits(3),i,j,k)  + e % storage % U_x(:,i,j,k)
+                   data(limits(3)+1:limits(4),i,j,k)  = data(limits(3)+1:limits(4),i,j,k)  + e % storage % U_y(:,i,j,k)
+                   data(limits(4)+1:limits(5),i,j,k)  = data(limits(4)+1:limits(5),i,j,k)  + e % storage % U_z(:,i,j,k)
+               end if 
+               if (self % saveMu) then
+                   mu_avg(1,i,j,k)  = mu_avg(1,i,j,k)  + e % storage % mu_NS(1,i,j,k)
+                   mu_avg(2,i,j,k)  = mu_avg(2,i,j,k)  + e % storage % mu_turb_NS(i,j,k)
                end if 
             end do                  ; end do                   ; end do
 
             data = data / (self % no_of_samples + 1)
+            if (self % saveMu) mu_avg = mu_avg / (self % no_of_samples + 1)
             end associate
          end do
 
