@@ -348,7 +348,7 @@ print*, "Method selected: RK5"
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
       CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients, useTrip, ActuatorLineFlag
+      logical                       :: saveGradients, useTrip, ActuatorLineFlag, saveLES
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
@@ -416,6 +416,7 @@ print*, "Method selected: RK5"
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      saveLES = controlVariables % logicalValueForKey("save les with solution")
 !
 !     -----------------------
 !     Check initial residuals
@@ -634,7 +635,8 @@ print*, "Method selected: RK5"
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
+            ! call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveLES)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -747,7 +749,8 @@ print*, "Method selected: RK5"
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients)
+   ! SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveLES)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -760,6 +763,7 @@ print*, "Method selected: RK5"
       REAL(KIND=RP)                :: t              !< Simu time
       CHARACTER(len=*)             :: RestFileName   !< Name of restart file
       logical,          intent(in) :: saveGradients
+      logical,          intent(in) :: saveLES
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -767,7 +771,8 @@ print*, "Method selected: RK5"
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
+      ! call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients, saveLES)
 
    END SUBROUTINE SaveRestart
 !

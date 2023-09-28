@@ -476,7 +476,7 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA
+         logical                                :: saveGradients, loadFromNSSA, saveLES
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
@@ -495,8 +495,9 @@ Module DGSEMClass
 !           Save the initial condition
 !           --------------------------
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
+            saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
             write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients)
+            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients,saveLES)
             !TDG: ADD PARTICLES WRITE WITH IFDEF
 
          END IF

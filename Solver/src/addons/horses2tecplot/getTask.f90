@@ -258,11 +258,16 @@ module getTask
                     case ("turb")
                         hasMu_NS = .true.
                         hasWallY     = .true.
+                    case ("les")
+                        hasMu_NS = .true.
+                        hasMu_sgs     = .true.
                     case default
                         write(STD_OUT,'(A,A,A)') "The variable asked, ", trim(addVar), " is not implemented"
                 end select
              end do
          end if
+
+         isNewVariable = controlVariables % logicalValueForKey("is new variable")
 
       End Subroutine getTaskTypeControl
 

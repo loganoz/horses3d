@@ -49,6 +49,7 @@ module OutputVariables
       enumerator :: ReSTxx, ReSTxy, ReSTxz, ReSTyy, ReSTyz, ReSTzz
       enumerator :: Vvec_Vrms, U_Vrms, V_Vrms, W_Vrms
       enumerator :: U_TAU_V, WallY_V, Tauw_V, MU, YPLUS, UPLUS, Cf_V, MUTMINF
+      enumerator :: MU_sgs_V
       enumerator :: LASTVARIABLE
    end enum
 
@@ -135,6 +136,7 @@ module OutputVariables
    character(len=STR_VAR_LEN), parameter  :: uplusKey      = "uplus"
    character(len=STR_VAR_LEN), parameter  :: cfKey         = "Cf"
    character(len=STR_VAR_LEN), parameter  :: mutminfKey    = "mutminf"
+   character(len=STR_VAR_LEN), parameter  :: muSGSKey      = "mu_sgs"
 
    character(len=STR_VAR_LEN), dimension(NO_OF_VARIABLES), parameter  :: variableNames = (/ QKey,QDOTKey, RHOKey, UKey, VKey, WKey, &
                                                                             PKey, RHODOTKey, RHOUDOTKey, RHOVDOTKey, RHOWDOTKey, RHOEDOTKey, &
@@ -152,7 +154,7 @@ module OutputVariables
                                                                             ReSTxxKey, ReSTxyKey, ReSTxzKey, ReSTyyKey, ReSTyzKey, ReSTzzKey, &
                                                                             VvecRmsKey, URmsKey, VRmsKey, WRmsKey, &
                                                                             UTAUKey, WallYKey, TauwKey, muKey, yplusKey, &
-                                                                            uplusKey, cfKey, mutminfKey /)
+                                                                            uplusKey, cfKey, mutminfKey, muSGSKey /)
                                                                         
                                                                         
                                                                
@@ -288,7 +290,7 @@ module OutputVariables
          real(kind=RP) :: Sym, Asym
          logical       :: hasAdditionalVariables
 
-         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients
+         hasAdditionalVariables = hasUt_NS .or. hasWallY .or. hasMu_NS .or. hasStats .or. hasGradients .or. hasMu_sgs
 
          do var = 1, no_of_outputVariables
             if ( hasAdditionalVariables .or. (outputVariableNames(var) .le. NO_OF_INVISCID_VARIABLES ) ) then
@@ -300,6 +302,7 @@ module OutputVariables
                            mu_NS => e % mu_NSout, &
                            wallY => e % wallY, &
                            u_tau=> e % ut_NS, &
+                           mu_sgs => e % mu_sgsout, &
                            stats => e % statsout)
 
                select case (outputVariableNames(var))
@@ -658,7 +661,7 @@ module OutputVariables
 
                case(U_TAU_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  u_tau(1,i,j,k)
+                     output(var,i,j,k) =  abs(u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * refs(V_REF)
 
@@ -670,15 +673,21 @@ module OutputVariables
 
                case(Tauw_V)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k))
+                     output(var,i,j,k) =  Q(IRHO,i,j,k) * POW2(u_tau(1,i,j,k)) * sign(1.0_RP,u_tau(1,i,j,k))
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = refs(RHO_REF) * POW2(refs(V_REF)) * output(var,:,:,:)
 
                case(YPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
-                     output(var,i,j,k) =  wallY(1,i,j,k) * u_tau(1,i,j,k) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
+                     output(var,i,j,k) =  wallY(1,i,j,k) * abs(u_tau(1,i,j,k)) * Q(IRHO,i,j,k) / mu_NS(1,i,j,k)
                   end do         ; end do         ; end do
                   if ( outScale ) output(var,:,:,:) = output(var,:,:,:) * Lreference
+
+               case(MU_sgs_V)
+                  do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)
+                     output(var,i,j,k) = mu_sgs(1,i,j,k) !* refs(RE_REF)
+                  end do         ; end do         ; end do
+                  if ( outScale ) output(var,:,:,:) = output(var,:,:,:) ! there is not reference state for the mu, it could be calculated if we have the Re reference
 
                case(UPLUS)
                   do k = 0, N(3) ; do j = 0, N(2) ; do i = 0, N(1)

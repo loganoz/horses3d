@@ -207,6 +207,10 @@ module StatisticsMonitor
             write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.stats.',iter,'.hsol'
             call mesh % SaveStatistics(iter, t, trim(fileName), self % saveGradients)
             write(STD_OUT,'(A,A,A)') '   *** Saving statistics file as "',trim(fileName),'".'
+             if (self%saveMu) then
+                write(fileName,'(A,A,I10.10,A)') trim(solution_file),'.mu.stats.',iter,'.hsol'
+                 call mesh % SaveNewVariable(iter, t, trim(fileName), 1)
+             end if 
          end if
 !
 !        Reset the statistics if requested

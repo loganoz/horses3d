@@ -10,7 +10,7 @@ module Storage
    public Mesh_t, Element_t, Boundary_t
    public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
    public partitionFileName, boundaryFileName, flowEq
-   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT
+   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs, isNewVariable
 
    integer                          :: NVARS, NGRADVARS
    logical                          :: hasMPIranks, hasBoundaries, isOldStats
@@ -18,6 +18,8 @@ module Storage
    logical                          :: hasUt_NS = .false.
    logical                          :: hasMu_NS = .false.
    logical                          :: hasWallY     = .false.
+   logical                          :: hasMu_sgs = .false.
+   logical                          :: isNewVariable = .false.
    character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
    integer, parameter               :: NSTAT = 9
 
@@ -40,6 +42,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NS(:,:,:,:)
       real(kind=RP), pointer     :: ut_NS(:,:,:,:)
       real(kind=RP), pointer     :: wallY(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgs(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
@@ -52,6 +55,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NSout(:,:,:,:)
       real(kind=RP), pointer     :: ut_NSout(:,:,:,:)
       real(kind=RP), pointer     :: wallYout(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgsout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
 
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -279,7 +283,7 @@ module Storage
          ! call set_getVelocityGradients(GRADVARS_STATE) ! FIXME: MIGHT BE NEEDED FOR HORSES2PLT
          ! write(STD_OUT,'(15X,A)') " WARNING horses2tecplot.90 :: Velocity Gradients set to default (GRADVARS_STATE)"
       
-         if ( .not. isOldStats ) then
+         if ( .not. isOldStats .and. .not. isNewVariable ) then
          ! if ( .not. self % isStatistics ) then
             do eID = 1, self % no_of_elements
                associate ( e => self % elements(eID) )
@@ -371,6 +375,50 @@ module Storage
                    allocate( e % wallY(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % wallY
                end if 
+
+               if (hasMu_sgs) then
+                   allocate( e % mu_sgs(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_sgs
+               end if
+
+               end associate
+            end do
+
+        elseif (isNewVariable) then
+
+            do eID = 1, self % no_of_elements
+               associate ( e => self % elements(eID) )
+               call getSolutionFileArrayDimensions(fid,arrayDimensions)
+
+               call getNVARS(arrayDimensions(1), self % isStatistics)
+!   
+               ! e % Nsol(1:3) = arrayDimensions(2:4) - 1
+               e % Nsol(1:dimensionsSize-1) = arrayDimensions(2:dimensionsSize) - 1
+               if (dimensionsSize .eq. 3) e % Nsol(3) = 0
+
+               if (hasUt_NS) then
+                   allocate( e % ut_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % ut_NS
+                   ! continue
+               end if 
+
+               if (hasmu_NS) then
+                   allocate( e % mu_NS(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_NS
+                   ! continue
+               end if 
+
+               if (hasWallY) then
+                   allocate( e % wallY(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % wallY
+                   ! continue
+               end if 
+
+               if (hasMu_sgs) then
+                   allocate( e % mu_sgs(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_sgs
+                   ! continue
+               end if
 
                end associate
             end do

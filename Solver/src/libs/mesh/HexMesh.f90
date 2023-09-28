@@ -2813,7 +2813,8 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     ! subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveLES_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2822,6 +2823,7 @@ slavecoord:             DO l = 1, 4
          real(kind=RP),       intent(in)        :: time
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
+         logical, optional,   intent(in)        :: saveLES_
 !
 !        ---------------
 !        Local variables
@@ -2831,6 +2833,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
+         logical                          :: saveLES
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -2857,6 +2860,12 @@ slavecoord:             DO l = 1, 4
 !
 !        Create new file
 !        ---------------
+         if (present(saveLES_)) then
+            saveLES = saveLES_
+         else
+            saveLES = .false.
+         end if
+
          if ( saveGradients .and. computeGradients) then
             call CreateNewSolutionFile(trim(name),SOLUTION_AND_GRADIENTS_FILE, &
                                        self % nodeType, self % no_of_allElements, iter, time, refs)
@@ -2866,6 +2875,8 @@ slavecoord:             DO l = 1, 4
                                        self % no_of_allElements, iter, time, refs)
             padding = NCONS
          end if
+
+         if (saveLES) padding = padding + 2
 !
 !        Write arrays
 !        ------------
@@ -2918,6 +2929,17 @@ slavecoord:             DO l = 1, 4
 
                deallocate(Q)
             end if
+
+          if (saveLES) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+               write(fid) Q
+               Q(1,:,:,:) = e % storage % mu_turb_NS(:,:,:) !mu_sgs
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
 
             end associate
          end do
@@ -3055,7 +3077,14 @@ slavecoord:             DO l = 1, 4
          do eID = 1, self % no_of_elements
             associate( e => self % elements(eID) )
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
-            call writeArray(fid, e % storage % stats % mu_avg(1:2,:,:,:), position=pos)
+            allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+            ! Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+            Q(1,:,:,:) = e % storage % stats % mu_avg(1,:,:,:) !total viscosity = mu + mu_sgs
+            ! call writeArray(fid, e % storage % stats % mu_avg(1:2,:,:,:), position=pos)
+            call writeArray(fid, Q, position=pos)
+            Q(1,:,:,:) = e % storage % stats % mu_avg(2,:,:,:) !mu_sgs
+            write(fid) Q
+            deallocate(Q)
             end associate
          end do
          close(fid)
