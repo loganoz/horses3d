@@ -4,6 +4,7 @@
 module HyperbolicSubcell
    use SMConstants
    use HyperbolicDiscretizationClass
+   use DGIntegrals
    use FluidData
 #if defined(SPALARTALMARAS)
    use RiemannSolvers_NSSA
@@ -165,15 +166,26 @@ module HyperbolicSubcell
 !        ---------------
          integer  :: Nx, Ny, Nz
          integer  :: i, j, k, l
-         real(RP) :: blending
+         real(RP) :: blending(0:e%Nxyz(1), 0:e%Nxyz(2), 0:e%Nxyz(3))
          real(RP) :: Fcx(NCONS, 0:e % Nxyz(1)+1)
          real(RP) :: Fcy(NCONS, 0:e % Nxyz(2)+1)
          real(RP) :: Fcz(NCONS, 0:e % Nxyz(3)+1)
 
 !
+!        Usual split form if the sensor is 0
+!        -----------------------------------
+         if (all(e % storage % sensor <= 0.0_RP)) then
+            div = -ScalarWeakIntegrals % SplitVolumeDivergence(e, fSharp, gSharp, hSharp, Fv)
+            return
+         end if
+!
 !        Blending between DG and FV fluxes
 !        ---------------------------------
-         blending = min(e % storage % sensor, self % max_blend)
+         where (e % storage % sensor < self % max_blend)
+            blending = e % storage % sensor
+         elsewhere
+            blending = self % max_blend
+         end where
 
          Nx = e % Nxyz(1)
          Ny = e % Nxyz(2)
@@ -189,7 +201,7 @@ module HyperbolicSubcell
 !
 !           Hyperbolic term
 !           ---------------
-            call ComputeSubcellFluxes_1D(e, blending, e % storage % Q(:,:,j,k),                &
+            call ComputeSubcellFluxes_1D(e, blending(:,j,k), e % storage % Q(:,:,j,k),         &
                                          spAxi % w, spAxi % D, e % geom % ncXi(:,:,j,k),       &
                                          e % geom % t1cXi(:,:,j,k), e % geom % t2cXi(:,:,j,k), &
                                          e % geom % JfcXi(:,j,k), fSharp(:,:,:,j,k), Fcx)
@@ -212,7 +224,7 @@ module HyperbolicSubcell
 !
 !           Hyperbolic term
 !           ---------------
-            call ComputeSubcellFluxes_1D(e, blending, e % storage % Q(:,i,:,k),                  &
+            call ComputeSubcellFluxes_1D(e, blending(i,:,k), e % storage % Q(:,i,:,k),           &
                                          spAeta % w, spAeta % D, e % geom % ncEta(:,i,:,k),      &
                                          e % geom % t1cEta(:,i,:,k), e % geom % t2cEta(:,i,:,k), &
                                          e % geom % JfcEta(i,:,k), gSharp(:,:,i,:,k), Fcy)
@@ -234,7 +246,7 @@ module HyperbolicSubcell
 !
 !           Hyperbolic term
 !           ---------------
-            call ComputeSubcellFluxes_1D(e, blending, e % storage % Q(:,i,j,:),                    &
+            call ComputeSubcellFluxes_1D(e, blending(i,j,:), e % storage % Q(:,i,j,:),             &
                                          spAzeta % w, spAzeta % D, e % geom % ncZeta(:,i,j,:),     &
                                          e % geom % t1cZeta(:,i,j,:), e % geom % t2cZeta(:,i,j,:), &
                                          e % geom % JfcZeta(i,j,:), hSharp(:,:,i,j,:), Fcz)
@@ -264,7 +276,7 @@ module HyperbolicSubcell
 !        Interface
 !        ---------
          type(Element), intent(in)  :: e
-         real(RP),      intent(in)  :: blending
+         real(RP),      intent(in)  :: blending(0:)
          real(RP),      intent(in)  :: Q(1:, 0:)       ! (NCONS, 0:N)
          real(RP),      intent(in)  :: w(0:)           ! (0:N)
          real(RP),      intent(in)  :: D(0:, 0:)       ! (0:N, 0:N)
@@ -281,6 +293,7 @@ module HyperbolicSubcell
          integer  :: nx, nc
          integer  :: i
          integer  :: r, s
+         real(RP) :: b
          real(RP) :: ws, wv
          real(RP) :: Fv(1:size(Fc, 1))
 
@@ -305,15 +318,14 @@ module HyperbolicSubcell
 !
 !        Compute subcell, FV flux
 !        ------------------------
-         if (blending > 0.0_RP) then
-            ws = 1.0_RP - blending
-            wv = blending
-            do i = 1, nc-1
-               call RiemannSolver(Q(:,i-1), Q(:,i), n(:,i), t1(:,i), t2(:,i), Fv)
-               Fv = Fv * Jf(i)
-               Fc(:,i) = ws * Fc(:,i) + wv * Fv
-            end do
-         end if
+         do i = 1, nc-1
+            b = max(blending(i-1), blending(i))
+            ws = 1.0_RP - b
+            wv = b
+            call RiemannSolver(Q(:,i-1), Q(:,i), n(:,i), t1(:,i), t2(:,i), Fv)
+            Fv = Fv * Jf(i)
+            Fc(:,i) = ws * Fc(:,i) + wv * Fv
+         end do
 
       end subroutine ComputeSubcellFluxes_1D
 

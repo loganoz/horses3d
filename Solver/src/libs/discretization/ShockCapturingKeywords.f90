@@ -34,8 +34,8 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_INTEGRAL_SQRT_VAL = "integral with sqrt"
    character(len=*), parameter :: SC_MODAL_VAL         = "modal"
    character(len=*), parameter :: SC_TE_VAL            = "truncation error"
-   character(len=*), parameter :: SC_ALIAS_VAL         = "aliasing error"
    character(len=*), parameter :: SC_GMM_VAL           = "gmm"
+   character(len=*), parameter :: SC_GMM_NODAL_VAL     = "gmm nodal"
 
    integer, parameter :: SC_ZERO_ID          = 1
    integer, parameter :: SC_ONE_ID           = 2
@@ -45,8 +45,8 @@ module ShockCapturingKeywords
    integer, parameter :: SC_INTEGRAL_SQRT_ID = 6
    integer, parameter :: SC_MODAL_ID         = 7
    integer, parameter :: SC_TE_ID            = 8
-   integer, parameter :: SC_ALIAS_ID         = 9
-   integer, parameter :: SC_GMM_ID           = 10
+   integer, parameter :: SC_GMM_ID           = 9
+   integer, parameter :: SC_GMM_NODAL_ID     = 10
 !
 !  Shock-capturing methods
 !  -----------------------

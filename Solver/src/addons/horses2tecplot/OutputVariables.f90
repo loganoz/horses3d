@@ -904,7 +904,7 @@ module OutputVariables
 !              **************
 !
                case(SENSOR_V)
-                  output(var,:,:,:) = e % sensor
+                  output(var,:,:,:) = e % sensor(1,:,:,:)
 
                end select
                end associate

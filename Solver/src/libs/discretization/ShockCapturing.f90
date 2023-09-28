@@ -226,7 +226,7 @@ module ShockCapturing
 !
 !     Construct sensor
 !     ----------------
-      call Set_SCsensor(self % sensor, controlVariables, sem, minSteps, &
+      call Set_SCsensor(self % sensor, controlVariables, sem, &
                         TimeDerivative, TimeDerivativeIsolated)
 
    end subroutine Initialize_ShockCapturing
@@ -277,16 +277,16 @@ module ShockCapturing
 
 
       zeroflux = .true.
-      switch = e % storage % sensor
+      switch = maxval(e % storage % sensor)
 
       if (switch >= 1.0_RP) then
          if (allocated(self % method2)) then
-            call self % method2 % Viscosity(mesh, e, switch, SCflux)
+            call self % method2 % Viscosity(mesh, e, SCflux)
             zeroflux = .false.
          end if
       elseif (switch > 0.0_RP) then
          if (allocated(self % method1)) then
-            call self % method1 % Viscosity(mesh, e, switch, SCflux)
+            call self % method1 % Viscosity(mesh, e, SCflux)
             zeroflux = .false.
          end if
       end if
@@ -468,7 +468,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine AV_viscosity(self, mesh, e, switch, SCflux)
+   subroutine AV_viscosity(self, mesh, e, SCflux)
 !
 !     ---------
 !     Interface
@@ -477,7 +477,6 @@ module ShockCapturing
       class(ArtificialViscosity_t), intent(in)    :: self
       type(HexMesh),                intent(inout) :: mesh
       type(Element),                intent(inout) :: e
-      real(RP),                     intent(in)    :: switch
       real(RP),                     intent(out)   :: SCflux(1:NCONS,       &
                                                             0:e % Nxyz(1), &
                                                             0:e % Nxyz(2), &
@@ -583,7 +582,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine NoSVV_viscosity(self, mesh, e, switch, SCflux)
+   subroutine NoSVV_viscosity(self, mesh, e, SCflux)
 !
 !     --------------------------------------------------------------------------
 !     TODO: Introduce alpha viscosity, which probably means reimplementing here
@@ -602,7 +601,6 @@ module ShockCapturing
       class(SC_NoSVV_t), intent(in)    :: self
       type(HexMesh),     intent(inout) :: mesh
       type(Element),     intent(inout) :: e
-      real(RP),          intent(in)    :: switch
       real(RP),          intent(out)   :: SCflux(1:NCONS,       &
                                                  0:e % Nxyz(1), &
                                                  0:e % Nxyz(2), &
@@ -623,82 +621,79 @@ module ShockCapturing
       real(RP) :: SVVdiss
 
 
-      if (switch > 0.0_RP) then
 !
-!        Compute viscosity
-!        -----------------
-         select case (self % updateMethod)
-         case (SC_CONST_ID)
-            mu = merge(self % mu2, self % mu1, switch >= 1.0_RP) * e % hn
+!     Compute viscosity
+!     -----------------
+      select case (self % updateMethod)
+      case (SC_CONST_ID)
+         where (e % storage % sensor >= 1.0_RP)
+            mu = self % mu2 * e % hn
+         elsewhere
+            mu = self % mu1 * e % hn
+         end where
 
-         case (SC_SENSOR_ID)
-            mu = (self % mu1 * (1.0_RP-switch) + self % mu2 * switch) * e % hn
+      case (SC_SENSOR_ID)
+         mu = (self % mu1 * (1.0_RP - e % storage % sensor) &
+            + self % mu2 * e % storage % sensor) * e % hn
 
 #if !defined (SPALARTALMARAS)
-         case (SC_SMAG_ID)
+      case (SC_SMAG_ID)
 
-            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                          e % storage % Q(:,i,j,k),       &
-                                                          e % storage % U_x(:,i,j,k),     &
-                                                          e % storage % U_y(:,i,j,k),     &
-                                                          e % storage % U_z(:,i,j,k),     &
-                                                          mu(i,j,k))
-            end do                ; end do                ; end do
+         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                       e % storage % Q(:,i,j,k),       &
+                                                       e % storage % U_x(:,i,j,k),     &
+                                                       e % storage % U_y(:,i,j,k),     &
+                                                       e % storage % U_z(:,i,j,k),     &
+                                                       mu(i,j,k))
+         end do                ; end do                ; end do
 #endif
 
-         end select
+      end select
 !
-!        Compute the viscous flux
-!        ------------------------
-         SVVdiss = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+!     Compute the viscous flux
+!     ------------------------
+      SVVdiss = 0.0_RP
+      do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
 
-            kappa = dimensionless % mu_to_kappa * mu(i,j,k)
-            call self % ViscousFlux(NCONS, NGRAD, e % storage % Q(:,i,j,k), &
-                                    e % storage % U_x(:,i,j,k),             &
-                                    e % storage % U_y(:,i,j,k),             &
-                                    e % storage % U_z(:,i,j,k),             &
-                                    mu(i,j,k), 0.0_RP, kappa,               &
-                                    covariantflux)
+         kappa = dimensionless % mu_to_kappa * mu(i,j,k)
+         call self % ViscousFlux(NCONS, NGRAD, e % storage % Q(:,i,j,k), &
+                                 e % storage % U_x(:,i,j,k),             &
+                                 e % storage % U_y(:,i,j,k),             &
+                                 e % storage % U_z(:,i,j,k),             &
+                                 mu(i,j,k), 0.0_RP, kappa,               &
+                                 covariantflux)
 
-            ! Artificial viscosity
-            associate(wxi   => NodalStorage(e % Nxyz(1)) % w, &
-                      weta  => NodalStorage(e % Nxyz(2)) % w, &
-                      wzeta => NodalStorage(e % Nxyz(3)) % w)
+         ! Artificial viscosity
+         associate(wxi   => NodalStorage(e % Nxyz(1)) % w, &
+                   weta  => NodalStorage(e % Nxyz(2)) % w, &
+                   wzeta => NodalStorage(e % Nxyz(3)) % w)
 
-               SVVdiss = SVVdiss + e % geom % jacobian(i,j,k) * wxi(i) * weta(j) * wzeta(k) * &
-                         sum(e % storage % U_x(:,i,j,k) * covariantflux(:,IX) +               &
-                             e % storage % U_y(:,i,j,k) * covariantflux(:,IY) +               &
-                             e % storage % U_z(:,i,j,k) * covariantflux(:,IZ))
+            SVVdiss = SVVdiss + e % geom % jacobian(i,j,k) * wxi(i) * weta(j) * wzeta(k) * &
+                      sum(e % storage % U_x(:,i,j,k) * covariantflux(:,IX) +               &
+                          e % storage % U_y(:,i,j,k) * covariantflux(:,IY) +               &
+                          e % storage % U_z(:,i,j,k) * covariantflux(:,IZ))
 
-            end associate
+         end associate
 
-            SCflux(:,i,j,k,IX) = covariantFlux(:,IX) * e % geom % jGradXi(IX,i,j,k) &
-                               + covariantFlux(:,IY) * e % geom % jGradXi(IY,i,j,k) &
-                               + covariantFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
-
-
-            SCflux(:,i,j,k,IY) = covariantFlux(:,IX) * e % geom % jGradEta(IX,i,j,k) &
-                               + covariantFlux(:,IY) * e % geom % jGradEta(IY,i,j,k) &
-                               + covariantFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
+         SCflux(:,i,j,k,IX) = covariantFlux(:,IX) * e % geom % jGradXi(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradXi(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradXi(IZ,i,j,k)
 
 
-            SCflux(:,i,j,k,IZ) = covariantFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k) &
-                               + covariantFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k) &
-                               + covariantFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
+         SCflux(:,i,j,k,IY) = covariantFlux(:,IX) * e % geom % jGradEta(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradEta(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradEta(IZ,i,j,k)
 
-         end do                ; end do                ; end do
 
-         e % storage % artificialDiss = SVVdiss
+         SCflux(:,i,j,k,IZ) = covariantFlux(:,IX) * e % geom % jGradZeta(IX,i,j,k) &
+                            + covariantFlux(:,IY) * e % geom % jGradZeta(IY,i,j,k) &
+                            + covariantFlux(:,IZ) * e % geom % jGradZeta(IZ,i,j,k)
 
-      else
+      end do                ; end do                ; end do
 
-         e % storage % artificialDiss = 0.0_RP
-         SCflux = 0.0_RP
-
-      end if
+      e % storage % artificialDiss = SVVdiss
 !
 !     Project to faces
 !     ----------------
@@ -838,7 +833,7 @@ module ShockCapturing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine SVV_viscosity(self, mesh, e, switch, SCflux)
+   subroutine SVV_viscosity(self, mesh, e, SCflux)
 !
 !     ---------
 !     Interface
@@ -847,7 +842,6 @@ module ShockCapturing
       class(SC_SVV_t), intent(in)    :: self
       type(HexMesh),   intent(inout) :: mesh
       type(Element),   intent(inout) :: e
-      real(RP),        intent(in)    :: switch
       real(RP),        intent(out)   :: SCflux(1:NCONS,       &
                                                0:e % Nxyz(1), &
                                                0:e % Nxyz(2), &
@@ -862,57 +856,53 @@ module ShockCapturing
       integer  :: k
       integer  :: fIDs(6)
       real(RP) :: delta
-      real(RP) :: salpha
       real(RP) :: sqrt_mu(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
       real(RP) :: sqrt_alpha(0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3))
 
 
-      if (switch > 0.0_RP) then
 !
-!        Compute viscosities
-!        -------------------
-         select case (self % updateMethod)
-         case (SC_CONST_ID)
-            sqrt_mu = merge(self % sqrt_mu2,    self % sqrt_mu1,    switch >= 1.0_RP) * e % hn
-            salpha  = merge(self % sqrt_alpha2, self % sqrt_alpha1, switch >= 1.0_RP) * e % hn
+!     Compute viscosities
+!     -------------------
+      select case (self % updateMethod)
+      case (SC_CONST_ID)
+         where (e % storage % sensor >= 1.0_RP)
+            sqrt_mu = self % sqrt_mu2 * e % hn
+            sqrt_alpha = self % sqrt_alpha2 * e % hn
+         elsewhere
+            sqrt_mu = self % sqrt_mu1 * e % hn
+            sqrt_alpha = self % sqrt_alpha1 * e % hn
+         end where
 
-         case (SC_SENSOR_ID)
-            sqrt_mu = (self % sqrt_mu1 * (1.0_RP-switch) + self % sqrt_mu2 * switch) * e % hn
-            salpha  = (self % sqrt_alpha1 * (1.0_RP-switch) + self % sqrt_alpha2 * switch) * e % hn
+      case (SC_SENSOR_ID)
+         sqrt_mu = (self % sqrt_mu1 * (1.0_RP-e % storage % sensor) &
+                 + self % sqrt_mu2 * e % storage % sensor) * e % hn
+         sqrt_alpha = (self % sqrt_alpha1 * (1.0_RP-e % storage % sensor) &
+                    + self % sqrt_alpha2 * e % storage % sensor) * e % hn
 
 #if !defined (SPALARTALMARAS)
-         case (SC_SMAG_ID)
+      case (SC_SMAG_ID)
 
-            delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
-            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-               call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
-                                                          e % storage % Q(:,i,j,k),       &
-                                                          e % storage % U_x(:,i,j,k),     &
-                                                          e % storage % U_y(:,i,j,k),     &
-                                                          e % storage % U_z(:,i,j,k),     &
-                                                          sqrt_mu(i,j,k))
-               sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
-            end do                ; end do                ; end do
+         delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+            call self % Smagorinsky % ComputeViscosity(delta, e % geom % dWall(i,j,k), &
+                                                       e % storage % Q(:,i,j,k),       &
+                                                       e % storage % U_x(:,i,j,k),     &
+                                                       e % storage % U_y(:,i,j,k),     &
+                                                       e % storage % U_z(:,i,j,k),     &
+                                                       sqrt_mu(i,j,k))
+            sqrt_mu(i,j,k) = sqrt(sqrt_mu(i,j,k))
+         end do                ; end do                ; end do
 #endif
 
-         end select
+      end select
 
-         if (self % alphaIsPropToMu) then
-            sqrt_alpha = self % sqrt_mu2alpha * sqrt_mu
-         else
-            sqrt_alpha = salpha
-         end if
+      if (self % alphaIsPropToMu) then
+         sqrt_alpha = self % sqrt_mu2alpha * sqrt_mu
+      end if
 !
 !        Compute the viscous flux
 !        ------------------------
-         call SVV % ComputeInnerFluxes(e, sqrt_mu, sqrt_alpha, SCflux)
-
-      else
-
-         e % storage % artificialDiss = 0.0_RP
-         SCflux = 0.0_RP
-
-      end if
+      call SVV % ComputeInnerFluxes(e, sqrt_mu, sqrt_alpha, SCflux)
 !
 !     Project to faces
 !     ----------------

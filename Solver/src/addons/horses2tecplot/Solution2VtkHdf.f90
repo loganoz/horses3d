@@ -118,13 +118,14 @@ module Solution2VtkHdfModule
 !
 !        Perform interpolation
 !        ---------------------
-         call ProjectStorageHomogeneousPoints(e, Tset(e % Nout(1), e % Nmesh(1)) % T, &
-                                                 Tset(e % Nout(2), e % Nmesh(2)) % T, &
-                                                 Tset(e % Nout(3), e % Nmesh(3)) % T, &
-                                                 Tset(e % Nout(1), e % Nsol(1)) % T,  &
-                                                 Tset(e % Nout(2), e % Nsol(2)) % T,  &
-                                                 Tset(e % Nout(3), e % Nsol(3)) % T,  &
-                                                 mesh % hasGradients, mesh % isStatistics )
+         call ProjectStorageHomogeneousPoints(e, Tset(e % Nout(1), e % Nmesh(1)) % T,      &
+                                                 Tset(e % Nout(2), e % Nmesh(2)) % T,      &
+                                                 Tset(e % Nout(3), e % Nmesh(3)) % T,      &
+                                                 Tset(e % Nout(1), e % Nsol(1)) % T,       &
+                                                 Tset(e % Nout(2), e % Nsol(2)) % T,       &
+                                                 Tset(e % Nout(3), e % Nsol(3)) % T,       &
+                                                 mesh % hasGradients, mesh % isStatistics, &
+                                                 mesh % hasSensor )
       end associate
       end do
 !
@@ -323,7 +324,7 @@ module Solution2VtkHdfModule
 #endif
    end subroutine Solution2VtkHdf
 
-   subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats)
+   subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats, hasSensor)
       use Storage
       use NodalStorageClass
       implicit none
@@ -336,6 +337,7 @@ module Solution2VtkHdfModule
       real(kind=RP),       intent(in)  :: TzSol(0:e % Nout(3), 0:e % Nsol(3))
       logical,             intent(in)  :: hasGradients
       logical,             intent(in)  :: hasStats
+      logical,             intent(in)  :: hasSensor
 !
 !     ---------------
 !     Local variables
@@ -421,6 +423,17 @@ module Solution2VtkHdfModule
             end do            ; end do            ; end do
          end do            ; end do            ; end do
 
+      end if
+
+      if (hasSensor) then
+         allocate( e % sensor_out(1, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % sensor_out = 0.0_RP
+
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % sensor_out(:,i,j,k) = e % sensor_out(:,i,j,k) + e % sensor(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
       end if
 
       if (hasStats) then

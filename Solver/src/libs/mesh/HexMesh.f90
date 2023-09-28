@@ -2939,6 +2939,7 @@ slavecoord:             DO l = 1, 4
             padding = NCONS
          end if
 
+         if (saveSensor) padding = padding + 1
          if (saveLES) padding = padding + 2
 !
 !        Write arrays
@@ -2959,7 +2960,6 @@ slavecoord:             DO l = 1, 4
 #endif
 
             pos = POS_INIT_DATA + (e % globID-1)*5_AddrInt*SIZEOF_INT + padding*e % offsetIO * SIZEOF_RP
-            if (saveSensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             call writeArray(fid, Q, position=pos)
 
             deallocate(Q)
@@ -3282,7 +3282,7 @@ slavecoord:             DO l = 1, 4
             padding = 1*NCONS
 
          case(SOLUTION_AND_SENSOR_FILE)
-            padding = 1*NCONS
+            padding = 1*NCONS + 1
             has_sensor = .TRUE.
 
          case(SOLUTION_AND_GRADIENTS_FILE)
@@ -3290,7 +3290,7 @@ slavecoord:             DO l = 1, 4
             gradients = .TRUE.
 
          case(SOLUTION_AND_GRADIENTS_AND_SENSOR_FILE)
-            padding = NCONS + 3 * NGRAD
+            padding = NCONS + 3 * NGRAD + 1
             gradients = .TRUE.
             has_sensor = .TRUE.
 
@@ -3355,7 +3355,6 @@ slavecoord:             DO l = 1, 4
          do eID = 1, size(self % elements)
             associate( e => self % elements(eID) )
             pos = POS_INIT_DATA + (e % globID-1)*5*SIZEOF_INT + padding*e % offsetIO*SIZEOF_RP
-            if (has_sensor) pos = pos + (e % globID - 1) * SIZEOF_RP
             read(fID, pos=pos) array_rank
             read(fID) no_of_eqs, Nxp1, Nyp1, Nzp1
             if (      ((Nxp1-1) .ne. e % Nxyz(1)) &
@@ -3895,7 +3894,7 @@ slavecoord:             DO l = 1, 4
          associate (e => self % elements(eID))
          e % hn = e % geom % Volume / product(e % Nxyz + 1)
          if (self % meshIs2D) then
-            e % hn = sqrt(e % hn * (e % Nxyz(self % dir2D) + 1))
+            e % hn = sqrt(e % hn * (e % Nxyz(self % dir2D_ctrl) + 1))
          else
             e % hn = e % hn ** (1.0_RP / 3.0_RP)
          end if

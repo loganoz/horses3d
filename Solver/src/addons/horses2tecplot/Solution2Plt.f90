@@ -108,7 +108,7 @@ module Solution2PltModule
 !
 !           Project mesh and solution
 !           -------------------------
-            call ProjectStorageGaussPoints(e, spA, e % Nmesh, Nsol, mesh % hasGradients, mesh % isStatistics)
+            call ProjectStorageGaussPoints(e, spA, e % Nmesh, Nsol, mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
 
             end associate
          end do
@@ -168,7 +168,7 @@ module Solution2PltModule
       
       end subroutine Solution2Plt_GaussPoints
 
-      subroutine ProjectStorageGaussPoints(e, spA, NM, NS, hasGradients, hasStats)
+      subroutine ProjectStorageGaussPoints(e, spA, NM, NS, hasGradients, hasStats, hasSensor)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -179,6 +179,7 @@ module Solution2PltModule
          integer           ,  intent(in)  :: NS(3)
          logical,             intent(in)  :: hasGradients
          logical,             intent(in)  :: hasStats
+         logical,             intent(in)  :: hasSensor
          
          e % Nout = e % Nsol
          if ( all(e % Nmesh .eq. e % Nout) ) then
@@ -198,6 +199,9 @@ module Solution2PltModule
             e % U_xout(1:,0:,0:,0:) => e % U_x
             e % U_yout(1:,0:,0:,0:) => e % U_y
             e % U_zout(1:,0:,0:,0:) => e % U_z
+         end if
+         if ( hasSensor) then
+            e % sensor_out(1:,0:,0:,0:) => e % sensor
          end if
          e % QDot_out(1:,0:,0:,0:) => e % QDot
          if (hasStats) e % statsout(1:,0:,0:,0:) => e % stats
@@ -271,11 +275,12 @@ module Solution2PltModule
 !
 !           Perform interpolation
 !           ---------------------
-            call ProjectStorageGaussPoints_FixedOrder(e, spA, e % Nmesh, e % Nsol, e % Nout, &
-                                                                    Tset(e % Nout(1), e % Nsol(1)) % T, &
-                                                                    Tset(e % Nout(2), e % Nsol(2)) % T, &
-                                                                    Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                                    mesh % hasGradients, mesh % isStatistics )
+            call ProjectStorageGaussPoints_FixedOrder(e, spA, e % Nmesh, e % Nsol, e % Nout,    &
+                                                      Tset(e % Nout(1), e % Nsol(1)) % T,       &
+                                                      Tset(e % Nout(2), e % Nsol(2)) % T,       &
+                                                      Tset(e % Nout(3), e % Nsol(3)) % T,       &
+                                                      mesh % hasGradients, mesh % isStatistics, &
+                                                      mesh % hasSensor)
 
             end associate
          end do
@@ -332,7 +337,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_GaussPoints_FixedOrder
 
-      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients, hasStats)
+      subroutine ProjectStorageGaussPoints_FixedOrder(e, spA, NM, NS, Nout, Tx, Ty, Tz, hasGradients, hasStats, hasSensor)
          use Storage
          use NodalStorageClass
          use ProlongMeshAndSolution
@@ -347,6 +352,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: Tz(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
          logical,             intent(in)  :: hasStats
+         logical,             intent(in)  :: hasSensor
 !
 !        Project mesh
 !        ------------         
@@ -375,6 +381,7 @@ module Solution2PltModule
 
 
             e % QDot_out(1:,0:,0:,0:) => e % QDot
+            if (hasSensor) e % sensor_out(1:,0:,0:,0:) => e % sensor
             if (hasStats) e % statsout(1:,0:,0:,0:) => e % stats
             if (hasUt_NS) e % ut_NSout(1:,0:,0:,0:) => e % ut_NS
             if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
@@ -398,6 +405,11 @@ module Solution2PltModule
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_x, e % Nout, e % U_xout, Tx, Ty, Tz)
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_y, e % Nout, e % U_yout, Tx, Ty, Tz)
                call prolongSolutionToGaussPoints(NGRADVARS, e % Nsol, e % U_z, e % Nout, e % U_zout, Tx, Ty, Tz)
+            end if
+
+            if (hasSensor) then
+               allocate( e % sensor_out(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+               call ProlongSolutionToGaussPoints(1, e % Nsol, e % sensor, e % Nout, e % sensor_out, Tx, Ty, Tz)
             end if
 
             if (hasStats) then
@@ -500,13 +512,14 @@ module Solution2PltModule
 !
 !           Perform interpolation
 !           ---------------------
-            call ProjectStorageHomogeneousPoints(e, Tset(e % Nout(1), e % Nmesh(1)) % T, &
-                                                    Tset(e % Nout(2), e % Nmesh(2)) % T, &
-                                                    Tset(e % Nout(3), e % Nmesh(3)) % T, &
-                                                     Tset(e % Nout(1), e % Nsol(1)) % T, &
-                                                     Tset(e % Nout(2), e % Nsol(2)) % T, &
-                                                     Tset(e % Nout(3), e % Nsol(3)) % T, &
-                                                     mesh % hasGradients, mesh % isStatistics )
+            call ProjectStorageHomogeneousPoints(e, Tset(e % Nout(1), e % Nmesh(1)) % T,      &
+                                                    Tset(e % Nout(2), e % Nmesh(2)) % T,      &
+                                                    Tset(e % Nout(3), e % Nmesh(3)) % T,      &
+                                                    Tset(e % Nout(1), e % Nsol(1)) % T,       &
+                                                    Tset(e % Nout(2), e % Nsol(2)) % T,       &
+                                                    Tset(e % Nout(3), e % Nsol(3)) % T,       &
+                                                    mesh % hasGradients, mesh % isStatistics, &
+                                                    mesh % hasSensor )
 
 
             end associate
@@ -565,7 +578,7 @@ module Solution2PltModule
 
       end subroutine Solution2Plt_Homogeneous
 
-      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats)
+      subroutine ProjectStorageHomogeneousPoints(e, TxMesh, TyMesh, TzMesh, TxSol, TySol, TzSol, hasGradients, hasStats, hasSensor)
          use Storage
          use NodalStorageClass
          implicit none
@@ -578,6 +591,7 @@ module Solution2PltModule
          real(kind=RP),       intent(in)  :: TzSol(0:e % Nout(3), 0:e % Nsol(3))
          logical,             intent(in)  :: hasGradients
          logical,             intent(in)  :: hasStats
+         logical,             intent(in)  :: hasSensor
 !
 !        ---------------
 !        Local variables
@@ -663,6 +677,17 @@ module Solution2PltModule
                end do            ; end do            ; end do
             end do            ; end do            ; end do
 
+         end if
+
+         if (hasSensor) then
+            allocate( e % sensor_out(1, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % sensor_out = 0.0_RP
+
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % sensor_out(:,i,j,k) = e % sensor_out(:,i,j,k) + e % sensor(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do
          end if
 
          if (hasStats) then

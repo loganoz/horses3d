@@ -44,7 +44,7 @@ module Storage
       real(kind=RP), pointer     :: wallY(:,:,:,:)
       real(kind=RP), pointer     :: mu_sgs(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
-      real(kind=RP)              :: sensor
+      real(kind=RP), pointer     :: sensor(:,:,:,:)
 !                                /* Output quantities */
       integer                    :: Nout(NDIM)
       real(kind=RP), pointer     :: xOut(:,:,:,:)
@@ -61,6 +61,7 @@ module Storage
       real(kind=RP), pointer     :: wallYout(:,:,:,:)
       real(kind=RP), pointer     :: mu_sgsout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
+      real(kind=RP), pointer     :: sensor_out(:,:,:,:)
 
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
    end type Element_t
@@ -407,7 +408,9 @@ module Storage
                   end if
 
                end if
+
                if (self % hasSensor) then
+                   allocate( e % sensor(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
                    read(fid) e % sensor
                end if
 
@@ -586,7 +589,7 @@ module Storage
       select case(NVARS)
       case(1)      ; NGRADVARS = 1
       case(6)      ; NGRADVARS = 3
-      case default ; NGRADVARS = 3
+      ! case default ; NGRADVARS = 3
       end select
           
       End Subroutine getNVARS

@@ -737,8 +737,8 @@ module VolumeIntegrals
 
 !$omp parallel do schedule(static) private(ielem)
          do ielem = 1, mesh % no_of_elements
-            minSensor = min(minSensor, mesh % elements(ielem) % storage % sensor)
-            maxSensor = max(maxSensor, mesh % elements(ielem) % storage % sensor)
+            minSensor = min(minSensor, minval(mesh % elements(ielem) % storage % sensor))
+            maxSensor = max(maxSensor, maxval(mesh % elements(ielem) % storage % sensor))
          end do
 !$omp end parallel do
 

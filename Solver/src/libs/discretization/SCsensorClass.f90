@@ -43,9 +43,9 @@ module SCsensorClass
          real(RP) :: low        !< Lower threshold
          real(RP) :: high       !< Upper threshold
          integer  :: sVar       !< Variable used as input for the sensor
-         integer  :: min_steps  !< Minimum number of steps before the sensor is deactivated
 
          type(GMM_t)           :: gmm          !< Gaussian mixture model
+         logical               :: nodal        !< Nodal version of the sensor
          integer               :: nfeatures    !< Dimension of the feature space
          integer,  allocatable :: features(:)  !< Variables defining the feature space
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
@@ -82,7 +82,7 @@ module SCsensorClass
    contains
 !  ========
 !
-   subroutine Set_SCsensor(sensor, controlVariables, sem, minSteps, &
+   subroutine Set_SCsensor(sensor, controlVariables, sem, &
                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 !
 !     -------
@@ -97,7 +97,6 @@ module SCsensorClass
       type(SCsensor_t),                   intent(inout) :: sensor
       type(FTValueDictionary),            intent(in)    :: controlVariables
       type(DGSem),                        intent(in)    :: sem
-      integer,                            intent(in)    :: minSteps
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
       procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
 !
@@ -107,9 +106,9 @@ module SCsensorClass
       character(len=LINE_LENGTH)              :: sensorType
       character(len=LINE_LENGTH), allocatable :: varnames(:)
       integer                                 :: nclusters
+      integer                                 :: eID
 
 
-      sensor % min_steps = minSteps
 !
 !     Sensed variables
 !     ----------------
@@ -130,6 +129,8 @@ module SCsensorClass
 !     -----------
       sensorType = controlVariables % getValueOrDefault(SC_SENSOR_KEY, LINE_LENGTH, SC_INTEGRAL_VAL)
       call toLower(sensorType)
+
+      sensor % nodal = .false.
 
       select case (trim(sensorType))
       case (SC_ZERO_VAL)
@@ -166,13 +167,19 @@ module SCsensorClass
          call Construct_TEsensor(sensor, controlVariables, sem, &
                                  ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
 
-      case (SC_ALIAS_VAL)
-         sensor % sens_type = SC_ALIAS_ID
-         sensor % Compute_Raw => Sensor_aliasing
-
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
+
+         allocate(sensor % x(sensor % nfeatures, sem % NDOF))
+
+         nclusters = controlVariables % getValueOrDefault(SC_NUM_CLUSTERS_KEY, 2)
+         call sensor % gmm % init(sensor % nfeatures, nclusters)
+
+      case (SC_GMM_NODAL_VAL)
+         sensor % sens_type = SC_GMM_NODAL_ID
+         sensor % Compute_Raw => Sensor_GMM
+         sensor % nodal = .true.
 
          allocate(sensor % x(sensor % nfeatures, sem % NDOF))
 
@@ -189,15 +196,21 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_INTEGRAL_SQRT_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
          write(STD_OUT,*) '   * ', SC_TE_VAL
-         write(STD_OUT,*) '   * ', SC_ALIAS_VAL
          write(STD_OUT,*) '   * ', SC_GMM_VAL
+         write(STD_OUT,*) '   * ', SC_GMM_NODAL_VAL
          stop
 
       end select
 !
-!     Scaling options (not for GMM)
-!     -----------------------------
-      if (sensor % sens_type /= SC_GMM_ID) then
+!     Allocate sensor arrays
+!     ----------------------
+      do eID = 1, sem % mesh % no_of_elements
+         call sem % mesh % elements(eID) % storage % AllocSensor()
+      end do
+!
+!     Scaling options
+!     ---------------
+      if (sensor % sens_type /= SC_GMM_ID .and. sensor % sens_type /= SC_GMM_NODAL_ID) then
 !
 !        Sensor thresholds
 !        --------------
@@ -367,8 +380,8 @@ module SCsensorClass
          case (SC_INTEGRAL_SQRT_ID); write(STD_OUT,"(A)") SC_INTEGRAL_SQRT_VAL
          case (SC_MODAL_ID);         write(STD_OUT,"(A)") SC_MODAL_VAL
          case (SC_TE_ID);            write(STD_OUT,"(A)") SC_TE_VAL
-         case (SC_ALIAS_ID);         write(STD_OUT,"(A)") SC_ALIAS_VAL
          case (SC_GMM_ID);           write(STD_OUT,"(A)") SC_GMM_VAL
+         case (SC_GMM_NODAL_ID);     write(STD_OUT,"(A)") SC_GMM_NODAL_VAL
       end select
 
       if (sensor % sens_type == SC_TE_ID) then
@@ -382,27 +395,20 @@ module SCsensorClass
                                                 " (min. order is ", sensor % TEestim % Nmin, ")"
       end if
 
-      if (sensor % sens_type == SC_GMM_ID) then
+      if (sensor % sens_type == SC_GMM_ID .or. sensor % sens_type == SC_GMM_NODAL_ID) then
          write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable(s): "
          write(STD_OUT,"(A)", advance="no") trim(Sensor_id2val(sensor % features(1)))
          do i = 2, sensor % nfeatures
             write(STD_OUT,"(A,A)", advance="no") ", ", trim(Sensor_id2val(Sensor % features(i)))
          end do
          write(STD_OUT,"(A)") ""
+         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
       else
          write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
          write(STD_OUT,"(A)") trim(Sensor_id2val(sensor % sVar))
-      end if
-
-      write(STD_OUT,"(30X,A,A30,I0,A)") "->", "Sensor inertia: ", sensor % min_steps, " timesteps"
-
-      if (sensor % sens_type == SC_GMM_ID) then
-         write(STD_OUT,"(30X,A,A30,I0)") "->", "Number of clusters: ", sensor % gmm % max_nclusters
-      else
          write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Minimum value: ", sensor % low
          write(STD_OUT,"(30X,A,A30,1pG10.3)") "->", "Maximum value: ", sensor % high
       end if
-
 
    end subroutine Describe_SCsensor
 !
@@ -448,31 +454,6 @@ module SCsensorClass
       call Stopwatch % Start("Shock sensor")
       call sensor % Compute_Raw(sem, t)
       call Stopwatch % Pause("Shock sensor")
-!
-!     Add 'inertia' to the scaled value
-!     ---------------------------------
-      if (sensor % min_steps > 1) then   ! Enter the loop only if necessary
-!$omp parallel do default(private) shared(sem)
-         do eID = 1, sem % mesh % no_of_elements
-            e => sem % mesh % elements(eID)
-            s = e % storage % sensor
-            if (s > 0.0_RP) then
-               if (e % storage % prev_sensor <= 0.0_RP) then
-                  e % storage % first_sensed = 0
-                  e % storage % prev_sensor = s
-               else
-                  e % storage % first_sensed = e % storage % first_sensed + 1
-                  e % storage % prev_sensor = s
-               end if
-            elseif (e % storage % first_sensed < sensor % min_steps) then
-               e % storage % first_sensed = e % storage % first_sensed + 1
-               e % storage % sensor = e % storage % prev_sensor
-            end if
-         end do
-!$omp end parallel do
-      end if
-
-      nullify(e)
 
    end subroutine Compute_SCsensor
 !
@@ -1086,110 +1067,6 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Sensor_aliasing(sensor, sem, t)
-!
-!     -------
-!     Modules
-!     -------
-      use HyperbolicDiscretizations, only: HyperbolicDiscretization, SplitDG_t
-      use Physics,                   only: EulerFlux
-      use Utilities,                 only: AlmostEqual
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(SCsensor_t), target, intent(inout) :: sensor
-      type(DGSem),       target, intent(inout) :: sem
-      real(RP),                  intent(in)    :: t
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      type(Element),        pointer :: e
-      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-      integer                       :: eID
-      logical                       :: need_dealloc
-      logical                       :: need_alloc
-      integer                       :: i, j, k, l
-      real(RP), allocatable         :: F(:,:,:,:,:)
-      real(RP), allocatable         :: Fs(:,:,:,:,:)
-      real(RP), allocatable         :: Gs(:,:,:,:,:)
-      real(RP), allocatable         :: Hs(:,:,:,:,:)
-      real(RP), allocatable         :: aliasing(:,:,:,:)
-
-
-!$omp parallel do default(private) shared(sem, sensor, NodalStorage, HyperbolicDiscretization)
-      do eID = 1, sem % mesh % no_of_elements
-         ! TODO: this should go outside, but it does not seem possible :(
-         select type (HyperbolicDiscretization)
-         type is (SplitDG_t)
-
-         e       => sem % mesh % elements(eID)
-         spAxi   => NodalStorage(e % Nxyz(1))
-         spAeta  => NodalStorage(e % Nxyz(2))
-         spAzeta => NodalStorage(e % Nxyz(3))
-
-         need_dealloc = .true.
-         need_alloc = .true.
-         if (allocated(F)) then
-            if (all(ubound(F) == [NCONS, e % Nxyz(1), e % Nxyz(2), e % Nxyz(3), NDIM])) then
-               need_alloc = .false.
-            end if
-         else
-            need_dealloc = .false.
-         end if
-
-         if (need_dealloc) then
-            deallocate(F)
-            deallocate(Fs)
-            deallocate(Gs)
-            deallocate(Hs)
-            deallocate(aliasing)
-         end if
-         if (need_alloc) then
-            allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
-            allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(Gs(NCONS, 0:e % Nxyz(2), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(Hs(NCONS, 0:e % Nxyz(3), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(aliasing(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-         end if
-
-         call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
-         call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
-
-         aliasing = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAxi % D(i,l) * (2.0_RP*Fs(:,i,l,j,k) - Fs(:,l,l,j,k))
-         end do                ; end do                ; end do                ; end do
-         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAeta % D(j,l) * (2.0_RP*Gs(:,j,i,l,k) - Gs(:,l,i,l,k))
-         end do                ; end do                ; end do                ; end do
-         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAzeta % D(k,l) * (2.0_RP*Hs(:,k,i,j,l) - Hs(:,l,i,j,l))
-         end do                ; end do                ; end do                ; end do
-
-         aliasing = abs(aliasing)
-         e % storage % sensor = maxval(aliasing)
-         if (AlmostEqual(e % storage % sensor, 0.0_RP)) then
-            e % storage % sensor = 0.0_RP
-         else
-            e % storage % sensor = SinRamp(sensor, log10(e % storage % sensor))
-         end if
-
-         end select
-      end do
-!$omp end parallel do
-
-      nullify(e)
-      nullify(spAxi)
-      nullify(spAeta)
-      nullify(spAzeta)
-
-   end subroutine Sensor_aliasing
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
    subroutine Sensor_GMM(sensor, sem, t)
 !
 !     -------
@@ -1215,7 +1092,6 @@ module SCsensorClass
       integer                :: i, j, k
       integer                :: cnt
       integer                :: ivar
-      integer                :: n
       integer                :: cluster
       integer                :: nclusters
       logical                :: with_kmeans
@@ -1258,14 +1134,21 @@ module SCsensorClass
          do eID = 1, sem % mesh % no_of_elements
             sem % mesh % elements(eID) % storage % sensor = 0.0_RP
          end do
+
       else
-         cnt = 0
+         cnt = 1
          do eID = 1, sem % mesh % no_of_elements
             e => sem % mesh % elements(eID)
-            n = product(e % Nxyz + 1)
-            cluster = maxval(maxloc(sensor % gmm % prob(cnt+1:cnt+n,1:nclusters), dim=2))
-            e % storage % sensor = real(cluster - 1, RP) / (nclusters - 1)
-            cnt = cnt + n
+
+            do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+               cluster = maxloc(sensor % gmm % prob(cnt, 1:nclusters), dim=1)
+               e % storage % sensor(i,j,k) = real(cluster - 1, kind=RP) / (nclusters - 1)
+               cnt = cnt + 1
+            end do                ; end do                ; end do
+
+            if (.not. sensor % nodal) then
+               e % storage % sensor = maxval(e % storage % sensor)
+            end if
          end do
       end if
 
