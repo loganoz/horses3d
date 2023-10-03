@@ -146,6 +146,7 @@
             self % boundaryName   = emptyBCName
             self % rotation       = 0
             self % zone           = 0
+            self % IsMortar       = 0
    
          end SUBROUTINE ConstructFace
    !
@@ -1881,6 +1882,7 @@
             to % boundaryName = from % boundaryName
             to % geom = from % geom
             to % storage = from % storage
+            to % IsMortar = from % IsMortar
          end subroutine Face_Assign
 
    end Module FaceClass
