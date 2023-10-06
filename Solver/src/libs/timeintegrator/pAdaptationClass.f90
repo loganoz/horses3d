@@ -35,6 +35,9 @@ module pAdaptationClass
    use InterpolationMatrices           , only: Interp3DArrays
    use MultiTauEstimationClass         , only: MultiTauEstim_t
    use StopwatchClass                  , only: Stopwatch
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)   
+   use VisRegionsDetection
+#endif 
    implicit none
    
 #include "Includes.h"
@@ -109,20 +112,24 @@ module pAdaptationClass
       real(kind=RP)                     :: cfl, dcfl
       real(kind=RP)                     :: dt
       type(SourceStorage_t),allocatable :: Source(:)
+      
       !
       character(len=BC_STRING_LENGTH), allocatable :: conformingBoundaries(:) ! Stores the conforming boundaries (the length depends on FTDictionaryClass)
       type(TruncationError_t), allocatable :: TE(:)         ! Truncation error for every element(:)
       
       type(overenriching_t)  , allocatable :: overenriching(:)
-      
+      integer                           :: MLadaptType ! if MLadaptType = 2 => adaptation based on GMM viscous sensor 
+      integer                           :: pVISi,pVISj,pVISk, pINVi,pINVj,pINVk,OutMesh ! Polynomial order for viscous and inviscid regions
       contains
          procedure :: construct  => pAdaptation_Construct
          procedure :: destruct   => pAdaptation_Destruct
          procedure :: makeBoundariesPConforming
          procedure :: pAdaptTE   => pAdaptation_pAdaptTE
+         procedure :: pAdaptVIS  => pAdaptation_pAdaptVIS
          procedure :: hasToAdapt => pAdaptation_hasToAdapt
          procedure :: StoreQdot  => pAdaptation_StoreQdot
          procedure :: postSmooth => pAdaptation_postSmooth
+      
    end type pAdaptation_t
 !
 !  ----------
@@ -468,7 +475,8 @@ readloop:do
       character(LINE_LENGTH)         :: paramFile
       character(LINE_LENGTH)         :: in_label
       character(20*BC_STRING_LENGTH) :: confBoundaries
-      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_TruncErrorForm, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum
+      character(LINE_LENGTH)         :: R_Nmax, R_Nmin, R_TruncErrorType, R_TruncErrorForm, R_OrderAcrossFaces, replacedValue, R_mode, R_interval, R_pSmoothingMethod, R_EstimFiles, R_EstimFilesNum, R_MLadaptType
+      integer      , allocatable     :: pVx,pVy,pVz,pIx,pIy,pIz,OutHmesh
       logical      , allocatable     :: R_increasing, R_TEFiles, reorganize_z, R_restart
       real(kind=RP), allocatable     :: TruncError, R_pSmoothing, R_cTruncError
       ! Extra vars
@@ -517,7 +525,16 @@ readloop:do
       call readValueInRegion ( trim ( paramFile )  , "post smoothing method"  , R_pSmoothingMethod , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "estimation files"       , R_EstimFiles       , in_label , "# end" )
       call readValueInRegion ( trim ( paramFile )  , "estimation files number", R_EstimFilesNum    , in_label , "# end" )
-      
+      call readValueInRegion ( trim ( paramFile )  , "p adaptation based ml type", R_MLadaptType    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "px in the viscous region", pVx    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "py in the viscous region", pVy    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "pz in the viscous region", pVz    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "px in the inviscid region", pIx    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "py in the inviscid region", pIy    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "pz in the inviscid region", pIz    , in_label , "# end" )
+      call readValueInRegion ( trim ( paramFile )  , "output mesh file interval", OutHmesh    , in_label , "# end" )
+
+    
 !     Conforming boundaries?
 !     ----------------------
       if ( confBoundaries /= "" ) then
@@ -532,15 +549,75 @@ readloop:do
       if ( allocated(R_increasing) ) then
          this % increasing = R_increasing
       end if
-      
+!     Truncation error type
+!     ---------------------
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)        
+   if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then
+       call toLower(R_MLadaptType)
+       !select case (trim(R_MLadaptType))
+       !case ('ml based adaptation with viscous sensor')           
+       this % pVISi = pVx
+       this % pVISj = pVy
+       this % pVISk = pVz
+       this % pINVi = pIx
+       this % pINVj = pIy
+       this % pINVk = pIz
+       if (allocated(OutHmesh)) then
+               this % OutMesh = OutHmesh
+       else
+               this % OutMesh = 1
+       end if 
+       !case default
+        !  write(STD_OUT, *) "Polynomial order of viscous and inviscid regions should provided by the user"
+         ! ERROR STOP
+       !end select
+   else if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then    
+      if ( R_TruncErrorType /= "" ) then
+         call toLower (R_TruncErrorType)
+         select case ( trim(R_TruncErrorType) )
+            case ('isolated')
+               this % TruncErrorType = ISOLATED_TE
+            case ('non-isolated')
+               this % TruncErrorType = NON_ISOLATED_TE
+            case default
+               write(STD_OUT,*) "Not recognized 'truncation error type'. Defaulting to isolated."
+               this % TruncErrorType = ISOLATED_TE
+         end select
+      else
+         this % TruncErrorType = ISOLATED_TE
+      end if 
+   end if
+#else
+   if ( R_TruncErrorType /= "" ) then
+      call toLower (R_TruncErrorType)
+      select case ( trim(R_TruncErrorType) )
+         case ('isolated')
+            this % TruncErrorType = ISOLATED_TE
+         case ('non-isolated')
+            this % TruncErrorType = NON_ISOLATED_TE
+         case default
+            write(STD_OUT,*) "Not recognized 'truncation error type'. Defaulting to isolated."
+            this % TruncErrorType = ISOLATED_TE
+      end select
+   else
+      this % TruncErrorType = ISOLATED_TE
+   end if
+#endif      
+!           
 !     Truncation error threshold
 !     --------------------------
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then 
+!           
+!     Truncation error threshold
+!     --------------------------
+!      
       if ( allocated(TruncError) ) then
          this % reqTE = TruncError
       else
          ERROR STOP 'A truncation error must be specified for p-adapt'
       end if
-
+!      
 !     Truncation error threshold for coarsening
 !     -----------------------------------------
       if ( allocated(R_cTruncError) ) then
@@ -548,7 +625,28 @@ readloop:do
       else
          this % reqTEc = this % reqTE
       end if
-      
+  end if
+#else      
+!           
+!     Truncation error threshold
+!     --------------------------
+!      
+   if ( allocated(TruncError) ) then
+      this % reqTE = TruncError
+   else
+      ERROR STOP 'A truncation error must be specified for p-adapt'
+   end if
+!   
+!     Truncation error threshold for coarsening
+!     -----------------------------------------
+   if ( allocated(R_cTruncError) ) then
+      this % reqTEc = R_cTruncError
+   else
+      this % reqTEc = this % reqTE
+   end if
+
+#endif    
+!      
 !     Write truncation error files?
 !     -----------------------------
       if ( allocated(R_TEFiles) ) then
@@ -563,11 +661,21 @@ readloop:do
       
 !     Nmax
 !     ----
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
       if ( R_Nmax /= "" ) then
          this % NxyzMax = getIntArrayFromString(R_Nmax)
       else
          ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
       end if
+   end if
+#else
+   if ( R_Nmax /= "" ) then
+      this % NxyzMax = getIntArrayFromString(R_Nmax)
+   else
+      ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
+   end if
+#endif             
       
 !     Nmin -> If this is a p-nonconforming 3D case, it should be 2
 !     ----
@@ -575,23 +683,9 @@ readloop:do
          NMIN = getIntArrayFromString(R_Nmin)
       end if
       
-!     Truncation error type
-!     ---------------------
-      if ( R_TruncErrorType /= "" ) then
-         call toLower (R_TruncErrorType)
-         select case ( trim(R_TruncErrorType) )
-            case ('isolated')
-               this % TruncErrorType = ISOLATED_TE
-            case ('non-isolated')
-               this % TruncErrorType = NON_ISOLATED_TE
-            case default
-               write(STD_OUT,*) "Not recognized 'truncation error type'. Defaulting to isolated."
-               this % TruncErrorType = ISOLATED_TE
-         end select
-      else
-         this % TruncErrorType = ISOLATED_TE
-      end if
-
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
+!        
 !     Truncation error formulation, the selecion is between old and new (Andre's Rueda Ramirez thesis for more details)
 !     ---------------------
       if ( R_TruncErrorForm /= "" ) then
@@ -608,6 +702,26 @@ readloop:do
       else
          this % TruncErrorForm = OLD_TE
       end if
+   end if
+#else
+!        
+!     Truncation error formulation, the selecion is between old and new (Andre's Rueda Ramirez thesis for more details)
+!     ---------------------
+   if ( R_TruncErrorForm /= "" ) then
+      call toLower (R_TruncErrorForm)
+      select case ( trim(R_TruncErrorForm) )
+         case ('old')
+            this % TruncErrorForm = OLD_TE
+         case ('new')
+            this % TruncErrorForm = NEW_TE
+         case default
+            write(STD_OUT,*) "Not recognized 'truncation error formulation'. Defaulting to old."
+            this % TruncErrorForm = OLD_TE
+      end select
+   else
+      this % TruncErrorForm = OLD_TE
+   end if
+#endif          
 
       
 !     Polynomial order jump
@@ -693,7 +807,10 @@ readloop:do
             ERROR stop '"cfl" or "dt" keyword must be specified for the time integrator'
          end if
       end if
-      
+
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
+!         
 !     Truncation error estimation in files
 !     ------------------------------------
       if ( R_EstimFiles /= "" ) then
@@ -708,6 +825,24 @@ readloop:do
          
          call this % MultiTauEstim % constructForPAdaptator ( this % TruncErrorType, this % NxyzMax, nelem, this % EstimFilesName )
       end if
+   end if
+#else
+!         
+!     Truncation error estimation in files
+!     ------------------------------------
+   if ( R_EstimFiles /= "" ) then
+      this % ErrorEstimFromFiles = .TRUE.
+      this % EstimFilesName = trim (R_EstimFiles)
+      
+      if ( R_EstimFilesNum == "" ) then
+         ERROR stop 'pAdaptation :: The user must provide the file numbers to read the tau-estimation'
+      end if
+      
+      this % EstimFilesNumber = getIntArrayFromString(R_EstimFilesNum)
+      
+      call this % MultiTauEstim % constructForPAdaptator ( this % TruncErrorType, this % NxyzMax, nelem, this % EstimFilesName )
+   end if
+#endif           
       
 !     Check replaceable control variables
 !     -----------------------------------
@@ -740,11 +875,19 @@ readloop:do
       
 !     Construct the truncation error
 !     ******************************    
-      
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then            
       allocate (this % TE(nelem))
       do i = 1, nelem
          call this % TE(i) % construct(this % NxyzMax)
-      end do
+      end do   
+   end if
+#else
+   allocate (this % TE(nelem))
+   do i = 1, nelem
+      call this % TE(i) % construct(this % NxyzMax)
+   end do
+#endif         
       
       
 !     Adaptation overenriching
@@ -776,7 +919,7 @@ readloop:do
             hasToAdapt = .FALSE.
             
          case (ADAPT_DYNAMIC_ITER)
-            if ( (mod(iter, this % iter_interval) == 0) .or. (iter == 1) ) then
+            if ( (mod(iter, this % iter_interval) == 0)) then  !.or. (iter == 1) ) then
                hasToAdapt = .TRUE.
             else
                hasToAdapt = .FALSE.
@@ -871,18 +1014,27 @@ readloop:do
       !--------------------------------------
       integer              :: iEl
       !--------------------------------------
-      
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+      if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
       ! Truncation error
       do iEl = 1, nelem
          call this % TE(iEl) % destruct()
-      end do
-      
+      end do   
       deallocate (this % TE)
-      
+      call this % MultiTauEstim % destruct
       safedeallocate  (this % conformingBoundaries)
       safedeallocate  (this % overenriching)
-      
+      end if
+#else
+      ! Truncation error
+      do iEl = 1, nelem
+         call this % TE(iEl) % destruct()
+      end do   
+      deallocate (this % TE)
       call this % MultiTauEstim % destruct
+      safedeallocate  (this % conformingBoundaries)
+      safedeallocate  (this % overenriching)   
+#endif      
    end subroutine pAdaptation_Destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1340,7 +1492,180 @@ readloop:do
       end if
       
    end subroutine pAdaptation_pAdaptTE_SelectElemPolorders
+!   
+!//////////////////////////////////////////////////////////////////////////////////////////////////////  
 !
+! Main routine to select polynomial order in all the elements based on the GMM based viscous sensor
+! 
+! the viscous sensor used the principal invariants of the stress and rotational tensors as inputs to the 
+! gaussian mixture model to track the viscous rotational regions in the flow.
+!     
+!           
+!/////////////////////////////////////////////////////////////////////////////////////////////////////
+!
+   subroutine pAdaptation_pAdaptVIS(this,sem,itera,t, computeTimeDerivative, ComputeTimeDerivativeIsolated,controlVariables)
+!
+      implicit none
+!--------------------------------------      
+      ! Arguments
+!--------------------------------------      
+      class(pAdaptation_t)  :: this
+      type(DGSem)           :: sem
+      integer               :: itera             !<  iteration
+      real(kind=RP)         :: t                 !< time!!
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivative
+      procedure(ComputeTimeDerivative_f) :: ComputeTimeDerivativeIsolated
+      type(FTValueDictionary)            :: controlVariables  !<> Input variables (that can be modified depending on the user input)
+!--------------------------------------------------------------------      
+      ! Local variables
+!--------------------------------------------------------------------      
+      integer :: i, eID
+      integer :: NVIS(3),NINV(3)
+      integer :: NNew(3,nelem)
+      integer, save              :: Stage = 0 
+      character(len=LINE_LENGTH) :: AdaptedMeshFile
+      logical                    :: last
+!
+#if defined(NAVIERSTOKES)            
+      write(STD_OUT,*)
+      write(STD_OUT,*)
+            write(STD_OUT,'(A)') '****     Performing p-Adaptation with gmm based viscous regions sensor      ****'
+      write(STD_OUT,*) 
+!      
+       NVIS = (/this % pVISi,this % pVISj, this % pVISk/)
+       NINV = (/this % pINVi,this % pINVj, this % pINVk/)
+!
+!     --------------------------------------
+!     Write pre-adaptation mesh and solution
+!     --------------------------------------
+!
+      ! if (this % restartFiles) then
+       !  write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_pre-Adapt_Stage_', Stage, '.hsol'
+       !  call sem % mesh % Export(AdaptedMeshFile)         
+       !  call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)
+     ! end if
+!
+!        
+!      -----------------------------------------------------------------------
+!      Set the requested polynomial orders in the viscous and inviscid regions
+!      -----------------------------------------------------------------------
+!                    
+       call Stopwatch % Start("pAdapt: PolOrder selection")
+       nelem = size(sem % mesh % elements)
+!$omp parallel do schedule(runtime)
+       do eID = 1, nelem
+         call pAdaptation_pAdaptVIS_SelectElemPolorders(this,sem % mesh % elements(eID),NVIS,NINV,NNew(:,eID))
+       end do 
+!$omp end parallel do
+       call Stopwatch % Pause("pAdapt: PolOrder selection")
+!
+!
+!     ----------------------------------------------------------------------------
+!     In case of increasing adaptator, modify polynomial orders according to stage
+!      And decide if it is necessary to continue adapting
+!     ----------------------------------------------------------------------------
+!
+      if (this % increasing) then
+         !!          Stage = Stage + 1
+         !!          NInc = NInc + dN_Inc
+                  NInc = NInc * fN_Inc
+                  
+                  if (MAXVAL(NNew) > NInc) then
+                     where(NNew > NInc) NNew = NInc
+                  else
+                     this % Adapt = .FALSE.
+                  end if
+                  
+               else ! Only adapt once
+                  this % Adapt = .FALSE.
+               end if
+!
+!     ----------------------------
+!     Overenrich specified regions
+!     ----------------------------
+!
+      call OverEnrichRegions(this % overenriching,sem % mesh,NNew, this % NxyzMax)
+!
+!
+!     ------------------------------
+!     Restrict polynomial order jump
+!     ------------------------------
+!
+          !     last = .FALSE.
+          !     do while (.not. last)
+          !        last = .TRUE.
+          !        call this % makeBoundariesPConforming(sem % mesh,NNew,last)
+          !        call ReorganizePolOrders(sem % mesh % faces,NNew,last)
+          !     end do
+!               
+!----------- Adapt the mesh with new polynomial orders ---------------------
+!               
+      call Stopwatch % Start("pAdapt: Adaptation")
+      
+      call sem % mesh % pAdapt (NNew, controlVariables)
+      
+      call Stopwatch % Pause("pAdapt: Adaptation")
+!      
+!---------------------------------------------------------------------------      
+!     Reconstruct probes
+!---------------------------------------------------------------------------
+!            
+      do i=1, sem % monitors % no_of_probes
+         call sem % monitors % probes(i) % Initialization (sem % mesh, i, trim(sem % monitors % solution_file), .FALSE.)
+      end do
+!
+      if ( this % UnSteady) then
+         write(AdaptedMeshFile,'(A,A,I10.10,A)')  trim( this % solutionFileName ), '_', itera+1, '.hsol'
+      else
+               write(AdaptedMeshFile,'(A,A,I2.2,A)')  trim( this % solutionFileName ), '_p-Adapted_Stage_', Stage, '.hsol'
+      end if
+      if (mod(itera+1, this % OutMesh) == 0) then
+      call sem % mesh % Export(AdaptedMeshFile)
+      call sem % mesh % ExportOrders(AdaptedMeshFile)
+      end if
+      
+      if (this % restartFiles) call sem % mesh % SaveSolution(itera,t,trim(AdaptedMeshFile),this % saveGradients,this % saveSensor)      
+!
+!     ----------------
+!     Update residuals
+!     ----------------
+!
+      
+      call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      
+      write(STD_OUT,*) '****    p-Adaptation done, DOFs=', SUM((NNew(1,:)+1)*(NNew(2,:)+1)*(NNew(3,:)+1)), '****'
+#endif
+    end subroutine pAdaptation_pAdaptVIS
+!    
+!///////////////////////////////////////////////////////////////////////////////////////////
+!    
+! Routine to select the polynomial order inside each element based on the GMM viscous sensor        
+!
+!///////////////////////////////////////////////////////////////////////////////////////////
+!    
+subroutine pAdaptation_pAdaptVIS_SelectElemPolorders(this,e, PVIS,PINV,NNew)
+     !
+     implicit none
+     !-----------------------------------------
+     ! arguments
+     !-----------------------------------------
+     type(pAdaptation_t), intent(in) :: this
+     type(Element), intent(in) :: e 
+     integer, intent(out) :: NNew(3)
+     integer, intent(in) :: PVIS(3),PINV(3)
+
+     if ( e % storage % sensor .ne. 0.0_RP) then
+
+           NNew = PVIS ! the element is assigned to the viscous region then the polynomial inside the element will be chosen from the control file
+                          
+
+     else if ( e % storage % sensor .eq. 0.0_RP) then
+
+           NNew = PINV ! the element is assigned to the inviscid region then the polynomial inside the element will be chosen from the control file
+
+     end if  
+       
+end subroutine   
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
 !  ---------------------------------------------------------
