@@ -11,6 +11,9 @@ module EllipticBR1
    use EllipticDiscretizationClass
    use FluidData
    use BoundaryConditions, only: BCs
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)   
+   use VisRegionsDetection
+#endif   
    implicit none
 !
 !
@@ -101,12 +104,34 @@ module EllipticBR1
 #else
          set_mu = .false.
 #endif
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+   if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then 
 !$omp do schedule(runtime)
-         do eID = 1 , size(mesh % elements)
-            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
-         end do
+      do eID = 1 , size(mesh % elements)
+            if (mesh % elements(eID)% storage % sensor .ne. 0.0_RP) then
+             call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+            else 
+                mesh % elements(eID) % storage % U_x(:,:,:,:) = 0.0_RP
+                mesh % elements(eID) % storage % U_y(:,:,:,:) = 0.0_RP
+                mesh % elements(eID) % storage % U_z(:,:,:,:) = 0.0_RP
+            end if
+      end do       
 !$omp end do nowait
-
+   else
+!$omp do schedule(runtime)         
+         do eID = 1 , size(mesh % elements)
+            call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu) 
+         end do
+!$omp end do nowait         
+   end if    
+#else
+!$omp do schedule(runtime)
+   do eID = 1 , size(mesh % elements)
+      call mesh % elements(eID) % ComputeLocalGradient(nEqn, nGradEqn, GetGradients, set_mu)
+   end do 
+!$omp end do nowait
+#endif        
+         
          call self % LiftGradients(nEqn, nGradEqn, mesh, time, GetGradients)
    
       end subroutine BR1_ComputeGradient
@@ -135,50 +160,161 @@ module EllipticBR1
 !        Local variables
 !        ---------------
 !
-         integer                :: i, j, k
+         integer                :: i, j, k, l, m
          integer                :: eID , fID , dimID , eqID, fIDs(6), iFace, iEl
 !
 !        *******************************************
 !        Compute Riemann solvers of non-shared faces
 !        *******************************************
 !
+!
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+      if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then        
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
+            if ((mesh % elements(mesh % faces(fID) % elementIDs(1)) % storage % sensor .ne. 0.0_RP) .or. (mesh % elements(mesh % faces(fID) % elementIDs(2)) % storage % sensor .ne. 0.0_RP)) then
             call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+           else 
+                mesh % faces(fID) % storage(1) % unStar = 0.0_RP
+                mesh % faces(fID) % storage(2) % unStar = 0.0_RP 
+            end if
+         end do
+!$omp end do nowait          
+      else
+!$omp do schedule(runtime) private(fID) 
+         do iFace = 1, size(mesh % faces_interior)
+            fID = mesh % faces_interior(iFace)           
+             call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)              
          end do
 !$omp end do nowait
-
+      end if 
+#else
+!$omp do schedule(runtime) private(fID)    
+   do iFace = 1, size(mesh % faces_interior)
+      fID = mesh % faces_interior(iFace)
+      call BR1_ComputeElementInterfaceAverage(self, mesh % faces(fID), nEqn, nGradEqn, GetGradients)
+   end do
+!$omp end do nowait
+#endif
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+   if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then          
 !$omp do schedule(runtime) private(fID)
-         do iFace = 1, size(mesh % faces_boundary)
-            fID = mesh % faces_boundary(iFace)
+      do iFace = 1, size(mesh % faces_boundary)
+           fID = mesh % faces_boundary(iFace)
+         if (mesh % elements( mesh % faces(fID) % elementIDs(1)) % storage % sensor .ne. 0.0_RP) then
             call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+         else 
+            mesh % faces(fID) % storage(1) % unStar(:,1,:,:) = 0.0_RP
+            mesh % faces(fID) % storage(1) % unStar(:,2,:,:) = 0.0_RP
+            mesh % faces(fID) % storage(1) % unStar(:,3,:,:) = 0.0_RP 
+         end if
+      end do
+!$omp end do                
+   else
+!$omp do schedule(runtime) private(fID)
+      do iFace = 1, size(mesh % faces_boundary)
+         fID = mesh % faces_boundary(iFace)
+            call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)               
          end do
+!$omp end do
+   end if      
+#else 
+!$omp do schedule(runtime) private(fID)
+   do iFace = 1, size(mesh % faces_boundary)
+      fID = mesh % faces_boundary(iFace)
+      call BR1_ComputeBoundaryFlux(self, mesh % faces(fID), nEqn, nGradEqn, time, GetGradients)
+   end do 
 !$omp end do 
-!
+#endif              
+
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+      if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
+!$omp do schedule(runtime) private(eID)
+      do iEl = 1, size(mesh % elements_sequential)
+         eID = mesh % elements_sequential(iEl)
+         associate(e => mesh % elements(eID))
+         if (e % storage % sensor .ne. 0.0_RP) then
+
+!           Add the surface integrals
+!           -------------------------
+             call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
+!!
+!           Prolong gradients
+!           -----------------
+             fIDs = e % faceIDs
+             call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                              mesh % faces(fIDs(2)),&
+                                              mesh % faces(fIDs(3)),&
+                                              mesh % faces(fIDs(4)),&
+                                              mesh % faces(fIDs(5)),&
+                                              mesh % faces(fIDs(6)) )
+         else 
+                call BR1_GradientFaceLoop( self , nGradEqn, e, mesh) ! WHY DO I HAVE TO CALL THIS HERE!               
+                fIDs = e % faceIDs
+                mesh % faces(fIDs(1)) % storage(e % faceSide(EFRONT)) % U_x = 0.0_RP
+                mesh % faces(fIDs(1)) % storage(e % faceSide(EFRONT)) % U_y = 0.0_RP
+                mesh % faces(fIDs(1)) % storage(e % faceSide(EFRONT)) % U_z = 0.0_RP
+                mesh % faces(fIDs(2)) % storage(e % faceSide(EBACK)) % U_x = 0.0_RP
+                mesh % faces(fIDs(2)) % storage(e % faceSide(EBACK)) % U_y = 0.0_RP
+                mesh % faces(fIDs(2)) % storage(e % faceSide(EBACK)) % U_z = 0.0_RP
+                mesh % faces(fIDs(3)) % storage(e % faceSide(EBOTTOM)) % U_x = 0.0_RP
+                mesh % faces(fIDs(3)) % storage(e % faceSide(EBOTTOM)) % U_y = 0.0_RP
+                mesh % faces(fIDs(3)) % storage(e % faceSide(EBOTTOM)) % U_z = 0.0_RP
+                mesh % faces(fIDs(4)) % storage(e % faceSide(ERIGHT)) % U_x = 0.0_RP
+                mesh % faces(fIDs(4)) % storage(e % faceSide(ERIGHT)) % U_y = 0.0_RP
+                mesh % faces(fIDs(4)) % storage(e % faceSide(ERIGHT)) % U_z = 0.0_RP
+                mesh % faces(fIDs(5)) % storage(e % faceSide(ETOP)) % U_x = 0.0_RP
+                mesh % faces(fIDs(5)) % storage(e % faceSide(ETOP)) % U_y = 0.0_RP
+                mesh % faces(fIDs(5)) % storage(e % faceSide(ETOP)) % U_z = 0.0_RP
+                mesh % faces(fIDs(6)) % storage(e % faceSide(ELEFT)) % U_x = 0.0_RP
+                mesh % faces(fIDs(6)) % storage(e % faceSide(ELEFT)) % U_y = 0.0_RP
+                mesh % faces(fIDs(6)) % storage(e % faceSide(ELEFT)) % U_z = 0.0_RP                               
+         end if
+      end associate   
+      end do 
+!$omp end do       
+      else
 !$omp do schedule(runtime) private(eID)
          do iEl = 1, size(mesh % elements_sequential)
             eID = mesh % elements_sequential(iEl)
-            associate(e => mesh % elements(eID))
-!
-!           Add the surface integrals
-!           -------------------------
+            associate(e => mesh % elements(eID))   
             call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
-!
-!           Prolong gradients
-!           -----------------
-            fIDs = e % faceIDs
-            call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
-                                             mesh % faces(fIDs(2)),&
-                                             mesh % faces(fIDs(3)),&
-                                             mesh % faces(fIDs(4)),&
-                                             mesh % faces(fIDs(5)),&
-                                             mesh % faces(fIDs(6)) )
-
+            !
+            !           Prolong gradients
+            !           -----------------
+                        fIDs = e % faceIDs
+                        call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                                         mesh % faces(fIDs(2)),&
+                                                         mesh % faces(fIDs(3)),&
+                                                         mesh % faces(fIDs(4)),&
+                                                         mesh % faces(fIDs(5)),&
+                                                         mesh % faces(fIDs(6)) )      
             end associate
          end do
 !$omp end do
-
+      end if   
+#else
+!$omp do schedule(runtime) private(eID)   
+   do iEl = 1, size(mesh % elements_sequential)
+      eID = mesh % elements_sequential(iEl)
+      associate(e => mesh % elements(eID))
+         call BR1_GradientFaceLoop( self , nGradEqn, e, mesh)
+            !
+             !           Prolong gradients
+             !           -----------------
+                        fIDs = e % faceIDs
+                        call e % ProlongGradientsToFaces(nGradEqn, mesh % faces(fIDs(1)),&
+                                                         mesh % faces(fIDs(2)),&
+                                                         mesh % faces(fIDs(3)),&
+                                                          mesh % faces(fIDs(4)),&
+                                                         mesh % faces(fIDs(5)),&
+                                                         mesh % faces(fIDs(6)) )     
+         
+      end associate
+   end do
+!$omp end do
+#endif      
 #ifdef _HAS_MPI_
 !$omp single
          if ( MPI_Process % doMPIAction ) then 

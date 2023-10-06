@@ -5,6 +5,7 @@ module SpatialDiscretization
       use EllipticDiscretizations
       use LESModels
       use ShockCapturing
+      use VisRegionsDetection
       use DGIntegrals
       use MeshTypes
       use HexMeshClass
@@ -205,6 +206,13 @@ module SpatialDiscretization
                                            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             call ShockCapturingDriver % Describe
 
+!           Initialize Viscous regions detection sensor
+!           ----------------------------
+            call Initialize_ViscousRegionDetection(ViscousRegionDetectionDriver, controlVariables, sem,&
+            ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            
+            call ViscousRegionDetectionDriver % Describe
+
          end if
 
       end subroutine Initialize_SpaceAndTimeMethods
@@ -218,7 +226,7 @@ module SpatialDiscretization
          if ( allocated(HyperbolicDiscretization) ) deallocate( HyperbolicDiscretization )
          if ( allocated(LESModel) )                 deallocate( LESModel )
          if ( allocated(ShockCapturingDriver) )     deallocate( ShockCapturingDriver )
-
+         if ( allocated(ViscousRegionDetectionDriver)) deallocate ( ViscousRegionDetectionDriver)
 
       end subroutine Finalize_SpaceAndTimeMethods
 !
@@ -364,24 +372,42 @@ module SpatialDiscretization
 !        Compute the viscosity at the elements and faces
 !        ***********************************************
 !
-         if (flowIsNavierStokes) then
+    if (flowIsNavierStokes) then
+      if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
 !$omp do schedule(runtime) private(i,j,k)
+         do eID = 1, size(mesh % elements)
+            associate(e => mesh % elements(eID))
+               if (e % storage % sensor == 1.0_RP) then   
+                  do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
+                  end do                ; end do                ; end do
+               else if (e % storage % sensor == 0.0_RP) then
+                     e % storage % mu_NS(:,:,:,:)= 0.0_RP                    
+               end if
+            end associate
+         end do
+!$omp end do                  
+      else
+!$omp do schedule(runtime) private(i,j,k)            
             do eID = 1, size(mesh % elements)
-               associate(e => mesh % elements(eID))
-               do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
-               end do                ; end do                ; end do
+               associate(e => mesh % elements(eID))   
+                  do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
+                     call get_laminar_mu_kappa(e % storage % Q(:,i,j,k), e % storage % mu_NS(1,i,j,k), e % storage % mu_NS(2,i,j,k))
+                  end do                ; end do                ; end do  
                end associate
             end do
 !$omp end do
-         end if
+      end if       
+   end if
 
 
          if ( LESModel % active) then
+         if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
 !$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
                delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+               if (e % storage % sensor == 1.0_RP) then
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                   call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
                                                                                    e % storage % U_x(:,i,j,k), &
@@ -394,9 +420,11 @@ module SpatialDiscretization
                   e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + e % storage % mu_turb_NS(i,j,k)
                   e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + e % storage % mu_turb_NS(i,j,k) * dimensionless % mu_to_kappa
                end do                ; end do                ; end do
+               end if
                end associate
             end do
 !$omp end do
+      end if 
       end if
 !
 !        Compute viscosity at interior and boundary faces
@@ -429,7 +457,7 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
             fID = mesh % faces_interior(iFace)
-            call computeElementInterfaceFlux(mesh % faces(fID))
+            call computeElementInterfaceFlux(mesh % faces(fID),mesh)
          end do
 !$omp end do nowait
 
@@ -657,28 +685,74 @@ module SpatialDiscretization
          integer       :: iFace, i, j, side
          real(kind=RP) :: delta, mu_smag
 
-         if (flowIsNavierStokes) then
-!$omp do schedule(runtime) private(i,j)
+   if (flowIsNavierStokes) then
+      if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
+!$omp do schedule(runtime) private(i,j)      
             do iFace = 1, no_of_faces
-               associate(f => mesh % faces(face_ids(iFace)))
-               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-                  do side = 1, no_of_sides
-                      call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
-                  end do
-               end do              ; end do
+               associate(f => mesh % faces(face_ids(iFace)))                             
+                  if (no_of_sides .eq. 2) then
+                     if ((mesh % elements(f% elementIDs(1)) % storage % sensor .eq. 0.0_RP) .and. (mesh % elements(f% elementIDs(2)) % storage % sensor .eq. 0.0_RP)) then 
+                           do side = 1, no_of_sides
+                        f % storage(side) % mu_NS(:,:,:)=0.0_RP 
+                           end do                             
+                     else if ((mesh % elements(f% elementIDs(1)) % storage % sensor .ne. 0.0_RP) .and. (mesh % elements(f% elementIDs(2)) % storage % sensor .ne. 0.0_RP)) then
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                           do side = 1, no_of_sides
+                        call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j))
+                           end do 
+                        end do  ; end do
+                     else if ((mesh % elements(f% elementIDs(1)) % storage % sensor .ne. 0.0_RP) .and. ((mesh % elements(f% elementIDs(2)) % storage % sensor .eq. 0.0_RP)))  then
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                        call get_laminar_mu_kappa(f % storage(1) % Q(:,i,j), f % storage(1) % mu_NS(1,i,j), f % storage(1) % mu_NS(2,i,j))   
+                        end do              ; end do
+                        f % storage(2) % mu_NS(:,:,:) = 0.0_RP
+                     else if ((mesh % elements(f% elementIDs(1)) % storage % sensor .eq. 0.0_RP) .and. ((mesh % elements(f% elementIDs(2)) % storage % sensor .ne. 0.0_RP)))  then
+                        f % storage(1) % mu_NS(:,:,:) = 0.0_RP
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                        call get_laminar_mu_kappa(f % storage(2) % Q(:,i,j), f % storage(2) % mu_NS(1,i,j), f % storage(2) % mu_NS(2,i,j))   
+                        end do              ; end do      
+                     end if 
+                  else 
+                   if (mesh % elements(f% elementIDs(1)) % storage % sensor .ne. 0.0_RP) then
+                     do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                        do side = 1, no_of_sides            
+                       call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j)) 
+                        end do 
+                     end do ; end do 
+                     else if (mesh % elements(f% elementIDs(1)) % storage % sensor .eq. 0.0_RP) then 
+                      do side = 1, no_of_sides
+                      f % storage(side) % mu_NS(:,:,:)=0.0_RP
+                      end do  
+                   end if
+                  end if
                end associate
             end do
-!$omp end do
-         end if
+!$omp end do                    
+      else
+!$omp do schedule(runtime) private(i,j)         
+               do iFace = 1, no_of_faces
+                  associate(f => mesh % faces(face_ids(iFace)))
+                  do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                     do side = 1, no_of_sides
+                  call get_laminar_mu_kappa(f % storage(side) % Q(:,i,j), f % storage(side) % mu_NS(1,i,j), f % storage(side) % mu_NS(2,i,j)) 
+                     end do 
+                  end do              ; end do 
+                  end associate
+               end do
+!$omp end do               
+      end if            
+   end if
 
-         if ( LESModel % Active ) then
-!$omp do schedule(runtime) private(i,j,delta,mu_smag)
+   if ( LESModel % Active ) then
+      if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then ! check if viscous sensor is active      
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)      
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
-
-               delta = sqrt(f % geom % surface / product(f % Nf + 1))
-               do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
-                  do side = 1, no_of_sides
+                  if (no_of_sides .eq. 2) then
+                     if ((mesh % elements(f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) .and. (mesh % elements(f % elementIDs(2)) % storage % sensor .ne. 0.0_RP)) then  
+                     delta = sqrt(f % geom % surface / product(f % Nf + 1))   
+                     do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                     do side = 1, no_of_sides   
                      call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
                                                                                     f % storage(side) % U_x(:,i,j), &
                                                                                     f % storage(side) % U_y(:,i,j), &
@@ -686,12 +760,72 @@ module SpatialDiscretization
                                                                                     mu_smag)
                      f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
                      f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa
-                  end do
-               end do              ; end do
+                     end do 
+                     end do ; end do
+                     else if ((mesh % elements(f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) .and. (mesh % elements(f % elementIDs(2)) % storage % sensor .eq. 0.0_RP)) then
+                     delta = sqrt(f % geom % surface / product(f % Nf + 1))   
+                     do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)   
+                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(1) % Q(:,i,j),   &
+                                                                                    f % storage(1) % U_x(:,i,j), &
+                                                                                    f % storage(1) % U_y(:,i,j), &
+                                                                                    f % storage(1) % U_z(:,i,j), &
+                                                                                    mu_smag)
+                     f % storage(1) % mu_NS(1,i,j) = f % storage(1) % mu_NS(1,i,j) + mu_smag
+                     f % storage(1) % mu_NS(2,i,j) = f % storage(1) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa 
+                     end do ; end do
+                     else if ((mesh % elements(f % elementIDs(1)) % storage % sensor .eq. 0.0_RP) .and. (mesh % elements(f % elementIDs(2)) % storage % sensor .ne. 0.0d0)) then
+                     delta = sqrt(f % geom % surface / product(f % Nf + 1))   
+                     do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)   
+                     call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(2) % Q(:,i,j),   &
+                                                                                    f % storage(2) % U_x(:,i,j), &
+                                                                                    f % storage(2) % U_y(:,i,j), &
+                                                                                    f % storage(2) % U_z(:,i,j), &
+                                                                                    mu_smag)
+                     f % storage(2) % mu_NS(1,i,j) = f % storage(2) % mu_NS(1,i,j) + mu_smag
+                     f % storage(2) % mu_NS(2,i,j) = f % storage(2) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa 
+                     end do ; end do     
+                     end if
+                  else
+                     if (mesh % elements(f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) then
+                        delta = sqrt(f % geom % surface / product(f % Nf + 1))
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                        do side = 1, no_of_sides
+                        call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
+                                                                                     f % storage(side) % U_x(:,i,j), &
+                                                                                     f % storage(side) % U_y(:,i,j), &
+                                                                                     f % storage(side) % U_z(:,i,j), &
+                                                                                     mu_smag)
+                        f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
+                        f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa 
+                        end do 
+                        end do ; end do
+                     end if 
+                  end if
                end associate
             end do
-!$omp end do
-         end if
+!$omp end do            
+      else
+!$omp do schedule(runtime) private(i,j,delta,mu_smag)         
+         do iFace = 1, no_of_faces
+            associate(f => mesh % faces(face_ids(iFace)))
+            delta = sqrt(f % geom % surface / product(f % Nf + 1))
+            do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                  do side = 1, no_of_sides                 
+                  call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(side) % Q(:,i,j),   &
+                                                                                    f % storage(side) % U_x(:,i,j), &
+                                                                                    f % storage(side) % U_y(:,i,j), &
+                                                                                    f % storage(side) % U_z(:,i,j), &
+                                                                                    mu_smag)
+                     f % storage(side) % mu_NS(1,i,j) = f % storage(side) % mu_NS(1,i,j) + mu_smag
+                     f % storage(side) % mu_NS(2,i,j) = f % storage(side) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa   
+               end do 
+               end do ; end do
+            end associate
+         end do
+!$omp end do           
+      end if 
+   end if
+
 
 
 
@@ -848,8 +982,15 @@ module SpatialDiscretization
 !        Compute viscous contravariant flux
 !        ----------------------------------
          if (flowIsNavierStokes) then
-
+            if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
+               if (e % storage % sensor .ne. 0.0_RP) then
             call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux)
+               else if (e % storage % sensor .eq. 0.0_RP) then
+                  viscousContravariantFlux = 0.0_RP
+               end if
+            else
+            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e, viscousContravariantFlux)
+            end if
 !
 !           Compute the artificial dissipation
 !           ----------------------------------
@@ -931,9 +1072,16 @@ module SpatialDiscretization
 !
 !        Compute viscous contravariant flux
 !        ----------------------------------
-         if (flowIsNavierStokes) then
-
-            call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
+ if (flowIsNavierStokes) then
+            if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
+               if (e % storage % sensor .ne. 0.0_RP) then
+               call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
+               else if (e % storage % sensor .eq. 0.0_RP) then
+                 viscousContravariantFlux = 0.0_RP
+               end if 
+            else
+               call ViscousDiscretization  % ComputeInnerFluxes ( NCONS, NGRAD, ViscousFlux, GetNSViscosity, e , viscousContravariantFlux)
+            end if
 !
 !           Compute the artificial dissipation
 !           ----------------------------------
@@ -1007,11 +1155,12 @@ module SpatialDiscretization
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !
-      subroutine computeElementInterfaceFlux(f)
+      subroutine computeElementInterfaceFlux(f,mesh)
          use FaceClass
          use RiemannSolvers_NS
          implicit none
          type(Face)   , intent(inout) :: f
+         type(HexMesh), intent(in)    :: mesh
          integer       :: i, j
          real(kind=RP) :: inv_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
          real(kind=RP) :: visc_flux(1:NCONS,0:f % Nf(1),0:f % Nf(2))
@@ -1035,9 +1184,41 @@ module SpatialDiscretization
 !        --------------
 !
          if (flowIsNavierStokes) then
-            do j = 0, f % Nf(2)
-               do i = 0, f % Nf(1)
+                   if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then 
+                  if ((mesh % elements(f% elementIDs(1)) % storage % sensor .ne. 0.0_RP) .or. (mesh % elements(f% elementIDs(2)) % storage % sensor .ne. 0.0_RP)) then  
+                     do j = 0, f % Nf(2)
+                        do i = 0, f % Nf(1)
+                  mu_left(1) = f % storage(1) % mu_NS(1,i,j)
+                  mu_left(2) = 0.0_RP
+                  mu_left(3) = f % storage(1) % mu_NS(2,i,j)
 
+                  mu_right(1) = f % storage(2) % mu_NS(1,i,j)
+                  mu_right(2) = 0.0_RP
+                  mu_right(3) = f % storage(2) % mu_NS(2,i,j)
+
+                  call ViscousDiscretization % RiemannSolver(nEqn = NCONS, nGradEqn = NGRAD, &
+                                                      EllipticFlux = ViscousFlux, &
+                                                      f = f, &
+                                                      QLeft = f % storage(1) % Q(:,i,j), &
+                                                      QRight = f % storage(2) % Q(:,i,j), &
+                                                      U_xLeft = f % storage(1) % U_x(:,i,j), &
+                                                      U_yLeft = f % storage(1) % U_y(:,i,j), &
+                                                      U_zLeft = f % storage(1) % U_z(:,i,j), &
+                                                      U_xRight = f % storage(2) % U_x(:,i,j), &
+                                                      U_yRight = f % storage(2) % U_y(:,i,j), &
+                                                      U_zRight = f % storage(2) % U_z(:,i,j), &
+                                                      mu_left = mu_left, mu_right = mu_right, &
+                                                      nHat = f % geom % normal(:,i,j) , &
+                                                      dWall = f % geom % dWall(i,j), &
+                                                      flux  = visc_flux(:,i,j) )
+                        end do 
+                     end do 
+                  else if ((mesh % elements(f % elementIDs(1)) % storage % sensor .eq. 0.0_RP) .and. (mesh % elements( f % elementIDs(2)) % storage % sensor .eq. 0.0_RP )) then 
+                    visc_flux = 0.0_RP
+                  end if 
+            else
+               do j = 0, f % Nf(2)
+                  do i = 0, f % Nf(1)   
                   mu_left(1) = f % storage(1) % mu_NS(1,i,j)
                   mu_left(2) = 0.0_RP
                   mu_left(3) = f % storage(1) % mu_NS(2,i,j)
@@ -1061,9 +1242,9 @@ module SpatialDiscretization
                                                      nHat = f % geom % normal(:,i,j) , &
                                                      dWall = f % geom % dWall(i,j), &
                                                      flux  = visc_flux(:,i,j) )
-
-               end do
-            end do
+                  end do 
+               end do  
+            end if                                      
          else
             visc_flux = 0.0_RP
          end if
@@ -1265,45 +1446,85 @@ module SpatialDiscretization
               call WallFunctionGatherFlowVariables(mesh, f, wallFunV, wallFunRho, wallFunMu, wallFunY, wallFunVavg)
           end if
 
-         do j = 0, f % Nf(2)
-            do i = 0, f % Nf(1)
-               mu    = f % storage(1) % mu_ns(1,i,j)
-               beta  = 0.0_RP
-               kappa = f % storage(1) % mu_ns(2,i,j)
-
-               call ViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
-                                            f % storage(1) % U_x(:,i,j), &
-                                            f % storage(1) % U_y(:,i,j), &
-                                            f % storage(1) % U_z(:,i,j), &
-                                            mu, beta, kappa, fv_3d)
-
-               visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
-                                  + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
-                                  + fv_3d(:,IZ)*f % geom % normal(IZ,i,j)
-
-               visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
-
-               if (useWallFuncFace) then
-                   call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
-                                        wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
-                                        visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
-               end if 
-
-               CALL BCs(f % zone) % bc % FlowNeumann(&
-                                              f % geom % x(:,i,j), &
-                                              time, &
-                                              f % geom % normal(:,i,j), &
-                                              f % storage(1) % Q(:,i,j), &
-                                              f % storage(1) % U_x(:,i,j), &
-                                              f % storage(1) % U_y(:,i,j), &
-                                              f % storage(1) % U_z(:,i,j), &
-                                              visc_flux(:,i,j))
-
-            end do
-         end do
+               if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
+                  if (mesh % elements( f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) then  
+                     do j = 0, f % Nf(2)
+                     do i = 0, f % Nf(1)          
+                      mu    = f % storage(1) % mu_ns(1,i,j)
+                      beta  = 0.0_RP
+                      kappa = f % storage(1) % mu_ns(2,i,j)
+      !
+                      call ViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
+                                                   f % storage(1) % U_x(:,i,j), &
+                                                   f % storage(1) % U_y(:,i,j), &
+                                                   f % storage(1) % U_z(:,i,j), &
+                                                   mu, beta, kappa, fv_3d)
+      !
+                      visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
+                                         + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
+                                         + fv_3d(:,IZ)*f % geom % normal(IZ,i,j)
+      
+                      visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
+                  
+                     if (useWallFuncFace) then
+                          call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                               wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                               visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
+                      end if 
+       
+                      CALL BCs(f % zone) % bc % FlowNeumann(&
+                                                     f % geom % x(:,i,j), &
+                                                     time, &
+                                                     f % geom % normal(:,i,j), &
+                                                     f % storage(1) % Q(:,i,j), &
+                                                     f % storage(1) % U_x(:,i,j), &
+                                                     f % storage(1) % U_y(:,i,j), &
+                                                     f % storage(1) % U_z(:,i,j), &
+                                                     visc_flux(:,i,j))
+                     end do 
+                     end do 
+                  else if ( mesh % elements(f % elementIDs(1)) % storage % sensor .eq. 0.0_RP) then
+                      visc_flux = 0.0_RP
+                  end if 
+               else
+                  do j = 0, f % Nf(2)
+                  do i = 0, f % Nf(1) 
+                  mu    = f % storage(1) % mu_ns(1,i,j)
+                     beta  = 0.0_RP
+                     kappa = f % storage(1) % mu_ns(2,i,j)
+      
+                     call ViscousFlux(NCONS,NGRAD,f % storage(1) % Q(:,i,j), &
+                                                  f % storage(1) % U_x(:,i,j), &
+                                                  f % storage(1) % U_y(:,i,j), &
+                                                  f % storage(1) % U_z(:,i,j), &
+                                                  mu, beta, kappa, fv_3d)
+      
+                     visc_flux(:,i,j) =   fv_3d(:,IX)*f % geom % normal(IX,i,j) &
+                                        + fv_3d(:,IY)*f % geom % normal(IY,i,j) &
+                                        + fv_3d(:,IZ)*f % geom % normal(IZ,i,j)
+      
+                     visc_flux(:,i,j) = visc_flux(:,i,j) + Avisc_flux(:,i,j)
+                  
+                     if (useWallFuncFace) then
+                         call WallViscousFlux(wallFunV(:,i,j), wallFunY(i,j), f % geom % normal(:,i,j), &
+                                              wallFunRho(i,j), wallFunMu(i,j), wallFunVavg(:,i,j), &
+                                              visc_flux(:,i,j), f % storage(1) % u_tau_NS(i,j))
+                     end if 
+      
+                     CALL BCs(f % zone) % bc % FlowNeumann(&
+                                                    f % geom % x(:,i,j), &
+                                                    time, &
+                                                    f % geom % normal(:,i,j), &
+                                                    f % storage(1) % Q(:,i,j), &
+                                                    f % storage(1) % U_x(:,i,j), &
+                                                    f % storage(1) % U_y(:,i,j), &
+                                                    f % storage(1) % U_z(:,i,j), &
+                                                    visc_flux(:,i,j))                                           
+                  end do 
+                  end do 
+               end if
       else
          visc_flux = 0.0_RP
-
       end if
 
       do j = 0, f % Nf(2)
