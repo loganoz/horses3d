@@ -11,6 +11,9 @@ MOD_FLAG?=-J
 LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/DGIntegrals.o \
 		./build_ns/GradientsStabilization.o \
+                ./build_ns/RegionsDetectionKeywords.o \
+		./build_ns/VisSensorClass.o \
+		./build_ns/VisRegionsDetection.o \
 		./build_ns/HyperbolicDiscretizationClass.o \
 		./build_ns/HyperbolicStandard.o \
 		./build_ns/HyperbolicSplitForm.o \
@@ -25,6 +28,7 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 		./build_ns/SVV.o \
 		./build_ns/SCsensorClass.o \
 		./build_ns/ShockCapturing.o \
+
 
 LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
 		./build_nssa/DGIntegrals.o \
