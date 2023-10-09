@@ -49,7 +49,6 @@
          type(Autosave_t)                       :: autosave
          type(pAdaptation_t)                    :: pAdaptator
          type(MultiTauEstim_t)                  :: TauEstimator
-         character(len=LINE_LENGTH)             :: integration_method
          integer                                :: RKStep_key
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
@@ -144,13 +143,6 @@
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
 
-         if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
-            self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
-         else
-            self % integration_method = EXPLICIT_SOLVER
-         end if
-         call toLower(self % integration_method)
-
          if ( controlVariables % ContainsKey("explicit method") ) then
             keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
             call toLower(keyword)
@@ -183,6 +175,7 @@
          else
             self % RKStep => TakeRK3Step
             self % RKStep_key = RK3_KEY
+
          end if
 
          if ( controlVariables % ContainsKey("compute time derivative after timestep") ) then
@@ -204,7 +197,7 @@
          end if
 !
 !        ------------------------------------
-!        Integrator-dependent initializations
+!        Integrator-dependent initializarions
 !        ------------------------------------
 !
          SELECT CASE (controlVariables % StringValueForKey("simulation type",LINE_LENGTH))
@@ -233,7 +226,7 @@
          if (.not. MPI_Process % isRoot ) return
 
          write(STD_OUT,'(/)')
-         call Section_Header("Time integrator")
+         call Section_Header("Explicit time integrator")
          write(STD_OUT,'(/)')
 
          write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Simulation type: "
@@ -245,30 +238,24 @@
          end select
 
          write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Method: "
-         if (self % integration_method == EXPLICIT_SOLVER) then
-            select case (self % RKStep_key)
-            case (EULER_KEY)
-               write(STD_OUT,'(A)') "Euler"
-            case (RK3_KEY)
-               write(STD_OUT,'(A)') "RK3"
-            case (RK5_KEY)
-               write(STD_OUT,'(A)') "RK5"
-            case (SSPRK33_KEY)
-               write(STD_OUT,'(A)') "SSPRK33"
-            case (SSPRK43_KEY)
-               write(STD_OUT,'(A)') "SSPRK43"
-            end select
+         select case (self % RKStep_key)
+         case (EULER_KEY)
+            write(STD_OUT,'(A)') "Euler"
+         case (RK3_KEY)
+            write(STD_OUT,'(A)') "RK3"
+         case (RK5_KEY)
+            write(STD_OUT,'(A)') "RK5"
+         case (SSPRK33_KEY)
+            write(STD_OUT,'(A)') "SSPRK33"
+         case (SSPRK43_KEY)
+            write(STD_OUT,'(A)') "SSPRK43"
+         end select
 
-            write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
-            if (LIMITED) then
-               write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
-            else
-               write(STD_OUT,'(L)') LIMITED
-            end if
-
+         write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
+         if (LIMITED) then
+            write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
          else
-            write(STD_OUT,'(A)') self % integration_method
-
+            write(STD_OUT,'(L)') LIMITED
          end if
 
          write(STD_OUT,'(30X,A,A28,L)') "->" , "Derivative after timestep: ", CTD_AFTER_STEPS
@@ -278,20 +265,31 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self )
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+           use VisRegionsDetection
+#endif
          CLASS(TimeIntegrator_t) :: self
          self % tFinal       = 0.0_RP
          self % numTimeSteps = 0
          self % dt           = 0.0_RP
 
          if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
-
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+        if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then       
          call self % TauEstimator % destruct
+        end if         
+#else 
+       call self % TauEstimator % destruct
+#endif            
       END SUBROUTINE destructTimeIntegrator
 !
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE Integrate( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       USE FASMultigridClass
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      use VisRegionsDetection
+#endif
       IMPLICIT NONE
 !
 !     ---------
@@ -346,7 +344,8 @@
 
          call FMGSolver % destruct
       end if
-
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+  if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then               
 !     Perform static p-adaptation stage(s) if requested
 !     -------------------------------------------------
       if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
@@ -366,14 +365,52 @@
 
          end do
       end if
+   else if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then
+      if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
+         do while (self % pAdaptator % Adapt)
+            if (self % integratorType == STEADY_STATE) then              
+!
+!              Lower the residual to 0.1 * truncation error threshold
+!              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
+!              ------------------------------------------------------
+               call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+            end if
+            call self % pAdaptator % pAdaptVIS(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+            sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1            
+         end do
+      end if    
+   end if   
+#else
+   !     Perform static p-adaptation stage(s) if requested
+!     -------------------------------------------------
+   if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
 
+      do while (self % pAdaptator % Adapt)
+
+         if (self % integratorType == STEADY_STATE) then
+!
+!              Lower the residual to 0.1 * truncation error threshold
+!              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
+!              ------------------------------------------------------
+            call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, self % pAdaptator % reqTE*0.1_RP)
+         end if
+
+         call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         sem % numberOfTimeSteps = sem % numberOfTimeSteps + 1
+
+      end do
+   end if
+#endif   
 !     Finish time integration
 !     -----------------------
+      
       call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated )
-
+      
 !     Measure solver time
 !     -------------------
+    
       call Stopwatch % Pause("Solver")
+      
 
       END SUBROUTINE Integrate
 !
@@ -397,6 +434,9 @@
       use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
+#endif
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+      use VisRegionsDetection
 #endif
       IMPLICIT NONE
 !
@@ -431,13 +471,20 @@
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
+      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
 !     Read Control variables
 !     ----------------------
 !
+      IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
+         TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
+      ELSE ! Default value
+         TimeIntegration = EXPLICIT_SOLVER
+      END IF
+      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
       ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
@@ -460,7 +507,7 @@
       call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables, t)
+          call farm % ConstructFarm(controlVariables,t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
 #endif
@@ -491,7 +538,6 @@
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
-      saveLES = controlVariables % logicalValueForKey("save les with solution")
       saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
 !
 !     -----------------------
@@ -503,16 +549,38 @@
       sem % maxResidual = maxval(maxResidual)
       call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false. )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
-
-      if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
-          self % pAdaptator % nextAdaptationTime == self % time) then
+!
+!     Update Viscous regions detection sensor
+!     ---------------------------------------
+!
+!#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+!IF (ViscousRegionDetectionDriver % isActive) then
+!   call ViscousRegionDetectionDriver % Detect(sem,t) 
+!end if 
+!#endif  
+!
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+   if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
+    self % pAdaptator % nextAdaptationTime == self % time) then
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
          call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
-      end if
-
+   else if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then ! if p-adaptation using the viscous sensor is requested 
+         call self % pAdaptator % pAdaptVIS(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+   end if
+   end if
+#else 
+   if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
+   self % pAdaptator % nextAdaptationTime == self % time) then
+  call self % pAdaptator % pAdaptTE(sem,sem  % numberOfTimeSteps,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+  self % pAdaptator % nextAdaptationTime = self % pAdaptator % nextAdaptationTime + self % pAdaptator % time_interval
+  end if
+#endif      
+          
       call monitors % WriteToFile(sem % mesh)
-
-      IF (self % integratorType == STEADY_STATE) THEN
+      
+      IF (self % integratorType == STEADY_STATE) THEN 
          IF (maxval(maxResidual) <= Tol )  THEN
             if (MPI_Process % isRoot) then
                write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",sem % numberOfTimeSteps," with Residual = ", maxval(maxResidual)
@@ -532,21 +600,25 @@
          call ShockCapturingDriver % Detect(sem, t)
       end if
       call getWallDistInSurfaces(surfacesMesh, sem % mesh)
-#endif
+#endif   
 !
 !     Save surfaces sol before the first time step
 !     --------------------------------------------
+
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+
       call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
       call sem % fwh % writeToFile()
 #endif
+
       call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
+      
 !
 !     -----------------
 !     Integrate in time
 !     -----------------
 !
-      select case (self % integration_method)
+      select case (TimeIntegration)
       case(FAS_SOLVER)
          call FASSolver % construct(controlVariables,sem)
 
@@ -566,7 +638,7 @@
 !     ----------------
 !
       DO k = sem  % numberOfTimeSteps, self % initial_iter + self % numTimeSteps-1
-
+         
 !
 !        CFL-bounded time step
 !        ---------------------      
@@ -613,7 +685,7 @@
 !
 !        Perform time step
 !        -----------------
-         SELECT CASE (self % integration_method)
+         SELECT CASE (TimeIntegration)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (ROSENBROCK_SOLVER)
@@ -651,13 +723,21 @@
          maxResidual       = ComputeMaxResiduals(sem % mesh)
          sem % maxResidual = maxval(maxResidual)
 !
-!        Update sensor
+!        Update shock capturing sensor
 !        -------------
 #ifdef NAVIERSTOKES
          if (ShockCapturingDriver % isActive) then
             call ShockCapturingDriver % Detect(sem, t)
          end if
 #endif
+!
+!        Update viscous regions detection sensor
+!        ---------------------------------------
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+      IF (((ViscousRegionDetectionDriver % isActive) .and. (k+1>= ViscousRegionDetectionDriver % IterMin)) .and. (mod(k+1,ViscousRegionDetectionDriver % IterJump) == 0)) then
+         call ViscousRegionDetectionDriver % Detect(sem,t)
+      end if 
+#endif 
 !
 !        Update monitors
 !        ---------------
@@ -710,15 +790,28 @@
 !
 !        p- Adapt
 !        --------------
+#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then        
          IF( self % pAdaptator % hasToAdapt(k+1) ) then
             call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
          end if
          call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+   else if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then ! if p-adaptation based on the viscous sensor is requested !
+         if ((self % pAdaptator % hasToAdapt(k+1)) .and. (k+1 >= ViscousRegionDetectionDriver % IterMin )) then
+            call self % pAdaptator % pAdaptVIS (sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+         end if
+   end if      
+#else
+   IF( self % pAdaptator % hasToAdapt(k+1) ) then
+      call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
+   end if
+   call self % TauEstimator % estimate(sem, k+1, t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
+#endif                 
 !
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -765,7 +858,7 @@
 !     Finish up
 !     ---------
 !
-      select case(self % integration_method)
+      select case(TimeIntegration)
       case(FAS_SOLVER)
          CALL FASSolver % destruct
 
@@ -834,7 +927,7 @@
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -848,7 +941,6 @@
       CHARACTER(len=*)             :: RestFileName   !< Name of restart file
       logical,          intent(in) :: saveGradients
       logical,          intent(in) :: saveSensor
-      logical,          intent(in) :: saveLES
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -856,7 +948,7 @@
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor)
 
    END SUBROUTINE SaveRestart
 !
