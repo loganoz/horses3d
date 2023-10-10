@@ -123,22 +123,22 @@ endif
 ##########################################
 ifeq ($(MODE),RELEASE)
      ifeq ($(FC),gfortran)
-         FFLAGS=$(GNU_RELEASE_FLAGS)
+         FFLAGS+=$(GNU_RELEASE_FLAGS)
      else ifeq ($(FC),ifort)
-         FFLAGS=$(INTEL_RELEASE_FLAGS)
+         FFLAGS+=$(INTEL_RELEASE_FLAGS)
      endif
 else ifeq ($(MODE),HPC)
 	 MACROS+= -D_HPC_MODE
      ifeq ($(FC),gfortran)
-         FFLAGS=$(GNU_HPC_FLAGS)
+         FFLAGS+=$(GNU_HPC_FLAGS)
      else ifeq ($(FC),ifort)
-         FFLAGS=$(INTEL_HPC_FLAGS)
+         FFLAGS+=$(INTEL_HPC_FLAGS)
      endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
-         FFLAGS=$(GNU_DEBUG_FLAGS)
+         FFLAGS+=$(GNU_DEBUG_FLAGS)
      else ifeq ($(FC),ifort)
-         FFLAGS=$(INTEL_DEBUG_FLAGS)
+         FFLAGS+=$(INTEL_DEBUG_FLAGS)
      endif
 endif
 
