@@ -68,7 +68,7 @@
 with the desired options (bold are default):
 
 \begin{itemize}
-\item MODE=DEBUG/\textbf{RELEASE}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
@@ -79,6 +79,8 @@ For example:
 \begin{lstlisting}[language=bash]
 	$ make all COMPILER=ifort COMM=PARALLEL
 \end{lstlisting}
+
+\item MODE=DEBUG/HPC/\textbf{RELEASE} flag enables various compiler flags for different levels of code optimization. Furthermore, MODE=HPC disables residual file writing to improve performance. 
 
 \item The ENABLE\_THREADS=YES flag enables shared memory simulations using OpenMP.
 
@@ -1670,7 +1672,7 @@ To run a simulation using user-defined operations, create a folder called SETUP 
 \end{lstlisting}
 where again the options are (bold are default):
 \begin{itemize}
-\item MODE=DEBUG/\textbf{RELEASE}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
