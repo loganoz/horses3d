@@ -194,6 +194,9 @@ module ResidualsMonitorClass
          integer                    :: i
          integer                    :: fID
 
+#ifdef _HPC_MODE
+   return
+#endif          
          if ( MPI_Process % isRoot ) then
 !
 !           Open file
