@@ -39,17 +39,20 @@ MACROS =
 # 3.- User defined compilation flags 
 ########################################
 FFLAGS=-fPIC
+GNU_HPC_FLAGS= -cpp -fallow-argument-mismatch -std=legacy -ffree-line-length-0 -O3 -ftree-vectorize \
+		   -ftree-vectorizer-verbose=0 -fbackslash -D_has_Quad -march=znver3 -funroll-loops
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
-                   -fbackslash
+		   -fbackslash -D_has_Quad
 GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
-                  -fbacktrace -fbounds-check -finit-real=snan -Wall \
-                  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
-                  -fbackslash -fcheck=pointer
-INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -fp-model precise
-INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback -check all \
-                   -check bounds -check uninit -ftrapuv -debug all -warn interfaces \
-                   -ftrace=full -ftz -fp-model precise \
-                   -fp-speculation=off -assume bscc
+		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
+		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
+		  -fbackslash -fcheck=pointer -D_has_Quad
+INTEL_HPC_FLAGS= -cpp -Ofast -msse4.2 -axAVX,CORE-AVX2 -assume bscc -D_has_Quad  -fp-model=fast=2 -ipo
+INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad -fp-model precise
+INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
+		   -check bounds -check uninit -ftrapuv -debug all \
+		   -ftrace=full -ftz -fp-model precise \
+		   -fp-speculation=off -assume bscc -D_has_Quad
 ARFLAGS=crv
 
 TARGET=./libproblemfile
@@ -120,15 +123,22 @@ endif
 ##########################################
 ifeq ($(MODE),RELEASE)
      ifeq ($(FC),gfortran)
-         FFLAGS+=$(GNU_RELEASE_FLAGS)
+         FFLAGS=$(GNU_RELEASE_FLAGS)
      else ifeq ($(FC),ifort)
-         FFLAGS+=$(INTEL_RELEASE_FLAGS)
+         FFLAGS=$(INTEL_RELEASE_FLAGS)
      endif
+else ifeq ($(MODE),HPC)
+	 MACROS+= -D_HPC_MODE
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_HPC_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_HPC_FLAGS)
+     endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
-         FFLAGS+=$(GNU_DEBUG_FLAGS)
+         FFLAGS=$(GNU_DEBUG_FLAGS)
      else ifeq ($(FC),ifort)
-         FFLAGS+=$(INTEL_DEBUG_FLAGS)
+         FFLAGS=$(INTEL_DEBUG_FLAGS)
      endif
 endif
 
