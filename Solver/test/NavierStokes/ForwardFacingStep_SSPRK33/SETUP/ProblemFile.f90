@@ -568,7 +568,7 @@ end module ProblemFileFunctions
                write(6,*) "   - The residuals are 'exact' (1e-3)"
             else
                write(6,*) testName, " ... Failed"
-               stop 99
+               error stop 99
             end if
             write(6,*)
 

@@ -116,7 +116,7 @@ MODULE MKLPardisoSolverClass
       call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
       if (MPI_Process % doMPIRootAction) then
-         ERROR stop 'MKLPardisoSolver_t cannot be used as a distributed solver'
+         error stop 'MKLPardisoSolver_t cannot be used as a distributed solver'
          !TODO: Implement cluster_sparse_solver (MKL) or use the actual pardiso solver (http://www.pardiso-project.org/)
       end if
       
@@ -143,7 +143,7 @@ MODULE MKLPardisoSolverClass
 #ifdef HAS_PETSC
          call PetscInitialize(PETSC_NULL_CHARACTER,ierr)
 #else
-         ERROR stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
+         error stop "MKL-Pardiso needs PETSc for constructung the Jacobian Matrix"
 #endif
          call this % PETScA % construct (num_of_Rows = DimPrb, withMPI = .FALSE.)
       else
@@ -275,13 +275,13 @@ MODULE MKLPardisoSolverClass
 
       if (error .NE. 0) THEN
          WRITE(*,*) 'MKL Pardiso ERROR:', error
-         stop
+         error stop
       else
          this % converged = .TRUE.
       end if
     
 #else
-      stop 'MKL is not linked properly'
+      error stop 'MKL is not linked properly'
 #endif
       
    end subroutine solve
@@ -564,7 +564,7 @@ MODULE MKLPardisoSolverClass
                    self % ALU % rows, self % ALU % cols, self % perm, 1, self % Pardiso_iparm, 0, &
                    self % b, self % x, error)
 #else 
-      error STOP 'MKL not linked correctly' 
+      error stop 'MKL not linked correctly' 
 #endif 
  
    end subroutine MKL_ReFactorizeJacobian 
@@ -643,7 +643,7 @@ MODULE MKLPardisoSolverClass
       class is(csrMat_t)
          this % A = Matrix
       class default
-         ERROR stop 'MKL_SetJacobian :: Wrong matrix type'
+         error stop 'MKL_SetJacobian :: Wrong matrix type'
       end select
       
    end subroutine MKL_SetJacobian

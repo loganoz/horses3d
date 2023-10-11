@@ -91,7 +91,7 @@ program horses2plt
             write(STD_OUT,'(/,/)')
             if (oldStats) then
                 write(STD_OUT,'(A)') "Statistics legacy file conversion not supported for VTKHDF"
-                stop
+                error stop
             else
                call Section_Header("Statistics file conversion")
                call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
@@ -101,7 +101,7 @@ program horses2plt
       end do
 #else
       write(STD_OUT, '(A)') "HDF5 support must be enabled to save to VTKHDF format"
-      stop
+      error stop
 #endif
 
    case (SOLUTION_2_FOAM)

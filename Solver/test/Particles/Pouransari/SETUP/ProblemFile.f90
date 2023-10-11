@@ -594,7 +594,7 @@ end module ProblemFileFunctions
                WRITE(6,*) "      This test case uses random functions for the injection of the particles."
                WRITE(6,*) "      The coded residual is for Alderaan gfortrans Release configuration."    
                WRITE(6,*) " Bender intel 2015 residual 1203.01565442056_RP"       
-               STOP 99
+               error stop 99
             END IF 
             WRITE(6,*)
             

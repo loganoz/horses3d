@@ -268,7 +268,7 @@ module GeometryClass
             success = mesh % FindPointWithCoords(x(:,i,j,k),elems(i,j,k),xi(:,i,j,k),neighs)
             if ( .not. success ) then
                print*, "Not success in element ", i,j,k
-               stop
+               error stop
             end if
 
             lastelement = elems(i,j,k)

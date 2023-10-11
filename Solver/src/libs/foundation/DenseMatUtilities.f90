@@ -45,7 +45,7 @@ MODULE DenseMatUtilities
 
       if (info /= 0) then
          print*, 'Matrix is numerically singular. ERROR:', info
-         stop
+         error stop
       end if
 
    end subroutine ComputeLU
@@ -75,7 +75,7 @@ MODULE DenseMatUtilities
 
       if (info /= 0) then
          print*, 'Matrix is numerically singular. ERROR:', info
-         stop
+         error stop
       end if
 
    end subroutine ComputeLUandOverwrite
@@ -108,7 +108,7 @@ MODULE DenseMatUtilities
       
       if (info /= 0) then
          print*,  '*** System could not be solved. ERROR:', info
-         stop
+         error stop
       end if
 
    end subroutine SolveLU
@@ -166,7 +166,7 @@ MODULE DenseMatUtilities
       
       if (info /= 0) then
          print*,  'Condition number could not be estimated. ERROR:', info
-         stop
+         error stop
       end if
       
 !     Finish up
@@ -177,7 +177,7 @@ MODULE DenseMatUtilities
          deallocate ( ALU )
       end if
 #else
-      ERROR stop ':: EstimateConditionNumber needs LAPACK.'
+      error stop ':: EstimateConditionNumber needs LAPACK.'
 #endif
       
    end function
@@ -206,10 +206,10 @@ MODULE DenseMatUtilities
       call dgetri(n, Ainv, n, LUpivots, work, n, info)
       
       if (info /= 0) then
-         stop 'Lapack matrix inversion failed!'
+         error stop 'Lapack matrix inversion failed!'
       end if
 #else
-      stop ':: Matrix inversion routine needs LAPACK.'
+      error stop ':: Matrix inversion routine needs LAPACK.'
 #endif
    end function InvertLU
    
@@ -244,7 +244,7 @@ MODULE DenseMatUtilities
       call DGETRF(n, n, Ainv, n, ipiv, info)
       
       if (info /= 0) then
-         stop 'Matrix is numerically singular!'
+         error stop 'Matrix is numerically singular!'
       end if
       
       ! DGETRI computes the inverse of a matrix using the LU factorization
@@ -252,10 +252,10 @@ MODULE DenseMatUtilities
       call DGETRI(n, Ainv, n, ipiv, work, n, info)
       
       if (info /= 0) then
-         stop 'Lapack matrix inversion failed!'
+         error stop 'Lapack matrix inversion failed!'
       end if
 #else
-      STOP ':: Matrix inversion routine needs LAPACK.'
+      error stop ':: Matrix inversion routine needs LAPACK.'
 #endif
    !------------------------------------------------------------------------------
    end function
@@ -323,7 +323,7 @@ MODULE DenseMatUtilities
    n = dim
    if ( n /= size(A,1) ) then
       print *, "LU Decomposition failed, incorrect dimensions."
-      stop
+      error stop
    end if 
 !
    do i=1,n
@@ -341,8 +341,8 @@ MODULE DenseMatUtilities
       p(kmax) = temp
       do j=2,i
          if ( abs(A(p(j-1),j-1)) < 10*tiny(1._RP) ) then
-            print *, "LUdecomp failed, stopping."
-            stop
+            print *, "LUdecomp failed, error stopping."
+            error stop
          end if
          A(p(i),j-1) = A(p(i),j-1) / A(p(j-1),j-1)
          do k=1,j-1 
@@ -422,13 +422,13 @@ MODULE DenseMatUtilities
    n = size(A(1,:))
    if ( n /= size(A(:,1)) .or. n /= size(b) .or. n /= size(p) ) then
       print *, "LUBsolve failed, incorrect dimensions."
-      stop
+      error stop
    end if
 !
    do k=1,n
       if ( abs(A(p(k),k)) < 10*tiny(1._RP) ) then
-         print *, "LUBsolve failed, check LU decomposition; stopping"
-         stop
+         print *, "LUBsolve failed, check LU decomposition; error stopping"
+         error stop
       end if
    end do
 !
@@ -461,7 +461,7 @@ MODULE DenseMatUtilities
    n = size(A(1,:))
    if ( n /= size(A(:,1)) .or. n /= size(b) .or. n /= size(p) ) then
       print *, "LUFsolve failed, incorrect dimensions."
-      stop
+      error stop
    end if
 !
    do k=1,n

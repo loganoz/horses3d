@@ -646,7 +646,7 @@ readloop:do
 !           Error
 !           -----
             errorMessage(STD_OUT)
-            stop "Stopped."
+            error stop "Stopped."
 
          else
 !

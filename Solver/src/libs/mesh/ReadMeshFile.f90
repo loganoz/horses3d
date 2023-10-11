@@ -51,7 +51,7 @@ contains
             error stop "ReadMeshFile :: Unrecognized GMSH version."
          end select
       else
-         ERROR STOP 'Mesh file extension not recognized.'
+         error stop 'Mesh file extension not recognized.'
       end if
       
       self % NDOF = 0
@@ -160,7 +160,7 @@ contains
             error stop "ReadMeshFile :: Unrecognized GMSH version."
          end select
       else
-         ERROR STOP 'Mesh file extension not recognized.'
+         error stop 'Mesh file extension not recognized.'
       end if
       
    end function NumOfElemsFromMeshFile  
@@ -183,7 +183,7 @@ contains
       elseif (trim(ext)=='msh') then
          MeshFileType = GMSHMESH
       else
-         ERROR STOP 'Mesh file extension not recognized.'
+         error stop 'Mesh file extension not recognized.'
       end if
       
    end function MeshFileType

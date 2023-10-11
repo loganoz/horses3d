@@ -88,7 +88,7 @@ module MPI_Utilities
          rank default
             write(STD_OUT,*) 'MPI_OpAll_int only implemented for rank(x) <= 4'
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
       end if
 #endif
@@ -119,7 +119,7 @@ module MPI_Utilities
          rank default
             write(STD_OUT,*) 'MPI_OpAll_real only implemented for rank(x) <= 4'
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
       end if
 #endif
@@ -161,7 +161,7 @@ module MPI_Utilities
          if (rank(minimum) > 4 .or. rank(maximum) > 4) then
             write(STD_OUT,*) 'MPI_MinMax only implemented for rank(x) <= 4'
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 
          select rank(minimum)

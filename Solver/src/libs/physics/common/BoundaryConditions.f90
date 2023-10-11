@@ -111,7 +111,7 @@ module BoundaryConditions
             case default
                print*, "Unrecognized BC option"
                errorMessage(STD_OUT)
-               stop 99
+               error stop 99
             end select
              
          end do
@@ -250,7 +250,7 @@ module BoundaryConditions
             print*, "   * Periodic"
             print*, "   * User-defined"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 
          call bcdict % Destruct

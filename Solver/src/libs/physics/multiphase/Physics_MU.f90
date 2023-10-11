@@ -162,7 +162,7 @@
       REAL(KIND=Rp) :: u, v, w, p, a
 print*, "Get eigenvalues!!"
 errorMessage(STD_OUT)
-stop
+error stop
 !      
 !      u = ABS( Q(IMSQRHOU)/Q(IMSQRHO) )
 !      v = ABS( Q(IMSQRHOV)/Q(IMSQRHO) )

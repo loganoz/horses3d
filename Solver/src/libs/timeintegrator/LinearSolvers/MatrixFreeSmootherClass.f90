@@ -87,7 +87,7 @@ CONTAINS
       
       call this % GenericLinSolver_t % construct(DimPrb, globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
+      IF (.NOT. PRESENT(sem)) error stop 'Fatal error: IterativeSolver needs sem.'
       
       MatrixShift => MatrixShiftFunc
       
@@ -185,7 +185,7 @@ CONTAINS
       logical :: TolPresent
       !-------------------------------------------------
       
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
+      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) error stop 'time and dt needed for iterative solver'
       TolPresent = present(tol)
 !
 !     Compute Jacobian matrix if needed
@@ -356,7 +356,7 @@ CONTAINS
          CASE ('l2')
             xnorm = NORM2(this % x)
          CASE DEFAULT
-            STOP 'MatFreeSmoothClass ERROR: Norm not implemented yet'
+            error stop 'MatFreeSmoothClass ERROR: Norm not implemented yet'
       END SELECT
    END FUNCTION Getxnorm
 !

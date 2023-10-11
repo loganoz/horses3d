@@ -667,7 +667,7 @@ module getTask
                print*, "Options:"
                print*, "   * Homogeneous"
                print*, "   * Gauss"
-               stop
+               error stop
             end select
          else
             if ( fixedOrder ) then

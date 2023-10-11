@@ -406,7 +406,7 @@ module TessellationTypes
       dataPrev => p% prev; dataNext => p% next
       
       if( associated(dataDel, this% head) ) then
-         ERROR stop ":: Head of list can't be deleted here!"
+         error stop ":: Head of list can't be deleted here!"
          return
       end if
       
@@ -434,7 +434,7 @@ module TessellationTypes
       data => this% head% prev
    
       if( associated(data, this% head) ) then
-         ERROR stop ":: Head of list can't be deleted here!"
+         error stop ":: Head of list can't be deleted here!"
          return
       end if
       

@@ -101,7 +101,7 @@ module SpatialDiscretization
                write(STD_OUT,'(A)') "  * Standard"
                write(STD_OUT,'(A)') "  * Split-Form"
                errorMessage(STD_OUT)
-               stop 
+               error stop 
 
             end select
                
@@ -112,7 +112,7 @@ module SpatialDiscretization
                if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
                   print*, "Input file is missing entry for keyword: viscous discretization"
                   errorMessage(STD_OUT)
-                  stop
+                  error stop
                end if
 
                viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
@@ -135,7 +135,7 @@ module SpatialDiscretization
                   write(STD_OUT,'(A)') "  * BR2"
                   write(STD_OUT,'(A)') "  * IP"
                   errorMessage(STD_OUT)
-                  stop 
+                  error stop 
 
                end select
 
@@ -570,7 +570,7 @@ module SpatialDiscretization
             e % storage % QDot = ScalarStrongIntegrals % StdVolumeGreen ( e , NCONS, contravariantFlux ) 
 
          type is (SplitDG_t)
-            ERROR stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
+            error stop ':: TimeDerivative_StrongVolumetricContribution not implemented for split form'
 !~ !
 !~ !           Compute sharp fluxes for skew-symmetric approximations
 !~ !           ------------------------------------------------------

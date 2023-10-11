@@ -135,7 +135,7 @@ module SpectralVanishingViscosity
                   write(STD_OUT,*) 'ERROR. SVV filter type not recognized. Options are:'
                   write(STD_OUT,*) '   * low-pass'
                   write(STD_OUT,*) '   * high-pass'
-                  stop
+                  error stop
             end select
          else
             self % filterType = HPASS_FILTER
@@ -157,7 +157,7 @@ module SpectralVanishingViscosity
                   write(STD_OUT,*) '   * power'
                   write(STD_OUT,*) '   * sharp'
                   write(STD_OUT,*) '   * exponential'
-                  stop
+                  error stop
             end select
          else
             self % filterShape = POW_FILTER
@@ -193,7 +193,7 @@ module SpectralVanishingViscosity
                write(STD_OUT,*) '   * ', SC_PHYS_VAL
                write(STD_OUT,*) '   * ', SC_GP_VAL
                errorMessage(STD_OUT)
-               stop
+               error stop
             end select
          else
             self % diss_type = PHYSICAL_DISS
@@ -218,7 +218,7 @@ module SpectralVanishingViscosity
             case default
                write(STD_OUT,*) "ERROR. SVV with physical dissipation is only configured for Energy or Entropy gradient variables"
                errorMessage(STD_OUT)
-               stop
+               error stop
             end select
 
          case (GUERMOND_DISS)
@@ -232,7 +232,7 @@ module SpectralVanishingViscosity
             case default
                write(STD_OUT,*) "ERROR. SVV with Guermond-Popov (2014) dissipation is only configured for Entropy gradient variables"
                errorMessage(STD_OUT)
-               stop
+               error stop
             end select
          end select
 
