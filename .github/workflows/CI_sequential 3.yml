@@ -37,12 +37,12 @@ jobs:
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'YES'
+          mkl: 'NO'
         - compiler: gfortran
           mode: DEBUG
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'YES'          
+          mkl: 'NO'          
         - compiler: ifort
           mode: RELEASE
           comm: SEQUENTIAL
@@ -102,6 +102,7 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           printenv >> $GITHUB_ENV
           ${{matrix.compiler}} --version
+          export LIB_LAPACK="-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a -Wl,--end-group -lpthread -lm -ldl"
 
       - name: Configure
         working-directory: ./Solver
