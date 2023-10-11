@@ -160,7 +160,7 @@ MODULE MKLPardisoSolverClass
 #ifdef HAS_MKL
       call pardisoinit(this % Pardiso_pt, this % mtype, this % Pardiso_iparm)
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
       
 !
@@ -564,7 +564,7 @@ MODULE MKLPardisoSolverClass
                    self % ALU % rows, self % ALU % cols, self % perm, 1, self % Pardiso_iparm, 0, &
                    self % b, self % x, error)
 #else 
-      STOP 'MKL not linked correctly' 
+      error STOP 'MKL not linked correctly' 
 #endif 
  
    end subroutine MKL_ReFactorizeJacobian 
@@ -597,7 +597,7 @@ MODULE MKLPardisoSolverClass
                    self % ALU % rows, self % ALU % cols, self % perm, 1, self % Pardiso_iparm, 0, &
                    self % b, self % x, error)
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
       
       call Stopwatch % Pause("Sparse LU-Factorization")
@@ -626,7 +626,7 @@ MODULE MKLPardisoSolverClass
       end if
       
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
    end subroutine MKL_SolveLUDirect
 !
