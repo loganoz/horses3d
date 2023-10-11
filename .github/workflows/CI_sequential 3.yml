@@ -100,9 +100,10 @@ jobs:
       - name: Show ${{matrix.compiler}} version
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          ${{matrix.compiler}} --version
-          echo "LIB_LAPACK="-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a -Wl,--end-group -lpthread -lm -ldl"" >> $GITHUB_ENV
           printenv >> $GITHUB_ENV
+          ${{matrix.compiler}} --version
+       #   echo "LIB_LAPACK="-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a -Wl,--end-group -lpthread -lm -ldl"" >> $GITHUB_ENV
+
           
       - name: Configure
         working-directory: ./Solver
