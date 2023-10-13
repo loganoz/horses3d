@@ -86,7 +86,7 @@ jobs:
 
       - name: Install Intel oneAPI
         if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -102,13 +102,8 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           printenv >> $GITHUB_ENV
           ${{matrix.compiler}} --version
-          echo "LIB_LAPACK="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_gf_ilp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl"" >> $GITHUB_ENV
-          cd ${MKLROOT}/lib/intel64/
-          ls
+          echo "LIB_LAPACK="-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a -Wl,--end-group -lpthread -lm -ldl"" >> $GITHUB_ENV
       # If it stops working previous line (linking with MKL for GNU) it is probably to an update in mkl. Update following https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html    
-      # Using dynamic linking as .a are not found in the MKL installation
-      # Sequential: echo "LIB_LAPACK="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_gf_ilp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl"" >> $GITHUB_ENV    
-      # Openmp:  -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_gf_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
       
       - name: Configure
         working-directory: ./Solver
