@@ -646,7 +646,6 @@ module IBMClass
 #endif
       this% maxCOORDS = -huge(1.0_RP); this% minCOORDS = huge(1.0_RP)
       axis = this% ClipAxis
-      if( axis .eq. 0 ) return
       do eID = 1, size(elements)
          !ElemMax = maxval(elements(eID)% SurfInfo% corners(axis,:)); ElemMin = minval(elements(eID)% SurfInfo% corners(axis,:))
          do k = 0, elements(eID)% Nxyz(3)   ; do j = 0, elements(eID)% Nxyz(2) ; do i = 0, elements(eID)% Nxyz(1)
