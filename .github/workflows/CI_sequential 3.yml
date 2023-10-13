@@ -103,6 +103,8 @@ jobs:
           printenv >> $GITHUB_ENV
           ${{matrix.compiler}} --version
           echo "LIB_LAPACK=" -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_gf_ilp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl"" >> $GITHUB_ENV
+          cd ${MKLROOT}/lib/intel64/
+          ls
       # If it stops working previous line (linking with MKL for GNU) it is probably to an update in mkl. Update following https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html    
           
       - name: Configure
