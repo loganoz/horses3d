@@ -197,7 +197,7 @@ end module ProblemFileFunctions
 !        --------------------------------
 !
             IMPLICIT NONE  
-print*, "Hi"
+
          END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -231,7 +231,7 @@ print*, "Hi"
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
-print*, "Entering final setup"
+
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -283,7 +283,7 @@ print*, "Entering final setup"
 !           Navier-Stokes default initial condition
 !           ---------------------------------------
 !
-print*, "Entering IC"
+
 #if defined(MULTIPHASE)
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
