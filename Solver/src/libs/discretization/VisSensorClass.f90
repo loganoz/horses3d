@@ -5,8 +5,8 @@ module VisSensorClass
    use NodalStorageClass, only: NodalStorage, NodalStorage_t
    use ElementClass,      only: Element
    use Utilities,         only: toLower
-   use Clustering,        only: GMM_t
-    use StopwatchClass                  , only: Stopwatch
+   use Clustering,        only: GMM_t,standardize
+   use StopwatchClass                  , only: Stopwatch
    use RegionsDetectionKeywords
 
    implicit none
@@ -90,7 +90,7 @@ case (VIS_GMM_VAL)
       sensor % e_clust = 0
     end if  
      call Stopwatch % CreateNewEvent("Clustering")
-    call sensor % gmm % init(2, nclusters, logl_tol=1e-4_RP,zero_tol= 1e-10_RP)
+    call sensor % gmm % init(3, nclusters, logl_tol=1e-4_RP,zero_tol= 1e-11_RP)
 end select
 if (sensor % sens_type == VIS_GMM_ID) then
       sensor % sVar = VIS_INV_ID
@@ -232,16 +232,16 @@ cnt = 0
              ux, uy, uz                  &
           )
      sensor % x(1,cnt)= ux(1)*uy(2)+uy(2)*uz(3)+ux(1)*uz(3)-(0.5*(ux(2)+uy(1)))**2-(0.5*(uz(3)+uz(2)))**2-(0.5*(uz(1)+ux(3)))**2  ! 2nd invariant of strain rate tensor
-     sensor % x(2,cnt)= -0.25*(uy(1)-ux(2))**2-0.25*(uz(1)-ux(3))**2-0.25*(uz(2)-uy(3))**2 ! 2nd invariant of rotational rate tensor
+     sensor % x(2,cnt)= -0.25*uy(2)*(ux(3)+uz(1))**2+0.25*(ux(2)+uy(1))*(uy(3)+uz(2))*(uz(1)+ux(1))-0.25*ux(1)*(uz(2)+uy(3)) ! 3rd invariant of strain rate tensor
+     sensor % x(3,cnt)= -0.25*(uy(1)-ux(2))**2-0.25*(uz(1)-ux(3))**2-0.25*(uz(2)-uy(3))**2 ! 2nd invariant of rotational rate tensor
 
-     sensor % x(3,cnt)= -0.25*uy(2)*(ux(3)+uz(1))**2+0.25*(ux(2)+uy(1))*(uy(3)+uz(2))*(uz(1)+ux(1))-0.25*ux(1)*(uz(2)+uy(3)) ! 3rd invariant of strain rate tensor
-      
+           
        end do   ; end do   ; end do 
     end do     
     !
  !     Rescale the values
  !     ------------------
-    !call RescaleClusterVariables(2, sensor % x)
+    
     
     !     Compute the GMM clusters
     call Stopwatch % Start("Clustering")
@@ -289,51 +289,6 @@ end if
  
   end subroutine SensorViscous_GMM
   !///////////////////////////////////////////////////////////////////////////////
-!
-subroutine RescaleClusterVariables(ndims, x)
-    !
-    !     -------
-    !     Modules
-    !     -------
-          use Utilities, only: AlmostEqual
-    !
-    !     ---------
-    !     Interface
-    !     ---------
-          integer,  intent(in)    :: ndims
-          real(RP), intent(inout) :: x(:,:)
-    !
-    !     ---------------
-    !     Local variables
-    !     ---------------
-          integer  :: i
-          real(RP) :: minimum(ndims)
-          real(RP) :: maximum(ndims)
-    
-    
-          x = abs(x)
-          minimum = minval(x, dim=2)
-          maximum = maxval(x, dim=2)
-    
-!          if (MPI_Process % doMPIAction) then
- !   #ifdef _HAS_MPI_
-  !           call MPI_MinMax(minimum, maximum)
-   ! #endif
-    !      end if
-    
-          do i = 1, ndims
-             if (AlmostEqual(maximum(i), minimum(i))) then
-                if (maximum(i) > 0.0_RP) then
-                   x(i,:) = 1.0_RP
-                else
-                   x(i,:) = 0.0_RP
-                end if
-             else
-                x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i))
-             end if
-          end do
-    
-end subroutine RescaleClusterVariables
 end module VisSensorClass
     
 
