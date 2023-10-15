@@ -12,6 +12,6 @@ module RegionsDetectionKeywords
     character(len=*), parameter :: VIS_ITER_MIN           = "minimum number of iterations to activate the sensor" 
     
     integer, parameter :: VIS_GMM_ID          = 1
-    character(len=*), parameter :: VIS_INV_VAL        = "Q_s + Q_omega"
+    character(len=*), parameter :: VIS_INV_VAL        = "Q_s +R_s +Q_omega"
     integer, parameter :: VIS_INV_ID        = 1
 end module RegionsDetectionKeywords
