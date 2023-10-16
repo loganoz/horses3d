@@ -492,18 +492,14 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: |
-          '!cancelled()' ||
-          matrix.compiler == 'gfortran' 
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
       - name: Run ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa MSSA.control
-        if: |
-          '!cancelled()' ||
-          matrix.compiler == 'gfortran'
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
 #
 # 19) Flat-Plate test case for Spalart-Almaras
