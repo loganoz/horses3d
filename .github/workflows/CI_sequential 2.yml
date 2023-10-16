@@ -485,20 +485,25 @@ jobs:
 #
 # 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
+# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
 
       - name: Build ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
+        if: |
+          '!cancelled()' ||
+          matrix.compiler == 'gfortran' 
 
       - name: Run ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa MSSA.control
-        if: '!cancelled()'
+        if: |
+          '!cancelled()' ||
+          matrix.compiler == 'gfortran'
 
 #
 # 19) Flat-Plate test case for Spalart-Almaras
