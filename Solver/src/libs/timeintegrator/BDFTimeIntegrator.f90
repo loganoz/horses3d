@@ -184,7 +184,7 @@ contains
       ! Check that the BDF order is consistent
       if (bdf_order > 1) then
          if ( (.not. controlVariables % containsKey("dt") ) .or. Adaptive_dt) then
-            ERROR stop ':: "bdf order">1 is only valid with fixed time-step sizes'
+            error stop ':: "bdf order">1 is only valid with fixed time-step sizes'
          end if
       end if
       
@@ -326,7 +326,7 @@ contains
 !           ----------------------------
             else
                if (this % TimeAccurate) then
-                  ERROR stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
+                  error stop 'Newton loop did not converge. Consider using a smaller dt or "implicit adaptive dt = .TRUE."'
                else
                   if (MPI_Process % isRoot) write(STD_OUT,*) 'WARNING: Newton loop did not converge.'
                   exit

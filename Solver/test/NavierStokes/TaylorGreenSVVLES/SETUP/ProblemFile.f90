@@ -606,7 +606,7 @@ end module ProblemFileFunctions
                write(6,*) "   - The kinetic energy and the SVV dissipation are also exact (1e-7)"
             else
                write(6,*) testName, " ... Failed"
-               stop 99
+               error stop 99
             end if
             write(6,*)
 

@@ -171,7 +171,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_TE_VAL
          write(STD_OUT,*) '   * ', SC_ALIAS_VAL
          write(STD_OUT,*) '   * ', SC_GMM_VAL
-         stop
+         error stop
 
       end select
 !
@@ -185,14 +185,14 @@ module SCsensorClass
              sensor % low = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
           else
              write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
-             stop
+             error stop
           end if
 
           if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
              sensor % high = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
           else
              write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
-             stop
+             error stop
           end if
 !
 !         Sensor parameters
@@ -240,7 +240,7 @@ module SCsensorClass
             write(STD_OUT,*) '   * ', SC_RHO_GRAD_VAL
             write(STD_OUT,*) '   * ', SC_DIVV_VAL
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
       else
@@ -313,7 +313,7 @@ module SCsensorClass
          sensor % TEestim % TimeDerivative => ComputeTimeDerivative
       case default
          write(STD_OUT,*) "ERROR. The TE sensor can only use the (non-)isolated time derivatives."
-         stop
+         error stop
       end select
 
       sensor % TEestim % Nmin   = Nmin

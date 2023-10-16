@@ -43,7 +43,7 @@ Module ConverStats  !
          case default
            print*, "File expected to be a stats file"
            errorMessage(STD_OUT)
-           stop
+           error stop
         end select
 
          no_of_elements = getSolutionFileNoOfElements(fileName)

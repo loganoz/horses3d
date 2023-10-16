@@ -192,7 +192,7 @@ module RiemannSolvers_NS
             case default
                print*, "Riemann Solver not recognized."
                errorMessage(STD_OUT)
-               STOP
+               error stop
 
             end select
 
@@ -270,7 +270,7 @@ module RiemannSolvers_NS
             case default
                print*, "Averaging not recognized."
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             end select
 
@@ -369,7 +369,7 @@ module RiemannSolvers_NS
          integer      , intent (in)  :: side                      !<  Either LEFT or RIGHT
          !--------------------------------------------
 
-         ERROR stop 'Requested Riemann solver not implemented for implicit time-integration'
+         error stop 'Requested Riemann solver not implemented for implicit time-integration'
       end subroutine BaseClass_RiemannSolver_dFdQ
 
       subroutine CentralRiemannSolver(QLeft, QRight, nHat, t1, t2, flux)
@@ -1520,7 +1520,7 @@ module RiemannSolvers_NS
                end do
 
             case default
-               ERROR stop 'LxFRiemannSolver_dFdQ: side must be LEFT or RIGHT'
+               error stop 'LxFRiemannSolver_dFdQ: side must be LEFT or RIGHT'
          end select
 
 !

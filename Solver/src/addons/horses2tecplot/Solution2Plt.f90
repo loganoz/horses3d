@@ -793,9 +793,9 @@ module Solution2PltModule
          integer, intent(in)   :: i, j, k, Nout(3)
          integer               :: idx
          
-         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
-         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
-         IF (k < 0 .OR. k > Nout(3))     STOP 'error in ijk2local, k has wrong value'
+         IF (i < 0 .OR. i > Nout(1))     error stop 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     error stop 'error in ijk2local, j has wrong value'
+         IF (k < 0 .OR. k > Nout(3))     error stop 'error in ijk2local, k has wrong value'
          
          idx = k*(Nout(1)+1)*(Nout(2)+1) + j*(Nout(1)+1) + i
       end function ijk2localDOF
@@ -925,8 +925,8 @@ module Solution2PltModule
          integer, intent(in)   :: i, j, Nout(2)
          integer               :: idx
          
-         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
-         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         IF (i < 0 .OR. i > Nout(1))     error stop 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     error stop 'error in ijk2local, j has wrong value'
          
          idx = j*(Nout(1)+1) + i
       end function ij2localDOF

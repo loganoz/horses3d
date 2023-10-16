@@ -74,7 +74,7 @@
       
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
-      IF(.NOT. success)   ERROR STOP "Control file reading error"
+      IF(.NOT. success)   error stop "Control file reading error"
       
 !
 !     ----------------
@@ -82,7 +82,7 @@
 !     ----------------
 !      
       CALL ConstructPhysicsStorage( controlVariables, success )
-      IF(.NOT. success)   ERROR STOP "Physics parameters input error"
+      IF(.NOT. success)   error stop "Physics parameters input error"
       
       call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
       call InitializeNodalStorage (controlVariables,Nmax)
@@ -96,8 +96,8 @@
                                  Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
                                  success           = success)
                            
-      IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
+      IF(.NOT. success)   error stop "Mesh reading error"
+      IF(.NOT. success)   error stop "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, multiphase)
 !
 !     -------------------------
@@ -376,7 +376,7 @@
 
             if ( trim(arg) .eq. "--version" ) then
                print*, "Current HORSES version: ", trim(VERSION)
-               stop
+               error stop
             end if
          end do
             

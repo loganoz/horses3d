@@ -182,7 +182,7 @@ Module DGSEMClass
          Ny = polynomialOrder(2)
          Nz = polynomialOrder(3)
       ELSE
-         ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
+         error stop 'ConstructDGSEM: Polynomial order not specified'
       END IF
 
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
@@ -217,7 +217,7 @@ Module DGSEMClass
             dir2D = 0
          case default
             print*, "Unrecognized 2D mesh offset direction"
-            stop
+            error stop
             errorMessage(STD_OUT)
          end select
 

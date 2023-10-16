@@ -60,7 +60,7 @@ contains
       integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in) :: WithMPI
       !---------------------------------------------
-      ERROR stop ' :: construct not implemented for current matrix type'
+      error stop ' :: construct not implemented for current matrix type'
    end subroutine construct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ contains
       integer, optional, intent(in)  :: nnz
       integer, optional, intent(in)  :: nnzs(:)
       !---------------------------------------------
-      ERROR stop ' :: Preallocate not implemented for current matrix type'
+      error stop ' :: Preallocate not implemented for current matrix type'
    end subroutine Preallocate
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ contains
       class(Matrix_t),     intent(inout)  :: this
       logical, optional, intent(in)       :: ForceDiagonal
       !---------------------------------------------
-      ERROR stop ' :: Reset not implemented for current matrix type'
+      error stop ' :: Reset not implemented for current matrix type'
    end subroutine Reset
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,7 +97,7 @@ contains
       integer                    , intent(in)    :: icol
       real(kind=RP), dimension(:), intent(in)    :: values
       !---------------------------------------------
-      ERROR stop ' :: SetColumn not implemented for current matrix type'
+      error stop ' :: SetColumn not implemented for current matrix type'
    end subroutine SetColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,7 +111,7 @@ contains
       integer, intent(in)                               :: icol
       real(kind=RP) , dimension(:), intent(in)                 :: values
       !---------------------------------------------
-      ERROR stop ' :: AddToColumn not implemented for current matrix type'
+      error stop ' :: AddToColumn not implemented for current matrix type'
    end subroutine AddToColumn
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -123,7 +123,7 @@ contains
       integer                      , intent(in)    :: BlockNum
       real(kind=RP), dimension(:,:), intent(in)    :: values
       !---------------------------------------------
-      ERROR stop ' :: SetDiagonalBlock not implemented for current matrix type'
+      error stop ' :: SetDiagonalBlock not implemented for current matrix type'
    end subroutine SetDiagonalBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,7 +136,7 @@ contains
       integer        , intent(in)    :: col
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: SetEntry not implemented for current matrix type'
+      error stop ' :: SetEntry not implemented for current matrix type'
    end subroutine SetEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ contains
       integer        , intent(in)    :: col
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: AddToEntry not implemented for current matrix type'
+      error stop ' :: AddToEntry not implemented for current matrix type'
    end subroutine AddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +162,7 @@ contains
       integer        , intent(in)    :: col
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: AddToEntry not implemented for current matrix type'
+      error stop ' :: AddToEntry not implemented for current matrix type'
    end subroutine ForceAddToEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -178,7 +178,7 @@ contains
       integer        , intent(in)    :: i, j
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: SetBlockEntry not implemented for current matrix type'
+      error stop ' :: SetBlockEntry not implemented for current matrix type'
    end subroutine SetBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,7 +194,7 @@ contains
       integer        , intent(in)    :: i, j
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
+      error stop ' :: AddToBlockEntry not implemented for current matrix type'
    end subroutine AddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +210,7 @@ contains
       integer        , intent(in)    :: i, j
       real(kind=RP)  , intent(in)    :: value
       !---------------------------------------------
-      ERROR stop ' :: AddToBlockEntry not implemented for current matrix type'
+      error stop ' :: AddToBlockEntry not implemented for current matrix type'
    end subroutine ForceAddToBlockEntry
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -224,7 +224,7 @@ contains
       class(Matrix_t), intent(inout) :: this
       integer        , intent(in)    :: iBlock, jBlock
       !---------------------------------------------
-      ERROR stop ' :: ResetBlock not implemented for current matrix type'
+      error stop ' :: ResetBlock not implemented for current matrix type'
    end subroutine ResetBlock
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -235,7 +235,7 @@ contains
       class(Matrix_t), intent(inout)     :: this
       real(kind=RP),                     intent(in)        :: shiftval
       !---------------------------------------------
-      ERROR stop ' :: Shift not implemented for current matrix type'
+      error stop ' :: Shift not implemented for current matrix type'
    end subroutine Shift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -250,7 +250,7 @@ contains
       class(Matrix_t), intent(inout)     :: this
       real(kind=RP),               intent(in)        :: shiftval
       !---------------------------------------------
-      ERROR stop ' :: ReShift not implemented for current matrix type'
+      error stop ' :: ReShift not implemented for current matrix type'
    end subroutine ReShift
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -260,7 +260,7 @@ contains
       !---------------------------------------------
       class(Matrix_t),     intent(inout)   :: this
       !---------------------------------------------
-      ERROR stop ' :: PreAssembly not implemented for current matrix type'
+      error stop ' :: PreAssembly not implemented for current matrix type'
    end subroutine PreAssembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -270,7 +270,7 @@ contains
       !---------------------------------------------
       class(Matrix_t), intent(inout) :: this
       !---------------------------------------------
-      ERROR stop ' :: Assembly not implemented for current matrix type'
+      error stop ' :: Assembly not implemented for current matrix type'
    end subroutine Assembly
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -282,7 +282,7 @@ contains
       integer        , intent(in)    :: BlockIdx(:)
       integer        , intent(in)    :: BlockSize(:)
       !---------------------------------------------
-      ERROR stop ' :: SpecifyBlockInfo not implemented for current matrix type'
+      error stop ' :: SpecifyBlockInfo not implemented for current matrix type'
    end subroutine SpecifyBlockInfo
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -292,7 +292,7 @@ contains
       !---------------------------------------------
       class(Matrix_t),     intent(inout)     :: this
       !---------------------------------------------
-      ERROR stop ' :: destruct not implemented for current matrix type'
+      error stop ' :: destruct not implemented for current matrix type'
    end subroutine destruct
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -309,7 +309,7 @@ contains
       integer           , intent(in)    :: BlockIdx(num_of_Blocks+1)
       integer           , intent(in)    :: BlockSizes(num_of_Blocks)
       !---------------------------------------------
-      ERROR stop ' :: ConstructFromDiagBlocks not implemented for current matrix type'
+      error stop ' :: ConstructFromDiagBlocks not implemented for current matrix type'
    end subroutine ConstructFromDiagBlocks
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -325,7 +325,7 @@ contains
       real(kind=RP)    , intent(in) :: Values(:)  ! Values of nonzero entries of matrix
       integer, optional, intent(in) :: num_of_Cols
       !---------------------------------------------
-      ERROR stop ' :: constructWithCSRArrays not implemented for current matrix type'
+      error stop ' :: constructWithCSRArrays not implemented for current matrix type'
    end subroutine constructWithCSRArrays
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,7 +342,7 @@ contains
       class(Matrix_t)   , intent(inout)   :: Cmat    !< Structure holding matrix
       logical, optional , intent(in)      :: trans   !< A matrix is transposed?
       !------------------------------------------------------------------------------
-      ERROR stop ' :: MatMatMul not implemented for current matrix type'
+      error stop ' :: MatMatMul not implemented for current matrix type'
    end subroutine MatMatMul
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -359,7 +359,7 @@ contains
       logical, optional, intent(in)    :: trans   !< A matrix is transposed?
       real(kind=RP)                    :: v(A % num_of_Rows)  !> Result vector 
       !------------------------------------------------------------------------------
-      ERROR stop ' :: MatVecMul not implemented for current matrix type'
+      error stop ' :: MatVecMul not implemented for current matrix type'
    end function MatVecMul
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -376,7 +376,7 @@ contains
       class(Matrix_t), intent(inout)   :: Cmat    !< Structure holding matrix
       real(kind=RP)  , intent(in)      :: Factor  !< Factor for addition
       !------------------------------------------------------------------------------
-      ERROR stop ' :: MatAdd not implemented for current matrix type'
+      error stop ' :: MatAdd not implemented for current matrix type'
    end subroutine MatAdd
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -392,7 +392,7 @@ contains
       !-------------------------------------------------------------
       integer :: k      ! Counter
       !-------------------------------------------------------------
-      ERROR stop ' :: FactorizeBlocks_LU not implemented for current matrix type'
+      error stop ' :: FactorizeBlocks_LU not implemented for current matrix type'
    end subroutine FactorizeBlocks_LU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -407,7 +407,7 @@ contains
       real(kind=RP)  , intent(in)    :: b(this % num_of_Rows)    !<  RHS
       real(kind=RP)  , intent(inout) :: x(this % num_of_Rows)    !<  Solution
       !-------------------------------------------------------------
-      ERROR stop ' :: SolveBlocks_LU not implemented for current matrix type'
+      error stop ' :: SolveBlocks_LU not implemented for current matrix type'
    end subroutine SolveBlocks_LU
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -423,7 +423,7 @@ contains
       logical, optional , intent(in) :: FirstRow   !< Write First row?
 !-----Local-Variables-----------------------------------------------------
 !  -----------------------------------------------------------------------
-      ERROR stop ' :: Visualize not implemented for current matrix type'
+      error stop ' :: Visualize not implemented for current matrix type'
    end subroutine Visualize
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

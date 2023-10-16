@@ -52,7 +52,7 @@ module getTaskModule
 !        ----------------------------------------
          if ( no_of_arguments .eq. 0 ) then
             write(STD_OUT,'(A)') "No statistics file(s) specified"
-            stop
+            error stop
          end if
 !
 !        Check if the solution file is present
@@ -95,7 +95,7 @@ module getTaskModule
             end do
          else
             write(STD_OUT,'(A)') "No statistics file(s) specified"
-            stop
+            error stop
          end if
 !
 !        Get the initial iteration

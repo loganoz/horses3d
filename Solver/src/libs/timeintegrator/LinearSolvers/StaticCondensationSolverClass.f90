@@ -113,8 +113,8 @@ contains
 !     Check needed arguments
 !     **********************
 !
-      if (.not. present(controlVariables)) ERROR stop 'StaticCondSolver_t needs controlVariables'
-      if (.not. present(sem)) ERROR stop 'StaticCondSolver_t needs DGSem'
+      if (.not. present(controlVariables)) error stop 'StaticCondSolver_t needs controlVariables'
+      if (.not. present(sem)) error stop 'StaticCondSolver_t needs DGSem'
       
       ! TODO: Add conformity check?
 !
@@ -122,7 +122,7 @@ contains
 !     -------------------
       
       if (sem % mesh % nodeType /= GAUSSLOBATTO) then
-         ERROR stop 'Static Condensation only valid for Gauss-Lobatto discretizations'
+         error stop 'Static Condensation only valid for Gauss-Lobatto discretizations'
       end if
       
       this % DimPrb = DimPrb
@@ -156,7 +156,7 @@ contains
             write(*,'(A)') '  * pardiso'
             write(*,'(A)') '  * petsc'
             write(*,'(A)') '  * gmres (matrix-free)'
-            stop
+            error stop
       end select
 !
 !     ***************************
@@ -353,7 +353,7 @@ contains
          case ('l2')
             xnorm = norm2(this % x)
          case default
-            stop 'StaticCondensationSolverClass ERROR: Norm not implemented yet'
+            error stop 'StaticCondensationSolverClass ERROR: Norm not implemented yet'
       end select 
    end function SCS_GetXnorm
 !

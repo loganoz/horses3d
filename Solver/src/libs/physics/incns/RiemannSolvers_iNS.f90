@@ -134,7 +134,7 @@ module RiemannSolvers_iNS
             case default
                print*, "Riemann Solver not recognized."
                errorMessage(STD_OUT)
-               STOP
+               error stop
             end select
 
          else
@@ -191,7 +191,7 @@ module RiemannSolvers_iNS
             case default
                print*, "Averaging not recognized."
                errorMessage(STD_OUT)
-               stop
+               error stop
             end select
 
          else
@@ -350,7 +350,7 @@ module RiemannSolvers_iNS
 !         flux(2:4) = nHat*flux(2) + t1*flux(3) + t2*flux(4)
 
 print*, "LxF Riemann solver not implemented"
-stop
+error stop
 
       end subroutine LxFRiemannSolver
 
@@ -476,7 +476,7 @@ stop
 !         flux = 0.5_RP * (fL + fR)
 
          print*, "Standard average not implemented"
-         stop
+         error stop
 
       end subroutine StandardAverage
 
@@ -509,7 +509,7 @@ stop
 !         flux(INSP)    = thermodynamics % rho0c02 * u
 !
          print*, "SkewSymmetric 1 average not implemented"
-         stop
+         error stop
       end subroutine SkewSymmetric1Average
 
       subroutine SkewSymmetric2Average(QLeft, QRight, f, g, h)

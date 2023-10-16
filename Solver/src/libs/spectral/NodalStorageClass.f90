@@ -100,7 +100,7 @@ MODULE NodalStorageClass
             print*, "   * Gauss"
             print*, "   * Gauss-Lobatto"
             errorMessage(STD_OUT)
-            stop
+            error stop
       end select
 
    end subroutine InitializeNodalStorage_controlVars
@@ -133,7 +133,7 @@ MODULE NodalStorageClass
             print*, "   * Gauss"
             print*, "   * Gauss-Lobatto"
             errorMessage(STD_OUT)
-            stop
+            error stop
       end select
 
    end subroutine InitializeNodalStorage_nodeType
@@ -225,7 +225,7 @@ MODULE NodalStorageClass
          case default
             print*, "Undefined nodes choice"
             errorMessage(STD_OUT)
-            stop
+            error stop
       end select
 !
 !     -----------------

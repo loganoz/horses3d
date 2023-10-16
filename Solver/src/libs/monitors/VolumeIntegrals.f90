@@ -669,7 +669,7 @@ module VolumeIntegrals
             case default
 
                write(STD_OUT,'(A,A)') 'VectorVolumeIntegral :: ERROR: Not defined integral type'
-               stop 99
+               error stop 99
 
          end select
 

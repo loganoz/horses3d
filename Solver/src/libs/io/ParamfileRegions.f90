@@ -55,7 +55,7 @@ module ParamfileRegions
 
             elseif (io .gt. 0) then
                print*, "IOSTAT returned a positive number"
-               stop "Stopped."
+               error stop "Stopped."
          
             else
                

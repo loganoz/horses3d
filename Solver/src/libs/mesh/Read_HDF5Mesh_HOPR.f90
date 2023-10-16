@@ -75,7 +75,7 @@ contains
 !     ---------------------------
       CALL GetHDF5Attribute(File_ID,'nElems',1,IntegerScalar=nelem)
 #else
-      STOP ':: HDF5 is not linked correctly'
+      error stop ':: HDF5 is not linked correctly'
 #endif
       
    end function NumOfElems_HDF5
@@ -449,7 +449,7 @@ contains
       call self % ExportBoundaryMesh (trim(fileName))
 
 #else
-      STOP ':: HDF5 is not linked correctly'
+      error stop ':: HDF5 is not linked correctly'
 #endif
    end subroutine ConstructMesh_FromHDF5File_
 !
@@ -860,7 +860,7 @@ contains
       call self % PrepareForIO
 
 #else
-      STOP ':: HDF5 is not linked correctly'
+      error stop ':: HDF5 is not linked correctly'
 #endif
       
    end subroutine ConstructMeshPartition_FromHDF5File_

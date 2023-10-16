@@ -91,6 +91,6 @@ program main
 
    call Finalize_InterpolationMatrices
    
-   IF(numberOfFailures > 0)   STOP 99
+   IF(numberOfFailures > 0)   error stop 99
 
 end program main

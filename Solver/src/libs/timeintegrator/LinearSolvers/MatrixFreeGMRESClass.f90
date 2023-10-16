@@ -160,7 +160,7 @@ contains
 !              GMRES preconditioner
 !              --------------------
                case('GMRES')
-                  if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem for "GMRES" preconditioner'
+                  if (.not. associated(this % p_sem) ) error stop 'MatFreeGMRES needs sem for "GMRES" preconditioner'
                
                   ! Allocate extra storage
                   allocate(this%Z(this%DimPrb,this%m+1))
@@ -176,7 +176,7 @@ contains
 !              Block-Jacobi preconditioner
 !              ---------------------------
                case('Block-Jacobi')
-                  if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem for "BlockJacobi" preconditioner'
+                  if (.not. associated(this % p_sem) ) error stop 'MatFreeGMRES needs sem for "BlockJacobi" preconditioner'
                   
                   allocate(this%Z(this%DimPrb,this%m+1))
                   
@@ -340,7 +340,7 @@ contains
          CASE ('l2')
             xnorm = L2Norm(this % x)
          CASE DEFAULT
-            STOP 'MatFreeSmoothClass ERROR: Norm not implemented yet'
+            error stop 'MatFreeSmoothClass ERROR: Norm not implemented yet'
       END SELECT
    END FUNCTION Getxnorm
 !
@@ -613,16 +613,16 @@ contains
          if ( present(time) ) then
             this % timesolve = time
          else
-            ERROR stop ':: MatFreeGMRES needs the solution time'
+            error stop ':: MatFreeGMRES needs the solution time'
          end if
          if ( present(dt) ) then
             this % dtsolve = dt
          else
-            ERROR stop ':: MatFreeGMRES needs the dt'
+            error stop ':: MatFreeGMRES needs the dt'
          end if
          
          if (.not. this % UserDef_Ax) then
-            if (.not. associated(this % p_sem) ) ERROR stop 'MatFreeGMRES needs sem or MatrixAction'
+            if (.not. associated(this % p_sem) ) error stop 'MatFreeGMRES needs sem or MatrixAction'
             call this % p_sem % mesh % storage % local2GlobalQ(this % p_sem % NDOF)
             this % Ur   = this % p_sem % mesh % storage % Q
             this % F_Ur = this % p_F (this % Ur, ComputeTimeDerivative)    ! need to compute the time derivative?
@@ -671,7 +671,7 @@ contains
             if (this%ERROR_CODE .NE. 0) then
                PRINT*, 'ERROR IN GMRES, ERROR CODE: ', this%ERROR_CODE
                call this%destroy()
-               STOP
+               error stop
             end if
             if(this%CONVERGED .OR. (this%niter .GE. this%maxiter)) then
                call this % MatrixAction(this % x, this % x0, ComputeTimeDerivative) ! using x0 as a temporary storing variable

@@ -116,20 +116,20 @@
                if (controlVariables % containsKey("dcfl")) then
                   self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
                else
-                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+                  error stop '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
             end if
 #endif
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)
-            stop
+            error stop
 #endif
          ELSEIF (controlVariables % containsKey("dt")) THEN
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
          ELSE
-            ERROR STOP '"cfl" or "dt" keyword must be specified for the time integrator'
+            error stop '"cfl" or "dt" keyword must be specified for the time integrator'
          END IF
 !
 !        ----------------------
@@ -177,7 +177,7 @@
 
             case default
                print*, "Explicit time integration method not implemented"
-               stop
+               error stop
 
             end select
          else
@@ -213,7 +213,7 @@
                   self % tFinal         = controlVariables % doublePrecisionValueForKey("final time")
                ELSE
                   self % tFinal         = huge(self % tFinal)
-!~                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
+!~                  error stop '"final time" keyword must be specified for time-accurate integrators'
                ENDIF
                self % integratorType = TIME_ACCURATE
             CASE DEFAULT ! Using 'steady-state' even if not specified in input file
