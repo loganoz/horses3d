@@ -25,7 +25,7 @@ module IBMClass
 
    type IBM_type
 
-      type(STLfile),              allocatable :: stl(:)
+      type(STLfile),              allocatable :: stl(:), stlSurfaceIntegrals(:), stlMove(:)
       type(KDtree),               allocatable :: root(:), rootDistance(:), rootPoints(:)
       type(PointLinkedList)                   :: BandPoints
       type(IBMpoints),            allocatable :: BandRegion(:), BandRegion4Distance(:)
@@ -84,7 +84,6 @@ module IBMClass
          procedure :: GetImagePoint_nearest               => IBM_GetImagePoint_nearest
          procedure :: GetBandRegionStates                 => IBM_GetBandRegionStates
          procedure :: GetDomainExtreme                    => IBM_GetDomainExtreme
-         procedure :: ImagePointsElement                  => IBM_ImagePointsElement
          procedure :: SourceTermTurbulence                => IBM_SourceTermTurbulence
          procedure :: semiImplicitShiftJacobian           => IBM_semiImplicitShiftJacobian
          procedure :: semiImplicitTurbulenceShiftJacobian => IBM_semiImplicitTurbulenceShiftJacobian
@@ -103,12 +102,13 @@ module IBMClass
          procedure :: DestroyKDtree                       => IBM_DestroyKDtree
          procedure :: constructDistance_KDtree            => IBM_constructDistance_KDtree
          procedure :: MPI_PointsListOperations            => IBM_MPI_PointsListOperations
+         procedure :: MaskVelocity                        => IBM_MaskVelocity
    end type
 
    public :: expCoeff, EXPONENTIAL
 
    real(kind=RP)      :: expCoeff
-   integer, parameter :: EXPONENTIAL = 1, IDW = 2
+   integer, parameter :: EXPONENTIAL = 1, IDW = 2, POLYHARMONIC_SPLINE = 3, POLYNOMIAL = 4, MLS = 5
 
    contains
 !
@@ -325,6 +325,12 @@ module IBMClass
             this% InterpolationType =  EXPONENTIAL
          case("idw")
             this% InterpolationType =  IDW
+         case("spline")
+            this% InterpolationType =  POLYHARMONIC_SPLINE
+         case("polynomial")
+            this% InterpolationType =  POLYNOMIAL
+         case("mls")
+            this% InterpolationType =  MLS
          case default 
             this% InterpolationType =  IDW
       end select 
@@ -377,7 +383,12 @@ module IBMClass
          if( MPI_Process% isRoot ) then
             this% stl(STLNum)% show = .true. 
             call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) ) 
-            if( this% ClipAxis .ne. 0 ) call this% stl(STLNum)% Clip( this% minCOORDS, this% maxCOORDS, this% ClipAxis ) 
+            if( this% ClipAxis .ne. 0 ) then 
+               call this% stl(STLNum)% Clip( this% minCOORDS, this% maxCOORDS, this% ClipAxis, .true. ) 
+            else
+               call this% stl(STLNum)% describe(this% STLfilename(STLNum))
+            end if
+            if( this% stl(STLNum)% move ) call this% stlMove(STLNum)% copy( this% stl(STLNum) )
             call OBB(STLNum)% construct( this% stl(STLNum), this% plotOBB, this% AAB )
             call OBB(STLNum)% ChangeObjsRefFrame( this% stl(STLNum)% ObjectsList, LOCAL )  
          end if
@@ -646,8 +657,8 @@ module IBMClass
 #endif
       this% maxCOORDS = -huge(1.0_RP); this% minCOORDS = huge(1.0_RP)
       axis = this% ClipAxis
+      if( axis .eq. 0 ) return
       do eID = 1, size(elements)
-         !ElemMax = maxval(elements(eID)% SurfInfo% corners(axis,:)); ElemMin = minval(elements(eID)% SurfInfo% corners(axis,:))
          do k = 0, elements(eID)% Nxyz(3)   ; do j = 0, elements(eID)% Nxyz(2) ; do i = 0, elements(eID)% Nxyz(1)
             this% maxCOORDS = max(this% maxCOORDS,elements(eID)% geom% x(axis,i,j,k)); this% minCOORDS = min(this% minCOORDS,elements(eID)% geom% x(axis,i,j,k))
          end do; end do; end do
@@ -673,14 +684,6 @@ module IBMClass
       integer :: i, j 
 
       if( this% Integral(STLNum)% compute ) return
-
-      do i = 1, this% root(STLNum)% NumOfObjs
-         do j = 1, 3
-            allocate( this% root(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints(this% NumOfInterPoints),                 &
-                      this% root(STLNum)% ObjectsList(i)% vertices(j)% invPhi(this% NumOfInterPoints,this% NumOfInterPoints), &
-                      this% root(STLNum)% ObjectsList(i)% vertices(j)% b(this% NumOfInterPoints)                              )
-         end do 
-      end do 
 
       allocate(this% BandRegion(STLNum)% U_x(NCONS,this% BandRegion(STLNum)% NumOfObjs))
       allocate(this% BandRegion(STLNum)% U_y(NCONS,this% BandRegion(STLNum)% NumOfObjs))
@@ -774,9 +777,6 @@ module IBMClass
 
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Minimum number of objects: ", this% KDtree_Min_n_of_Objs
       write(STD_OUT,'(30X,A,A35,I10)') "->" , "Number of interpolation points: ", this% NumOfInterPoints
-      !if( this% Wallfunction ) then
-      !   write(STD_OUT,'(30X,A,A35,F10.3)') "->" , "Target y+: ", this% y_plus_target
-      !end if
 
    end subroutine IBM_Describe
 !
@@ -792,25 +792,20 @@ module IBMClass
       integer :: STLNum, i, j 
 
       do STLNum = 1, this% NumOfSTL
-         do i = 1, this% root(STLNum)% NumOfObjs
-            do j = 1, 3 
-               if( allocated(this% root(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints) ) then
-                   deallocate(this% root(STLNum)% ObjectsList(i)% vertices(j)% nearestPoints)
-                   deallocate(this% root(STLNum)% ObjectsList(i)% vertices(j)% invPhi)
-                   deallocate(this% root(STLNum)% ObjectsList(i)% vertices(j)% b)  
-               end if
-            end do 
-         end do 
          call this% root(STLNum)% destruct( isChild )
          if( this% ComputeDistance ) call this% rootDistance(STLNum)% destruct( isChild ) 
          if( this% ComputeBandRegion ) then
-            deallocate(this% BandRegion(STLNum)% x)
             call this% rootPoints(STLNum)% Destruct( .false. )
-            deallocate(this% BandRegion(STLNum)% Q)
-            if( allocated(this% BandRegion(STLNum)% U_x) ) deallocate(this% BandRegion(STLNum)% U_x)
-            if( allocated(this% BandRegion(STLNum)% U_y) ) deallocate(this% BandRegion(STLNum)% U_y)
-            if( allocated(this% BandRegion(STLNum)% U_z) ) deallocate(this% BandRegion(STLNum)% U_Z)
+            deallocate( this% BandRegion(STLNum)% x, &
+                        this% BandRegion(STLNum)% Q  )
+            if( this% Integral(STLNum)% compute ) then
+               deallocate( this% BandRegion(STLNum)% U_x, &
+                           this% BandRegion(STLNum)% U_y, &
+                           this% BandRegion(STLNum)% U_z  )
+            end if
          end if
+         if( this% Integral(STLNum)% compute ) call this% stlSurfaceIntegrals(STLNum)% destroy()
+         if( this% stl(STLNum)% move ) call this% stlMove(STLNum)% destroy()
       end do
 
       if( this% Wallfunction ) then 
@@ -818,10 +813,19 @@ module IBMClass
             deallocate( this% ImagePoints(i)% invPhi, &
                         this% ImagePoints(i)% b       )
          end do
-         deallocate(this% ImagePoints) 
+         deallocate( this% ImagePoints ) 
       end if 
 
-      deallocate(this% penalization, this% Integral)
+      deallocate( this% penalization,        &
+                  this% stl,                 &
+                  this% stlSurfaceIntegrals, &
+                  this% stlMove,             &
+                  this% Integral,            &
+                  this% STLfilename          )
+
+      if( this% ComputeBandRegion ) then 
+         deallocate( this% BandRegion )
+      end if
 
    end subroutine IBM_Destruct
 !
@@ -966,7 +970,6 @@ module IBMClass
 #else
       this% BandRegion4Distance(STLNum)% NumOfObjs  = this% BandPoints% NumOfPoints
 #endif
-
       allocate(this% BandRegion4Distance(STLNum)% x(this% BandRegion4Distance(STLNum)% NumOfObjs))
 
       p => this% BandPoints% head
@@ -1134,6 +1137,8 @@ module IBMClass
       if( MPI_Process% isRoot ) then
          call sendSTL2Partitions( this% stl(STLNum), STLNum, vertices, this% root(STLNum)% MaxAxis )
       end if
+
+      this% stl(STLNum)% construct = .true.
   
    end subroutine IBM_MPI_sendSTLpartitions
 
@@ -1263,10 +1268,10 @@ module IBMClass
                call this% stl(STLNum)% ReadTessellation( this% STLfilename(STLNum) )
                if( this% stl(STLNum)% motionType .eq. ROTATION ) then
                   call this% stl(STLNum)% getRotationaMatrix( t )
-                  call OBB(STLNum)% STL_rotate(this% stl(STLNum))
+                  call OBB(STLNum)% STL_rotate( this% stl(STLNum), .false. )
                elseif( this% stl(STLNum)% motionType .eq. LINEAR ) then
                   call this% stl(STLNum)% getDisplacement( t )
-                  call OBB(STLNum)% STL_translate(this% stl(STLNum))
+                  call OBB(STLNum)% STL_translate( this% stl(STLNum), .false. )
                end if
                call this% stl(STLNum)% updateNormals()
                this% stl(STLNum)% show = .false.
@@ -1340,10 +1345,7 @@ module IBMClass
          dz = maxval(elements(eID)% SurfInfo% corners(3,:)) - minval(elements(eID)% SurfInfo% corners(3,:))
          d  = min(d,min(abs(dx),abs(dy),abs(dz)))   
       end do    
-      d_min = sqrt(3.0_RP)*d
-
-     write(*,*) 'd_min =', d_min
- 
+      d_min = sqrt(3.0_RP)*d 
 #ifdef _HAS_MPI_
       call mpi_allreduce(d_min, this% IP_Distance, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, ierr)
       Dist = this% IP_Distance
@@ -1353,9 +1355,6 @@ module IBMClass
       Dist = this% IP_Distance
       this% IP_Distance = 1.5_RP*this% IP_Distance
 #endif        
-
-    write(*,*) 'ip dist=', Dist
-
       do eID = 1, size(elements) 
          do k = 0, elements(eID)% Nxyz(3); do j = 0, elements(eID)% Nxyz(2); do i = 0, elements(eID)% Nxyz(1)   
             if( elements(eID)% geom% dWall(i,j,k) .gt. Dist ) cycle
@@ -1392,34 +1391,7 @@ module IBMClass
       call Plot_Forcing_Imagepoints( this, elements )
 
    end subroutine IBM_GetForcingPointsGeom
-   
-   subroutine IBM_ImagePointsElement( this)!, mesh )
-      implicit none
-      !-arguments-----------------
-      class(IBM_type), intent(inout) :: this 
-      !type(HexMesh),   intent(inout) :: mesh 
-      !-local-variables-----------------------
-      integer :: i
-
-      !do i = 1, this% NumOfForcingPoints
-         !do eID = 1, size(elements) 
-         !   success = elements(eID) % FindPointInLinElement(x, nodes)
-         !   if ( success ) exit
-         !end do
-
-         !if (eID <= self % no_of_elements) then
-         !   success = self % FindPointWithCoordsInNeighbors(x, xi, eID, 2)
-         !  if ( success ) then
-         !      HexMesh_FindPointWithCoords = .true.
-         !      return
-         !   end if
-         !end if
-         !call mesh% FindPointWithCoords(this% ImagePoints(i)% coords, this% ImagePoints(i)% element_in, this% ImagePoints(i)% xi)
-      !end do 
-
-   end subroutine IBM_ImagePointsElement
-   
-   
+      
    subroutine Plot_Forcing_Imagepoints( IBM, elements )
       use MPI_Process_Info
       implicit none
@@ -1566,9 +1538,9 @@ module IBMClass
 
       do STLNum = 1, this% NumOfSTL
          if( .not. present(movingSTL) )then
-            call this%GetDistanceOutsideBox( STLNum )
+            call this% GetDistanceOutsideBox( STLNum )
          else
-            if( STLNum .eq. movingSTL) call this%GetDistanceOutsideBox( STLNum )
+            if( STLNum .eq. movingSTL) call this% GetDistanceOutsideBox( STLNum )
          end if
       end do
 
@@ -1578,6 +1550,7 @@ module IBMClass
          else
             if( STLNum .eq. movingSTL) call SetDistances( this% BandRegion4Distance(STLNum), elements )
          endif
+         deallocate( this% BandRegion4Distance(STLNum)% x)
       end do
 
       deallocate(this% BandRegion4Distance)
@@ -1716,9 +1689,6 @@ module IBMClass
       end do
 !$omp end do
 !$omp end parallel
-  
-      deallocate( BandRegion4Distance% x)
-
    end subroutine SetDistances
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -1782,6 +1752,64 @@ module IBMClass
          Source = -1.0_RP/this% penalization(eID) * Source
       end if 
    end subroutine IBM_SourceTerm
+
+   function IBM_MaskVelocity( this, Q, nEqn, STLNum, x, t ) result( Q_target )
+      use PhysicsStorage
+      use FluidData
+      use TessellationTypes
+      use OrientedBoundingBox
+      implicit none
+
+      class(IBM_type), intent(inout) :: this 
+      integer,         intent(in)    :: nEqn, STLNum
+      real(kind=RP),   intent(in)    :: Q(nEqn), x(NDIM), t
+      real(kind=RP)                  :: Q_target(nEqn)
+
+      real(kind=RP) :: R, v_plane, time, theta, &
+                       rho, u_s, v_s, w_s
+      
+      Q_target = Q
+
+      u_s = 0.0_RP; v_s = 0.0_RP; w_s = 0.0_RP
+#if defined(NAVIERSTOKES)
+      if( this% stl(STLNum)% motionType .eq. LINEAR ) then
+         select case( this% stl(STLNum)% motionAxis )
+         case( IX )
+            u_s = this% stl(STLNum)% Velocity/refValues% V
+         case( IY )
+            v_s = this% stl(STLNum)% Velocity/refValues% V
+         case( IZ ) 
+            w_s = this% stl(STLNum)% Velocity/refValues% V
+         end select 
+      elseif( this% stl(STLNum)% motionType .eq. ROTATION ) then
+         R = norm2( x - this% stl(STLNum)% rotationCenter ) 
+
+         v_plane = this% stl(STLNum)% angularVelocity * R * Lref
+         v_plane = v_plane/refValues% V
+
+         time    = t * Lref/refValues% V
+         theta   = this% stl(STLNum)% angularVelocity * time
+
+         select case( this% stl(STLNum)% motionAxis )
+         case( IX ) 
+            v_s = -sin(theta) * v_plane 
+            w_s =  cos(theta) * v_plane 
+         case( IY )
+            u_s =  cos(theta) * v_plane  
+            w_s = -sin(theta) * v_plane 
+         case( IZ )
+            u_s = -sin(theta) * v_plane
+            v_s =  cos(theta) * v_plane 
+         end select
+      end if 
+
+      rho = Q_target(IRHO)
+
+      Q_target(IRHOU) = rho * u_s      
+      Q_target(IRHOV) = rho * v_s      
+      Q_target(IRHOW) = rho * w_s      
+#endif
+   end function IBM_MaskVelocity
 !
 !  Analytical jacobian: dS/dQ 
 !  ---------------------------    
@@ -1803,11 +1831,13 @@ module IBMClass
       v   = Q(IRHOV)/rho 
       w   = Q(IRHOW)/rho 
 
-      dS_dQ(IRHOU,IRHOU)      = 1.0_RP
-      dS_dQ(IRHOV,IRHOV)      = 1.0_RP
-      dS_dQ(IRHOW,IRHOW)      = 1.0_RP
-      dS_dQ(IRHOE,IRHO:IRHOE) = (/ -0.5_RP*( POW2(u) + POW2(v) + POW2(w) ), &
-                                                           u, v, w, 0.0_RP /)
+      dS_dQ(IRHOU,IRHOU) = 1.0_RP
+      dS_dQ(IRHOV,IRHOV) = 1.0_RP
+      dS_dQ(IRHOW,IRHOW) = 1.0_RP
+      dS_dQ(IRHOE,IRHO)  = -0.5_RP*( POW2(u) + POW2(v) + POW2(w) )
+      dS_dQ(IRHOE,IRHOU) = u 
+      dS_dQ(IRHOE,IRHOV) = v 
+      dS_dQ(IRHOE,IRHOW) = w
 #if defined(SPALARTALMARAS)
        dS_dQ(IRHOTHETA,IRHOTHETA) = 1.0_RP
 #endif
@@ -1828,13 +1858,14 @@ module IBMClass
       !-local-variables-----------------------------------------------------------
       real(kind=rp) :: Q_IP(NCONS), Q_FP(NCONS), Qnext(NCONS), &
                        Q_IPnext(NCONS), Q_FPnext(NCONS),       &
-                       dS_dQt(NCONS,NCONS), iP(NDIM), eps 
+                       dS_dQns(NCONS,NCONS), iP(NDIM), eps 
       integer       :: i
 
       do i = 1, NCONS 
          Q_IP(i) = GetInterpolatedValue( this% BandRegion(STLNum)% Q(i,ImagePoint% nearestPoints), &
-                                               ImagePoint% invPhi,                                 &
-                                               ImagePoint% b                                       ) 
+                                         ImagePoint% invPhi,                                       &
+                                         ImagePoint% b,                                            &
+                                         this% InterpolationType                                   ) 
       end do
 
       Q_FP = Q
@@ -1853,6 +1884,10 @@ module IBMClass
       end do 
 
       dS_dQ = -1.0_RP/(this% penalCoeff*this% penalization(ImagePoint% element_index)) * dS_dQ 
+
+      call this% semiImplicitJacobian( ImagePoint% element_index, Q, dS_dQns )
+
+      dS_dQ = dS_dQns - dS_dQ
 
    end subroutine IBM_semiImplicitTurbulenceJacobian
 !
@@ -1879,15 +1914,15 @@ module IBMClass
          v   = Q(IRHOV)/rho 
          w   = Q(IRHOW)/rho 
          
-         invdS_dQ(IRHO,IRHO)        = 1.0_RP
-         invdS_dQ(IRHOU,IRHOU)      = eta/( dt + eta )
-         invdS_dQ(IRHOV,IRHOV)      = eta/( dt + eta )
-         invdS_dQ(IRHOW,IRHOW)      = eta/( dt + eta )
-         invdS_dQ(IRHOE,IRHO:IRHOE) = (/ 0.5_RP*dt/eta * (POW2(u) + POW2(v) + POW2(w)), &
-                                                                      -dt*u/(dt + eta), &
-                                                                      -dt*v/(dt + eta), &
-                                                                      -dt*w/(dt + eta), &
-                                                                                1.0_RP /)
+         invdS_dQ(IRHO,IRHO)   = 1.0_RP
+         invdS_dQ(IRHOU,IRHOU) = eta/( dt + eta )
+         invdS_dQ(IRHOV,IRHOV) = eta/( dt + eta )
+         invdS_dQ(IRHOW,IRHOW) = eta/( dt + eta )
+         invdS_dQ(IRHOE,IRHO)  = 0.5_RP*dt/eta * (POW2(u) + POW2(v) + POW2(w))
+         invdS_dQ(IRHOE,IRHOU) = -dt*u/( dt + eta )
+         invdS_dQ(IRHOE,IRHOV) = -dt*v/( dt + eta )
+         invdS_dQ(IRHOE,IRHOW) = -dt*w/( dt + eta )
+         invdS_dQ(IRHOE,IRHOE) =  1.0_RP 
 #if defined(SPALARTALMARAS)
          invdS_dQ(IRHOTHETA,IRHOTHETA) = eta/( dt + eta )
 #endif                                                                           
@@ -1918,22 +1953,27 @@ module IBMClass
 !
 !  Second order Strang splitting correction Q^*. (1/dt - dS/dQ)^(-1)*Q^* = Q + dt*(S - dS/dQ*Q^*)
 !  ------------------------------------------------------------------------------------------------
-   subroutine IBM_GetSemiImplicitStep( this, eID, dt, Q )
+   subroutine IBM_GetSemiImplicitStep( this, eID, dt, Q, Q_target )
       use PhysicsStorage
       implicit none
       !-arguments-----------------------------------------------------
-      class(IBM_type), intent(inout) :: this
-      integer,         intent(in)    :: eID
-      real(kind=rp),   intent(in)    :: dt
-      real(kind=rp),   intent(inout) :: Q(:)
+      class(IBM_type),           intent(inout) :: this
+      integer,                   intent(in)    :: eID
+      real(kind=rp),             intent(in)    :: dt
+      real(kind=rp),             intent(inout) :: Q(NCONS)
+      real(kind=rp),   optional, intent(in)    :: Q_target(NCONS)
       !-local-variables-----------------------------------------------
       real(kind=rp) :: dS_dQ(NCONS,NCONS), invdS_dQ(NCONS,NCONS), &
                        IBMSource(NCONS)
 
       call this% semiImplicitJacobian( eID, Q, dS_dQ )
 
-      call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ )
-      call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource, Wallfunction  =.false.)          
+      call this% semiImplicitShiftJacobian( eID, Q, dt, invdS_dQ ) 
+      if( present(Q_target) ) then 
+         call this% SourceTerm(eID = eID, Q = Q, Q_target = Q_target, Source = IBMSource, Wallfunction  =.false.)
+      else
+         call this% SourceTerm(eID = eID, Q = Q, Source = IBMSource, Wallfunction  =.false.)          
+      end if 
 
       Q = matmul(invdS_dQ, Q + dt*( IBMSource - matmul(dS_dQ,Q) ))
 
@@ -1971,25 +2011,35 @@ module IBMClass
 !    
 !   Splitting correction is applied. In the splitting, dt = dt/2
 !   ------------------------------------------------------------
-   subroutine IBM_SemiImplicitCorrection( this, elements, dt )
-    
+   subroutine IBM_SemiImplicitCorrection( this, elements, t, dt )
+      use PhysicsStorage
       implicit none
       !-arguments-----------------------------------
       class(IBM_type), intent(inout) :: this
       type(element),   intent(inout) :: elements(:)
-      real(kind=RP),   intent(in)    :: dt
+      real(kind=RP),   intent(in)    :: t, dt
       !-local-variables-----------------------------
-      integer :: eID, i, j, k, iP
+      real(kind=RP) :: Q_target(NCONS)
+      integer       :: eID, i, j, k, iP
 
       if( .not. this% semiImplicit ) return
 
       if( this% Wallfunction ) call this% GetBandRegionStates( elements )
 !$omp parallel
-!$omp do schedule(runtime) private(i,j,k)
+!$omp do schedule(runtime) private(i,j,k,Q_target)
       do eID = 1, SIZE( elements )
          associate(e => elements(eID))
          do i = 0, e% Nxyz(1); do j = 0, e% Nxyz(2); do k = 0, e% Nxyz(3)
-            if( e% isInsideBody(i,j,k) ) call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k) ) 
+            if( e% isInsideBody(i,j,k) ) then 
+               if( this% stl(e% STL(i,j,k))% move ) then 
+#if defined(NAVIERSTOKES)
+                  Q_target = this% MaskVelocity( e% storage% Q(:,i,j,k), NCONS, e% STL(i,j,k), e% geom% x(:,i,j,k), t )
+#endif
+                  call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k), Q_target )
+               else
+                  call this% GetSemiImplicitStep( eID, 0.5_RP*dt, e% storage% Q(:,i,j,k) ) 
+               end if 
+            end if 
          end do; end do; end do
          end associate
       end do
@@ -2043,8 +2093,9 @@ module IBMClass
 
       do i = 1, NCONS 
          Q_IP(i) = GetInterpolatedValue( this% BandRegion(STLNum)% Q(i,ImagePoint% nearestPoints), &
-                                                                       ImagePoint% invPhi,         &
-                                                                       ImagePoint% b               )
+                                         ImagePoint% invPhi,                                       &
+                                         ImagePoint% b,                                            &
+                                         this% InterpolationType                                   )
       end do
 
       Q_FP = Q
@@ -2065,8 +2116,10 @@ module IBMClass
       use WallFunctionDefinitions
       use WallFunctionBC
       use VariableConversion
-      use SpallartAlmarasTurbulence
       use FluidData   
+#if defined(SPALARTALMARAS)
+      use SpallartAlmarasTurbulence
+#endif
       implicit none
       !-arguments--------------------------------------------------------------
       real(kind=rp), intent(in)    :: Q_IP(:), normal(:)
@@ -2391,7 +2444,7 @@ module IBMClass
       real(kind=rp), intent(out) :: dist     
       !-local-variables--------------------------------------------------------------
       real(kind=rp) :: bb(NDIM), E0(NDIM), E1(NDIM), dd(NDIM), & 
-                       a00, a01, a11, b0, b1, f, det, s, t,    &
+                       a, b, c, d, e, f, det, s, t,    &
                        tmp1, tmp0, numer, denom
       integer       :: region
       
@@ -2400,129 +2453,141 @@ module IBMClass
       E1 = TriangleVertex3 - bb
       dd = bb - Point
    
-      a00 = dot_product(E0,E0) 
-      a01 = dot_product(E0,E1) 
-      a11 = dot_product(E1,E1) 
-      b0  = dot_product(dd,E0) 
-      b1  = dot_product(dd,E1) 
-      f   = dot_product(dd,dd)
-      
-      det = max(a00*a11 - a01*a01,0.0_RP)  
-      s   = a01*b1 - a11*b0      
-      t   = a01*b0 - a00*b1
-      
-      
-      if( s + t <= det ) then
-         if( s < 0.0_RP ) then
-            if( t < 0.0_RP ) then !region 4
-               if( b0 < 0.0_RP ) then
-                  t = 0.0_RP
-                  if( -b0 >= a00 ) then
-                     s = 1.0_RP
-                  else
-                     s = -b0/a00
-                  end if
-               else
-                  s = 0.0_RP
-                  if( b1 >= 0.0_RP ) then
-                     t = 0.0_RP
-                  elseif( -b1 >= a11 ) then
-                     t = 1.0_RP
-                  else
-                     t = -b1/a11
-                  end if
-               end if
-            else !region 3
-               s = 0.0_RP
-               if( b1 >= 0.0_RP ) then
-                  t = 0.0_RP
-               elseif( -b1 >= a11 ) then
-                  t = 1.0_RP
-               else
-                  t = -b1/a11
-               end if
-            end if
-         elseif( t < 0.0_RP ) then !region 5
+      a = dot_product(E0,E0) 
+      b = dot_product(E0,E1) 
+      c = dot_product(E1,E1) 
+      d = dot_product(E0,dd) 
+      e = dot_product(E1,dd) 
+      f = dot_product(dd,dd)
+ 
+      det = a*c - b*b  
+      s   = b*e - c*d      
+      t   = b*d - a*e
+
+      if( (s + t) <= det ) then 
+         if( s < 0.0_RP ) then 
+            if( t < 0.0_RP ) then 
+               region = 4 
+            else 
+               region = 3 
+            end if 
+         else if ( t < 0.0_RP ) then 
+            region = 5 
+         else 
+            region = 0 
+         end if 
+      else 
+         if( s < 0.0_RP ) then 
+            region = 2
+         elseif( t < 0.0_RP ) then 
+            region = 6
+         else 
+            region = 1
+         end if 
+      end if 
+
+      select case( region )
+      case( 0 )
+         s = s/det 
+         t = t/det 
+      case( 1 )
+         numer = (c + e) - (b + d)
+         if( numer <= 0.0_RP ) then 
+            s = 0.0_RP 
+         else 
+            denom = a - 2.0_RP * b + c
+            if( numer >= denom ) then 
+               s = 1.0_RP 
+            else 
+               s = numer/denom
+            end if 
+         end if 
+         t = 1.0_RP - s 
+      case( 2 ) 
+         tmp0 = b + d 
+         tmp1 = c + e 
+         if( tmp1 > tmp0 ) then 
+            numer = tmp1 - tmp0 
+            denom = a - 2.0_RP*b + c 
+            if( numer >= denom ) then 
+               s = 1.0_RP 
+            else 
+               s = numer/denom 
+            end if 
+            t = 1.0_RP - s 
+         else
+            s = 0.0_RP 
+            if ( tmp1 <= 0.0_RP ) then 
+               t = 1.0_RP 
+            elseif( e >= 0.0_RP ) then 
+               t = 0.0_RP 
+            else 
+               t = -e/c 
+            end if 
+         end if 
+      case( 3 )
+         s = 0.0_RP 
+         if( e >= 0.0_RP ) then 
             t = 0.0_RP
-            if( b0 >= 0.0_RP ) then
-               s = 0.0_RP
-            elseif( -b0 >= a00 ) then
-               s = 1.0_RP
-            else
-               s = -b0/a00
-            end if
-         else !region 0
-            s = s/det
-            t = t/det
-         end if
-      else
-         if( s < 0.0_RP ) then !region 2
-            tmp0 = a01 + b0
-            tmp1 = a11 + b1
-            if (tmp1 > tmp0) then
-               numer = tmp1 - tmp0
-               denom = a00 - 2.0_RP * a01 + a11
-               if (numer >= denom) then
-                  s = 1.0_RP
-                  t = 0.0_RP
-               else
-                  s = numer / denom
-                  t = 1.0_RP - s
-               end if
-            else
-               s = 0.0_RP
-               if ( tmp1 <= 0.0_RP ) then
-                  t = 1.0_RP
-               elseif( b1 >= 0.0_RP ) then
-                  t = 0.0_RP
-               else
-                  t = -b1 / a11
-               end if
-            end if
-         elseif( t < 0.0_RP ) then !region 6
-            tmp0 = a01 + b1
-            tmp1 = a00 + b0
-            if( tmp1 > tmp0 ) then
-               numer = tmp1 - tmp0
-               denom = a00 - 2.0_RP * a01 + a11
-               if (numer >= denom ) then
-                  t = 1.0_RP
-                  s = 0.0_RP
-               else
-                  t = numer / denom;
-                  s = 1.0_RP - t;
-               endif
-            else
-               t = 0.0_RP
-               if( tmp1 <= 0.0_RP ) then
-                  s = 1.0_RP
-               elseif( b0 >= 0.0_RP ) then
-                  s = 0.0_RP                 
-               else
-                  s = -b0 / a00
-               end if
-            end if
-         else  ! region 1
-            numer = a11 + b1 - a01 - b0
-            if( numer <= 0.0_RP ) then
-               s = 0.0_RP
-               t = 1.0_RP
-            else
-               denom = a00 - 2.0_RP * a01 + a11
-               if( numer >= denom ) then
-                  s = 1.0_RP
-                  t = 0.0_RP
-               else
-                  s = numer / denom
-                  t = 1.0_RP - s
-               end if
-            end if
-         end if
-      end if
+         elseif( -e >= c ) then 
+            t = 1.0_RP 
+         else 
+            t = -e/c 
+         end if 
+      case( 4 )
+         if( d < 0.0_RP ) then 
+            t = 0.0_RP 
+            if( -d >= a ) then 
+               s = 1.0_RP 
+            else 
+               s = -d/a 
+            end if 
+         else 
+            s = 0.0_RP 
+            if( e >= 0.0_RP ) then 
+               t = 0.0_RP 
+            elseif( -e >= c ) then 
+               t = 1.0_RP 
+            else 
+               t = -e/c 
+            end if 
+         end if 
+      case( 5 )
+         t = 0.0_RP 
+         if( d >= 0.0_RP ) then 
+            s = 0.0_RP 
+         elseif( -d >= a ) then 
+            s = 1.0_RP 
+         else 
+            s = -d/a 
+         end if 
+      case( 6 )
+         tmp0 = b + e 
+         tmp1 = a + d 
+         if( tmp1 > tmp0 ) then 
+            numer = tmp1 - tmp0 
+            denom = a - 2.0_RP*b + c 
+            if( numer >= denom ) then 
+               t = 1.0_RP 
+            else 
+               t = numer/denom 
+            end if 
+            s = 1.0_RP - t
+         else  
+            t = 0.0_RP 
+            if( tmp1 <= 0.0_RP ) then 
+               s = 1.0_RP 
+            elseif( d >= 0.0_RP ) then 
+               s = 0.0_RP 
+            else 
+               s = -d/a 
+            end if 
+         end if 
+      end select
 
       IntersectionPoint = TriangleVertex1 + s*E0 + t*E1    
         
-      dist = dot_product(Point - IntersectionPoint,Point - IntersectionPoint)
+      dist = norm2(Point - IntersectionPoint)
 
    end subroutine MinimumPointTriDistance
 !  
@@ -2633,7 +2698,7 @@ module IBMClass
       if( tree% NumOfObjs .gt. 0 ) then
       ! Check the sphere
       !-----------------
-         Radius    = minDist
+         Radius    = POW2(minDist)
          Intersect = CheckHypersphere( tree, Point, Radius )
       else
          print *, "IBM:: MinimumDistance: "
@@ -2974,13 +3039,19 @@ module IBMClass
       real(kind=RP),     intent(inout) :: invPhi(:,:), b(:)
       integer,           intent(in)    :: INTERPOLATION 
       !-local-variables------------------------------
-      real(kind=RP) :: Phi(size(b),size(b)),  &
-                       dist(size(b),size(b)), &
-                       diag, d 
-      integer       :: i, j   
+      real(kind=RP) :: Phi(size(x),size(x)),   &
+                       dist(size(x),size(x)),  &
+                       L(size(x)), d,          &
+                       P(size(x),size(x)),     &
+                       P_T(size(x),size(x)),   &
+                       V(2*size(x),2*size(x)), &
+                       lambda(size(x)),        &
+                       pp(size(x)), w(size(b))         
+      integer       :: i, j, k
 
       select case( INTERPOLATION )
          case( EXPONENTIAL )
+
             do i = 1, size(x)
                do j = i, size(x)
                   dist(i,j) = norm2(x(i)% coords - x(j)% coords)
@@ -2988,17 +3059,21 @@ module IBMClass
                end do 
             end do
 
-            expCoeff = maxval(dist) 
+            expCoeff = 0.001_RP!norm2(Point - x(1)% coords) 
 
             do i = 1, size(x)
                do j = i, size(x)
-                  Phi(i,j) = interpolationfunction(dist(i,j))
+                  Phi(i,j) = interpolationfunction(dist(i,j), EXPONENTIAL )
                   Phi(j,i) = Phi(i,j)
                end do
-               b = interpolationfunction(norm2(Point - x(i)% coords))
+               d    = norm2(Point - x(i)% coords)
+               b(i) = interpolationfunction(d, EXPONENTIAL)
             end do
+
             invPhi = inverse(Phi) 
+
          case( IDW )
+
             b = 0.0_RP; invPhi = 0.0_RP
             do i = 1, size(x)
                d           = norm2(Point - x(i)% coords)
@@ -3008,26 +3083,138 @@ module IBMClass
             do i = 1, size(x)
                b(i) = 1.0_RP/b(i)
             end do 
+
+         case( POLYHARMONIC_SPLINE )
+
+            b = 0.0_RP; invPhi = 0.0_RP; Phi = 0.0_RP
+            
+            do i = 1, size(x)
+               do j = i, size(x)
+                  dist(i,j) = norm2(x(i)% coords - x(j)% coords)
+                  dist(j,i) = dist(i,j)
+               end do 
+            end do
+           
+            do i = 1, size(x) 
+               do j = i, size(x) 
+                  Phi(i,j) = interpolationfunction(dist(i,j), POLYHARMONIC_SPLINE )
+                  Phi(j,i) = Phi(i,j)
+               end do 
+               d    = norm2(Point - x(i)% coords)
+               b(i) = interpolationfunction(d, POLYHARMONIC_SPLINE)
+               call PolynomialVector( x(i)% coords(1), x(i)% coords(2), x(i)% coords(3), P(i,:) ) 
+            end do  
+
+            P_T = transpose(P)
+
+            call buildMatrixPolySpline( Phi, P, P_T, V )
+
+            invPhi = inverse(V)
+
+         case( POLYNOMIAL )
+
+            Phi = 0.0_RP; invPhi = 0.0_RP; b = 0.0_RP
+            do i = 1, size(x)
+               call PolynomialVector( x(i)% coords(1), x(i)% coords(2), x(i)% coords(3), Phi(i,:) )
+            end do 
+
+            call PolynomialVector( Point(1), Point(2), Point(3), b )
+
+            invPhi = inverse(Phi)
+
+         case( MLS )
+
+            Phi = 0.0_RP; invPhi = 0.0_RP; b = 0.0_RP
+            expCoeff = norm2(Point - x(1)% coords) 
+            do i = 1, size(x)
+               call PolynomialVector( x(i)% coords(1)-Point(1), x(i)% coords(2)-Point(2), x(i)% coords(3)-Point(3), P(i,:) )
+               d    = norm2(Point - x(i)% coords)
+               W(i) = interpolationfunction( d, MLS )
+            end do 
+
+            call PolynomialVector( 0.0_RP, 0.0_RP, 0.0_RP, pp )
+
+            do j = 1, size(p,2)
+               do k = 1, size(p,2)
+                  do i = 1, size(x)
+                     Phi(j,k) = Phi(j,k) + P(i,j)*P(i,k)*W(i)
+                  end do
+               end do 
+            end do
+
+            lambda = matmul(inverse(Phi),pp)
+
+            do i = 1, size(p,2)
+               do j = 1, size(p,2)
+                  b(i) = b(i) + lambda(j) * p(i,j)
+               end do 
+               b(i) = W(i)*b(i)
+            end do 
+
       end select 
 
    end subroutine GetMatrixInterpolationSystem
 
-   real(kind=RP) function interpolationfunction(x) result(f)
+   real(kind=RP) function interpolationfunction( x, INTERPOLATION, k ) result(f)
       implicit none 
-      real(kind=RP), intent(in) :: x 
+      real(kind=RP),           intent(in) :: x 
+      integer,                 intent(in) :: INTERPOLATION 
+      real(kind=rp), optional, intent(in) :: k 
 
-      f = exp(-POW2(x/expCoeff))
+      select case( INTERPOLATION )
+         case( EXPONENTIAL )
+         
+            f = exp(-POW2(x/expCoeff))
+         
+         case( POLYHARMONIC_SPLINE )
+         
+            if( abs(x) .lt. 1.0d-12 ) then 
+               f = 0.0_RP 
+               return 
+            end if 
+            if( present(k) ) then 
+               f = x**k * log(x)
+            else 
+               f = POW2(x) * log(x)
+            end if 
+         
+         case( MLS )
 
+            f = 1.0_RP/(POW2(x) + 1.0d-12)
+
+      end select 
    end function interpolationfunction
 
-   real(kind=RP) function GetInterpolatedValue( variable, invPhi, b ) result(value)
-      implicit none 
-      !-arguments------------------------------------------------
-      real(kind=RP), intent(in) :: variable(:), invPhi(:,:), b(:)
-      !-local-variables------------------------------------------
-      real(kind=RP) :: weights(size(b))
+   real(kind=RP) function GetInterpolatedValue( forcing, invPhi, b, INTERPOLATION, x, y, z ) result( value )
+   implicit none 
+   !-arguments------------------------------------------------------------
+   real(kind=RP),           intent(in) :: forcing(:), invPhi(:,:), b(:)
+   integer,                 intent(in) :: INTERPOLATION
+   real(kind=RP), optional, intent(in) :: x, y, z
+   !-local-variables------------------------------------------------------
+   real(kind=RP), allocatable :: weights(:), f(:)
 
-      value = dot_product(matmul(invPhi,variable),b)
+   select case( INTERPOLATION )
+      case( POLYHARMONIC_SPLINE )
+         
+         allocate( weights(2*size(b)), &
+                   f(2*size(b))        )
+         f            = 0.0_RP 
+         f(1:size(b)) = forcing 
+         weights = matmul(invPhi,f)
+         value = dot_product(weights(1:size(b)),b) +                   &
+                 EvaluateInterp( weights(size(b)+1:2*size(b)), x, y, z )
+         deallocate(weights,f)
+      case( MLS )
+
+         value = dot_product(forcing,b)
+
+      case default 
+         allocate(weights(size(b)))
+         weights = matmul(invPhi,forcing)
+         value = dot_product(weights,b)
+         deallocate(weights)
+   end select 
 
    end function GetInterpolatedValue
 !  
@@ -3340,7 +3527,7 @@ module IBMClass
       index = 0
 
       do i = 1, NumOfObjs/3
-         write(funit,'(3i6)') index + 1, index + 2, index + 3
+         write(funit,'(i0,a,i0,a,i0)') index + 1,' ', index + 2,' ', index + 3
          index = index + 3
       end do
    

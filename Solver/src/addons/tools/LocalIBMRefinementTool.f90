@@ -33,9 +33,10 @@ module LocalIBMRefinementTool
       type(HexMesh)              :: mesh
       logical                    :: success
       character(len=LINE_LENGTH) :: msg, fname, MyString, &
-                                    STLfilename
-      integer, allocatable       :: Nx(:), Ny(:), Nz(:)
-      real(kind=RP)              :: Naverage
+                                    STLfilename, limsName
+      real(kind=RP), allocatable :: tempArray(:)
+      integer,       allocatable :: Nx(:), Ny(:), Nz(:)
+      real(kind=RP)              :: Naverage, corners(NDIM,8)
       integer                    :: Nmax, STLnum
 
       call CheckInputIntegrityIBM(controlVariables, success)
@@ -48,7 +49,7 @@ module LocalIBMRefinementTool
       meshFileName = controlVariables % stringValueForKey("mesh file name", requestedLength = LINE_LENGTH) 
       fileName = controlVariables % stringValueForKey("solution file name", requestedLength = LINE_LENGTH) 
 
-      call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
+      call GetMeshPolynomialOrders(controlVariables, Nx, Ny, Nz, Nmax)
 
       call ConstructSimpleMesh_IBM(mesh, meshFileName, Nx, Ny, Nz)
 !
@@ -65,6 +66,30 @@ module LocalIBMRefinementTool
       write(STD_OUT,'(/)')
                
       call mesh% IBM% read_info( controlVariables )
+
+      limsName = trim(controlVariables%stringValueForKey("x regions limits",LINE_LENGTH))
+      tempArray = getRealArrayFromString(limsName)
+
+      if( allocated(tempArray) ) then
+
+         corners(1,1)  = tempArray(1); corners(1,4) = tempArray(1); corners(1,5) = tempArray(1); corners(1,8) = tempArray(1)
+         corners(1,2)  = tempArray(2); corners(1,3) = tempArray(2); corners(1,6) = tempArray(2); corners(1,7) = tempArray(2)
+
+         limsName = trim(controlVariables%stringValueForKey("y regions limits",LINE_LENGTH))
+         tempArray = getRealArrayFromString(limsName)
+
+         corners(2,1)  = tempArray(1); corners(2,2) = tempArray(1); corners(2,5) = tempArray(1); corners(2,6) = tempArray(1)
+         corners(2,3)  = tempArray(2); corners(2,4) = tempArray(2); corners(2,7) = tempArray(2); corners(2,8) = tempArray(2)
+
+         limsName = trim(controlVariables%stringValueForKey("z regions limits",LINE_LENGTH))
+         tempArray = getRealArrayFromString(limsName)
+
+         corners(3,1)  = tempArray(1); corners(3,2) = tempArray(1); corners(3,3) = tempArray(1); corners(3,4) = tempArray(1)
+         corners(3,5)  = tempArray(2); corners(3,6) = tempArray(2); corners(3,7) = tempArray(2); corners(3,8) = tempArray(2)
+
+         call mesh% IBM% SetPolynomialOrder( mesh% elements, corners )
+
+      else      
 
       allocate( mesh% IBM% stl(mesh% IBM% NumOfSTL),         &
                 mesh% IBM% STLfilename(mesh% IBM% NumOfSTL), &
@@ -84,7 +109,15 @@ module LocalIBMRefinementTool
          call OBB(STLNum)% construct( mesh% IBM% stl(STLNum), .false., .false. )
       end do
 
-      call mesh% IBM% SetPolynomialOrder( mesh% elements )
+         call mesh% IBM% SetPolynomialOrder( mesh% elements )
+   
+         do STLNum = 1,  mesh% IBM% NumOfSTL
+            call mesh% IBM% stl(STLNum)% destroy()
+         end do
+           
+         deallocate( mesh% IBM% stl, mesh% IBM% STLfilename, OBB )   
+
+      end if
 !
 !     ---------------------
 !     Create the final file
@@ -92,11 +125,6 @@ module LocalIBMRefinementTool
 !
       call mesh% ExportOrders(meshFileName)
         
-      do STLNum = 1,  mesh% IBM% NumOfSTL
-         call mesh% IBM% stl(STLNum)% destroy()
-      end do
-        
-      deallocate( mesh% IBM% stl, mesh% IBM% STLfilename, OBB )
 
       Naverage = sum( mesh% elements(1:size(mesh% elements))% Nxyz(1) + &
                       mesh% elements(1:size(mesh% elements))% Nxyz(2) + &

@@ -2812,7 +2812,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2822,6 +2822,7 @@ slavecoord:             DO l = 1, 4
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
+         logical, optional,   intent(in)        :: saveLES_
 !
 !        ---------------
 !        Local variables
@@ -2831,7 +2832,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor
+         logical                          :: saveSensor, saveLES
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -2863,6 +2864,11 @@ slavecoord:             DO l = 1, 4
          else
             saveSensor = .false.
          end if
+         if (present(saveLES_)) then
+            saveLES = saveLES_
+         else
+            saveLES = .false.
+         end if
 
          if (saveGradients .and. computeGradients) then
             if (saveSensor) then
@@ -2883,6 +2889,8 @@ slavecoord:             DO l = 1, 4
             end if
             padding = NCONS
          end if
+
+         if (saveLES) padding = padding + 2
 !
 !        Write arrays
 !        ------------
@@ -2940,6 +2948,17 @@ slavecoord:             DO l = 1, 4
             if (saveSensor) then
                write(fid) e % storage % sensor
             end if
+
+          if (saveLES) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+               write(fid) Q
+               Q(1,:,:,:) = e % storage % mu_turb_NS(:,:,:) !mu_sgs
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
 
             end associate
          end do
@@ -3806,6 +3825,14 @@ slavecoord:             DO l = 1, 4
          RKSteps_num = 0
       end if
 
+#ifdef MULTIPHASE
+      ! This is a fix to prevent a seg fault in debug mode
+      ! implemented by g.rubio@upm.es 09/2023
+      if ( trim(time_int) == "explicit" ) then
+         bdf_order = 1  
+         RKSteps_num = 0   
+      endif  
+#endif 
 !     Construct global and elements' storage
 !     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )

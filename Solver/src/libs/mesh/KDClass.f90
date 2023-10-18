@@ -59,6 +59,7 @@ module KDClass
                                                         HalfEvents, NumThreads, &
                                                         STLNum
       logical                                        :: isLast, Split
+      logical                                        :: built_R = .false., built_L = .false.
       integer,           dimension(NDIM)             :: NumOfEvents
       real(kind=rp)                                  :: S, SplitCost, SplittingPlane
       type(Event),       dimension(:,:), allocatable :: Events
@@ -293,6 +294,7 @@ module KDClass
       close(funit)
       
       if( PlotObjs .and. this% NumOfObjs .gt. 0 ) then
+
         filename = 'Objects'//trim(adjustl(myString))//'_'//OBB(STLNum)% filename
         filename = trim(filename)
       
@@ -300,11 +302,10 @@ module KDClass
  
          write(funit,"(a28)") 'TITLE = "ObjsIndx"'
          write(funit,"(a25)") 'VARIABLES = "x", "y", "z"'
-      
+
          do i = 1, this% NumOfObjs
             write(funit,"(a66)") 'ZONE NODES=3, ELEMENTS = 1, DATAPACKING=POINT, ZONETYPE=FETRIANGLE'
             index = this% ObjsIndeces(i)
-      
             do j = 1, 3
                call OBB(STLNum)% ChangeRefFrame( ObjectsList(index)% vertices(j)% coords, GLOBAL, x_g )
                write(funit,'(3E13.5)') x_g(1),x_g(2), x_g(3)
@@ -312,7 +313,7 @@ module KDClass
 
             write(funit,'(3i2)') 1, 2, 3 
          end do
-             
+
          close(funit)
       end if
       
@@ -520,7 +521,7 @@ module KDClass
       else
          if( isPlot ) call this% plot()
       end if
-      
+
    end subroutine KDtree_construct
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -572,7 +573,7 @@ module KDClass
       class(KDtree), intent(inout) :: this
       logical,       intent(in)    :: isChild
       !-local-variables-----------------------
-      integer :: i       
+      integer :: i, stat       
          
       if( allocated(this% ObjectsList) ) then
          if( this% which_KDtree .ne.  POINTS_KDTREE ) then 
@@ -582,13 +583,17 @@ module KDClass
          end if
          deallocate(this% ObjectsList)      
       end if
-      
+
       if( allocated(this% ObjsIndeces) ) deallocate(this% ObjsIndeces)
       if( allocated(this% Events) )      deallocate(this% Events)
-         
-      if( associated(this% child_L) .and. .not. this% isLast ) call this% child_L% destruct( isChild )     
-      if( associated(this% child_R) .and. .not. this% isLast ) call this% child_R% destruct( isChild )      
       
+      if( this% built_L .and. .not. this% isLast ) call this% child_L% destruct( isChild )     
+      if( this% built_R .and. .not. this% isLast ) call this% child_R% destruct( isChild ) 
+
+      if( this% built_L ) deallocate(this% child_L) 
+      if( this% built_R ) deallocate(this% child_R) 
+      nullify( this% parent )
+
    end subroutine KD_treeDestruct
    
    subroutine KD_treeGetArea( tree )
@@ -684,7 +689,7 @@ module KDClass
       if( this% level .lt. level .and. this% NumOfObjs .gt. 0 ) then
  
          if( this% which_KDtree .eq. TRIANGLES_KDTREE_SAH ) then
-            call this% EvaluateCostSAH( Events, BREADTHFIRST )
+            call this% EvaluateCostSAH( Events )
          else
             call this% EvaluateCostMEDIAN( Events )
          end if
@@ -701,6 +706,9 @@ module KDClass
            
             child_L% level = this% level + 1
             child_R% level = this% level + 1
+            
+            this% built_L = .true.
+            this% built_R = .true.
 
             this% isLast = .false.   
 
@@ -724,13 +732,15 @@ module KDClass
             allocate(Events_L(NDIM,2*child_L% NumOfObjs))
             allocate(Events_R(NDIM,2*child_R% NumOfObjs))
 
-            call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R, BREADTHFIRST )
+            call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R )
 
             deallocate(Events)
             
             call KDtree_buildTRIANGLES_BreadthFirst( child_L, Events_L, ObjsIndx, level, Depth_First )
             call KDtree_buildTRIANGLES_BreadthFirst( child_R, Events_R, ObjsIndx, level, Depth_First )
             
+            nullify(child_L,child_R)
+
          else
             this% isLast = .false.
             if( this% level .lt. level ) this% isLast = .true.
@@ -777,17 +787,15 @@ module KDClass
       type(Event),  allocatable :: Events_L(:,:), Events_R(:,:)
 
       call this% GetArea()
-
 !$omp critical
       BoxIndex = BoxIndex + 1
 !$omp end critical
-
       this% index  = BoxIndex
 
       if( this% level .lt. depth .and. this% NumOfObjs .ge. this% Min_n_of_Objs ) then
          
          if( this% which_KDtree .eq. TRIANGLES_KDTREE_SAH ) then
-            call this% EvaluateCostSAH( Events, BREADTHFIRST )
+            call this% EvaluateCostSAH( Events )
          else
             call this% EvaluateCostMEDIAN( Events )
          end if
@@ -804,6 +812,9 @@ module KDClass
            
             child_L% level = this% level + 1
             child_R% level = this% level + 1
+
+            this% built_L = .true.
+            this% built_R = .true.
 
             this% isLast = .false.   
 
@@ -827,13 +838,15 @@ module KDClass
             allocate(Events_L(NDIM,2*child_L% NumOfObjs))
             allocate(Events_R(NDIM,2*child_R% NumOfObjs))
 
-            call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R, DEPTHFIRST )
+            call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R )
 
             deallocate(Events)
   
             call KDtree_buildTRIANGLES_DepthFirst( child_L, Events_L, ObjsIndx )
             call KDtree_buildTRIANGLES_DepthFirst( child_R, Events_R, ObjsIndx )
  
+            nullify(child_L,child_R)
+
          else
             this% isLast = .true.
             call this% SaveObjsIndeces( Events )          
@@ -864,15 +877,15 @@ module KDClass
       real(kind=rp) :: L_x, L_y, L_z
    
       select case( axis )
-         case(1)
+         case(IX)
             L_x = abs(SplittingPlane-tree% vertices(1,1))
             L_y = abs(tree% vertices(2,7)-tree% vertices(2,1))
             L_z = abs(tree% vertices(3,7)-tree% vertices(3,1))    
-         case(2)
+         case(IY)
             L_x = abs(tree% vertices(1,7)-tree% vertices(1,1))
             L_y = abs(SplittingPlane-tree% vertices(2,1))
             L_z = abs(tree% vertices(3,7)-tree% vertices(3,1))
-         case(3)
+         case(IZ)
             L_x = abs(tree% vertices(1,7)-tree% vertices(1,1))
             L_y = abs(tree% vertices(2,7)-tree% vertices(2,1))
             L_z = abs(SplittingPlane-tree% vertices(3,1))
@@ -894,15 +907,15 @@ module KDClass
       real(kind=rp) :: L_x, L_y, L_z
    
       select case( axis )
-         case(1)
+         case(IX)
             L_x = abs(tree% vertices(1,7)-SplittingPlane)
             L_y = abs(tree% vertices(2,7)-tree% vertices(2,1))
             L_z = abs(tree% vertices(3,7)-tree% vertices(3,1))    
-         case(2)
+         case(IY)
             L_x = abs(tree% vertices(1,7)-tree% vertices(1,1))
             L_y = abs(tree% vertices(2,7)-SplittingPlane)
             L_z = abs(tree% vertices(3,7)-tree% vertices(3,1))
-         case(3)
+         case(IZ)
             L_x = abs(tree% vertices(1,7)-tree% vertices(1,1))
             L_y = abs(tree% vertices(2,7)-tree% vertices(2,1))
             L_z = abs(tree% vertices(3,7)-SplittingPlane)
@@ -923,191 +936,21 @@ module KDClass
    
    end function computeSplittingCost
    
-   subroutine KDtree_EvaluateCostSAH( this, Events, parallelization_type )
+   subroutine KDtree_EvaluateCostSAH( this, Events )
       use omp_lib
       implicit none
       !-arguments----------------------------------------------------------------------------
       class(KDtree), intent(inout) :: this
       type(Event),   intent(in)    :: Events(:,:)
-      integer,       intent(in)    :: parallelization_type
       !-local-variables----------------------------------------------------------------------
-      integer                          :: i, j, k, l, N_L(NDIM), N_R(NDIM), N_P(NDIM), &
+      integer                          :: i, k, N_L(NDIM), N_R(NDIM), N_P(NDIM), &
                                           BestSide(1), pminus, pplus, pvert, axis
       real(kind=rp)                    :: SplittingCost(2), S_L, S_R, SplittingPlane
-      type(taskPart_type), allocatable :: taskPart(:)
-      integer                          :: level, taskNum
-      type(KDtree),        allocatable :: taskTree(:)
 
-      this% split = .false.
+      this% split     = .false.
       this% SplitCost = C_INTERSECT * this% NumOfObjs
       
       if( this% NumOfObjs .eq. 0 ) return
-
-      select case( parallelization_type )
-      
-      case( BREADTHFIRST ) 
-      
-      call constrct_taskPart( taskPart, this% NumOfEvents(:), this% NumThreads )
-      allocate(taskTree(this% NumThreads))
-      taskTree(:)% S         = this% S
-      taskTree(:)% split     = .false.
-      taskTree(:)% SplitCost = this% SplitCost
-      
-!$omp parallel shared(Events,taskPart,taskTree)
-!$omp single 
-      do taskNum = 1, size(taskPart)-1
-!$omp task private(i,k,pplus,pminus,pvert,SplittingPlane) firstprivate(taskNum)
-         do k = 1, NDIM
-             pplus = 0; pminus = 0; pvert = 0
-
-             SplittingPlane = Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index + &
-                              taskPart(taskNum)% taskPartDim(k)% ChunkDim)% plane
-             i = 1
-             do while(i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim)
-                               
-                if( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .lt. 0 ) exit
-                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then              
-                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.   &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                   )
-                      pminus = pminus + 1
-                      i = i + 1
-                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                   end do 
-                end if
-                
-                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
-                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane   .or.  &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_                )
-                      pvert = pvert + 1
-                      if(Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane) &
-                      taskPart(taskNum+1)% taskPartDim(k)% N_P = taskPart(taskNum+1)% taskPartDim(k)% N_P + 1
-                      i = i + 1
-                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                   end do
-                end if
-                
-                if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
-                   do while(( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane  .or.   &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .lt. SplittingPlane ) .and. &
-                              Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_                 )                                    
-                      pplus = pplus + 1
-                      i = i + 1
-                      if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                   end do     
-                endif
-                
-             end do
-             
-             taskPart(taskNum+1)% taskPartDim(k)% N_R = taskPart(taskNum+1)% taskPartDim(k)% N_R - pminus - pvert         
-             taskPart(taskNum+1)% taskPartDim(k)% N_L = taskPart(taskNum+1)% taskPartDim(k)% N_L + pplus + pvert
-             
-         end do
-!$omp end task
-      end do
-!$omp taskwait
-
-     do taskNum = 1, size(taskPart)
-        do k = 1, NDIM
-           if( taskNum .eq. 1 ) then
-              taskPart(taskNum)% taskPartDim(k)% N_R = this% NumOfObjs
-           else
-              taskPart(taskNum)% taskPartDim(k)% N_R = taskPart(taskNum)% taskPartDim(k)% N_R + &
-                                                       taskPart(taskNum-1)% taskPartDim(k)% N_R
-              taskPart(taskNum)% taskPartDim(k)% N_L = taskPart(taskNum)% taskPartDim(k)% N_L + &
-                                                       taskPart(taskNum-1)% taskPartDim(k)% N_L
-              taskPart(taskNum)% taskPartDim(k)% N_P = taskPart(taskNum)% taskPartDim(k)% N_P + &
-                                                       taskPart(taskNum-1)% taskPartDim(k)% N_P
-           end if
-        end do
-     end do
-
-     do taskNum = 1, size(taskPart)
-!$omp task private(i,k,pplus,pminus,pvert,SplittingPlane,N_R,N_L,N_P,SplittingCost,BestSide,S_L,S_R) firstprivate(taskNum)
-        do k = 1, NDIM
-           N_R(k) = taskPart(taskNum)% taskPartDim(k)% N_R
-           N_L(k) = taskPart(taskNum)% taskPartDim(k)% N_L
-           N_P(k) = taskPart(taskNum)% taskPartDim(k)% N_P   
-           i = 1
-           do while ( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim )
-              pplus = 0; pminus = 0; pvert = 0
-              
-              SplittingPlane = Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane
-
-              if( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .lt. 0 ) exit
-              
-              if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
-                 do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                           Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. END_                 )
-                     pminus = pminus + 1
-                     i = i + 1
-                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                  end do
-               end if
-               
-               if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
-                  do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                            Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. PLANAR_              )
-                     pvert = pvert + 1
-                     i = i + 1
-                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                  end do
-               end if
-         
-               if( i .le. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) then
-                  do while( Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% plane .eq. SplittingPlane .and. &
-                            Events(k,taskPart(taskNum)% taskPartDim(k)% Starting_index+i)% eType .eq. START_               )                                     
-                      pplus = pplus + 1
-                     i = i + 1
-                     if( i .gt. taskPart(taskNum)% taskPartDim(k)% ChunkDim ) exit
-                  end do
-              end if
-
-               N_R(k) = N_R(k) - pminus - pvert
-   
-               call ComputeSplitSurface_L(this, SplittingPlane, k, S_L)
-               call ComputeSplitSurface_R(this, SplittingPlane, k, S_R)
-
-               SplittingCost(1) = computeSplittingCost( taskTree(taskNum)% S, S_L, S_R, N_L(k)+N_P(k), N_R(k) )
-               SplittingCost(2) = computeSplittingCost(taskTree(taskNum)% S, S_L, S_R, N_L(k), N_R(k)+N_P(k) )
-               
-               if( SplittingCost(1) .lt. SplittingCost(2) ) then
-                  BestSide(1) = 1
-               else
-                  BestSide(1) = 2
-               end if
-
-               if( taskTree(taskNum)% SplitCost .gt. SplittingCost(BestSide(1)) ) then
-                  taskTree(taskNum)% SplittingPlane = SplittingPlane
-                  taskTree(taskNum)% SplitCost      = SplittingCost(BestSide(1))
-                  taskTree(taskNum)% split          = .true.
-                  taskTree(taskNum)% axis           = k
-                  taskTree(taskNum)% SIDE           = BestSide(1) 
-               end if
-
-               N_L(k) = N_L(k) + pplus + pvert
-               N_P(k) = pvert
-
-            end do
-         end do
-!$omp end task
-      end do
-!$omp end single
-!$omp end parallel
-
-      if( any( taskTree(:)% split ) ) then
-         BestSide = minloc(taskTree(:)% SplitCost)
-         this% SplittingPlane = taskTree(BestSide(1))% SplittingPlane
-         this% SplitCost      = taskTree(BestSide(1))% SplitCost
-         this% split          = .true.
-         this% axis           = taskTree(BestSide(1))% axis
-         this% SIDE           = taskTree(BestSide(1))% SIDE
-      end if
-      
-      deallocate(taskTree,taskPart)        
- 
-      case( DEPTHFIRST ) 
       
       N_R = this% NumOfObjs; N_L = 0; N_P = 0
       this% split = .false.
@@ -1167,8 +1010,6 @@ module KDClass
 
          end do
       end do
-
-      end select 
       
    end subroutine KDtree_EvaluateCostSAH
 
@@ -1243,15 +1084,15 @@ module KDClass
       child% isLast = .false.
 
       select case( this% axis ) 
-         case( 1 ) 
+         case( IX ) 
             do i = 1, 4
                child% vertices(1,vertices_x(side+i)) = this% SplittingPlane
             end do
-         case( 2 ) 
+         case( IY ) 
             do i = 1, 4
                child% vertices(2,vertices_y(side+i)) = this% SplittingPlane
             end do
-         case( 3 ) 
+         case( IZ ) 
             do i = 1, 4
                child% vertices(3,vertices_z(side+i)) = this% SplittingPlane
             end do
@@ -1259,7 +1100,7 @@ module KDClass
    
    end subroutine KDtree_BuildChild
 
-   subroutine Event_BuildLists( this, tree, child_L, child_R, ObjsIndx, Events_L, Events_R, parallelization_type )
+   subroutine Event_BuildLists( this, tree, child_L, child_R, ObjsIndx, Events_L, Events_R )
       use omp_lib
       implicit none
       !-arguments---------------------------------------------------------------------------------
@@ -1268,95 +1109,9 @@ module KDClass
       type(KDtree), intent(inout) :: child_L, child_R
       integer,      intent(inout) :: ObjsIndx(:)
       type(Event),  intent(inout) :: Events_L(:,:), Events_R(:,:)
-      integer,      intent(in)    :: parallelization_type
       !-local-variables---------------------------------------------------------------------------
-      type(taskPart_type), allocatable :: taskPart(:)
-      integer                          :: i, k, B, L, R, j, level, index, taskNum
-      integer                          :: index_L, index_R, N_Events_L(NDIM), N_Events_R(NDIM)
-      
-      select case( parallelization_type )
-    
-      case( BREADTHFIRST )
+      integer                          :: i, k, B, L, R
 
-      child_L% NumOfEvents = 0
-      child_R% NumOfEvents = 0
-      call constrct_taskPart( taskPart, tree% NumOfEvents(:), tree% NumThreads )
-      
-!$omp parallel shared(N_Events_L,N_Events_R,Events_L,Events_R,this,ObjsIndx,taskPart)
-!$omp single
-      N_Events_L = 0
-      N_Events_R = 0
-      do taskNum = 1, size(taskPart)
-!$omp task private(i,k,L,R,index) firstprivate(taskNum)
-         do k = 1, NDIM
-            L = 0; R = 0 
-            index = taskPart(taskNum)% taskPartDim(k)% starting_index
-            do i = 1, taskPart(taskNum)% taskPartDim(k)% ChunkDim
-               if( ObjsIndx(this(k,index+i)% index) .eq. ONLYLEFT ) then 
-                  L = L + 1
-               elseif( ObjsIndx(this(k,index+i)% index) .eq. ONLYRIGHT ) then
-                  R = R + 1
-               elseif( ObjsIndx(this(k,index+i)% index) .eq. BOTH ) then
-                  L = L + 1
-                  R = R + 1
-               end if
-            end do 
-            taskPart(taskNum)% taskPartDim(k)% N_L = L
-            taskPart(taskNum)% taskPartDim(k)% N_R = R
-         end do
-!$omp end task
-      end do
-!$omp taskwait 
-
-      do k = 1, NDIM
-         N_Events_L = sum(taskPart(:)% taskPartDim(k)% N_L)  
-         N_Events_R = sum(taskPart(:)% taskPartDim(k)% N_R)
-      end do
-
-      do taskNum = size(taskPart),2,-1
-        do k = 1, NDIM
-           taskPart(taskNum)% taskPartDim(k)% N_R = sum(taskPart(1:taskNum-1)% taskPartDim(k)% N_R)
-           taskPart(taskNum)% taskPartDim(k)% N_L = sum(taskPart(1:taskNum-1)% taskPartDim(k)% N_L)
-        end do
-     end do
-     
-     taskPart(1)% taskPartDim(:)% N_R = 0
-     taskPart(1)% taskPartDim(:)% N_L = 0
-
-     do taskNum = 1, size(taskPart)
-!$omp task private(i,k,L,R,index_L,index_R,index) firstprivate(taskNum)
-         do k = 1, NDIM
-            L = 0; R = 0 
-            index_L = taskPart(taskNum)% taskPartDim(k)% N_L
-            index_R = taskPart(taskNum)% taskPartDim(k)% N_R
-            index = taskPart(taskNum)% taskPartDim(k)% starting_index
-            do i = 1, taskPart(taskNum)% taskPartDim(k)% ChunkDim
-               if( ObjsIndx(this(k,index+i)% index) .eq. ONLYLEFT ) then 
-                  L = L + 1
-                  Events_L(k,L+index_L) = this(k,index+i)
-               elseif( ObjsIndx(this(k,index+i)% index) .eq. ONLYRIGHT ) then
-                  R = R + 1
-                  Events_R(k,R+index_R) = this(k,index+i)
-               elseif( ObjsIndx(this(k,index+i)% index) .eq. BOTH ) then
-                  L = L + 1
-                  R = R + 1
-                  Events_L(k,L+index_L) = this(k,index+i)
-                  Events_R(k,R+index_R) = this(k,index+i)
-               end if
-            end do 
-         end do
-!$omp end task
-      end do
-!$omp end single
-!$omp end parallel    
-      
-      child_L% NumOfEvents = N_Events_L
-      child_R% NumOfEvents = N_Events_R
-
-      deallocate(taskPart)
-      
-      case( DEPTHFIRST )
-    
       child_L% NumOfEvents = 0
       child_R% NumOfEvents = 0
       
@@ -1381,8 +1136,6 @@ module KDClass
             end if
          end do 
       end do
-      
-      end select
 
    end subroutine Event_BuildLists
    
@@ -1427,8 +1180,8 @@ module KDClass
          this(i)% index = ObjectsList(i)% index 
          this(i+tree% NumOfObjs)% index = ObjectsList(i)% index 
      
-         this(i)% plane = minval(ObjectsList(i)% vertices(:)% coords(axis)) 
-         this(i+tree% NumOfObjs)% plane = maxval(ObjectsList(i)% vertices(:)% coords(axis)) 
+         this(i)% plane = minval(ObjectsList(i)% vertices(1:NumOfVertices)% coords(axis)) 
+         this(i+tree% NumOfObjs)% plane = maxval(ObjectsList(i)% vertices(1:NumOfVertices)% coords(axis)) 
 
          if( almostEqual(this(i)% plane,this(i+tree% NumOfObjs)% plane) ) then
             this(i)% eType = PLANAR_
@@ -1441,7 +1194,7 @@ module KDClass
             this(i+tree% NumOfObjs)% eType = END_
             tree% NumOfEvents(axis) = tree% NumOfEvents(axis) + 2
          end if
-         this(i)% median = sum(ObjectsList(i)% vertices(:)% coords(axis))/3.0_RP
+         this(i)% median = sum(ObjectsList(i)% vertices(1:NumOfVertices)% coords(axis))/NumOfVertices
          this(i+tree% NumOfObjs)% median = this(i)% median
       end do
       
@@ -1489,6 +1242,9 @@ module KDClass
          child_L% level = this% level + 1
          child_R% level = this% level + 1
 
+         this% built_L = .true.
+         this% built_R = .true.
+
          this% isLast = .false.   
 
          call this% BuildChild( child_L, side_L )
@@ -1507,7 +1263,7 @@ module KDClass
          allocate(Events_L(NDIM,child_L% NumOfObjs))
          allocate(Events_R(NDIM,child_R% NumOfObjs))
 
-         call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R, BREADTHFIRST )
+         call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R )
 
          deallocate(Events)
             
@@ -1543,11 +1299,9 @@ module KDClass
       !-local-variables------------------------------------------
       type(KDtree), pointer     :: child_L, child_R 
       type(Event),  allocatable :: Events_L(:,:), Events_R(:,:)
-
 !$omp critical
       BoxIndex = BoxIndex + 1
 !$omp end critical
-
       this% index  = BoxIndex
       this% NumOfEvents(:)  = this% NumOfObjs
  
@@ -1572,6 +1326,9 @@ module KDClass
          child_L% level = this% level + 1
          child_R% level = this% level + 1
 
+         this% built_L = .true.
+         this% built_R = .true.
+
          this% isLast = .false.   
 
          call this% BuildChild( child_L, side_L )
@@ -1590,7 +1347,7 @@ module KDClass
          allocate(Events_L(NDIM,child_L% NumOfObjs))
          allocate(Events_R(NDIM,child_R% NumOfObjs))
 
-         call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R, DEPTHFIRST )
+         call Event_BuildLists( Events, this, child_L, child_R, ObjsIndx, Events_L, Events_R )
 
          deallocate(Events)
 
@@ -1608,7 +1365,6 @@ module KDClass
       if( allocated( Events ) ) deallocate( Events )
 
    end subroutine KDtree_buildPoints_DepthFirst
-   
    
    subroutine KDtree_SavePointsIndeces( this, Events )
    
@@ -1687,127 +1443,240 @@ module KDClass
    
 !/////////////////////////////// EVENTS SORTING ///////////////////////
 
-  recursive subroutine QsortEvents( Events, startIdx, endIdx )
-  
-     implicit none
-     !-arguments-------------------------------------
-     type(Event), intent(inout) :: Events(:)
-     integer,     intent(in)    :: startIdx, endIdx
-     !-local-variables-------------------------------
-     type(Event) :: pivot
-     integer     :: left, right, mid
-     
-     if( startIdx .gt. endIdx ) return
-     
-     left = startIdx; right = endIdx
-     
-     mid = (startIdx + endIdx)/2
-     
-     pivot = Events(mid)
-     
-     do while ( left < right )
-        do while( EventIsLess(Events(left),pivot) )
-           left = left + 1
-        end do
-        do while( EventIsLess(pivot,Events(right)) )
-           right = right - 1
-        end do
-        if( left .le. right ) then
-           call swapEvents(Events(left), Events(right))
-           left = left + 1
-           right = right - 1
-        end if
-     end do
-     
-     if( startIdx .lt. right ) call QsortEvents( Events, startIdx, right )
-     if( left .lt. endIdx  ) call QsortEvents( Events, left, endIdx )
- 
-  end subroutine QsortEvents
-
-  subroutine swapEvents( EventA, EventB )
+   recursive subroutine QsortEvents( Events, startIdx, endIdx )
   
       implicit none
-     !-arguments------------------------------------
-     type(Event), intent(inout) :: EventA, EventB
-     !-local-variables------------------------------
-     type(Event) :: temp
+      !-arguments-------------------------------------
+      type(Event), intent(inout) :: Events(:)
+      integer,     intent(in)    :: startIdx, endIdx
+      !-local-variables-------------------------------
+      type(Event) :: pivot
+      integer     :: left, right, mid
+     
+      if( startIdx .gt. endIdx ) return
+     
+      left = startIdx; right = endIdx
+     
+      mid = (startIdx + endIdx)/2
+     
+      pivot = Events(mid)
+     
+      do while ( left < right )
+         do while( EventIsLess(Events(left),pivot) )
+            left = left + 1
+         end do
+         do while( EventIsLess(pivot,Events(right)) )
+            right = right - 1
+         end do
+         if( left .le. right ) then
+            call swapEvents(Events(left), Events(right))
+            left = left + 1
+            right = right - 1
+         end if
+      end do
+     
+      if( startIdx .lt. right ) call QsortEvents( Events, startIdx, right )
+      if( left .lt. endIdx  ) call QsortEvents( Events, left, endIdx )
+ 
+   end subroutine QsortEvents
+
+   subroutine swapEvents( EventA, EventB )
   
-     temp = EventA
-     EventA = EventB
-     EventB = temp
+      implicit none
+      !-arguments------------------------------------
+      type(Event), intent(inout) :: EventA, EventB
+      !-local-variables------------------------------
+      type(Event) :: temp
   
-  end subroutine swapEvents
+      temp = EventA
+      EventA = EventB
+      EventB = temp
   
-  logical function EventIsLess( EventA, EventB ) result( IsLess )
+   end subroutine swapEvents
+  
+   logical function EventIsLess( EventA, EventB ) result( IsLess )
   
      implicit none
      !-arguments----------------------------------
      type(Event), intent(in) :: EventA, EventB
      
-     if( EventA% plane .eq. EventB% plane ) then
-        if( EventA% eTYPE .lt. EventB% eTYPE ) then
-           IsLess = .true.
-        else
-           IsLess = .false.
-        end if
-     elseif( EventA% plane < EventB% plane ) then
-        IsLess = .true.
-     else
-        IsLess = .false.
-     end if
+      if( EventA% plane .eq. EventB% plane ) then
+         if( EventA% eTYPE .lt. EventB% eTYPE ) then
+            IsLess = .true.
+         else
+            IsLess = .false.
+         end if
+      elseif( EventA% plane < EventB% plane ) then
+         IsLess = .true.
+      else
+         IsLess = .false.
+      end if
   
-  end function EventIsLess
+   end function EventIsLess
    
-   subroutine constrct_taskPart( taskPart, TotalChunk, NumOfThreads )
-   
-      implicit none
-      !-arguments----------------------------------------------------------
-      type(taskPart_type), allocatable, intent(inout) :: taskPart(:)
-      integer,                          intent(in)    :: NumOfThreads
-      integer,                          intent(in)    :: TotalChunk(NDIM)
-      !-local-variables----------------------------------------------------
-      integer :: ChunkDim(NDIM,NumOfThreads), i, k 
+   logical function TrinagleIntersectBox( vertices, triangle ) result( inside )
+      use MappedGeometryClass
+      implicit none 
 
-      ChunkDim = ChunkPartition( TotalChunk, NumOfThreads )
-      
-      if( allocated(taskPart) ) deallocate(taskPart)
-      allocate(taskPart(NumOfThreads))
-      
-      do k = 1, NDIM
-         do i = 1, NumOfThreads
-            taskPart(i)% taskPartDim(k)% ChunkDim = ChunkDim(k,i)
-            taskPart(i)% taskPartDim(k)% Starting_index = (i-1)*ChunkDim(k,1)
-         
-            taskPart(i)% taskPartDim(k)% N_R = 0
-            taskPart(i)% taskPartDim(k)% N_L = 0
-            taskPart(i)% taskPartDim(k)% N_P = 0
-            taskPart(i)% taskPartDim(k)% Values2Check = 0
-         end do
-      end do
-   
-   end subroutine constrct_taskPart
-   
-   function ChunkPartition( TotalChunk, NumOfThreads ) result(ChunkDim)
-   
-      implicit none
-      !-arguments-----------------------------------------
-      integer,  intent(in) :: NumOfThreads
-      integer,  intent(in) :: TotalChunk(NDIM)
-      integer              :: ChunkDim(NDIM,NumOfThreads)
-      !-local-variables--------------------------------------
-      integer :: Part, i, k
-   
-      do k = 1, NDIM
-         Part = TotalChunk(k)/NumOfThreads
-      
-         do i = 1, NumOfThreads
-            ChunkDim(k,i) = Part
-            if( i .eq. NumOfThreads ) then
-               ChunkDim(k,i) = ChunkDim(k,i) + (TotalChunk(k) - i*Part) 
-            end if
-         end do
-      end do
-   
-   end function ChunkPartition
+      real(kind=rp),     intent(in) :: vertices(:,:)
+      type(object_type), intent(in) :: Triangle
+
+      real(kind=rp) :: center(NDIM), halfL(NDIM), trivert0(NDIM), trivert1(NDIM), trivert2(NDIM), &
+                       v0(NDIM), v1(NDIM), v2(NDIM), e0(NDIM), e1(NDIM), e2(NDIM),                &
+                       f0(NDIM), f1(NDIM), f2(NDIM), a00(NDIM), a01(NDIM), a02(NDIM),             &
+                       a10(NDIM), a11(NDIM), a12(NDIM), a20(NDIM), a21(NDIM), a22(NDIM),          &
+                       a23(NDIM), p0, p1, p2, r, plane_normal(NDIM), plane_distance, Bmin(NDIM),  &
+                       Bmax(NDIM)
+      integer       :: i
+
+
+      do i = 1, NDIM 
+         Bmin(i)   = minval(vertices(1,:))
+         Bmax(i)   = maxval(vertices(1,:))
+         center(i) = 0.5_RP*(Bmax(i)+Bmin(i))
+         halfL(i)  = 0.5_RP*abs(Bmax(i)-Bmin(i))
+      end do 
+
+      trivert0 = triangle% vertices(1)% coords
+      trivert1 = triangle% vertices(2)% coords
+      trivert2 = triangle% vertices(3)% coords
+
+      if( isInsideBox( trivert0, vertices ) .and. &
+          isInsideBox( trivert1, vertices ) .and. &
+          isInsideBox( trivert2, vertices ) ) then 
+         inside = .true.
+         return 
+      end if 
+
+      v0 = trivert0 - center;
+      v1 = trivert1 - center;
+      v2 = trivert2 - center;
+
+      e0 = v1 - v0;
+      e1 = v2 - v1;
+      e2 = v0 - v2;
+  
+      f0 = trivert1 - trivert0
+      f1 = trivert2 - trivert1
+      f2 = trivert0 - trivert2
+  
+      a00 = (/ 0.0_RP, -f0(3), f0(2) /)
+      p0 = dot_product(v0, a00)
+      p1 = dot_product(v1, a00)
+      p2 = dot_product(v2, a00)
+      r = halfL(2) * abs(f0(3)) + halfL(3) * abs(f0(2))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a01 = (/ 0.0_RP, -f1(3), f1(2) /)
+      p0 = dot_product(v0, a01)
+      p1 = dot_product(v1, a01)
+      p2 = dot_product(v2, a01)
+      r = halfL(2) * abs(f1(3)) + halfL(3) * abs(f1(2))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r) then 
+         inside = .false. 
+         return 
+      end if 
+  
+      a02 = (/ 0.0_RP, -f2(3), f2(2) /)
+      p0 = dot_product(v0, a02)
+      p1 = dot_product(v1, a02)
+      p2 = dot_product(v2, a02)
+      r = halfL(2) * abs(f2(3)) + halfL(3) * abs(f2(2))
+      if ( max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) then 
+         inside= .false.
+         return 
+      end if 
+  
+      a10 = (/ f0(3), 0.0_RP, -f0(1) /)
+      p0 = dot_product(v0, a10)
+      p1 = dot_product(v1, a10)
+      p2 = dot_product(v2, a10)
+      r = halfL(1) * abs(f0(3)) + halfL(3) * abs(f0(1))
+      if ( max(-max(p0, p1, p2), min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a11 = (/ f1(3), 0.0_RP, -f1(1) /)
+      p0 = dot_product(v0, a11)
+      p1 = dot_product(v1, a11)
+      p2 = dot_product(v2, a11)
+      r = halfL(1) * abs(f1(3)) + halfL(3) * abs(f1(1))
+      if (max(-Max(p0, p1, p2), Min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a12 = (/ f2(3), 0.0_RP, -f2(1) /)
+      p0 = dot_product(v0, a12)
+      p1 = dot_product(v1, a12)
+      p2 = dot_product(v2, a12)
+      r = halfL(1) * abs(f2(3)) + halfL(3) * abs(f2(1))
+      if (max(-Max(p0, p1, p2), Min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a20 = (/ -f0(2), f0(1), 0.0_RP /)
+      p0 = dot_product(v0, a20)
+      p1 = dot_product(v1, a20)
+      p2 = dot_product(v2, a20)
+      r = halfL(1) * abs(f0(2)) + halfL(2) * abs(f0(1))
+      if (max(-Max(p0, p1, p2), Min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a21 = (/ -f1(2), f1(1), 0.0_RP /)
+      p0 = dot_product(v0, a21)
+      p1 = dot_product(v1, a21)
+      p2 = dot_product(v2, a21)
+      r = halfL(1) * abs(f1(2)) + halfL(2) * abs(f1(1))
+      if (max(-Max(p0, p1, p2), Min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      a22 = (/-f2(2), f2(1), 0.0_RP/)
+      p0 = dot_product(v0, a22)
+      p1 = dot_product(v1, a22)
+      p2 = dot_product(v2, a22)
+      r = halfL(1) * abs(f2(2)) + halfL(2) * abs(f2(1))
+      if (max(-Max(p0, p1, p2), Min(p0, p1, p2)) > r) then 
+         inside = .false.
+         return 
+      end if 
+
+      if (Max(v0(1), v1(1), v2(1)) < -halfL(1) .or. Min(v0(1), v1(1), v2(1)) > halfL(1)) then 
+         inside = .false.
+         return 
+      end if 
+
+      if (Max(v0(2), v1(2), v2(2)) < -halfL(2) .or. Min(v0(2), v1(2), v2(2)) > halfL(2)) then 
+         inside = .false.
+         return 
+      end if 
+
+      if (Max(v0(3), v1(3), v2(3)) < -halfL(3) .or. Min(v0(3), v1(3), v2(3)) > halfL(3)) then 
+         inside = .false.
+         return 
+      end if 
+  
+      call vcross(f0, f1, plane_normal)
+      plane_distance = abs(dot_product(plane_normal, v0))
+  
+      r = halfL(1) * abs(plane_normal(1)) + halfL(2) * abs(plane_normal(2)) + halfL(3) * abs(plane_normal(3));
+  
+      if (plane_distance > r) then 
+         inside = .false.
+         return 
+      end if 
+  
+      inside = .true.
+
+   end function TrinagleIntersectBox
 
 end module KDClass

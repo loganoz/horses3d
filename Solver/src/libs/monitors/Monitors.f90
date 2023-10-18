@@ -190,7 +190,7 @@ module MonitorsClass
 !        Write surface monitors labels
 !        -----------------------------
          do i = 1 , self % no_of_surfaceMonitors
-            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteLabel
+            call self % surfaceMonitors(i) % WriteLabel
          end do
 
          call self % stats % WriteLabel
@@ -317,7 +317,7 @@ module MonitorsClass
 !        Print surface monitors
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
+            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
 
          call self % stats % WriteValue
@@ -337,7 +337,7 @@ module MonitorsClass
 
       end subroutine Monitor_WriteValues
 
-      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals, Autosave )
+      subroutine Monitor_UpdateValues ( self, mesh, t , iter, maxResiduals, Autosave, dt )
 !
 !        ***************************************************************
 !              This subroutine updates the values for the residuals,
@@ -351,7 +351,7 @@ module MonitorsClass
          class(HexMesh)      :: mesh
          real(kind=RP)       :: t
          integer             :: iter
-         real(kind=RP)       :: maxResiduals(NCONS)
+         real(kind=RP)       :: maxResiduals(NCONS), dt
          logical             :: Autosave
 !
 !        ---------------
@@ -395,13 +395,7 @@ module MonitorsClass
 !        Update surface monitors
 !        -----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            if( self% surfaceMonitors(i)% IBM ) then
-               if( Autosave ) then 
-                  call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, t )
-               end if 
-            else 
-               call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter )
-            endif
+            call self % surfaceMonitors(i) % Update( mesh , self % bufferLine, iter, autosave, dt )
          end do
 !
 !        Update statistics
@@ -496,7 +490,7 @@ module MonitorsClass
 
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_surfaceMonitors
-                  if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 !

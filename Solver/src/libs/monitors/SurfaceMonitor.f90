@@ -109,19 +109,25 @@ module SurfaceMonitorClass
 !        Get the surface marker
 !        ----------------------
          self % marker = -1
-         if( mesh% IBM% active ) then                 
+         if( mesh% IBM% active ) then                
             do STLNum = 1, mesh% IBM% NumOfSTL
+               if( mesh% IBM% Integral(STLNum)% compute ) cycle
                if( trim(mesh% IBM% STLfilename(STLNum)) .eq. trim(markerName) ) then
                  if( .not. mesh% IBM% ComputeBandRegion ) then
                      write(*,'(A)') "Warning: for surface monitors with IBM, 'band region' must be set '.true.'"
                      error stop
                   end if
-                  if( mesh% IBM% Integral(STLNum)% constructed ) exit
-                  call mesh% IBM% SetIntegration( STLNum )
-                  mesh% IBM% Integral(STLNum)% ListComputed = .false.
-                  mesh% IBM% Integral(STLNum)% compute      = .true.     
                   self% marker = STLNum    
-                  self% IBM    = .true.         
+                  self% IBM    = .true.
+                  mesh% IBM% Integral(STLNum)% compute = .true.
+                  mesh% IBM% Integral(STLNum)% ListComputed = .false.
+                  if( MPI_Process% isRoot ) then 
+                     call mesh% IBM% stlSurfaceIntegrals(STLNum)% ReadTessellation( mesh% IBM% STLfilename(STLNum) )
+                     if( mesh% IBM% ClipAxis .ne. 0 ) call mesh% IBM% stlSurfaceIntegrals(STLNum)% Clip( mesh% IBM% minCOORDS, mesh% IBM% maxCOORDS, mesh% IBM% ClipAxis, .false. )
+                     call mesh% IBM% stlSurfaceIntegrals(STLNum)% SetIntegrationPoints()
+                     call mesh% IBM% stlSurfaceIntegrals(STLNum)% SetIntegration( mesh% IBM% NumOfInterPoints )                        
+                  end if
+                  call mesh% IBM% SetIntegration( STLNum )                  
                   exit
                end if
             end do
@@ -138,10 +144,7 @@ module SurfaceMonitorClass
             self % active = .false.
             write(*,'(A,I0)') "Warning: Marker not specified for surface monitor ", self % ID
             write(*,'(A,I0,A)') "     Surface monitor ", self % ID, " disabled."
-         end if
-
-         if( self% IBM ) return
-         
+         end if         
 !
 !        Select the variable from the available list, and compute auxiliary variables if needed
 !        --------------------------------------------------------------------------------------
@@ -149,7 +152,7 @@ module SurfaceMonitorClass
 !        ****************************************
          select case ( trim ( self % variable ) )
 !        ****************************************
-!
+! 
             case ("mass-flow")
                self % isDimensionless = .false.
 
@@ -313,7 +316,7 @@ module SurfaceMonitorClass
          end if
       end subroutine SurfaceMonitor_Initialization
 
-      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition, iter, t )
+      subroutine SurfaceMonitor_Update ( self, mesh, bufferPosition, iter, autosave, dt )
 !
 !        *******************************************************************
 !           This subroutine updates the monitor value computing it from
@@ -326,70 +329,91 @@ module SurfaceMonitorClass
          implicit none
          class   (  SurfaceMonitor_t )   :: self
          class   (  HexMesh       )      :: mesh
-         integer                         :: bufferPosition, iter
+         integer                         :: bufferPosition, iter, STLNum
          real(kind=RP)                   :: F(NDIM)
-         real(kind=RP), optional         :: t
-
-         if( self% IBM ) then
-            select case (trim(self% variable))
-               case ("mass-flow")
-                  call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, MASS_FLOW, iter ) 
-
-               case ("flow")
-                  call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, FLOW_RATE, iter)
-
-               case ("pressure-force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_FORCE, iter)
-
-               case ("viscous-force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, VISCOUS_FORCE, iter)
-
-               case ("force")
-                  call VectorDataReconstruction( mesh% IBM, mesh% elements, self% marker, TOTAL_FORCE, iter)
-
-             case("pressure","pressure-average")
-                 call ScalarDataReconstruction( mesh% IBM, mesh% elements, self% marker, PRESSURE_DISTRIBUTION, iter)
-  
-            end select
-
-            if( present(t) ) call WriteTimeFile( t, self% marker )
-
-            return
-         end if
-
+         real(kind=RP)                   :: dt
+         logical                         :: autosave
+         
          select case ( trim ( self % variable ) )
 
          case ("mass-flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW, iter)
-
+            if( self% IBM ) then
+               STLNum = self% marker
+               call ScalarDataReconstruction( mesh% IBM, mesh% elements, STLNum, MASS_FLOW, iter, autosave, dt )
+               self % values(bufferPosition) = mesh% IBM% stlSurfaceIntegrals(STLNum)% ComputeScalarIntegral()
+            else
+               self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, MASS_FLOW, iter)
+            end if 
          case ("flow")
-            self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE, iter)
+            if( self% IBM ) then
+               STLNum = self% marker
+               call ScalarDataReconstruction( mesh% IBM, mesh% elements, STLNum, FLOW_RATE, iter, autosave, dt ) 
+               self % values(bufferPosition) = mesh% IBM% stlSurfaceIntegrals(STLNum)% ComputeScalarIntegral()
+            else
+               self % values(bufferPosition) = ScalarSurfaceIntegral(mesh, self % marker, FLOW_RATE, iter)
+            end if 
 
          case ("pressure-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+            if( self% IBM ) then 
+               STLNum = self% marker
+               call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, PRESSURE_FORCE, iter, autosave, dt )
+               F = mesh% IBM% stlSurfaceIntegrals(STLNum)% ComputeVectorIntegral()
+            else
+               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+            end if
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("viscous-force")
-            F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
+            if( self% IBM ) then 
+               STLNum = self% marker
+               call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, VISCOUS_FORCE, iter, autosave, dt )
+               F = mesh% IBM% stlSurfaceIntegrals(STLNum)% ComputeVectorIntegral()
+            else
+               F = VectorSurfaceIntegral(mesh, self % marker, VISCOUS_FORCE, iter)
+            end if
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("force")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            if( self% IBM ) then 
+               STLNum = self% marker
+               call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave, dt )
+               F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+            else
+               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            end if 
             F = refValues % rho * POW2(refValues % V) * POW2(Lref) * F
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("lift")
-            F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            if( self% IBM ) then 
+               STLNum = self% marker
+               call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave, dt )
+               F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+            else
+               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+            end if 
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)
 
          case ("drag")
             if (flowIsNavierStokes) then
-               F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+               if( self% IBM ) then 
+                  STLNum = self% marker
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements, STLNum, TOTAL_FORCE, iter, autosave, dt )
+                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+               else
+                  F = VectorSurfaceIntegral(mesh, self % marker, TOTAL_FORCE, iter)
+               end if
             else
-               F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+               if( self% IBM ) then 
+                  STLNum = self% marker
+                  call VectorDataReconstruction( mesh% IBM, mesh% elements,STLNum, TOTAL_FORCE, iter, autosave, dt )
+                  F = mesh% IBM% stlSurfaceIntegrals(STLNum) % ComputeVectorIntegral()
+               else
+                  F = VectorSurfaceIntegral(mesh, self % marker, PRESSURE_FORCE, iter)
+               end if 
             end if
             F = 2.0_RP * POW2(Lref) * F / self % referenceSurface
             self % values(bufferPosition) = dot_product(F, self % direction)

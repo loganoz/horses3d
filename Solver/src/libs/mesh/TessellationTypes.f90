@@ -38,15 +38,15 @@ module TessellationTypes
    
       class(point_type), pointer :: next => null(), prev => null()
       
-      real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi 
-      real(kind=rp)                  :: theta, dist, Rank
+      real(kind=rp), dimension(NDIM) :: coords, ImagePoint_coords, normal, xi, VectorValue
+      real(kind=rp)                  :: theta, dist, Rank, ScalarValue
       integer                        :: index, element_index, NumOfIntersections, &
                                         Translate = 0, partition, objIndex, isForcingPoint, &
-                                        STLNum, element_in 
+                                        STLNum, element_in, faceID 
       integer,       dimension(NDIM) :: local_Position
       logical                        :: delete = .false., isInsideBody = .false., &
                                         forcingPoint = .false., isInsideBox = .false.
-      real(kind=RP), allocatable     :: invPhi(:,:), b(:) 
+      real(kind=RP), allocatable     :: invPhi(:,:), b(:), V(:,:,:), bb(:,:), Q(:,:)
       integer,       allocatable     :: nearestPoints(:) 
 
       contains
@@ -96,24 +96,30 @@ module TessellationTypes
    type STLfile
 
       type(Object_type), dimension(:), allocatable :: ObjectsList
-      integer                                      :: NumOfObjs, partition, &
-                                                      motionAxis, body,     &
+      integer                                      :: NumOfObjs, partition,      &
+                                                      motionAxis, body,          &
                                                       NumOfObjs_OLD
-      real(kind=RP)                                :: angularVelocity, ds,  &
-                                                      Velocity,             & 
-                                                      rotationMatrix(NDIM,NDIM)
-      logical                                      :: move, show 
+      real(kind=RP)                                :: angularVelocity, ds,       &
+                                                      Velocity,                  & 
+                                                      rotationMatrix(NDIM,NDIM), &
+                                                      rotationCenter(NDIM)
+      logical                                      :: move, show, construct = .false. 
       character(len=LINE_LENGTH)                   :: filename, motionType
    
        contains
           procedure :: ReadTessellation
-          procedure :: getRotationaMatrix => STLfile_getRotationaMatrix
-          procedure :: getDisplacement    => STLfile_getDisplacement
-          procedure :: Clip               => STL_Clip
-          procedure :: updateNormals      => STL_updateNormals
-          procedure :: destroy            => STLfile_destroy
-          procedure :: Describe           => Describe_STLfile
-          procedure :: plot               => STLfile_plot
+          procedure :: getRotationaMatrix    => STLfile_getRotationaMatrix
+          procedure :: getDisplacement       => STLfile_getDisplacement
+          procedure :: Clip                  => STL_Clip
+          procedure :: updateNormals         => STL_updateNormals
+          procedure :: SetIntegration        => STL_SetIntegration
+          procedure :: ComputeVectorIntegral => STL_ComputeVectorIntegral
+          procedure :: ComputeScalarIntegral => STL_ComputeScalarIntegral
+          procedure :: destroy               => STLfile_destroy
+          procedure :: Describe              => Describe_STLfile
+          procedure :: Copy                  => STLfile_copy
+          procedure :: plot                  => STLfile_plot
+          procedure :: SetIntegrationPoints  => STL_SetIntegrationPoints
 
    end type
    
@@ -737,9 +743,12 @@ module TessellationTypes
          if( this% move ) then
             write(STD_OUT,'(30X,A,A35,A10)') "->" , "Motion: " , this% motionType
             if( this% motionType .eq. ROTATION ) then 
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , abs(this% angularVelocity), " rad/s."
+               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Angular Velocity: " , this% angularVelocity, " rad/s."
+               write(STD_OUT,'(30X,A,A35,F10.3,A,F10.3,A,F10.3,A)') "->" , "Center of rotation: [" , this% rotationCenter(1), ',', & 
+                                                                                                     this% rotationCenter(2), ',', & 
+                                                                                                     this% rotationCenter(3), ']'
             elseif( this% motionType .eq. LINEAR ) then
-               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity*(Lref/timeref), " m/s."
+               write(STD_OUT,'(30X,A,A35,F10.3,A)') "->" , "Translation Velocity: " , this% Velocity, " m/s."
             end if
             write(STD_OUT,'(30X,A,A35,I10)') "->" , "Axis of motion: " , this% motionAxis
          end if
@@ -762,6 +771,8 @@ module TessellationTypes
       !-local-variables--------------------------
       character(len=LINE_LENGTH) :: myString
       
+      if( .not. MPI_Process% doMPIAction ) return
+
       write(myString,'(i100)') partition+1
       
       if( partition .eq. 0 ) then
@@ -784,15 +795,15 @@ module TessellationTypes
       use PhysicsStorage
       implicit none
       !-arguments---------------------------------------
-      class(STLfile),   intent(inout) :: this
-      character(len=*), intent(in)    :: filename
+      class(STLfile),             intent(inout) :: this
+      character(len=*),           intent(in)    :: filename
       !-local-variables---------------------------------
-      integer              :: i, j, funit, NumOfTri,  &
+      integer              :: i, j, funit, NumOfTri,   &
                               fileStat, NumOfVertices
       integer*2            :: padding
       real*4, dimension(3) :: norm, vertex
       character(len=80)    :: header
-      
+
       NumOfVertices = 3 
       
       this% partition = 1
@@ -822,7 +833,7 @@ module TessellationTypes
          allocate(Objs(i)% vertices(NumOfVertices))
          do j = 1, NumOfVertices
             read(funit) vertex(1), vertex(2), vertex(3)
-            Objs(i)% vertices(j)% coords = vertex!/Lref -> always 1           
+            Objs(i)% vertices(j)% coords = vertex  !/Lref -> always 1           
          end do
          read(funit) padding
          Objs(i)% index = i
@@ -836,7 +847,38 @@ module TessellationTypes
 
    end subroutine  ReadTessellation
 
-  subroutine STLfile_plot( this, iter )
+   subroutine STL_SetIntegrationPoints( this )
+
+      implicit none
+
+      class(STLfile), intent(inout) :: this 
+
+      real(kind=RP) :: tmp(NDIM,NumOfVertices)
+      integer       :: i, j, indeces(3)
+
+      do i = 1, this% NumOfObjs
+         associate( obj => this% ObjectsList(i) )
+         do j = 1, NumOfVertices
+            tmp(:,j) = obj% vertices(j)% coords
+         end do 
+         deallocate(obj% vertices)
+         allocate(obj% vertices(NumOfVertices+4))
+         obj% vertices(NumOfVertices+4)% coords = 0.0_RP
+         indeces =(/ 2, 3, 1 /)
+         do j = 1, NumOfVertices
+            obj% vertices(j)% coords = tmp(:,j)
+            obj% vertices(NumOfVertices+j)% coords = 0.5_RP*(tmp(:,j) + tmp(:,indeces(j)))
+            obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords + &
+                                                     tmp(:,j)
+         end do
+         obj% vertices(NumOfVertices+4)% coords = obj% vertices(NumOfVertices+4)% coords/3.0_RP
+         end associate
+      end do
+
+   end subroutine STL_SetIntegrationPoints  
+
+
+   subroutine STLfile_plot( this, iter )
       use MPI_Process_Info
       use PhysicsStorage
       implicit none
@@ -861,7 +903,7 @@ module TessellationTypes
       do i = 1, this% NumOfObjs
          norm = this% ObjectsList(i)% normal
          write(funit) norm(1), norm(2), norm(3)
-         do j = 1, size(this% ObjectsList(i)% vertices)         
+         do j = 1, NumOfVertices      
             vertex = this% ObjectsList(i)% vertices(j)% coords * Lref
             write(funit) vertex(1), vertex(2), vertex(3)
          end do
@@ -871,6 +913,37 @@ module TessellationTypes
       close(funit)
    
    end subroutine STLfile_plot
+
+   subroutine STLfile_copy( this, STL )
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this
+      type(STLfile),  intent(in)    :: STL
+
+      integer :: NumOfObjs, i, j
+
+      NumOfObjs = STL% NumOfObjs
+
+      this% NumOfObjs = NumOfObjs
+
+      allocate( this% ObjectsList(NumOfObjs) )
+
+!$omp parallel
+!$omp do schedule(runtime) private(j)
+      do i = 1, NumOfObjs
+         allocate(this% ObjectsList(i)% vertices(NumOfVertices))
+         do j = 1, NumOfVertices
+            this% ObjectsList(i)% vertices(j)% coords = STL% ObjectsList(i)% vertices(j)% coords
+         end do
+         this% ObjectsList(i)% normal        = STL% ObjectsList(i)% normal
+         this% ObjectsList(i)% index         = STL% ObjectsList(i)% index
+         this% ObjectsList(i)% NumOfVertices = NumOfVertices
+         this% ObjectsList(i)% partition     = 1
+      end do
+!$omp end do
+!$omp end parallel
+   end subroutine STLfile_copy
   
    subroutine STLfile_GetMotionInfo( this, STLfilename, NumOfSTL )
       use FileReadingUtilities
@@ -884,22 +957,26 @@ module TessellationTypes
       !-local-arguments-------------------------------------------------
       integer                    :: i
       integer,       allocatable :: motionAxis_STL
-      real(kind=RP), allocatable :: angularVelocity_STL, Velocity_STL
-      character(len=LINE_LENGTH) :: in_label, paramFile, &
+      real(kind=RP), allocatable :: angularVelocity_STL, Velocity_STL, &
+                                    RC_x_STL, RC_y_STL, RC_z_STL
+      character(len=LINE_LENGTH) :: in_label, paramFile,  &
                                     motion_STL, STL_name 
-   
+
       this% move = .false.
-      
+
       do i = 1, NumOfSTL
       
          write(in_label , '(A,I0)') "#define stl motion ", i
 
          call get_command_argument(1, paramFile)
-         call readValueInRegion ( trim ( paramFile )  , "stl name"         , STL_name           , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "type"             , motion_STL         , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "angular velocity" , angularVelocity_STL, in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "velocity"         , Velocity_STL       , in_label, "#end" ) 
-         call readValueInRegion ( trim ( paramFile )  , "motion axis"      , motionAxis_STL     , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "stl name"          , STL_name           , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "type"              , motion_STL         , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "angular velocity"  , angularVelocity_STL, in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "velocity"          , Velocity_STL       , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "motion axis"       , motionAxis_STL     , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "rotation center x" , RC_x_STL           , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "rotation center y" , RC_y_STL           , in_label, "#end" ) 
+         call readValueInRegion ( trim ( paramFile )  , "rotation center z" , RC_z_STL           , in_label, "#end" ) 
 
          if( trim(STLfilename) .ne. trim(STL_name) ) cycle
 
@@ -911,7 +988,7 @@ module TessellationTypes
             case( "linear" )
                this% motionType = LINEAR
             case default
-               print *, "STLfile_GetMotionInfo: motion not recognized. Available motions are ", ROTATION,"and",LINEAR,"."
+               print *, "STLfile_GetMotionInfo: motion not recognized. Available motions are ", ROTATION," or ",LINEAR,"."
                error stop
          end select
          
@@ -941,19 +1018,29 @@ module TessellationTypes
             error stop            
          end if
 
+         if( this% motionType .eq. ROTATION ) then 
+            if( .not. allocated(RC_x_STL) ) then 
+               print *, "STLfile_GetMotionInfo: 'rotation center' must be specified."
+               error stop 
+            end if 
+            this% rotationCenter(1) = RC_x_STL
+            this% rotationCenter(2) = RC_y_STL
+            this% rotationCenter(3) = RC_z_STL
+         end if 
+         
          return
 
       end do
  
    end subroutine STLfile_GetMotionInfo
    
-   subroutine STLfile_getRotationaMatrix( this, dt, angle )
+   subroutine STLfile_getRotationaMatrix( this, t, angle )
       use PhysicsStorage
       use FluidData
       implicit none
       !-arguments-----------------------------
       class(STLfile),           intent(inout):: this
-      real(kind=RP),            intent(in)   :: dt
+      real(kind=RP),            intent(in)   :: t
       real(kind=RP),  optional, intent(in)   :: angle 
       !-local-variables-----------------------
       real(kind=RP) :: time, theta
@@ -984,10 +1071,9 @@ module TessellationTypes
                this% rotationMatrix(2,2) = cos(theta)
          end select
          return
-      end if 
-         
+      end if     
 #if defined(NAVIERSTOKES)
-      time = dt * Lref/refValues%V
+      time = t * Lref/refValues% V
    
       theta = this% angularVelocity * time
    
@@ -1016,14 +1102,22 @@ module TessellationTypes
 #endif       
    end subroutine STLfile_getRotationaMatrix
    
-   subroutine STLfile_getDisplacement( this, dt )
+   subroutine STLfile_getDisplacement( this, t )
+      use FluidData
+      use PhysicsStorage
       implicit none
       !-arguments-----------------------------
       class(STLfile), intent(inout):: this
-      real(kind=RP),  intent(in)   :: dt
+      real(kind=RP),  intent(in)   :: t
+
+      real(kind=RP) :: time 
+#if defined(NAVIERSTOKES)
+      time = t * Lref/refValues% V
    
-      this% ds = this% Velocity * dt
-        
+      this% ds = this% Velocity * time
+
+      this% ds = this% ds/Lref
+#endif
    end subroutine STLfile_getDisplacement
 
    subroutine STL_updateNormals( this )
@@ -1059,6 +1153,8 @@ module TessellationTypes
       end do
       
       deallocate(this% ObjectsList)  
+
+      this% NumOfObjs = 0
    
    end subroutine STLfile_destroy
 !//////////////////////////////////////////////
@@ -1067,12 +1163,13 @@ module TessellationTypes
 !   
 !//////////////////////////////////////////////
 ! SPLITTING TRIANGLES 
-   subroutine STL_Clip( this, minplane, maxplane, axis )
+   subroutine STL_Clip( this, minplane, maxplane, axis, describe )
       implicit none
       !-arguments--------------------------------------------------------------------
       class(STLfile), intent(inout) :: this
       real(kind=RP),  intent(in)    :: minplane, maxplane
       integer,        intent(in)    :: axis
+      logical,        intent(in)    :: describe
       !-local-variables--------------------------------------------------------------
       type(ObjectLinkedList)     :: ObjectsLinkedList, ObjectsLinkedListFinal
       type(object_type), pointer :: obj 
@@ -1130,12 +1227,11 @@ module TessellationTypes
 
       call ObjectsLinkedListFinal% destruct()
 
-      call this% describe(this% filename)
+      if( describe ) call this% describe(this% filename)
 
       call this% plot(0)
 
    end subroutine STL_Clip
-
 
    subroutine ClipPloy( obj, plane_normal, plane_point, ObjectsLinkedList )
       use MappedGeometryClass
@@ -1213,6 +1309,119 @@ module TessellationTypes
       end if 
    
    end subroutine ClipPloy
+
+   subroutine STL_SetIntegration( this, NumOfInterPoints )
+      use MPI_Process_Info
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+      integer,        intent(in)    :: NumOfInterPoints
+
+      integer :: i, j
+
+      if( .not. MPI_Process% isRoot ) return 
+ 
+      do i = 1, this% NumOfObjs
+         do j = 1, NumOfVertices + 4
+            allocate( this% ObjectsList(i)% vertices(j)% nearestPoints(NumOfInterPoints),           &
+                      this% ObjectsList(i)% vertices(j)% invPhi(NumOfInterPoints,NumOfInterPoints), &
+                      this% ObjectsList(i)% vertices(j)% b(NumOfInterPoints)                        )
+         end do 
+      end do 
+ 
+   end subroutine STL_SetIntegration
+
+   function STL_ComputeScalarIntegral( this )
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+      real(kind=RP)                 :: STL_ComputeScalarIntegral
+
+      real(kind=RP) :: ScalarVar(NumOfVertices+4)
+      integer       :: i, j
+
+      STL_ComputeScalarIntegral = 0.0_RP
+
+      do i = 1, this% NumOfObjs
+         associate( obj => this% ObjectsList(i) )
+         do j = 1, NumOfVertices+4
+            ScalarVar(j) = obj% vertices(j)% ScalarValue
+         end do
+         STL_ComputeScalarIntegral = STL_ComputeScalarIntegral + TriangleScalarIntegral( obj, ScalarVar )
+         end associate
+      end do
+
+   end function STL_ComputeScalarIntegral
+
+   function STL_ComputeVectorIntegral( this )
+
+      implicit none 
+
+      class(STLfile), intent(inout) :: this 
+      real(kind=RP)                 :: STL_ComputeVectorIntegral(NDIM)
+
+      real(kind=RP) :: VectorVar(NDIM,NumOfVertices+4)
+      integer       :: i, j
+
+      STL_ComputeVectorIntegral = 0.0_RP
+
+      do i = 1, this% NumOfObjs
+         associate( obj => this% ObjectsList(i) )
+         do j = 1, NumOfVertices+4
+            VectorVar(:,j) = obj% vertices(j)% VectorValue
+         end do
+         STL_ComputeVectorIntegral = STL_ComputeVectorIntegral + TriangleVectorIntegral( obj, VectorVar )
+         end associate
+      end do
+
+   end function STL_ComputeVectorIntegral
+
+   function TriangleScalarIntegral( obj, ScalarVar ) result( Val )
+      use MappedGeometryClass
+      implicit none 
+
+      type(object_type), intent(in) :: obj 
+      real(kind=RP),     intent(in) :: ScalarVar(NumOfVertices+4)
+      real(kind=RP)                 :: Val
+
+      real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
+
+      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
+      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+
+      call vcross(AB,AC,S)
+
+      A = 0.5_RP * norm2(S)
+
+      Val = A/60.0_RP * ( 27.0_RP * ScalarVar(NumOfVertices+4) +                    &
+                           3.0_RP * sum(ScalarVar(1:NumOfVertices)) +               &
+                           8.0_RP * sum(ScalarVar(NumOfVertices+1:NumOfVertices+3)) )
+
+   end function TriangleScalarIntegral
+
+   function TriangleVectorIntegral( obj, VectorVar ) result( Val )
+      use MappedGeometryClass
+      implicit none 
+
+      type(object_type), intent(in) :: obj 
+      real(kind=RP),     intent(in) :: VectorVar(NDIM,NumOfVertices+4)
+      real(kind=RP)                 :: Val(NDIM)
+
+      real(kind=RP) :: AB(NDIM), AC(NDIM), S(NDIM), A
+
+      AB = obj% vertices(2)% coords - obj% vertices(1)% coords 
+      AC = obj% vertices(3)% coords - obj% vertices(1)% coords 
+
+      call vcross(AB,AC,S)
+
+      A = 0.5_RP * norm2(S)
+
+      Val = A/60.0_RP * ( 27.0_RP * VectorVar(:,NumOfVertices+4) +                    &
+                           3.0_RP * sum(VectorVar(:,1:NumOfVertices)) +               &
+                           8.0_RP * sum(VectorVar(:,NumOfVertices+1:NumOfVertices+3)) )
+
+   end function TriangleVectorIntegral
    
    integer function Point_wrt_Plane( plane_normal, plane_point, point ) result( PointIs )
       use MappedGeometryClass
@@ -1277,5 +1486,127 @@ module TessellationTypes
       end if
       
    end subroutine TecFileHeader
+
+   subroutine PolynomialVector( x, y, z, v )
+   
+      implicit none 
+
+      real(kind=rp), intent(in)    :: x, y, z 
+      real(kind=rp), intent(inout) :: v(:)
+
+      integer :: n_of_points 
+
+      n_of_points = size(v)
+
+      select case( n_of_points )  
+         case( 3 )                    !1st order
+            v(1) = 1.0_RP 
+            v(2) = x 
+            v(3) = y 
+            !v(4) = z 
+         case( 6 )                    !2nd order
+            v(1)  = 1.0_RP 
+            v(2)  = x 
+            v(3)  = y 
+            !v(4)  = z
+            v(4)  = POW2(x) 
+            v(5)  = POW2(y) 
+            !v(7)  = POW2(z)
+            v(6)  = x*y          
+            !v(9)  = x*z          
+            !v(10) = z*y 
+         case( 10 )                    !3rd order
+            v(1)  = 1.0_RP 
+            v(2)  = x 
+            v(3)  = y 
+            !v(4)  = z
+            v(4)  = POW2(x) 
+            v(5)  = POW2(y) 
+            !v(7)  = POW2(z)
+            v(6)  = x*y          
+            !v(9)  = x*z          
+            !v(10) = z*y 
+            v(7) = POW3(x) 
+            v(8) = POW3(y) 
+            !v(13) = POW3(z)
+            v(9) = POW2(x)*y          
+            !v(15) = POW2(x)*z          
+            v(10) = POW2(y)*x         
+            !v(17) = POW2(y)*z         
+            !v(18) = POW2(z)*x         
+            !v(19) = POW2(z)*y         
+            !v(20) = x*y*z         
+         case( 17 )                    !4th order
+            v(1)  = 1.0_RP 
+            v(2)  = x 
+            v(3)  = y 
+            !v(4)  = z
+            v(4)  = POW2(x) 
+            v(5)  = POW2(y) 
+            !v(7)  = POW2(z)
+            v(6)  = x*y          
+            !v(9)  = x*z          
+            !v(10) = z*y 
+            v(7) = POW3(x) 
+            v(8) = POW3(y) 
+            !v(13) = POW3(z)
+            v(9) = POW2(x)*y          
+            !v(15) = POW2(x)*z          
+            v(10) = POW2(y)*x         
+            !v(17) = POW2(y)*z         
+            v(11) = POW2(z)*x         
+            v(12) = POW2(z)*y         
+            !v(20) = x*y*z
+            v(13) = POW2(x)*POW2(x)         
+            v(14) = POW2(y)*POW2(y)         
+            !v(23) = POW2(z)*POW2(z)
+            v(15) = POW3(x)*y         
+            !v(25) = POW3(x)*z
+            v(16) = POW3(y)*x         
+            !v(27) = POW3(y)*z
+            !v(28) = POW3(z)*x         
+            !v(29) = POW3(z)*y               
+            !v(30) = POW2(x)*y*z          
+            !v(31) = POW2(y)*x*z          
+            !v(32) = POW2(z)*x*y 
+            v(17) = POW2(x)*POW2(y) 
+            !v(34) = POW2(x)*POW2(z)          
+            !v(35) = POW2(y)*POW2(z)            
+      end select 
+
+   end subroutine PolynomialVector
+
+   subroutine buildMatrixPolySpline( Phi, P, P_T, V )
+
+      implicit none 
+
+      real(kind=rp), intent(in)    :: Phi(:,:), P(:,:), P_T(:,:)
+      real(kind=rp), intent(inout) :: V(:,:)
+
+      integer :: start, final 
+
+      V = 0.0_RP 
+      
+      V(1:size(Phi,1),1:size(Phi,2)) = Phi 
+      start = size(Phi,2)+1; final = start + size(P,2)-1
+      V(1:size(Phi,1),start:final) = P 
+      start = size(Phi,1)+1; final = start + size(P_T,1)-1
+      V(start:final,1:size(Phi,2)) = P_T  
+
+   end subroutine buildMatrixPolySpline
+
+   real(kind=rp) function EvaluateInterp( coeff, x, y, z ) result( value )
+
+      implicit none
+      
+      real(kind=rp), intent(in) :: coeff(:), x, y, z
+      
+      real(kind=rp) :: v(size(coeff))
+
+      call PolynomialVector( x, y, z, v )
+
+      value = dot_product(coeff,v)
+
+   end function EvaluateInterp
 
 end module TessellationTypes

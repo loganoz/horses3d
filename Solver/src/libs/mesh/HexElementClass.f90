@@ -91,6 +91,7 @@
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
             procedure   :: pAdapt                  => HexElement_pAdapt
             procedure   :: copy                    => HexElement_Assign
+            procedure   :: EvaluateGradientAtPoint => HexElement_EvaluateGradientAtPoint
             procedure   :: ConstructIBM            => HexElement_ConstructIBM
             generic     :: assignment(=)           => copy
       END TYPE Element
@@ -768,6 +769,60 @@
 
          nullify (spAxi, spAeta, spAzeta)
       end function HexElement_EvaluateSolutionAtPoint
+
+      
+      function HexElement_EvaluateGradientAtPoint(self, nEqn, xi, dir)
+         implicit none
+         class(Element),   intent(in)    :: self
+         integer,          intent(in)    :: nEqn, dir
+         real(kind=RP),    intent(in)    :: xi(NDIM)
+         real(kind=RP)                   :: HexElement_EvaluateGradientAtPoint(nEqn)
+!
+!        ---------------
+!        Local variables
+!        ---------------
+!
+         integer        :: i, j, k
+         real(kind=RP)  :: lxi(0:self % Nxyz(1))
+         real(kind=RP)  :: leta(0:self % Nxyz(2))
+         real(kind=RP)  :: lzeta(0:self % Nxyz(3))
+         real(kind=RP)  :: U(nEqn)
+         type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
+
+         spAxi   => NodalStorage(self % Nxyz(1))
+         spAeta  => NodalStorage(self % Nxyz(2))
+         spAzeta => NodalStorage(self % Nxyz(3))
+!
+!        Compute Lagrange basis
+!        ----------------------
+         lxi   = spAxi % lj(xi(1))
+         leta  = spAeta % lj(xi(2))
+         lzeta = spAzeta % lj(xi(3))
+!
+!        Compute the tensor product
+!        --------------------------
+         U = 0.0_RP
+
+         select case( dir )
+         case(IX)
+            do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
+               U = U + self % storage % U_x(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+            end do               ; end do             ; end do
+         case(IY)
+            do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
+               U = U + self % storage % U_y(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+            end do               ; end do             ; end do
+         case(IZ)
+            do k = 0, spAzeta % N   ; do j = 0, spAeta % N ; do i = 0, spAxi % N
+               U = U + self % storage % U_z(:,i,j,k) * lxi(i) * leta(j) * lzeta(k)
+            end do               ; end do             ; end do
+         end select
+
+         HexElement_EvaluateGradientAtPoint = U
+
+         nullify (spAxi, spAeta, spAzeta)
+         
+      end function HexElement_EvaluateGradientAtPoint
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 !
