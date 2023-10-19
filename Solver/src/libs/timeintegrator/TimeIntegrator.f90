@@ -671,7 +671,6 @@
                   write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
                end if
                sem % numberOfTimeSteps = k + 1               
-               call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor)
                exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
