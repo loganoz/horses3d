@@ -536,7 +536,7 @@ module MonitorsClass
 #endif         
       end subroutine
       
-      elemental subroutine Monitor_Assign ( to, from )
+      impure elemental subroutine Monitor_Assign ( to, from )
          implicit none
          !-arguments--------------------------------------
          class(Monitor_t), intent(inout)  :: to
@@ -646,7 +646,7 @@ readloop:do
 !           Error
 !           -----
             errorMessage(STD_OUT)
-            stop "Stopped."
+            error stop "Stopped."
 
          else
 !

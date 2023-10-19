@@ -72,7 +72,7 @@
                   call WriteDefaultControlFile
                   write(STD_OUT,'(A,/,/)') "*** ERROR: Stopping."
                end if
-               stop
+               error stop
             end if
             CALL get_command_argument(1, arg)
          end if
@@ -87,7 +87,7 @@
          if ( io .gt. 0 ) then
             write(STD_OUT,'(/,/,A,A,A)') '*** ERROR: Wrong control file "', trim(arg),'".'
             write(STD_OUT,'(A)')         '*** ERROR: Stopping.'
-            stop
+            error stop
          end if
 
          controlFileName = arg

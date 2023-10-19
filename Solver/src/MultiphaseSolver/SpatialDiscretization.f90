@@ -100,13 +100,13 @@ module SpatialDiscretization
             case ( "split-form")
                print*, "There are no split-forms available for the Multiphase Solver"
                errorMessage(STD_OUT)
-               stop
+               error stop
             case default
                write(STD_OUT,'(A,A,A)') 'Requested inviscid discretization "',trim(inviscidDiscretizationName),'" is not implemented.'
                write(STD_OUT,'(A)') "Implemented discretizations are:"
                write(STD_OUT,'(A)') "  * Standard"
                errorMessage(STD_OUT)
-               stop 
+               error stop 
 
             end select
                
@@ -117,7 +117,7 @@ module SpatialDiscretization
                if ( .not. controlVariables % ContainsKey(viscousDiscretizationKey) ) then
                   print*, "Input file is missing entry for keyword: viscous discretization"
                   errorMessage(STD_OUT)
-                  stop
+                  error stop
                end if
 
                viscousDiscretizationName = controlVariables % stringValueForKey(viscousDiscretizationKey, requestedLength = LINE_LENGTH)
@@ -140,7 +140,7 @@ module SpatialDiscretization
                   write(STD_OUT,'(A)') "  * BR2"
                   write(STD_OUT,'(A)') "  * IP"
                   errorMessage(STD_OUT)
-                  stop 
+                  error stop 
 
                end select
 
@@ -157,7 +157,7 @@ module SpatialDiscretization
             if ( .not. controlVariables % ContainsKey(CHDiscretizationKey) ) then
                print*, "Input file is missing entry for keyword: Cahn-Hilliard discretization"
                errorMessage(STD_OUT)
-               stop
+               error stop
             end if
    
             CHDiscretizationName = controlVariables % stringValueForKey(CHDiscretizationKey, requestedLength = LINE_LENGTH)
@@ -180,7 +180,7 @@ module SpatialDiscretization
                write(STD_OUT,'(A)') "  * BR2"
                write(STD_OUT,'(A)') "  * IP"
                errorMessage(STD_OUT)
-               stop 
+               error stop 
    
             end select
    
@@ -462,7 +462,7 @@ module SpatialDiscretization
 !
 !$omp do schedule(runtime) private(i,j,k,e,sqrtRho)
          do eID = 1, size(mesh % elements)
-            e => mesh % elements(eID)
+            associate(e => mesh % elements(eID))
             do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
                sqrtRho = sqrt(e % storage % rho(i,j,k))
                e % storage % QDot(IMC,i,j,k)      = 0.0_RP
@@ -486,7 +486,7 @@ module SpatialDiscretization
 
                e % storage % QDot(:,i,j,k) = e % storage % QDot(:,i,j,k) * e % geom % jacobian(i,j,k)
             end do                ; end do                ; end do
-
+            end associate
          end do
 !$omp end do
 
@@ -1136,7 +1136,7 @@ module SpatialDiscretization
             case default
                print*, "Unrecognized face type"
                errorMessage(STD_OUT)
-               stop
+               error stop
                 
             end select 
             end associate 

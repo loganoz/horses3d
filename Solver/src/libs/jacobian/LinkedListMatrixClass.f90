@@ -73,7 +73,7 @@ contains
       !---------------------------------------------
       
       if ( .not. present(num_of_Rows) ) then
-         ERROR stop 'LinkedListMatrix_t needs num_of_Rows'
+         error stop 'LinkedListMatrix_t needs num_of_Rows'
       end if
       
       this % num_of_Rows = num_of_Rows
@@ -238,12 +238,12 @@ contains
       
       if (nvalues .NE. size(Values)) then
          write (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
-         stop
+         error stop
       end if
       
       if ( icol <= 0 ) then
          write (*,*) 'CSR_AddToCol: icol error'
-         stop
+         error stop
       end if
       
       do i=1, nvalues
@@ -268,12 +268,12 @@ contains
       
       if (nvalues .NE. size(Values)) then
          write (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
-         stop
+         error stop
       end if
       
       if ( icol <= 0 ) then
          write (*,*) 'CSR_AddToCol: icol error'
-         stop
+         error stop
       end if
       
       do i=1, nvalues

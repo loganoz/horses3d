@@ -232,7 +232,7 @@
             do eID = 1, mesh % no_of_elements
                if ( any(isnan(mesh % elements(eID) % storage % c) )) then
                   print*, "NAN!!!!"
-                  stop
+                  error stop
                end if
             end do
 #endif

@@ -514,7 +514,7 @@ MODULE HexMeshClass
          if ( .not. found ) then
             print*, 'coupled boundary "',trim(associatedBname),' for boundary "',trim(self % zones(zIDPlus) % Name),'" not found.'
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Loop faces in the periodic+ zone
@@ -653,7 +653,7 @@ slavecoord:             DO l = 1, 4
             write(STD_OUT,'(A,I0,A,I0,A,I0)') "Face ",i," in zone ",zIDPlus, &
                   " was not able to find a partner. Element: ", self % faces(i) % elementIDs(1)
             errorMessage(STD_OUT)
-            stop
+            error stop
 
             end do   ploop    ! periodic+ faces
          end do               ! periodic+ zones
@@ -2293,7 +2293,7 @@ slavecoord:             DO l = 1, 4
                   if ( bfOrder(zoneID) < 1 ) then
                      write(STD_OUT,*) 'ERROR :: The chosen polynomial orders are too low to represent the boundaries accurately'
                      write(STD_OUT,*) '      :: Nonconforming representations on boundaries need N>=2'
-                     stop
+                     error stop
                   end if
                end if
 
@@ -2370,7 +2370,7 @@ slavecoord:             DO l = 1, 4
                   end if
                end select
 
-               if ( any(CLN < NSurfR) ) then      
+               if ( any(CLN < NSurfR) ) then       ! TODO JMT: I have added this.. is correct?      
                   allocate(faceCL(1:3,CLN(1)+1,CLN(2)+1))
                   call ProjectFaceToNewPoints(SurfInfo(eIDRight) % facePatches(SideIDR), CLN(1), NodalStorage(CLN(1)) % xCGL, &
                                                                                          CLN(2), NodalStorage(CLN(2)) % xCGL, faceCL)
@@ -2415,16 +2415,16 @@ slavecoord:             DO l = 1, 4
                if ( SurfInfo(eID) % IsHex8 .or. all(NSurf == 1) ) cycle
 
                if (self % elements(eID) % faceSide(side) == LEFT) then
-                  CLN(1) = f % NfLeft(1)  
-                  CLN(2) = f % NfLeft(2)  
+                  CLN(1) = f % NfLeft(1)  ! TODO in MPI faces, p-adaption has  
+                  CLN(2) = f % NfLeft(2)  ! not been accounted yet.  
                else
-                  CLN(1) = f % NfRight(1)  
-                  CLN(2) = f % NfRight(2)  
+                  CLN(1) = f % NfRight(1)  ! TODO in MPI faces, p-adaption has  
+                  CLN(2) = f % NfRight(2)  ! not been accounted yet.  
                end if
 
                if ( side .eq. 2 ) then    ! Right faces need to be rotated
                   select case ( f % rotation )
-                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular 
+                  case ( 1, 3, 4, 6 ) ! Local x and y axis are perpendicular  ! TODO this is correct? 
                      if (CLN(1) /= CLN(2)) then
                         buffer = CLN(1)
                         CLN(1) = CLN(2)
@@ -2817,7 +2817,7 @@ slavecoord:             DO l = 1, 4
 !        the state vector (Q), and optionally the gradients.
 !     ************************************************************************
 !
-     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_)
+     subroutine HexMesh_SaveSolution(self, iter, time, name, saveGradients, saveSensor_, saveLES_)
          use SolutionFile
          use MPI_Process_Info
          implicit none
@@ -2827,6 +2827,7 @@ slavecoord:             DO l = 1, 4
          character(len=*),    intent(in)        :: name
          logical,             intent(in)        :: saveGradients
          logical, optional,   intent(in)        :: saveSensor_
+         logical, optional,   intent(in)        :: saveLES_
 !
 !        ---------------
 !        Local variables
@@ -2836,7 +2837,7 @@ slavecoord:             DO l = 1, 4
          integer(kind=AddrInt)            :: pos
          real(kind=RP)                    :: refs(NO_OF_SAVED_REFS)
          real(kind=RP), allocatable       :: Q(:,:,:,:)
-         logical                          :: saveSensor
+         logical                          :: saveSensor, saveLES
 #if (!defined(NAVIERSTOKES))
          logical                          :: computeGradients = .true.
 #endif
@@ -2868,6 +2869,11 @@ slavecoord:             DO l = 1, 4
          else
             saveSensor = .false.
          end if
+         if (present(saveLES_)) then
+            saveLES = saveLES_
+         else
+            saveLES = .false.
+         end if
 
          if (saveGradients .and. computeGradients) then
             if (saveSensor) then
@@ -2888,6 +2894,8 @@ slavecoord:             DO l = 1, 4
             end if
             padding = NCONS
          end if
+
+         if (saveLES) padding = padding + 2
 !
 !        Write arrays
 !        ------------
@@ -2945,6 +2953,17 @@ slavecoord:             DO l = 1, 4
             if (saveSensor) then
                write(fid) e % storage % sensor
             end if
+
+          if (saveLES) then
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+               allocate(Q(1,0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
+               Q(1,:,:,:) = e % storage % mu_NS(1,:,:,:) ! total viscosity = mu + mu_sgs
+               write(fid) Q
+               Q(1,:,:,:) = e % storage % mu_turb_NS(:,:,:) !mu_sgs
+               write(fid) Q
+               deallocate(Q)
+#endif
+          end if 
 
             end associate
          end do
@@ -3124,7 +3143,7 @@ slavecoord:             DO l = 1, 4
                auxMesh % Nz(eID) = Nz (e % globID)
                e_aux % globID = e % globID
                e_aux % Nxyz = [Nx(e % globID) , Ny(e % globID) , Nz(e % globID)]
-               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)             
+               NDOF = NDOF + (Nx(e % globID) + 1) * (Ny(e % globID) + 1) * (Nz(e % globID) + 1)               ! TODO: change for new NDOF             
                end associate
             end do
 
@@ -3213,7 +3232,7 @@ slavecoord:             DO l = 1, 4
          case(MESH_FILE)
             print*, "The selected restart file is a mesh file"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          case(SOLUTION_FILE)
             padding = 1*NCONS
@@ -3234,11 +3253,11 @@ slavecoord:             DO l = 1, 4
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          case default
             print*, "Unknown restart file format"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
          if (NS_from_NSSA) then
              expectedNoEqs = NCONS + 1
@@ -3269,7 +3288,7 @@ slavecoord:             DO l = 1, 4
             write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
                                    "do not match that of the mesh file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Read the initial iteration and time
@@ -3283,7 +3302,7 @@ slavecoord:             DO l = 1, 4
          if ( flag .ne. BEGINNING_DATA ) then
             print*, "Beginning data flag was not found in the file."
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Read elements data
@@ -3313,7 +3332,7 @@ slavecoord:             DO l = 1, 4
                                                                      "."
 
                errorMessage(STD_OUT)
-               stop
+               error stop
             end if
 
             allocate(Q(expectedNoEqs, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
@@ -3811,6 +3830,14 @@ slavecoord:             DO l = 1, 4
          RKSteps_num = 0
       end if
 
+#ifdef MULTIPHASE
+      ! This is a fix to prevent a seg fault in debug mode
+      ! implemented by g.rubio@upm.es 09/2023
+      if ( trim(time_int) == "explicit" ) then
+         bdf_order = 1  
+         RKSteps_num = 0   
+      endif  
+#endif 
 !     Construct global and elements' storage
 !     --------------------------------------
       call self % storage % construct (NDOF, self % Nx, self % Ny, self % Nz, computeGradients, .FALSE., bdf_order, RKSteps_num )
@@ -3938,7 +3965,7 @@ slavecoord:             DO l = 1, 4
       integer :: nFace  ! Counter for neighbor faces
       !-----------------------------------------------------------
 
-      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) ERROR stop 'HexMesh_ConformingOnZone :: Out of bounds'
+      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) error stop 'HexMesh_ConformingOnZone :: Out of bounds'
 
       conforming = .TRUE.
       do fIdx = 1, self % zones(zoneID) % no_of_faces

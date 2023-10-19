@@ -651,7 +651,7 @@ module SurfaceIntegrals
             end do 
             
             outvalue = pressure(Qi)
-         case ( USER_DEFINED )  
+         case ( USER_DEFINED )   ! TODO  
 
       end select 
 
@@ -792,7 +792,7 @@ module SurfaceIntegrals
             
             outvalue = viscStress
             
-         case ( USER_DEFINED )  
+         case ( USER_DEFINED )   ! TODO  
 
       end select 
 

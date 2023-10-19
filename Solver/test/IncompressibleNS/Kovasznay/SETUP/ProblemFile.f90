@@ -400,7 +400,7 @@ end module ProblemFileFunctions
             U_aux(INSRHOU) = Q_aux(INSRHOU) / sqrt(rho)             
             U_aux(INSRHOV) = Q_aux(INSRHOV) / sqrt(rho)             
             U_aux(INSRHOW) = Q_aux(INSRHOW) / sqrt(rho)             
-            U(INSP)      = Q_aux(INSP)
+            U_aux(INSP)    = Q_aux(INSP)
 
             U = 0.5_RP * (U_aux + U)
 
@@ -661,7 +661,7 @@ end module ProblemFileFunctions
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             

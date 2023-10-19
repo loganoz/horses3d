@@ -96,7 +96,7 @@ MODULE UserDefinedFunctions
                   GaussianPerturb => GaussianPerturbUnitSquare
                CASE DEFAULT
                   print*, 'ERROR: Not recognized manufactured solution type "', TRIM(ManSolType), '"'
-                  STOP
+                  error stop
             END SELECT
             
             DO eID = 1, SIZE(sem % mesh % elements)
@@ -200,7 +200,7 @@ MODULE UserDefinedFunctions
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+               error stop 99
             END IF 
             WRITE(6,*)
             

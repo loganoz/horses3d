@@ -91,14 +91,14 @@ Module TripForceClass
     if (controlVariables % containsKey("trip center")) then
         x1 = controlVariables % doublePrecisionValueForKey("trip center")
     else 
-        stop "Trip center must be defined"
+        error stop "Trip center must be defined"
     end if
 
     if (controlVariables % containsKey("trip attenuation")) then
         gaussAten_str = trim(controlVariables % stringValueForKey("trip attenuation", LINE_LENGTH))
         self % spatialGaussianAtenuation = getRealArrayFromString(gaussAten_str)
     else 
-        stop "Trip attenuation must be defined"
+        error stop "Trip attenuation must be defined"
     end if
     
     if (controlVariables % containsKey("trip zone")) then
@@ -106,7 +106,7 @@ Module TripForceClass
         call toLower(trip_zones_str)
         call getCharArrayFromString(trip_zones_str, LINE_LENGTH, trip_zones)
     else 
-        stop "Trip zone must be defined"
+        error stop "Trip zone must be defined"
     end if
     
     N = 1
@@ -115,7 +115,7 @@ Module TripForceClass
         N = 2
     end if
     
-    if (size(trip_zones) .ne. N) stop "The length of the trip zones is not the same as the trip center length"
+    if (size(trip_zones) .ne. N) error stop "The length of the trip zones is not the same as the trip center length"
 
     allocate(self % centerPositions(N,2), self % normals(N,NDIM), trip_zones_index(N))
     ! only x of centerPositions is read, y is calculated
@@ -128,7 +128,7 @@ Module TripForceClass
       if (N .eq. 2 .and. trim(mesh % zones(i) % Name) .eq. trim(trip_zones(2))) trip_zones_index(2) = i
     end do
 
-    if (trip_zones_index(1) .eq. 0) stop "Trip zone not found"
+    if (trip_zones_index(1) .eq. 0) error stop "Trip zone not found"
 
     call getFaceTripIndex(mesh % zones(trip_zones_index(1)), mesh, x1, 1, fID, faceIndex, partitionRank, yNegative = .false.)
     if (partitionRank .eq. MPI_Process % rank) then
@@ -277,21 +277,21 @@ Module TripForceClass
     if (controlVariables % containsKey("trip time scale")) then
         self % ts = controlVariables % doublePrecisionValueForKey("trip time scale")
     else
-        stop "trip time scale must be defined"
+        error stop "trip time scale must be defined"
     end if
     if (controlVariables % containsKey("trip number of modes")) then
         self % Ncutz = controlVariables % IntegerValueForKey("trip number of modes")
     else
-        stop "trip number of modes must be defined"
+        error stop "trip number of modes must be defined"
     end if
     if (controlVariables % containsKey("trip z points")) then
         N = controlVariables % IntegerValueForKey("trip z points")
     else
-        stop "trip z points must be defined"
+        error stop "trip z points must be defined"
     end if
 
     self % N = N
-    if (self % Ncutz .ge. self % N) stop 'The trip cuttoff number of modes is bigger than the number of points in z'
+    if (self % Ncutz .ge. self % N) error stop 'The trip cuttoff number of modes is bigger than the number of points in z'
 
     self % At = controlVariables % getValueOrDefault("trip amplitude",1.0)
     self % As = controlVariables % getValueOrDefault("trip amplitude steady",0.0)
@@ -372,7 +372,7 @@ Module TripForceClass
     write(STD_OUT,'(30X,A,A28,ES10.3)') "->", "Trip Space scale: ", self % zs
 
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
 
   End Subroutine gtripConstruct 
@@ -509,7 +509,7 @@ Module TripForceClass
     ! end do
     coeffCCS = y
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
 
   End Subroutine forfft 
@@ -539,7 +539,7 @@ Module TripForceClass
     x = y(0:N-1)
 
 #else
-      stop 'MKL not linked correctly'
+      error stop 'MKL not linked correctly'
 #endif
 
   End Subroutine backfft 
@@ -627,7 +627,7 @@ Module TripForceClass
       call mpi_allreduce(faceID, allfID, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD, ierr)
 #endif
 
-      if (allfID .eq. 0) stop "trip center not found in any face of the zone"
+      if (allfID .eq. 0) error stop "trip center not found in any face of the zone"
 
       ! start value for allreduce
       tempRank = 0
@@ -636,7 +636,7 @@ Module TripForceClass
       call mpi_allreduce(tempRank, partitionRank, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD, ierr)
 #endif
     else
-      if (faceID .eq. 0) stop "trip center not found in any face of the zone"
+      if (faceID .eq. 0) error stop "trip center not found in any face of the zone"
       partitionRank = 0
     end if
 

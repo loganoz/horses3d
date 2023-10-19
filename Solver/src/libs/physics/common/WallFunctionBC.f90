@@ -2,8 +2,7 @@
 MODULE WallFunctionBC
 
    USE SMConstants
-   ! use PhysicsStorage
-   USE PhysicsStorage_NS
+   USE PhysicsStorage
    IMPLICIT NONE
 
 !   
@@ -192,7 +191,7 @@ MODULE WallFunctionBC
 
       END DO
 
-      STOP "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
+      error stop "DAMPED NEWTON METHOD IN WALL FUNCTION DOES NOT CONVERGE."
 
    END FUNCTION 
 !   

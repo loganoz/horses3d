@@ -620,7 +620,7 @@ end module ProblemFileFunctions
                WRITE(6,*) "      In that case, visualize in paraview if particles are interacting with BC the way"
                WRITE(6,*) "      they should."
                WRITE(6,*) " Bender intel 2015 residual 697.169619289106_RP"
-               STOP 99
+               error stop 99
             END IF 
             WRITE(6,*)
             

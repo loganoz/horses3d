@@ -89,7 +89,7 @@ CONTAINS
       
       call this % GenericLinSolver_t % construct(DimPrb,globalDimPrb, nEqn,controlVariables,sem,MatrixShiftFunc)
       
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: IterativeSolver needs sem.'
+      IF (.NOT. PRESENT(sem)) error stop 'Fatal error: IterativeSolver needs sem.'
       
       MatrixShift => MatrixShiftFunc
       
@@ -184,7 +184,7 @@ CONTAINS
       INTEGER                                 :: i
       !-------------------------------------------------
       
-      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) STOP 'time and dt needed for iterative solver'
+      IF (.NOT. PRESENT(time) .OR. .NOT. PRESENT(dt)) ERROR STOP 'time and dt needed for iterative solver'
       
       if ( present(ComputeA)) then
          if (ComputeA) then
@@ -335,7 +335,7 @@ CONTAINS
          CASE ('l2')
             xnorm = NORM2(this % x)
          CASE DEFAULT
-            STOP 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
+            error stop 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
       END SELECT
    END FUNCTION Getxnorm
 !

@@ -101,7 +101,7 @@ module GenericBoundaryConditionClass
    
          print*, "Default Boundary condition class can not be constructed."
          errorMessage(STD_OUT)
-         stop
+         error stop
 
       end function ConstructGenericBC
 !
@@ -213,13 +213,13 @@ module GenericBoundaryConditionClass
          case default
             print*, "Unexpected equation choice"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          end select
 #else
          print*, "This function is only supported for Cahn-Hilliard"
          errorMessage(STD_OUT)
-         stop
+         error stop
 #endif
       end subroutine NeumannForEqn
 !

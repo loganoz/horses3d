@@ -380,7 +380,7 @@
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."
                WRITE(6,*) "      Simulation is considered valid particle velocity after 1000 iterations is "
                WRITE(6,*) "      -0.45975035593885122 and position is 9.1559287133478993."
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             

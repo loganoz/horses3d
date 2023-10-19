@@ -141,7 +141,7 @@ module SolutionFile
             case default
                print*, "Incorrect solution file type", type_
                errorMessage(STD_OUT)
-               stop
+               error stop
             end select
 !   
 !           Open the file
@@ -422,7 +422,7 @@ module SolutionFile
          if ( flag .ne. BEGINNING_DATA ) then
             print*, "Wrong beginning data specifier"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Return the file ID
@@ -454,7 +454,7 @@ module SolutionFile
          if ( flag .ne. BEGINNING_DATA ) then
             print*, "Wrong beginning data specifier"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Return the file ID
@@ -616,7 +616,7 @@ module SolutionFile
             print*, "Array found in file dimensions does not match that of the introduced variable. File dimensions: ", &
                     arrayDimension, ", Variable: ", size(N)
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 
          read(fid) N

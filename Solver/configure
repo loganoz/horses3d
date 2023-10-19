@@ -35,10 +35,10 @@ done
 TEST_CASES="./Euler/BoxAroundCircle \
             ./Euler/BoxAroundCircle_pAdapted \
             ./Euler/BoxAroundCirclePirozzoli \
-	    ./Euler/Diffuser \
-	    ./Euler/UniformFlow \
-	    ./Euler/JFNK \
-	    ./Euler/TaylorGreenKEPEC \
+            ./Euler/Diffuser \
+            ./Euler/UniformFlow \
+            ./Euler/JFNK \
+            ./Euler/TaylorGreenKEPEC \
             ./NavierStokes/Convergence \
             ./NavierStokes/Convergence_energy \
             ./NavierStokes/Convergence_entropy \
@@ -60,16 +60,19 @@ TEST_CASES="./Euler/BoxAroundCircle \
             ./NavierStokes/TaylorGreenKEP_BR2 \
             ./NavierStokes/NACA0012 \
             ./NavierStokes/ForwardFacingStepSVV \
+            ./NavierStokes/ForwardFacingStep_SSPRK33 \
+            ./NavierStokes/ForwardFacingStep_SSPRK43 \
             ./NavierStokes/TaylorGreenSVVLES \
             ./NavierStokes/ManufacturedSolutionsSA \
             ./NavierStokes/FlatPlateSA \
             ./NavierStokes/BIRK5NumJac \
+            ./NavierStokes/CylinderGMM \
             ./IncompressibleNS/Convergence \
             ./IncompressibleNS/Kovasznay \
             ./IncompressibleNS/TaylorGreen \
             ./IncompressibleNS/LidDrivenCavity \
             ./IncompressibleNS/RayleighTaylor \
-	    ./CahnHilliard/TJokisaari \
+            ./CahnHilliard/TJokisaari \
             ./Multiphase/Convergence \
             ./Multiphase/EntropyConservingTest \
             ./Multiphase/RisingBubble \
@@ -84,6 +87,10 @@ COMPONENTS_TEST_CASES="FacePatches \
 		       HexMappings \
  		       MeshConsistency \
 		       NodalStorage"
+			   
+ADDONS="./AddOns/horsesConverter/MappingResult \
+        ./AddOns/horsesConverter/HorsesMesh2OF \
+        ./AddOns/horsesConverter/OF2Horses"
 
 cp -vf ../utils/modulefile/horses/dev-default ../utils/modulefile/horses/dev
 sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ../utils/modulefile/horses/dev
@@ -117,7 +124,12 @@ for subdir in $COMPONENTS_TEST_CASES; do
 	rm -f ./test/Components/$subdir/Makefile-e
 done
 
-cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
-mkdir -p ./test/Components/Gradients/MESH
-sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
-rm -f ./test/Components/Gradients/Makefile-e
+for subdir in $ADDONS; do
+	ln -fsv $PWD/bin/horsesConverter ./test/$subdir
+done
+
+# Comment gradients as it is outdated
+#cp -v ./test/Components/Makefile.gradients ./test/Components/Gradients/Makefile
+#mkdir -p ./test/Components/Gradients/MESH
+#sed -i -e "s#@HORSES_HOME_DIR#$PWD#g" ./test/Components/Gradients/Makefile
+#rm -f ./test/Components/Gradients/Makefile-e

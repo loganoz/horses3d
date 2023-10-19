@@ -224,7 +224,7 @@ Module WallFunctionConnectivity  !
         case default
            write(STD_OUT,'(A)') "Error: wallNormalDirection not found in axisMap"
            errorMessage(STD_OUT)
-           stop 
+           error stop 
         end select
 
         indexArray = [0,N]
@@ -328,7 +328,7 @@ Module WallFunctionConnectivity  !
             case default
                write(STD_OUT,'(A)') "Error: wallNormalDirection not found in axisMap"
                errorMessage(STD_OUT)
-               stop 
+               error stop 
             end select
         end associate
 
@@ -435,7 +435,7 @@ Module WallFunctionConnectivity  !
         ! if the code reach this point the element does not exists
         write(STD_OUT,'(A,I0)') "Error: The element of the wall function does not exists in the mesh or mesh partition, global ID: ", globeID
         errorMessage(STD_OUT)
-        stop 
+        error stop 
 
     End Function getElementID
 

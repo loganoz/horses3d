@@ -1,7 +1,8 @@
+#include "Includes.h"
 module MPI_Utilities
    use SMConstants
    use MPI_Process_Info
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
    use mpi
 #endif
 
@@ -31,15 +32,15 @@ module MPI_Utilities
       integer       :: ierr
       !-------------------------------------------------
 
+      norm = sum(x**2)
+
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-         norm = sum(x**2)
-#ifdef _HAS_MPI_
          call MPI_Allreduce(MPI_IN_PLACE, norm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD, ierr)
-#endif
-         norm = sqrt(norm)
-      else
-         norm = sqrt(sum(x*x))
       end if
+#endif
+
+      norm = sqrt(norm)
 
    end function L2Norm
 
@@ -54,11 +55,11 @@ module MPI_Utilities
 
       norm = maxval(abs(x))
 
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
          call MPI_Allreduce(MPI_IN_PLACE, norm, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
-#endif
       end if
+#endif
 
    end function infNorm
 
@@ -71,7 +72,7 @@ module MPI_Utilities
       integer :: ierr
       !-------------------------------------------------
 
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
          select rank(x)
          rank(0)
@@ -82,6 +83,12 @@ module MPI_Utilities
             call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
          rank(3)
             call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank(4)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_INTEGER, op, MPI_COMM_WORLD, ierr)
+         rank default
+            write(STD_OUT,*) 'MPI_OpAll_int only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            error stop
          end select
       end if
 #endif
@@ -96,7 +103,7 @@ module MPI_Utilities
       integer       :: ierr
       !-------------------------------------------------
 
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
          select rank(x)
          rank(0)
@@ -107,6 +114,12 @@ module MPI_Utilities
             call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
          rank(3)
             call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank(4)
+            call MPI_Allreduce(MPI_IN_PLACE, x, size(x), MPI_DOUBLE, op, MPI_COMM_WORLD, ierr)
+         rank default
+            write(STD_OUT,*) 'MPI_OpAll_real only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            error stop
          end select
       end if
 #endif
@@ -139,47 +152,70 @@ module MPI_Utilities
       !-arguments---------------------------------------
       real(kind=RP), intent(inout) :: minimum(..), maximum(..)
       !-local-variables---------------------------------
-      real(kind=RP), allocatable :: lminmax(:)
-      integer                    :: nmin, nmax, n
-      integer                    :: ierr
+      integer :: ierr
+      integer :: req(2)
       !-------------------------------------------------
 
-#ifdef _HAS_MPI_
+#if defined(_HAS_MPI_)
       if (MPI_Process % doMPIAction) then
+         if (rank(minimum) > 4 .or. rank(maximum) > 4) then
+            write(STD_OUT,*) 'MPI_MinMax only implemented for rank(x) <= 4'
+            errorMessage(STD_OUT)
+            error stop
+         end if
+
          select rank(minimum)
          rank(0)
-            select rank(maximum)
-            rank(0)
-
-               lminmax = [-minimum, maximum]
-
-               call MPI_Allreduce(MPI_IN_PLACE, lminmax, 2, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
-
-               minimum = -lminmax(1)
-               maximum = lminmax(2)
-
-            end select
-
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
          rank(1)
-            select rank(maximum)
-            rank(1)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(2)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(3)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         rank(4)
+            call MPI_IAllreduce(MPI_IN_PLACE, minimum, size(minimum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+         end select
 
-               nmin = size(minimum)
-               nmax = size(maximum)
-               n = nmin + nmax
-
-               lminmax = [-minimum, maximum]
-
-               call MPI_Allreduce(MPI_IN_PLACE, lminmax, n, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, ierr)
-
-               minimum = -lminmax(1:nmin)
-               maximum = lminmax(nmin+1:n)
-
-            end select
+         select rank(maximum)
+         rank(0)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(1)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(2)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(3)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
+         rank(4)
+            call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD, req(2), ierr)
+            call MPI_Waitall(2, req, MPI_STATUSES_IGNORE, ierr)
          end select
       end if
-
 #endif
    end subroutine MPI_MinMax
+
+!-----------------------------------------------------------------------------------------------------------------------
+! NOTE
+!-----------------------------------------------------------------------------------------------------------------------
+! We have been forced to use `select rank` constructs to avoid compilation issues in several clusters. If the external
+! MPI library implements `.mod` files that support assumed-rank variables, the code can be simplified. Take for example
+! the case of the `maximum` variable in `MPI_MinMax`, where the whole construct:
+!
+!   select rank(maximum)
+!   rank(0)
+!     call MPI_IAllreduce(MPI_IN_PLACE, maximum, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!   rank(1)
+!     call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!   ...
+!   end select
+!
+! can be simplified to:
+!
+!   call MPI_IAllreduce(MPI_IN_PLACE, maximum, size(maximum), MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD, req(1), ierr)
+!-----------------------------------------------------------------------------------------------------------------------
 
 end module MPI_Utilities

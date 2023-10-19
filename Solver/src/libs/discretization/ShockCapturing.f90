@@ -187,7 +187,7 @@ module ShockCapturing
          write(STD_OUT,*) '   * ', SC_NO_VAL
          write(STD_OUT,*) '   * ', SC_NOSVV_VAL
          write(STD_OUT,*) '   * ', SC_SVV_VAL
-         stop
+         error stop
 
       end select
 
@@ -213,7 +213,7 @@ module ShockCapturing
          write(STD_OUT,*) '   * ', SC_NO_VAL
          write(STD_OUT,*) '   * ', SC_NOSVV_VAL
          write(STD_OUT,*) '   * ', SC_SVV_VAL
-         stop
+         error stop
 
       end select
 !
@@ -228,7 +228,7 @@ module ShockCapturing
          minSteps = controlVariables % realValueForKey(SC_SENSOR_INERTIA_KEY)
          if (minSteps < 1) then
             write(STD_OUT,*) 'ERROR. Sensor inertia must be at least 1.'
-            stop
+            error stop
          end if
       else
          minSteps = 1
@@ -283,24 +283,29 @@ module ShockCapturing
 !     Local variables
 !     ---------------
       real(RP) :: switch
+      logical  :: updated
 
 
       switch = e % storage % sensor
+      updated = .false.
 
       if (switch >= 1.0_RP) then
          if (allocated(self % method2)) then
             call self % method2 % Viscosity(mesh, e, switch, SCflux)
+            updated = .true.
          end if
 
       elseif (switch > 0.0_RP) then
          if (allocated(self % method1)) then
             call self % method1 % Viscosity(mesh, e, switch, SCflux)
+            updated = .true.
          end if
 
-      else
+      end if
+
+      if (.not. updated) then
          SCflux = 0.0_RP
          e % storage % artificialDiss = 0.0_RP
-
       end if
 
    end subroutine SC_viscosity
@@ -477,7 +482,7 @@ module ShockCapturing
                self % updateMethod = SC_SMAG_ID
                if (.not. self % alphaIsPropToMu) then
                   write(STD_OUT,*) 'ERROR. Alpha must be proportional to mu when using shock-capturing with LES.'
-                  stop
+                  error stop
                end if
 
                ! TODO: Use the default constructor
@@ -494,7 +499,7 @@ module ShockCapturing
 #if !defined (SPALARTALMARAS)
                write(STD_OUT,*) '   * ', SC_SMAG_VAL
 #endif
-               stop
+               error stop
 
             end select
 
@@ -603,7 +608,7 @@ module ShockCapturing
                                    ' not recognized. Options are:'
          write(STD_OUT,*) '   * ', SC_PHYS_VAL
          write(STD_OUT,*) '   * ', SC_GP_VAL
-         stop
+         error stop
       end select
 
       select case (self % fluxType)
@@ -621,7 +626,7 @@ module ShockCapturing
             write(STD_OUT,*) "ERROR. Guermond-Popov (2014) artificial ",  &
                               "viscosity is only configured for Entropy ", &
                               "gradient variables"
-            stop
+            error stop
          end select
 
       end select
@@ -836,7 +841,7 @@ module ShockCapturing
       ! TODO: Implement it also for region 2, but SVV does not seem very useful there...
       if (region == 2) then
          write(STD_OUT,*) "ERROR. SVV viscosity can be used only in the first region of the sensor."
-         stop
+         error stop
       end if
 !
 !     Parent initializer

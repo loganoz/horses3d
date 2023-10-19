@@ -34,12 +34,15 @@ EXTLIB_INC =
 ########################################
 # 3.- User defined compilation flags 
 ########################################
+GNU_HPC_FLAGS= -cpp -fallow-argument-mismatch -std=legacy -ffree-line-length-0 -O3 -ftree-vectorize \
+		   -ftree-vectorizer-verbose=0 -fbackslash -D_has_Quad -march=znver3 -funroll-loops
 GNU_RELEASE_FLAGS= -cpp -ffree-line-length-0 -O3 -ftree-vectorize  -ftree-vectorizer-verbose=0 \
 		   -fbackslash -D_has_Quad
 GNU_DEBUG_FLAGS=  -ffree-line-length-0 -cpp -O0 -g -fcheck=all -Wno-unused-variable \
 		  -fbacktrace -fbounds-check -finit-real=snan -Wall \
 		  -ffpe-trap=invalid,zero,overflow -fcheck-array-temporaries \
 		  -fbackslash -fcheck=pointer -D_has_Quad
+INTEL_HPC_FLAGS= -cpp -Ofast -msse4.2 -axAVX,CORE-AVX2 -assume bscc -D_has_Quad  -fp-model=fast=2 -ipo
 INTEL_RELEASE_FLAGS= -cpp -O3 -assume bscc -D_has_Quad -fp-model precise
 INTEL_DEBUG_FLAGS= -cpp -O0 -g -warn all -fpscomp logicals -traceback \
 		   -check bounds -check uninit -ftrapuv -debug all \
@@ -99,6 +102,13 @@ ifeq ($(MODE),RELEASE)
      else ifeq ($(FC),ifort)
          FFLAGS=$(INTEL_RELEASE_FLAGS)
      endif
+else ifeq ($(MODE),HPC)
+	 MACROS+= -D_HPC_MODE
+     ifeq ($(FC),gfortran)
+         FFLAGS=$(GNU_HPC_FLAGS)
+     else ifeq ($(FC),ifort)
+         FFLAGS=$(INTEL_HPC_FLAGS)
+     endif	 
 else ifeq ($(MODE),DEBUG)
      ifeq ($(FC),gfortran)
          FFLAGS=$(GNU_DEBUG_FLAGS)
@@ -110,7 +120,7 @@ endif
 ##########################
 ## 	Link MKL 	##
 ##########################
-ifeq '$(WITH_MKL)''y'
+ifeq '$(WITH_MKL)''YES'
 	ifeq '$(FC)''gfortran'
 		MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
@@ -180,15 +190,15 @@ endif
 ##########################################
 ##  	Select HORSES libraries 	##
 ##########################################
-HORSES_LIBS_GENERAL = ftobject foundation mpiutils spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras
+HORSES_LIBS_GENERAL = ftobject foundation mpiutils ml spectral io physics/multiphase physics/incns physics/navierstokes physics/cahnhilliard physics/spallartalmaras
 HORSES_LIBS_PARTICULAR = physics/common mesh particles sources monitors problemfile discretization jacobian timeintegrator
 HORSES_LIBS=$(HORSES_LIBS_GENERAL) $(HORSES_LIBS_PARTICULAR)
-HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ins
-HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ns
-HORSES_LIBS_NSSA=-L$(HOME_DIR)/lib -ltimeintegrator_nssa -ljacobian_nssa -ldiscretization_nssa -lmonitors_nssa -lparticles_nssa -lmesh_nssa -lphysics_nssa -lphysicsnssa -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_nssa
-HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ch
-HORSES_LIBS_MU=-L$(HOME_DIR)/lib -ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_mu
-ADDONS=horses2tecplot extractgeometry mergeStatistics tools
+HORSES_LIBS_iNS=-L$(HOME_DIR)/lib -ltimeintegrator_ins -ljacobian_ins -ldiscretization_ins -lmonitors_ins -lparticles_ins -lmesh_ins -lphysics_ins -lphysicsins -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ins -lml
+HORSES_LIBS_NS=-L$(HOME_DIR)/lib -ltimeintegrator_ns -ljacobian_ns -ldiscretization_ns -lmonitors_ns -lparticles_ns -lmesh_ns -lphysics_ns -lphysicsns -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ns -lml
+HORSES_LIBS_NSSA=-L$(HOME_DIR)/lib -ltimeintegrator_nssa -ljacobian_nssa -ldiscretization_nssa -lmonitors_nssa -lparticles_nssa -lmesh_nssa -lphysics_nssa -lphysicsnssa -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_nssa -lml
+HORSES_LIBS_CH=-L$(HOME_DIR)/lib -ltimeintegrator_ch -ljacobian_ch -ldiscretization_ch -lmonitors_ch -lparticles_ch -lmesh_ch -lphysics_ch -lphysicsch -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_ch -lml
+HORSES_LIBS_MU=-L$(HOME_DIR)/lib -ltimeintegrator_mu -ljacobian_mu -ldiscretization_mu -lmonitors_mu -lparticles_mu -lmesh_mu -lphysics_mu -lphysicsch -lphysicsmu -lio -lspectral -lmpiutils -lfoundation -lftobject -lsources_mu -lml
+ADDONS=horses2tecplot extractgeometry mergeStatistics tools horsesConverter
 HORSESFLAGS += $(MACROS)
 ADDONSFLAGS += $(MACROS)
 
@@ -280,18 +290,33 @@ nssa: header mkdirs horseslibs-nssa horses3d.nssa
 
 horses3d.ns: 
 	(cd $(HOME_DIR)/src/NavierStokesSolver/ && $(MAKE) $(HORSES_NS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NS   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.nssa: 
 	(cd $(HOME_DIR)/src/NavierStokesSolverRANS/ && $(MAKE) $(HORSES_NSSA_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  NNSA - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.ins: 
 	(cd $(HOME_DIR)/src/IncompressibleNSSolver/ && $(MAKE) $(HORSES_iNS_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  iNS  - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.ch: 
 	(cd $(HOME_DIR)/src/CahnHilliardSolver/ && $(MAKE) $(HORSES_CH_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  CH   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horses3d.mu: 
 	(cd $(HOME_DIR)/src/MultiphaseSolver/ && $(MAKE) $(HORSES_MU_FLAGS) install) || exit 1; 
+	@echo "================================"
+	@echo ">>  MU   - SUCCESFULLY COMPILED "
+	@echo "================================"
 
 horseslibs:
 	@for subdir in $(HORSES_LIBS) ; do \
@@ -368,6 +393,9 @@ addons:
 	@for subdir in $(ADDONS); do \
 	    (cd $(HOME_DIR)/src/addons/$$subdir && $(MAKE) $(ADDONSFLAGS) install) || exit 1; \
 	done
+	@echo "================================"
+	@echo ">> ADDONS- SUCCESFULLY COMPILED "
+	@echo "================================"
 
 ##########################################
 ##	Extra auxiliary rules 		##

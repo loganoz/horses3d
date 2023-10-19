@@ -100,14 +100,14 @@ contains
       !---------------------------------------------
       
       if ( .not. present(num_of_Rows) ) then
-         ERROR stop 'StaticCondensedMatrix_t needs num_of_Rows'
+         error stop 'StaticCondensedMatrix_t needs num_of_Rows'
       end if
       if ( .not. present(num_of_Blocks) ) then
-         ERROR stop 'StaticCondensedMatrix_t needs num_of_Blocks'
+         error stop 'StaticCondensedMatrix_t needs num_of_Blocks'
       end if
       if ( present(num_of_Cols) ) then
          if (num_of_Cols /= num_of_Rows) then
-            ERROR stop 'StaticCondensedMatrix_t must be a square matrix'
+            error stop 'StaticCondensedMatrix_t must be a square matrix'
          end if
       end if
       
@@ -247,7 +247,7 @@ contains
                   call this % Mbi % SetEntry(perm_Indexes(1), perm_Indexes(2), value )
                   
                case default
-                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
                   
             end select
          case (BOUNDARY_DOF)
@@ -267,12 +267,12 @@ contains
                   call this % Mbb % SetEntry(perm_Indexes(1), perm_Indexes(2), value )
                   
                case default
-                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
                   
             end select
          
          case default
-            ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+            error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
             
       end select
    end subroutine Static_SetBlockEntry
@@ -314,7 +314,7 @@ contains
                   call this % Mbi % AddToEntry(perm_Indexes(1), perm_Indexes(2), value )
                   
                case default
-                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
                   
             end select
          case (BOUNDARY_DOF)
@@ -334,12 +334,12 @@ contains
                   call this % Mbb % AddToEntry(perm_Indexes(1), perm_Indexes(2), value )
                   
                case default
-                  ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+                  error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
                   
             end select
          
          case default
-            ERROR stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
+            error stop 'StaticCondensedMatrix_t :: wrong permutation indexes'
             
       end select
       
@@ -511,7 +511,7 @@ contains
       end if
       
       if ( (count_i+count_b) /= this % num_of_Rows ) then
-         ERROR stop 'StaticCondensedMatrixClass :: Invalid arguments in constructPermutationArrays'
+         error stop 'StaticCondensedMatrixClass :: Invalid arguments in constructPermutationArrays'
       end if
       
       this % size_i        = count_i
@@ -643,7 +643,7 @@ contains
       call Acsr % constructWithCSRArrays(Rows, Cols, Values, this % num_of_Cols)
       
       class default
-         stop 'ERROR :: Static_getCSR not defined for submatrices /= cstMat_t'
+         error stop 'ERROR :: Static_getCSR not defined for submatrices /= cstMat_t'
       end select ; end select ; end select
       
    end subroutine Static_getCSR

@@ -196,19 +196,19 @@ module AnisFASMultigridClass
             if (controlVariables % containsKey("dcfl")) then
                dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
             else
-               ERROR STOP '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
+               error stop '"cfl" and "dcfl", or "dt", keywords must be specified for the FAS integrator'
             end if
          end if
 #elif defined(CAHNHILLIARD)
          print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
          errorMessage(STD_OUT)
-         stop
+         error stop
 #endif
       elseif (controlVariables % containsKey("dt")) then
          Compute_dt = .FALSE.
          dt = controlVariables % doublePrecisionValueForKey("dt")
       else
-         ERROR STOP '"cfl" and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
+         error stop '"cfl" and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
       
 !
@@ -444,13 +444,13 @@ module AnisFASMultigridClass
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage
          
-         if( Solver% MGStorage(Dir) % p_sem% mesh% IBM% active ) &
-         call Child_p% MGStorage(Dir) % p_sem% mesh% IBM% copy( Solver% MGStorage(Dir)  % p_sem% mesh% IBM, lvl )
+!         if( Solver% MGStorage(Dir) % p_sem% mesh% IBM% active ) &
+!         call Child_p% MGStorage(Dir) % p_sem% mesh% IBM% copy( Solver% MGStorage(Dir)  % p_sem% mesh% IBM, lvl )
 
-         call Child_p % MGStorage(Dir) % p_sem % construct (controlVariables = controlVariables,                         &
-                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
-                                           success = success,                                                            &
-                                           ChildSem = .TRUE.  )
+!         call Child_p % MGStorage(Dir) % p_sem % construct (controlVariables = controlVariables,                         &
+!                                           Nx_ = N2xAll,    Ny_ = N2yAll,    Nz_ = N2zAll,                               &
+!                                           success = success,                                                            &
+!                                           ChildSem = .TRUE.  )
          
          
 !New>
@@ -479,7 +479,7 @@ module AnisFASMultigridClass
 !~                                           success = success,                                                            &
 !~                                           ChildSem = .TRUE. )
          
-!~         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+!~         if (.NOT. success) error stop "Multigrid: Problem creating coarse solver."
 !~         call Stopwatch % Pause("AnisFAS: child-copy")
 !~!old>
          
