@@ -45,7 +45,7 @@ Module LocalRefinementTool  !
         character(len=LINE_LENGTH)              :: msg
 
         call CheckInputIntegrity(controlVariables, success)
-        IF(.NOT. success)   ERROR STOP "Control file reading error"
+        IF(.NOT. success)   error stop "Control file reading error"
 
 !
 !       ---------------------------
@@ -207,7 +207,7 @@ Module LocalRefinementTool  !
            ! elseif (trim(ext)=='msh') then
                ! call ConstructSimpleMesh_FromGmshFile_(mesh, meshFileName, locR
            else
-               ERROR STOP 'Mesh file extension not recognized.'
+               error stop 'Mesh file extension not recognized.'
            end if
 
     End Subroutine ConstructSimpleMesh

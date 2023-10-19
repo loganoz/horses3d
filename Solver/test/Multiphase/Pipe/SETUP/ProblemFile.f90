@@ -89,16 +89,18 @@ module ProblemFileFunctions
          type(RefValues_t),      intent(in)  :: refValues_
       end subroutine UserDefinedState_f
 
-      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, thermodynamics_, dimensionless_, refValues_)
+      subroutine UserDefinedGradVars_f(x, t, nHat, Q, U, GetGradients, thermodynamics_, dimensionless_, refValues_)
          use SMConstants
          use PhysicsStorage
          use FluidData
+         use VariableConversion, only: GetGradientValues_f
          implicit none
          real(kind=RP), intent(in)          :: x(NDIM)
          real(kind=RP), intent(in)          :: t
          real(kind=RP), intent(in)          :: nHat(NDIM)
          real(kind=RP), intent(in)          :: Q(NCONS)
          real(kind=RP), intent(inout)       :: U(NGRAD)
+         procedure(GetGradientValues_f)     :: GetGradients
          type(Thermodynamics_t), intent(in) :: thermodynamics_
          type(Dimensionless_t),  intent(in) :: dimensionless_
          type(RefValues_t),      intent(in) :: refValues_
@@ -606,7 +608,7 @@ end module ProblemFileFunctions
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             

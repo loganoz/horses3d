@@ -49,6 +49,8 @@
          type(Autosave_t)                       :: autosave
          type(pAdaptation_t)                    :: pAdaptator
          type(MultiTauEstim_t)                  :: TauEstimator
+         character(len=LINE_LENGTH)             :: integration_method
+         integer                                :: RKStep_key
          PROCEDURE(TimeStep_FCN), NOPASS , POINTER :: RKStep
 !
 !        ========
@@ -94,6 +96,10 @@
          type(DGSem)                 :: sem
          integer                     :: initial_iter
          real(kind=RP)               :: initial_time
+
+         character(len=STRING_CONSTANT_LENGTH) :: keyword
+         logical                               :: limit
+         real(RP)                              :: limiter_minimum
 !
 !        ----------------------------------------------------------------------------------
 !        Set time-stepping variables
@@ -110,20 +116,20 @@
                if (controlVariables % containsKey("dcfl")) then
                   self % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
                else
-                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+                  error stop '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
             end if
 #endif
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)
-            stop
+            error stop
 #endif
          ELSEIF (controlVariables % containsKey("dt")) THEN
             self % Compute_dt = .FALSE.
             self % dt         = controlVariables % doublePrecisionValueForKey("dt")
          ELSE
-            ERROR STOP '"cfl" or "dt" keyword must be specified for the time integrator'
+            error stop '"cfl" or "dt" keyword must be specified for the time integrator'
          END IF
 !
 !        ----------------------
@@ -138,24 +144,45 @@
          self % tolerance      =  controlVariables % doublePrecisionValueForKey("convergence tolerance")
          self % RKStep         => TakeRK3Step
 
+         if (controlVariables % containsKey(TIME_INTEGRATION_KEY)) then
+            self % integration_method = controlVariables % stringValueForKey(TIME_INTEGRATION_KEY, LINE_LENGTH)
+         else
+            self % integration_method = EXPLICIT_SOLVER
+         end if
+         call toLower(self % integration_method)
+
          if ( controlVariables % ContainsKey("explicit method") ) then
-            select case ((controlVariables % StringValueForKey("explicit method",LINE_LENGTH)))
-            case("Euler")
+            keyword = controlVariables % StringValueForKey("explicit method",LINE_LENGTH)
+            call toLower(keyword)
+            select case (keyword)
+            case(EULER_NAME)
                self % RKStep => TakeExplicitEulerStep
-print*, "Method selected: Euler"
+               self % RKStep_key = EULER_KEY
 
-            case("RK3")
+            case(RK3_NAME)
                self % RKStep => TakeRK3Step
-print*, "Method selected: RK3"
+               self % RKStep_key = RK3_KEY
 
-            case("RK5")
+            case(RK5_NAME)
                self % RKStep => TakeRK5Step
-print*, "Method selected: RK5"
+               self % RKStep_key = RK5_KEY
+
+            case(SSPRK33_NAME)
+               self % RKStep => TakeSSPRK33Step
+               self % RKStep_key = SSPRK33_KEY
+
+            case(SSPRK43_NAME)
+               self % RKStep => TakeSSPRK43Step
+               self % RKStep_key = SSPRK43_KEY
+
+            case default
+               print*, "Explicit time integration method not implemented"
+               error stop
 
             end select
          else
             self % RKStep => TakeRK3Step
-
+            self % RKStep_key = RK3_KEY
          end if
 
          if ( controlVariables % ContainsKey("compute time derivative after timestep") ) then
@@ -165,9 +192,19 @@ print*, "Method selected: RK5"
             end if
          end if
 
+         if ( controlVariables % ContainsKey("limit timestep") ) then
+            if ( controlVariables % LogicalValueForKey("limit timestep") ) then
+               if ( controlVariables % ContainsKey("limiter minimum") ) then
+                  limiter_minimum = controlVariables % RealValueForKey("limiter minimum")
+                  call Enable_limiter(self % RKStep_key, limiter_minimum)
+               else
+                  call Enable_limiter(self % RKStep_key)
+               end if
+            end if
+         end if
 !
 !        ------------------------------------
-!        Integrator-dependent initializarions
+!        Integrator-dependent initializations
 !        ------------------------------------
 !
          SELECT CASE (controlVariables % StringValueForKey("simulation type",LINE_LENGTH))
@@ -176,7 +213,7 @@ print*, "Method selected: RK5"
                   self % tFinal         = controlVariables % doublePrecisionValueForKey("final time")
                ELSE
                   self % tFinal         = huge(self % tFinal)
-!~                  ERROR STOP '"final time" keyword must be specified for time-accurate integrators'
+!~                  error stop '"final time" keyword must be specified for time-accurate integrators'
                ENDIF
                self % integratorType = TIME_ACCURATE
             CASE DEFAULT ! Using 'steady-state' even if not specified in input file
@@ -192,6 +229,49 @@ print*, "Method selected: RK5"
          call surfacesMesh % autosaveConfig (controlVariables, initial_time)      ! If not requested, the procedure returns only setting not save values
 
          call self % TauEstimator % construct(controlVariables, sem)
+
+         if (.not. MPI_Process % isRoot ) return
+
+         write(STD_OUT,'(/)')
+         call Section_Header("Time integrator")
+         write(STD_OUT,'(/)')
+
+         write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Simulation type: "
+         select case (self % integratorType)
+            case (TIME_ACCURATE)
+               write(STD_OUT,'(A)') "Time accurate"
+            case (STEADY_STATE)
+               write(STD_OUT,'(A)') "Steady state"
+         end select
+
+         write(STD_OUT,'(30X,A,A28,I10)',advance='no') "->" , "Method: "
+         if (self % integration_method == EXPLICIT_SOLVER) then
+            select case (self % RKStep_key)
+            case (EULER_KEY)
+               write(STD_OUT,'(A)') "Euler"
+            case (RK3_KEY)
+               write(STD_OUT,'(A)') "RK3"
+            case (RK5_KEY)
+               write(STD_OUT,'(A)') "RK5"
+            case (SSPRK33_KEY)
+               write(STD_OUT,'(A)') "SSPRK33"
+            case (SSPRK43_KEY)
+               write(STD_OUT,'(A)') "SSPRK43"
+            end select
+
+            write(STD_OUT,'(30X,A,A28)',advance='no') "->" , "Stage limiter: "
+            if (LIMITED) then
+               write(STD_OUT,'(A,1pG10.3)') "min. value ", LIMITER_MIN
+            else
+               write(STD_OUT,'(L)') LIMITED
+            end if
+
+         else
+            write(STD_OUT,'(A)') self % integration_method
+
+         end if
+
+         write(STD_OUT,'(30X,A,A28,L)') "->" , "Derivative after timestep: ", CTD_AFTER_STEPS
 
       END SUBROUTINE constructTimeIntegrator
 !
@@ -354,20 +434,13 @@ print*, "Method selected: RK5"
       type(BDFIntegrator_t)         :: BDFSolver
       type(RosenbrockIntegrator_t)  :: RosenbrockSolver
 
-      CHARACTER(len=LINE_LENGTH)    :: TimeIntegration
-      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag
+      logical                       :: saveGradients, saveSensor, useTrip, ActuatorLineFlag, saveLES
       procedure(UserDefinedPeriodicOperation_f) :: UserDefinedPeriodicOperation
 !
 !     ----------------------
 !     Read Control variables
 !     ----------------------
 !
-      IF (controlVariables % containsKey(TIME_INTEGRATION_KEY)) THEN
-         TimeIntegration  = controlVariables % StringValueForKey(TIME_INTEGRATION_KEY,LINE_LENGTH)
-      ELSE ! Default value
-         TimeIntegration = EXPLICIT_SOLVER
-      END IF
-      call toLower(TimeIntegration)
       SolutionFileName   = trim(getFileName(controlVariables % StringValueForKey("solution file name",LINE_LENGTH)))
       useTrip            = controlVariables % logicalValueForKey("use trip")
       ActuatorLineFlag   = controlVariables % logicalValueForKey("use actuatorline")
@@ -389,7 +462,7 @@ print*, "Method selected: RK5"
       if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
-          call farm % ConstructFarm(controlVariables)
+          call farm % ConstructFarm(controlVariables, t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
 #endif
@@ -421,6 +494,7 @@ print*, "Method selected: RK5"
 !     ------------------
 !
       saveGradients = controlVariables % logicalValueForKey("save gradients with solution")
+      saveLES = controlVariables % logicalValueForKey("save les with solution")
       saveSensor    = controlVariables % logicalValueForKey("save sensor with solution")
 !
 !     -----------------------
@@ -477,7 +551,7 @@ print*, "Method selected: RK5"
 !     Integrate in time
 !     -----------------
 !
-      select case (TimeIntegration)
+      select case (self % integration_method)
       case(FAS_SOLVER)
          call FASSolver % construct(controlVariables,sem)
 
@@ -538,7 +612,7 @@ print*, "Method selected: RK5"
 !
 !        Perform time step
 !        -----------------
-         SELECT CASE (TimeIntegration)
+         SELECT CASE (self % integration_method)
          CASE (IMPLICIT_SOLVER)
             call BDFSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (ROSENBROCK_SOLVER)
@@ -644,7 +718,7 @@ print*, "Method selected: RK5"
 !        Autosave
 !        --------
          if ( self % autosave % Autosave(k+1) ) then
-            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor)
+            call SaveRestart(sem,k+1,t,SolutionFileName, saveGradients, saveSensor, saveLES)
 #if defined(NAVIERSTOKES)
             if ( sem % particles % active ) then
                call sem % particles % ExportToVTK ( k+1, monitors % solution_file )
@@ -690,7 +764,7 @@ print*, "Method selected: RK5"
 !     Finish up
 !     ---------
 !
-      select case(TimeIntegration)
+      select case(self % integration_method)
       case(FAS_SOLVER)
          CALL FASSolver % destruct
 
@@ -759,7 +833,7 @@ print*, "Method selected: RK5"
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////////
 !
-   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor)
+   SUBROUTINE SaveRestart(sem,k,t,RestFileName, saveGradients, saveSensor, saveLES)
       IMPLICIT NONE
 !
 !     ------------------------------------
@@ -773,6 +847,7 @@ print*, "Method selected: RK5"
       CHARACTER(len=*)             :: RestFileName   !< Name of restart file
       logical,          intent(in) :: saveGradients
       logical,          intent(in) :: saveSensor
+      logical,          intent(in) :: saveLES
 !     ----------------------------------------------
       INTEGER                      :: fd             !  File unit for new restart file
       CHARACTER(len=LINE_LENGTH)   :: FinalName      !  Final name for particular restart file
@@ -780,7 +855,7 @@ print*, "Method selected: RK5"
 
       WRITE(FinalName,'(2A,I10.10,A)')  TRIM(RestFileName),'_',k,'.hsol'
       if ( MPI_Process % isRoot ) write(STD_OUT,'(A,A,A,ES10.3,A)') '*** Writing file "',trim(FinalName),'", with t = ',t,'.'
-      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor)
+      call sem % mesh % SaveSolution(k,t,trim(finalName),saveGradients,saveSensor, saveLES)
 
    END SUBROUTINE SaveRestart
 !

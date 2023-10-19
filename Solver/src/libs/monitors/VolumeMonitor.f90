@@ -149,7 +149,7 @@ module VolumeMonitorClass
                print*, "   * source"
                print*, "   * particles source"
                print*, "   * sensor range"
-               stop "Stopped."
+               error stop "error stopped."
 
             end if
          end select
@@ -170,7 +170,7 @@ module VolumeMonitorClass
                print*, "   * Entropy"
                print*, "   * Kinetic energy rate"
                print*, "   * Entropy rate"
-               stop "Stopped."
+               error stop "error stopped."
 
             end if
          end select
@@ -194,7 +194,7 @@ module VolumeMonitorClass
                print*, "   * Phase2-Area"
                print*, "   * Phase2-xCoG"
                print*, "   * Phase2-xVel"
-               stop "Stopped."
+               error stop "error stopped."
 
             end if
          end select
@@ -211,7 +211,7 @@ module VolumeMonitorClass
                print*, 'Variable "',trim(self % variable),'" volume monitor ', self % ID, ' not implemented yet.'
                print*, "Options available are:"
                print*, "   * Free energy"
-               stop "Stopped."
+               error stop "error stopped."
 
             end if
          end select

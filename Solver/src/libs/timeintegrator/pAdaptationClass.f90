@@ -357,7 +357,7 @@ readloop:do
 !           Error
 !           -----
             errorMessage(STD_OUT)
-            stop "Stopped."
+            error stop "error stopped."
 
          else
 !
@@ -538,7 +538,7 @@ readloop:do
       if ( allocated(TruncError) ) then
          this % reqTE = TruncError
       else
-         ERROR STOP 'A truncation error must be specified for p-adapt'
+         error stop 'A truncation error must be specified for p-adapt'
       end if
 
 !     Truncation error threshold for coarsening
@@ -566,7 +566,7 @@ readloop:do
       if ( R_Nmax /= "" ) then
          this % NxyzMax = getIntArrayFromString(R_Nmax)
       else
-         ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
+         error stop 'Keyword Nmax is mandatory for p-adaptation'
       end if
       
 !     Nmin -> If this is a p-nonconforming 3D case, it should be 2
@@ -677,20 +677,20 @@ readloop:do
                if (controlVariables % containsKey("dcfl")) then
                   this % dcfl       = controlVariables % doublePrecisionValueForKey("dcfl")
                else
-                  ERROR STOP '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
+                  error stop '"cfl" and "dcfl", or "dt" keyword must be specified for the time integrator'
                end if
             end if
 #endif
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)
-            stop
+            error stop
 #endif
          elseif (controlVariables % containsKey("dt")) then
             this % Compute_dt = .FALSE.
             this % dt         = controlVariables % doublePrecisionValueForKey("dt")
          else
-            ERROR stop '"cfl" or "dt" keyword must be specified for the time integrator'
+            error stop '"cfl" or "dt" keyword must be specified for the time integrator'
          end if
       end if
       
@@ -701,7 +701,7 @@ readloop:do
          this % EstimFilesName = trim (R_EstimFiles)
          
          if ( R_EstimFilesNum == "" ) then
-            ERROR stop 'pAdaptation :: The user must provide the file numbers to read the tau-estimation'
+            error stop 'pAdaptation :: The user must provide the file numbers to read the tau-estimation'
          end if
          
          this % EstimFilesNumber = getIntArrayFromString(R_EstimFilesNum)
@@ -835,7 +835,7 @@ readloop:do
 !           Error
 !           -----
             errorMessage(STD_OUT)
-            stop "Stopped."
+            error stop "Stopped."
 
          else
 !

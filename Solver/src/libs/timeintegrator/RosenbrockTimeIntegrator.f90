@@ -249,7 +249,7 @@ contains
 !        Not implemented scheme!
 !        ***********************
          case default
-            ERROR stop ':: Requested Rosenbrock scheme is not yet implemented'
+            error stop ':: Requested Rosenbrock scheme is not yet implemented'
       end select
    
    end subroutine SetUpCoefficients

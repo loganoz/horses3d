@@ -225,14 +225,14 @@ module FASMultigridClass
 #elif defined(CAHNHILLIARD)
          print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
          errorMessage(STD_OUT)
-         stop
+         error stop
 #endif
       elseif (controlVariables % containsKey("dt")) then
          Compute_dt = .false.
          Compute_Global_dt = .false.
          dt = controlVariables % doublePrecisionValueForKey("dt")
       else
-         ERROR STOP '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
+         error stop '"cfl" (and "dcfl" if Navier-Stokes) or "dt" keywords must be specified for the FAS integrator'
       end if
 
 !
@@ -266,13 +266,13 @@ module FASMultigridClass
 #elif defined(CAHNHILLIARD)
             print*, "Error, use fixed time step to solve Cahn-Hilliard equations"
             errorMessage(STD_OUT)
-            stop
+            error stop
 #endif
          elseif (controlVariables % containsKey("pseudo dt")) then
             p_dt = controlVariables % doublePrecisionValueForKey("pseudo dt")
             Compute_dt = .false.
          else
-            ERROR STOP '"pseudo cfl" or "pseudo dt" keywords must be specified for the time-accurate FAS integrator'
+            error stop '"pseudo cfl" or "pseudo dt" keywords must be specified for the time-accurate FAS integrator'
          end if
       end if ! time-accurate
 
@@ -281,7 +281,7 @@ module FASMultigridClass
 !     -------------------------
       if (.NOT. controlVariables % containsKey("multigrid levels")) then
          print*, 'Fatal error: "multigrid levels" keyword is needed by the FASMultigrid solver'
-         STOP
+         error stop
       end if
 
       MGlevels  = controlVariables % IntegerValueForKey("multigrid levels")
@@ -466,7 +466,7 @@ module FASMultigridClass
                ini_cfl(3) = p_cfl
                ini_cfl(4) = p_dcfl
             else
-               ERROR STOP "FASMultigridClass :: "
+               error stop "FASMultigridClass :: "
             end if
 
          end if
@@ -641,7 +641,7 @@ module FASMultigridClass
             case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: Solver % Jacobian)
             case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: Solver % Jacobian)
             case default
-               ERROR stop 'Invalid jacobian type'
+               error stop 'Invalid jacobian type'
          end select
          call Solver % Jacobian % construct(Solver % p_sem % mesh, NCONS, controlVariables)
 !
@@ -725,7 +725,7 @@ module FASMultigridClass
                                            success = success,                                                            &
                                            ChildSem = .TRUE.  )
  
-         if (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         if (.NOT. success) error stop "Multigrid: Problem creating coarse solver."
 
          if (DualTimeStepping) then
 !$omp do private(N1,N2) schedule(runtime)
@@ -769,7 +769,7 @@ module FASMultigridClass
 
       if (PRESENT(FullMG)) then
          if (FullMG) then
-            if (.NOT. PRESENT(tol)) ERROR STOP 'FASFMG needs tolerance'
+            if (.NOT. PRESENT(tol)) error stop 'FASFMG needs tolerance'
             FMG = .TRUE.
          else
             FMG = .FALSE.
@@ -1476,7 +1476,7 @@ module FASMultigridClass
 !           Implicit smoothers
 !           ------------------
             case (IRK_SMOOTHER)
-               error STOP "FASMultigrid :: IRK Smoother not ready."
+               error stop "FASMultigrid :: IRK Smoother not ready."
             case (SGS_SMOOTHER)
 
                call this % p_sem % mesh % storage % local2globalq (this % p_sem % mesh % storage % NDOF)
@@ -1511,7 +1511,7 @@ module FASMultigridClass
                end do
 
             case default
-               error STOP "FASMultigrid :: Smoother not specified."
+               error stop "FASMultigrid :: Smoother not specified."
          end select ! Smoother
       end select ! Preconditioner
 

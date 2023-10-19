@@ -5,8 +5,8 @@ module TruncationErrorClass
    use FTValueDictionaryClass    , only: FTValueDictionary
    use PhysicsStorage            , only: NCONS, CTD_IGNORE_MODE
    use HexMeshClass              , only: HexMesh
-#if defined(NAVIERSTOKES)   || defined(INCNS)
-   use FluidData_NS              , only: Thermodynamics, RefValues, Dimensionless
+#if defined(NAVIERSTOKES) || defined(INCNS)
+   use FluidData                 , only: Thermodynamics, RefValues, Dimensionless
    use ProblemFileFunctions      , only: UserDefinedState_f, UserDefinedFinalSetup_f, UserDefinedSourceTermNS_f
 #endif
    use NodalStorageClass         , only: NodalStorage
@@ -159,7 +159,7 @@ module TruncationErrorClass
       elseif (present(fd_in) ) then
          fd = fd_in
       else
-         ERROR stop 'TruncationError_ReadFromFile: fName of fd_in must be provided'
+         error stop 'TruncationError_ReadFromFile: fName of fd_in must be provided'
       end if
       
       read(fd,*) Pxyz
@@ -480,7 +480,7 @@ module TruncationErrorClass
                
                print*, 'Computing TE for N=',i,j,k,'. success=', success
                
-               if(.NOT. success)   ERROR STOP ":: problem creating sem"
+               if(.NOT. success)   error stop ":: problem creating sem"
                
 #if defined(NAVIERSTOKES) && !defined(CAHNHILLIARD) && !defined(SPALARTALMARAS)
                CALL UserDefinedFinalSetup(sem % mesh , thermodynamics, dimensionless, refValues)
@@ -495,7 +495,7 @@ module TruncationErrorClass
       end do
       
       CALL PrintTEmap(NMIN,TEmap,iEl,"Exact")
-      stop
+      error stop
       
    end subroutine GenerateExactTEmap
 !

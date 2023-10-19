@@ -7,7 +7,7 @@ module SCsensorClass
    use NodalStorageClass, only: NodalStorage, NodalStorage_t
    use ElementClass,      only: Element
    use Utilities,         only: toLower
-   use Clustering,        only: GMM_t
+   use Clustering,        only: GMM_t, rescale
    use MPI_Process_Info,  only: MPI_Process
    use MPI_Utilities,     only: MPI_MinMax
 #ifdef _HAS_MPI_
@@ -46,7 +46,6 @@ module SCsensorClass
 
          type(GMM_t)           :: gmm          !< Gaussian mixture model
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
-         integer,  allocatable :: clusters(:)  !< Cluster ID for each point
 
          type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
@@ -154,10 +153,9 @@ module SCsensorClass
          sensor % Compute_Raw => Sensor_GMM
 
          allocate(sensor % x(2, sem % NDOF))
-         allocate(sensor % clusters(sem % NDOF))
 
          if (controlVariables % containsKey(SC_NUM_CLUSTERS_KEY)) then
-            nclusters = controlVariables % doublePrecisionValueForKey(SC_NUM_CLUSTERS_KEY)
+            nclusters = controlVariables % integerValueForKey(SC_NUM_CLUSTERS_KEY)
          else
             nclusters = 2
          end if
@@ -173,7 +171,7 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_TE_VAL
          write(STD_OUT,*) '   * ', SC_ALIAS_VAL
          write(STD_OUT,*) '   * ', SC_GMM_VAL
-         stop
+         error stop
 
       end select
 !
@@ -187,14 +185,14 @@ module SCsensorClass
              sensor % low = controlVariables % doublePrecisionValueForKey(SC_LOW_THRES_KEY)
           else
              write(STD_OUT,*) 'ERROR. Lower threshold of the sensor must be specified.'
-             stop
+             error stop
           end if
 
           if (controlVariables % containsKey(SC_HIGH_THRES_KEY)) then
              sensor % high = controlVariables % doublePrecisionValueForKey(SC_HIGH_THRES_KEY)
           else
              write(STD_OUT,*) 'ERROR. Higher threshold of the sensor must be specified.'
-             stop
+             error stop
           end if
 !
 !         Sensor parameters
@@ -242,7 +240,7 @@ module SCsensorClass
             write(STD_OUT,*) '   * ', SC_RHO_GRAD_VAL
             write(STD_OUT,*) '   * ', SC_DIVV_VAL
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
       else
@@ -277,11 +275,11 @@ module SCsensorClass
 !     ---------------
 !     Local variables
 !     ---------------
-      character(len=:), allocatable    :: derivType
-      real(RP)                         :: Nmin
-      real(RP)                         :: deltaN
-      integer                          :: eID
-      integer,          allocatable    :: N(:,:)
+      character(len=:), allocatable :: derivType
+      integer                       :: Nmin
+      integer                       :: deltaN
+      integer                       :: eID
+      integer,          allocatable :: N(:,:)
 
 !
 !     Read the control file
@@ -315,7 +313,7 @@ module SCsensorClass
          sensor % TEestim % TimeDerivative => ComputeTimeDerivative
       case default
          write(STD_OUT,*) "ERROR. The TE sensor can only use the (non-)isolated time derivatives."
-         stop
+         error stop
       end select
 
       sensor % TEestim % Nmin   = Nmin
@@ -439,7 +437,6 @@ module SCsensorClass
 
       if (allocated(sensor % TEestim))      deallocate(sensor % TEestim)
       if (allocated(sensor % x))            deallocate(sensor % x)
-      if (allocated(sensor % clusters))     deallocate(sensor % clusters)
       if (associated(sensor % Compute_Raw)) nullify(sensor % Compute_Raw)
 
    end subroutine Destruct_SCsensor
@@ -1019,7 +1016,9 @@ module SCsensorClass
       integer                :: i, j, k
       integer                :: cnt
       integer                :: n
-      integer                :: higherCluster
+      integer                :: cluster
+      integer                :: nclusters
+      logical                :: with_kmeans
       real(RP)               :: u2, p
       real(RP)               :: ux(3), uy(3), uz(3)
       real(RP)               :: dp(3)
@@ -1119,23 +1118,26 @@ module SCsensorClass
 !
 !     Rescale the values
 !     ------------------
-      call RescaleClusterVariables(2, sensor % x)
+      call rescale(sensor % x)
 !
 !     Compute the GMM clusters
 !     ------------------------
-      call sensor % gmm % fit(sensor % x, sensor % clusters)
+      with_kmeans = sensor % gmm % nclusters == 0
+      call sensor % gmm % fit(sensor % x, adapt=.true., from_kmeans=with_kmeans)
+      call sensor % gmm % predict(sensor % x)
 !
 !     Compute the sensor values
 !     -------------------------
+      nclusters = sensor % gmm % nclusters
       cnt = 0
       do eID = 1, sem % mesh % no_of_elements
          e => sem % mesh % elements(eID)
-         if (sensor % gmm % nclusters <= 1) then
+         if (nclusters <= 1) then
             e % storage % sensor = 0.0_RP
          else
             n = product(e % Nxyz + 1)
-            higherCluster = maxval(sensor % clusters(cnt+1:cnt+n))
-            e % storage % sensor = real(higherCluster - 1, RP) / (sensor % gmm % nclusters - 1)
+            cluster = maxval(maxloc(sensor % gmm % prob(cnt+1:cnt+n,1:nclusters), dim=2))
+            e % storage % sensor = real(cluster - 1, RP) / (nclusters - 1)
          end if
          cnt = cnt + n
       end do
@@ -1261,52 +1263,5 @@ module SCsensorClass
       end select
 
    end function GetSensedVariable
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine RescaleClusterVariables(ndims, x)
-!
-!     -------
-!     Modules
-!     -------
-      use Utilities, only: AlmostEqual
-!
-!     ---------
-!     Interface
-!     ---------
-      integer,  intent(in)    :: ndims
-      real(RP), intent(inout) :: x(:,:)
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer  :: i
-      real(RP) :: minimum(ndims)
-      real(RP) :: maximum(ndims)
-
-
-      x = abs(x)
-      minimum = minval(x, dim=2)
-      maximum = maxval(x, dim=2)
-
-      if (MPI_Process % doMPIAction) then
-#ifdef _HAS_MPI_
-         call MPI_MinMax(minimum, maximum)
-#endif
-      end if
-
-      do i = 1, ndims
-         if (AlmostEqual(maximum(i), minimum(i))) then
-            if (maximum(i) > 0.0_RP) then
-               x(i,:) = 1.0_RP
-            else
-               x(i,:) = 0.0_RP
-            end if
-         else
-            x(i,:) = (x(i,:) - minimum(i)) / (maximum(i) - minimum(i))
-         end if
-      end do
-
-   end subroutine RescaleClusterVariables
 
 end module SCsensorClass

@@ -268,7 +268,7 @@ module JacobianComputerClass
          integer        , optional, intent(in)        :: mode
          !--------------------------------------------
          
-         ERROR stop 'JacobianComputer_t must be cast to an extended type (e.g. AnJacobian_r or NumJacobian_t) for computation'
+         error stop 'JacobianComputer_t must be cast to an extended type (e.g. AnJacobian_r or NumJacobian_t) for computation'
          
       end subroutine Jacobian_Compute
 !
@@ -506,7 +506,7 @@ module JacobianComputerClass
          call colList % destruct
          deallocate (colList)
 #else
-         ERROR stop 'Jacobian_GetCSRVectorsForAllocation only for NS'
+         error stop 'Jacobian_GetCSRVectorsForAllocation only for NS'
 #endif
       end subroutine Jacobian_GetCSRVectorsForAllocation
 !
@@ -560,10 +560,10 @@ module JacobianComputerClass
       INTEGER, INTENT(IN)   :: i, j, k, l, Nx, Ny, Nz, N_EQN
       INTEGER               :: idx
       
-      IF (l < 1 .OR. l > N_EQN)  STOP 'error in ijk2local, l has a wrong value'
-      IF (i < 0 .OR. i > Nx)     STOP 'error in ijk2local, i has a wrong value'
-      IF (j < 0 .OR. j > Ny)     STOP 'error in ijk2local, j has a wrong value'
-      IF (k < 0 .OR. k > Nz)     STOP 'error in ijk2local, k has a wrong value'
+      IF (l < 1 .OR. l > N_EQN)  error stop 'error in ijk2local, l has a wrong value'
+      IF (i < 0 .OR. i > Nx)     error stop 'error in ijk2local, i has a wrong value'
+      IF (j < 0 .OR. j > Ny)     error stop 'error in ijk2local, j has a wrong value'
+      IF (k < 0 .OR. k > Nz)     error stop 'error in ijk2local, k has a wrong value'
       
       idx = k*(Nx+1)*(Ny+1)*N_EQN + j*(Nx+1)*N_EQN + i*N_EQN + l
    END FUNCTION
@@ -580,7 +580,7 @@ module JacobianComputerClass
       INTEGER               :: indices(4)
       INTEGER               :: tmp1, tmp2
       
-      IF (idx < 1 .OR. idx > (Nx+1)*(Ny+1)*(Nz+1)*N_EQN) STOP 'error in local2ijk, idx has wrong value'
+      IF (idx < 1 .OR. idx > (Nx+1)*(Ny+1)*(Nz+1)*N_EQN) error stop 'error in local2ijk, idx has wrong value'
       
       indices(4) = (idx-1) / ((Nx+1)*(Ny+1) * N_EQN)
       tmp1       = MOD((idx-1),((Nx+1)*(Ny+1) * N_EQN) )

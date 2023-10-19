@@ -265,7 +265,7 @@ contains
          write(STD_OUT,'(A,ES10.3,A)') "Analytical Jacobian construction: ", Stopwatch % lastElapsedtime("Analytical Jacobian construction"), ' seconds'
       end if
 #else
-      ERROR stop ':: Analytical Jacobian only for NS'
+      error stop ':: Analytical Jacobian only for NS'
 #endif
 
    ! call Matrix % Visualize('Jacobian.txt')

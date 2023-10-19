@@ -97,7 +97,7 @@ module RiemannSolvers_MU
             case default
                print*, "Riemann Solver not recognized."
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             end select
 

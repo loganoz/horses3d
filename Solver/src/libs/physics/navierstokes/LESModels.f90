@@ -106,7 +106,7 @@ module LESModels
                print*, "   * Wale"
                print*, "   * Vreman"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             end select
    
@@ -148,7 +148,7 @@ module LESModels
                print*, "   * Vreman"
                print*, "   * None (default)"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             end select
             

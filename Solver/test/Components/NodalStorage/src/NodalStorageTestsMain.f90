@@ -24,6 +24,6 @@
          
          CALL testSuite % finalize()
          
-         IF(numberOfFailures > 0)   STOP 99
+         IF(numberOfFailures > 0)   error stop 99
 
       END PROGRAM NodalStorageTestsMain

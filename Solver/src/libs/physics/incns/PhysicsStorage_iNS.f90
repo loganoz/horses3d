@@ -207,14 +207,14 @@
       if ( thermodynamics_ % number_of_fluids .eq. 2 ) then
          if ( .not. almostEqual(thermodynamics_ % mu(1), 0.0_RP)) then
             dimensionless_ % mu(2) = dimensionless_ % mu(1) * thermodynamics_ % mu(2) / thermodynamics_ % mu(1)
-            dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+            dimensionless_ % Re = 1.0_RP / max ( dimensionless_ % mu(1), epsilon(1.0_RP) )
          else
             dimensionless_ % mu(2) = 0.0_RP
             dimensionless_ % Re    = 0.0_RP
 
          end if
       else
-         dimensionless_ % Re = 1.0_RP / dimensionless_ % mu(1)
+         dimensionless_ % Re = 1.0_RP / max ( dimensionless_ % mu(1), epsilon(1.0_RP) )
       end if
 !
 !     **************************
@@ -410,14 +410,14 @@
                print*, "Specify density for fluid #1 using:"
                print*, "   ",trim(FLUID1_DENSITY_KEY), " = #value"
                errorMessage(STD_OUT)
-               stop
+               error stop
             end if
 
             if ( .not. controlVariables % ContainsKey(FLUID2_DENSITY_KEY)) then
                print*, "Specify density for fluid #2 using:"
                print*, "   ",trim(FLUID2_DENSITY_KEY), " = #value"
                errorMessage(STD_OUT)
-               stop
+               error stop
             end if
 
             if ( .not. controlVariables % ContainsKey(FLUID1_VISCOSITY_KEY)) then
@@ -443,7 +443,7 @@
 !              -----
                print*, "Incorrect gravity direction vector"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             end if
 
@@ -458,7 +458,7 @@
                print*, "Specify gravity direction with:"
                print*, "     ", GRAVITY_DIRECTION_KEY, " = [x,y,z]"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             else
                call controlVariables % AddValueForKey("0.0d0", GRAVITY_ACCELERATION_KEY)

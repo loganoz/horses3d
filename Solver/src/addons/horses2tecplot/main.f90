@@ -4,6 +4,7 @@ program horses2plt
    use Mesh2PltModule
    use Solution2PltModule
    use Solution2VtkHdfModule
+   use Solution2FoamModule
    use Stats2PltModule
    use SolutionFile
    use SharedSpectralBasis
@@ -22,6 +23,7 @@ program horses2plt
    integer                                 :: iSol
    logical                                 :: useCommandArgs
    logical                                 :: oldStats
+   logical 								   :: writeMesh
 
    call MPI_Process % Init
 
@@ -29,7 +31,7 @@ program horses2plt
 !
 !  Get the job type
 !  ----------------
-   call getTaskType(jobType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, useCommandArgs, oldStats)
+   call getTaskType(jobType, meshName, no_of_solutions, solutionNames, solutionTypes, fixedOrder, Nout, basis, mode, useCommandArgs, oldStats, writeMesh)
 !
 !  Construct Spectral basis
 !  ------------------------
@@ -89,7 +91,7 @@ program horses2plt
             write(STD_OUT,'(/,/)')
             if (oldStats) then
                 write(STD_OUT,'(A)') "Statistics legacy file conversion not supported for VTKHDF"
-                stop
+                error stop
             else
                call Section_Header("Statistics file conversion")
                call Solution2VtkHdf(meshName, solutionNames(iSol), Nout)
@@ -99,8 +101,11 @@ program horses2plt
       end do
 #else
       write(STD_OUT, '(A)') "HDF5 support must be enabled to save to VTKHDF format"
-      stop
+      error stop
 #endif
+
+   case (SOLUTION_2_FOAM)
+         call Solution2Foam (meshName, no_of_solutions, solutionNames, solutionTypes, Nout, writeMesh)  
 
    case (UNKNOWN_JOB)
       call exit(UNKNOWN_JOB)

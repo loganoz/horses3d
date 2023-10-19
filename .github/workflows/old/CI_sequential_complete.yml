@@ -653,7 +653,37 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns FFS_SVV.control
 #
-# 20) Taylor-Green vortex with SVV-LES
+# 20) Forward facing step with SSPRK33 and limiter
+# ------------------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK33
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK33.control
+#
+# 21) Forward facing step with SSPRK43
+# ------------------------------------
+
+      - name: Build ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run ForwardFacingStep_SSPRK43
+        working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns FFS_SSPRK43.control
+#
+# 22) Taylor-Green vortex with SVV-LES
 # ------------------------------------
 
       - name: Build TaylorGreenSVVLES
@@ -667,6 +697,22 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ns TaylorGreenSVVLES.control
+
+#
+# 23) Mach 2 cylinder with GMM shock capturing
+# --------------------------------------------
+
+      - name: Build CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM/SETUP
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}}
+
+      - name: Run CylinderGMM
+        working-directory: ./Solver/test/NavierStokes/CylinderGMM
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horses3d.ns CylinderGMM.control
 
 ########################################################################
 #######                       PARTICLES                         ########
@@ -874,3 +920,34 @@ jobs:
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.ins RayleighTaylor.control
+
+          
+########################################################################
+#######                        ADDONS                           ########
+########################################################################
+#
+# 1) Mapping Result - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_MappingResult
+        working-directory: ./Solver/test/AddOns/horsesConverter/MappingResult
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+
+#
+# 2) Horses Mesh to OpenFOAM - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_HorsesMesh2OF
+        working-directory: ./Solver/test/AddOns/horsesConverter/HorsesMesh2OF
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          ./horsesConverter
+
+#
+# 3) OpenFOAM to Horses - horsesConverter
+# --------------------------------------------
+      - name: Run horsesConverter_OF2Horses
+        working-directory: ./Solver/test/AddOns/horsesConverter/OF2Horses
+        run: |
+          source /opt/intel/oneapi/setvars.sh || true
+          OMP_NUM_THREADS=4 ./horsesConverter

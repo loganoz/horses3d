@@ -46,7 +46,7 @@ module getInputData_MOD
             print*, "No mesh, solution and/or control files indicated."
             print*, "Syntax is: horses.geometry meshfile.mesh solutionfile.hsol ControlFile.control"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        First argument is always the mesh file

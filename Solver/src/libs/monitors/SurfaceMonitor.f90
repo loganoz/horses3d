@@ -163,7 +163,7 @@ module SurfaceMonitorClass
                self % isDimensionless = .false.
                if ( len_trim(directionName) .eq. 0 ) then
                   print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
-                  stop "Stopped"
+                  error stop "error stopped"
 
                else
                   directionValue = getRealArrayFromString(directionName)
@@ -180,7 +180,7 @@ module SurfaceMonitorClass
                self % isDimensionless = .false.
                if ( len_trim(directionName) .eq. 0 ) then
                   print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
-                  stop "Stopped"
+                  error stop "error stopped"
 
                else
                   directionValue = getRealArrayFromString(directionName)
@@ -198,7 +198,7 @@ module SurfaceMonitorClass
 
                if ( len_trim(directionName) .eq. 0 ) then
                   print*, "Direction not specified for pressure-force in surface monitor " , self % ID , "."
-                  stop "Stopped"
+                  error stop "error stopped"
 
                else
                   directionValue = getRealArrayFromString(directionName)
@@ -217,7 +217,7 @@ module SurfaceMonitorClass
 
                if ( .not. allocated ( self % referenceSurface ) ) then
                   print*, "Reference surface not specified for lift surface monitor " , self % ID , "."
-                  stop "Stopped"
+                  error stop "error stopped"
                end if
                
                if ( len_trim(directionName) .eq. 0 ) then
@@ -243,7 +243,7 @@ module SurfaceMonitorClass
 
                if ( .not. allocated ( self % referenceSurface ) ) then
                   print*, "Reference surface not specified for drag surface monitor " , self % ID , "."
-                  stop "Stopped"
+                  error stop "error stopped"
                end if
                
                if ( len_trim(directionName) .eq. 0 ) then
@@ -282,7 +282,7 @@ module SurfaceMonitorClass
                   print*, "   * lift"
                   print*, "   * drag"
                   print*, "   * pressure-average"
-                  stop "Stopped."
+                  error stop "error stopped."
 
                end if
 !

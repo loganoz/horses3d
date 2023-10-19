@@ -72,7 +72,7 @@ module EllipticBR2
          case default
             print*, "Unrecognized equation"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          end select
 

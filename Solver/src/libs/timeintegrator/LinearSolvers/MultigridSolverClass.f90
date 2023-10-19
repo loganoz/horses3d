@@ -99,8 +99,8 @@ CONTAINS
       
       MatrixShift => MatrixShiftFunc
       
-      IF (.NOT. PRESENT(sem)) stop 'Fatal error: MultigridSolver needs sem.'
-      IF (.NOT. PRESENT(controlVariables)) stop 'Fatal error: MultigridSolver needs controlVariables.'
+      IF (.NOT. PRESENT(sem)) error stop 'Fatal error: MultigridSolver needs sem.'
+      IF (.NOT. PRESENT(controlVariables)) error stop 'Fatal error: MultigridSolver needs controlVariables.'
       
 !
 !     ----------------------------------
@@ -109,7 +109,7 @@ CONTAINS
 !
       IF (.NOT. controlVariables % containsKey("multigrid levels")) THEN
          print*, 'Fatal error: "multigrid levels" keyword is needed by the multigrid solver'
-         STOP
+         error stop
       END IF
       MGlevels  = controlVariables % IntegerValueForKey("multigrid levels")
       
@@ -207,7 +207,7 @@ CONTAINS
          CALL Child_p % p_sem % construct (controlVariables = controlVariables,              &
                                            Nx_ = N2x,    Ny_ = N2y,    Nz_ = N2z,            &
                                            success = success )
-         IF (.NOT. success) ERROR STOP "Multigrid: Problem creating coarse solver."
+         IF (.NOT. success) error stop "Multigrid: Problem creating coarse solver."
          
          
          CALL RecursiveConstructor(Solver % Child, N2x, N2y, N2z, lvl - 1, controlVariables)
@@ -315,7 +315,7 @@ CONTAINS
          this % x(i) = this % b(i) / this % A % Values(this%A%Diag(i))
       END DO
       
-      STOP 'incomplete solver'
+      error stop 'incomplete solver'
       
       CALL this % WeightedJacobiSmoother( this%A%Values(this%A%Diag), maxiter, tol, this % niter)
       
@@ -415,7 +415,7 @@ CONTAINS
          CASE ('l2')
             xnorm = NORM2(this % x)
          CASE DEFAULT
-            STOP 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
+            error stop 'MKLPardisoSolverClass ERROR: Norm not implemented yet'
       END SELECT
    END FUNCTION Getxnorm
 !

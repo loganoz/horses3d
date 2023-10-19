@@ -106,7 +106,7 @@ module EllipticDiscretizationClass
          case default
             print*, "Unrecognized equation"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          end select
       
@@ -312,7 +312,7 @@ module EllipticDiscretizationClass
          type(Face)            , intent(inout) :: f
          !--------------------------------------------
 !$omp single
-         ERROR stop ':: RiemannSolver_Jacobians not implemented for selected Viscous Method'
+         error stop ':: RiemannSolver_Jacobians not implemented for selected Viscous Method'
 !$omp end single
       end subroutine BaseClass_RiemannSolver_Jacobians
 !

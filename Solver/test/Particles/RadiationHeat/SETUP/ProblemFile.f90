@@ -405,7 +405,7 @@
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure."
                WRITE(6,*) "      Simulation is considered valid if energy injected energy in form of radiation"
                WRITE(6,*) "      is stored in the particles and the fluid. Check details on G.Rubio and J.Soria 2019."               
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             
