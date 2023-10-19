@@ -128,7 +128,7 @@ contains
       integer, allocatable, dimension(:) :: el_reordering, el_reordering_idx
       !-------------------------------------------------------------------
       
-      if(.not. present(TimeDerivative) ) ERROR stop 'NumJacobian_Compute needs the time-derivative procedure'
+      if(.not. present(TimeDerivative) ) error stop 'NumJacobian_Compute needs the time-derivative procedure'
 !
 !     --------------------------------------------------------------------
 !     Initialize variables that will be used throughout all the simulation
@@ -841,7 +841,7 @@ contains
             case('IP')
                num_of_neighbor_levels = 1
             case default 
-               if (MPI_Process % isRoot) ERROR STOP 'JacobianComputerClass :: Viscous discretization not recognized.'
+               if (MPI_Process % isRoot) error stop 'JacobianComputerClass :: Viscous discretization not recognized.'
             end select
          else
             if (MPI_Process % isRoot) write(STD_OUT,*) 'JacobianComputerClass :: Viscous discretization not defined. Jacobian assumes BR1.'

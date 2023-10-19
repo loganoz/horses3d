@@ -37,12 +37,12 @@ jobs:
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'YES'
+          mkl: 'NO'
         - compiler: gfortran
           mode: DEBUG
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'YES'          
+          mkl: 'NO'          
         - compiler: ifort
           mode: RELEASE
           comm: SEQUENTIAL
@@ -76,7 +76,7 @@ jobs:
           key: intel-${{ runner.os }}-compilers-b
 
       - name: Intel Apt repository
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        #if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
         run: |
           wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
           sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
@@ -85,8 +85,8 @@ jobs:
           sudo apt-get update
 
       - name: Install Intel oneAPI
-        if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
-        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl ninja-build
+        #if: (steps.cache-intel-compilers.outputs.cache-hit != 'true')
+        run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl-devel ninja-build
       # Runs a single command using the runners shell
       ##- name: Install gfortran
       ##  run: |
@@ -102,7 +102,9 @@ jobs:
           source /opt/intel/oneapi/setvars.sh || true
           printenv >> $GITHUB_ENV
           ${{matrix.compiler}} --version
-
+          echo "LIB_LAPACK="-Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a ${MKLROOT}/lib/intel64/libmkl_gf_lp64.a -Wl,--end-group -lpthread -lm -ldl"" >> $GITHUB_ENV
+      # If it stops working previous line (linking with MKL for GNU) it is probably to an update in mkl. Update following https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html    
+      
       - name: Configure
         working-directory: ./Solver
         run: ./configure

@@ -488,7 +488,7 @@ Module SurfaceMesh
         if (.not. self % active) return
 !
         if (self % surfaceTypes(FWH_POSITION) .ne. SURFACE_TYPE_FWH) then
-            stop "only fwh surface can load a solution into the solver"
+            error stop "only fwh surface can load a solution into the solver"
         end if
 !
         nf = self % zones(FWH_POSITION) % no_of_faces
@@ -575,7 +575,7 @@ Module SurfaceMesh
             call SurfaceLoadSurfaceFromFile(mesh, surface_file, facesIDs, faces_per_zone(1), elementSide)
             isNoSlip = .false.
         else
-            stop "acoustic surface for integration is not defined"
+            error stop "acoustic surface for integration is not defined"
         end if
 !
 !       now create the zone and set type, name and flag
@@ -857,7 +857,7 @@ Module SurfaceMesh
                   write(STD_OUT,'(A,I0,A,I0,A)') "File dimensions: ", Npx -1, &
                       " ,", Npy-1, "."
                   errorMessage(STD_OUT)
-                  stop
+                  error stop
               end if
 
               allocate(QF(1:NCONS,0:Nx,0:Ny))
@@ -1421,7 +1421,7 @@ Module SurfaceMesh
                 case default
                    write(STD_OUT,'(A)') "Error: normalDirection not found in axisMap"
                    errorMessage(STD_OUT)
-                   stop 
+                   error stop 
             end select
         end associate
 

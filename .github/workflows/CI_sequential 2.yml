@@ -60,11 +60,13 @@ jobs:
       - uses: actions/checkout@v3
 
       # sudo apt-get install -qq pkg-config libhdf5-serial-dev
-#      - name: Install Linux packages
-#        run: |
-#          sudo apt-get update
-#          sudo apt install libhdf5-dev
-#          dpkg -L libhdf5-dev
+      - name: Install hdf5 (only gfortran)
+        if: (matrix.compiler == 'gfortran')
+        run: |
+          sudo apt-get update
+          sudo apt install libhdf5-dev
+          dpkg -L libhdf5-dev 
+          echo "HDF5_ROOT="/usr/lib/x86_64-linux-gnu/hdf5/serial/"" >> $GITHUB_ENV  
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
       - name: cache-intel-compilers
@@ -483,20 +485,21 @@ jobs:
 #
 # 18) Manufactured Solution for Spalart-Almaras
 # ----------------------------
+# This test case only runs with hdf5 as we do not support hdf5 with ifort in the github actions
 
       - name: Build ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-        if: '!cancelled()'
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
       - name: Run ManufacturedSolutionsSA
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA
         run: |
           source /opt/intel/oneapi/setvars.sh || true
           ./horses3d.nssa MSSA.control
-        if: '!cancelled()'
+        if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
 #
 # 19) Flat-Plate test case for Spalart-Almaras

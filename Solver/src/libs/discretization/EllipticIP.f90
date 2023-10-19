@@ -102,7 +102,7 @@ module EllipticIP
          case default
             print*, "Unrecognized equation"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          end select
 !
@@ -151,7 +151,7 @@ module EllipticIP
             print*, "   * IIPG"
             print*, "   * NIPG"
             errorMessage(STD_OUT)
-            stop
+            error stop
             end if
          end select
 

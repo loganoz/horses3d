@@ -57,7 +57,7 @@ contains
       !---------------------------------------------
       
       if ( .not. present(num_of_Blocks) ) then
-         ERROR stop 'DenseBlockDiagMatrix_t needs num_of_Blocks'
+         error stop 'DenseBlockDiagMatrix_t needs num_of_Blocks'
       end if
       
       allocate ( this % Blocks(num_of_Blocks) )
@@ -79,8 +79,8 @@ contains
       integer :: i, k ! counters
       !---------------------------------------------
       
-      if (.not. present(nnzs) ) ERROR stop ':: DenseBlockDiagMatrix needs the block sizes'
-      if ( size(nnzs) /= this % num_of_Blocks) ERROR stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
+      if (.not. present(nnzs) ) error stop ':: DenseBlockDiagMatrix needs the block sizes'
+      if ( size(nnzs) /= this % num_of_Blocks) error stop ':: DenseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
@@ -134,9 +134,9 @@ contains
 !~      integer, pointer :: indexes(:)
       !---------------------------------------------
       
-      if (MPI_Process % doMPIAction) ERROR stop 'DBD_SetColumn not ready for MPI'
+      if (MPI_Process % doMPIAction) error stop 'DBD_SetColumn not ready for MPI'
       
-      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
+      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) error stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
       ! Search the corresponding block (they are ordered)
       do thisblock=1, this % num_of_Blocks
@@ -183,9 +183,9 @@ contains
 !~      integer, pointer :: indexes(:)
       !---------------------------------------------
       
-      if (MPI_Process % doMPIAction) ERROR stop 'DBD_AddToColumn not ready for MPI'
+      if (MPI_Process % doMPIAction) error stop 'DBD_AddToColumn not ready for MPI'
       
-      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) ERROR stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
+      if ( (icol > this % num_of_Rows) .or. (icol < 1) ) error stop ':: DenseBlockDiagMatrix: icol value is out of bounds'
       
       ! Search the corresponding block (they are ordered)
       do thisblock=1, this % num_of_Blocks
@@ -227,7 +227,7 @@ contains
       !---------------------------------------------
       
       if ( size(values,1) /= this % BlockSizes(BlockNum) .or. &
-           size(values,2) /= this % BlockSizes(BlockNum) ) ERROR stop ':: DenseBlockDiagMatrix_t % DenseBlockDiagMatrix_t. Block size is not consistent'
+           size(values,2) /= this % BlockSizes(BlockNum) ) error stop ':: DenseBlockDiagMatrix_t % DenseBlockDiagMatrix_t. Block size is not consistent'
       
       this % Blocks(BlockNum) % Matrix = values
       
@@ -386,7 +386,7 @@ contains
 !$omp end parallel do
          class default
             write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
-            stop
+            error stop
       end select
    end subroutine FactorizeBlocks_LU
 !
@@ -449,7 +449,7 @@ contains
 !$omp end parallel do
          class default
             write(STD_OUT,*) 'DenseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
-            stop
+            error stop
       end select
    end subroutine InvertBlocks_LU
 !
@@ -470,7 +470,7 @@ contains
       
       if (this % num_of_Rows /= Acsr % num_of_Rows) then
          print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
-         stop
+         error stop
       end if
       
       call Acsr % PreAllocate()
@@ -518,7 +518,7 @@ contains
       
       if (this % num_of_Rows /= Acsr % num_of_Rows) then
          print*, 'DBD_getCSR :: ERROR: Matrix dimensions mismatch:', this % num_of_Rows, Acsr % num_of_Rows
-         stop
+         error stop
       end if
       
       nnz_0 = sum(this % BlockSizes**2)

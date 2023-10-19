@@ -574,7 +574,7 @@ end module ProblemFileFunctions
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the GMSH mesh has not been read correctly or the Jacobian computation does not work."
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             

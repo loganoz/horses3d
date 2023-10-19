@@ -35,7 +35,7 @@
          
          CALL testSuite % finalize()
          
-         IF(numberOfFailures > 0)   STOP 99
+         IF(numberOfFailures > 0)   error stop 99
 
          call MPI_Process % Close
          

@@ -48,7 +48,7 @@ Module FWHTools  !
         integer                                 :: Nmax
 
         ! call CheckInputIntegrity(controlVariables, success)
-        ! IF(.NOT. success)   ERROR STOP "Control file reading error"
+        ! IF(.NOT. success)   error stop "Control file reading error"
 
 !       ----------------
 !       Set up the DGSEM
@@ -57,7 +57,7 @@ Module FWHTools  !
         sem % ManufacturedSol = .FALSE.
           
         call ConstructPhysicsStorage( controlVariables, success )
-        IF(.NOT. success)   ERROR STOP "Physics parameters input error"
+        IF(.NOT. success)   error stop "Physics parameters input error"
 
         call GetMeshPolynomialOrders(controlVariables,Nx,Ny,Nz,Nmax)
         call InitializeNodalStorage (controlVariables ,Nmax)
@@ -66,7 +66,7 @@ Module FWHTools  !
         call sem % construct (  controlVariables  = controlVariables,                                         &
             Nx_ = Nx,     Ny_ = Ny,     Nz_ = Nz,                                                 &
             success           = success)
-        IF(.NOT. success)   ERROR STOP "Mesh reading error"
+        IF(.NOT. success)   error stop "Mesh reading error"
 
         ! surface = controlVariables % logicalValueForKey("fwhsurf")
 

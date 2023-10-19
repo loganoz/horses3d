@@ -273,7 +273,7 @@ module Storage
          case default
             print*, "File expected to be a solution file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
          self % isSurface = (dimensionsSize .eq. 3)
@@ -285,7 +285,7 @@ module Storage
          if ( getSolutionFileNodeType(solutionName) .ne. self % nodeType ) then
             print*, "Solution and Mesh node type differs"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Get number of elements
@@ -295,7 +295,7 @@ module Storage
             write(STD_OUT,'(30X,A,I0,A,I0,A)') "The number of elements in the mesh (",self % no_of_elements,&
                                            ") differs to that of the solution (",no_of_elements,")."
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
          allocate(arrayDimensions(dimensionsSize))
 !

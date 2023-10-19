@@ -90,7 +90,7 @@ module PartitionedMeshClass
                   write(STD_OUT,*) 'ERROR: Metis not linked properly. Two options available:'
                   write(STD_OUT,*) '   * Set the METIS_HOME variable and recompile'
                   write(STD_OUT,*) '   * Use "partitioning = SFC" if the mesh elements are numbered as a space-filling curve'
-                  stop
+                  error stop
 #endif
             end select
          end if

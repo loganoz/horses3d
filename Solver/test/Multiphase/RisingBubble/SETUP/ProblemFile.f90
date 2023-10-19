@@ -197,7 +197,7 @@ end module ProblemFileFunctions
 !        --------------------------------
 !
             IMPLICIT NONE  
-print*, "Hi"
+
          END SUBROUTINE UserDefinedStartup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -231,7 +231,7 @@ print*, "Hi"
 #ifdef CAHNHILLIARD
             type(Multiphase_t),     intent(in)  :: multiphase_
 #endif
-print*, "Entering final setup"
+
          END SUBROUTINE UserDefinedFinalSetup
 !
 !//////////////////////////////////////////////////////////////////////// 
@@ -283,7 +283,7 @@ print*, "Entering final setup"
 !           Navier-Stokes default initial condition
 !           ---------------------------------------
 !
-print*, "Entering IC"
+
 #if defined(MULTIPHASE)
             do eID = 1, mesh % no_of_elements
                associate( Nx => mesh % elements(eID) % Nxyz(1), &
@@ -557,7 +557,7 @@ print*, "Entering IC"
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             

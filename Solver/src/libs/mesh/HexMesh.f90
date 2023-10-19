@@ -506,7 +506,7 @@ MODULE HexMeshClass
          if ( .not. found ) then
             print*, 'coupled boundary "',trim(associatedBname),' for boundary "',trim(self % zones(zIDPlus) % Name),'" not found.'
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Loop faces in the periodic+ zone
@@ -645,7 +645,7 @@ slavecoord:             DO l = 1, 4
             write(STD_OUT,'(A,I0,A,I0,A,I0)') "Face ",i," in zone ",zIDPlus, &
                   " was not able to find a partner. Element: ", self % faces(i) % elementIDs(1)
             errorMessage(STD_OUT)
-            stop
+            error stop
 
             end do   ploop    ! periodic+ faces
          end do               ! periodic+ zones
@@ -2288,7 +2288,7 @@ slavecoord:             DO l = 1, 4
                   if ( bfOrder(zoneID) < 1 ) then
                      write(STD_OUT,*) 'ERROR :: The chosen polynomial orders are too low to represent the boundaries accurately'
                      write(STD_OUT,*) '      :: Nonconforming representations on boundaries need N>=2'
-                     stop
+                     error stop
                   end if
                end if
 
@@ -3227,7 +3227,7 @@ slavecoord:             DO l = 1, 4
          case(MESH_FILE)
             print*, "The selected restart file is a mesh file"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          case(SOLUTION_FILE)
             padding = 1*NCONS
@@ -3248,11 +3248,11 @@ slavecoord:             DO l = 1, 4
          case(STATS_FILE)
             print*, "The selected restart file is a statistics file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          case default
             print*, "Unknown restart file format"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
          if (NS_from_NSSA) then
              expectedNoEqs = NCONS + 1
@@ -3283,7 +3283,7 @@ slavecoord:             DO l = 1, 4
             write(STD_OUT,'(A,A)') "The number of elements stored in the restart file ", &
                                    "do not match that of the mesh file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Read the initial iteration and time
@@ -3297,7 +3297,7 @@ slavecoord:             DO l = 1, 4
          if ( flag .ne. BEGINNING_DATA ) then
             print*, "Beginning data flag was not found in the file."
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Read elements data
@@ -3327,7 +3327,7 @@ slavecoord:             DO l = 1, 4
                                                                      "."
 
                errorMessage(STD_OUT)
-               stop
+               error stop
             end if
 
             allocate(Q(expectedNoEqs, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
@@ -3960,7 +3960,7 @@ slavecoord:             DO l = 1, 4
       integer :: nFace  ! Counter for neighbor faces
       !-----------------------------------------------------------
 
-      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) ERROR stop 'HexMesh_ConformingOnZone :: Out of bounds'
+      if (zoneID < lbound(self % zones,1) .or. zoneID > ubound(self % zones,1) ) error stop 'HexMesh_ConformingOnZone :: Out of bounds'
 
       conforming = .TRUE.
       do fIdx = 1, self % zones(zoneID) % no_of_faces

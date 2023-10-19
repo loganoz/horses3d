@@ -96,7 +96,7 @@ MODULE CSRMatrixClass
       !---------------------------------------------
       
       if ( .not. present(num_of_Rows) ) then
-         ERROR stop 'csrMat_t needs num_of_Rows'
+         error stop 'csrMat_t needs num_of_Rows'
       end if
       if ( present(num_of_Cols) ) then
          NumCols = num_of_Cols
@@ -191,7 +191,7 @@ MODULE CSRMatrixClass
 !        Number of non-zeros different in every row
 !        ------------------------------------------
          
-         if (size(nnzs) /= this % num_of_Rows) ERROR stop ':: CSRMatrix: Not consistent nnzs'
+         if (size(nnzs) /= this % num_of_Rows) error stop ':: CSRMatrix: Not consistent nnzs'
          total_nnz = sum(nnzs)
       else
 !
@@ -205,7 +205,7 @@ MODULE CSRMatrixClass
          return
       end if
       
-      IF(total_nnz < 1) STOP ':: Invalid nnz' 
+      IF(total_nnz < 1) error stop ':: Invalid nnz' 
        
       safedeallocate(this % Cols)   ; ALLOCATE( this % Cols(total_nnz),STAT=istat )
       IF ( istat .NE. 0 ) WRITE(*,*) 'CSR_construct: Memory allocation error'
@@ -289,7 +289,7 @@ MODULE CSRMatrixClass
       if ( (.not. allocated(this % BlockIdx)) .or. (.not. allocated(this % BlockSizes)) ) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       if (this % usingListMat) then
@@ -341,7 +341,7 @@ MODULE CSRMatrixClass
             end if
             if (j == A % Rows (i+1)) then
                write(*,*) 'CSR_AssignDiag: ERROR? - No diagonal entry found in matrix'
-               stop
+               error stop
             end if
          end do
       end do
@@ -367,12 +367,12 @@ MODULE CSRMatrixClass
       
       IF (nvalues .NE. SIZE(Values)) THEN
          WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
-         STOP
+         error stop
       END IF
       
       IF ( icol <= 0 ) THEN
          WRITE (*,*) 'CSR_AddToCol: icol error'
-         STOP
+         error stop
       END IF
       
       if (this % usingListMat) then
@@ -406,12 +406,12 @@ MODULE CSRMatrixClass
       
       IF (nvalues .NE. SIZE(Values)) THEN
          WRITE (*,*) 'CSR_AddToCol: Dimension error (Values-RowIndexes)'
-         STOP
+         error stop
       END IF
       
       IF ( icol <= 0 ) THEN
          WRITE (*,*) 'CSR_AddToCol: icol error'
-         STOP
+         error stop
       END IF
       
       if (this % usingListMat) then
@@ -444,7 +444,7 @@ MODULE CSRMatrixClass
       
       if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
          write (*,*) 'CSR_SetEntry: Dimension error. [row,col]=', row, col
-         stop
+         error stop
       end if
       
       if (abs(value) < JACEPS) return
@@ -476,7 +476,7 @@ MODULE CSRMatrixClass
       
       if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
          write (*,*) 'CSR_SetEntry: Dimension error'
-         stop
+         error stop
       end if
       
       if (abs(value) < JACEPS) return
@@ -508,7 +508,7 @@ MODULE CSRMatrixClass
       
       if ( (row > this % num_of_Rows) .or. (col > this % num_of_Cols) ) then
          write (*,*) 'CSR_SetEntry: Dimension error'
-         stop
+         error stop
       end if
       
       if (this % usingListMat) then
@@ -536,7 +536,7 @@ MODULE CSRMatrixClass
     
       IF(i .GT. A % num_of_Rows .OR. j .GT. A % num_of_Cols ) THEN
          WRITE (*,*) 'CSR_Search: Dimension error'
-         STOP
+         error stop
       END IF
 
       DO k = A % Rows(i), A % Rows(i+1)-1
@@ -670,8 +670,8 @@ MODULE CSRMatrixClass
                          B % Values, B % Cols, B % Rows, c, jc, ic, 0, info)
       
       if (info /= 0) then
-         print*, 'ERROR :: CSR_MatAdd stopped at line', info
-         stop
+         print*, 'ERROR :: CSR_MatAdd error stopped at line', info
+         error stop
       end if
                               
       call Cmat % constructWithCSRArrays (ic,jc,c, A % num_of_Cols)
@@ -679,10 +679,10 @@ MODULE CSRMatrixClass
 !     Finish extra check
 !     ------------------
       class default
-         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+         error stop ':: Wrong type of arguments in CSR_MatMatMul'
       end select ; end select
 #else
-      stop ':: CSR_MatAdd needs MKL'
+      error stop ':: CSR_MatAdd needs MKL'
 #endif
    end subroutine CSR_MatAdd
 !
@@ -715,7 +715,7 @@ MODULE CSRMatrixClass
 !     -----------------
       if (A % num_of_Cols /= B % num_Of_Rows) then
          write(STD_OUT,'(A,I0,A,I0,A,I0,A,I0,A)') 'CSR_MatMatMul :: ERROR: Matrix dimensions mismatch: A(', A % num_of_Rows,',', A % num_Of_Cols, ') ; B(', B % num_Of_Rows, ',', B % num_Of_Cols,')'
-         stop
+         error stop
       end if
       
       if ( present(trans) ) then
@@ -744,8 +744,8 @@ MODULE CSRMatrixClass
                               c, jc, ic, 0, info)
       
       if (info /= 0) then
-         print*, 'ERROR :: mkl_dcsrmultcsr stopped at line', info
-         stop
+         print*, 'ERROR :: mkl_dcsrmultcsr error stopped at line', info
+         error stop
       end if
       
       call Cmat % constructWithCSRArrays (ic,jc,c, B % num_of_Cols)
@@ -753,10 +753,10 @@ MODULE CSRMatrixClass
 !     Finish extra check
 !     ------------------
       class default
-         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+         error stop ':: Wrong type of arguments in CSR_MatMatMul'
       end select ; end select
 #else
-      stop ':: CSR_MatMatMul needs MKL'
+      error stop ':: CSR_MatMatMul needs MKL'
 #endif
    end subroutine CSR_MatMatMul
    !
@@ -781,7 +781,7 @@ MODULE CSRMatrixClass
       !------------------------------------------------------------------------------
     
       IF (A % num_of_Cols .NE. SIZE(U) .OR. A % num_of_Rows .NE. SIZE(v)) THEN
-         STOP 'CSR_MatVecMul: Error - u dimensions mismatch'
+         error stop 'CSR_MatVecMul: Error - u dimensions mismatch'
       END IF
       
       if ( present(trans) ) then
@@ -797,7 +797,7 @@ MODULE CSRMatrixClass
 #ifdef HAS_MKL
       CALL mkl_dcsrgemv(transInfo, A % num_of_Rows, A % Values, A % Rows, A % Cols, u, v)
 #else
-      if (transInfo == 't') ERROR stop "CSR_MatVecMul with 't' only with MKL"
+      if (transInfo == 't') error stop "CSR_MatVecMul with 't' only with MKL"
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
          rsum = 0.0d0
@@ -936,7 +936,7 @@ MODULE CSRMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       row = this % BlockIdx(iBlock) + i - 1
@@ -967,7 +967,7 @@ MODULE CSRMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       ! row = this % BlockIdx(iBlock) + i - 1
@@ -1002,7 +1002,7 @@ MODULE CSRMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'CSRMatrixClass :: Error '
          write(STD_OUT,*) '               :: CSR_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       row = this % BlockIdx(iBlock) + i - 1
@@ -1215,7 +1215,7 @@ MODULE CSRMatrixClass
       REAL(KIND=RP)     :: rsum
       !------------------------------------------------------------------------------
     
-      if (trans) ERROR stop "CSR_LowerTriangularMatVecMul :: A^T x not implemented."
+      if (trans) error stop "CSR_LowerTriangularMatVecMul :: A^T x not implemented."
       
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows
@@ -1250,7 +1250,7 @@ MODULE CSRMatrixClass
       character(len=1)  :: transInfo
       !------------------------------------------------------------------------------
     
-      if (trans) ERROR stop "CSR_UpperTriangularMatVecMul :: A^T x not implemented."
+      if (trans) error stop "CSR_UpperTriangularMatVecMul :: A^T x not implemented."
       
 !$omp parallel do private(j,rsum)
       DO i=1,A % num_of_Rows

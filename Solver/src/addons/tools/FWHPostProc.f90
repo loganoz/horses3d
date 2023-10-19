@@ -96,34 +96,34 @@ Module FWHPostProc  !
             case(MESH_FILE)
                print*, "The selected restart file is a mesh file"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             case(SOLUTION_FILE)
                print*, "The selected file is a variable solution file"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             case(SOLUTION_AND_GRADIENTS_FILE)
                print*, "The selected file is a variable solution file"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             case(STATS_FILE)
                print*, "The selected file is a statistics file"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             case(ZONE_SOLUTION_FILE)
                print*, "The selected file is a zone file without time derivative"
                errorMessage(STD_OUT)
-               stop
+               error stop
 
             case(ZONE_SOLUTION_AND_DOT_FILE)
 
             case default
                print*, "Unknown restart file format"
                errorMessage(STD_OUT)
-               stop
+               error stop
         end select
 !
 !       Get the node type
@@ -143,7 +143,7 @@ Module FWHPostProc  !
            write(STD_OUT,'(A,A)') "The number of faces stored in the file ", &
                                   "do not match that of the surface defined"
            errorMessage(STD_OUT)
-           stop
+           error stop
         end if
 !
 !       Read the initial iteration and time
@@ -157,7 +157,7 @@ Module FWHPostProc  !
         if ( flag .ne. BEGINNING_DATA ) then
            print*, "Beginning data flag was not found in the file."
            errorMessage(STD_OUT)
-           stop
+           error stop
         end if
 
 !

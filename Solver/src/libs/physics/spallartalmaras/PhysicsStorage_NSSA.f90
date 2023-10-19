@@ -348,7 +348,7 @@
             print*, "When specifying a Froude number, the gravity direction must be specified"
             print*, "Gravity direction = [x,y,z]"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          else
 !
@@ -541,7 +541,7 @@
          case default
             print*, "Unrecognized option"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
       end subroutine SetGradientVariables

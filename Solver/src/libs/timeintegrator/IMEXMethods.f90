@@ -40,7 +40,7 @@ MODULE IMEXMethods
       select case(solver)
       case(NAVIERSTOKES_SOLVER, INCNS_SOLVER)
          print*, "IMEX solver not implemented for monophase Navier-Stokes equations"
-         stop
+         error stop
 
       case(CAHNHILLIARD_SOLVER)
          call TakeIMEXEulerStep_CH(sem, t , dt , controlVariables, ComputeTimeDerivative)
@@ -50,7 +50,7 @@ MODULE IMEXMethods
 
       case default
          print*, "Solver not recognized"
-         stop
+         error stop
       end select
 
    end subroutine TakeIMEXStep
@@ -261,7 +261,7 @@ MODULE IMEXMethods
          case default
             print*, "IMEX order should be 1 or 2"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
 !

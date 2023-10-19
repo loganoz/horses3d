@@ -34,7 +34,7 @@
          
          CALL testSuite % finalize()
          
-         IF(numberOFFailures > 0) STOP 99
+         IF(numberOFFailures > 0) ERROR STOP 99
          
       
       END PROGRAM HexMappingsTests

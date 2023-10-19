@@ -574,7 +574,7 @@ end module ProblemFileFunctions
             ELSE
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Dual Time Stepping not working correctly. Check FAS routines."
-                STOP 99
+                error stop 99
             END IF 
             WRITE(6,*)
             
