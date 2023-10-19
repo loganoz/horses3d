@@ -190,7 +190,7 @@ module MonitorsClass
 !        Write surface monitors labels
 !        -----------------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % WriteLabel
+            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteLabel
          end do
 
          call self % stats % WriteLabel
@@ -317,7 +317,7 @@ module MonitorsClass
 !        Print surface monitors
 !        ----------------------
          do i = 1 , self % no_of_surfaceMonitors
-            call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
+            if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteValues ( self % bufferLine )
          end do
 
          call self % stats % WriteValue
@@ -490,7 +490,7 @@ module MonitorsClass
 
 #if defined(NAVIERSTOKES)
                do i = 1 , self % no_of_surfaceMonitors
-                  call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
+                  if( .not. self % surfaceMonitors(i) % IBM ) call self % surfaceMonitors(i) % WriteToFile ( self % iter , self % t , self % bufferLine )
                end do
 #endif
 !
@@ -530,7 +530,7 @@ module MonitorsClass
 #endif         
       end subroutine
       
-      elemental subroutine Monitor_Assign ( to, from )
+      impure elemental subroutine Monitor_Assign ( to, from )
          implicit none
          !-arguments--------------------------------------
          class(Monitor_t), intent(inout)  :: to
@@ -640,7 +640,7 @@ readloop:do
 !           Error
 !           -----
             errorMessage(STD_OUT)
-            stop "Stopped."
+            error stop "Stopped."
 
          else
 !

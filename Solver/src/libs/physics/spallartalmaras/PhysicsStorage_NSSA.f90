@@ -62,7 +62,7 @@
      public    TemperatureReNormalization_Sutherland, S_div_TRef_Sutherland
      public    computeGradients
 
-     public    ConstructPhysicsStorage_NSSA, DestructPhysicsStorage_NS, DescribePhysicsStorage_NSSA
+     public    ConstructPhysicsStorage_NSSA, DestructPhysicsStorage_NSSA, DescribePhysicsStorage_NSSA
      public    CheckPhysicsNSInputIntegrity
      public    GRADVARS_STATE, GRADVARS_ENTROPY, GRADVARS_ENERGY
      public    grad_vars, SetGradientVariables
@@ -348,7 +348,7 @@
             print*, "When specifying a Froude number, the gravity direction must be specified"
             print*, "Gravity direction = [x,y,z]"
             errorMessage(STD_OUT)
-            stop
+            error stop
 
          else
 !
@@ -437,9 +437,9 @@
 !!    Destructor: Does nothing for this storage
 !     -------------------------------------------------
 !
-      SUBROUTINE DestructPhysicsStorage_NS
+      SUBROUTINE DestructPhysicsStorage_NSSA
 
-      END SUBROUTINE DestructPhysicsStorage_NS
+      END SUBROUTINE DestructPhysicsStorage_NSSA
 !
 !     //////////////////////////////////////////////////////
 !
@@ -541,7 +541,7 @@
          case default
             print*, "Unrecognized option"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
       end subroutine SetGradientVariables

@@ -33,7 +33,7 @@
       TYPE( FTValueDictionary)            :: controlVariables
       TYPE( DGSem )                       :: sem
       TYPE( TimeIntegrator_t )            :: timeIntegrator
-      LOGICAL                             :: success, saveGradients, saveSensor
+      LOGICAL                             :: success, saveGradients, saveSensor, saveLES
       integer                             :: initial_iteration
       INTEGER                             :: ierr
       real(kind=RP)                       :: initial_time
@@ -75,7 +75,7 @@
 
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
-      IF(.NOT. success)   ERROR STOP "Control file reading error"
+      IF(.NOT. success)   error stop "Control file reading error"
 
 !
 !     ----------------
@@ -83,7 +83,7 @@
 !     ----------------
 !
       CALL ConstructPhysicsStorage( controlVariables, success )
-      IF(.NOT. success)   ERROR STOP "Physics parameters input error"
+      IF(.NOT. success)   error stop "Physics parameters input error"
 
       ! Initialize manufactured solutions if necessary
       sem % ManufacturedSol = controlVariables % containsKey("manufactured solution")
@@ -102,8 +102,8 @@
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem)
 
-      IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
+      IF(.NOT. success)   error stop "Mesh reading error"
+      IF(.NOT. success)   error stop "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
 !     -------------------------
@@ -167,7 +167,8 @@
          solutionFileName = trim(getFileName(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH))) // ".hsol"
          saveGradients    = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
          saveSensor       = controlVariables % logicalValueForKey(saveSensorToSolutionKey)
-         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor)
+         saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
+         CALL sem % mesh % SaveSolution(sem % numberOfTimeSteps, timeIntegrator % time, solutionFileName, saveGradients, saveSensor, saveLES)
          if ( sem % particles % active ) then
             call sem % particles % ExportToVTK ( sem % numberOfTimeSteps, sem % monitors % solution_file )
          end if
@@ -391,7 +392,7 @@
 
             if ( trim(arg) .eq. "--version" ) then
                print*, "Current HORSES version: ", trim(VERSION)
-               stop
+               error stop
             end if
          end do
 

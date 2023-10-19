@@ -90,7 +90,7 @@ module PETScMatrixClass
       call PetscInitialize(PETSC_NULL_character,ierr)
       
       if ( .not. present(num_of_Rows) ) then
-         ERROR stop 'PETSCMatrix_t needs num_of_Rows'
+         error stop 'PETSCMatrix_t needs num_of_Rows'
       end if
       
       if ( present(num_of_Cols) ) then
@@ -153,7 +153,7 @@ module PETScMatrixClass
       integer, optional, intent(in) :: num_of_Cols
       integer, optional, intent(in) :: num_of_TotalRows
       logical, optional, intent(in)    :: WithMPI
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine construct
 !
@@ -168,7 +168,7 @@ module PETScMatrixClass
       PetscInt, optional, intent(in)            :: nnz
       !---------------------------------------------
       
-      if (.not. present(nnz)) ERROR stop ':: PETSc matrix needs nnz'
+      if (.not. present(nnz)) error stop ':: PETSc matrix needs nnz'
       
       IF(this%withMPI) THEN
          CALL MatMPIAIJSetPreallocation(this%A, nnz/7, PETSC_NULL_INTEGER, nnz*6/7, PETSC_NULL_INTEGER,ierr) ! hard-coded: 6 neighbors... Changhe!
@@ -180,7 +180,7 @@ module PETScMatrixClass
       
 #else
       INTEGER, optional, intent(in)  :: nnz
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine Preallocate
 !
@@ -225,7 +225,7 @@ module PETScMatrixClass
       end if
       
 #else
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine Reset
 !
@@ -251,7 +251,7 @@ module PETScMatrixClass
       INTEGER        , intent(in) :: row
       INTEGER        , intent(in) :: col
       real(kind=RP)  , intent(in) :: value
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine SetEntry
 !
@@ -277,7 +277,7 @@ module PETScMatrixClass
       INTEGER        , intent(in) :: row
       INTEGER        , intent(in) :: col
       real(kind=RP)  , intent(in) :: value
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETScMat_AddToEntry
 !
@@ -301,7 +301,7 @@ module PETScMatrixClass
       INTEGER        , intent(in) :: row
       INTEGER        , intent(in) :: col
       real(kind=RP)  , intent(in) :: value
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETScMat_ForceAddToEntry
 !
@@ -326,7 +326,7 @@ module PETScMatrixClass
       INTEGER, DIMENSION(:), intent(in)                 :: irow
       INTEGER, intent(in)                               :: icol
       REAL*8 , DIMENSION(:), intent(in)                 :: values
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine SetColumn
 !
@@ -350,7 +350,7 @@ module PETScMatrixClass
       INTEGER, DIMENSION(:), intent(in)                 :: irow
       INTEGER, intent(in)                               :: icol
       REAL*8 , DIMENSION(:), intent(in)                 :: values
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine AddToColumn
 !
@@ -370,7 +370,7 @@ module PETScMatrixClass
       
 #else
       REAL*8,                     intent(in)        :: shiftval
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine Shift
 !
@@ -393,7 +393,7 @@ module PETScMatrixClass
       this % Ashift = shiftval
 #else
       REAL*8,                     intent(in)        :: shiftval
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine ReShift
 !
@@ -409,7 +409,7 @@ module PETScMatrixClass
       CALL MatAssemblyBegin(this%A,MAT_FLUSH_ASSEMBLY ,ierr);  CALL CheckPetscErr(ierr," PreAssembly A in PETSc Begin")      
       CALL MatAssemblyEnd(this%A,MAT_FLUSH_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," PreAssembly A in PETSc End")                  
 #else
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PreAssembly
 !
@@ -425,7 +425,7 @@ module PETScMatrixClass
       CALL MatAssemblyBegin(this%A,MAT_FINAL_ASSEMBLY,ierr);  CALL CheckPetscErr(ierr," Assembly A in PETSc Begin")      
       CALL MatAssemblyEnd(this%A,MAT_FINAL_ASSEMBLY,ierr)  ;  CALL CheckPetscErr(ierr," Assembly A in PETSc End")                  
 #else
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine Assembly
 !
@@ -482,7 +482,7 @@ module PETScMatrixClass
       CALL Acsr % assigndiag
       
 #else
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine GetCSRMatrix
 !
@@ -522,7 +522,7 @@ module PETScMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'PETSCMatrix :: Error '
          write(STD_OUT,*) '            :: PETScMat_SetBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       row = this % BlockIdx(iBlock) + i - 1
@@ -556,7 +556,7 @@ module PETScMatrixClass
 !     Perform MatMatMul
 !     -----------------
       if ( present(trans) ) then
-         if (trans) stop 'PETScMat_MatMatMul :: ERROR: trans not implemented'
+         if (trans) error stop 'PETScMat_MatMatMul :: ERROR: trans not implemented'
       end if 
       call MatMatMult( A % A, B % A,MAT_INITIAL_MATRIX,PETSC_DEFAULT_REAL, Cmat % A, ierr)
       call CheckPetscErr(ierr,"PETScMat_MatMatMul: Problem doing MatMatMult")
@@ -564,7 +564,7 @@ module PETScMatrixClass
 !     Finish extra check
 !     ------------------
       class default
-         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+         error stop ':: Wrong type of arguments in CSR_MatMatMul'
       end select ; end select
 #endif
    end subroutine PETScMat_MatMatMul
@@ -639,7 +639,7 @@ module PETScMatrixClass
 !     Finish extra check
 !     ------------------
       class default
-         ERROR stop ':: Wrong type of arguments in CSR_MatMatMul'
+         error stop ':: Wrong type of arguments in CSR_MatMatMul'
       end select ; end select
 #else
       real(kind=RP)  , intent(in)  :: Factor  !< Factor for addition
@@ -665,7 +665,7 @@ module PETScMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'PETSCMatrix :: Error '
          write(STD_OUT,*) '            :: PETScMat_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       row = this % BlockIdx(iBlock) + i - 1
@@ -694,7 +694,7 @@ module PETScMatrixClass
       if (.not. allocated(this % BlockIdx)) then
          write(STD_OUT,*) 'PETSCMatrix :: Error '
          write(STD_OUT,*) '            :: PETScMat_AddToBlockEntry only available after CSR_SpecifyBlockInfo has been called'
-         stop 99
+         error stop 99
       end if
       
       row = this % BlockIdx(iBlock) + i - 1
@@ -810,11 +810,11 @@ module PETScMatrixClass
       ELSE
          IF (.NOT. PRESENT(msg)) msg = 'error in petsc'
          WRITE(*,*) msg,' **** Petsc call returned an error. Code: ' ,ierr
-         STOP
+         error stop
       ENDIF
 #else
       INTEGER                                      :: ierr
-      STOP ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine CheckPetscErr
    

@@ -72,7 +72,7 @@ module AutosaveClass
             print*, "   * iteration"
             print*, "   * time"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
    
       else 

@@ -58,7 +58,7 @@ contains
 !     ---------------------------
       CALL GetHDF5Attribute(File_ID,'nElems',1,IntegerScalar=nelem)
 #else
-      STOP ':: HDF5 is not linked correctly'
+      error stop ':: HDF5 is not linked correctly'
 #endif
       
    end function NumOfElems_HDF5
@@ -217,7 +217,7 @@ contains
       ! end if
 !
 #else
-      STOP ':: HDF5 is not linked correctly'
+      error stop ':: HDF5 is not linked correctly'
 #endif
    end subroutine ConstructSimpleMesh_FromHDF5File_
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

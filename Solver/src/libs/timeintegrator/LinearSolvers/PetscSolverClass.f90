@@ -80,11 +80,11 @@ module PetscSolverClass
       else
          if (.NOT. PRESENT(msg)) msg = 'error in petsc'
          write(*,*) msg,' **** Petsc call returned an error. Code: ' ,ierr
-         stop
+         error stop
       end if
 #else
       integer                                      :: ierr
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine CheckPetscErr
 !
@@ -168,7 +168,7 @@ module PetscSolverClass
 #else
       integer, intent(in)                       :: DimPrb
       integer, intent(in)                       :: globalDimPrb
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_construct
 !
@@ -199,7 +199,7 @@ module PetscSolverClass
             call PCSetType(this%pc,PCILU,ierr)                 ; call CheckPetscErr(ierr, 'error in PCSetType') 
          case default
          
-            ERROR stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
+            error stop 'PETSc_SetPreconditioner: Not recognized preconditioner'
       end select
 !      
 !     Set operators for KSP
@@ -208,7 +208,7 @@ module PetscSolverClass
       
 !~      call PCSetType(this%pc,PCILU,ierr)       ;call CheckPetscErr(ierr, 'error in PCSetType')
 #else
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetPreconditioner 
 !
@@ -307,7 +307,7 @@ module PetscSolverClass
 #else
       real*8 , optional                     :: tol
       integer, optional                     :: maxiter
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_solve
 !
@@ -331,7 +331,7 @@ module PetscSolverClass
       end if
 #else
       real*8,                     intent(in)        :: dt
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetOperatorDt
 !
@@ -359,7 +359,7 @@ module PetscSolverClass
       end if
 #else
       real*8,                     intent(in)        :: dt
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_ReSetOperatorDt
 !
@@ -383,7 +383,7 @@ module PetscSolverClass
       integer,                        intent(in)        :: nvalues
       integer, dimension(:),          intent(in)        :: irow
       real*8    , dimension(:),       intent(in)        :: values
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetRHSValues
 !
@@ -405,7 +405,7 @@ module PetscSolverClass
 #else
       integer,           intent(in)        :: irow
       real*8    ,        intent(in)        :: value
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetRHSValue
 !
@@ -445,7 +445,7 @@ module PetscSolverClass
       
 #else
       real(kind=RP)                , intent(in)    :: RHS(this % DimPrb)
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_SetRHS
 !
@@ -463,7 +463,7 @@ module PetscSolverClass
       call VecAssemblyBegin(this%b, ierr);  call CheckPetscErr(ierr," Assembly B in PETSc Begin")      
       call VecAssemblyEnd(this%b, ierr)  ;  call CheckPetscErr(ierr," Assembly B in PETSc End")  
 #else
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_AssemblyRHS
 !
@@ -487,7 +487,7 @@ module PetscSolverClass
       integer,                        intent(in)        :: nvalues
       integer, dimension(:),          intent(in)        :: irow
       real*8    , dimension(:),       intent(in)        :: values
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_GetXValues
 !
@@ -515,7 +515,7 @@ module PetscSolverClass
 #else
       integer,           intent(in)        :: irow
       real*8    ,        intent(out)       :: x_i
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_GetXValue
 !
@@ -562,7 +562,7 @@ module PetscSolverClass
 #else
       integer         :: irow
       real(kind=RP)                        :: x(this % DimPrb)
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end function PETSc_GetX
 !
@@ -588,7 +588,7 @@ module PetscSolverClass
 !~       call MatView(this%A, viewer, ierr)                                      ; call CheckPetscErr(ierr)
 !~       call PetscViewerDestroy(viewer, ierr)                                   ; call CheckPetscErr(ierr)
 #else
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine SaveMat
 !
@@ -614,7 +614,7 @@ module PetscSolverClass
       call CheckPetscErr(ierr3,'error in KSPDestroy')
       call CheckPetscErr(ierr4,'error in PetscFinalize')
 #else
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end subroutine PETSc_Destroy
 !
@@ -636,11 +636,11 @@ module PetscSolverClass
          case('infinity')
             call VecNorm(this%x,NORM_INFINITY,xnorm,ierr)       ; call CheckPetscErr(ierr,'error in VecNorm')
          case default
-            stop 'PetscSolverClass error: Type of Norm not defined'
+            error stop 'PetscSolverClass error: Type of Norm not defined'
       end select
 #else
       real(kind=RP)                                :: xnorm
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end function PETSc_GetXnorm
 !
@@ -659,7 +659,7 @@ module PetscSolverClass
       ! I don't know which type of norm PETSc computes!
       call KSPGetResidualNorm(this%ksp, rnorm, ierr)   ; call CheckPetscErr(ierr,'error in KSPGetResidualNorm')
 #else
-      stop ':: PETSc is not linked correctly'
+      error stop ':: PETSc is not linked correctly'
 #endif
    end function PETSc_GetRnorm
 end module PetscSolverClass

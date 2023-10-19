@@ -73,7 +73,7 @@
       
       CALL ReadControlFile( controlVariables )
       CALL CheckInputIntegrity(controlVariables, success)
-      IF(.NOT. success)   ERROR STOP "Control file reading error"
+      IF(.NOT. success)   error stop "Control file reading error"
       
 !
 !     ----------------
@@ -81,7 +81,7 @@
 !     ----------------
 !      
       CALL ConstructPhysicsStorage( controlVariables, success )
-      IF(.NOT. success)   ERROR STOP "Physics parameters input error"
+      IF(.NOT. success)   error stop "Physics parameters input error"
       
       ! Initialize manufactured solutions if necessary
       
@@ -95,8 +95,8 @@
 
       call Initialize_SpaceAndTimeMethods(controlVariables, sem % mesh)
                            
-      IF(.NOT. success)   ERROR STOP "Mesh reading error"
-      IF(.NOT. success)   ERROR STOP "Boundary condition specification error"
+      IF(.NOT. success)   error stop "Mesh reading error"
+      IF(.NOT. success)   error stop "Boundary condition specification error"
       CALL UserDefinedFinalSetup(sem % mesh, thermodynamics, dimensionless, refValues)
 !
 !     -------------------------
@@ -376,7 +376,7 @@
 
             if ( trim(arg) .eq. "--version" ) then
                print*, "Current HORSES version: ", trim(VERSION)
-               stop
+               error stop
             end if
          end do
             

@@ -201,6 +201,7 @@ module Solution2PltModule
          if (hasUt_NS) e % ut_NSout(1:,0:,0:,0:) => e % ut_NS
          if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
          if (hasWallY) e % wallYout(1:,0:,0:,0:) => e % wallY
+         if (hasMu_sgs) e % mu_sgsout(1:,0:,0:,0:) => e % mu_sgs
 
       end subroutine ProjectStorageGaussPoints
 !
@@ -366,9 +367,13 @@ module Solution2PltModule
                e % U_zout(1:,0:,0:,0:) => e % U_z
             end if
 
-            e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
+
             e % QDot_out(1:,0:,0:,0:) => e % QDot
             if (hasStats) e % statsout(1:,0:,0:,0:) => e % stats
+            if (hasUt_NS) e % ut_NSout(1:,0:,0:,0:) => e % ut_NS
+            if (hasMu_NS) e % mu_NSout(1:,0:,0:,0:) => e % mu_NS
+            if (hasWallY) e % wallYout(1:,0:,0:,0:) => e % wallY
+            if (hasMu_sgs) e % mu_sgsout(1:,0:,0:,0:) => e % mu_sgs
 
          else
             allocate( e % Qout(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -401,6 +406,11 @@ module Solution2PltModule
             if (hasWallY) then
                 allocate( e % wallYout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
                 call prolongSolutionToGaussPoints(1, e % Nsol, e % WallY, e % Nout, e % wallYout, Tx, Ty, Tz)            
+            end if
+
+            if (hasMu_sgs) then
+                allocate( e % mu_sgsout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+                call prolongSolutionToGaussPoints(1, e % Nsol, e % mu_sgs, e % Nout, e % mu_sgsout, Tx, Ty, Tz)            
             end if
 
             allocate( e % QDot_out(1:NVARS,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
@@ -647,11 +657,21 @@ module Solution2PltModule
          end if
          
          if (hasWallY) then
-            allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            allocate( e % wallYout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
             e % wallYout = 0.0_RP
             do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
                do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                   e % wallYout(:,i,j,k) = e % wallYout(:,i,j,k) + e % WallY(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+               end do            ; end do            ; end do
+            end do            ; end do            ; end do  
+         end if
+         
+         if (hasMu_sgs) then
+            allocate( e % mu_sgsout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+            e % mu_sgsout = 0.0_RP
+            do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+               do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+                  e % mu_sgsout(:,i,j,k) = e % mu_sgsout(:,i,j,k) + e % mu_sgs(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
                end do            ; end do            ; end do
             end do            ; end do            ; end do  
          end if
@@ -722,7 +742,7 @@ module Solution2PltModule
             associate ( e => mesh % elements(eID) )
             N = e % Nout
             allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-            call ComputeOutputVariables(e % Nout, e, e % outputVars, mesh % refs, &
+            call ComputeOutputVariables(no_of_outputVariables, outputVariableNames, e % Nout, e, e % outputVars, mesh % refs, &
                                         mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
             
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
@@ -773,9 +793,9 @@ module Solution2PltModule
          integer, intent(in)   :: i, j, k, Nout(3)
          integer               :: idx
          
-         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
-         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
-         IF (k < 0 .OR. k > Nout(3))     STOP 'error in ijk2local, k has wrong value'
+         IF (i < 0 .OR. i > Nout(1))     error stop 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     error stop 'error in ijk2local, j has wrong value'
+         IF (k < 0 .OR. k > Nout(3))     error stop 'error in ijk2local, k has wrong value'
          
          idx = k*(Nout(1)+1)*(Nout(2)+1) + j*(Nout(1)+1) + i
       end function ijk2localDOF
@@ -905,8 +925,8 @@ module Solution2PltModule
          integer, intent(in)   :: i, j, Nout(2)
          integer               :: idx
          
-         IF (i < 0 .OR. i > Nout(1))     STOP 'error in ijk2local, i has wrong value'
-         IF (j < 0 .OR. j > Nout(2))     STOP 'error in ijk2local, j has wrong value'
+         IF (i < 0 .OR. i > Nout(1))     error stop 'error in ijk2local, i has wrong value'
+         IF (j < 0 .OR. j > Nout(2))     error stop 'error in ijk2local, j has wrong value'
          
          idx = j*(Nout(1)+1) + i
       end function ij2localDOF
@@ -938,7 +958,7 @@ module Solution2PltModule
 !        --------------------
          
          allocate (e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         call ComputeOutputVariables(e % Nout, e, e % outputVars, refs, hasGradients, hasStats, hasSensor)
+         call ComputeOutputVariables(no_of_outputVariables, outputVariableNames, e % Nout, e, e % outputVars, refs, hasGradients, hasStats, hasSensor)
 !
 !        Write variables
 !        ---------------        

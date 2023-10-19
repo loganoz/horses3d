@@ -85,7 +85,7 @@ contains
       !---------------------------------------------
       
       if ( .not. present(num_of_Blocks) ) then
-         ERROR stop 'SparseBlockDiagMatrix_t needs num_of_Blocks'
+         error stop 'SparseBlockDiagMatrix_t needs num_of_Blocks'
       else
          dimPrb = num_of_Blocks
       end if
@@ -116,8 +116,8 @@ contains
       integer :: i, k ! counters
       !---------------------------------------------
       
-      if (.not. present(nnzs) ) ERROR stop ':: SparseBlockDiagMatrix needs the block sizes'
-      if ( size(nnzs) /= this % num_of_Blocks) ERROR stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
+      if (.not. present(nnzs) ) error stop ':: SparseBlockDiagMatrix needs the block sizes'
+      if ( size(nnzs) /= this % num_of_Blocks) error stop ':: SparseBlockDiagMatrix: wrong dimension for the block sizes'
       
       this % BlockSizes = nnzs
       this % num_of_Rows = sum(nnzs)
@@ -349,7 +349,7 @@ contains
                
                if (error .NE. 0) then
                   write(*,*) 'MKL Pardiso ERROR:', error, 'in factorization of block', iBL
-                  stop
+                  error stop
                end if
                
                deallocate (x_loc, b_loc)
@@ -358,10 +358,10 @@ contains
 !$omp end parallel do
          class default
             write(STD_OUT,*) 'SparseBlockDiagonalMatrixClass :: Wrong type For factorized matrix in FactorizeBlocks_LU'
-            stop
+            error stop
       end select
 #else
-      stop 'SparseBlockDiagMat :: MKL is not linked correctly'
+      error stop 'SparseBlockDiagMat :: MKL is not linked correctly'
 #endif
    end subroutine FactorizeBlocks_LU
 !
@@ -409,7 +409,7 @@ contains
          
          if (error .NE. 0) then
             write(*,*) 'MKL Pardiso ERROR:', error, 'in inversion of block', iBL
-            stop
+            error stop
          end if
          
 !$omp critical
@@ -420,7 +420,7 @@ contains
       end do
 !$omp end parallel do
 #else
-      stop 'SparseBlockDiagMat :: MKL is not linked correctly'
+      error stop 'SparseBlockDiagMat :: MKL is not linked correctly'
 #endif
       
    end subroutine SolveBlocks_LU

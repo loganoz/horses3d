@@ -35,7 +35,7 @@
 !#if (!defined(NAVIERSTOKES))
 !            print*, "This test case only works with NS"
 !            !errorMessage(STD_OUT)
-!            stop
+!            error stop
 !#endif
          END SUBROUTINE UserDefinedStartup
 !
@@ -154,7 +154,7 @@
                         CALL pointSourceFlowSolution( mesh % elements(eID) % geom % x(:,i,j,k), &
                                                       mesh % elements(eID) % storage % Q(:,i,j,k), success, &
                                                       thermodynamics_, dimensionless_, refValues_)
-                        IF(.NOT. success) ERROR STOP "Unable to compute initial condition"       
+                        IF(.NOT. success) error stop "Unable to compute initial condition"       
                      END DO
                   END DO
                END DO 
@@ -422,7 +422,7 @@
                WRITE(6,*) testName, " ... Failed"
                WRITE(6,*) "NOTE: Failure is expected when the max eigenvalue procedure is changed."
                WRITE(6,*) "      If that is done, re-compute the expected values and modify this procedure"
-               STOP 99
+               error stop 99
             END IF 
             WRITE(6,*)
             

@@ -10,7 +10,7 @@ module Storage
    public Mesh_t, Element_t, Boundary_t
    public NVARS, NGRADVARS, hasMPIranks, hasBoundaries, isOldStats
    public partitionFileName, boundaryFileName, flowEq
-   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT
+   public hasExtraGradients, hasMu_NS, hasUt_NS, hasWallY, NSTAT, hasMu_sgs
 
    integer                          :: NVARS, NGRADVARS
    logical                          :: hasMPIranks, hasBoundaries, isOldStats
@@ -18,6 +18,7 @@ module Storage
    logical                          :: hasUt_NS = .false.
    logical                          :: hasMu_NS = .false.
    logical                          :: hasWallY     = .false.
+   logical                          :: hasMu_sgs = .false.
    character(len=LINE_LENGTH)       :: boundaryFileName, partitionFileName, flowEq
    integer, parameter               :: NSTAT = 9
 
@@ -40,6 +41,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NS(:,:,:,:)
       real(kind=RP), pointer     :: ut_NS(:,:,:,:)
       real(kind=RP), pointer     :: wallY(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgs(:,:,:,:)
       real(kind=RP), pointer     :: stats(:,:,:,:)
       real(kind=RP)              :: sensor
 !                                /* Output quantities */
@@ -53,6 +55,7 @@ module Storage
       real(kind=RP), pointer     :: mu_NSout(:,:,:,:)
       real(kind=RP), pointer     :: ut_NSout(:,:,:,:)
       real(kind=RP), pointer     :: wallYout(:,:,:,:)
+      real(kind=RP), pointer     :: mu_sgsout(:,:,:,:)
       real(kind=RP), pointer     :: statsout(:,:,:,:)
 
       real(kind=RP), allocatable :: outputVars(:,:,:,:)
@@ -63,11 +66,14 @@ module Storage
       integer                    :: no_of_faces
       integer, allocatable       :: elements(:)
       integer, allocatable       :: elementSides(:)
+	  logical, allocatable       :: cornerDomain(:)
+	  logical, allocatable       :: edgeDomain(:)	
    end type Boundary_t
 
    type Mesh_t
       integer  :: no_of_elements
       integer  :: nodeType
+	  real (kind=RP) 	:: time
       type(Element_t),   allocatable    :: elements(:)
       type(Boundary_t),  allocatable    :: boundaries(:)
       character(len=LINE_LENGTH) :: meshName
@@ -169,8 +175,10 @@ module Storage
 !
 !        Describe the mesh
 !        -----------------
+		 write(STD_OUT,'(/)')
+         write(STD_OUT,'(10X,A,A)') "Loading Mesh File:"
+         write(STD_OUT,'(10X,A,A)') "-----------------"
          write(msg,'(A,A,A)') 'Mesh file "',trim(meshName),'":'
-         write(STD_OUT,'(/)')
          call SubSection_Header(trim(msg))
 
          write(STD_OUT,'(30X,A,A30,I0)') "->", "Number of elements: ", self % no_of_elements
@@ -215,6 +223,9 @@ module Storage
          character(len=1024)  :: msg
 
          self % solutionName = trim(solutionName)
+		 write(STD_OUT,'(10X,A,A)') "Loading Solution File:"
+         write(STD_OUT,'(10X,A,A)') "---------------------"
+		 write(STD_OUT,'(30X,A,A30,A)') "->","Solution File: ", trim(solutionName)													  
 !
 !        Get the solution file type
 !        --------------------------
@@ -262,7 +273,7 @@ module Storage
          case default
             print*, "File expected to be a solution file"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end select
 
          self % isSurface = (dimensionsSize .eq. 3)
@@ -274,7 +285,7 @@ module Storage
          if ( getSolutionFileNodeType(solutionName) .ne. self % nodeType ) then
             print*, "Solution and Mesh node type differs"
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
 !
 !        Get number of elements
@@ -284,13 +295,13 @@ module Storage
             write(STD_OUT,'(30X,A,I0,A,I0,A)') "The number of elements in the mesh (",self % no_of_elements,&
                                            ") differs to that of the solution (",no_of_elements,")."
             errorMessage(STD_OUT)
-            stop
+            error stop
          end if
          allocate(arrayDimensions(dimensionsSize))
 !
 !        Get time and iteration
 !        ----------------------
-         call getSolutionFileTimeAndIteration(trim(solutionName),iter,time)
+         call getSolutionFileTimeAndIteration(trim(solutionName),iter,self % time)
 !
 !        Read reference values
 !        ---------------------
@@ -400,6 +411,11 @@ module Storage
                    read(fid) e % wallY
                end if 
 
+               if (hasMu_sgs) then
+                   allocate( e % mu_sgs(1,0:e % Nsol(1),0:e % Nsol(2),0:e % Nsol(3)) )
+                   read(fid) e % mu_sgs
+               end if
+
                end associate
             end do
 
@@ -450,7 +466,7 @@ module Storage
          end if
 
          write(STD_OUT,'(30X,A,A30,I0)') "->","Iteration: ", iter
-         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", time
+         write(STD_OUT,'(30X,A,A30,ES10.3)') "->","Time: ", self % time
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference velocity: ", self % refs(V_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference density: ", self % refs(RHO_REF)
          write(STD_OUT,'(30X,A,A30,F7.3)') "->","Reference Temperature: ", self % refs(T_REF)
@@ -500,6 +516,8 @@ module Storage
 
                allocate ( boundaries(bID) % elements    (boundaries(bID) % no_of_faces) )
                allocate ( boundaries(bID) % elementSides(boundaries(bID) % no_of_faces) )
+			   allocate ( boundaries(bID) % cornerDomain(boundaries(bID) % no_of_faces) )
+			   allocate ( boundaries(bID) % edgeDomain  (boundaries(bID) % no_of_faces) )
 
                read(fd,*) boundaries(bID) % elements
                read(fd,*) boundaries(bID) % elementSides

@@ -189,7 +189,7 @@
                PRINT *, "Input file is missing entry for keyword: ",physics_CHKeywords(i)
                success = .FALSE. 
                errorMessage(STD_OUT)
-               stop
+               error stop
             END IF  
          END DO  
          

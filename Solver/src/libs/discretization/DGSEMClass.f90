@@ -182,7 +182,7 @@ Module DGSEMClass
          Ny = polynomialOrder(2)
          Nz = polynomialOrder(3)
       ELSE
-         ERROR STOP 'ConstructDGSEM: Polynomial order not specified'
+         error stop 'ConstructDGSEM: Polynomial order not specified'
       END IF
 
       if ( max(maxval(Nx),maxval(Ny),maxval(Nz)) /= min(minval(Nx),minval(Ny),minval(Nz)) ) self % mesh % anisotropic = .TRUE.
@@ -217,7 +217,7 @@ Module DGSEMClass
             dir2D = 0
          case default
             print*, "Unrecognized 2D mesh offset direction"
-            stop
+            error stop
             errorMessage(STD_OUT)
          end select
 
@@ -480,7 +480,7 @@ Module DGSEMClass
 !        ---------------
 !
          character(len=LINE_LENGTH)             :: solutionName
-         logical                                :: saveGradients, loadFromNSSA, withSensor
+         logical                                :: saveGradients, loadFromNSSA, withSensor, saveLES
          procedure(UserDefinedInitialCondition_f) :: UserDefinedInitialCondition
 
          solutionName = controlVariables % stringValueForKey(solutionFileNameKey, requestedLength = LINE_LENGTH)
@@ -501,17 +501,22 @@ Module DGSEMClass
 !
 !           Save the initial condition
 !           --------------------------
+!
             saveGradients = controlVariables % logicalValueForKey(saveGradientsToSolutionKey)
-            write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
-            call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor)
-            !TDG: ADD PARTICLES WRITE WITH IFDEF
-
+            saveLES = controlVariables % logicalValueForKey(saveLESToSolutionKey)
+            IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN           
+               write(solutionName,'(A,A,I10.10,A)') trim(solutionName), "_", initial_iteration, ".hsol"
+               call self % mesh % SaveSolution(initial_iteration, initial_time, solutionName, saveGradients, withSensor, saveLES)
+               !TDG: ADD PARTICLES WRITE WITH IFDEF
+            END IF 
          END IF
 
-         write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
-         call self % mesh % Export( trim(solutionName) )
+         IF(controlVariables % stringValueForKey(solutionFileNameKey,LINE_LENGTH) /= "none")     THEN
+            write(solutionName,'(A,A,I10.10)') trim(solutionName), "_", initial_iteration
+            call self % mesh % Export( trim(solutionName) )
 
-         call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
+            call surfacesMesh % saveAllMesh(self % mesh, initial_iteration, controlVariables)
+         END IF 
 
       end subroutine DGSEM_SetInitialCondition
 !

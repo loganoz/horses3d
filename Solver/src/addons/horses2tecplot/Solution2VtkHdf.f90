@@ -6,7 +6,7 @@ module Solution2VtkHdfModule
    use InterpolationMatrices
    use FileReadingUtilities, only: getFileName
 #ifdef HAS_HDF5
-   use iso_c_binding, only: c_char, c_loc, c_ptr, c_null_char
+   use iso_c_binding, only: c_char, c_loc, c_ptr
    use HDF5
 #endif
 
@@ -41,14 +41,16 @@ module Solution2VtkHdfModule
       integer                    :: Nout__, Nout_(3)
       integer                    :: eID, vID, i, j, k
 
+      character(len=16, kind=c_char), target :: filetype = "UnstructuredGrid"
+
       integer(HID_T)                                     :: fid, space, attr, dset
       integer(HID_T)                                     :: vtkhdf, fdata, pdata
-      integer(HID_T)                                     :: ftype
+      integer(HID_T)                                     :: mtype, ftype
       integer                                            :: error
       integer                                            :: nPoints
       integer                                            :: etype
       integer                                            :: ipt
-      type(c_ptr),                   target              :: wdata(1)
+      type(c_ptr),                   target              :: ptr
       integer,                       target              :: vec2(2)
       character(len=:, kind=c_char), target, allocatable :: title
       integer,                               allocatable :: localConnectivities(:)
@@ -137,32 +139,51 @@ module Solution2VtkHdfModule
 
       call h5gcreate_f(fid, "VTKHDF", vtkhdf, error)
 
+      ! Version
       vec2 = [1, 0]
       call h5screate_simple_f(1, [2_HSIZE_T], space, error)
       call h5acreate_f(vtkhdf, "Version", H5T_STD_I64LE, space, attr, error)
+
       call h5awrite_f(attr, H5T_NATIVE_INTEGER, c_loc(vec2), error)
 
       call h5aclose_f(attr, error)
       call h5sclose_f(space, error)
+
+      ! File type
+      call h5tcopy_f(H5T_FORTRAN_S1, mtype, error)
+      call h5tset_size_f(mtype, len_trim(filetype, kind=8), error)
+      call h5tcopy_f(H5T_C_S1, ftype, error)
+      call h5tset_size_f(ftype, len_trim(filetype, kind=8), error)
+      call h5tset_strpad_f(ftype, H5T_STR_NULLPAD_F, error)
+
+      call h5screate_f(H5S_SCALAR_F, space, error)
+      call h5acreate_f(vtkhdf, "Type", ftype, space, attr, error)
+
+      call h5awrite_f(attr, mtype, c_loc(filetype(1:1)), error)
+
+      call h5aclose_f(attr, error)
+      call h5sclose_f(space, error)
+      call h5tclose_f(mtype, error)
+      call h5tclose_f(ftype, error)
 !
 !     Add the title
 !     -------------
-      title = "Generated from " // trim(meshName) // " and " // trim(solutionName) // c_null_char
-
-      call h5gcreate_f(vtkhdf, "FieldData", fdata, error)
+      title = "Generated from " // trim(meshName) // " and " // trim(solutionName)
 
       call h5tcopy_f(H5T_STRING, ftype, error)
+      call h5tset_strpad_f(ftype, H5T_STR_NULLPAD_F, error)
+
+      call h5gcreate_f(vtkhdf, "FieldData", fdata, error)
       call h5screate_simple_f(1, [1_HSIZE_T], space, error)
       call h5dcreate_f(fdata, "Title", ftype, space, dset, error)
 
-      wdata(1) = c_loc(title)
-      call h5dwrite_f(dset, ftype, c_loc(wdata(1)), error)
+      ptr = c_loc(title(1:1))
+      call h5dwrite_f(dset, ftype, c_loc(ptr), error)
 
       call h5dclose_f(dset, error)
       call h5sclose_f(space, error)
-      call h5tclose_f(ftype, error)
-
       call h5gclose_f(fdata, error)
+      call h5tclose_f(ftype, error)
 !
 !     Topology information required by VTKHDF
 !     ---------------------------------------
@@ -266,7 +287,7 @@ module Solution2VtkHdfModule
       do eID = 1, mesh % no_of_elements
       associate(e => mesh % elements(eID))
          allocate(e % outputVars(1:no_of_outputVariables, 0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
-         call ComputeOutputVariables(e % Nout, e, e % outputVars, &
+         call ComputeOutputVariables(no_of_outputVariables, outputVariableNames, e % Nout, e, e % outputVars, &
              mesh % refs, mesh % hasGradients, mesh % isStatistics, mesh % hasSensor)
       end associate
       end do
@@ -406,11 +427,21 @@ module Solution2VtkHdfModule
       end if
 
       if (hasWallY) then
-         allocate( e % mu_NSout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         allocate( e % wallYout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
          e % wallYout = 0.0_RP
          do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
             do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
                e % wallYout(:,i,j,k) = e % wallYout(:,i,j,k) + e % WallY(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
+            end do            ; end do            ; end do
+         end do            ; end do            ; end do
+      end if
+
+      if (hasMu_sgs) then
+         allocate( e % mu_sgsout(1,0:e % Nout(1), 0:e % Nout(2), 0:e % Nout(3)) )
+         e % mu_sgsout = 0.0_RP
+         do n = 0, e % Nsol(3) ; do m = 0, e % Nsol(2) ; do l = 0, e % Nsol(1)
+            do k = 0, e % Nout(3) ; do j = 0, e % Nout(2) ; do i = 0, e % Nout(1)
+               e % mu_sgsout(:,i,j,k) = e % mu_sgsout(:,i,j,k) + e % mu_sgs(:,l,m,n) * TxSol(i,l) * TySol(j,m) * TzSol(k,n)
             end do            ; end do            ; end do
          end do            ; end do            ; end do
       end if

@@ -25,7 +25,7 @@ program main
    implicit none
    TYPE(TestSuiteManager) :: testSuite
    INTEGER                :: numberOfFailures
-   integer                :: i
+   integer                :: i, k
    integer, parameter     :: Nmax = 40
 
    call MPI_Process % Init
@@ -62,9 +62,35 @@ program main
    CALL testSuite % performTests(numberOfFailures)
    CALL testSuite % finalize()
    
-   call DestructGlobalNodalStorage()
+!
+!        --------------------------------------------------------------
+!        Call to DestructGlobalNodalStorage created an error with ifort
+!        Copy the subroutine here to solved the issue         
+!        --------------------------------------------------------------
+!
+
+         !call DestructGlobalNodalStorage()
+
+   if ( allocated(NodalStorage_Gauss) ) then
+      do k=lbound(NodalStorage_Gauss,1), ubound(NodalStorage_Gauss,1)
+         IF (.NOT. NodalStorage_Gauss(k) % Constructed) cycle
+         call NodalStorage_Gauss(k) % destruct()
+      end do
+      deallocate (NodalStorage_Gauss)
+   end if
+
+   if ( allocated(NodalStorage_GaussLobatto) ) then
+      do k=lbound(NodalStorage_GaussLobatto,1), ubound(NodalStorage_GaussLobatto,1)
+         IF (.NOT. NodalStorage_GaussLobatto(k) % Constructed) cycle
+         call NodalStorage_GaussLobatto(k) % destruct()
+      end do      
+      deallocate (NodalStorage_GaussLobatto)
+   end if
+
+   nullify (NodalStorage)
+
    call Finalize_InterpolationMatrices
    
-   IF(numberOfFailures > 0)   STOP 99
+   IF(numberOfFailures > 0)   error stop 99
 
 end program main

@@ -68,17 +68,19 @@
 with the desired options (bold are default):
 
 \begin{itemize}
-\item MODE=DEBUG/\textbf{RELEASE}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
-\item WITH\_MKL=y/\textbf{n}
+\item WITH\_MKL=YES/\textbf{NO}
 \end{itemize}
 
 For example:
 \begin{lstlisting}[language=bash]
 	$ make all COMPILER=ifort COMM=PARALLEL
 \end{lstlisting}
+
+\item MODE=DEBUG/HPC/\textbf{RELEASE} flag enables various compiler flags for different levels of code optimization. Furthermore, MODE=HPC disables residual file writing to improve performance. 
 
 \item The ENABLE\_THREADS=YES flag enables shared memory simulations using OpenMP.
 
@@ -325,7 +327,7 @@ inviscid discretization	    & \textit{CHARACTER}: DG discretization of inviscid 
     \end{itemize} 
                     & 'Standard' \\ \hline
 
-split form       & \textit{CHARACTER}: Type of split form flux. Mandatory for if inviscid discretization is Split-Form. Options are:
+averaging & \textit{CHARACTER}: Type of averaging function to use in numerical fluxes and split-forms (if in use). Options are:
     \begin{itemize}
     \item Standard
     \item Morinishi
@@ -334,8 +336,8 @@ split form       & \textit{CHARACTER}: Type of split form flux. Mandatory for if
     \item Pirozzoli
     \item Entropy conserving
     \item Chandrasekar
-    \item Skew-symmetric-1split (only for Incompressible Navier–Stokes)
-    \item Skew-symmetric-2split (only for Incompressible Navier–Stokes)
+    \item Skew-symmetric 1 (only for Incompressible Navier–Stokes)
+    \item Skew-symmetric 2 (only for Incompressible Navier–Stokes)
     \end{itemize} 
                     & -- \\ \hline
 
@@ -388,6 +390,9 @@ restart polorder file &
 			\textit{CHARACTER}: File containing the polynomial orders of the solution to restart from. This keyword is only needed when the restart solution is of a different order than the current case.  &  same as case's\\ \hline
 
 get discretization error of & \textit{CHARACTER}: Path to solution file. This can be used to estimate the discretization error of a solution when restarting from a higher-order solution. & -- \\ \hline
+
+NS load from NSSA &
+            \textit{LOGICAL}: Used only for NS simulations that are restarted from RANS SA. & .FALSE. \\ \hline
 
 \end{tabular}
 \label{tab:restartkey}
@@ -854,6 +859,7 @@ Wall Function Tolerance			& \textit{REAL}: Tolerance for the newton method  & $1
 Wall Function max iter			& \textit{INTEGER}: Maximum number of iterations for the newton method  & 100 \\ \hline
 Wall Roughness	        		& \textit{REAL}: Aerodynamic roughness for the ABL wall function. Mandatory value for the ABL law.  & -- \\ \hline
 Wall Plane Displacement			& \textit{REAL}: Plane displacement due to roughness for the ABL wall function  & 0.0 \\ \hline
+Wall Function Use Average       & \textit{LOGICAL}: Use the time average of the velocity in the wall function, each time step the time average is recalculated. & .FALSE. \\ \hline
 
 
 \end{tabular}
@@ -1050,9 +1056,13 @@ The main keywords to use it are shown in Table \ref{tab:explicitKey}.
 
 \textbf{simulation type} & \textit{CHARACTER}: Specifies if HORSES3D must perform a ’steady-state’ or a ’time-accurate’. If 'time-accurate' the solver switches to BDF integration and uses FAS as a pseudo problem solver. Compatible only with 'FAS'. & 'steady-state' \\ \hline
 
-explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5' and 'RKOpt'. & RK3 \\ \hline
+explicit method & \textit{CHARACTER}: Select desired Runge-Kutta solver. Options are: 'Euler', 'RK3', 'RK5', 'RKOpt', 'SSPRK33' and 'SSPRK43'. & RK3 \\ \hline
 
 rk order & \textit{INTEGER}: Order of Runge-Kutta method optimized for steady-state solver ('RKOpt'). Possible orders are from 2 to 7. & 2 \\ \hline
+
+limit timestep & \textit{LOGICAL}: Activate the possitivity limiter of Zhang and Shu (only for SSPRK methods). & .false. \\ \hline
+
+limiter minimum & \textit{REAL}: Minimum value of density and pressure allowed by the limiter. & 1e-13 \\ \hline
 
 \end{longtable}
 
@@ -1662,7 +1672,7 @@ To run a simulation using user-defined operations, create a folder called SETUP 
 \end{lstlisting}
 where again the options are (bold are default):
 \begin{itemize}
-\item MODE=DEBUG/\textbf{RELEASE}
+\item MODE=DEBUG/HPC/\textbf{RELEASE}
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
@@ -1825,6 +1835,86 @@ Some remarks:
 \item Only constant time-stepping is supported.
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
+
+\section{Mapping result to different mesh} \label{tab:meshInterpolation}
+HORSES3D addons, \textit{horsesConverter}, has a capability to map result into different mesh file, with both have a consistent geometry. This is done by performing interpolation with the polynomial inside each element for each node point of the new mesh. The type of node quadrature will follow the quadrature defined in the .hmesh file with selected polynomial order in the control file. A control input file is required and must has name \textit{horsesConverter.convert}. The template of control input file will be generated by default when executing \textit{./horsesConverter} in a directory without the control file. Error message is given when at least one node point of the new mesh is not within any element of the old mesh. After completion, a new result file is generated and named \textit{Result\_interpolation.hsol}. The required keywords in the control file are described in table \ref{tab:mappingresult}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{meshInterpolation}.} \label{tab:mappingresult} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{meshInterpolation} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Result 1 			& Location of the solution file with origin mesh (*.hsol) 	&  \\ \hline
+Mesh Filename 2 		& Location of the target mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 2 	& Location of the target boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the target mesh 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+\section{Generate OpenFOAM mesh} \label{tab:horsesMesh2OF}
+Another functionality of \textit{horsesConverter} addons is to convert the mesh files, (*.hmesh) and (*.bmesh), into OpenFOAM format, the \textit{polyMesh} folder. Each element is discretised into $n_x \times n_y \times n_z$ cells distributed as Gauss-Lobatto nodes. The number of division of each element, ($n_x$, $n_y$, and $n_z$), is required in the control file, see section \ref{tab:meshInterpolation}. After completion, a folder named \emph{foamFiles} is generated. OpenFOAM mesh files, i.e. \textit{points}, \textit{faces}, \textit{owner}, \textit{neighbour}, and \textit{boundary}, are located within \emph{foamFiles/constant/polyMesh}. The required keywords in the control file are described in table \ref{tab:horsesMesh2of}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+\begin{longtable}{|p{4cm}|p{10cm}|p{2.2cm}|}
+\caption{Keywords for \textit{horsesMesh2OF}.} \label{tab:horsesMesh2of} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+Task 	        		& \textit{horsesMesh2OF} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Number of division of each element ($n_x$, $n_y$, and $n_z$) 	& (1, 1, 1) \\ \hline
+\end{longtable}
+
+NOTE: Before running the mesh in the OpenFOAM environment, the type of boundaries inside the boundary file needs to be adjusted according to the actual type (\textit{patch}, \textit{wall}, and \textit{symmetry}).
+
+\section{Generate HORSES3D solution file from OpenFOAM result}
+HORSES3D provides a capability to convert OpenFOAM result into HORSES3D solution file (*.hsol). The mesh of the OpenFOAM result must be generated by converting HORSES3D mesh files, see section \ref{tab:horsesMesh2OF}. Beforehand, the OpenFOAM result must be converted into VTK format(*.vtk). This not only  allows the result to be in the single file but also converts cell data into point data. In the OpenFOAM environment, the command for this conversion:  
+\begin{lstlisting}[language=c++]
+	$ foamToVTK -fields "(U p T rho)" -ascii -latestTime
+\end{lstlisting}
+The necessary file (.vtk) required for the control file input is inside VTK folder, see section \ref{tab:meshInterpolation} for the control file template. The HORSES3D solution file is named \emph{Result\_OF.hsol}. The required keywords in the control file are described in table \ref{tab:OF2Horses}. Command to execute:
+
+\begin{lstlisting}[language=bash]
+	$ ./horsesConverter
+\end{lstlisting}
+
+
+\begin{longtable}{|p{5cm}|p{9cm}|p{2.2cm}|}
+\caption{Keywords for \textit{OF2Horses}.} \label{tab:OF2Horses} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endfirsthead
+
+\caption{Keywords for \textit{OF2Horses} - continued.} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Keyword}} & \multicolumn{1}{c|}{\textbf{Description}} & \multicolumn{1}{c|}{\textbf{Default value}} \\ \hline
+\endhead
+
+Task 	        		& \textit{OF2Horses} 						&  \\ \hline
+Mesh Filename 1 		& Location of the origin mesh (*.hmesh) 	&  \\ \hline
+Boundary Filename 1 	& Location of the origin boundary mesh (*.bmesh) 	&  \\ \hline
+Polynomial Order 	& Polynomial order of the solution file (.hsol)  & (1, 1, 1) \\ \hline
+VTK file         	& Location of VTK file (.vtk)   &             \\ \hline
+Reynolds Number    	& Reynolds Number/m of the solution -- $L_{ref}$=1.0m   &             \\ \hline
+Mach Number         	& Mach Number of the solution      &             \\ \hline
+Reference pressure (Pa)         	& Reference Pressure   & 101325             \\ \hline
+Reference temperature (K)        & Reference Temperature   & 288.889             \\ \hline
+
+\end{longtable}
+
+
 
 \clearpage
 \section*{Appendices}

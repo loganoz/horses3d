@@ -98,10 +98,10 @@ contains
       !---------------------------------------------------------------------
       
       if (globalDimPrb < DimPrb) then        ! This never makes sense
-         ERROR stop 'Inconsistent problem sizes: globalDimPrb < DimPrb'
+         error stop 'Inconsistent problem sizes: globalDimPrb < DimPrb'
       elseif (globalDimPrb > DimPrb) then    ! This only makes sense if MPI is active
          if (.not. MPI_Process % doMPIAction) then    ! MPI is not enabled: ERROR
-            ERROR stop "Trying to solve linSystem with MPI, but there's no MPI"
+            error stop "Trying to solve linSystem with MPI, but there's no MPI"
          end if
          this % withMPI = .TRUE.
       end if
@@ -113,7 +113,7 @@ contains
          case (NUMERICAL_JACOBIAN ) ; allocate(NumJacobian_t :: this % Jacobian)
          case (ANALYTICAL_JACOBIAN) ; allocate(AnJacobian_t  :: this % Jacobian)
          case default
-            ERROR stop 'Invalid jacobian type'
+            error stop 'Invalid jacobian type'
       end select
       
 !
@@ -133,7 +133,7 @@ contains
       class(GenericLinSolver_t), intent(inout) :: this
       real(kind=RP)            , intent(in)    :: RHS(this % DimPrb)
       
-      ERROR stop ':: SetRHS not implemented for desired linear solver'
+      error stop ':: SetRHS not implemented for desired linear solver'
    end subroutine SetRHS
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,7 +145,7 @@ contains
       class(Matrix_t)          , intent(in)     :: Matrix
       !---------------------------------------------------------------------
       
-      ERROR stop ':: SetJacobian not implemented for desired linear solver'
+      error stop ':: SetJacobian not implemented for desired linear solver'
       
    end subroutine SetJacobian
 !
@@ -157,7 +157,7 @@ contains
       integer                  , intent(in)  :: irow
       real(kind=RP)            , intent(in)  :: value
       
-      ERROR stop ':: SetRHSValue not implemented for desired linear solver'
+      error stop ':: SetRHSValue not implemented for desired linear solver'
    end subroutine SetRHSValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -168,7 +168,7 @@ contains
       integer      , DIMENSION(:), intent(in)        :: irow
       real(kind=RP), DIMENSION(:), intent(in)        :: values
       
-      ERROR stop ':: SetRHSValues not implemented for desired linear solver'
+      error stop ':: SetRHSValues not implemented for desired linear solver'
    end subroutine SetRHSValues
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -185,7 +185,7 @@ contains
       real(kind=RP), optional                  :: dt
       logical      , optional  , intent(inout) :: computeA
       
-      ERROR stop ':: solve not implemented for desired linear solver!!!'
+      error stop ':: solve not implemented for desired linear solver!!!'
    end subroutine solve
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,7 +196,7 @@ contains
       integer                  , intent(in)    :: irow
       real(kind=RP)            , intent(OUT)   :: x_i
       
-      ERROR stop ':: GetXValue not implemented for desired linear solver'
+      error stop ':: GetXValue not implemented for desired linear solver'
    end subroutine GetXValue
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -206,7 +206,7 @@ contains
       class(GenericLinSolver_t), intent(inout) :: this
       real(kind=RP)                            :: x(this % DimPrb)
       
-      ERROR stop ':: GetX not implemented for desired linear solver'
+      error stop ':: GetX not implemented for desired linear solver'
    end function GetX
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -253,7 +253,7 @@ contains
       character(len=*)                         :: TypeOfNorm
       real(kind=RP)                            :: xnorm
       
-      ERROR stop ':: Getxnorm not implemented for desired linear solver'
+      error stop ':: Getxnorm not implemented for desired linear solver'
    end function Getxnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -263,7 +263,7 @@ contains
       class(GenericLinSolver_t), intent(inout) :: this
       real(kind=RP)                            :: rnorm
       
-      ERROR stop ':: Getrnorm not implemented for desired linear solver'
+      error stop ':: Getrnorm not implemented for desired linear solver'
    end function Getrnorm
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
