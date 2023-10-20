@@ -37,12 +37,12 @@ jobs:
           mode: RELEASE
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'NO'
+          mkl: 'YES'
         - compiler: gfortran
           mode: DEBUG
           comm: SEQUENTIAL
           enable_threads: YES
-          mkl: 'NO'          
+          mkl: 'YES'          
         - compiler: ifort
           mode: RELEASE
           comm: SEQUENTIAL
