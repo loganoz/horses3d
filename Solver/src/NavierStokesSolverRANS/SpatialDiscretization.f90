@@ -387,7 +387,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
-         real(kind=RP)  :: mu_smag, delta, mu_t, eta, kinematic_viscocity, mu_dim, &
+         real(kind=RP)  :: mu_smag, mu_t, eta, kinematic_viscocity, mu_dim, &
                            Source(NCONS), TurbulentSource(NCONS)
          logical     :: isfirst = .TRUE.
 !
@@ -699,7 +699,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer       :: iFace, i, j, side
-         real(kind=RP) :: delta, mu_smag, mu_t, kinematic_viscocity, mu_dim
+         real(kind=RP) :: mu_smag, mu_t, kinematic_viscocity, mu_dim
 
          if (flowIsNavierStokes) then
 !$omp do schedule(runtime) private(i,j)
@@ -1271,7 +1271,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu, kappa, beta, delta
+      real(kind=RP)                   :: mu, kappa, beta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
       integer                         :: Sidearray(2)
       logical                         :: useWallFuncFace

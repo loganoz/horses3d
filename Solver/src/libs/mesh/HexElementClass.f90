@@ -775,7 +775,7 @@
 !  Adapts an element to new polynomial orders NNew
 !  -> TODO: Previous solutions are not implemented
 !  --------------------------------------------------------
-      subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
+      subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num, dir2D)
          implicit none
          !-arguments--------------------------------------------
          class(Element), intent(inout) :: self
@@ -783,6 +783,7 @@
          integer       , intent(in)    :: nodes
          logical       , intent(in)    :: saveGradients
          integer       , intent(in)    :: prevSol_num
+         integer       , intent(in)    :: dir2D
          !-arguments--------------------------------------------
          logical                       :: anJacobian
          type(ElementStorage_t)        :: tempStorage
@@ -801,7 +802,13 @@
          tempStorage = self % storage
 
          self % Nxyz = NNew
-         self % hn = (self % geom % Volume / product(self % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+
+         self % hn = self % geom % Volume / product(self % Nxyz + 1)
+         if (dir2D > 0) then
+            self % hn = sqrt(self % hn * (self % Nxyz(dir2D) + 1))
+         else
+            self % hn = self % hn ** (1.0_RP / 3.0_RP)
+         end if
 
          call self % storage % destruct()
          call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)

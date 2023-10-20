@@ -358,7 +358,7 @@ module SpatialDiscretization
 !        ---------------
 !
          integer     :: eID , i, j, k, ierr, fID, iFace, iEl, iP 
-         real(kind=RP)  :: mu_smag, delta, Source(NCONS), TurbulentSource(NCONS)
+         real(kind=RP)  :: mu_smag, Source(NCONS), TurbulentSource(NCONS)
 !
 !        ***********************************************
 !        Compute the viscosity at the elements and faces
@@ -378,17 +378,16 @@ module SpatialDiscretization
 
 
          if ( LESModel % active) then
-!$omp do schedule(runtime) private(i,j,k,delta,mu_smag)
+!$omp do schedule(runtime) private(i,j,k,mu_smag)
             do eID = 1, size(mesh % elements)
                associate(e => mesh % elements(eID))
-               delta = (e % geom % Volume / product(e % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
                do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-                  call LESModel % ComputeViscosity(delta, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
-                                                                                   e % storage % U_x(:,i,j,k), &
-                                                                                   e % storage % U_y(:,i,j,k), &
-                                                                                   e % storage % U_z(:,i,j,k), &
-                                                                                   e % storage % mu_turb_NS(i,j,k) )
-                                                                                   ! mu_smag)
+                  call LESModel % ComputeViscosity(e % hn, e % geom % dWall(i,j,k), e % storage % Q(:,i,j,k),   &
+                                                                                    e % storage % U_x(:,i,j,k), &
+                                                                                    e % storage % U_y(:,i,j,k), &
+                                                                                    e % storage % U_z(:,i,j,k), &
+                                                                                    e % storage % mu_turb_NS(i,j,k) )
+                                                                                    ! mu_smag)
                   ! e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + mu_smag
                   ! e % storage % mu_NS(2,i,j,k) = e % storage % mu_NS(2,i,j,k) + mu_smag * dimensionless % mu_to_kappa
                   e % storage % mu_NS(1,i,j,k) = e % storage % mu_NS(1,i,j,k) + e % storage % mu_turb_NS(i,j,k)
@@ -1219,7 +1218,7 @@ module SpatialDiscretization
       real(kind=RP)                   :: visc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: Avisc_flux(NCONS, 0:f % Nf(1), 0:f % Nf(2))
       real(kind=RP)                   :: fStar(NCONS, 0:f % Nf(1), 0: f % Nf(2))
-      real(kind=RP)                   :: mu, kappa, beta, delta
+      real(kind=RP)                   :: mu, kappa, beta
       real(kind=RP)                   :: fv_3d(NCONS,NDIM)
       integer                         :: Sidearray(2)
       logical                         :: useWallFuncFace
