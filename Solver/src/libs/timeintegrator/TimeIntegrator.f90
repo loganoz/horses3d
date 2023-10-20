@@ -265,7 +265,7 @@
 !     ////////////////////////////////////////////////////////////////////////////////////////
 !
       SUBROUTINE destructTimeIntegrator( self )
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
            use VisRegionsDetection
 #endif
          CLASS(TimeIntegrator_t) :: self
@@ -274,7 +274,7 @@
          self % dt           = 0.0_RP
 
          if (self % pAdaptator % Constructed) call self % pAdaptator % destruct()
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
         if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then       
          call self % TauEstimator % destruct
         end if         
@@ -287,7 +287,7 @@
 !
       SUBROUTINE Integrate( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
       USE FASMultigridClass
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+#if defined(NAVIERSTOKES) 
       use VisRegionsDetection
 #endif
       IMPLICIT NONE
@@ -344,7 +344,7 @@
 
          call FMGSolver % destruct
       end if
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES)  
   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then               
 !     Perform static p-adaptation stage(s) if requested
 !     -------------------------------------------------
@@ -434,10 +434,9 @@
       use ActuatorLine, only: farm
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
-#endif
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
       use VisRegionsDetection
 #endif
+
       IMPLICIT NONE
 !
 !     ---------
@@ -559,7 +558,7 @@
 !end if 
 !#endif  
 !
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
    if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
     self % pAdaptator % nextAdaptationTime == self % time) then
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   

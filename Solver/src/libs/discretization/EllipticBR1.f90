@@ -11,7 +11,7 @@ module EllipticBR1
    use EllipticDiscretizationClass
    use FluidData
    use BoundaryConditions, only: BCs
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)   
+#if defined(NAVIERSTOKES)    
    use VisRegionsDetection
 #endif   
    implicit none
@@ -104,7 +104,7 @@ module EllipticBR1
 #else
          set_mu = .false.
 #endif
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then 
 !$omp do schedule(runtime)
       do eID = 1 , size(mesh % elements)
@@ -168,7 +168,7 @@ module EllipticBR1
 !        *******************************************
 !
 !
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
       if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then        
 !$omp do schedule(runtime) private(fID)
          do iFace = 1, size(mesh % faces_interior)
@@ -197,7 +197,7 @@ module EllipticBR1
    end do
 !$omp end do nowait
 #endif
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then          
 !$omp do schedule(runtime) private(fID)
       do iFace = 1, size(mesh % faces_boundary)
@@ -228,7 +228,7 @@ module EllipticBR1
 !$omp end do 
 #endif              
 
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
       if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toHybrid)) then
 !$omp do schedule(runtime) private(eID)
       do iEl = 1, size(mesh % elements_sequential)

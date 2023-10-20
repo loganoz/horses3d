@@ -35,7 +35,7 @@ module pAdaptationClass
    use InterpolationMatrices           , only: Interp3DArrays
    use MultiTauEstimationClass         , only: MultiTauEstim_t
    use StopwatchClass                  , only: Stopwatch
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)   
+#if defined(NAVIERSTOKES)   
    use VisRegionsDetection
 #endif 
    implicit none
@@ -551,7 +551,7 @@ readloop:do
       end if
 !     Truncation error type
 !     ---------------------
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)        
+#if defined(NAVIERSTOKES)         
    if ((ViscousRegionDetectionDriver % isActive) .and. (ViscousRegionDetectionDriver % toAdapt)) then
        call toLower(R_MLadaptType)
        !select case (trim(R_MLadaptType))
@@ -606,7 +606,7 @@ readloop:do
 !           
 !     Truncation error threshold
 !     --------------------------
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES)  
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then 
 !           
 !     Truncation error threshold
@@ -661,7 +661,7 @@ readloop:do
       
 !     Nmax
 !     ----
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES)  
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
       if ( R_Nmax /= "" ) then
          this % NxyzMax = getIntArrayFromString(R_Nmax)
@@ -808,7 +808,7 @@ readloop:do
          end if
       end if
 
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
 !         
 !     Truncation error estimation in files
@@ -875,7 +875,7 @@ readloop:do
       
 !     Construct the truncation error
 !     ******************************    
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then            
       allocate (this % TE(nelem))
       do i = 1, nelem
@@ -1014,7 +1014,7 @@ readloop:do
       !--------------------------------------
       integer              :: iEl
       !--------------------------------------
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES)  
       if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
       ! Truncation error
       do iEl = 1, nelem

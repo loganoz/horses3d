@@ -33,6 +33,9 @@ LIBOBJS_NS =    ./build_ns/DGSEMClass.o \
 LIBOBJS_NSSA =  ./build_nssa/DGSEMClass.o \
 		./build_nssa/DGIntegrals.o \
 		./build_nssa/GradientsStabilization.o \
+		./build_nssa/RegionsDetectionKeywords.o \
+		./build_nssa/VisSensorClass.o \
+		./build_nssa/VisRegionsDetection.o \
 		./build_nssa/HyperbolicDiscretizationClass.o \
 		./build_nssa/HyperbolicStandard.o \
 		./build_nssa/HyperbolicSplitForm.o \
