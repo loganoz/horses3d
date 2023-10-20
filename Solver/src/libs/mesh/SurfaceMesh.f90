@@ -1322,6 +1322,8 @@ Module SurfaceMesh
 
         !local variables
         integer                                                 :: surfID, faceID, i, j, meshFaceID
+        real(kind=RP), allocatable                              :: u_tau_t1(:,:), u_tau_t2(:,:)
+
 
         if (.not. surfaces % active) return
         if (.not. surfaces % saveUt) return
@@ -1333,18 +1335,25 @@ Module SurfaceMesh
              ! save u_tau_NS in each face of the no slip bc zones
 !!!$omp parallel do default(shared) private(faceID,meshFaceID,i,j)
              do faceID = 1, surfaces % zones(surfID) % no_of_faces
+                allocate(u_tau_t1(mesh % faces(meshFaceID) % Nf(1),mesh % faces(meshFaceID) % Nf(2)))
+                allocate(u_tau_t2(mesh % faces(meshFaceID) % Nf(1),mesh % faces(meshFaceID) % Nf(2)))
                 meshFaceID = surfaces % zones(surfID) % faces(faceID)
                 associate( Q => mesh % faces(meshFaceID) % storage(1) % Q, &
                            U_x => mesh % faces(meshFaceID) % storage(1) % U_x, &
                            U_y => mesh % faces(meshFaceID) % storage(1) % U_y, &
                            U_z => mesh % faces(meshFaceID) % storage(1) % U_z, &
                            normal => mesh % faces(meshFaceID) % geom % normal, &
-                           tangent => mesh % faces(meshFaceID) % geom % t1, &
+                           tangent_1 => mesh % faces(meshFaceID) % geom % t1, &
+                           tangent_2 => mesh % faces(meshFaceID) % geom % t2, &
                            u_tau => mesh % faces(meshFaceID) % storage(1) % u_tau_NS )
-                    do j=0,mesh % faces(meshFaceID) % Nf(1)   ; do i = 0, mesh % faces(meshFaceID) % Nf(2)
-                        call getFrictionVelocity(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),normal(:,i,j),tangent(:,i,j),u_tau(i,j))
+                    do j=0,mesh % faces(meshFaceID) % Nf(2)   ; do i = 0, mesh % faces(meshFaceID) % Nf(1)
+                        call getFrictionVelocity(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),normal(:,i,j),tangent_1(:,i,j),u_tau_t1(i,j))
+                        call getFrictionVelocity(Q(:,i,j),U_x(:,i,j),U_y(:,i,j),U_z(:,i,j),normal(:,i,j),tangent_2(:,i,j),u_tau_t2(i,j))
+                        u_tau(i,j) = sqrt((u_tau_t1(i,j)**2)+u_tau_t2(i,j)**2)
                     end do             ; end do
                 end associate
+                deallocate(u_tau_t1)
+                deallocate(u_tau_t2)
              end do
 !!!$omp end parallel do
 
