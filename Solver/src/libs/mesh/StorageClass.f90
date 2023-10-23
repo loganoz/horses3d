@@ -935,9 +935,11 @@ module StorageClass
          end if
          self % QDot(1:,0:,0:,0:) => self % QDotNS
 
-         do k = 1, size(self % prevQ)
-            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % QNS
-         end do
+         if ( allocated(self % PrevQ) ) then
+            do k = 1, size(self % prevQ)
+               self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % QNS
+            end do
+         end if
 
       end subroutine ElementStorage_SetStorageToNS
 #endif
@@ -968,9 +970,11 @@ module StorageClass
          self % U_z (1:,0:,0:,0:) => self % c_z
          self % QDot(1:,0:,0:,0:) => self % cDot
 
-         do k = 1, size(self % prevQ)
-            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
-         end do
+         if ( allocated(self % PrevQ) ) then
+            do k = 1, size(self % prevQ)
+               self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+            end do
+         end if
 
 
       end subroutine ElementStorage_SetStorageToCH_c
@@ -1000,9 +1004,11 @@ module StorageClass
          self % U_z (1:,0:,0:,0:) => self % mu_z
          self % QDot(1:,0:,0:,0:) => self % cDot
 
-         do k = 1, size(self % prevQ)
-            self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
-         end do
+         if ( allocated(self % PrevQ) ) then
+            do k = 1, size(self % prevQ)
+               self % prevQ(k) % Q(1:,0:,0:,0:) => self % prevQ(k) % c
+            end do
+         end if
 
       end subroutine ElementStorage_SetStorageToCH_mu
 #endif
