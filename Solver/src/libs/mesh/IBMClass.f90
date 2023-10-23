@@ -357,11 +357,13 @@ module IBMClass
 
       call this% describe()         
 
-      allocate( this% stl(this% NumOfSTL),        & 
-                OBB(this% NumOfSTL),              &
-                this% root(this% NumOfSTL),       &
-                this% integral(this% NumOfSTL),   &
-                this% STLfilename(this% NumOfSTL) )
+      allocate( this% stl(this% NumOfSTL),                 & 
+                OBB(this% NumOfSTL),                       &
+                this% root(this% NumOfSTL),                &
+                this% integral(this% NumOfSTL),            &
+                this% STLfilename(this% NumOfSTL),         &
+                this% stlSurfaceIntegrals(this% NumOfSTL), &
+                this% stlMove(this% NumOfSTL)              )
 
       if( this% ComputeBandRegion ) then
          allocate( this% rootPoints(this% NumOfSTL),   & 
@@ -790,7 +792,7 @@ module IBMClass
       logical,         intent(in)    :: isChild
       !----------------------------------------
       integer :: STLNum, i, j 
-
+      
       do STLNum = 1, this% NumOfSTL
          call this% root(STLNum)% destruct( isChild )
          if( this% ComputeDistance ) call this% rootDistance(STLNum)% destruct( isChild ) 
@@ -807,7 +809,7 @@ module IBMClass
          if( this% Integral(STLNum)% compute ) call this% stlSurfaceIntegrals(STLNum)% destroy()
          if( this% stl(STLNum)% move ) call this% stlMove(STLNum)% destroy()
       end do
-
+      
       if( this% Wallfunction ) then 
          do i = 1, this% NumOfForcingPoints
             deallocate( this% ImagePoints(i)% invPhi, &
@@ -823,9 +825,7 @@ module IBMClass
                   this% Integral,            &
                   this% STLfilename          )
 
-      if( this% ComputeBandRegion ) then 
-         deallocate( this% BandRegion )
-      end if
+      if( this% ComputeBandRegion ) deallocate( this% BandRegion )
 
    end subroutine IBM_Destruct
 !
