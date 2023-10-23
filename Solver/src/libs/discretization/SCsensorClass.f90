@@ -24,14 +24,6 @@ module SCsensorClass
    public :: Set_SCsensor
    public :: Destruct_SCsensor
 
-   type :: TruncationError_t
-      integer                  :: Nmin       !< Min order N
-      integer                  :: deltaN     !< N' of coarser mesh is max(Nmin, N-deltaN)
-      integer                  :: derivType  !< Whether the time derivative isolated or not
-      type(DGSem), allocatable :: coarseSem  !< DGSEM for the coarser mesh
-      procedure(ComputeTimeDerivative_f), nopass, pointer :: TimeDerivative => null()
-   end type TruncationError_t
-
    type :: SCsensor_t
 
          integer  :: sens_type  ! ID of the sensor type
@@ -46,8 +38,6 @@ module SCsensorClass
 
          type(GMM_t)           :: gmm          !< Gaussian mixture model
          real(RP), allocatable :: x(:,:)       !< Feature space for each point
-
-         type(TruncationError_t), allocatable :: TEestim  !< Truncation error estimation
 
          procedure(Compute_Int), pointer :: Compute_Raw => null()
 
@@ -69,11 +59,6 @@ module SCsensorClass
          real(RP),                  intent(in)    :: t
       end subroutine Compute_Int
    end interface
-!
-!  Private variables
-!  -----------------
-   integer, parameter :: ISOLATED_TE     = 0
-   integer, parameter :: NON_ISOLATED_TE = 1
 !
 !  ========
    contains
@@ -138,16 +123,6 @@ module SCsensorClass
          sensor % sens_type = SC_MODAL_ID
          sensor % Compute_Raw => Sensor_modal
 
-      case (SC_TE_VAL)
-         sensor % sens_type = SC_TE_ID
-         sensor % Compute_Raw => Sensor_truncation
-         call Construct_TEsensor(sensor, controlVariables, sem, &
-                                 ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-
-      case (SC_ALIAS_VAL)
-         sensor % sens_type = SC_ALIAS_ID
-         sensor % Compute_Raw => Sensor_aliasing
-
       case (SC_GMM_VAL)
          sensor % sens_type = SC_GMM_ID
          sensor % Compute_Raw => Sensor_GMM
@@ -168,8 +143,6 @@ module SCsensorClass
          write(STD_OUT,*) '   * ', SC_INTEGRAL_VAL
          write(STD_OUT,*) '   * ', SC_INTEGRAL_SQRT_VAL
          write(STD_OUT,*) '   * ', SC_MODAL_VAL
-         write(STD_OUT,*) '   * ', SC_TE_VAL
-         write(STD_OUT,*) '   * ', SC_ALIAS_VAL
          write(STD_OUT,*) '   * ', SC_GMM_VAL
          error stop
 
@@ -252,118 +225,6 @@ module SCsensorClass
 !
 !///////////////////////////////////////////////////////////////////////////////
 !
-   subroutine Construct_TEsensor(sensor, controlVariables, sem, &
-                                 ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
-!
-!     -------
-!     Modules
-!     -------
-      use FTValueDictionaryClass
-      use TransfiniteMapClass,        only: TransfiniteHexMap
-      use SpectralVanishingViscosity, only: SVV
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      type(SCsensor_t),                   intent(inout) :: sensor
-      type(FTValueDictionary),            intent(in)    :: controlVariables
-      type(DGSem),                        intent(in)    :: sem
-      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivative
-      procedure(ComputeTimeDerivative_f)                :: ComputeTimeDerivativeIsolated
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      character(len=:), allocatable :: derivType
-      integer                       :: Nmin
-      integer                       :: deltaN
-      integer                       :: eID
-      integer,          allocatable :: N(:,:)
-
-!
-!     Read the control file
-!     ---------------------
-      allocate(sensor % TEestim)
-      if (controlVariables % containsKey(SC_TE_NMIN_KEY)) then
-         Nmin = controlVariables % integerValueForKey(SC_TE_NMIN_KEY)
-      else
-         Nmin = 1
-      end if
-
-      if (controlVariables % containsKey(SC_TE_DELTA_KEY)) then
-         deltaN = controlVariables % integerValueForKey(SC_TE_DELTA_KEY)
-      else
-         deltaN = 1
-      end if
-
-      if (controlVariables % containsKey(SC_TE_DTYPE_KEY)) then
-         derivType = controlVariables % stringValueForKey(SC_TE_DTYPE_KEY, LINE_LENGTH)
-      else
-         derivType = SC_ISOLATED_KEY
-      end if
-      call toLower(derivType)
-
-      select case (derivType)
-      case (SC_ISOLATED_KEY)
-         sensor % TEestim % derivType = ISOLATED_TE
-         sensor % TEestim % TimeDerivative => ComputeTimeDerivativeIsolated
-      case (SC_NON_ISOLATED_KEY)
-         sensor % TEestim % derivType = NON_ISOLATED_TE
-         sensor % TEestim % TimeDerivative => ComputeTimeDerivative
-      case default
-         write(STD_OUT,*) "ERROR. The TE sensor can only use the (non-)isolated time derivatives."
-         error stop
-      end select
-
-      sensor % TEestim % Nmin   = Nmin
-      sensor % TEestim % deltaN = deltaN
-!
-!     Coarse mesh
-!     -----------
-      allocate(sensor % TEestim % coarseSem)
-      sensor % TEestim % coarseSem = sem
-      sensor % TEestim % coarseSem % mesh % child = .true.
-      sensor % TEestim % coarseSem % mesh % ignoreBCnonConformities = .true.
-
-      allocate(N(NDIM, sem % mesh % no_of_elements))
-!$omp parallel do schedule(runtime)
-      do eID = 1, sem % mesh % no_of_elements
-
-         if (sem % mesh % Nx(eID) < Nmin) then
-            N(IX,eID) = sem % mesh % Nx(eID)
-         else
-            N(IX,eID) = max(sem % mesh % Nx(eID) - deltaN, Nmin)
-         end if
-
-         if (sem % mesh % Ny(eID) < Nmin) then
-            N(IY,eID) = sem % mesh % Ny(eID)
-         else
-            N(IY,eID) = max(sem % mesh % Ny(eID) - deltaN, Nmin)
-         end if
-
-         if (sem % mesh % Nz(eID) < Nmin) then
-            N(IZ,eID) = sem % mesh % Nz(eID)
-         else
-            N(IZ,eID) = max(sem % mesh % Nz(eID) - deltaN, Nmin)
-         end if
-
-      end do
-!$omp end parallel do
-
-      call sensor % TEestim % coarseSem % mesh % pAdapt(N, controlVariables)
-      call sensor % TEestim % coarseSem % mesh % storage % PointStorage()
-!
-!     Update the SVV if active
-!     ------------------------
-      if (SVV % enabled) then
-         call SVV % UpdateFilters(sensor % TEestim % coarseSem % mesh)
-      end if
-
-   end subroutine Construct_TEsensor
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
    subroutine Describe_SCsensor(sensor)
 !
 !     ---------
@@ -380,21 +241,8 @@ module SCsensorClass
          case (SC_INTEGRAL_ID);      write(STD_OUT,"(A)") SC_INTEGRAL_VAL
          case (SC_INTEGRAL_SQRT_ID); write(STD_OUT,"(A)") SC_INTEGRAL_SQRT_VAL
          case (SC_MODAL_ID);         write(STD_OUT,"(A)") SC_MODAL_VAL
-         case (SC_TE_ID);            write(STD_OUT,"(A)") SC_TE_VAL
-         case (SC_ALIAS_ID);         write(STD_OUT,"(A)") SC_ALIAS_VAL
          case (SC_GMM_ID);           write(STD_OUT,"(A)") SC_GMM_VAL
       end select
-
-      if (sensor % sens_type == SC_TE_ID) then
-         write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Time derivative: "
-         select case (sensor % TEestim % derivType)
-            case (ISOLATED_TE);     write(STD_OUT,"(A)") SC_ISOLATED_KEY
-            case (NON_ISOLATED_TE); write(STD_OUT,"(A)") SC_NON_ISOLATED_KEY
-         end select
-
-         write(STD_OUT,"(30X,A,A30,I0,A,I0,A)") "->", "Delta N: ", sensor % TEestim % deltaN, &
-                                                " (min. order is ", sensor % TEestim % Nmin, ")"
-      end if
 
       write(STD_OUT,"(30X,A,A30)", advance="no") "->", "Sensed variable: "
       select case (sensor % sVar)
@@ -435,7 +283,6 @@ module SCsensorClass
       type(SCsensor_t), intent(inout) :: sensor
 
 
-      if (allocated(sensor % TEestim))      deallocate(sensor % TEestim)
       if (allocated(sensor % x))            deallocate(sensor % x)
       if (associated(sensor % Compute_Raw)) nullify(sensor % Compute_Raw)
 
@@ -788,206 +635,6 @@ module SCsensorClass
       nullify(Lwz)
 
    end subroutine Sensor_modal
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine Sensor_truncation(sensor, sem, t)
-!
-!     -------
-!     Modules
-!     -------
-      use InterpolationMatrices, only: Interp3DArrays
-      use ProblemFileFunctions,  only: UserDefinedSourceTermNS_f
-      use PhysicsStorage,        only: CTD_IGNORE_MODE
-      use FluidData,             only: thermodynamics, dimensionless, refValues
-      use Utilities,             only: AlmostEqual
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(SCsensor_t), target, intent(inout) :: sensor
-      type(DGSem),       target, intent(inout) :: sem
-      real(RP),                  intent(in)    :: t
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      integer                              :: eID
-      integer                              :: i, j, k
-      real(RP)                             :: wx, wy, wz
-      real(RP)                             :: Jac
-      real(RP)                             :: S(NCONS)
-      real(RP)                             :: mTE
-      procedure(UserDefinedSourceTermNS_f) :: UserDefinedSourceTermNS
-
-      type(Element), pointer :: e
-      type(Element), pointer :: ce
-      type(DGSem),   pointer :: csem
-
-
-      csem => sensor % TEestim % coarseSem
-!
-!     Time derivative
-!     ---------------
-!$omp parallel do default(private) shared(sem, csem)
-      do eID = 1, sem % mesh % no_of_elements
-
-         e  => sem % mesh % elements(eID)
-         ce => csem % mesh % elements(eID)
-
-         call Interp3DArrays(NCONS, e % Nxyz, e % storage % Q, ce % Nxyz, ce % storage % Q)
-         ce % storage % sensor = e % storage % sensor
-
-      end do
-!$omp end parallel do
-
-      call sensor % TEestim % TimeDerivative(csem % mesh, csem % particles, t, CTD_IGNORE_MODE)
-!
-!     Maximum TE computation
-!     ----------------------
-!$omp parallel do default(private) shared(sem, csem)
-      do eID = 1, sem % mesh % no_of_elements
-
-         e  => sem % mesh % elements(eID)
-         ce => csem % mesh % elements(eID)
-
-         ! Use G_NS as temporary storage for Qdot
-         call Interp3DArrays(NCONS, e % Nxyz, e % storage % QDot, ce % Nxyz, ce % storage % G_NS)
-
-         mTE = 0.0_RP
-         do k = 0, ce % Nxyz(IZ) ; do j = 0, ce % Nxyz(IY) ; do i = 0, ce % Nxyz(IX)
-
-            call UserDefinedSourceTermNS(ce % geom % x, ce % storage % Q(:,i,j,k), t, S, &
-                                         thermodynamics, dimensionless, refValues)
-            wx = NodalStorage(ce % Nxyz(IX)) % w(i)
-            wy = NodalStorage(ce % Nxyz(IY)) % w(j)
-            wz = NodalStorage(ce % Nxyz(IZ)) % w(k)
-            Jac = ce % geom % jacobian(i,j,k)
-
-            mTE = max(mTE, Jac*wx*wy*wz * maxval(abs(ce % storage % QDot(:,i,j,k) + S(:) - &
-                                                     ce % storage % G_NS(:,i,j,k))))
-
-         end do                  ; end do                  ; end do
-
-         if (AlmostEqual(mTE, 0.0_RP)) then
-            e % storage % sensor = 0.0_RP
-         else
-            e % storage % sensor = SinRamp(sensor, log10(mTE))
-         end if
-
-      end do
-!$omp end parallel do
-
-      nullify(e)
-      nullify(ce)
-      nullify(csem)
-
-   end subroutine Sensor_truncation
-!
-!///////////////////////////////////////////////////////////////////////////////
-!
-   subroutine Sensor_aliasing(sensor, sem, t)
-!
-!     -------
-!     Modules
-!     -------
-      use HyperbolicDiscretizations, only: HyperbolicDiscretization, SplitDG_t
-      use Physics,                   only: EulerFlux
-      use Utilities,                 only: AlmostEqual
-!
-!     ---------
-!     Interface
-!     ---------
-      implicit none
-      class(SCsensor_t), target, intent(inout) :: sensor
-      type(DGSem),       target, intent(inout) :: sem
-      real(RP),                  intent(in)    :: t
-!
-!     ---------------
-!     Local variables
-!     ---------------
-      type(Element),        pointer :: e
-      type(NodalStorage_t), pointer :: spAxi, spAeta, spAzeta
-      integer                       :: eID
-      logical                       :: need_dealloc
-      logical                       :: need_alloc
-      integer                       :: i, j, k, l
-      real(RP), allocatable         :: F(:,:,:,:,:)
-      real(RP), allocatable         :: Fs(:,:,:,:,:)
-      real(RP), allocatable         :: Gs(:,:,:,:,:)
-      real(RP), allocatable         :: Hs(:,:,:,:,:)
-      real(RP), allocatable         :: aliasing(:,:,:,:)
-
-
-!$omp parallel do default(private) shared(sem, sensor, NodalStorage, HyperbolicDiscretization)
-      do eID = 1, sem % mesh % no_of_elements
-         ! TODO: this should go outside, but it does not seem possible :(
-         select type (HyperbolicDiscretization)
-         type is (SplitDG_t)
-
-         e       => sem % mesh % elements(eID)
-         spAxi   => NodalStorage(e % Nxyz(1))
-         spAeta  => NodalStorage(e % Nxyz(2))
-         spAzeta => NodalStorage(e % Nxyz(3))
-
-         need_dealloc = .true.
-         need_alloc = .true.
-         if (allocated(F)) then
-            if (all(ubound(F) == [NCONS, e % Nxyz(1), e % Nxyz(2), e % Nxyz(3), NDIM])) then
-               need_alloc = .false.
-            end if
-         else
-            need_dealloc = .false.
-         end if
-
-         if (need_dealloc) then
-            deallocate(F)
-            deallocate(Fs)
-            deallocate(Gs)
-            deallocate(Hs)
-            deallocate(aliasing)
-         end if
-         if (need_alloc) then
-            allocate(F(NCONS,  0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3), NDIM))
-            allocate(Fs(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(Gs(NCONS, 0:e % Nxyz(2), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(Hs(NCONS, 0:e % Nxyz(3), 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-            allocate(aliasing(NCONS, 0:e % Nxyz(1), 0:e % Nxyz(2), 0:e % Nxyz(3)))
-         end if
-
-         call HyperbolicDiscretization % ComputeInnerFluxes(e, EulerFlux, F)
-         call HyperbolicDiscretization % ComputeSplitFormFluxes(e, F, Fs, Gs, Hs)
-
-         aliasing = 0.0_RP
-         do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do l = 0, e % Nxyz(1) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAxi % D(i,l) * (2.0_RP*Fs(:,i,l,j,k) - Fs(:,l,l,j,k))
-         end do                ; end do                ; end do                ; end do
-         do k = 0, e % Nxyz(3) ; do l = 0, e % Nxyz(2) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAeta % D(j,l) * (2.0_RP*Gs(:,j,i,l,k) - Gs(:,l,i,l,k))
-         end do                ; end do                ; end do                ; end do
-         do l = 0, e % Nxyz(3) ; do k = 0, e % Nxyz(3) ; do j = 0, e % Nxyz(2) ; do i = 0, e % Nxyz(1)
-            aliasing(:,i,j,k) = aliasing(:,i,j,k) + spAzeta % D(k,l) * (2.0_RP*Hs(:,k,i,j,l) - Hs(:,l,i,j,l))
-         end do                ; end do                ; end do                ; end do
-
-         aliasing = abs(aliasing)
-         e % storage % sensor = maxval(aliasing)
-         if (AlmostEqual(e % storage % sensor, 0.0_RP)) then
-            e % storage % sensor = 0.0_RP
-         else
-            e % storage % sensor = SinRamp(sensor, log10(e % storage % sensor))
-         end if
-
-         end select
-      end do
-!$omp end parallel do
-
-      nullify(e)
-      nullify(spAxi)
-      nullify(spAeta)
-      nullify(spAzeta)
-
-   end subroutine Sensor_aliasing
 !
 !///////////////////////////////////////////////////////////////////////////////
 !

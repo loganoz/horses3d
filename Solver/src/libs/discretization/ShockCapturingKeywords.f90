@@ -17,9 +17,6 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_VARIABLE_KEY       = "sensor variable"
    character(len=*), parameter :: SC_LOW_THRES_KEY      = "sensor lower limit"
    character(len=*), parameter :: SC_HIGH_THRES_KEY     = "sensor higher limit"
-   character(len=*), parameter :: SC_TE_NMIN_KEY        = "sensor te min n"
-   character(len=*), parameter :: SC_TE_DELTA_KEY       = "sensor te delta n"
-   character(len=*), parameter :: SC_TE_DTYPE_KEY       = "sensor te derivative"
    character(len=*), parameter :: SC_NUM_CLUSTERS_KEY   = "sensor number of clusters"
    character(len=*), parameter :: SC_SENSOR_INERTIA_KEY = "sensor min. timesteps"
 !
@@ -30,8 +27,6 @@ module ShockCapturingKeywords
    character(len=*), parameter :: SC_INTEGRAL_VAL      = "integral"
    character(len=*), parameter :: SC_INTEGRAL_SQRT_VAL = "integral with sqrt"
    character(len=*), parameter :: SC_MODAL_VAL         = "modal"
-   character(len=*), parameter :: SC_TE_VAL            = "truncation error"
-   character(len=*), parameter :: SC_ALIAS_VAL         = "aliasing error"
    character(len=*), parameter :: SC_GMM_VAL           = "gmm"
 
    integer, parameter :: SC_ZERO_ID          = 1
@@ -39,9 +34,7 @@ module ShockCapturingKeywords
    integer, parameter :: SC_INTEGRAL_ID      = 3
    integer, parameter :: SC_INTEGRAL_SQRT_ID = 4
    integer, parameter :: SC_MODAL_ID         = 5
-   integer, parameter :: SC_TE_ID            = 6
-   integer, parameter :: SC_ALIAS_ID         = 7
-   integer, parameter :: SC_GMM_ID           = 8
+   integer, parameter :: SC_GMM_ID           = 6
 !
 !  Shock-capturing methods
 !  -----------------------
@@ -96,10 +89,5 @@ module ShockCapturingKeywords
    integer, parameter :: SC_RHO_GRAD_ID    = 11
    integer, parameter :: SC_DIVV_ID        = 12
    integer, parameter :: SC_DIVV_P_GRAD_ID = 13
-!
-!  Derivative types
-!  ----------------
-   character(len=*), parameter :: SC_ISOLATED_KEY     = "isolated"
-   character(len=*), parameter :: SC_NON_ISOLATED_KEY = "non-isolated"
 
 end module ShockCapturingKeywords
