@@ -663,7 +663,6 @@ module KDClass
             end do        
 !$omp end single
 !$omp end parallel
-   
    end subroutine GetPointsEvents
    
    recursive subroutine KDtree_buildTRIANGLES_BreadthFirst( this, Events, ObjsIndx, level, Depth_First )

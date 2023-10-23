@@ -553,12 +553,10 @@ contains
       integer,         intent(in)    :: left, right
       !-local-variables--------------------------------------------------------
       integer :: i
-!$omp parallel shared(this,left, right)
-!$omp single
+
       call sort( this% Points(:)% theta, this% Points(:)% index, this% Points(:)% coords(1), &
                  this% Points(:)% coords(2), this% Points(:)% coords(3), left, right )
-!$omp end single
-!$omp end parallel
+
       do i = 1, this% NumOfPoints-1
          if( almostEqual(this% Points(i+1)% theta, this% Points(i)% theta) ) this% Points(i+1)% delete = .true.
       end do
@@ -606,17 +604,10 @@ contains
          i = i+1
          j = j-1
       end do
-      
-      left_cycle = (i-1)-left
-      right_cycle = right-(j+1)  
-!$omp task shared(a,b,coordx,coordy,coordz,left,i) if(left_cycle > TASK_THRESHOLD)
-      call sort( a, b, coordx, coordy, coordz, left, i-1 )
-!$omp end task
 
-!$omp task shared(a,b,coordx,coordy,coordz,j,right) if(right_cycle > TASK_THRESHOLD)
+      call sort( a, b, coordx, coordy, coordz, left, i-1 )
       call sort( a, b, coordx, coordy, coordz, j+1, right )
-!$omp end task
-!$omp taskwait
+
    end subroutine sort
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
