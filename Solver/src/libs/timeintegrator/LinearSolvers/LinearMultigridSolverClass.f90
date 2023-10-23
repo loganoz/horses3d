@@ -1051,6 +1051,7 @@ contains
 !-----Local-Variables-----------------------------------------------------
       integer             :: i,j
       character(len=1024) :: filename
+      real(kind=RP)       :: shift
 !  -----------------------------------------------------------------------
 
 
@@ -1061,7 +1062,8 @@ contains
       case (JACOBIANCOMP_MF)
          call Me % Jacobian % Compute (Me % p_sem, nEqn, time, Me % BJSmoother % A_p, ComputeTimeDerivative, BlockDiagonalized=.TRUE.)
          call Me % SetOperatorDt(dt)
-         call Me % BJSmoother % A_p % shift( MatrixShift(dt) )
+         shift = MatrixShift(dt)
+         call Me % BJSmoother % A_p % shift( shift )
       end select 
 
 
