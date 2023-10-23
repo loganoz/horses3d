@@ -303,21 +303,20 @@ module StorageClass
                self % PrevQ => self % Prevc
 #endif
             end if
-            if ( prevSol_num >= 0 ) then
+         end if
+
 #ifdef FLOW
-               allocate ( self % QNS   (NCONS*NDOF) )
-               allocate ( self % QdotNS(NCONS*NDOF) )
-               self % Q    => self % QNS
-               self % Qdot => self % QdotNS
+         allocate ( self % QNS   (NCONS*NDOF) )
+         allocate ( self % QdotNS(NCONS*NDOF) )
+         self % Q    => self % QNS
+         self % Qdot => self % QdotNS
 #endif
 #ifdef CAHNHILLIARD
-               allocate ( self % c   (NCOMP*NDOF) )
-               allocate ( self % cDot(NCOMP*NDOF) )
-               self % Q    => self % c
-               self % Qdot => self % cDot
+         allocate ( self % c   (NCOMP*NDOF) )
+         allocate ( self % cDot(NCOMP*NDOF) )
+         self % Q    => self % c
+         self % Qdot => self % cDot
 #endif
-            end if
-         end if
 
          offset = 0
          num_of_elems = size(Nx)
@@ -602,7 +601,7 @@ module StorageClass
          self % QdotNS(1:NCONS,0:Nx,0:Ny,0:Nz) => global_storage % QdotNS(i1:i2)
          allocate ( self % rho   (0:Nx,0:Ny,0:Nz) )
          ! Previous solution
-         if ( prevSol_num /= 0 ) then
+         if ( prevSol_num > 0 ) then
             allocate ( self % PrevQ(prevSol_num) )
             do k=1, prevSol_num
                self % PrevQ(k) % QNS(1:NCONS,0:Nx,0:Ny,0:Nz) => global_storage % PrevQNS(i1:i2,k)
@@ -637,7 +636,7 @@ module StorageClass
          self % c(1:NCOMP,0:Nx,0:Ny,0:Nz)    => global_storage % c(i1:i1)
          self % cDot(1:NCOMP,0:Nx,0:Ny,0:Nz) => global_storage % cDot(i1:i1)
          ! Previous solution
-         if ( prevSol_num /= 0 ) then
+         if ( prevSol_num > 0 ) then
             if ( .not. allocated(self % PrevQ)) then
                allocate ( self % PrevQ(prevSol_num) )
             end if
