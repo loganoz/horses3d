@@ -124,9 +124,7 @@ MODULE IMEXMethods
 !
 !     Return the computed state vector to storage
 !     -------------------------------------------
-      call sem % mesh % storage % local2GlobalQ (sem % NDOF)
       sem % mesh % storage % Q = linsolver % x
-      call sem % mesh % storage % global2LocalQ
 !
 !     Compute the standard time derivative to get residuals
 !     -----------------------------------------------------
@@ -208,7 +206,6 @@ MODULE IMEXMethods
          call linsolver % SolveLUDirect
          call sem % mesh % SetStorageToEqn(C_BC)
          sem % mesh % storage % Q = linsolver % x
-         call sem % mesh % storage % global2LocalQ
          call sem % mesh % SetStorageToEqn(NS_BC)
 
          if (ACM2_MODEL) then
@@ -299,7 +296,6 @@ MODULE IMEXMethods
          call linsolver % SolveLUDirect
          call sem % mesh % SetStorageToEqn(C_BC)
          sem % mesh % storage % Q = linsolver % x
-         call sem % mesh % storage % global2LocalQ
          call sem % mesh % SetStorageToEqn(NS_BC)
 
          if (ACM2_MODEL) then

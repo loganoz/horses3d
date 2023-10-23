@@ -480,9 +480,7 @@ CONTAINS
       
 !~      buffer = this % p_sem % mesh % storage % Q
       this % p_sem % mesh % storage % Q = this % Ur + x*eps
-      call this % p_sem % mesh % storage % global2LocalQ
       CALL ComputeTimeDerivative(this % p_sem % mesh, this % p_sem % particles, timesolve, CTD_IGNORE_MODE)
-      call this % p_sem % mesh % storage % local2GlobalQdot (this % p_sem % NDOF)
       
       F = this % p_sem % mesh % storage % Qdot
 !~      this % p_sem % mesh % storage % Q = buffer
