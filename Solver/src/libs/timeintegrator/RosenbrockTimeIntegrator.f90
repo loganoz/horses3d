@@ -189,9 +189,7 @@ contains
          RHS = RHS - Ros_c(j,stage) * this % Y(:,j)
       end do
       
-      call sem % mesh % storage % global2LocalQ
       call ComputeTimeDerivative( sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
-      call sem % mesh % storage % local2GlobalQdot(sem % NDOF)
       
       RHS = RHS/dt - Qdot
       

@@ -1072,7 +1072,7 @@ readloop:do
       
       call Stopwatch % Start("pAdapt: Adaptation")
       
-      call sem % mesh % pAdapt (NNew, controlVariables)
+      ! call sem % mesh % pAdapt (NNew, controlVariables)
       
       call Stopwatch % Pause("pAdapt: Adaptation")
       

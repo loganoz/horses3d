@@ -439,7 +439,7 @@ module AnisFASMultigridClass
          N2trans = transpose(N2)
          
          call Stopwatch % Start("AnisFAS: child-adapt")
-         call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
+         ! call Child_p % MGStorage(Dir) % p_sem % mesh % pAdapt (N2trans, controlVariables)
          call Stopwatch % Pause("AnisFAS: child-adapt")
          
          call Child_p % MGStorage(Dir) % p_sem % mesh % storage % PointStorage

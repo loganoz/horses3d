@@ -89,7 +89,7 @@
             procedure   :: ProlongGradientsToFaces => HexElement_ProlongGradientsToFaces
             procedure   :: ProlongAviscFluxToFaces => HexElement_ProlongAviscFluxToFaces
             procedure   :: ComputeLocalGradient    => HexElement_ComputeLocalGradient
-            procedure   :: pAdapt                  => HexElement_pAdapt
+            ! procedure   :: pAdapt                  => HexElement_pAdapt
             procedure   :: copy                    => HexElement_Assign
             procedure   :: ConstructIBM            => HexElement_ConstructIBM
             generic     :: assignment(=)           => copy
@@ -775,45 +775,45 @@
 !  Adapts an element to new polynomial orders NNew
 !  -> TODO: Previous solutions are not implemented
 !  --------------------------------------------------------
-      subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
-         implicit none
-         !-arguments--------------------------------------------
-         class(Element), intent(inout) :: self
-         integer       , intent(in)    :: NNew(NDIM)
-         integer       , intent(in)    :: nodes
-         logical       , intent(in)    :: saveGradients
-         integer       , intent(in)    :: prevSol_num
-         !-arguments--------------------------------------------
-         logical                       :: anJacobian
-         type(ElementStorage_t)        :: tempStorage
-#if (!defined(NAVIERSTOKES))
-         logical, parameter            :: computeGradients = .true.
-#endif
-         !-----------------------------------------------------
+!       subroutine HexElement_pAdapt (self, NNew, nodes, saveGradients, prevSol_num)
+!          implicit none
+!          !-arguments--------------------------------------------
+!          class(Element), intent(inout) :: self
+!          integer       , intent(in)    :: NNew(NDIM)
+!          integer       , intent(in)    :: nodes
+!          logical       , intent(in)    :: saveGradients
+!          integer       , intent(in)    :: prevSol_num
+!          !-arguments--------------------------------------------
+!          logical                       :: anJacobian
+!          type(ElementStorage_t)        :: tempStorage
+! #if (!defined(NAVIERSTOKES))
+!          logical, parameter            :: computeGradients = .true.
+! #endif
+!          !-----------------------------------------------------
 
-!
-!        Reconstruct storage
-!        -------------------
+! !
+! !        Reconstruct storage
+! !        -------------------
 
-         anJacobian = self % storage % anJacobian
+!          anJacobian = self % storage % anJacobian
 
-         call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)
-         tempStorage = self % storage
+!          call tempStorage % construct (self % Nxyz(1), self % Nxyz(2), self % Nxyz(3), computeGradients, anJacobian, prevSol_num,0)
+!          tempStorage = self % storage
 
-         self % Nxyz = NNew
-         self % hn = (self % geom % Volume / product(self % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
+!          self % Nxyz = NNew
+!          self % hn = (self % geom % Volume / product(self % Nxyz + 1)) ** (1.0_RP / 3.0_RP)
 
-         call self % storage % destruct()
-         call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)
+!          call self % storage % destruct()
+!          call self % storage % construct ( NNew(1), NNew(2), NNew(3), computeGradients, anJacobian, prevSol_num,0)
 
-         call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
+!          call tempStorage % InterpolateSolution (self % storage, nodes, saveGradients)
 
-         if (prevSol_num > 0) then
-            ! TODO : call InterpolatePrevSol
-         end if
-         call tempStorage % destruct()
+!          if (prevSol_num > 0) then
+!             ! TODO : call InterpolatePrevSol
+!          end if
+!          call tempStorage % destruct()
 
-      end subroutine HexElement_pAdapt
+!       end subroutine HexElement_pAdapt
 
       pure subroutine SurfInfo_Destruct (self)
          implicit none

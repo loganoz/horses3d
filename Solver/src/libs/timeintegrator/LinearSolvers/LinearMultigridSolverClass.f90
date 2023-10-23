@@ -686,8 +686,6 @@ contains
          call MG_ComputeJacobians( this,no_levels,ComputeTimeDerivative,Time,dt,nEqn )
       end if
 
-      call this % child % p_sem % mesh % storage % local2globalq (this % child % p_sem % mesh % storage % NDOF)
-
       this % niter = 0
       this % maxiter = maxiter
       this % converged = .false.
@@ -1116,7 +1114,6 @@ contains
          xout = CSR_MatVecMul( this % A, xin ) 
       case (JACOBIANCOMP_MF)
          shift = MatrixShift(this % dt)
-         call this % p_sem % mesh % storage % local2GlobalQ(this % p_sem % NDOF)
          this % Ur   = this % p_sem % mesh % storage % Q
          this % F_Ur = MF_p_F (this % p_sem, this % DimPrb, this % Ur, this % timesolve + this % dt,ComputeTimeDerivative) 
          call MF_JacVecMul(this % p_sem, this % DimPrb, this % Ur, this % F_Ur, xin, xout, this % dt, this % timesolve, shift, ComputeTimeDerivative)

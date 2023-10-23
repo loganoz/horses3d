@@ -91,15 +91,12 @@ module MatrixFreeClass
          
          ! Obtain derivative with new Q
          p_sem % mesh % storage % Q = u
-         call p_sem % mesh % storage % global2LocalQ
          call ComputeTimeDerivative(p_sem % mesh, p_sem % particles, CTD_time, CTD_IGNORE_MODE)
-         call p_sem % mesh % storage % local2GlobalQdot(p_sem % NDOF)
          
          F = p_sem % mesh % storage % Qdot
 
          ! Restore original Q
          p_sem % mesh % storage % Q = u_p   ! TODO: this step can be avoided if Ur is not read in the "child" GMRES (the preconditioner)
-         call p_sem % mesh % storage % global2LocalQ
       end function MF_p_F
 !
 !///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
