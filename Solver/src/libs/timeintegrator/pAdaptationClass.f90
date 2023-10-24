@@ -661,21 +661,12 @@ readloop:do
       
 !     Nmax
 !     ----
-#if defined(NAVIERSTOKES)  
-   if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
-      if ( R_Nmax /= "" ) then
+    if ( R_Nmax /= "" ) then
          this % NxyzMax = getIntArrayFromString(R_Nmax)
       else
          ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
       end if
-   end if
-#else
-   if ( R_Nmax /= "" ) then
-      this % NxyzMax = getIntArrayFromString(R_Nmax)
-   else
-      ERROR STOP 'Keyword Nmax is mandatory for p-adaptation'
-   end if
-#endif             
+              
       
 !     Nmin -> If this is a p-nonconforming 3D case, it should be 2
 !     ----
@@ -683,7 +674,7 @@ readloop:do
          NMIN = getIntArrayFromString(R_Nmin)
       end if
       
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES)  
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then   
 !        
 !     Truncation error formulation, the selecion is between old and new (Andre's Rueda Ramirez thesis for more details)
