@@ -52,7 +52,7 @@ module OrientedBoundingBox
       real(kind=rp)                               :: nMin, nMax
       integer                                     :: NumOfPoints, center, left, right
       character(len=LINE_LENGTH)                  :: filename
-      logical                                     :: verbose
+      logical                                     :: verbose, AAB
       
       contains
          procedure :: construct             => OBB_construct
@@ -230,7 +230,7 @@ contains
       !-local.variables-------------------
       integer                        :: i, j, n
       
-      this% NumOfPoints = 3*stl% NumOfObjs
+      this% NumOfPoints = NumOfVertices*stl% NumOfObjs
       
       allocate(this% Points(this% NumOfPoints))
 
@@ -239,7 +239,7 @@ contains
       associate( Objs => stl% ObjectsList )
 
       do i = 1, stl% NumOfObjs
-         do j = 1, Objs(i)% NumOfVertices
+         do j = 1, NumOfVertices
             n = n + 1
             this% Points(n)% coords = Objs(i)% vertices(j)% coords
             this% Points(n)% index = n
@@ -373,16 +373,20 @@ contains
       type(Hull_type) :: Hull
       real(kind=rp)   :: EigenVal
       integer         :: i
+      
+      this% AAB = AAB
+
 ! 
 !     Reading the data
 !     ---------------
       call this% ReadStorePoints( stl )
+
 !
 !     Computing center of the points cloud
 !     ---------------------------------
       this% CloudCenter = ComputeCentroid( this )
 
-      if( AAB ) then 
+      if( this% AAB ) then 
          this% MBR% t1     = (/ 1.0_RP, 0.0_RP, 0.0_RP /)
          this% MBR% t2     = (/ 0.0_RP, 1.0_RP, 0.0_RP /)
          this% MBR% normal = (/ 0.0_RP, 0.0_RP, 1.0_RP /)
@@ -392,6 +396,7 @@ contains
 !        -------------------------
          call PointsCloudDiagonalization( this, EigenVal, this% MBR% t1, this% MBR% t2, this% MBR% normal ) 
       end if
+
 !
 !     Computing rotation matrix
 !     ------------------------
@@ -406,11 +411,11 @@ contains
 !     Computing convex hull
 !     ---------------------
       call ConvexHull( Hull, this )
-
+ 
 !
 !     Minimum Bounding Rectangle
 !     ---------------------------
-      call RotatingCalipers( Hull, this% MBR% Width, this% MBR% Length, this% MBR% Angle, this% MBR% Center, AAB )
+      call RotatingCalipers( Hull, this% MBR% Width, this% MBR% Length, this% MBR% Angle, this% MBR% Center, this% AAB )
 
 !
 !     Setting vertices of the MBR
@@ -548,14 +553,10 @@ contains
       integer,         intent(in)    :: left, right
       !-local-variables--------------------------------------------------------
       integer :: i
-      
-!$omp parallel shared(this,left, right)
-!$omp single
+
       call sort( this% Points(:)% theta, this% Points(:)% index, this% Points(:)% coords(1), &
                  this% Points(:)% coords(2), this% Points(:)% coords(3), left, right )
-!$omp end single
-!$omp end parallel
-      
+
       do i = 1, this% NumOfPoints-1
          if( almostEqual(this% Points(i+1)% theta, this% Points(i)% theta) ) this% Points(i+1)% delete = .true.
       end do
@@ -603,17 +604,10 @@ contains
          i = i+1
          j = j-1
       end do
-      
-      left_cycle = (i-1)-left
-      right_cycle = right-(j+1)  
-!$omp task shared(a,b,coordx,coordy,coordz,left,i) if(left_cycle > TASK_THRESHOLD)
-      call sort( a, b, coordx, coordy, coordz, left, i-1 )
-!$omp end task
 
-!$omp task shared(a,b,coordx,coordy,coordz,j,right) if(right_cycle > TASK_THRESHOLD)
+      call sort( a, b, coordx, coordy, coordz, left, i-1 )
       call sort( a, b, coordx, coordy, coordz, j+1, right )
-!$omp end task
-!$omp taskwait
+
    end subroutine sort
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
@@ -652,16 +646,13 @@ contains
       
       left_cycle = (i-1)-left
       right_cycle = right-(j+1)
-      
 !$omp task shared(a,left,i) if(left_cycle > TASK_THRESHOLD)
          call sortReal( a, left, i-1 )
 !$omp end task
-
 !$omp task shared(a,j,right) if(right_cycle > TASK_THRESHOLD)
       call sortReal( a, j+1, right )
 !$omp end task
 !$omp taskwait   
-   
    end subroutine sortReal
    
 !
@@ -759,19 +750,27 @@ contains
 ! This subroutine computes the eigenstructure of the OBB. 
 !  -------------------------------------------------
    
-   subroutine PointsCloudDiagonalization( OBB, EigenVal, EigenVec1, EigenVec2, EigenVec3  ) 
+   subroutine PointsCloudDiagonalization( OBB, EigenVal, EigenVec1, EigenVec2, EigenVec3 ) 
 
       implicit none
       !-arguments---------------------------------------------
-      type(OBB_type),                  intent(in)  :: OBB
-      real(kind=rp),                   intent(out) :: EigenVal
-      real(kind=rp), dimension(NDIM), intent(out) :: EigenVec1, EigenVec2, EigenVec3    
+      type(OBB_type),                 intent(inout) :: OBB
+      real(kind=rp),                  intent(out)   :: EigenVal
+      real(kind=rp), dimension(NDIM), intent(out)   :: EigenVec1, EigenVec2, EigenVec3  
       !-local-variables----------------------------
       real(kind=rp), dimension(NDIM,NDIM) :: CovMat
 
       call CovarianceMatrix( OBB, CovMat )      
 
       call ComputeEigenStructure( CovMat, EigenVal, EigenVec1, EigenVec2, EigenVec3 )
+
+      if( any(isNan(EigenVec1)) .or. any(isNan(EigenVec2)) .or. any(isNan(EigenVec3))  ) then 
+         EigenVec1 = (/ 1.0_RP, 0.0_RP, 0.0_RP /)
+         EigenVec2 = (/ 0.0_RP, 1.0_RP, 0.0_RP /)
+         EigenVec3 = (/ 0.0_RP, 0.0_RP, 1.0_RP /)
+         OBB% AAB = .true.
+      end if
+
    
    end subroutine PointsCloudDiagonalization
 !
@@ -1021,7 +1020,7 @@ contains
                minwidth  = width
                rectAngle = RotAngle
             end if
-         
+
          end do 
       
       end if 
@@ -1139,7 +1138,6 @@ contains
       integer,           intent(in)    :: FRAME
       !-local-variables---------------------------------------
       integer :: i, j
-      
 !$omp parallel 
 !$omp do schedule(runtime) private(j)
       do i = 1, size(objs)
@@ -1149,78 +1147,75 @@ contains
       end do
 !$omp end do
 !$omp end parallel
-
    end subroutine OBB_ChangeObjsRefFrame   
       
-   subroutine OBB_STL_rotate( this, stl )
+   subroutine OBB_STL_rotate( this, stl, surface )
    
       implicit none
       !-arguments-----------------------------
-      class(OBB_type), intent(inout):: this
-      type(STLfile),   intent(inout):: stl
+      class(OBB_type), intent(inout) :: this
+      type(STLfile),   intent(inout) :: stl
+      logical,         intent(in)    :: surface
       !-local-variables-----------------------
       real(kind=RP) :: meanCoords(NDIM), meanCoordsNew(NDIM), shiftVec(NDIM)
-      integer :: i, j, NumOfPoints
+      integer       :: i, j, NumOfPoints, Vertices
 
       NumOfPoints = 3*stl% NumOfObjs; meanCoordsNew = 0.0_RP; meanCoords = 0.0_RP
+
+      if( surface ) then 
+         Vertices = NumOfVertices + 4
+      else
+         Vertices = NumOfVertices
+      end if
 !$omp parallel 
 !$omp do schedule(runtime) private(j)
       do i = 1, stl% NumOfObjs
-         do j = 1, stl% ObjectsList(i)% NumOfVertices
-!$omp critical
-            meanCoords = meanCoords + stl% ObjectsList(i)% vertices(j)% coords 
-!$omp end critical
-            stl% ObjectsList(i)% vertices(j)% coords = matmul( stl% rotationMatrix, stl% ObjectsList(i)% vertices(j)% coords )   
-!$omp critical
-            meanCoordsNew = meanCoordsNew + stl% ObjectsList(i)% vertices(j)% coords
-!$omp end critical
+         do j = 1, Vertices
+            stl% ObjectsList(i)% vertices(j)% coords = matmul( stl% rotationMatrix, stl% ObjectsList(i)% vertices(j)% coords - stl% rotationCenter )   
          end do
       end do
 !$omp end do 
 !$omp end parallel   
-      
-      meanCoords = meanCoords/NumOfPoints; meanCoordsNew = meanCoordsNew/NumOfPoints
-      
-      shiftVec = meanCoordsNew - meanCoords
-!!$omp parallel 
-!!$omp do schedule(runtime) private(j)
+!$omp parallel 
+!$omp do schedule(runtime) private(j)
       do i = 1, stl%  NumOfObjs
-         do j = 1, stl% ObjectsList(i)% NumOfVertices
-            stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords - shiftVec
+         do j = 1, Vertices
+            ! going back to the original reference frame
+            stl% ObjectsList(i)% vertices(j)% coords = stl% ObjectsList(i)% vertices(j)% coords + stl% rotationCenter
          end do
       end do
-!!$omp end do
-!!$omp end parallel
+!$omp end do
+!$omp end parallel
    end subroutine OBB_STL_rotate
    
-   subroutine OBB_STL_translate( this, stl )
+   subroutine OBB_STL_translate( this, stl, surface )
    
       implicit none
       !-arguments-----------------------------
-      class(OBB_type), intent(inout):: this
-      type(STLfile),   intent(inout):: stl
+      class(OBB_type), intent(inout) :: this
+      type(STLfile),   intent(inout) :: stl
+      logical,         intent(in)    :: surface 
       !-local-variables-----------------------
       real(kind=RP) :: meanCoords(NDIM)
-      integer :: i, j, NumOfPoints
+      integer       :: i, j, NumOfPoints, Vertices
       
       meanCoords = 0.0_RP; NumOfPoints = 0
-      
-!$omp parallel shared(this,stl,meanCoords,NumOfPoints,i)
+
+      if( surface ) then 
+         Vertices = NumOfVertices + 4
+      else
+         Vertices = NumOfVertices
+      end if
+!$omp parallel
 !$omp do schedule(runtime) private(j)
       do i = 1, stl% NumOfObjs
-         do j = 1, size(stl% ObjectsList(i)% vertices)
+         do j = 1, Vertices
             stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) = stl% ObjectsList(i)% vertices(j)% coords(stl% motionAxis) + stl% ds
-!$omp critical
-            meanCoords = meanCoords + stl% ObjectsList(i)% vertices(j)% coords 
-            NumOfPoints = NumOfPoints + 1
-!$omp end critical
          end do
       end do
 !$omp end do 
 !$omp end parallel   
-
    end subroutine OBB_STL_translate
-
 !
 !/////////////////////////////////////////////////////////////////////////////////////////////
 !  
@@ -1282,5 +1277,183 @@ contains
       end if
 
    end function ElementOBBintersect
+
+   logical function AABTriangleIntersection( v0, v1, v2 ) result( Intersect )
+      use MappedGeometryClass
+      implicit none 
+
+      real(kind=RP), intent(in) :: v0(NDIM), v1(NDIM), v2(NDIM)
+      !-local-variables----------------------------------------------------------------------
+      real(kind=RP) :: f0(NDIM), f1(NDIM), f2(NDIM), p0, p1, p2, &
+                       r, d, normal(NDIM), box_extents(NDIM),    &
+                       a00(NDIM), a01(NDIM), a02(NDIM),          &
+                       a10(NDIM), a11(NDIM), a12(NDIM),          &
+                       a20(NDIM), a21(NDIM), a22(NDIM)
+
+      Intersect = .false.
+
+      f0 = v1 - v0; f1 = v2 - v1; f2 = v0 - v2;
+      box_extents =(/1.0_RP,1.0_RP,1.0_RP/)
+
+      a00 = (/0.0_RP, -f0(IZ), f0(IY)/)
+      p0 = dot_product(v0, a00)
+      p1 = dot_product(v1, a00)
+      p2 = dot_product(v2, a00)
+      r = box_extents(IY) * abs(f0(IZ)) + box_extents(IZ) * abs(f0(IY))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+
+      a01 = (/0.0_RP, -f1(IZ), f1(IY)/)
+      p0 = dot_product(v0, a01)
+      p1 = dot_product(v1, a01)
+      p2 = dot_product(v2, a01)
+      r = box_extents(IY) * abs(f1(IZ)) + box_extents(IZ) * abs(f1(IY))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+
+      a02 = (/0.0_RP, -f2(IZ), f2(IY)/)
+      p0 = dot_product(v0, a02)
+      p1 = dot_product(v1, a02)
+      p2 = dot_product(v2, a02)
+      r = box_extents(IY) * abs(f2(IZ)) + box_extents(IZ) * abs(f2(IY))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return
+
+      a10 = (/f0(IZ), 0.0_RP, -f0(IX)/)
+      p0 = dot_product(v0, a10)
+      p1 = dot_product(v1, a10)
+      p2 = dot_product(v2, a10)
+      r = box_extents(IX) * abs(f0(IZ)) + box_extents(IZ) * abs(f0(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+
+      a11 = (/f1(IZ), 0.0_RP, -f1(IX)/)
+      p0 = dot_product(v0, a11)
+      p1 = dot_product(v1, a11)
+      p2 = dot_product(v2, a11)
+      r = box_extents(IX) * abs(f1(IZ)) + box_extents(IZ) * abs(f1(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r )return 
+
+      a12 = (/f2(IZ), 0.0_RP, -f2(IX)/)
+      p0 = dot_product(v0, a12)
+      p1 = dot_product(v1, a12)
+      p2 = dot_product(v2, a12)
+      r = box_extents(IX) * abs(f2(IZ)) + box_extents(IZ) * abs(f2(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+ 
+      a20 = (/-f0(IY), f0(IX), 0.0_RP/)
+      p0 = dot_product(v0, a20)
+      p1 = dot_product(v1, a20)
+      p2 = dot_product(v2, a20)
+      r = box_extents(IX) * abs(f0(IY)) + box_extents(IY) * abs(f0(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+
+      a21 = (/-f1(IY), f1(IX), 0.0_RP/)
+      p0 = dot_product(v0, a21)
+      p1 = dot_product(v1, a21)
+      p2 = dot_product(v2, a21)
+      r = box_extents(IX) * abs(f1(IY)) + box_extents(IY) * abs(f1(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r) return 
+
+      a22 = (/-f2(IY), f2(IX), 0.0_RP/)
+      p0 = dot_product(v0, a22)
+      p1 = dot_product(v1, a22)
+      p2 = dot_product(v2, a22)
+      r = box_extents(IX) * abs(f2(IY)) + box_extents(IY) * abs(f2(IX))
+      if (max(-max(p0, p1, p2), min(p0, p1, p2)) > r ) return 
+
+      if (max(v0(IX), v1(IX), v2(IX)) < -box_extents(IX) .or. min(v0(IX), v1(IX), v2(IX)) > box_extents(IX) ) return 
+  
+      if (max(v0(IY), v1(IY), v2(IY)) < -box_extents(IY) .or. min(v0(IY), v1(IY), v2(IY)) > box_extents(IY) ) return 
+  
+      if (max(v0(IZ), v1(IZ), v2(IZ)) < -box_extents(IZ) .or. min(v0(IZ), v1(IZ), v2(IZ)) > box_extents(IZ) ) return 
+
+      call vcross(f0, f1, normal)
+      !normal = normal/norm2(normal)
+      d = dot_product(normal, v0)
+
+      r = box_extents(IX) * abs(normal(IX)) + box_extents(IY) * abs(normal(IY)) + box_extents(IZ) * abs(normal(IZ))
+
+      if ( abs(d) > r ) return 
+
+      Intersect = .true.
+
+   end function AABTriangleIntersection
+
+   subroutine RayAABIntersection( P, direction, corners, intersect, t )
+      
+      implicit none 
+
+      real(kind=RP), intent(in)  :: P(NDIM), direction(NDIM), corners(:,:)
+      logical,       intent(out) :: intersect
+      real(kind=RP), intent(out) :: t
+
+      integer       :: i
+      real(kind=RP) :: a_min(NDIM), a_max(NDIM), tmin, tmax, & 
+                       t1, t2, tTemp, ood
+
+      !v_max(IX) = maxval(corners(IX,:))
+      !v_max(IY) = maxval(corners(IY,:))
+      !v_max(IZ) = maxval(corners(IZ,:))
+
+      !v_min(IX) = minval(corners(IX,:))
+      !_min(IY) = minval(corners(IY,:))
+      !v_min(IZ) = minval(corners(IZ,:)) 
+
+      !den(IX) = 1.0_RP/direction(IX)
+      !den(IY) = 1.0_RP/direction(IY)
+      !den(IZ) = 1.0_RP/direction(IZ)
+
+      !center = (v_max + v_min)/2.0_RP
+
+      !t1 = (v_min(IX) - center(IX))*den(IX)
+      !t2 = (v_max(IX) - center(IX))*den(IX)
+      !t3 = (v_min(IY) - center(IY))*den(IY)
+      !t4 = (v_max(IY) - center(IY))*den(IY)
+      !t5 = (v_min(IZ) - center(IZ))*den(IZ)
+      !t6 = (v_max(IZ) - center(IZ))*den(IZ)
+
+      !t_min = max(max(min(t1,t2),min(t3,t4),min(t5,t6)))
+      !t_max = min(main(max(t1,t2),max(t3,t4),max(t5,t6)))
+
+      !if( t_max < 0.0_RP ) then 
+      !   t = t_max 
+      !   intersect = .false.
+      !elseif( t_min > t_max ) then
+      !   t = t_max
+      !   intersect = .false.
+      !else 
+      !   t = t_min 
+      !   intersect = .true.
+      !end if
+
+      !a_min = -1.0_RP
+      !a_max = 1.0_RP
+
+      !tmin = -huge(1.0)
+      !tmax = huge(1.0)
+
+      intersect = .false.
+
+      !do i = 1, NDIM
+      !   if( almostEqual(abs(direction(i)), 0.0_RP) ) then 
+      !      if( P(i) .lt. a_min(i) .or. P(i) .gt. a_max(i) ) return
+      !   else
+      !      ood = 1.0_RP/direction(i)
+      !      t1  = (a_min(i) - p(i))*ood 
+      !     t2  = (a_max(i) - p(i))*ood 
+      !     if( t1 .gt. t2 ) then 
+      !        tTemp = t1
+      !        t1    = t2 
+      !        t2    = tTemp 
+      !     end if 
+      !      if (t1 .gt. tmin) tmin = t1
+      !     if (t2 .gt. tmax) tmax = t2
+      !      if (tmin .gt. tmax) return 
+      !   end if
+      !end do
+
+      intersect = .true.
+
+      t = tmin
+
+   end subroutine RayAABIntersection
+
 
 end module OrientedBoundingBox

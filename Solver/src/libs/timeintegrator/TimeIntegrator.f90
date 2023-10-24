@@ -398,6 +398,9 @@
       use WallFunctionDefinitions, only: useAverageV
       use WallFunctionConnectivity, only: Initialize_WallConnection, WallUpdateMeanV, useWallFunc
 #endif
+
+      use IBMClass
+
       IMPLICIT NONE
 !
 !     ---------
@@ -455,36 +458,36 @@
 
       t = self % time
 
-
 #if defined(NAVIERSTOKES)
-      call Initialize_WallConnection(controlVariables, sem % mesh)
+      if( .not. sem % mesh% IBM% active ) call Initialize_WallConnection(controlVariables, sem % mesh)
       if (useTrip) call randomTrip % construct(sem % mesh, controlVariables)
       if(ActuatorLineFlag) then
           call farm % ConstructFarm(controlVariables, t)
           call farm % UpdateFarm(t, sem % mesh)
       end if
 #endif
-
 !
 !     ----------------------------------
 !     Set up mask's coefficient for IBM
 !     ----------------------------------
 !
-      if( sem % mesh% IBM% active .and. sem % mesh% IBM% TimePenal ) then
+      if( sem % mesh% IBM% active ) then
          if ( self % Compute_dt ) then
             call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt= dt )
          else
             dt = self% dt
          end if
-!
-!        Correct time step
-!        -----------------
-#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-         sem % mesh% IBM% eta = self% CorrectDt(t, dt)
-         sem % mesh% IBM% penalization = sem % mesh% IBM% eta
-#endif
-      end if
 
+         if( sem % mesh% IBM% TimePenal ) then 
+!
+!           Correct time step
+!           -----------------
+#if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
+            sem % mesh% IBM% eta = self% CorrectDt(t, dt)
+            sem % mesh% IBM% penalization = sem % mesh% IBM% eta
+#endif
+         end if
+      end if
 !
 !     ------------------
 !     Configure restarts
@@ -498,10 +501,12 @@
 !     Check initial residuals
 !     -----------------------
 !
+      if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )     
       call ComputeTimeDerivative(sem % mesh, sem % particles, t, CTD_IGNORE_MODE)
+      if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
       maxResidual       = ComputeMaxResiduals(sem % mesh)
       sem % maxResidual = maxval(maxResidual)
-      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false. )
+      call Monitors % UpdateValues( sem % mesh, t, sem % numberOfTimeSteps, maxResidual, .false., dt )
       call self % Display(sem % mesh, monitors, sem  % numberOfTimeSteps)
 
       if (self % pAdaptator % adaptation_mode    == ADAPT_DYNAMIC_TIME .and. &
@@ -537,7 +542,7 @@
 !     Save surfaces sol before the first time step
 !     --------------------------------------------
 #if defined(NAVIERSTOKES) && (!(SPALARTALMARAS))
-      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps)
+      call sem % fwh % updateValues(sem % mesh, t, sem % numberOfTimeSteps )
       call sem % fwh % writeToFile()
 #endif
       call surfacesMesh % saveAllSolution(sem % mesh, self % initial_iter, t, controlVariables)
@@ -571,11 +576,7 @@
 !        CFL-bounded time step
 !        ---------------------      
          IF ( self % Compute_dt ) then
-            if( sem% mesh% IBM% active ) then
-               call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt, MaxDtVec = sem % mesh% IBM% penalization )
-            else
-              call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
-            end if
+           call MaxTimeStep( self=sem, cfl=self % cfl, dcfl=self % dcfl, MaxDt=self % dt )
          END IF
 !
 !        Correct time step
@@ -593,13 +594,11 @@
 !        Moving Body IMMERSED BOUNDARY
 !        -----------------------------
          if( sem% mesh% IBM% active ) then
-            if( any(sem% mesh% IBM% stl(:)% move) ) then
-               call sem% mesh% IBM% MoveBody( sem% mesh% elements,                   &
-                                              sem% mesh% no_of_elements,             &
-                                              sem% mesh% NDOF, sem% mesh% child, dt, &
-                                              k+1,                                   &
-                                              self % autosave % Autosave(k+1)        )
-            end if
+            call sem% mesh% IBM% MoveBody( sem% mesh% elements,                  &
+                                           sem% mesh% no_of_elements,            &
+                                           sem% mesh% NDOF, sem% mesh% child, t, &
+                                           k+1,                                  &
+                                           self % autosave % Autosave(k+1)       )
          end if
  
 !
@@ -619,9 +618,9 @@
          CASE (ROSENBROCK_SOLVER)
             call RosenbrockSolver % TakeStep (sem, t , dt , ComputeTimeDerivative)
          CASE (EXPLICIT_SOLVER)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
             CALL self % RKStep ( sem % mesh, sem % particles, t, dt, ComputeTimeDerivative)
-            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, dt )
+            if( sem% mesh% IBM% active ) call sem% mesh% IBM% SemiImplicitCorrection( sem% mesh% elements, t, dt )
          case (FAS_SOLVER)
             if (self % integratorType .eq. STEADY_STATE) then
                ! call FASSolver % solve(k, t, ComputeTimeDerivative)
@@ -661,7 +660,7 @@
 !
 !        Update monitors
 !        ---------------
-         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual, self% autosave% Autosave(k+1) )
+         call Monitors % UpdateValues( sem % mesh, t, k+1, maxResidual, self% autosave% Autosave(k+1), dt )
 !
 !        Exit if the target is reached
 !        -----------------------------
@@ -671,7 +670,7 @@
                if (MPI_Process % isRoot) then
                   write(STD_OUT,'(/,A,I0,A,ES10.3)') "   *** Residual tolerance reached at iteration ",k+1," with Residual = ", maxval(maxResidual)
                end if
-               sem % numberOfTimeSteps = k + 1
+               sem % numberOfTimeSteps = k + 1               
                exit
             END IF
          ELSEIF (self % integratorType == TIME_ACCURATE) THEN
@@ -745,7 +744,6 @@
 
          sem % numberOfTimeSteps = k + 1
       END DO
-
 !
 !     Flush the remaining information in the monitors
 !     -----------------------------------------------

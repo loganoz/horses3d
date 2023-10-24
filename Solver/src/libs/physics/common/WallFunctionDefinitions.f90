@@ -74,7 +74,7 @@ Module WallFunctionDefinitions  !
         end if         
 
         wallFuncType = controlVariables % stringValueForKey("wall function", STRING_CONSTANT_LENGTH)
-        
+      
         select case (trim(wallFuncType))
         case ("standard")
             wallFuncIndex = STD_WALL
