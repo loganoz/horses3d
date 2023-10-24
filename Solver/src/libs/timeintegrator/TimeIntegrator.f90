@@ -369,10 +369,6 @@
       if (self % pAdaptator % adaptation_mode == ADAPT_STATIC) then
          do while (self % pAdaptator % Adapt)
             if (self % integratorType == STEADY_STATE) then              
-!
-!              Lower the residual to 0.1 * truncation error threshold
-!              -> See Kompenhans et al. "Adaptation strategies for high order discontinuous Galerkin methods based on Tau-estimation." Journal of Computational Physics 306 (2016): 216-236.
-!              ------------------------------------------------------
                call IntegrateInTime( self, sem, controlVariables, monitors, ComputeTimeDerivative, ComputeTimeDerivativeIsolated)
             end if
             call self % pAdaptator % pAdaptVIS(sem,sem  % numberOfTimeSteps, self % time, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
@@ -732,7 +728,7 @@
 !
 !        Update viscous regions detection sensor
 !        ---------------------------------------
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS)
+#if defined(NAVIERSTOKES) 
       IF (((ViscousRegionDetectionDriver % isActive) .and. (k+1>= ViscousRegionDetectionDriver % IterMin)) .and. (mod(k+1,ViscousRegionDetectionDriver % IterJump) == 0)) then
          call ViscousRegionDetectionDriver % Detect(sem,t)
       end if 
@@ -789,7 +785,7 @@
 !
 !        p- Adapt
 !        --------------
-#if defined(NAVIERSTOKES) && (!SPALARTALMARAS) 
+#if defined(NAVIERSTOKES) 
    if ((ViscousRegionDetectionDriver % isActive .eqv. .false.) .or. (ViscousRegionDetectionDriver % toAdapt .eqv. .false.)) then        
          IF( self % pAdaptator % hasToAdapt(k+1) ) then
             call self % pAdaptator % pAdaptTE(sem,k,t, ComputeTimeDerivative, ComputeTimeDerivativeIsolated, controlVariables)
