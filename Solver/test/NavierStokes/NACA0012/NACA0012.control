@@ -90,3 +90,6 @@ partitioning = SFC
   Reference surface = 1.d0 
 #end
 -----------------------------------
+surface save utau = .true.
+surface save timestep  =  1.D-10
+boundaries to save = [AIRFOILT]
