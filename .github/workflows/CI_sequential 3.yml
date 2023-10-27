@@ -34,24 +34,8 @@ jobs:
         mkl: ['YES','NO']
         exclude:
         - compiler: gfortran
-          mode: RELEASE
-          comm: SEQUENTIAL
-          enable_threads: YES
-          mkl: 'YES'
-        - compiler: gfortran
-          mode: DEBUG
-          comm: SEQUENTIAL
-          enable_threads: YES
           mkl: 'YES'          
         - compiler: ifort
-          mode: RELEASE
-          comm: SEQUENTIAL
-          enable_threads: YES
-          mkl: 'NO'
-        - compiler: ifort
-          mode: DEBUG
-          comm: SEQUENTIAL
-          enable_threads: YES
           mkl: 'NO'          
     # Steps represent a sequence of tasks that will be executed as part of the job
 
