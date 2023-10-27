@@ -1,6 +1,7 @@
 # HORSES3D High-Order (DG) Spectral Element Solver
 
 MIT License
+
 Copyright (c) 2021 NUMATH https://numath.dmae.upm.es
 
 
