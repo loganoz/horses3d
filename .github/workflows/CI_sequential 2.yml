@@ -113,8 +113,8 @@ jobs:
         working-directory: ./Solver
         run: |
          source /opt/intel/oneapi/setvars.sh || true
-         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
-         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+         make allclean MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
+         make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
 
 
 ########################################################################
@@ -129,7 +129,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run Convergence
@@ -147,7 +147,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_energy/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run Convergence_energy
@@ -165,7 +165,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Convergence_entropy/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run Convergence_entropy
@@ -183,7 +183,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/Cylinder/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinder
@@ -201,7 +201,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderIP/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderIP
@@ -219,7 +219,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderBR2/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderBR2
@@ -237,7 +237,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderDucros/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderDucros
@@ -255,7 +255,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderSmagorinsky/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderSmagorinsky
@@ -273,7 +273,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderWALE/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderWALE
@@ -291,7 +291,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderVreman/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderVreman
@@ -309,7 +309,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreen/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run TaylorGreen
@@ -327,7 +327,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEP_BR2/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run TaylorGreenKEP_BR2
@@ -345,7 +345,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenKEPEC_IP/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run TaylorGreenKEPEC_IP
@@ -363,7 +363,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderFAS/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderFAS
@@ -382,7 +382,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderIP_BDF2/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
     
       - name: Run NSCylinderIP_BDF2
@@ -400,7 +400,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderDifferentOrders/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NSCylinderDifferentOrders
@@ -418,7 +418,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/EntropyConservingTest/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run EntropyConservingTest
@@ -436,7 +436,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/EnergyConservingTest/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run EnergyConservingTest
@@ -454,7 +454,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/NACA0012/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run NACA0012
@@ -472,7 +472,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/DualTimeStepping/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run DualTimeStepping
@@ -491,7 +491,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ManufacturedSolutionsSA/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: ('!cancelled()' && matrix.compiler == 'gfortran')
 
       - name: Run ManufacturedSolutionsSA
@@ -509,7 +509,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/FlatPlateSA/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run FlatPlateSA
@@ -527,7 +527,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/BIRK5NumJac/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run BIRK5NumJac
@@ -545,7 +545,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStepSVV/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
 
@@ -564,7 +564,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK33/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run ForwardFacingStep_SSPRK33
@@ -582,7 +582,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/ForwardFacingStep_SSPRK43/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run ForwardFacingStep_SSPRK43
@@ -600,7 +600,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/TaylorGreenSVVLES/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run TaylorGreenSVVLES
@@ -618,7 +618,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderAnisFAS/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
      
       - name: Run CylinderAnisFAS
@@ -636,7 +636,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/IBM_Cylinder/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run IBM_Cylinder
@@ -654,7 +654,7 @@ jobs:
         working-directory: ./Solver/test/NavierStokes/CylinderGMM/SETUP
         run: |
           source /opt/intel/oneapi/setvars.sh || true
-          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}}
+          make MODE=${{matrix.mode}} COMPILER=${{matrix.compiler}} COMM=${{matrix.comm}} ENABLE_THREADS=${{matrix.enable_threads}} WITH_MKL=${{matrix.mkl}} WITH_HDF5=YES
         if: '!cancelled()'
 
       - name: Run CylinderGMM
