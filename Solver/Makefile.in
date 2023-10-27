@@ -145,13 +145,13 @@ endif
 ##########################
 ifeq '$(WITH_MKL)''YES'
   ifeq '$(FC)''gfortran'
-    ifeq '$(strip $(BLAS_DIR)$(LAPACK_DIR))'''
-      $(error option WITH_MKL = YES with gfortran requires defining path to blas and lapack with BLAS_DIR and LAPACK_DIR)
+    ifeq '$(strip $(LIB_BLAS)$(LIB_LAPACK))'''
+      $(error option WITH_MKL = YES with gfortran requires defining path to blas and lapack with LIB_BLAS and LIB_LAPACK)
     endif
-	BLAS_DIR := $(strip $(BLAS_DIR))
-	LAPACK_DIR := $(strip $(LAPACK_DIR))
+	LIB_BLAS := $(strip $(LIB_BLAS))
+	LIB_LAPACK := $(strip $(LIB_LAPACK))
 	MACROS+= -DHAS_MKL -DHAS_LAPACK
-  	LIBS += $(BLAS_DIR) $(LAPACK_DIR)
+  	LIBS += $(LIB_BLAS) $(LIB_LAPACK)
   else #ifort
   	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	FFLAGS+= -qmkl
