@@ -24,7 +24,7 @@ jobs:
 
     # Define strategy matrix
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         compiler: ['gfortran','ifort']
         mode: ['RELEASE','DEBUG']
@@ -43,7 +43,7 @@ jobs:
       - name: install openmpi
         if: (matrix.compiler == 'gfortran')
         run: |
-          sudo apt-get install openmpi
+          sudo apt-get install openmpi-bin libopenmpi-dev
 
       # IF COMPILER = IFORT -> INSTALL IFORT #
       - name: cache-intel-compilers
