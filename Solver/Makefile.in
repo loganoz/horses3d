@@ -148,7 +148,8 @@ ifeq '$(WITH_MKL)''YES'
     ifeq '$(strip $(BLAS_DIR)$(LAPACK_DIR))'''
       $(error option WITH_MKL = YES with gfortran requires defining path to blas and lapack with BLAS_DIR and LAPACK_DIR)
     endif
-    $(error option WITH_HDF5 = YES requires defining path to HDF5 with HDF5_DIR)
+	BLAS_DIR := $(strip $(BLAS_DIR))
+	LAPACK_DIR := $(strip $(LAPACK_DIR))
 	MACROS+= -DHAS_MKL -DHAS_LAPACK
   	LIBS += $(BLAS_DIR) $(LAPACK_DIR)
   else #ifort
@@ -162,6 +163,7 @@ endif
 ################
 ifeq ($(WITH_METIS),YES)
    METIS_DIR ?= $(METIS_HOME)  	#keep this for retrocompatibility
+   METIS_DIR := $(strip $(METIS_DIR))
    ifdef METIS_DIR
       MACROS+= -D_HAS_METIS_
       LIBS+=-L$(METIS_DIR)/lib -lmetis
@@ -175,6 +177,7 @@ endif
 ##########################
 ifeq ($(WITH_PETSC),YES)
   ifdef PETSC_DIR
+	PETSC_DIR := $(strip $(PETSC_DIR))
     MACROS+= -DHAS_PETSC
     LIBS += -L$(PETSC_DIR)/lib -lpetsc
     EXTLIB_INC+= -I$(PETSC_DIR)/include
@@ -187,16 +190,17 @@ endif
 ## 	Link HDF5 	##
 ##########################
 ifeq ($(WITH_HDF5),YES)
-  HDF5_ROOT ?= $(HDF5_DIR)	#keep this for retrocompatibility
-  ifdef HDF5_ROOT
-    ifneq ("$(wildcard $(HDF5_ROOT)/lib/libhdf5_fortran-shared.so)","")
-	  LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran-shared
+  HDF5_DIR ?= $(HDF5_ROOT)	#keep this for retrocompatibility
+  HDF5_DIR := $(strip $(HDF5_DIR))
+  ifdef HDF5_DIR
+    ifneq ("$(wildcard $(HDF5_DIR)/lib/libhdf5_fortran-shared.so)","")
+	  LIBS += -L$(HDF5_DIR)/lib -lhdf5_fortran-shared
 	  MACROS+= -DHAS_HDF5
-	  EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
-	else ifneq ("$(wildcard $(HDF5_ROOT)/lib/libhdf5_fortran.*)","")
-	  LIBS += -L$(HDF5_ROOT)/lib -lhdf5_fortran
+	  EXTLIB_INC += -I$(HDF5_DIR)/include/shared -I$(HDF5_DIR)/include
+	else ifneq ("$(wildcard $(HDF5_DIR)/lib/libhdf5_fortran.*)","")
+	  LIBS += -L$(HDF5_DIR)/lib -lhdf5_fortran
 	  MACROS+= -DHAS_HDF5
-	  EXTLIB_INC += -I$(HDF5_ROOT)/include/shared -I$(HDF5_ROOT)/include
+	  EXTLIB_INC += -I$(HDF5_DIR)/include/shared -I$(HDF5_DIR)/include
 	endif
 ##  	FC = $(HDF5_EXE)
   else 
