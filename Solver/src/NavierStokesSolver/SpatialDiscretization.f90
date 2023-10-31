@@ -682,7 +682,7 @@ module SpatialDiscretization
 !        Local variables
 !        ---------------
 !
-         integer       :: iFace, i, j, side
+         integer       :: iFace, i, j, side, sidempi
          real(kind=RP) :: delta, mu_smag
 
    if (flowIsNavierStokes) then
@@ -690,7 +690,9 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j)      
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))                             
-                  if (no_of_sides .eq. 2) then
+                  !if (no_of_sides .eq. 2) then
+                  select case (f % FaceType)
+                  case (HMESH_INTERIOR)   
                      if ((mesh % elements(f% elementIDs(1)) % storage % sensor .eq. 0.0_RP) .and. (mesh % elements(f% elementIDs(2)) % storage % sensor .eq. 0.0_RP)) then 
                            do side = 1, no_of_sides
                         f % storage(side) % mu_NS(:,:,:)=0.0_RP 
@@ -712,7 +714,7 @@ module SpatialDiscretization
                         call get_laminar_mu_kappa(f % storage(2) % Q(:,i,j), f % storage(2) % mu_NS(1,i,j), f % storage(2) % mu_NS(2,i,j))   
                         end do              ; end do      
                      end if 
-                  else 
+                  case (HMESH_BOUNDARY) 
                    if (mesh % elements(f% elementIDs(1)) % storage % sensor .ne. 0.0_RP) then
                      do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
                         do side = 1, no_of_sides            
@@ -724,7 +726,16 @@ module SpatialDiscretization
                       f % storage(side) % mu_NS(:,:,:)=0.0_RP
                       end do  
                    end if
-                  end if
+                  case (HMESH_MPI)
+                     sidempi = maxloc(f % elementIDs,1)
+                     if (mesh % elements(f%elementIDs(sidempi)) % storage % sensor .eq. 1.0_RP) then
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+                        call get_laminar_mu_kappa(f % storage(sidempi) % Q(:,i,j), f % storage(sidempi) % mu_NS(1,i,j), f % storage(sidempi) % mu_NS(2,i,j)) 
+                        end do ; end do 
+                     else if (mesh % elements(f%elementIDs(sidempi)) % storage % sensor .eq. 0.0_RP) then
+                        f % storage(sidempi) % mu_NS(:,:,:)= 0.0_RP
+                     end if    
+                  end select
                end associate
             end do
 !$omp end do                    
@@ -748,7 +759,9 @@ module SpatialDiscretization
 !$omp do schedule(runtime) private(i,j,delta,mu_smag)      
             do iFace = 1, no_of_faces
                associate(f => mesh % faces(face_ids(iFace)))
-                  if (no_of_sides .eq. 2) then
+                 ! if (no_of_sides .eq. 2) then
+                  select case(f % FaceType)
+                  case (HMESH_INTERIOR)
                      if ((mesh % elements(f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) .and. (mesh % elements(f % elementIDs(2)) % storage % sensor .ne. 0.0_RP)) then  
                      delta = sqrt(f % geom % surface / product(f % Nf + 1))   
                      do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -785,7 +798,7 @@ module SpatialDiscretization
                      f % storage(2) % mu_NS(2,i,j) = f % storage(2) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa 
                      end do ; end do     
                      end if
-                  else
+                  case (HMESH_BOUNDARY)
                      if (mesh % elements(f % elementIDs(1)) % storage % sensor .ne. 0.0_RP) then
                         delta = sqrt(f % geom % surface / product(f % Nf + 1))
                         do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
@@ -800,7 +813,22 @@ module SpatialDiscretization
                         end do 
                         end do ; end do
                      end if 
-                  end if
+                  case (HMESH_MPI)
+                     sidempi=maxloc(f % elementIDs,1)
+                     if (mesh % elements(f % elementIDs(sidempi)) % storage % sensor .ne. 0.0_RP) then
+                        delta = sqrt(f % geom % surface / product(f % Nf + 1))
+                        do j = 0, f % Nf(2) ; do i = 0, f % Nf(1)
+
+                        call LESModel % ComputeViscosity(delta, f % geom % dWall(i,j), f % storage(sidempi) % Q(:,i,j),   &
+                                                                                     f % storage(sidempi) % U_x(:,i,j), &
+                                                                                     f % storage(sidempi) % U_y(:,i,j), &
+                                                                                     f % storage(sidempi) % U_z(:,i,j), &
+                                                                                     mu_smag)
+                        f % storage(sidempi) % mu_NS(1,i,j) = f % storage(sidempi) % mu_NS(1,i,j) + mu_smag
+                        f % storage(sidempi) % mu_NS(2,i,j) = f % storage(sidempi) % mu_NS(2,i,j) + mu_smag * dimensionless % mu_to_kappa 
+                        end do ; end do
+                     end if      
+                  end select
                end associate
             end do
 !$omp end do            
