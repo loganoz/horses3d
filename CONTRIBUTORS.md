@@ -1,6 +1,4 @@
-################################################################################ 
-#                          **List of Contributors**                            #
-################################################################################ 
+# List of Contributors
 
 This is a (possibly incomplete) list of the people who has contributed to HORSES3D (or older versions).  
   
@@ -18,4 +16,4 @@ This is a (possibly incomplete) list of the people who has contributed to HORSES
 - Fernando Manrique de Lara  
 - David Huergo  
 - Oliver Browne  
-- Moritz Kompenhans  
+- Moritz Kompenhans

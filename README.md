@@ -1,6 +1,7 @@
 # HORSES3D High-Order (DG) Spectral Element Solver
 
 MIT License
+
 Copyright (c) 2021 NUMATH https://numath.dmae.upm.es
 
 
@@ -55,9 +56,15 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 
     - COMM=PARALLEL/**SEQUENTIAL**
 
-    - ENABLE THREADS=NO/**YES**
+    - ENABLE_THREADS=NO/**YES**
 
-    - WITH MKL=y/**n**
+    - WITH_PETSC=y/**n**
+
+    - WITH_METIS=y/**n**
+
+    - WITH_HDF5=y/**n**
+
+    - WITH_MKL=y/**n**
 
     For example:
 
@@ -76,13 +83,6 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 
 ## Additional libraries
 
-- HDF5:
-
-    ```shell
-    export HDF5_ROOT=path_to_hdf5
-    export HDF5_DIR=$HDF5_ROOT
-    ```
-
 - PETSc:
 
     ```shell
@@ -92,5 +92,15 @@ The following external routines/libraries can be used with **HORSES3D**, but are
 - METIS:
 
     ```shell
-    export METIS_HOME=path_to_metis
+    export METIS_DIR=path_to_metis
     ```
+
+- HDF5:
+
+    ```shell
+    export HDF5_DIR=path_to_hdf5
+    ```
+
+
+
+

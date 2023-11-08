@@ -72,6 +72,9 @@ with the desired options (bold are default):
 \item COMPILER=ifort/\textbf{gfortran}
 \item COMM=PARALLEL/\textbf{SEQUENTIAL}
 \item ENABLE\_THREADS=NO/\textbf{YES}
+\item WITH\_PETSC=YES/\textbf{NO}
+\item WITH\_METIS=YES/\textbf{NO}
+\item WITH\_HDF5=YES/\textbf{NO}
 \item WITH\_MKL=YES/\textbf{NO}
 \end{itemize}
 
@@ -86,9 +89,11 @@ For example:
 
 \item The COM=PARALLEL flag enables distributed memory simulations using MPI.
 
-\item To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_HOME is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D).
+\item The WITH\_METIS=YES flag activates METIS linking. To compile the code linking it with METIS (that is an option for creating the mesh partitions of MPI runs), it is needed that before compilation and running, an environment variable called METIS\_DIR is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D).
 
-\item To compile the code linking it with HDF5 (necessary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_ROOT is found. This variable must contain the path to the METIS installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+\item The WITH\_HDF5=YES flag activates HDF5 linking. To compile the code linking it with HDF5 (necessary for reading HOPR meshes), it is needed that before compilation and running, an environment variable called HDF5\_DIR is found. This variable must contain the path to the HDF5 installation folder (it must have been compiled with the same compiler as HORSES3D). In addition, the lib folder must be added to the environment variable LD\_LIBRARY\_PATH.
+
+\item The WITH\_PETSC=YES flag activates PETSC linking. To compile the code linking it with PETSC, it is needed that before compilation and running, an environment variable called PETSC\_DIR is found. This variable must contain the path to the PETSC installation folder.
 
 \item If you use \textit{environment modules}, it is advised to use the HORSES3D module file:\\
 \begin{lstlisting}[language=bash]
