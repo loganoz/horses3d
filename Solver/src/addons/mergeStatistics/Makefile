@@ -25,8 +25,8 @@ RANLIB=ranlib
 PROG=./bin/horses.mergeStats
 
 OBJS=	\
-	getTaskModule \
 	StatsAveragingModule \
+	getTaskModule \
 	main \
 
 OBJS_BUILD=$(foreach obj,$(OBJS),./build/$(obj).o)
