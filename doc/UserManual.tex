@@ -1807,19 +1807,19 @@ The options are:
 \end{multicols}
 
 \subsection{Statistics Files (*.stats.hsol)}
-Statistics files generate following variables by default (being Sij the components of the Reynolds Stress tensor):
+Statistics files can generate the standard variables as well as the following variables (being $S_{ij}$ the components of the Reynolds Stress tensor):
 
 \begin{multicols}{3}
 \begin{itemize}
-\item Umean
-\item Vmean
-\item Wmean
-\item Sxx
-\item Syy
-\item Szz
-\item Sxy
-\item Sxz
-\item Syz
+\item $umean$
+\item $vmean$
+\item $wmean$
+\item $S_{xx}$
+\item $S_{yy}$
+\item $S_{zz}$
+\item $S_{xy}$
+\item $S_{xz}$
+\item $S_{yz}$
 \end{itemize}
 \end{multicols}
 
@@ -1838,6 +1838,10 @@ Some remarks:
 \begin{itemize}
 \item Only usable with statistics files that are obtained with the "reset interval" keyword and/or with individual consecutive simulations.
 \item Only constant time-stepping is supported.
+\item If the hsol files have the gradients, the following flag must be used
+\begin{lstlisting}[language=bash]
+	$ --has-gradients
+\end{lstlisting}
 \item Dynamic p-adaptation is currently not supported.
 \end{itemize}
 

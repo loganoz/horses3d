@@ -13,6 +13,7 @@
 module getTaskModule
    use SMConstants
    use SolutionFile, only: getSolutionFileType, getSolutionFileTimeAndIteration, STATS_FILE
+   use StatsAveragingModule, only: hasGradients
    implicit none
    
    private
@@ -23,6 +24,7 @@ module getTaskModule
 
    character(len=*), parameter   :: INITIAL_ITER_FLAG="--initial-iteration="
    character(len=*), parameter   :: FILE_NAME_FLAG="--file-name="
+   character(len=*), parameter   :: GRADIENTS_FLAG="--has-gradients"
 
    contains
 
@@ -52,7 +54,7 @@ module getTaskModule
 !        ----------------------------------------
          if ( no_of_arguments .eq. 0 ) then
             write(STD_OUT,'(A)') "No statistics file(s) specified"
-            error stop
+            stop
          end if
 !
 !        Check if the solution file is present
@@ -95,7 +97,7 @@ module getTaskModule
             end do
          else
             write(STD_OUT,'(A)') "No statistics file(s) specified"
-            error stop
+            stop
          end if
 !
 !        Get the initial iteration
@@ -127,6 +129,19 @@ module getTaskModule
          if (fileName == '') fileName = 'Merged.stats.hsol'
          
          ! order files?
+
+!        Get if has gradients
+!        -----------------
+         hasGradients = .false.
+         do i = 1, no_of_arguments
+            call get_command_argument(i, auxiliarName)
+            pos = index(trim(auxiliarName), GRADIENTS_FLAG)
+            
+            if ( pos .ne. 0 ) then
+               hasGradients = .true.
+               exit
+            end if
+         end do
          
 !
 !        Get the weights
