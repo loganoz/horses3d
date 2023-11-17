@@ -284,7 +284,7 @@ module StatsAveragingModule
          fID = putSolutionFileInWriteDataMode(trim(name))
          do eID = 1, self % num_of_elements
             associate( e => self % elements(eID) )
-                pos = POS_INIT_DATA + eID*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
+                pos = POS_INIT_DATA + (eID-1)*5_AddrInt*SIZEOF_INT + no_of_stats_variables*e % offsetIO*SIZEOF_RP
                 call writeArray(fid, e % stats, position=pos)
                 write(fid) e % Q
                 if (hasGradients) then
